@@ -90,6 +90,26 @@ describe("OrderDetailFieldEditor", () => {
     await waitFor(() => expect(screen.getByRole("alert")).toBeVisible());
     expect(screen.getByRole("textbox")).toHaveValue("Keep after error");
   });
+  it.each([
+    ["diagnosis", "诊断结果", "diagnosis_result"],
+    ["internal_tag", "内部标签", "internal_tag"],
+  ] as const)(
+    "saves %s through its repair-only field and keeps unrelated fields",
+    async (field, label, key) => {
+      const { onSave } = setup(field, { canEditIntake: false });
+      fireEvent.change(screen.getByRole("textbox", { name: label }), {
+        target: { value: "Synthetic local update" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+      expect(
+        buildOrderPatchChanges(onSave.mock.calls[0][0], onSave.mock.calls[0][1], {
+          canEditIntake: false,
+          canEditRepair: true,
+        }),
+      ).toEqual({ [key]: "Synthetic local update" });
+    },
+  );
   it("makes every warranty control inert while pending", () => {
     const { container, onSave } = setup("warranty", { pending: true });
     expect(container.ownerDocument.querySelector("fieldset")).toBeDisabled();

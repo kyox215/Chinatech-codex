@@ -14,10 +14,12 @@ export function PhoneContactMenu({
   phone,
   className,
   compact = false,
+  iconOnly = false,
 }: {
   phone?: string | null;
   className?: string;
   compact?: boolean;
+  iconOnly?: boolean;
 }) {
   const { t } = useLocale();
   const normalized = phone?.trim() ?? "";
@@ -34,9 +36,10 @@ export function PhoneContactMenu({
             className,
           )}
           title={t("orders2b2.contact.title")}
+          aria-label={`${t("orders2b2.contact.title")} ${normalized}`}
         >
           <Phone className="size-3 shrink-0" />
-          <PhoneText value={normalized} />
+          {!iconOnly ? <PhoneText value={normalized} /> : null}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[min(16rem,calc(100vw-24px))] p-2">

@@ -52,13 +52,14 @@ create function pg_temp.mutate(
  target_store uuid default '00000000-0000-4000-8000-000000007700',
  mode text default 'finance', extra jsonb default '{}'::jsonb, customer jsonb default '{}'::jsonb
 ) returns jsonb language sql as $f$
- select public.repairdesk_mutate_order_v3(target_store,
+ -- Inherited mutation invariants now exercise v4 with an explicitly observed fixture customer version.
+ select public.repairdesk_mutate_order_v4(target_store,
   ('00000000-0000-4000-8000-' || lpad(actor_suffix::text,12,'0'))::uuid,
   '00000000-0000-4000-8000-000000007730', expected,
   ('00000000-0000-4000-8000-' || lpad((7800+op)::text,12,'0'))::uuid,
   repeat(md5(jsonb_build_object('quote',quote,'deposit',deposit,'expected',expected,'extra',extra,'customer',customer)::text),2), mode,
   case when mode = 'patch' then extra else jsonb_build_object('fault_prices',jsonb_build_array(jsonb_build_object('name','Repair','price',quote,'currency_code','EUR')),'quotation_amount',quote,'deposit_amount',deposit) || extra end,
-  customer);
+  customer, (select updated_at from public.customers where store_id=target_store and id='00000000-0000-4000-8000-000000007720'));
 $f$;
 grant execute on function pg_temp.mutate(numeric,integer,numeric,timestamptz,integer,uuid,text,jsonb,jsonb) to service_role;
 create temporary table mutation_results(label text primary key, value jsonb);

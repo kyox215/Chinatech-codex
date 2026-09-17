@@ -5,6 +5,7 @@ import { createRepairDeskOfflineMemoryStore } from "@/features/offline/model/off
 import type { OrderDetail } from "@/lib/repairdesk/types";
 
 import { buildEditForm } from "./edit-order-form";
+import { buildOrderEditSavePlan } from "./order-edit-save";
 import {
   buildEditOrderOfflineDraftInput,
   buildEditOrderOfflineDraftPayload,
@@ -39,11 +40,6 @@ describe("edit order offline draft mapping", () => {
       customerLinkMode: "existing_customer",
       customerLinkDraft: {
         customerId: "customer_1",
-        snapshot: {
-          customerId: "customer_1",
-          name: "Mario Rossi Updated",
-          phone: "+393331112222 / +393334445555",
-        },
       },
       deviceLinkMode: "existing_customer_device",
       deviceLinkDraft: {
@@ -51,14 +47,13 @@ describe("edit order offline draft mapping", () => {
       },
     });
     expect(input.draftPayload).toMatchObject({
-      customerName: "Mario Rossi Updated",
-      customerPhone: "+393331112222 / +393334445555",
-      deviceNotes: "Back glass cracked",
-      diagnosisResult: "Display assembly required",
       depositAmountCents: 3500,
     });
     expect(JSON.stringify(input)).not.toContain("001258");
     expect(JSON.stringify(input).toLowerCase()).not.toContain("unlock");
+    expect(JSON.stringify(input)).not.toContain("Mario");
+    expect(JSON.stringify(input)).not.toContain("3331112222");
+    expect(input.relationshipPlan?.customerLinkDraft).not.toHaveProperty("snapshot");
 
     const service = createRepairDeskOfflineOrderService({
       store: createRepairDeskOfflineMemoryStore(),
@@ -71,7 +66,7 @@ describe("edit order offline draft mapping", () => {
     expect(saved.ok).toBe(true);
   });
 
-  it("restores safe edit fields while preserving the current server unlock value", async () => {
+  it("restores only quote fields while preserving current repair and unlock values", async () => {
     const data = makeOrderDetail();
     const draft = {
       ...buildEditForm(data),
@@ -109,7 +104,7 @@ describe("edit order offline draft mapping", () => {
     if (restored.status !== "restored") return;
     expect(restored.draft).toMatchObject({
       expected_updated_at: "2026-07-06T10:00:00.000Z",
-      issue_description: "Updated issue from local draft",
+      issue_description: data.order.issue_description,
       deposit_amount: 30,
       device_unlock: { method: "pin", value: "001258" },
       fault_prices: [
@@ -177,11 +172,14 @@ describe("edit order offline draft mapping", () => {
       hasEditOrderSensitiveUnlockDraft({ ...base, device_unlock: { method: "pin", value: "1" } }),
     ).toBe(true);
     expect(
+      isEditOrderFormWorthOfflineAutosave({ data, draft: { ...base, deposit_amount: 25 } }),
+    ).toBe(true);
+    expect(
       isEditOrderFormWorthOfflineAutosave({
         data,
         draft: { ...base, issue_description: "Changed issue" },
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("uses only allowed top-level payload and relationship keys", () => {
@@ -196,24 +194,71 @@ describe("edit order offline draft mapping", () => {
       warranty_change_reason: "Premium repair",
     };
 
-    expect(buildEditOrderOfflineDraftPayload(draft)).toMatchObject({
-      customerName: "Mario Rossi",
-      customerPhone: "+393331112222",
-      deviceBrand: "Apple",
-      deviceModel: "iPhone 13",
-      imei: "356789012345678",
-      deviceNotes: "Device note",
-      diagnosisResult: "Diagnosis note",
-      accessoryNotes: "Cover",
-      warrantyDraft: {
-        text: "12个月",
-        months: 12,
-        changeReason: "Premium repair",
-      },
+    expect(Object.keys(buildEditOrderOfflineDraftPayload(draft)).sort()).toEqual([
+      "depositAmountCents",
+      "quotedPriceCents",
+      "repairItems",
+    ]);
+    expect(buildEditOrderOfflineRelationshipPlan(data).customerLinkMode).toBe("existing_customer");
+  });
+
+  it("ignores legacy identity snapshots after another order updates the shared customer", async () => {
+    const original = makeOrderDetail();
+    const draft = { ...buildEditForm(original), fault_prices: [{ name: "New quote", price: 140 }] };
+    const service = createRepairDeskOfflineOrderService({
+      store: createRepairDeskOfflineMemoryStore(),
+      scope: { storeId: "store_1", userId: "user_1" },
+      now: () => "2026-07-06T20:00:00.000Z",
+      idFactory: () => "id_1",
     });
-    expect(buildEditOrderOfflineRelationshipPlan(data, draft).customerLinkMode).toBe(
-      "existing_customer",
+    const saved = await service.saveDraft(
+      buildEditOrderOfflineDraftInput({ data: original, draft }),
     );
+    expect(saved.ok).toBe(true);
+    if (!saved.ok) return;
+    const current: OrderDetail = {
+      ...original,
+      customer: {
+        ...original.customer!,
+        name: "Current shared customer",
+        phone_e164: "+393330000901",
+        contact_phones: ["+393330000902"],
+        updated_at: "2026-07-06T21:00:00.000Z",
+      },
+    };
+    const restored = restoreEditOrderFormFromOfflineDraft({
+      draft: {
+        ...saved.value,
+        draftPayload: {
+          ...saved.value.draftPayload,
+          customerName: "Old customer",
+          customerPhone: "+393330000800",
+          deviceNotes: "Old device notes",
+          diagnosisResult: "Old diagnosis",
+        },
+        customerLinkDraft: {
+          customerId: "customer_1",
+          snapshot: { name: "Old customer", phone: "+393330000800" },
+        },
+      },
+      data: current,
+    });
+    expect(restored.status).toBe("restored");
+    if (restored.status !== "restored") return;
+    expect(restored.draft).toMatchObject({
+      customer_name: "Current shared customer",
+      customer_phone: "+393330000901",
+      contact_phones: ["+393330000902"],
+      expected_customer_updated_at: "2026-07-06T21:00:00.000Z",
+    });
+    const plan = buildOrderEditSavePlan({
+      baseline: buildEditForm(current),
+      draft: restored.draft,
+      capabilities: { canEditIntake: true, canEditRepair: true, canAdjustFinance: true },
+    });
+    expect(plan.routineChanges).toEqual({});
+    expect(plan.financeChange).toMatchObject({ faultPrices: [{ name: "New quote", price: 140 }] });
+    expect(plan.steps).toEqual(["finance"]);
   });
 });
 

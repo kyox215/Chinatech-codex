@@ -217,17 +217,15 @@ for (const surface of ["page", "dialog"] as const) {
       `[data-order-detail-root="true"][data-order-detail-surface="${surface}"]`,
     );
     await expect(detail).toBeVisible();
-    await detail
-      .locator("[data-order-secondary-actions]")
-      .getByRole("button", { name: "更多工单操作", exact: true })
-      .click();
-    await page.getByRole("menuitem", { name: "编辑", exact: true }).click();
-    const diagnosis = detail.locator('textarea[aria-label="诊断结果"]');
+    await detail.locator('[data-order-field-trigger="diagnosis"]').click();
+    const editor = page.locator('[data-order-field-editor="diagnosis"]');
+    const diagnosis = editor.getByRole("textbox", { name: "诊断结果", exact: true });
     await expect(diagnosis).toHaveCount(1);
     await expect(diagnosis).toBeVisible();
     await diagnosis.fill("DEMO diagnosis cancelled draft");
     await expect(diagnosis).toHaveValue("DEMO diagnosis cancelled draft");
-    await detail.getByRole("button", { name: "取消", exact: true }).click();
+    await editor.getByRole("button", { name: "取消", exact: true }).first().click();
+    await editor.getByRole("button", { name: "放弃修改", exact: true }).click();
     await expect(diagnosis).toHaveCount(0);
     await expect(detail).not.toContainText("DEMO diagnosis cancelled draft");
     expect(mutations).toBe(0);

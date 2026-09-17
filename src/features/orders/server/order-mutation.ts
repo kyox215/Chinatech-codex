@@ -56,6 +56,9 @@ const failureMessages: Record<string, string> = {
   order_not_found: "工单不存在或不属于当前店铺",
   customer_not_found: "工单客户不存在或不属于当前店铺",
   stale_version: "工单已被更新，请刷新后再试",
+  customer_stale_version: "客户档案已被更新，请重新载入并核对姓名和联系电话后再保存",
+  customer_version_required: "缺少打开编辑时的客户版本，请重新载入客户资料",
+  invalid_customer_phone: "主号或备用号码格式不正确",
   order_terminal: "已结束工单必须使用审计化纠正或重新打开操作",
   order_voided: "该工单记录已作废，只能查看历史证据",
   quote_below_received_amount: "报价不能低于已收金额，请先通过收款纠正流程处理",
@@ -74,16 +77,21 @@ export async function mutateOrderAtomic(args: {
   actorId: string;
   orderId: string;
   mode: "update" | "patch" | "finance";
-  request: { expected_updated_at: string; idempotency_key?: string };
+  request: {
+    expected_updated_at: string;
+    expected_customer_updated_at?: string;
+    idempotency_key?: string;
+  };
   orderChanges: Record<string, unknown>;
   customerChanges?: Record<string, unknown>;
 }): Promise<PatchOrderResult> {
   const identity = orderMutationIdentity(args);
-  const { data, error } = await args.supabase.rpc("repairdesk_mutate_order_v3", {
+  const { data, error } = await args.supabase.rpc("repairdesk_mutate_order_v4", {
     p_store_id: args.storeId,
     p_actor_id: args.actorId,
     p_order_id: args.orderId,
     p_expected_updated_at: args.request.expected_updated_at,
+    p_expected_customer_updated_at: args.request.expected_customer_updated_at ?? null,
     p_operation_id: identity.operationId,
     p_request_hash: identity.requestHash,
     p_mode: args.mode,
@@ -102,7 +110,13 @@ export async function mutateOrderAtomic(args: {
   }
   const result = data as Record<string, unknown> | null;
   if (result?.ok === true && typeof result.updated_at === "string") {
-    return { ok: true, updated_at: result.updated_at };
+    return {
+      ok: true,
+      updated_at: result.updated_at,
+      ...(typeof result.customer_updated_at === "string"
+        ? { customer_updated_at: result.customer_updated_at }
+        : {}),
+    };
   }
   const code = typeof result?.code === "string" ? result.code : "invalid_result";
   throw new OrderMutationError(

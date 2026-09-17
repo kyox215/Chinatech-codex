@@ -584,8 +584,11 @@ export function decorate(row: DbRecord): OrderListItem {
 
   return {
     ...order,
-    customer_name: order.customer_name_snapshot ?? customer?.name ?? "-",
-    customer_phone: order.customer_phone_snapshot ?? customer?.phone_e164 ?? "",
+    customer_name: customer?.name ?? order.customer_name_snapshot ?? "-",
+    customer_phone: customer?.phone_e164 ?? order.customer_phone_snapshot ?? "",
+    contact_phones: customer
+      ? uniqueContactPhones(customer.phone_e164, customer.contact_phones)
+      : order.contact_phones,
     device_label: deviceLabel || "-",
     device_imei: snapshot?.serial_or_imei ?? device?.serial_or_imei ?? "",
     supplier_name: supplier?.name,

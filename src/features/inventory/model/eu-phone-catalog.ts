@@ -887,8 +887,17 @@ export function findEuPhoneColor(
   colorValue?: string,
   asOf = new Date(),
 ) {
-  if (!colorValue?.trim()) return undefined;
-  const model = findEuPhoneModel(brandId, modelValue, asOf);
+  if (!colorValue?.trim() || !Number.isFinite(asOf.getTime())) return undefined;
+  // Existing devices keep their catalog colors after aging out of the new-device picker.
+  const needle = normalize(modelValue);
+  const asOfDay = asOf.toISOString().slice(0, 10);
+  const model = EU_PHONE_MODELS.find(
+    (item) =>
+      item.brandId === brandId &&
+      item.releasedOn <= asOfDay &&
+      (normalize(item.name) === needle ||
+        item.aliases?.some((alias) => normalize(alias) === needle)),
+  );
   return model?.colors.find((option) => colorMatches(option, colorValue));
 }
 

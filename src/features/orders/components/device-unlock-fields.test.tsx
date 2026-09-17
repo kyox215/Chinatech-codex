@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { DeviceUnlockInput } from "@/lib/repairdesk/types";
 
-import { DeviceUnlockEditor } from "./device-unlock-fields";
+import { orders } from "@/lib/mock/fixtures";
+import { DeviceUnlockEditor, DeviceUnlockViewer } from "./device-unlock-fields";
 
 function setViewport(width: number, touchDevice = false) {
   Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
@@ -32,6 +33,20 @@ function DeviceUnlockHarness() {
 }
 
 describe("DeviceUnlockEditor", () => {
+  it("renders redacted passcodes as restricted instead of missing and exposes no reveal control", () => {
+    render(
+      <DeviceUnlockViewer
+        order={{
+          ...orders[0]!,
+          sensitive_redacted: true,
+          device_unlock_method: undefined,
+        }}
+      />,
+    );
+    expect(screen.getByText("密码访问受限")).toBeVisible();
+    expect(document.querySelector("[data-device-unlock-reveal]")).toBeNull();
+    expect(screen.queryByText("未提供密码")).toBeNull();
+  });
   it("shows only connection steps while preserving the distinct point identities and encoded order", async () => {
     render(<DeviceUnlockHarness />);
     fireEvent.click(screen.getByRole("button", { name: "图案" }));

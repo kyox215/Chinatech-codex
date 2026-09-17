@@ -17,7 +17,7 @@ test.beforeEach(async ({ context, baseURL }) => {
   );
 });
 
-test("ordinary details and quote save atomically in one versioned patch", async ({
+test("customer and quote groups save only their own fields with the latest order version", async ({
   page,
   context,
   baseURL,
@@ -56,52 +56,62 @@ test("ordinary details and quote save atomically in one versioned patch", async 
   await expect(detail).toBeVisible();
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
 
-  const hero = detail.locator('[data-order-hero="true"]');
-  await hero.getByRole("button", { name: "编辑" }).click();
-
-  const issueInput = detail.locator('textarea[aria-label="故障描述"]:visible').first();
-  const quoteInput = detail.getByLabel("报价项目 1 金额");
-  const currentPrice =
-    Number((await quoteInput.inputValue()).replace(/[^0-9,.]/g, "").replace(",", ".")) || 75;
-  const updatedIssue = `Mock combined save verification ${Date.now()}`;
-  const updatedPrice = (currentPrice + 1).toFixed(2);
-  await issueInput.fill(updatedIssue);
-  await quoteInput.fill(updatedPrice);
-
+  await detail.getByRole("button", { name: "客户信息", exact: true }).click();
+  const customer = page.locator('[data-order-identity-editor="customer"]');
+  const updatedName = `Mock scoped save verification ${Date.now()}`;
+  await customer.getByRole("textbox", { name: "姓名", exact: true }).fill(updatedName);
   const routineResponsePromise = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
       response.url().includes("/api/repairdesk/order/patch"),
   );
-  await hero.getByRole("button", { name: "保存" }).click();
+  await customer.getByRole("button", { name: "保存", exact: true }).click();
   const routineResponse = await routineResponsePromise;
   expect(routineResponse.ok(), await routineResponse.text()).toBe(true);
-  expect(requestOrder).toEqual(["routine"]);
-
-  const routineRequest = routineResponse.request().postDataJSON() as {
-    input: {
-      expected_updated_at: string;
-      changes: { issue_description: string };
-      finance: { fault_prices: Array<{ line_id: string; price: number }>; deposit_amount: number };
-    };
-  };
+  const routineRequest = routineResponse.request().postDataJSON();
   expect(routineRequest.input.expected_updated_at).toBe(initialPayload.data.order.updated_at);
-  expect(routineRequest.input.changes.issue_description).toBe(updatedIssue);
-  expect(routineRequest.input.finance.fault_prices[0].price).toBe(Number(updatedPrice));
-  const savedLineIds = routineRequest.input.finance.fault_prices.map((item) => item.line_id);
+  expect(routineRequest.input.expected_customer_updated_at).toBe(
+    initialPayload.data.customer.updated_at,
+  );
+  expect(routineRequest.input.changes).toEqual({ customer_name: updatedName });
+  expect(routineRequest.input).not.toHaveProperty("finance");
+  const routineResult = await routineResponse.json();
+  await expect(customer).toBeHidden();
+
+  await detail.locator("[data-order-repair-edit-trigger]").click();
+  const quoteEditor = page.locator("[data-order-desktop-finance-editor]");
+  const quoteInput = quoteEditor.getByLabel("报价项目 1 金额");
+  const currentPrice =
+    Number((await quoteInput.inputValue()).replace(/[^0-9,.]/g, "").replace(",", ".")) || 75;
+  const updatedPrice = (currentPrice + 1).toFixed(2);
+  await quoteInput.fill(updatedPrice);
+  const financeResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().includes("/api/repairdesk/order/finance"),
+  );
+  await quoteEditor.getByRole("button", { name: "保存", exact: true }).click();
+  const financeResponse = await financeResponsePromise;
+  expect(financeResponse.ok(), await financeResponse.text()).toBe(true);
+  expect(requestOrder).toEqual(["routine", "finance"]);
+  const financeRequest = financeResponse.request().postDataJSON();
+  expect(financeRequest.input.expected_updated_at).toBe(routineResult.data.updated_at);
+  expect(financeRequest.input).not.toHaveProperty("changes");
+  expect(financeRequest.input).not.toHaveProperty("expected_customer_updated_at");
+  expect(financeRequest.input.fault_prices[0].price).toBe(Number(updatedPrice));
+  const savedLineIds = financeRequest.input.fault_prices.map(
+    (item: { line_id: string }) => item.line_id,
+  );
   expect(new Set(savedLineIds).size).toBe(savedLineIds.length);
   initialPayload.data.order.fault_prices.forEach((item: { line_id?: string }, index: number) => {
-    // Legacy mock saves omit IDs; the existing draft normalizer assigns missing IDs.
     if (item.line_id) expect(savedLineIds[index]).toBe(item.line_id);
     else expect(savedLineIds[index]).toMatch(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i);
   });
-  expect(routineRequest.input.finance.deposit_amount).toBe(
-    initialPayload.data.order.deposit_amount,
-  );
-
-  await expect(page.getByText(translateMessage("zh-CN", "orders2b2.success.save"))).toBeVisible();
-  await expect(hero.getByRole("button", { name: "编辑" })).toBeVisible();
-  await expect(page.getByText("普通资料与报价需要分别保存")).toHaveCount(0);
+  expect(financeRequest.input.deposit_amount).toBe(initialPayload.data.order.deposit_amount);
+  await expect(
+    page.getByText(translateMessage("zh-CN", "orders2b2.success.finance")),
+  ).toBeVisible();
+  await expect(quoteEditor).toBeHidden();
   await expect
     .poll(() =>
       page.evaluate(() =>
@@ -118,7 +128,7 @@ test("ordinary details and quote save atomically in one versioned patch", async 
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(detail).toBeVisible();
-  await expect.poll(() => hasVisibleMatch(detail.getByText(updatedIssue))).toBe(true);
+  await expect.poll(() => hasVisibleMatch(detail.getByText(updatedName))).toBe(true);
   await expect
     .poll(() => hasVisibleMatch(detail.getByText(new RegExp(updatedPrice.replace(".", "[.,]")))))
     .toBe(true);

@@ -56,6 +56,65 @@ function makeOrder(): OrderDetail["order"] {
 }
 
 describe("OrderOverviewTab localized runtime", () => {
+  it("renders empty customer, phone, backup, diagnosis, tag and passcode direct entries", () => {
+    const onEditCustomer = vi.fn(),
+      onEditField = vi.fn(),
+      onEditUnlock = vi.fn();
+    const { container } = render(
+      <LocaleProvider initialLocale="en">
+        <OrderOverviewTab
+          order={{
+            ...makeOrder(),
+            customer_name: "",
+            customer_phone: "",
+            contact_phones: [],
+            diagnosis_result: "",
+            internal_tag: "",
+            device_unlock_method: undefined,
+          }}
+          deviceBrand="Samsung"
+          deviceModel="Galaxy A54"
+          deviceImei=""
+          canEditIntake
+          canEditRepair
+          onEditCustomer={onEditCustomer}
+          onEditField={onEditField}
+          onEditUnlock={onEditUnlock}
+          surface="dialog"
+        />
+      </LocaleProvider>,
+    );
+    expect(screen.getByText("Add name")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Add phone" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add alternative phone" }));
+    expect(onEditCustomer).toHaveBeenCalledTimes(2);
+    fireEvent.click(container.querySelector('[data-order-field-trigger="diagnosis"]')!);
+    fireEvent.click(container.querySelector('[data-order-field-trigger="internal_tag"]')!);
+    expect(onEditField.mock.calls.map((call) => call[0])).toEqual(["diagnosis", "internal_tag"]);
+    fireEvent.click(screen.getByRole("button", { name: "Add passcode" }));
+    expect(onEditUnlock).toHaveBeenCalledOnce();
+  });
+  it("replaces the original repair-items card with inline quotation and preserves the money summary", () => {
+    const { container } = render(
+      <LocaleProvider initialLocale="en">
+        <OrderOverviewTab
+          order={makeOrder()}
+          deviceBrand="Samsung"
+          deviceModel="Galaxy A54"
+          deviceImei=""
+          surface="dialog"
+          financeEditor={<button>Save grouped quote</button>}
+        />
+      </LocaleProvider>,
+    );
+    const finance = container.querySelector("[data-order-workbench-repairs]")!;
+    expect(
+      within(finance as HTMLElement).getByRole("button", { name: "Save grouped quote" }),
+    ).toBeVisible();
+    expect(container.querySelector("[data-order-finance-summary-trigger]")).toBeInTheDocument();
+    expect(container.querySelectorAll("[data-order-workbench-repairs]")).toHaveLength(1);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
   it("reuses the new-order repair category picker in the finance editor", () => {
     const onChange = vi.fn();
     const draft = createFinanceDraftState([], 0);

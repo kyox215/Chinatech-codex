@@ -430,8 +430,7 @@ test("heavy en 1440px keeps scoped finance drafts and localized pending transiti
   await expect(financeEditor).toHaveCount(0);
   expect(evidence.allowedLocalWrites).toEqual([]);
   expect(evidence.forbiddenRequests).toEqual([]);
-  // The scoped modal intentionally traps focus. Locale switching is exercised
-  // after closing it, not by forcing a click through its inaccessible backdrop.
+  // Close the scoped quote edit before checking preserved page and locale identity.
   const financeScroll = await setStableScroll(page, 20);
   await switchLocale(page, "it-IT");
   await expectPreservedIdentity(page, root, initialUrl, financeScroll);

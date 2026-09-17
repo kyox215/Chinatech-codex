@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { Plus, Trash2, Wrench } from "lucide-react";
 
 import { MoneyKeypadInput } from "@/components/orders/money-keypad-input";
@@ -28,6 +28,7 @@ import { getQuoteDraftReadiness } from "@/features/orders/model/order-diagnosis-
 import { localizeQuoteReadinessLabel } from "@/features/orders/model/order-i18n";
 import { componentOverlay } from "@/lib/component-patterns";
 import { formatMoney } from "@/lib/money";
+import { RepairDeskApiError } from "@/lib/repairdesk/api";
 import type {
   FaultPriceItem,
   OrderCapabilities,
@@ -37,6 +38,10 @@ import type {
 import { cn } from "@/lib/utils";
 import { moneyDraftValue, parseMoneyDraft } from "@/shared/lib/mobile-input";
 import { useLocale } from "@/shared/i18n/locale-provider";
+import {
+  EditorDiscardConfirmation,
+  editorConfirmationClass,
+} from "@/shared/lib/use-compact-editor-session";
 
 type QuoteDraftRow = {
   id: string;
@@ -52,8 +57,9 @@ export interface DiagnosisQuoteDialogProps {
   capabilities?: OrderCapabilities;
   isPending?: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaveDiagnosis: (diagnosisResult: string) => Promise<unknown>;
+  onSaveDiagnosis: (diagnosisResult: string, expectedUpdatedAt: string) => Promise<unknown>;
   onPublish: (input: {
+    expectedUpdatedAt: string;
     idempotencyKey: string;
     diagnosisResult: string;
     faultPrices: FaultPriceItem[];
@@ -71,24 +77,70 @@ export function DiagnosisQuoteDialog({
   onPublish,
 }: DiagnosisQuoteDialogProps) {
   const { t } = useLocale();
+  const [snapshot, setSnapshot] = useState(() => ({ order, rows: rowsFromOrder(order) }));
   const [diagnosis, setDiagnosis] = useState(order.diagnosis_result ?? "");
-  const [rows, setRows] = useState<QuoteDraftRow[]>(() => rowsFromOrder(order));
+  const [rows, setRows] = useState<QuoteDraftRow[]>(snapshot.rows);
   const [exceptionKind, setExceptionKind] = useState<QuotePriceException["kind"] | "">("");
   const [exceptionReason, setExceptionReason] = useState("");
   const [localError, setLocalError] = useState("");
   const [publishIdempotencyKey, setPublishIdempotencyKey] = useState(() => crypto.randomUUID());
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [localPending, setLocalPending] = useState(false);
+  const [attempted, setAttempted] = useState<
+    | { kind: "publish"; input: Parameters<DiagnosisQuoteDialogProps["onPublish"]>[0] }
+    | { kind: "diagnosis"; input: { diagnosisResult: string; expectedUpdatedAt: string } }
+    | null
+  >(null);
+  const sessionKey = useRef<string | null>(null);
+  const inFlight = useRef(false);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const busy = isPending || localPending;
+  const targetChanged = snapshot.order.id !== order.id;
+  const inputsLocked = busy || Boolean(attempted) || targetChanged;
+  const conflict = targetChanged || snapshot.order.updated_at !== order.updated_at;
+  const dirty =
+    diagnosis !== (snapshot.order.diagnosis_result ?? "") ||
+    JSON.stringify(rows) !== JSON.stringify(snapshot.rows) ||
+    Boolean(exceptionKind || exceptionReason || attempted);
   const canPrepareQuote = capabilities?.canPrepareQuote === true;
   const canEditDiagnosis = capabilities?.canEditRepair === true || canPrepareQuote;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      sessionKey.current = null;
+      return;
+    }
+    const key = order.id ?? "quote";
+    if (sessionKey.current !== null) return;
+    sessionKey.current = key;
+    const nextRows = rowsFromOrder(order);
+    setSnapshot({ order, rows: nextRows });
     setDiagnosis(order.diagnosis_result ?? "");
-    setRows(rowsFromOrder(order));
+    setRows(nextRows);
     setExceptionKind("");
     setExceptionReason("");
     setLocalError("");
     setPublishIdempotencyKey(crypto.randomUUID());
+    setConfirmDiscard(false);
+    setAttempted(null);
   }, [open, order]);
+  useEffect(() => {
+    if (!open || !dirty) return;
+    const guard = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [open, dirty]);
+  const requestOpenChange = (next: boolean) => {
+    if (busy || inFlight.current) return;
+    if (!next && dirty) {
+      returnFocus.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setConfirmDiscard(true);
+    } else onOpenChange(next);
+  };
 
   const faultPrices = useMemo(
     () =>
@@ -110,13 +162,28 @@ export function DiagnosisQuoteDialog({
   const readiness = getQuoteDraftReadiness({
     diagnosisResult: diagnosis,
     faultPrices,
-    depositAmount: order.deposit_amount,
+    depositAmount: snapshot.order.deposit_amount,
     priceException,
   });
 
   const submit = async () => {
+    if (busy || inFlight.current || targetChanged || (conflict && !attempted)) return;
+    if (attempted?.kind === "publish" && !canPrepareQuote) return;
+    inFlight.current = true;
+    setLocalPending(true);
     setLocalError("");
     try {
+      if (attempted?.kind === "publish") {
+        await onPublish(attempted.input);
+        onOpenChange(false);
+        return;
+      }
+      if (attempted?.kind === "diagnosis") {
+        if (!canEditDiagnosis) return;
+        await onSaveDiagnosis(attempted.input.diagnosisResult, attempted.input.expectedUpdatedAt);
+        onOpenChange(false);
+        return;
+      }
       if (canPrepareQuote) {
         if (!readiness.ready) {
           setLocalError(
@@ -124,12 +191,15 @@ export function DiagnosisQuoteDialog({
           );
           return;
         }
-        await onPublish({
+        const input = {
+          expectedUpdatedAt: snapshot.order.updated_at,
           idempotencyKey: publishIdempotencyKey,
           diagnosisResult: diagnosis.trim(),
           faultPrices,
           priceException,
-        });
+        };
+        setAttempted({ kind: "publish", input });
+        await onPublish(input);
         onOpenChange(false);
         return;
       }
@@ -138,21 +208,37 @@ export function DiagnosisQuoteDialog({
         setLocalError(t("orders2b1.quote.missing.diagnosis"));
         return;
       }
-      await onSaveDiagnosis(diagnosis.trim());
+      const input = {
+        diagnosisResult: diagnosis.trim(),
+        expectedUpdatedAt: snapshot.order.updated_at,
+      };
+      setAttempted({ kind: "diagnosis", input });
+      await onSaveDiagnosis(input.diagnosisResult, input.expectedUpdatedAt);
       onOpenChange(false);
-    } catch {
-      setLocalError(t("orders2b1.quote.saveFailed"));
+    } catch (error) {
+      const rejected =
+        error instanceof RepairDeskApiError && (error.status === 400 || error.status === 422);
+      if (rejected) {
+        setAttempted(null);
+        setPublishIdempotencyKey(crypto.randomUUID());
+      }
+      setLocalError(t(rejected ? "orders2b1.quote.rejectedHint" : "orders2b1.quote.saveFailed"));
+    } finally {
+      inFlight.current = false;
+      setLocalPending(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={isPending ? undefined : onOpenChange}>
+    <Dialog open={open} onOpenChange={requestOpenChange}>
       <DialogContent
         initialFocus="container"
         data-diagnosis-quote-dialog="true"
+        data-confirm-discard={confirmDiscard}
         className={cn(
-          componentOverlay.modalWide,
+          componentOverlay.modalLg,
           componentOverlay.content,
+          editorConfirmationClass,
           "grid min-w-0 max-h-[calc(100svh-16px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0",
         )}
       >
@@ -164,15 +250,37 @@ export function DiagnosisQuoteDialog({
             {t("orders2b1.quote.description")}
           </DialogDescription>
         </DialogHeader>
+        {confirmDiscard ? (
+          <div data-editor-discard className="p-3 sm:p-4">
+            {attempted ? (
+              <p className="mb-2 text-xs text-muted-foreground">{t("orders2b1.quote.retryHint")}</p>
+            ) : null}
+            <EditorDiscardConfirmation
+              returnFocus={returnFocus}
+              keep={() => setConfirmDiscard(false)}
+              discard={() => onOpenChange(false)}
+            />
+          </div>
+        ) : null}
 
         <div className="min-h-0 overflow-y-auto px-3 py-3 sm:px-4">
+          {targetChanged || (conflict && !attempted) ? (
+            <p role="alert" className="mb-3 text-sm text-status-danger-foreground">
+              {t("orders2b2.conflict.description")}
+            </p>
+          ) : null}
+          {attempted && !busy ? (
+            <p role="status" className="mb-3 text-xs text-muted-foreground">
+              {t("orders2b1.quote.retryHint")}
+            </p>
+          ) : null}
           <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <section className={componentOverlay.section}>
               <div className="mb-2 text-xs font-semibold">
                 {t("orders2b1.quote.issueDiagnosis")}
               </div>
               <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2 text-xs leading-5 text-muted-foreground">
-                {order.issue_description || t("orders2b1.quote.noIssue")}
+                {snapshot.order.issue_description || t("orders2b1.quote.noIssue")}
               </div>
               <div className="mt-3 space-y-1">
                 <Label htmlFor="diagnosis-quote-result" className="text-xs font-semibold">
@@ -182,7 +290,7 @@ export function DiagnosisQuoteDialog({
                   id="diagnosis-quote-result"
                   aria-label={t("orders2b1.quote.diagnosis")}
                   value={diagnosis}
-                  disabled={!canEditDiagnosis || isPending}
+                  disabled={!canEditDiagnosis || inputsLocked}
                   maxLength={8000}
                   rows={8}
                   onChange={(event) => setDiagnosis(event.target.value)}
@@ -211,7 +319,7 @@ export function DiagnosisQuoteDialog({
                     size="sm"
                     variant="outline"
                     className="h-8 gap-1 text-xs"
-                    disabled={isPending || rows.length >= 50}
+                    disabled={inputsLocked || rows.length >= 50}
                     onClick={() =>
                       setRows((current) => [
                         ...current,
@@ -238,7 +346,7 @@ export function DiagnosisQuoteDialog({
                         id={`quote-item-${row.id}`}
                         aria-label={t("orders2b1.quote.itemName", { index: index + 1 })}
                         value={row.name}
-                        disabled={!canPrepareQuote || isPending}
+                        disabled={!canPrepareQuote || inputsLocked}
                         maxLength={120}
                         placeholder={t("orders2b1.quote.itemPlaceholder")}
                         className="h-9 text-base md:text-sm"
@@ -252,7 +360,7 @@ export function DiagnosisQuoteDialog({
                       <Input
                         aria-label={t("orders2b1.quote.itemNote", { index: index + 1 })}
                         value={row.note}
-                        disabled={!canPrepareQuote || isPending}
+                        disabled={!canPrepareQuote || inputsLocked}
                         maxLength={500}
                         placeholder={t("orders2b1.quote.notePlaceholder")}
                         className="h-8 text-base md:text-xs"
@@ -264,7 +372,7 @@ export function DiagnosisQuoteDialog({
                     <MoneyKeypadInput
                       ariaLabel={t("orders2b1.quote.itemAmount", { index: index + 1 })}
                       value={row.priceText}
-                      disabled={!canPrepareQuote || isPending}
+                      disabled={!canPrepareQuote || inputsLocked}
                       onChange={(priceText) => patchRow(setRows, row.id, { priceText })}
                       triggerClassName="h-9 bg-card text-base"
                     />
@@ -273,7 +381,7 @@ export function DiagnosisQuoteDialog({
                       variant="ghost"
                       size="icon"
                       aria-label={t("orders2b1.quote.deleteItem", { index: index + 1 })}
-                      disabled={!canPrepareQuote || isPending || rows.length <= 1}
+                      disabled={!canPrepareQuote || inputsLocked || rows.length <= 1}
                       onClick={() =>
                         setRows((current) => current.filter((item) => item.id !== row.id))
                       }
@@ -290,7 +398,7 @@ export function DiagnosisQuoteDialog({
                     <Label className="text-xs">{t("orders2b1.quote.zeroType")}</Label>
                     <Select
                       value={exceptionKind}
-                      disabled={isPending}
+                      disabled={inputsLocked}
                       onValueChange={(value) =>
                         setExceptionKind(value as QuotePriceException["kind"])
                       }
@@ -314,7 +422,7 @@ export function DiagnosisQuoteDialog({
                     <Input
                       id="quote-price-exception-reason"
                       value={exceptionReason}
-                      disabled={isPending}
+                      disabled={inputsLocked}
                       maxLength={1000}
                       placeholder={t("orders2b1.quote.reasonPlaceholder")}
                       className="h-9 bg-card text-base md:text-sm"
@@ -326,10 +434,13 @@ export function DiagnosisQuoteDialog({
 
               <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-[var(--surface-panel-muted)] p-2 text-center">
                 <QuoteMetric label={t("orders2b1.quote.total")} value={readiness.quotationAmount} />
-                <QuoteMetric label={t("orders2b1.quote.deposit")} value={order.deposit_amount} />
+                <QuoteMetric
+                  label={t("orders2b1.quote.deposit")}
+                  value={snapshot.order.deposit_amount}
+                />
                 <QuoteMetric
                   label={t("orders2b1.quote.balance")}
-                  value={Math.max(0, readiness.quotationAmount - order.deposit_amount)}
+                  value={Math.max(0, readiness.quotationAmount - snapshot.order.deposit_amount)}
                 />
               </div>
             </section>
@@ -359,17 +470,24 @@ export function DiagnosisQuoteDialog({
           <Button
             type="button"
             variant="ghost"
-            disabled={isPending}
-            onClick={() => onOpenChange(false)}
+            disabled={busy}
+            onClick={() => requestOpenChange(false)}
           >
             {t("common.cancel")}
           </Button>
           <Button
             type="button"
-            disabled={isPending || !canEditDiagnosis || (canPrepareQuote && !readiness.ready)}
+            disabled={
+              busy ||
+              targetChanged ||
+              (conflict && !attempted) ||
+              !canEditDiagnosis ||
+              (attempted?.kind === "publish" && !canPrepareQuote) ||
+              (canPrepareQuote && !readiness.ready)
+            }
             onClick={() => void submit()}
           >
-            {isPending
+            {busy
               ? t("orders2b1.quote.saving")
               : canPrepareQuote
                 ? t("orders2b1.quote.publish")

@@ -30,6 +30,22 @@ const allCapabilities: Pick<OrderCapabilities, "canEditIntake" | "canEditRepair"
 };
 
 describe("buildOrderPatchChanges", () => {
+  it("submits backup removal independently without touching name or primary", () => {
+    const before = { ...baseline, contact_phones: ["+390000000001"] };
+    expect(
+      buildOrderPatchChanges(before, { ...before, contact_phones: [] }, allCapabilities),
+    ).toEqual({ contact_phones: [] });
+    expect(
+      buildOrderPatchChanges(before, { ...before, contact_phones: undefined }, allCapabilities),
+    ).toEqual({});
+    expect(
+      buildOrderPatchChanges(
+        before,
+        { ...before, contact_phones: [] },
+        { canEditIntake: false, canEditRepair: true },
+      ),
+    ).toEqual({});
+  });
   it("returns an empty payload when the draft is unchanged", () => {
     expect(buildOrderPatchChanges(baseline, { ...baseline }, allCapabilities)).toEqual({});
   });

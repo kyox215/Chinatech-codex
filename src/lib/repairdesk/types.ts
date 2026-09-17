@@ -1364,8 +1364,11 @@ export type OrderCreateOperationStatus = { status: "pending" } | { status: "crea
 export interface UpdateOrderInput {
   idempotency_key?: string;
   expected_updated_at: string;
+  expected_customer_updated_at?: string;
   customer_name: string;
   customer_phone: string;
+  /** Backup phones only. Omission preserves them; [] removes them. */
+  contact_phones?: string[];
   device_brand: string;
   device_model: string;
   device_imei?: string;
@@ -1385,6 +1388,8 @@ export interface UpdateOrderInput {
 export interface PatchOrderChanges {
   customer_name?: string;
   customer_phone?: string;
+  /** Backup phones only. Omission preserves them; [] removes them. */
+  contact_phones?: string[];
   device_brand?: string;
   device_model?: string;
   device_imei?: string;
@@ -1405,6 +1410,8 @@ export interface PatchOrderInput {
   finance?: { fault_prices: FaultPriceItem[]; deposit_amount?: number };
   idempotency_key?: string;
   expected_updated_at: string;
+  /** Required when changing the customer name, primary phone or backup phones. */
+  expected_customer_updated_at?: string;
   changes: PatchOrderChanges;
 }
 
@@ -1418,6 +1425,7 @@ export interface PatchOrderFinanceInput {
 export interface PatchOrderResult {
   ok: boolean;
   updated_at: string;
+  customer_updated_at?: string;
 }
 
 export interface CorrectTerminalOrderInput {

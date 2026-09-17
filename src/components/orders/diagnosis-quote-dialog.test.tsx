@@ -2,10 +2,225 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DiagnosisQuoteDialog } from "@/components/orders/diagnosis-quote-dialog";
+import { RepairDeskApiError } from "@/lib/repairdesk/api";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import { translateMessage } from "@/shared/i18n/messages";
 
 describe("DiagnosisQuoteDialog i18n", () => {
+  it("keeps the opening draft and version across query refreshes and protects dirty dismissal", async () => {
+    const order = {
+      id: "order-stable",
+      updated_at: "2026-09-17T08:00:00.000Z",
+      diagnosis_result: "Saved diagnosis",
+      issue_description: "Synthetic issue",
+      deposit_amount: 0,
+      fault_prices: [
+        { line_id: "00000000-0000-4000-8000-000000000311", name: "Screen", price: 120 },
+      ],
+    } as never;
+    const onPublish = vi.fn();
+    const onSaveDiagnosis = vi.fn();
+    const onOpenChange = vi.fn();
+    const renderEditor = (current: typeof order) => (
+      <LocaleProvider initialLocale="en">
+        <DiagnosisQuoteDialog
+          open
+          order={current}
+          capabilities={{ canEditRepair: true, canPrepareQuote: true } as never}
+          onOpenChange={onOpenChange}
+          onSaveDiagnosis={onSaveDiagnosis}
+          onPublish={onPublish}
+        />
+      </LocaleProvider>
+    );
+    const view = render(renderEditor(order));
+    const diagnosis = screen.getByRole("textbox", {
+      name: translateMessage("en", "orders2b1.quote.diagnosis"),
+    });
+    fireEvent.change(diagnosis, { target: { value: "Unsaved local diagnosis" } });
+    view.rerender(renderEditor({ ...(order as object) } as never));
+    expect(diagnosis).toHaveValue("Unsaved local diagnosis");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(document.querySelector("[data-editor-discard]")).toBeInTheDocument();
+    expect(onOpenChange).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: translateMessage("en", "orders.faultEditor.keep") }),
+    );
+    expect(diagnosis).toHaveValue("Unsaved local diagnosis");
+    view.rerender(
+      renderEditor({
+        ...(order as object),
+        updated_at: "2026-09-17T08:01:00.000Z",
+        diagnosis_result: "Remote diagnosis",
+      } as never),
+    );
+    expect(diagnosis).toHaveValue("Unsaved local diagnosis");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      translateMessage("en", "orders2b2.conflict.description"),
+    );
+    const publish = screen.getByRole("button", {
+      name: translateMessage("en", "orders2b1.quote.publish"),
+    });
+    expect(publish).toBeDisabled();
+    fireEvent.click(publish);
+    expect(onPublish).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: translateMessage("en", "orders.faultEditor.confirmDiscard"),
+      }),
+    );
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("sends one frozen version and keeps the same publish intent after a failed request and refresh", async () => {
+    const order = {
+      id: "order-retry",
+      updated_at: "2026-09-17T08:00:00.000Z",
+      diagnosis_result: "Diagnosis",
+      issue_description: "Issue",
+      deposit_amount: 0,
+      fault_prices: [{ name: "Screen", price: 120 }],
+    } as never;
+    const onPublish = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("synthetic failure"))
+      .mockResolvedValueOnce({});
+    const props = {
+      open: true,
+      order,
+      capabilities: { canEditRepair: true, canPrepareQuote: true } as never,
+      onOpenChange: vi.fn(),
+      onSaveDiagnosis: vi.fn(),
+      onPublish,
+    };
+    const view = render(
+      <LocaleProvider initialLocale="en">
+        <DiagnosisQuoteDialog {...props} />
+      </LocaleProvider>,
+    );
+    const publish = screen.getByRole("button", {
+      name: translateMessage("en", "orders2b1.quote.publish"),
+    });
+    fireEvent.click(publish);
+    fireEvent.click(publish);
+    await waitFor(() => expect(onPublish).toHaveBeenCalledTimes(1));
+    await screen.findByText(translateMessage("en", "orders2b1.quote.saveFailed"));
+    const first = onPublish.mock.calls[0][0];
+    expect(first.expectedUpdatedAt).toBe("2026-09-17T08:00:00.000Z");
+    view.rerender(
+      <LocaleProvider initialLocale="en">
+        <DiagnosisQuoteDialog
+          {...props}
+          order={
+            {
+              ...(order as object),
+              updated_at: "2026-09-17T08:01:00.000Z",
+              diagnosis_result: "Remote diagnosis",
+              fault_prices: [{ name: "Remote row", price: 240 }],
+            } as never
+          }
+        />
+      </LocaleProvider>,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: translateMessage("en", "orders2b1.quote.publish") }),
+    );
+    await waitFor(() => expect(onPublish).toHaveBeenCalledTimes(2));
+    expect(onPublish.mock.calls[1][0]).toEqual(first);
+    expect(props.onOpenChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains correctable input after a definite business rejection and starts a new intent", async () => {
+    const onPublish = vi
+      .fn()
+      .mockRejectedValueOnce(new RepairDeskApiError("synthetic validation", 422))
+      .mockResolvedValueOnce({});
+    render(
+      <LocaleProvider initialLocale="en">
+        <DiagnosisQuoteDialog
+          open
+          order={
+            {
+              id: "rejected-order",
+              updated_at: "2026-09-17T08:00:00.000Z",
+              diagnosis_result: "Diagnosis",
+              deposit_amount: 0,
+              fault_prices: [{ name: "Screen", price: 120 }],
+            } as never
+          }
+          capabilities={{ canEditRepair: true, canPrepareQuote: true } as never}
+          onOpenChange={vi.fn()}
+          onSaveDiagnosis={vi.fn()}
+          onPublish={onPublish}
+        />
+      </LocaleProvider>,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: translateMessage("en", "orders2b1.quote.publish") }),
+    );
+    await screen.findByText(translateMessage("en", "orders2b1.quote.rejectedHint"));
+    const diagnosis = screen.getByRole("textbox", {
+      name: translateMessage("en", "orders2b1.quote.diagnosis"),
+    });
+    expect(diagnosis).toBeEnabled();
+    expect(diagnosis).toHaveValue("Diagnosis");
+    fireEvent.change(diagnosis, { target: { value: "Corrected diagnosis" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: translateMessage("en", "orders2b1.quote.publish") }),
+    );
+    await waitFor(() => expect(onPublish).toHaveBeenCalledTimes(2));
+    expect(onPublish.mock.calls[1][0].idempotencyKey).not.toEqual(
+      onPublish.mock.calls[0][0].idempotencyKey,
+    );
+    expect(onPublish.mock.calls[1][0].diagnosisResult).toBe("Corrected diagnosis");
+    expect(onPublish.mock.calls[1][0].faultPrices).toEqual(onPublish.mock.calls[0][0].faultPrices);
+  });
+
+  it("preserves an unresolved intent and blocks replay when the target order changes", async () => {
+    const onPublish = vi.fn().mockRejectedValue(new Error("Response lost"));
+    const order = {
+      id: "original-order",
+      updated_at: "2026-09-17T08:00:00.000Z",
+      diagnosis_result: "Original diagnosis",
+      deposit_amount: 0,
+      fault_prices: [{ name: "Screen", price: 120 }],
+    } as never;
+    const renderEditor = (current: typeof order) => (
+      <LocaleProvider initialLocale="en">
+        <DiagnosisQuoteDialog
+          open
+          order={current}
+          capabilities={{ canEditRepair: true, canPrepareQuote: true } as never}
+          onOpenChange={vi.fn()}
+          onSaveDiagnosis={vi.fn()}
+          onPublish={onPublish}
+        />
+      </LocaleProvider>
+    );
+    const view = render(renderEditor(order));
+    fireEvent.click(
+      screen.getByRole("button", { name: translateMessage("en", "orders2b1.quote.publish") }),
+    );
+    await screen.findByText(translateMessage("en", "orders2b1.quote.saveFailed"));
+    view.rerender(
+      renderEditor({
+        ...(order as object),
+        id: "different-order",
+        diagnosis_result: "Different diagnosis",
+      } as never),
+    );
+    expect(
+      screen.getByRole("textbox", { name: translateMessage("en", "orders2b1.quote.diagnosis") }),
+    ).toHaveValue("Original diagnosis");
+    const publish = screen.getByRole("button", {
+      name: translateMessage("en", "orders2b1.quote.publish"),
+    });
+    expect(publish).toBeDisabled();
+    fireEvent.click(publish);
+    expect(onPublish).toHaveBeenCalledTimes(1);
+  });
+
   it.each(["zh-CN", "it-IT", "en"] as const)(
     "shows safe localized diagnosis error, then closes after canonical success in %s",
     async (locale) => {
@@ -21,6 +236,8 @@ describe("DiagnosisQuoteDialog i18n", () => {
             open
             order={
               {
+                id: "synthetic-order",
+                updated_at: "2026-09-17T08:00:00.000Z",
                 diagnosis_result: "  动态中文诊断  ",
                 issue_description: "动态故障",
                 deposit_amount: 0,
@@ -40,7 +257,7 @@ describe("DiagnosisQuoteDialog i18n", () => {
       });
       fireEvent.click(save);
       await waitFor(() => expect(onSaveDiagnosis).toHaveBeenCalledTimes(1));
-      expect(onSaveDiagnosis).toHaveBeenLastCalledWith("动态中文诊断");
+      expect(onSaveDiagnosis).toHaveBeenLastCalledWith("动态中文诊断", "2026-09-17T08:00:00.000Z");
       expect(
         await screen.findByText(translateMessage(locale, "orders2b1.quote.saveFailed")),
       ).toBeVisible();
@@ -66,6 +283,8 @@ describe("DiagnosisQuoteDialog i18n", () => {
             isPending
             order={
               {
+                id: "synthetic-order",
+                updated_at: "2026-09-17T08:00:00.000Z",
                 diagnosis_result: "动态中文诊断",
                 issue_description: "动态故障",
                 deposit_amount: 0,
@@ -100,6 +319,8 @@ describe("DiagnosisQuoteDialog i18n", () => {
             isPending
             order={
               {
+                id: "synthetic-order",
+                updated_at: "2026-09-17T08:00:00.000Z",
                 diagnosis_result: "动态中文诊断",
                 issue_description: "动态故障",
                 deposit_amount: 20,
@@ -147,6 +368,8 @@ describe("DiagnosisQuoteDialog i18n", () => {
             open
             order={
               {
+                id: "synthetic-order",
+                updated_at: "2026-09-17T08:00:00.000Z",
                 diagnosis_result: "  动态中文诊断  ",
                 issue_description: "动态故障",
                 deposit_amount: 20,

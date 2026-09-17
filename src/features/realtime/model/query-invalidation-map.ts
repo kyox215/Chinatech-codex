@@ -27,7 +27,11 @@ export type RepairDeskRealtimeInvalidationTarget = {
 export function getRepairDeskRealtimeInvalidationTargets(
   event: RepairDeskRealtimeEvent,
 ): RepairDeskRealtimeInvalidationTarget[] {
-  return event.queryGroups.map((group) => ({
+  const groups = new Set(event.queryGroups);
+  // Older broadcasters may only send customers.all. The order read model embeds
+  // the current profile, so customer events must also refresh related orders.
+  if (event.domain === "customers") groups.add("orders.all");
+  return [...groups].map((group) => ({
     group,
     queryKey: getRepairDeskRealtimeQueryKeyForGroup(group, event.storeId),
   }));
@@ -84,7 +88,7 @@ export function getRepairDeskRealtimeQueryGroupsForDomain(
     case "orders":
       return ["orders.all", "customers.all"];
     case "customers":
-      return ["customers.all"];
+      return ["customers.all", "orders.all"];
     case "inventory":
       return [
         "inventory.all",

@@ -946,8 +946,10 @@ export const updateOrderInputSchema = z
   .object({
     idempotency_key: z.string().uuid().optional(),
     expected_updated_at: z.string().min(1, "缺少版本时间"),
+    expected_customer_updated_at: z.string().datetime({ offset: true }).optional(),
     customer_name: z.string(),
     customer_phone: z.string(),
+    contact_phones: z.array(z.string().trim().min(1)).max(20).optional(),
     device_brand: z.string(),
     device_model: z.string(),
     device_imei: optionalDeviceImeiText,
@@ -963,7 +965,16 @@ export const updateOrderInputSchema = z
     fault_prices: z.array(faultPriceItemSchema),
     deposit_amount: z.coerce.number().optional(),
   })
-  .strip() satisfies z.ZodType<UpdateOrderInput>;
+  .strip()
+  .superRefine((input, context) => {
+    if (!input.expected_customer_updated_at) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["expected_customer_updated_at"],
+        message: "缺少客户版本时间，请刷新页面后重新核对客户信息",
+      });
+    }
+  }) satisfies z.ZodType<UpdateOrderInput>;
 
 export const updateOrderBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
@@ -974,6 +985,7 @@ export const patchOrderChangesSchema = z
   .object({
     customer_name: optionalText,
     customer_phone: optionalText,
+    contact_phones: z.array(z.string().trim().min(1)).max(20).optional(),
     device_brand: optionalText,
     device_model: optionalText,
     device_imei: patchDeviceImeiText,
@@ -999,6 +1011,7 @@ export const patchOrderInputSchema = z
   .object({
     idempotency_key: z.string().uuid().optional(),
     expected_updated_at: z.string().min(1, "缺少版本时间"),
+    expected_customer_updated_at: z.string().datetime({ offset: true }).optional(),
     finance: z
       .object({
         fault_prices: z.array(faultPriceItemSchema),
@@ -1010,7 +1023,21 @@ export const patchOrderInputSchema = z
       message: "没有可保存的字段",
     }),
   })
-  .strict() satisfies z.ZodType<PatchOrderInput>;
+  .strict()
+  .superRefine((input, context) => {
+    if (
+      ["customer_name", "customer_phone", "contact_phones"].some((key) =>
+        Object.prototype.hasOwnProperty.call(input.changes, key),
+      ) &&
+      !input.expected_customer_updated_at
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["expected_customer_updated_at"],
+        message: "缺少客户版本时间，请刷新页面后重新核对客户信息",
+      });
+    }
+  }) satisfies z.ZodType<PatchOrderInput>;
 
 export const patchOrderFinanceInputSchema = z
   .object({

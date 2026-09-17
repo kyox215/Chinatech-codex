@@ -10,11 +10,25 @@ import { storesKeys } from "@/features/stores/api/query-keys";
 import { suppliersKeys } from "@/features/suppliers/api/query-keys";
 
 import type { RepairDeskRealtimeEvent } from "./realtime-events";
-import { getRepairDeskRealtimeInvalidationTargets } from "./query-invalidation-map";
+import {
+  getRepairDeskRealtimeInvalidationTargets,
+  getRepairDeskRealtimeQueryGroupsForDomain,
+} from "./query-invalidation-map";
 
 const storeId = "5248dda1-2b32-46cd-8ed0-d15386a9e8ed";
 
 describe("RepairDesk realtime invalidation map", () => {
+  it("refreshes orders for customer broadcasts and revision catch-up, including older payloads", () => {
+    const event = { ...buildEvent(["customers.all"]), domain: "customers" as const };
+    expect(getRepairDeskRealtimeInvalidationTargets(event)).toEqual([
+      { group: "customers.all", queryKey: customersKeys.all },
+      { group: "orders.all", queryKey: ordersKeys.all },
+    ]);
+    expect(getRepairDeskRealtimeQueryGroupsForDomain("customers")).toEqual([
+      "customers.all",
+      "orders.all",
+    ]);
+  });
   it("maps order-domain events to broad safe cache invalidation targets", () => {
     const event = buildEvent(["orders.all", "customers.all"]);
 

@@ -317,12 +317,14 @@ test("A editors preserve page geometry, focus and failed quote draft", async ({ 
   const quote = page
     .locator("#mobile-order-quote")
     .getByRole("button", { name: tr("zh-CN", "orders2b2.overview.quoteItems"), exact: true });
+  await quote.scrollIntoViewIfNeeded();
+  const quoteScrollBeforeOpen = await page.evaluate(() => window.scrollY);
   await quote.click();
   const editor = page.locator("#mobile-order-finance-editor");
   await expect(editor).toBeVisible();
   await capture(page, "order-quote-editor");
   expect((await main.boundingBox())!.height).toBe(initial!.height);
-  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  expect(await page.evaluate(() => window.scrollY)).toBe(quoteScrollBeforeOpen);
   const input = editor
     .getByRole("button", { name: tr("zh-CN", "orders2b2.finance.item"), exact: true })
     .nth(0);

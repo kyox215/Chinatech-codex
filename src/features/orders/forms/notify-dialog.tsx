@@ -143,7 +143,10 @@ export function NotifyDialog({
   const approvalQuoteBlocked = templateKind === "approval_request" && !snapshot.approvalQuoteReady;
   const version = snapshot.data.order.updated_at;
   const missingVersion = !version || !Number.isFinite(Date.parse(version));
+  const phonesChanged =
+    JSON.stringify(getOrderContactPhoneOptions(data)) !== JSON.stringify(phoneOptions);
   const changed =
+    phonesChanged ||
     data.order.id !== snapshot.data.order.id ||
     data.order.updated_at !== version ||
     (data.latest_quote_event_id ?? null) !== (snapshot.data.latest_quote_event_id ?? null);
@@ -214,9 +217,19 @@ export function NotifyDialog({
 
   useEffect(() => {
     if (!open || attempted || (!changed && !identityChanged)) return;
-    if (!dirty && !whatsappOpened) resetSession(data);
+    if (!dirty && !whatsappOpened && !phonesChanged) resetSession(data);
     else setConflictCode((current) => current ?? "remote_changed");
-  }, [open, attempted, changed, identityChanged, dirty, whatsappOpened, resetSession, data]);
+  }, [
+    open,
+    attempted,
+    changed,
+    identityChanged,
+    dirty,
+    whatsappOpened,
+    phonesChanged,
+    resetSession,
+    data,
+  ]);
 
   const reloadLatest = async () => {
     if (pending || (attempted && !conflictCode)) return;
@@ -352,9 +365,11 @@ export function NotifyDialog({
                 {t(
                   attempted && !conflictCode
                     ? "orders2b2.notify.retryIntent"
-                    : missingVersion
-                      ? "orders2b2.notify.versionRequired"
-                      : "orders2b2.notify.frozenIntent",
+                    : phonesChanged
+                      ? "orders2b2.notify.phoneChanged"
+                      : missingVersion
+                        ? "orders2b2.notify.versionRequired"
+                        : "orders2b2.notify.frozenIntent",
                 )}
               </p>
               {!attempted || conflictCode ? (

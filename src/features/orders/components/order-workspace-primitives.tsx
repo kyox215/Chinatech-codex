@@ -91,6 +91,7 @@ export function OrderWorkspaceRepairItems({
       <div className="order-workbench-quote-actions">
         {onEdit || onEditClick ? (
           <button
+            data-order-repair-edit-trigger="true"
             type="button"
             className="flex min-h-11 w-full items-center gap-2 border-t border-[var(--border-panel)] text-left text-xs font-medium text-primary focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={`${t("orders2b2.hero.edit")} · ${t("orders2b2.overview.quoteItems")}`}

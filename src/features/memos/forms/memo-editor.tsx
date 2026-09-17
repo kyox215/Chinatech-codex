@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { useNavigationGuard } from "@/components/navigation-guard-provider";
 import { Textarea } from "@/components/ui/textarea";
 import { UnsavedNavigationGuard } from "@/components/unsaved-navigation-guard";
-import { useIsCompactWorkspace } from "@/hooks/use-mobile";
+import { useIsCompactWorkspace, useIsMobile } from "@/hooks/use-mobile";
 import { memoQuickEntry } from "@/lib/component-patterns";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
@@ -40,6 +40,7 @@ export function MemoEditor({
   onRestore,
 }: MemoEditorProps) {
   const compact = useIsCompactWorkspace();
+  const mobile = useIsMobile();
   const { locale } = useLocale();
   const copy = getMemoPresentationCopy(locale);
   const { runGuardedTransition } = useNavigationGuard();
@@ -469,7 +470,7 @@ export function MemoEditor({
 
   return (
     <MemoEditorOverlay
-      compact={compact}
+      compact={mobile}
       open={open}
       title={memo ? copy.detailTitle : copy.newTitle}
       description={memo ? copy.detailDescription : copy.newDescription}

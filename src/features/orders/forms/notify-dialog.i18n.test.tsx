@@ -29,6 +29,57 @@ afterEach(() => {
 });
 
 describe("NotifyDialog i18n", () => {
+  it("preserves a drafted notification when customer numbers change without an order revision", () => {
+    const onConfirm = vi.fn();
+    const data = {
+      order: {
+        ...orders[0]!,
+        device_imei: "",
+        customer_name: "Synthetic customer",
+        device_label: "Synthetic device",
+        approval_overdue: false,
+        pickup_overdue: false,
+        customer_phone: "+393330000910",
+        contact_phones: [],
+      },
+      events: [],
+      messages: [],
+      attachments: [],
+    } as OrderDetail;
+    const props = {
+      open: true,
+      onOpenChange: vi.fn(),
+      data,
+      orderUrl: "https://example.invalid/order",
+      storeIdentity: identity,
+      canReadStoreSettings: true,
+      canUpdateStoreSettings: true,
+      busy: false,
+      onConfirm,
+    };
+    const view = render(
+      <LocaleProvider initialLocale="en">
+        <NotifyDialog {...props} />
+      </LocaleProvider>,
+    );
+    const body = screen.getByLabelText(translateMessage("en", "orders2b2.notify.body"));
+    fireEvent.change(body, { target: { value: "Keep this drafted notification" } });
+    view.rerender(
+      <LocaleProvider initialLocale="en">
+        <NotifyDialog
+          {...props}
+          data={{ ...data, order: { ...data.order, customer_phone: "+393330000911" } }}
+        />
+      </LocaleProvider>,
+    );
+    expect(body).toHaveValue("Keep this drafted notification");
+    expect(screen.getByDisplayValue("+393330000910")).toBeVisible();
+    expect(screen.getByText(translateMessage("en", "orders2b2.notify.phoneChanged"))).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: translateMessage("en", "orders2b2.notify.open") }),
+    ).toBeDisabled();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
   it("localizes chrome while preserving baseline body normalization and canonical recipient", async () => {
     const calls: Array<Record<string, unknown>> = [];
 

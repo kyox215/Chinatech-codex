@@ -45,6 +45,40 @@ const scopedOrderAttachment = {
 };
 
 describe("order repository tenant storage boundaries", () => {
+  it.each([
+    null,
+    { code: "PGRST116", message: "Cannot coerce result to one private database row" },
+  ])(
+    "returns a safe 404 for a missing or foreign-store order before querying children",
+    async (error) => {
+      mocks.supabase.from.mockReset();
+      const query = createSupabaseQuery({ data: null, error, count: 0 });
+      mocks.supabase.from.mockReturnValueOnce(query);
+      await expect(getOrder("other-store-order", actor("owner"))).rejects.toMatchObject({
+        code: "order_not_found",
+        status: 404,
+        message: "工单不存在或不属于当前店铺",
+      });
+      expect(query.eq).toHaveBeenCalledWith("store_id", "store_1");
+      expect(mocks.supabase.from).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("keeps database details out of a failed detail read", async () => {
+    mocks.supabase.from.mockReset();
+    mocks.supabase.from.mockReturnValueOnce(
+      createSupabaseQuery({
+        data: null,
+        error: { code: "08006", message: "private database topology" },
+        count: 0,
+      }),
+    );
+    await expect(getOrder("order-1", actor("owner"))).rejects.toMatchObject({
+      code: "ORDER_READ_FAILED",
+      status: 503,
+      message: "读取工单详情失败，请稍后重试",
+    });
+  });
   it("allows signing only for the active store and order path", () => {
     expect(isOrderAttachmentStorageScoped(scopedOrderAttachment, "store_1", "ord_1")).toBe(true);
   });
@@ -88,6 +122,28 @@ describe("order repository tenant storage boundaries", () => {
 });
 
 describe("order repository role projection", () => {
+  it("keeps the historical phone snapshot for authorized owners", () => {
+    const source = { ...order(), customer_phone_snapshot: "+393330009991" };
+    expect(projectOrderListItemForActor(source, actor("owner")).customer_phone_snapshot).toBe(
+      "+393330009991",
+    );
+    expect(
+      projectOrderDetailForActor({ ...detail(), order: source }, actor("owner")).order
+        .customer_phone_snapshot,
+    ).toBe("+393330009991");
+  });
+
+  it.each(["technician", "viewer"] as const)(
+    "removes the historical phone snapshot from %s list and detail payloads",
+    (role) => {
+      const source = { ...order(), customer_phone_snapshot: "+393330009991" };
+      const list = projectOrderListItemForActor(source, actor(role));
+      const opened = projectOrderDetailForActor({ ...detail(), order: source }, actor(role));
+      expect(list.customer_phone_snapshot).toBeUndefined();
+      expect(opened.order.customer_phone_snapshot).toBeUndefined();
+      expect(JSON.stringify({ list, opened })).not.toContain("+393330009991");
+    },
+  );
   it.each([
     ["owner", true, true],
     ["manager", true, false],

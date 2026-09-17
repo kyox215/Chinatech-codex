@@ -16,7 +16,7 @@ const scope: RepairDeskOfflineScope = { storeId: "store_1", userId: "user_1" };
 type HookValue = ReturnType<typeof useEditOrderOfflineAutosave>;
 
 describe("useEditOrderOfflineAutosave", () => {
-  it("autosaves non-sensitive edit fields without storing raw unlock values", async () => {
+  it("autosaves only quotation fields without storing identity, repair or raw unlock values", async () => {
     const harness = createServiceHarness();
     const data = makeOrderDetail();
     let latest: HookValue | undefined;
@@ -27,6 +27,7 @@ describe("useEditOrderOfflineAutosave", () => {
         draft={{
           ...buildEditForm(data),
           issue_description: "Updated issue from edit screen",
+          deposit_amount: 25,
           device_unlock: { method: "pin", value: "009999" },
         }}
         onValue={(value) => {
@@ -46,11 +47,13 @@ describe("useEditOrderOfflineAutosave", () => {
       serverOrderId: "order_1",
       baseUpdatedAt: "2026-07-06T10:00:00.000Z",
       draftPayload: {
-        issueDescription: "Updated issue from edit screen",
+        depositAmountCents: 2500,
       },
     });
     expect(JSON.stringify(drafts.ok && drafts.value[0])).not.toContain("009999");
     expect(JSON.stringify(drafts.ok && drafts.value[0]).toLowerCase()).not.toContain("unlock");
+    expect(JSON.stringify(drafts.ok && drafts.value[0])).not.toContain("Updated issue");
+    expect(JSON.stringify(drafts.ok && drafts.value[0])).not.toContain("Mario Rossi");
   });
 
   it("reports unavailable local storage without blocking edit mode", async () => {
@@ -62,7 +65,7 @@ describe("useEditOrderOfflineAutosave", () => {
     render(
       <AutosaveHarness
         orderDetail={data}
-        draft={{ ...buildEditForm(data), issue_description: "Local change" }}
+        draft={{ ...buildEditForm(data), deposit_amount: 25 }}
         onValue={(value) => {
           latest = value;
         }}
@@ -77,7 +80,7 @@ describe("useEditOrderOfflineAutosave", () => {
   it("rebases the active local draft without presenting it as a restore conflict", async () => {
     const harness = createServiceHarness();
     const data = makeOrderDetail();
-    const draft = { ...buildEditForm(data), issue_description: "Updated issue and quote" };
+    const draft = { ...buildEditForm(data), deposit_amount: 30 };
     let latest: HookValue | undefined;
     const view = render(
       <AutosaveHarness
@@ -129,6 +132,7 @@ describe("useEditOrderOfflineAutosave", () => {
         draft: {
           ...buildEditForm(makeOrderDetail({ orderId: "order_2" })),
           issue_description: "Other order change",
+          deposit_amount: 25,
         },
       }),
     );
@@ -167,7 +171,7 @@ describe("useEditOrderOfflineAutosave", () => {
     expect(restored?.status).toBe("restored");
     if (!restored || restored.status !== "restored") throw new Error("Draft was not restored.");
     expect(restored.draft).toMatchObject({
-      issue_description: "Current order local change",
+      issue_description: data.order.issue_description,
       deposit_amount: 35,
       device_unlock: { method: "pin", value: "001258" },
     });
@@ -193,6 +197,7 @@ describe("useEditOrderOfflineAutosave", () => {
         draft: {
           ...buildEditForm(oldData),
           issue_description: "Stale local change",
+          deposit_amount: 30,
         },
       }),
     );

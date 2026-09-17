@@ -130,8 +130,9 @@ vi.mock("@/components/orders/diagnosis-quote-dialog", () => ({
   }: {
     open: boolean;
     isPending: boolean;
-    onSaveDiagnosis: (value: string) => Promise<unknown>;
+    onSaveDiagnosis: (value: string, expectedUpdatedAt: string) => Promise<unknown>;
     onPublish: (input: {
+      expectedUpdatedAt: string;
       idempotencyKey: string;
       diagnosisResult: string;
       faultPrices: FaultPriceItem[];
@@ -142,7 +143,9 @@ vi.mock("@/components/orders/diagnosis-quote-dialog", () => ({
         <button
           type="button"
           disabled={isPending}
-          onClick={() => void onSaveDiagnosis("动态中文诊断").catch(() => undefined)}
+          onClick={() =>
+            void onSaveDiagnosis("动态中文诊断", taskOrder.updated_at).catch(() => undefined)
+          }
         >
           Harness save diagnosis
         </button>
@@ -151,6 +154,7 @@ vi.mock("@/components/orders/diagnosis-quote-dialog", () => ({
           disabled={isPending}
           onClick={() =>
             void onPublish({
+              expectedUpdatedAt: taskOrder.updated_at,
               idempotencyKey: "quote-idempotency-stable",
               diagnosisResult: "动态中文诊断",
               faultPrices: [
@@ -435,6 +439,26 @@ describe("OrderTaskScreen i18n", () => {
       expect(mocks.transitionOrder).not.toHaveBeenCalled();
     },
   );
+
+  it("passes the dialog's original version to both mutations after query data advances", async () => {
+    mocks.query.order = { ...taskOrder, updated_at: "2026-09-17T08:01:00.000Z" };
+    renderTask("en");
+    fireEvent.click(
+      screen.getByRole("button", { name: translateMessage("en", "orders2b1.task.diagnoseQuote") }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Harness save diagnosis" }));
+    await waitFor(() => expect(mocks.patchOrder).toHaveBeenCalledTimes(1));
+    expect(mocks.patchOrder).toHaveBeenCalledWith(taskOrder.id, {
+      expected_updated_at: taskOrder.updated_at,
+      changes: { diagnosis_result: "动态中文诊断" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: translateMessage("en", "orders2b1.task.diagnoseQuote") }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Harness publish quote" }));
+    await waitFor(() => expect(mocks.publishOrderQuote).toHaveBeenCalledTimes(1));
+    expect(mocks.publishOrderQuote.mock.calls[0][1].expected_updated_at).toBe(taskOrder.updated_at);
+  });
 
   it.each(locales)("renders loading, not-found and read-error states in %s", (locale) => {
     mocks.query.isLoading = true;

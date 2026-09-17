@@ -171,6 +171,8 @@ export function OrderOverviewTab({
   onEditFinance,
   quoteAction,
   onEditField,
+  onEditUnlock,
+  financeEditor,
 }: {
   order: OrderDetail["order"];
   customer?: Customer;
@@ -215,6 +217,8 @@ export function OrderOverviewTab({
   onEditFinance?: React.MouseEventHandler<HTMLButtonElement>;
   quoteAction?: React.ReactNode;
   onEditField?: (field: OrderDetailField, trigger: HTMLElement) => void;
+  onEditUnlock?: (trigger: HTMLButtonElement) => void;
+  financeEditor?: React.ReactNode;
 }) {
   const { t } = useLocale();
   const edit =
@@ -259,7 +263,9 @@ export function OrderOverviewTab({
       onEditNotes={onEditNotes}
       onEditQuote={canAdjustFinance ? (onEditFinance ?? onEdit) : undefined}
       quoteAction={quoteAction}
+      quoteEditor={financeEditor}
       onEditField={onEditField}
+      onEditUnlock={onEditUnlock}
     />
   );
   const financePanel = (
@@ -1195,9 +1201,10 @@ function CustomerPanel({
           aria-label={t("orders2b2.overview.customerInfo")}
           className="min-h-11 min-w-0 break-words text-left text-sm font-semibold focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {order.customer_name || customer?.name || "—"}
+          {(customer?.name ?? order.customer_name) || t("orders2b2.edit.addName")}
         </button>
-        <CustomerPhoneField order={order} customer={customer} edit={null} />
+        <CustomerPhoneField order={order} customer={customer} edit={null} onEdit={onEdit} />
+        <BackupPhones order={order} customer={customer} edit={null} onEdit={onEdit} />
         <details className="order-workbench-customer-details">
           <summary>
             {t("orders2b2.overview.customerInfo")}
@@ -1207,7 +1214,6 @@ function CustomerPanel({
             <InfoField label={t("orders2b2.overview.technician")}>
               <ReadonlyValue value={order.technician_name} />
             </InfoField>
-            <BackupPhones order={order} edit={null} />
             <CustomerSignatureSection
               order={order}
               onRequestKioskSignature={onRequestKioskSignature}
@@ -1306,10 +1312,12 @@ function CustomerPhoneField({
   order,
   customer,
   edit,
+  onEdit,
 }: {
   order: OrderDetail["order"];
   customer?: Customer;
   edit: OrderEditContext | null;
+  onEdit?: React.MouseEventHandler<HTMLButtonElement>;
 }) {
   const { t } = useLocale();
   const value = getDraftPrimaryPhone(
@@ -1351,7 +1359,22 @@ function CustomerPhoneField({
   }
   return (
     <InfoField label={t("orders2b2.overview.primaryPhone")} tone="soft">
-      <PhoneContactMenu phone={order.customer_phone ?? customer?.phone_e164 ?? ""} />
+      <div className="flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          data-order-customer-phone-trigger="true"
+          disabled={!onEdit}
+          onClick={onEdit}
+          className="min-h-11 min-w-0 flex-1 break-all text-left font-mono text-sm focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {(customer?.phone_e164 ?? order.customer_phone) || t("orders2b2.edit.addPhone")}
+        </button>
+        <PhoneContactMenu
+          phone={customer?.phone_e164 ?? order.customer_phone}
+          iconOnly
+          className="grid size-11 shrink-0 place-items-center"
+        />
+      </div>
     </InfoField>
   );
 }
@@ -1359,9 +1382,13 @@ function CustomerPhoneField({
 function BackupPhones({
   order,
   edit,
+  customer,
+  onEdit,
 }: {
   order: OrderDetail["order"];
   edit: OrderEditContext | null;
+  customer?: Customer;
+  onEdit?: React.MouseEventHandler<HTMLButtonElement>;
 }) {
   const { t } = useLocale();
   const draftCustomerPhone = edit?.draft.customer_phone ?? "";
@@ -1413,20 +1440,41 @@ function BackupPhones({
       </InfoField>
     );
   }
-  if (!order.contact_phones.length) return null;
-  const backupPhones = uniqueContactPhones(order.customer_phone, order.contact_phones);
-  if (!backupPhones.length) return null;
+  const backupPhones = uniqueContactPhones(
+    customer?.phone_e164 ?? order.customer_phone,
+    customer?.contact_phones ?? order.contact_phones,
+  );
+  if (!backupPhones.length && !onEdit) return null;
   return (
     <InfoField label={t("orders2b2.overview.backupPhones")}>
       <div className="flex min-w-0 flex-wrap gap-1">
         {backupPhones.map((phone) => (
-          <PhoneContactMenu
-            key={phone}
-            phone={phone}
-            className="max-w-full truncate rounded-md border border-border/70 bg-surface-muted/70 px-1.5 py-0.5 text-[11px] lg:text-xs lg:leading-4"
-            compact
-          />
+          <div key={phone} className="flex w-full min-w-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={onEdit}
+              disabled={!onEdit}
+              className="min-h-11 min-w-0 flex-1 break-all text-left font-mono text-sm focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {phone}
+            </button>
+            <PhoneContactMenu
+              phone={phone}
+              iconOnly
+              className="grid size-11 shrink-0 place-items-center"
+            />
+          </div>
         ))}
+        {onEdit ? (
+          <button
+            type="button"
+            data-order-backup-phone-trigger="true"
+            onClick={onEdit}
+            className="min-h-11 text-left text-xs text-primary focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {t("orders2b2.backupPhone.add")}
+          </button>
+        ) : null}
       </div>
     </InfoField>
   );
@@ -1547,7 +1595,9 @@ function DeviceIssuePanel({
   onEditNotes,
   onEditQuote,
   quoteAction,
+  quoteEditor,
   onEditField,
+  onEditUnlock,
 }: {
   order: OrderDetail["order"];
   deviceBrand: string;
@@ -1566,7 +1616,9 @@ function DeviceIssuePanel({
   onEditNotes?: (trigger: HTMLButtonElement) => void;
   onEditQuote?: React.MouseEventHandler<HTMLButtonElement>;
   quoteAction?: React.ReactNode;
+  quoteEditor?: React.ReactNode;
   onEditField?: (field: OrderDetailField, trigger: HTMLElement) => void;
+  onEditUnlock?: (trigger: HTMLButtonElement) => void;
 }) {
   const { locale, t } = useLocale();
   const dense = true;
@@ -1594,6 +1646,7 @@ function DeviceIssuePanel({
             edit={null}
             onQuickSave={onQuickImeiSave}
             quickPending={quickImeiPending}
+            onEdit={onEdit}
           />
         </div>
         <div className="order-workbench-repair-notes">
@@ -1614,15 +1667,27 @@ function DeviceIssuePanel({
             <OrderWorkspaceFullText text={order.issue_description} />
           </div>
           <div className="order-workbench-section" data-order-panel="diagnosis">
-            <h3>
-              <span aria-hidden="true">02</span>
-              {t("orders2b2.overview.diagnosis")}
-            </h3>
-            <p>{order.diagnosis_result || "—"}</p>
+            <button
+              type="button"
+              data-order-field-trigger="diagnosis"
+              onClick={(event) => onEditField?.("diagnosis", event.currentTarget)}
+              disabled={!onEditField}
+              className="block min-h-11 w-full text-left focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <h3>
+                <span aria-hidden="true">02</span>
+                {t("orders2b2.overview.diagnosis")}
+              </h3>
+              <p>{order.diagnosis_result || "—"}</p>
+            </button>
             <OrderWorkspaceFullText text={order.diagnosis_result} />
           </div>
         </div>
-        {!order.finance_redacted ? (
+        {!order.finance_redacted && quoteEditor ? (
+          <section data-order-workbench-repairs="true" className="order-workbench-finance-editing">
+            {quoteEditor}
+          </section>
+        ) : !order.finance_redacted ? (
           <OrderWorkspaceRepairItems
             names={order.fault_prices.map(
               (item) =>
@@ -1662,7 +1727,20 @@ function DeviceIssuePanel({
             </button>
           </div>
           <div className="order-workbench-device-support">
-            <DeviceUnlockDetailField order={order} edit={null} dense />
+            <div className="min-w-0">
+              <DeviceUnlockDetailField order={order} edit={null} dense />
+              {onEditUnlock && !order.sensitive_redacted ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="min-h-11 text-xs"
+                  data-order-unlock-trigger="true"
+                  onClick={(event) => onEditUnlock(event.currentTarget)}
+                >
+                  {t(order.device_unlock_method ? "orders2b2.unlock.edit" : "orders2b2.unlock.add")}
+                </Button>
+              ) : null}
+            </div>
             <button
               type="button"
               data-order-field-trigger="notes"
@@ -1675,6 +1753,23 @@ function DeviceIssuePanel({
                   {t("orders2b2.overview.deviceNotes")}
                 </span>
                 <span className="block max-w-full truncate text-xs">{deviceNotes || "—"}</span>
+              </span>
+              <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              data-order-field-trigger="internal_tag"
+              onClick={(event) => onEditField?.("internal_tag", event.currentTarget)}
+              disabled={!onEditField}
+              className="order-detail-direct-field"
+            >
+              <span className="min-w-0">
+                <span className="block text-xs text-muted-foreground">
+                  {t("orders2b2.edit.internalTag")}
+                </span>
+                <span className="block max-w-full truncate text-xs">
+                  {order.internal_tag || "—"}
+                </span>
               </span>
               <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />
             </button>
@@ -2183,11 +2278,13 @@ export function ImeiField({
   edit,
   onQuickSave,
   quickPending,
+  onEdit,
 }: {
   value: string;
   edit: OrderEditContext | null;
   onQuickSave?: (imei: string) => void | Promise<void>;
   quickPending: boolean;
+  onEdit?: React.MouseEventHandler<HTMLButtonElement>;
 }) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
@@ -2207,6 +2304,31 @@ export function ImeiField({
     );
   }
 
+  if (onEdit)
+    return (
+      <InfoField label={t("orders2b2.overview.imei")} tone="soft">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <button
+            type="button"
+            data-order-device-identifier-trigger="true"
+            className="min-h-11 min-w-0 flex-1 break-all text-left font-mono text-xs focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={onEdit}
+          >
+            {value || "—"}
+          </button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label={t("orders2b2.overview.scanImei")}
+            onClick={onEdit}
+          >
+            <Camera className="size-3.5" />
+          </Button>
+        </div>
+      </InfoField>
+    );
   return (
     <InfoField label={t("orders2b2.overview.imei")} tone="soft">
       <div className="flex min-w-0 items-center gap-1.5">

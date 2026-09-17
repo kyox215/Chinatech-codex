@@ -244,11 +244,11 @@ export function OrderTaskScreen({ id }: { id: string }) {
     onError: () => toast.error(t("orders2b1.task.actionFailed")),
   });
   const diagnosisSave = useMutation({
-    mutationFn: (diagnosisResult: string) => {
+    mutationFn: (input: { diagnosisResult: string; expectedUpdatedAt: string }) => {
       if (!order) throw new Error(t("orders2b1.task.orderUnavailable"));
       return patchOrder(id, {
-        expected_updated_at: order.updated_at,
-        changes: { diagnosis_result: diagnosisResult },
+        expected_updated_at: input.expectedUpdatedAt,
+        changes: { diagnosis_result: input.diagnosisResult },
       });
     },
     onSuccess: () => {
@@ -259,6 +259,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
   });
   const quotePublish = useMutation({
     mutationFn: (input: {
+      expectedUpdatedAt: string;
       idempotencyKey: string;
       diagnosisResult: string;
       faultPrices: NonNullable<typeof order>["fault_prices"];
@@ -266,7 +267,7 @@ export function OrderTaskScreen({ id }: { id: string }) {
     }) => {
       if (!order) throw new Error(t("orders2b1.task.orderUnavailable"));
       return publishOrderQuote(id, {
-        expected_updated_at: order.updated_at,
+        expected_updated_at: input.expectedUpdatedAt,
         idempotency_key: input.idempotencyKey,
         diagnosis_result: input.diagnosisResult,
         fault_prices: input.faultPrices,
@@ -693,7 +694,9 @@ export function OrderTaskScreen({ id }: { id: string }) {
           order={order}
           capabilities={data.capabilities}
           isPending={diagnosisSave.isPending || quotePublish.isPending}
-          onSaveDiagnosis={(diagnosisResult) => diagnosisSave.mutateAsync(diagnosisResult)}
+          onSaveDiagnosis={(diagnosisResult, expectedUpdatedAt) =>
+            diagnosisSave.mutateAsync({ diagnosisResult, expectedUpdatedAt })
+          }
           onPublish={(input) => quotePublish.mutateAsync(input)}
         />
       ) : null}

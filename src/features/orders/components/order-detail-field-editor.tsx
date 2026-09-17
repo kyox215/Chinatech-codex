@@ -24,7 +24,7 @@ import {
   useCompactEditorSession,
 } from "@/shared/lib/use-compact-editor-session";
 
-export type OrderDetailField = "accessories" | "notes" | "warranty";
+export type OrderDetailField = "accessories" | "notes" | "warranty" | "diagnosis" | "internal_tag";
 
 export function OrderDetailFieldEditor({
   field,
@@ -66,7 +66,11 @@ export function OrderDetailFieldEditor({
       ? "orders2b2.overview.accessories"
       : field === "warranty"
         ? "orders2b2.overview.warranty"
-        : "orders2b2.overview.deviceNotes",
+        : field === "diagnosis"
+          ? "orders2b2.overview.diagnosis"
+          : field === "internal_tag"
+            ? "orders2b2.edit.internalTag"
+            : "orders2b2.overview.deviceNotes",
   );
   const conflict = hasOrderEditRemoteConflict({
     baselineUpdatedAt: baseline.expected_updated_at,
@@ -116,8 +120,12 @@ export function OrderDetailFieldEditor({
             <div className="whitespace-pre-wrap break-words text-sm leading-6">
               {field === "accessories" ? (
                 draft.accessory_notes || "—"
-              ) : field === "notes" ? (
-                draft.device_notes || "—"
+              ) : field !== "warranty" ? (
+                (field === "diagnosis"
+                  ? draft.diagnosis_result
+                  : field === "internal_tag"
+                    ? draft.internal_tag
+                    : draft.device_notes) || "—"
               ) : (
                 <WarrantyTag months={draft.warranty_months} text={draft.warranty_text} />
               )}
@@ -131,11 +139,25 @@ export function OrderDetailFieldEditor({
                   disabled={pending}
                   quickChoices
                 />
-              ) : field === "notes" ? (
+              ) : field !== "warranty" ? (
                 <Textarea
                   aria-label={title}
-                  value={draft.device_notes ?? ""}
-                  onChange={(event) => patch({ device_notes: event.target.value })}
+                  value={
+                    (field === "diagnosis"
+                      ? draft.diagnosis_result
+                      : field === "internal_tag"
+                        ? draft.internal_tag
+                        : draft.device_notes) ?? ""
+                  }
+                  onChange={(event) =>
+                    patch({
+                      [field === "diagnosis"
+                        ? "diagnosis_result"
+                        : field === "internal_tag"
+                          ? "internal_tag"
+                          : "device_notes"]: event.target.value,
+                    })
+                  }
                   className="min-h-32 text-base"
                 />
               ) : (

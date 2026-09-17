@@ -101,6 +101,7 @@ import {
   normalizeGeneratedRepairOrderPublicNo,
 } from "@/features/orders/model/order-public-no";
 import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
+import { normalizeOrderContactChanges } from "@/features/orders/model/order-contact-phones";
 import {
   canRunExactArchiveOrderSearch,
   classifyOrderSearchQuery,
@@ -496,6 +497,7 @@ export function projectOrderListItemForActor<T extends OrderListItem>(
     projected = {
       ...projected,
       customer_phone: maskContactValue(projected.customer_phone),
+      customer_phone_snapshot: undefined,
       contact_phones: projected.contact_phones.map(maskContactValue).filter(Boolean),
       customer_contact_redacted: true,
     };
@@ -1012,53 +1014,6 @@ async function resolveInitialOrderStatus(
   throw new Error("店铺没有可用于新建工单的状态");
 }
 
-function mergeContactPhones(existing: string[], incoming: string[], primaryRaw: string) {
-  const result: string[] = [];
-  const seen = new Set<string>(primaryRaw ? [primaryRaw] : []);
-  for (const phone of [...existing, ...incoming]) {
-    const raw = normalizePhoneRaw(phone);
-    if (!raw || seen.has(raw)) continue;
-    seen.add(raw);
-    result.push(phone.trim());
-  }
-  return result;
-}
-
-function contactPhonesChanged(left: string[], right: string[]) {
-  if (left.length !== right.length) return true;
-  return left.some((phone, index) => phone !== right[index]);
-}
-
-async function assertCustomerPhoneAvailable(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  storeId: string,
-  customerId: string,
-  primaryRaw: string,
-  contactPhones: string[],
-) {
-  const raws = Array.from(
-    new Set([
-      primaryRaw,
-      ...contactPhones.map((phone) => normalizePhoneRaw(phone)).filter(Boolean),
-    ]),
-  );
-  if (raws.length === 0) return;
-  const { data, error } = await supabase
-    .from("customers")
-    .select("id,phone_raw")
-    .eq("store_id", storeId)
-    .in("phone_raw", raws);
-  fail(error, "检查客户手机号失败");
-  const conflicts = ((data ?? []) as DbRecord[]).filter(
-    (row) => requiredString(row.id) !== customerId,
-  );
-  if (conflicts.length === 0) return;
-  if (conflicts.some((row) => requiredString(row.phone_raw) === primaryRaw)) {
-    throw new Error("该手机号已存在客户档案");
-  }
-  throw new Error("备用号码已属于其他客户档案，请先确认客户资料");
-}
-
 function normalizePageInput(input: OrderListPageInput = {}) {
   const page = Math.max(1, Math.floor(Number(input.page ?? 1)));
   const pageSize = Math.min(100, Math.max(10, Math.floor(Number(input.pageSize ?? 100))));
@@ -1409,8 +1364,13 @@ export async function getOrder(id: string, actor?: AuditActor): Promise<OrderDet
     .select(ORDER_SELECT)
     .eq("store_id", storeId)
     .eq("id", id)
-    .single();
-  fail(orderError, "读取工单详情失败");
+    .maybeSingle();
+  if (orderError?.code === "PGRST116" || (!orderError && !orderRow)) {
+    throw new OrderMutationError("工单不存在或不属于当前店铺", "order_not_found", 404);
+  }
+  if (orderError) {
+    throw new OrderMutationError("读取工单详情失败，请稍后重试", "ORDER_READ_FAILED", 503);
+  }
   assertOrderInActorScope(orderRow as DbRecord, actor);
 
   const [
@@ -2880,6 +2840,7 @@ function assertOrderRecordNotVoided(row: DbRecord) {
 const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   customer_name: "客户姓名",
   customer_phone: "手机号",
+  contact_phones: "备用号码",
   device_brand: "设备品牌",
   device_model: "设备型号",
   device_imei: "IMEI/序列号",
@@ -2956,7 +2917,8 @@ export async function updateOrder(
 
   if (!id) throw new Error("工单 ID 不能为空");
   if (!input.expected_updated_at) throw new Error("缺少工单版本时间");
-  if (!customerName || !customerPhone) throw new Error("客户姓名和手机号不能为空");
+  if (!input.expected_customer_updated_at)
+    throw new OrderMutationError("缺少客户版本时间", "customer_version_required", 409);
   if (!deviceBrand || !deviceModel) throw new Error("设备品牌和型号不能为空");
   if (!issueDescription) throw new Error("故障描述不能为空");
 
@@ -2982,16 +2944,10 @@ export async function updateOrder(
   const customerId = requiredString(currentRow.customer_id);
   const deviceId = requiredString(currentRow.device_id);
   if (!customerId || !deviceId) throw new Error("工单缺少客户或设备关联");
-  const phoneBook = normalizePhoneBook(customerPhone);
-  if (!phoneBook.primaryRaw) throw new Error("手机号格式不正确");
-  const customerContactPhones = mergeContactPhones([], phoneBook.contacts, phoneBook.primaryRaw);
-  await assertCustomerPhoneAvailable(
-    supabase,
-    storeId,
-    customerId,
-    phoneBook.primaryRaw,
-    customerContactPhones,
-  );
+  const contactChanges = normalizeOrderContactChanges({
+    customer_phone: customerPhone,
+    contact_phones: input.contact_phones,
+  });
 
   const tagInput = normalizeOrderTagInput({
     internalTag: input.internal_tag,
@@ -3029,7 +2985,6 @@ export async function updateOrder(
       warranty_text: warranty.warranty_text,
       warranty_months: warranty.warranty_months,
       warranty_change_reason: warranty.warranty_change_reason ?? null,
-      contact_phones: customerContactPhones,
       quotation_amount: quotation,
       deposit_amount: deposit,
       fault_prices: validFaults,
@@ -3042,9 +2997,7 @@ export async function updateOrder(
     },
     customerChanges: {
       name: customerName,
-      phone_e164: phoneBook.primary,
-      phone_raw: phoneBook.primaryRaw,
-      contact_phones: customerContactPhones,
+      ...contactChanges,
     },
   });
 }
@@ -3067,6 +3020,13 @@ export async function patchOrder(
     keyof PatchOrderInput["changes"],
     PatchOrderInput["changes"][keyof PatchOrderInput["changes"]],
   ][];
+  if (
+    editableEntries.some(([field]) =>
+      ["customer_name", "customer_phone", "contact_phones"].includes(field),
+    ) &&
+    !input.expected_customer_updated_at
+  )
+    throw new OrderMutationError("缺少客户版本时间", "customer_version_required", 409);
 
   const supabase = getSupabaseAdmin();
   const accessRow = await readOrderStatusRow(supabase, storeId, id, requestActor, "读取工单失败");
@@ -3096,14 +3056,11 @@ export async function patchOrder(
     currentRow.device_snapshot,
     device ? snapshotFromDevice(device) : undefined,
   );
-  const existingContactPhones =
-    currentRow.customer && typeof currentRow.customer === "object"
-      ? stringArray((currentRow.customer as DbRecord).contact_phones)
-      : [];
   const orderUpdate: DbRecord = {};
-  const customerUpdate: DbRecord = {};
+  const customerUpdate: DbRecord = normalizeOrderContactChanges(input.changes);
 
   for (const [field, rawValue] of editableEntries) {
+    if (field === "customer_phone" || field === "contact_phones") continue;
     if (field === "assignee_membership_id") {
       if (!requestActor?.isSystem && !can(requestActor, "order:assign")) {
         throw new ForbiddenError("当前角色无权分配工单负责人");
@@ -3158,31 +3115,7 @@ export async function patchOrder(
 
     switch (field) {
       case "customer_name":
-        if (!value) throw new Error("客户姓名不能为空");
         customerUpdate.name = value;
-        break;
-      case "customer_phone":
-        if (!value) throw new Error("手机号不能为空");
-        {
-          const phoneBook = normalizePhoneBook(value, existingContactPhones);
-          if (!phoneBook.primaryRaw) throw new Error("手机号格式不正确");
-          const contactPhones = mergeContactPhones(
-            existingContactPhones,
-            phoneBook.contacts,
-            phoneBook.primaryRaw,
-          );
-          await assertCustomerPhoneAvailable(
-            supabase,
-            storeId,
-            customerId,
-            phoneBook.primaryRaw,
-            contactPhones,
-          );
-          customerUpdate.phone_e164 = phoneBook.primary;
-          customerUpdate.phone_raw = phoneBook.primaryRaw;
-          customerUpdate.contact_phones = contactPhones;
-          orderUpdate.contact_phones = contactPhones;
-        }
         break;
       case "device_brand":
         if (!value) throw new Error("设备品牌不能为空");

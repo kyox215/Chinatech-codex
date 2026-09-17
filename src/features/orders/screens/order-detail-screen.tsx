@@ -438,17 +438,47 @@ export function OrderDetailScreen({
   );
   const [desktopEditorSurface, setDesktopEditorSurface] = useState<"all" | "finance">("all");
   const desktopIdentityTriggerRef = useRef<HTMLElement | null>(null);
+  const [desktopUnlockEditing, setDesktopUnlockEditing] = useState(false);
+  const desktopUnlockTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const queuedDesktopEditorRef = useRef<(() => void) | null>(null);
   const [detailField, setDetailField] = useState<OrderDetailField | null>(null);
   const detailFieldTriggerRef = useRef<HTMLElement | null>(null);
   const openDetailField = (field: OrderDetailField, trigger: HTMLElement) => {
-    detailFieldTriggerRef.current = trigger;
-    setDetailField(field);
+    requestDesktopEditor(() => {
+      detailFieldTriggerRef.current = trigger;
+      setDetailField(field);
+    });
   };
   const desktopFinanceTriggerRef = useRef<HTMLElement | null>(null);
+  const desktopFinanceReturnFocusRef = useRef(false);
   const desktopFinanceInputRef = useRef<HTMLElement | null>(null);
+  const desktopFinanceKeepFocusRef = useRef(false);
   const [desktopFinanceDiscard, setDesktopFinanceDiscard] = useState(false);
   const [desktopFinanceSubmitting, setDesktopFinanceSubmitting] = useState(false);
   const desktopFinanceSubmittingRef = useRef(false);
+  useLayoutEffect(() => {
+    if (!isEditing || desktopEditorSurface !== "finance") return;
+    document
+      .querySelector<HTMLElement>("[data-order-desktop-finance-editor]")
+      ?.focus({ preventScroll: true });
+  }, [isEditing, desktopEditorSurface]);
+  useLayoutEffect(() => {
+    if (desktopFinanceDiscard || !desktopFinanceKeepFocusRef.current) return;
+    desktopFinanceKeepFocusRef.current = false;
+    desktopFinanceInputRef.current?.focus({ preventScroll: true });
+  }, [desktopFinanceDiscard]);
+  useLayoutEffect(() => {
+    if (isEditing || !desktopFinanceReturnFocusRef.current) return;
+    desktopFinanceReturnFocusRef.current = false;
+    const trigger = desktopFinanceTriggerRef.current;
+    if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+    else
+      document
+        .querySelector<HTMLElement>(
+          "[data-order-repair-edit-trigger], [data-order-finance-summary-trigger]",
+        )
+        ?.focus({ preventScroll: true });
+  }, [isEditing]);
   useEffect(() => {
     setDesktopIdentityGroup(null);
     setDetailField(null);
@@ -757,6 +787,7 @@ export function OrderDetailScreen({
     mutationFn: async (input: {
       baseline: UpdateOrderInput;
       draft: UpdateOrderInput;
+      scope?: "local" | "finance" | "legacy";
       capabilities: {
         canEditIntake: boolean;
         canEditRepair: boolean;
@@ -764,22 +795,42 @@ export function OrderDetailScreen({
       };
     }) => {
       const plan = buildOrderEditSavePlan(input);
+      const customerVersion =
+        plan.routineChanges.customer_name !== undefined ||
+        plan.routineChanges.customer_phone !== undefined ||
+        plan.routineChanges.contact_phones !== undefined
+          ? input.baseline.expected_customer_updated_at
+          : undefined;
       if (plan.steps.length > 1 && plan.financeChange) {
         const saved = await patchOrder(id, {
           expected_updated_at: input.baseline.expected_updated_at,
+          expected_customer_updated_at: customerVersion,
           changes: plan.routineChanges,
           finance: {
             fault_prices: plan.financeChange.faultPrices,
             deposit_amount: plan.financeChange.depositAmount,
           },
         });
-        return { updatedAt: saved.updated_at, completedSteps: plan.steps, plan };
+        return {
+          updatedAt: saved.updated_at,
+          customerUpdatedAt: saved.customer_updated_at,
+          completedSteps: plan.steps,
+          plan,
+        };
       }
+      let customerUpdatedAt: string | undefined;
       const result = await executeOrderEditSavePlan({
         plan,
         expectedUpdatedAt: input.baseline.expected_updated_at,
-        saveRoutine: (expectedUpdatedAt, changes) =>
-          patchOrder(id, { expected_updated_at: expectedUpdatedAt, changes }),
+        saveRoutine: async (expectedUpdatedAt, changes) => {
+          const saved = await patchOrder(id, {
+            expected_updated_at: expectedUpdatedAt,
+            expected_customer_updated_at: customerVersion,
+            changes,
+          });
+          customerUpdatedAt = saved.customer_updated_at;
+          return saved;
+        },
         saveFinance: (expectedUpdatedAt, change) =>
           patchOrderFinance(id, {
             expected_updated_at: expectedUpdatedAt,
@@ -787,10 +838,36 @@ export function OrderDetailScreen({
             deposit_amount: change.depositAmount,
           }),
       });
-      return { ...result, plan };
+      return { ...result, customerUpdatedAt, plan };
     },
-    onSuccess: (result) => {
+    onSuccess: (result, input) => {
       patchOrderReadCaches(queryClient, id, { updated_at: result.updatedAt });
+      if (result.customerUpdatedAt) {
+        const changes = result.plan.routineChanges;
+        queryClient.setQueriesData<OrderDetail>(
+          { queryKey: ordersKeys.detail(id, activeStoreId) },
+          (detail) => {
+            if (!detail?.customer) return detail;
+            return {
+              ...detail,
+              customer: {
+                ...detail.customer,
+                updated_at: result.customerUpdatedAt!,
+                ...(changes.customer_name !== undefined ? { name: changes.customer_name } : {}),
+                ...(changes.customer_phone !== undefined
+                  ? {
+                      phone_e164: changes.customer_phone,
+                      phone_raw: changes.customer_phone.replace(/\D/g, ""),
+                    }
+                  : {}),
+                ...(changes.contact_phones !== undefined
+                  ? { contact_phones: changes.contact_phones }
+                  : {}),
+              },
+            };
+          },
+        );
+      }
       toast.success(
         t(
           result.completedSteps.length === 1 && result.completedSteps[0] === "finance"
@@ -798,14 +875,21 @@ export function OrderDetailScreen({
             : "orders2b2.success.save",
         ),
       );
-      void discardCurrentEditOfflineDraft();
-      setIsEditing(false);
-      setEditBaseline(null);
-      setEditDraft(null);
+      if (input.scope === "finance" || input.scope === "legacy") {
+        void discardCurrentEditOfflineDraft();
+        setIsEditing(false);
+        setEditBaseline(null);
+        setEditDraft(null);
+      }
       invalidate();
     },
     onError: async (error, input) => {
-      if (error instanceof OrderEditSaveExecutionError && error.completedSteps.length > 0) {
+      if (
+        input.scope &&
+        input.scope !== "local" &&
+        error instanceof OrderEditSaveExecutionError &&
+        error.completedSteps.length > 0
+      ) {
         const plan = buildOrderEditSavePlan(input);
         const nextBaseline = advanceOrderEditBaseline({
           baseline: input.baseline,
@@ -880,6 +964,7 @@ export function OrderDetailScreen({
 
   const quotePublish = useMutation({
     mutationFn: (input: {
+      expectedUpdatedAt: string;
       idempotencyKey: string;
       diagnosisResult: string;
       faultPrices: OrderDetail["order"]["fault_prices"];
@@ -887,7 +972,7 @@ export function OrderDetailScreen({
     }) => {
       if (!data) throw new Error("工单未加载");
       return publishOrderQuote(id, {
-        expected_updated_at: data.order.updated_at,
+        expected_updated_at: input.expectedUpdatedAt,
         idempotency_key: input.idempotencyKey,
         diagnosis_result: input.diagnosisResult,
         fault_prices: input.faultPrices,
@@ -1189,7 +1274,10 @@ export function OrderDetailScreen({
       toast.error(t("orders2b2.permission.edit"));
       return;
     }
-    const draft = buildEditForm(data, defaultWarrantyMonths);
+    const draft = {
+      ...buildEditForm(data, defaultWarrantyMonths),
+      fault_prices: data.order.fault_prices,
+    };
     setEditBaseline(draft);
     setEditDraft(draft);
     setFinanceDraft(createFinanceDraftState(draft.fault_prices, draft.deposit_amount ?? 0));
@@ -1265,14 +1353,18 @@ export function OrderDetailScreen({
         baseline: editBaseline,
         draft: persistedEditDraft,
         capabilities: data.capabilities,
+        scope: desktopEditorSurface === "finance" ? "finance" : "legacy",
       });
+      return true;
     } catch {
       // Mutation callbacks preserve retry state and show the actionable error.
+      return false;
     } finally {
       editSaveInFlightRef.current = false;
     }
   }, [
     data?.capabilities,
+    desktopEditorSurface,
     editBaseline,
     editFinance,
     editFinanceChanged,
@@ -1281,6 +1373,75 @@ export function OrderDetailScreen({
     persistedEditDraft,
     t,
   ]);
+  const requestDesktopEditor = (action: () => void) => {
+    if (orderUpdate.isPending || desktopFinanceSubmittingRef.current) return;
+    if (isEditing) {
+      if (hasLocalEditChanges) {
+        queuedDesktopEditorRef.current = action;
+        setDesktopFinanceDiscard(true);
+        document
+          .querySelector("[data-order-desktop-finance-editor]")
+          ?.scrollIntoView({ block: "nearest" });
+        return;
+      }
+      cancelEditing();
+    }
+    action();
+  };
+  const finishDesktopFinance = () => {
+    const next = queuedDesktopEditorRef.current;
+    queuedDesktopEditorRef.current = null;
+    setDesktopFinanceDiscard(false);
+    desktopFinanceReturnFocusRef.current = !next;
+    cancelEditing();
+    if (next) next();
+  };
+  const saveDesktopFinance = async () => {
+    if (desktopFinanceSubmittingRef.current || orderUpdate.isPending) return;
+    desktopFinanceSubmittingRef.current = true;
+    setDesktopFinanceSubmitting(true);
+    desktopFinanceReturnFocusRef.current = !queuedDesktopEditorRef.current;
+    try {
+      if (await saveEditing()) {
+        const next = queuedDesktopEditorRef.current;
+        queuedDesktopEditorRef.current = null;
+        setDesktopFinanceDiscard(false);
+        if (next) next();
+      } else {
+        desktopFinanceReturnFocusRef.current = false;
+      }
+    } finally {
+      desktopFinanceSubmittingRef.current = false;
+      setDesktopFinanceSubmitting(false);
+    }
+  };
+  useEffect(() => {
+    if (surface !== "dialog" || !faultCloseRequestRef || !isEditing) return;
+    faultCloseRequestRef.current = () => {
+      if (desktopFinanceSubmittingRef.current || orderUpdate.isPending) return;
+      if (hasLocalEditChanges) setDesktopFinanceDiscard(true);
+      else cancelEditing();
+    };
+    return () => {
+      faultCloseRequestRef.current = null;
+    };
+  }, [
+    surface,
+    faultCloseRequestRef,
+    isEditing,
+    hasLocalEditChanges,
+    orderUpdate.isPending,
+    cancelEditing,
+  ]);
+  useEffect(() => {
+    if (!isEditing || !hasLocalEditChanges) return;
+    const guard = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [isEditing, hasLocalEditChanges]);
   const restoreEditOfflineDraft = useCallback(async () => {
     const result = await restoreEditOfflinePromptDraft();
     if (!result) return;
@@ -1288,11 +1449,18 @@ export function OrderDetailScreen({
       toast.error(getOrderDetailSafeErrorMessage({ status: 409 }, "save", t));
       return;
     }
-    if (data) setEditBaseline(buildEditForm(data, defaultWarrantyMonths));
-    setEditDraft(result.draft);
+    if (!data) return;
+    const baseline = buildEditForm(data, defaultWarrantyMonths);
+    setEditBaseline(baseline);
+    setEditDraft({
+      ...baseline,
+      fault_prices: result.draft.fault_prices,
+      deposit_amount: result.draft.deposit_amount,
+    });
     setFinanceDraft(
       createFinanceDraftState(result.draft.fault_prices, result.draft.deposit_amount ?? 0),
     );
+    setDesktopEditorSurface("finance");
     setIsEditing(true);
     toast.success(t("orders2b2.draft.restored"));
   }, [data, defaultWarrantyMonths, restoreEditOfflinePromptDraft, t]);
@@ -1692,6 +1860,12 @@ export function OrderDetailScreen({
                   className="order-workbench-formal-quote"
                   variant="outline"
                   size="touch"
+                  disabled={
+                    isEditing ||
+                    mobileFinanceEditing ||
+                    orderUpdate.isPending ||
+                    financeUpdate.isPending
+                  }
                   onClick={() => setDiagnosisQuoteOpen(true)}
                 >
                   {data.capabilities?.canPrepareQuote
@@ -1869,13 +2043,6 @@ export function OrderDetailScreen({
               customerStatusRevokePending={customerStatusRevokePending}
               onCancel={() => setCancelOpen(true)}
               canCancel={canCancelOrder}
-              onEdit={
-                data.capabilities?.canEditIntake ||
-                data.capabilities?.canEditRepair ||
-                data.capabilities?.canAdjustFinance
-                  ? startEditing
-                  : undefined
-              }
               onSaveEdit={() => void saveEditing()}
               onCancelEdit={cancelEditing}
               storeName={
@@ -1884,7 +2051,7 @@ export function OrderDetailScreen({
                 t("orders2b2.overview.notConfigured")
               }
               statusChangedAt={currentStatusChangedAt}
-              isEditing={isEditing}
+              isEditing={isEditing && desktopEditorSurface === "all"}
               editPending={orderUpdate.isPending}
               editSaveDisabled={!editCanSave}
               showBackLink={surface === "page"}
@@ -1967,6 +2134,12 @@ export function OrderDetailScreen({
                     size="sm"
                     variant="outline"
                     className="h-11 min-w-11 shrink-0 px-3 text-xs lg:h-8 lg:min-w-0 lg:px-2.5"
+                    disabled={
+                      isEditing ||
+                      mobileFinanceEditing ||
+                      orderUpdate.isPending ||
+                      financeUpdate.isPending
+                    }
                     onClick={() => setDiagnosisQuoteOpen(true)}
                   >
                     {data.capabilities?.canPrepareQuote
@@ -2003,9 +2176,11 @@ export function OrderDetailScreen({
                 }
                 lastSavedAt={editOfflineLastSavedAt}
                 prompt={editOfflineDraftPrompt}
-                pendingRestoreNotice={editOfflineRestoreNotice}
+                pendingRestoreNotice={
+                  !isEditing && editOfflineRestoreNotice ? t("orders2b2.draft.restored") : null
+                }
                 hasSensitiveUnlockDraft={editOfflineHasSensitiveUnlockDraft}
-                isEditing={isEditing}
+                isEditing={isEditing && desktopEditorSurface === "all"}
                 onRestore={() => void restoreEditOfflineDraft()}
                 onDiscard={() => void discardEditOfflinePrompt()}
               />
@@ -2036,7 +2211,10 @@ export function OrderDetailScreen({
                   </Button>
                 </section>
               ) : null}
-              {isEditing && editValidationError && !remoteEditConflict ? (
+              {isEditing &&
+              desktopEditorSurface === "all" &&
+              editValidationError &&
+              !remoteEditConflict ? (
                 <p
                   role="alert"
                   data-order-edit-validation="true"
@@ -2079,23 +2257,29 @@ export function OrderDetailScreen({
                     deviceNotes={deviceNotes}
                     accessoryNotes={accessoryNotes}
                     isEditing={isEditing && desktopEditorSurface !== "finance"}
-                    onEdit={() => {
-                      setDesktopEditorSurface("all");
-                      startEditing();
-                    }}
                     onEditCustomer={(event) => {
-                      desktopIdentityTriggerRef.current = event.currentTarget;
-                      setDesktopIdentityGroup("customer");
+                      const trigger = event.currentTarget;
+                      requestDesktopEditor(() => {
+                        desktopIdentityTriggerRef.current = trigger;
+                        setDesktopIdentityGroup("customer");
+                      });
                     }}
                     onEditDevice={(event) => {
-                      desktopIdentityTriggerRef.current = event.currentTarget;
-                      setDesktopIdentityGroup("device");
+                      const trigger = event.currentTarget;
+                      requestDesktopEditor(() => {
+                        desktopIdentityTriggerRef.current = trigger;
+                        setDesktopIdentityGroup("device");
+                      });
                     }}
                     onEditFinance={(event) => {
-                      desktopFinanceTriggerRef.current = event.currentTarget;
-                      setDesktopFinanceDiscard(false);
-                      setDesktopEditorSurface("finance");
-                      startEditing();
+                      const trigger = event.currentTarget;
+                      if (isEditing) return;
+                      requestDesktopEditor(() => {
+                        desktopFinanceTriggerRef.current = trigger;
+                        setDesktopFinanceDiscard(false);
+                        setDesktopEditorSurface("finance");
+                        startEditing();
+                      });
                     }}
                     quoteAction={
                       canOpenDiagnosisQuote ? (
@@ -2103,6 +2287,12 @@ export function OrderDetailScreen({
                           className="order-workbench-formal-quote"
                           variant="outline"
                           size="touch"
+                          disabled={
+                            isEditing ||
+                            mobileFinanceEditing ||
+                            orderUpdate.isPending ||
+                            financeUpdate.isPending
+                          }
                           onClick={() => setDiagnosisQuoteOpen(true)}
                         >
                           {data.capabilities?.canPrepareQuote
@@ -2114,11 +2304,115 @@ export function OrderDetailScreen({
                     onEditNotes={
                       data.capabilities?.canEditIntake || data.capabilities?.canEditRepair
                         ? (trigger) => {
-                            desktopFaultTriggerRef.current = trigger;
-                            handleFaultSessionChange(true);
-                            setDesktopFaultEditing(true);
+                            requestDesktopEditor(() => {
+                              desktopFaultTriggerRef.current = trigger;
+                              handleFaultSessionChange(true);
+                              setDesktopFaultEditing(true);
+                            });
                           }
                         : undefined
+                    }
+                    onEditUnlock={
+                      data.capabilities?.canEditRepair && !isVoided && !order.sensitive_redacted
+                        ? (trigger) =>
+                            requestDesktopEditor(() => {
+                              desktopUnlockTriggerRef.current = trigger;
+                              setDesktopUnlockEditing(true);
+                            })
+                        : undefined
+                    }
+                    financeEditor={
+                      isEditing && desktopEditorSurface === "finance" ? (
+                        <div
+                          data-order-desktop-finance-editor="true"
+                          tabIndex={-1}
+                          aria-busy={desktopFinanceSubmitting || orderUpdate.isPending}
+                          onFocusCapture={(event) => {
+                            if (!desktopFinanceDiscard)
+                              desktopFinanceInputRef.current = event.target;
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Escape" || event.defaultPrevented) return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            if (desktopFinanceSubmittingRef.current || orderUpdate.isPending)
+                              return;
+                            if (hasLocalEditChanges) setDesktopFinanceDiscard(true);
+                            else finishDesktopFinance();
+                          }}
+                        >
+                          {desktopFinanceDiscard ? (
+                            <div className="space-y-2">
+                              <EditorDiscardConfirmation
+                                returnFocus={desktopFinanceInputRef}
+                                keep={() => {
+                                  queuedDesktopEditorRef.current = null;
+                                  desktopFinanceKeepFocusRef.current = true;
+                                  setDesktopFinanceDiscard(false);
+                                }}
+                                discard={finishDesktopFinance}
+                              />
+                              <Button
+                                disabled={!editCanSave || orderUpdate.isPending}
+                                onClick={() => void saveDesktopFinance()}
+                                className="min-h-11 w-full"
+                              >
+                                {t("orders2b2.edit.saveContinue")}
+                              </Button>
+                            </div>
+                          ) : null}
+                          <div hidden={desktopFinanceDiscard} inert={desktopFinanceDiscard}>
+                            {editFinance ? (
+                              <fieldset
+                                disabled={desktopFinanceSubmitting || orderUpdate.isPending}
+                                className="min-w-0"
+                              >
+                                <FinanceInlineEditor
+                                  draft={financeDraft}
+                                  normalized={editFinance}
+                                  onChange={setFinanceDraft}
+                                  error={editValidationError || undefined}
+                                  dense
+                                />
+                              </fieldset>
+                            ) : null}
+                            {orderUpdate.isError ? (
+                              <p
+                                role="alert"
+                                className="mt-2 text-sm text-status-danger-foreground"
+                              >
+                                {getOrderDetailSafeErrorMessage(orderUpdate.error, "save", t)}
+                              </p>
+                            ) : null}
+                            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-2">
+                              <Button
+                                variant="outline"
+                                className="min-h-11"
+                                disabled={desktopFinanceSubmitting || orderUpdate.isPending}
+                                onClick={() => {
+                                  if (hasLocalEditChanges) setDesktopFinanceDiscard(true);
+                                  else finishDesktopFinance();
+                                }}
+                              >
+                                {t("common.cancel")}
+                              </Button>
+                              <Button
+                                className="min-h-11"
+                                disabled={
+                                  desktopFinanceSubmitting || orderUpdate.isPending || !editCanSave
+                                }
+                                onClick={() => void saveDesktopFinance()}
+                              >
+                                {t(
+                                  orderUpdate.isPending
+                                    ? "orders2b2.hero.saving"
+                                    : "orders2b2.hero.save",
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : undefined
                     }
                     editDraft={editDraft}
                     onEditDraftChange={(next) => setEditDraft(next)}
@@ -2309,17 +2603,6 @@ export function OrderDetailScreen({
                 customerStatusRevokePending={customerStatusRevokePending}
                 onCancel={() => setCancelOpen(true)}
                 canCancel={canCancelOrder}
-                onEdit={
-                  !isVoided &&
-                  (data.capabilities?.canEditIntake ||
-                    data.capabilities?.canEditRepair ||
-                    data.capabilities?.canAdjustFinance)
-                    ? () => {
-                        setDesktopEditorSurface("all");
-                        startEditing();
-                      }
-                    : undefined
-                }
                 disabled={isEditing || statusTransitionPending}
               />
             }
@@ -2355,131 +2638,19 @@ export function OrderDetailScreen({
           orderUpdate.mutateAsync({ baseline, draft, capabilities: data.capabilities! })
         }
       />
-      <Dialog
-        open={isEditing && desktopEditorSurface === "finance"}
-        onOpenChange={(next) => {
-          if (next || desktopFinanceSubmittingRef.current || orderUpdate.isPending) return;
-          if (hasLocalEditChanges) {
-            desktopFinanceInputRef.current =
-              document.activeElement instanceof HTMLElement ? document.activeElement : null;
-            setDesktopFinanceDiscard(true);
-          } else cancelEditing();
-        }}
-      >
-        <DialogContent
-          mobileEditor
-          editorLayout
-          data-order-desktop-finance-editor="true"
-          data-confirm-discard={desktopFinanceDiscard}
-          aria-busy={desktopFinanceSubmitting || orderUpdate.isPending}
-          showCloseButton={false}
-          className={cn(
-            componentOverlay.editorSurface,
-            componentOverlay.denseEditorSurface,
-            componentOverlay.taskWorkspace,
-            "order-unified-editor order-detail-interaction-overlay max-h-[calc(100dvh-2rem)]",
-            editorConfirmationClass,
-          )}
-          onEscapeKeyDown={(event) => {
-            if (desktopFinanceSubmittingRef.current || orderUpdate.isPending)
-              event.preventDefault();
+      {desktopUnlockEditing && !order.sensitive_redacted ? (
+        <DeviceUnlockEditSheet
+          open={desktopUnlockEditing}
+          scopeKey={`${activeStoreId}:${id}:unlock`}
+          order={order}
+          returnFocusRef={desktopUnlockTriggerRef}
+          pending={deviceUnlockUpdate.isPending}
+          onOpenChange={setDesktopUnlockEditing}
+          onSave={async (device_unlock, expectedUpdatedAt) => {
+            await deviceUnlockUpdate.mutateAsync({ device_unlock, expectedUpdatedAt });
           }}
-          onPointerDownOutside={(event) => {
-            if (desktopFinanceSubmittingRef.current || orderUpdate.isPending)
-              event.preventDefault();
-          }}
-          onCloseAutoFocus={(event) => {
-            if (desktopFinanceTriggerRef.current?.isConnected) {
-              event.preventDefault();
-              desktopFinanceTriggerRef.current.focus({ preventScroll: true });
-            }
-          }}
-        >
-          <DialogHeader className={componentOverlay.denseEditorHeader}>
-            <DialogTitle>{t("orders2b2.overview.quoteItems")}</DialogTitle>
-            <DialogDescription className="sr-only">{order.public_no}</DialogDescription>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-3 top-3"
-              aria-label={t("common.cancel")}
-              disabled={desktopFinanceSubmitting || orderUpdate.isPending}
-              onClick={() => {
-                if (desktopFinanceSubmittingRef.current || orderUpdate.isPending) return;
-                if (hasLocalEditChanges) setDesktopFinanceDiscard(true);
-                else cancelEditing();
-              }}
-            >
-              <X className="size-4" />
-            </Button>
-          </DialogHeader>
-          {desktopFinanceDiscard ? (
-            <EditorDiscardConfirmation
-              returnFocus={desktopFinanceInputRef}
-              keep={() => setDesktopFinanceDiscard(false)}
-              discard={() => {
-                setDesktopFinanceDiscard(false);
-                cancelEditing();
-              }}
-            />
-          ) : null}
-          <DialogBody className={componentOverlay.denseEditorBody}>
-            {financeDraft && editFinance ? (
-              <fieldset
-                disabled={desktopFinanceSubmitting || orderUpdate.isPending}
-                className="min-w-0"
-              >
-                <FinanceInlineEditor
-                  draft={financeDraft}
-                  normalized={editFinance}
-                  onChange={setFinanceDraft}
-                  error={editValidationError || undefined}
-                  dense={false}
-                />
-              </fieldset>
-            ) : null}
-            {orderUpdate.isError ? (
-              <p role="alert" className="text-sm text-status-danger-foreground">
-                {getOrderDetailSafeErrorMessage(orderUpdate.error, "save", t)}
-              </p>
-            ) : null}
-            {remoteEditConflict ? (
-              <p role="alert" className="text-sm text-status-danger-foreground">
-                {t("orders2b2.conflict.description")}
-              </p>
-            ) : null}
-          </DialogBody>
-          <DialogFooter className={componentOverlay.denseEditorFooter}>
-            <Button
-              variant="outline"
-              disabled={desktopFinanceSubmitting || orderUpdate.isPending}
-              onClick={() => {
-                if (desktopFinanceSubmittingRef.current || orderUpdate.isPending) return;
-                if (hasLocalEditChanges) setDesktopFinanceDiscard(true);
-                else cancelEditing();
-              }}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button
-              disabled={desktopFinanceSubmitting || orderUpdate.isPending || !editCanSave}
-              onClick={async () => {
-                if (desktopFinanceSubmittingRef.current || orderUpdate.isPending) return;
-                desktopFinanceSubmittingRef.current = true;
-                setDesktopFinanceSubmitting(true);
-                try {
-                  await saveEditing();
-                } finally {
-                  desktopFinanceSubmittingRef.current = false;
-                  setDesktopFinanceSubmitting(false);
-                }
-              }}
-            >
-              {t("orders2b2.hero.save")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        />
+      ) : null}
       {canNotify ? (
         <NotifyDialog
           open={notifyOpen}
@@ -2532,10 +2703,10 @@ export function OrderDetailScreen({
           order={order}
           capabilities={data.capabilities}
           isPending={quotePublish.isPending || faultUpdate.isPending}
-          onSaveDiagnosis={async (diagnosisResult) => {
+          onSaveDiagnosis={async (diagnosisResult, expectedUpdatedAt) => {
             await faultUpdate.mutateAsync({
               changes: { diagnosis_result: diagnosisResult },
-              expectedUpdatedAt: order.updated_at,
+              expectedUpdatedAt,
             });
           }}
           onPublish={async (input) => {
@@ -3948,25 +4119,22 @@ function MobileOrderDetailView({
   const next = cancelled
     ? { primary: undefined, secondary: [] }
     : getWorkflowNextActions(workflow, order.status);
-  const phone = customer?.phone_e164 || order.customer_phone;
-  const rawCustomerName = (
-    order.customer_name_snapshot ||
-    customer?.name ||
-    order.customer_name ||
-    ""
-  ).trim();
+  const phone = customer?.phone_e164 ?? order.customer_phone;
+  const rawCustomerName = (customer?.name ?? order.customer_name ?? "").trim();
   const customerDisplayName =
     rawCustomerName && normalizePhoneDigits(rawCustomerName) !== normalizePhoneDigits(phone)
       ? rawCustomerName
-      : t("orders2b1.new.lookup.unnamed");
+      : t(
+          data.capabilities?.canEditIntake
+            ? "orders2b2.edit.addName"
+            : "orders2b1.new.lookup.unnamed",
+        );
   const paidAmount = inferOrderPaidAmount(order);
   const currentStage = cancelled
     ? getOrderTaskGuidance(order).stage
     : (orderTaskStages[Math.min(currentStageIndex, orderTaskStages.length - 1)] ??
       orderTaskStages[0]);
   const customerSummaryId = useId();
-  // Read-only disclosure preference is fixed for this opening, separate from all editor sessions.
-  const initiallyWideDisclosure = useRef(typeof window !== "undefined" && window.innerWidth >= 768);
   const identityTriggerRef = useRef<HTMLButtonElement | null>(null);
   const financeTriggerRef = useRef<HTMLButtonElement | null>(null);
   const assignmentTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -4251,7 +4419,11 @@ function MobileOrderDetailView({
                       {customerDisplayName}
                     </span>
                     <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                      <PhoneText value={phone} className="text-[11px] leading-4" />
+                      {phone ? (
+                        <PhoneText value={phone} className="text-[11px] leading-4" />
+                      ) : (
+                        <span className="text-xs text-primary">{t("orders2b2.edit.addPhone")}</span>
+                      )}
                       {customer?.preferred_channel ? (
                         <span className="text-[9px] leading-3 text-muted-foreground">
                           {customer.preferred_channel}
@@ -4265,15 +4437,17 @@ function MobileOrderDetailView({
                   />
                 </button>
                 <div className="flex shrink-0 gap-1">
-                  <Button asChild variant="ghost" size="icon" className="size-9 rounded-lg">
-                    <a
-                      href={`tel:${phone}`}
-                      aria-label={t("orders2b2.mobile.phoneCall")}
-                      title={t("orders2b2.mobile.phoneCall")}
-                    >
-                      <Phone className="size-3.5" />
-                    </a>
-                  </Button>
+                  {phone ? (
+                    <Button asChild variant="ghost" size="icon" className="size-9 rounded-lg">
+                      <a
+                        href={`tel:${phone}`}
+                        aria-label={t("orders2b2.mobile.phoneCall")}
+                        title={t("orders2b2.mobile.phoneCall")}
+                      >
+                        <Phone className="size-3.5" />
+                      </a>
+                    </Button>
+                  ) : null}
                   {onRequestKioskSignature ? (
                     <Button
                       type="button"
@@ -4310,6 +4484,25 @@ function MobileOrderDetailView({
                   <span>{storeName}</span>
                 </div>
               </div>
+              <button
+                type="button"
+                data-order-backup-phone-trigger="true"
+                disabled={!data.capabilities?.canEditIntake || isVoided}
+                onClick={(event) => {
+                  identityTriggerRef.current = event.currentTarget;
+                  setIdentityGroup("customer");
+                }}
+                className="flex min-h-11 w-full min-w-0 flex-wrap items-center gap-1 rounded-md text-left text-xs focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="text-muted-foreground">
+                  {t("orders2b2.overview.backupPhones")}
+                </span>
+                <span className="min-w-0 break-all">
+                  {(customer?.contact_phones ?? order.contact_phones)
+                    .filter((value) => value !== phone)
+                    .join(" · ") || t("orders2b2.backupPhone.add")}
+                </span>
+              </button>
               <div
                 data-order-workbench-device="true"
                 className="mt-1 border-t border-[var(--border-panel)] pt-1"
@@ -4341,7 +4534,9 @@ function MobileOrderDetailView({
                       />
                     </button>
                     <div className="flex shrink-0 items-center gap-1">
-                      {data.capabilities?.canEditRepair ? (
+                      {data.capabilities?.canEditRepair &&
+                      !order.sensitive_redacted &&
+                      !isVoided ? (
                         <Button
                           type="button"
                           variant="ghost"
@@ -4352,7 +4547,11 @@ function MobileOrderDetailView({
                             setDeviceUnlockEditing(true);
                           }}
                         >
-                          {t("orders2b2.unlock.entry")}
+                          {t(
+                            order.device_unlock_method
+                              ? "orders2b2.unlock.edit"
+                              : "orders2b2.unlock.add",
+                          )}
                         </Button>
                       ) : null}
                       {data.capabilities?.canEditIntake ? (
@@ -4373,7 +4572,17 @@ function MobileOrderDetailView({
                       ) : null}
                     </div>
                   </div>
-                  <DetailRows rows={[["IMEI", deviceImei || "-"]]} />
+                  <button
+                    type="button"
+                    className="min-h-11 w-full text-left focus-visible:ring-2 focus-visible:ring-ring"
+                    disabled={!data.capabilities?.canEditIntake || isVoided}
+                    onClick={(event) => {
+                      identityTriggerRef.current = event.currentTarget;
+                      setIdentityGroup("device");
+                    }}
+                  >
+                    <DetailRows rows={[["IMEI / SN", deviceImei || "-"]]} />
+                  </button>
                   <div className="order-detail-mobile-fields">
                     {(
                       [
@@ -4399,7 +4608,7 @@ function MobileOrderDetailView({
                     type="button"
                     data-order-field-trigger="notes"
                     onClick={(event) => onEditField("notes", event.currentTarget)}
-                    className="order-detail-mobile-field order-detail-tablet-field"
+                    className="order-detail-mobile-field"
                   >
                     <span className="text-muted-foreground">
                       {t("orders2b2.overview.deviceNotes")}
@@ -4408,6 +4617,16 @@ function MobileOrderDetailView({
                     <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
                   </button>
                 </div>
+                <button
+                  type="button"
+                  data-order-field-trigger="internal_tag"
+                  onClick={(event) => onEditField("internal_tag", event.currentTarget)}
+                  className="order-detail-mobile-field"
+                >
+                  <span className="text-muted-foreground">{t("orders2b2.edit.internalTag")}</span>
+                  <span className="min-w-0 break-words">{order.internal_tag || "—"}</span>
+                  <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
+                </button>
                 <div data-mobile-order-custody-group="true" className="mt-1">
                   {custodyPanel}
                 </div>
@@ -4439,21 +4658,22 @@ function MobileOrderDetailView({
                 </button>
                 <OrderWorkspaceFullText text={order.issue_description} />
               </section>
-              {order.diagnosis_result ? (
-                <details
-                  className={cn(mobileDetailCardClass, "group")}
-                  data-mobile-order-diagnosis="true"
-                  open={initiallyWideDisclosure.current || undefined}
+              <section className={mobileDetailCardClass} data-mobile-order-diagnosis="true">
+                <button
+                  type="button"
+                  data-order-field-trigger="diagnosis"
+                  onClick={(event) => onEditField("diagnosis", event.currentTarget)}
+                  className="min-h-11 w-full text-left focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <summary className="min-h-8 cursor-pointer text-xs leading-8 text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {t("orders2b2.overview.diagnosis")}
-                  </summary>
-                  <p className="order-workbench-diagnosis-preview whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
-                    {order.diagnosis_result}
+                  </span>
+                  <p className="order-workbench-diagnosis-preview whitespace-pre-wrap break-words text-xs leading-5 [overflow-wrap:anywhere]">
+                    {order.diagnosis_result || "—"}
                   </p>
-                  <OrderWorkspaceFullText text={order.diagnosis_result} />
-                </details>
-              ) : null}
+                </button>
+                <OrderWorkspaceFullText text={order.diagnosis_result} />
+              </section>
             </div>
           </div>
           <div
@@ -4630,15 +4850,17 @@ function MobileOrderDetailView({
               getErrorMessage={(error) => getOrderDetailSafeErrorMessage(error, "diagnosis", t)}
             />
 
-            <DeviceUnlockEditSheet
-              returnFocusRef={unlockTriggerRef}
-              open={deviceUnlockEditing}
-              scopeKey={editorScopeKey}
-              order={order}
-              pending={deviceUnlockPending}
-              onOpenChange={setDeviceUnlockEditing}
-              onSave={onDeviceUnlockSave}
-            />
+            {deviceUnlockEditing && !order.sensitive_redacted ? (
+              <DeviceUnlockEditSheet
+                returnFocusRef={unlockTriggerRef}
+                open={deviceUnlockEditing}
+                scopeKey={editorScopeKey}
+                order={order}
+                pending={deviceUnlockPending}
+                onOpenChange={setDeviceUnlockEditing}
+                onSave={onDeviceUnlockSave}
+              />
+            ) : null}
 
             {order.finance_redacted ? (
               <section data-order-workbench-quote="true" className={mobileDetailCardClass}>
@@ -4744,7 +4966,7 @@ function MobileOrderDetailView({
                     className={cn(
                       componentOverlay.editorSurface,
                       componentOverlay.denseEditorSurface,
-                      componentOverlay.taskWorkspace,
+                      componentOverlay.modalLg,
                       editorConfirmationClass,
                       "order-detail-interaction-overlay max-h-[calc(100dvh-1rem)] overflow-y-auto p-3",
                     )}
@@ -5404,8 +5626,13 @@ function DeviceUnlockEditSheet({
             <Button
               type="button"
               className="h-10 lg:h-9"
-              disabled={pending || Boolean(validationError)}
-              onClick={() => void save()}
+              disabled={
+                pending ||
+                Boolean(validationError) ||
+                !session.dirty ||
+                Boolean(order.sensitive_redacted)
+              }
+              onClick={() => void session.save(save)}
             >
               {pending ? t("orders2b2.hero.saving") : t("orders2b2.hero.save")}
             </Button>

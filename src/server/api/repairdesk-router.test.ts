@@ -1062,11 +1062,13 @@ function actor(
   };
 }
 
-it.each(["stale_version", "idempotency_conflict"])(
-  "serializes approval %s conflicts as structured 409",
-  async (code) => {
-    const response = fail(new OrderMutationError("重新核对审批目标", code, 409));
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({ code, error: "重新核对审批目标" });
-  },
-);
+it.each([
+  "stale_version",
+  "customer_stale_version",
+  "customer_version_required",
+  "idempotency_conflict",
+])("serializes approval %s conflicts as structured 409", async (code) => {
+  const response = fail(new OrderMutationError("重新核对审批目标", code, 409));
+  expect(response.status).toBe(409);
+  expect(await response.json()).toMatchObject({ code, error: "重新核对审批目标" });
+});

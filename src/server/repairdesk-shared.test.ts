@@ -14,9 +14,31 @@ import {
   REPAIR_ORDER_PARTS_SUPPLIER_EMBED,
   REPAIR_ORDER_SUPPLIER_EMBED,
   orderFromRow,
+  decorate,
 } from "@/server/repairdesk-shared";
 
 describe("repairdesk shared Supabase selects", () => {
+  it("projects the current profile while retaining historical identity snapshots", () => {
+    const row = {
+      customer_name_snapshot: "Historical name",
+      customer_phone_snapshot: "+390000000001",
+      contact_phones: ["+390000000002"],
+      customer: {
+        id: "c1",
+        name: "",
+        phone_e164: "+390000000003",
+        contact_phones: ["+390000000004"],
+      },
+    };
+    expect(decorate(row)).toMatchObject({
+      customer_name: "",
+      customer_phone: "+390000000003",
+      contact_phones: ["+390000000004"],
+      customer_name_snapshot: "Historical name",
+      customer_phone_snapshot: "+390000000001",
+    });
+    expect(row.contact_phones).toEqual(["+390000000002"]);
+  });
   it("uses an explicit same-store customer relationship for repair order embeds", () => {
     expect(REPAIR_ORDER_CUSTOMER_EMBED).toBe(
       "customer:customers!repair_orders_customer_same_store_fkey",

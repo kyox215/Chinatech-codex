@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, type RefObject } from "react";
-import { Smartphone, UserRound } from "lucide-react";
+import { Plus, Smartphone, Trash2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,13 +17,15 @@ import { PhoneKeypadInput } from "@/components/orders/phone-keypad-input";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AccessoryNotesPicker } from "@/features/orders/components/accessory-notes-picker";
-import { DenseOptionMenu } from "@/features/orders/components/dense-option-menu";
+import { DeviceIdentityAutocomplete } from "@/features/orders/components/device-identity-autocomplete";
 import { CustomerIdentityReview } from "@/features/orders/forms/customer-intake-lookup";
+import { normalizeManualDeviceIdentity } from "@/features/orders/model/new-order-form";
 import {
-  brandSuggestions,
-  deviceModelSuggestionsForBrand,
-  normalizeManualDeviceIdentity,
-} from "@/features/orders/model/new-order-form";
+  getOrderModelSuggestions,
+  orderBrandSuggestions,
+  shouldClearModelOnBrandChange,
+} from "@/features/orders/model/device-autocomplete";
+import { uniqueContactPhones } from "@/shared/lib/phone";
 import type { UpdateOrderInput } from "@/lib/repairdesk/api";
 import { componentOverlay } from "@/lib/component-patterns";
 import { useLocale } from "@/shared/i18n/locale-provider";
@@ -76,9 +78,16 @@ export function OrderIdentityEditor({
   const setField = (key: keyof UpdateOrderInput, value: string) => {
     const state = latest.current;
     if (state.pending || (key === "device_notes" ? !state.canEditRepair : !state.canEdit)) return;
-    setDraft((current) => ({ ...current, [key]: value }));
+    setDraft((current) => ({
+      ...current,
+      [key]: value,
+      ...(key === "device_brand" &&
+      shouldClearModelOnBrandChange(current.device_brand, value, current.device_model)
+        ? { device_model: "" }
+        : {}),
+    }));
   };
-  const conflict = hasOrderEditRemoteConflict({
+  const orderConflict = hasOrderEditRemoteConflict({
     baselineUpdatedAt: baseline.expected_updated_at,
     currentUpdatedAt: initial.expected_updated_at,
     hasLocalChanges: session.dirty,
@@ -87,17 +96,37 @@ export function OrderIdentityEditor({
   const identityChanged =
     group === "customer"
       ? draft.customer_name !== baseline.customer_name ||
-        draft.customer_phone !== baseline.customer_phone
+        draft.customer_phone !== baseline.customer_phone ||
+        JSON.stringify(draft.contact_phones ?? []) !== JSON.stringify(baseline.contact_phones ?? [])
       : draft.device_brand !== baseline.device_brand ||
         draft.device_model !== baseline.device_model ||
         draft.device_imei !== baseline.device_imei ||
         draft.accessory_notes !== baseline.accessory_notes;
   const notesChanged = group === "device" && draft.device_notes !== baseline.device_notes;
+  const conflict =
+    orderConflict ||
+    Boolean(
+      group === "customer" &&
+      identityChanged &&
+      baseline.expected_customer_updated_at !== initial.expected_customer_updated_at,
+    );
+  const phonesChanged =
+    draft.customer_phone !== baseline.customer_phone ||
+    JSON.stringify(draft.contact_phones ?? []) !== JSON.stringify(baseline.contact_phones ?? []);
+  const phoneValid = (value: string) =>
+    !value.trim() ||
+    (/^\+?[\d\s().-]+$/.test(value.trim()) &&
+      value.replace(/\D/g, "").length >= 7 &&
+      value.replace(/\D/g, "").length <= 15);
   const permitted = (!identityChanged || canEdit) && (!notesChanged || canEditRepair);
   const valid =
     !identityChanged ||
     (group === "customer"
-      ? Boolean(draft.customer_name.trim() && draft.customer_phone.trim())
+      ? !phonesChanged ||
+        ((draft.customer_phone === baseline.customer_phone ||
+          Boolean(draft.customer_phone.trim())) &&
+          [draft.customer_phone, ...(draft.contact_phones ?? [])].every(phoneValid) &&
+          (draft.contact_phones?.length ?? 0) <= 20)
       : Boolean(draft.device_brand.trim() && draft.device_model.trim()));
   const fieldClass = `${componentOverlay.editorField} h-[42px] min-w-0 border-0 bg-transparent px-0 focus-visible:ring-0`;
   return (
@@ -114,7 +143,7 @@ export function OrderIdentityEditor({
         }}
         data-confirm-discard={session.confirmDiscard}
         closeLabel={t("common.cancel")}
-        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${componentOverlay.denseEditorSurface} ${componentOverlay.taskWorkspace} ${editorConfirmationClass} ${workbench ? "order-unified-editor order-detail-interaction-overlay" : ""}`}
+        className={`${componentOverlay.formContent} ${componentOverlay.editorSurface} ${componentOverlay.denseEditorSurface} ${editorConfirmationClass} ${workbench ? "order-unified-editor order-detail-interaction-overlay" : ""}`}
       >
         <DialogHeader className={componentOverlay.denseEditorHeader}>
           <span className={componentOverlay.denseEditorIcon} aria-hidden="true">
@@ -172,6 +201,65 @@ export function OrderIdentityEditor({
                 customerId={customerId}
                 enabled={Boolean(group === "customer" && canEdit && !pending)}
               />
+              <fieldset disabled={!canEdit || pending} className="min-w-0 space-y-2">
+                <legend className="mb-1 text-xs text-muted-foreground">
+                  {t("orders2b2.overview.backupPhones")}
+                </legend>
+                {(draft.contact_phones ?? []).map((phone, index) => (
+                  <div key={index} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
+                    <PhoneKeypadInput
+                      preserveFormatting
+                      ariaLabel={`${t("orders2b2.backupPhone.label")} ${index + 1}`}
+                      value={phone}
+                      onChange={(value) =>
+                        setDraft((current) => ({
+                          ...current,
+                          contact_phones: (current.contact_phones ?? []).map((item, position) =>
+                            position === index ? value : item,
+                          ),
+                        }))
+                      }
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="size-11"
+                      aria-label={`${t("orders2b2.backupPhone.delete")} ${index + 1}`}
+                      onClick={() =>
+                        setDraft((current) => ({
+                          ...current,
+                          contact_phones: (current.contact_phones ?? []).filter(
+                            (_, position) => position !== index,
+                          ),
+                        }))
+                      }
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  onClick={() =>
+                    setDraft((current) => ({
+                      ...current,
+                      contact_phones: [...(current.contact_phones ?? []), ""],
+                    }))
+                  }
+                >
+                  <Plus className="mr-1 size-4" />
+                  {t("orders2b2.backupPhone.add")}
+                </Button>
+              </fieldset>
+              <p className="text-xs text-muted-foreground">{t("orders2b2.edit.customerSync")}</p>
+              {!valid ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {t("orders2b2.validation.phone")}
+                </p>
+              ) : null}
             </div>
           ) : (
             <div className="grid min-w-0 gap-2">
@@ -181,34 +269,26 @@ export function OrderIdentityEditor({
                     <label htmlFor={`${id}-${key}`} className="text-xs">
                       {t(key === "device_brand" ? "customers.form.brand" : "customers.form.model")}
                     </label>
-                    <div className="relative min-w-0">
-                      <Input
+                    <fieldset disabled={!canEdit || pending} className="relative min-w-0">
+                      <DeviceIdentityAutocomplete
                         id={`${id}-${key}`}
                         value={draft[key]}
-                        disabled={!canEdit || pending}
-                        className={`${fieldClass} pr-9`}
-                        onChange={(event) =>
-                          setField(key, normalizeManualDeviceIdentity(event.target.value))
+                        label={t(
+                          key === "device_brand" ? "customers.form.brand" : "customers.form.model",
+                        )}
+                        placeholder={t(
+                          key === "device_brand" ? "customers.form.brand" : "customers.form.model",
+                        )}
+                        className={fieldClass}
+                        options={
+                          key === "device_brand"
+                            ? orderBrandSuggestions
+                            : getOrderModelSuggestions(draft.device_brand)
                         }
+                        onChange={(value) => setField(key, normalizeManualDeviceIdentity(value))}
+                        onSelect={(option) => setField(key, option.value)}
                       />
-                      <span className="absolute right-1 top-1/2 -translate-y-1/2">
-                        <DenseOptionMenu
-                          label={t(
-                            key === "device_brand"
-                              ? "customers.form.brand"
-                              : "customers.form.model",
-                          )}
-                          value={draft[key]}
-                          options={
-                            key === "device_brand"
-                              ? brandSuggestions
-                              : deviceModelSuggestionsForBrand(draft.device_brand)
-                          }
-                          disabled={!canEdit || pending}
-                          onSelect={(value) => setField(key, value)}
-                        />
-                      </span>
-                    </div>
+                    </fieldset>
                   </div>
                 ))}
               </div>
@@ -263,7 +343,18 @@ export function OrderIdentityEditor({
             disabled={pending || !permitted || !valid || !session.dirty || conflict}
             onClick={() =>
               void session.save(async (value) => {
-                await onSave(baseline, value);
+                await onSave(
+                  baseline,
+                  group === "customer" && phonesChanged
+                    ? {
+                        ...value,
+                        contact_phones: uniqueContactPhones(
+                          value.customer_phone,
+                          value.contact_phones ?? [],
+                        ),
+                      }
+                    : value,
+                );
                 onClose();
               })
             }

@@ -67,6 +67,15 @@ describe("European phone catalog", () => {
     );
   });
 
+  it("preserves saved device colors after the ten-year picker cutoff", () => {
+    const asOf = new Date("2026-09-17T12:00:00.000Z");
+    expect(findEuPhoneModel("apple", "iPhone 7 Plus", asOf)).toBeUndefined();
+    expect(findEuPhoneColor("apple", "iPhone 7 Plus", "black", asOf)?.id).toBe("black");
+    expect(
+      findEuPhoneColor("apple", "iPhone 7 Plus", "black", new Date("2015-01-01T00:00:00Z")),
+    ).toBeUndefined();
+  });
+
   it("keeps every Apple model color-addressable by id and display name", () => {
     const asOf = new Date("2026-08-07T00:00:00.000Z");
     const appleModels = EU_PHONE_MODELS.filter((item) => item.brandId === "apple");

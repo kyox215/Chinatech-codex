@@ -740,7 +740,7 @@ const realtimeBroadcasts = {
   customerUpdated: {
     domain: "customers",
     mutation: "updated",
-    queryGroups: ["customers.all"],
+    queryGroups: ["customers.all", "orders.all"],
   },
   inventoryCreated: {
     domain: "inventory",

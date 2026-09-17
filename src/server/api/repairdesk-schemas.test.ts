@@ -88,6 +88,7 @@ describe("repairdesk API schemas", () => {
   it("preserves mixed edit finance while rejecting untrusted fingerprint fields", () => {
     const input = {
       expected_updated_at: "2026-09-07T10:00:00Z",
+      expected_customer_updated_at: "2026-09-07T10:00:00Z",
       changes: { customer_name: "Synthetic" },
       finance: { fault_prices: [{ name: "Repair", price: 120 }], deposit_amount: 0 },
     };
@@ -1430,6 +1431,7 @@ describe("repairdesk API schemas", () => {
     expect(
       updateOrderInputSchema.parse({
         expected_updated_at: "2026-06-11T00:00:00.000Z",
+        expected_customer_updated_at: "2026-06-11T00:00:00.000Z",
         customer_name: "Cliente",
         customer_phone: "+39 333 000 0000",
         device_brand: "Apple",
@@ -1443,6 +1445,7 @@ describe("repairdesk API schemas", () => {
     expect(() =>
       updateOrderInputSchema.parse({
         expected_updated_at: "2026-06-11T00:00:00.000Z",
+        expected_customer_updated_at: "2026-06-11T00:00:00.000Z",
         customer_name: "Cliente",
         customer_phone: "+39 333 000 0000",
         device_brand: "Apple",
@@ -1455,6 +1458,7 @@ describe("repairdesk API schemas", () => {
     expect(() =>
       updateOrderInputSchema.parse({
         expected_updated_at: "2026-06-11T00:00:00.000Z",
+        expected_customer_updated_at: "2026-06-11T00:00:00.000Z",
         customer_name: "Cliente",
         customer_phone: "+39 333 000 0000",
         device_brand: "Apple",
@@ -1585,6 +1589,7 @@ describe("repairdesk API schemas", () => {
     expect(
       updateOrderInputSchema.parse({
         expected_updated_at: "2026-06-11T00:00:00.000Z",
+        expected_customer_updated_at: "2026-06-11T00:00:00.000Z",
         customer_name: "Cliente",
         customer_phone: "+39 333 000 0000",
         device_brand: "Apple",
@@ -1597,6 +1602,7 @@ describe("repairdesk API schemas", () => {
     expect(
       updateOrderInputSchema.parse({
         expected_updated_at: "2026-06-11T00:00:00.000Z",
+        expected_customer_updated_at: "2026-06-11T00:00:00.000Z",
         customer_name: "Cliente",
         customer_phone: "+39 333 000 0000",
         device_brand: "Apple",
@@ -1609,6 +1615,7 @@ describe("repairdesk API schemas", () => {
     expect(() =>
       updateOrderInputSchema.parse({
         expected_updated_at: "2026-06-11T00:00:00.000Z",
+        expected_customer_updated_at: "2026-06-11T00:00:00.000Z",
         customer_name: "Cliente",
         customer_phone: "+39 333 000 0000",
         device_brand: "Apple",

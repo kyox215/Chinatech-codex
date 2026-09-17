@@ -40,7 +40,7 @@ export function buildEditOrderOfflineDraftInput({
     serverOrderId: data.order.id,
     baseUpdatedAt: draft.expected_updated_at,
     draftPayload: buildEditOrderOfflineDraftPayload(draft),
-    relationshipPlan: buildEditOrderOfflineRelationshipPlan(data, draft),
+    relationshipPlan: buildEditOrderOfflineRelationshipPlan(data),
     hasSensitiveVaultEntry: false,
   };
 }
@@ -61,20 +61,6 @@ export function buildEditOrderOfflineDraftPayload(
   const quotedPriceCents = repairItems.reduce((sum, item) => sum + moneyToCents(item.price), 0);
 
   return {
-    customerName: draft.customer_name.trim(),
-    customerPhone: draft.customer_phone.trim(),
-    deviceBrand: draft.device_brand.trim(),
-    deviceModel: draft.device_model.trim(),
-    imei: draft.device_imei?.trim() ?? "",
-    deviceNotes: draft.device_notes?.trim() ?? "",
-    issueDescription: draft.issue_description.trim(),
-    diagnosisResult: draft.diagnosis_result?.trim() ?? "",
-    accessoryNotes: draft.accessory_notes?.trim() ?? "",
-    warrantyDraft: {
-      text: draft.warranty_text?.trim() ?? "",
-      months: normalizeInteger(draft.warranty_months),
-      changeReason: draft.warranty_change_reason?.trim() ?? "",
-    },
     depositAmountCents: moneyToCents(draft.deposit_amount ?? 0),
     quotedPriceCents,
     repairItems,
@@ -83,7 +69,6 @@ export function buildEditOrderOfflineDraftPayload(
 
 export function buildEditOrderOfflineRelationshipPlan(
   data: OrderDetail,
-  draft: UpdateOrderInput,
 ): RepairDeskOfflineRelationshipPlan {
   const customerId = data.customer?.id ?? data.order.customer_id;
   const deviceId = data.device?.id ?? data.order.device_id;
@@ -92,21 +77,10 @@ export function buildEditOrderOfflineRelationshipPlan(
     customerLinkMode: "existing_customer",
     customerLinkDraft: {
       customerId,
-      snapshot: {
-        customerId,
-        name: draft.customer_name.trim(),
-        phone: draft.customer_phone.trim(),
-      },
     },
     deviceLinkMode: "existing_customer_device",
     deviceLinkDraft: {
       deviceId,
-      snapshot: {
-        deviceId,
-        brand: draft.device_brand.trim(),
-        model: draft.device_model.trim(),
-        imei: draft.device_imei?.trim() ?? "",
-      },
     },
   };
 }
@@ -142,7 +116,6 @@ export function restoreEditOrderFormFromOfflineDraft({
 
   const base = buildEditForm(data, defaultWarrantyMonths);
   const payload = draft.draftPayload;
-  const warrantyDraft = readRecord(payload.warrantyDraft);
   const repairItems = readRepairItems(payload.repairItems);
 
   return {
@@ -150,19 +123,9 @@ export function restoreEditOrderFormFromOfflineDraft({
     draft: {
       ...base,
       expected_updated_at: draft.baseUpdatedAt,
-      customer_name: readString(payload.customerName) ?? base.customer_name,
-      customer_phone: readString(payload.customerPhone) ?? base.customer_phone,
-      device_brand: readString(payload.deviceBrand) ?? base.device_brand,
-      device_model: readString(payload.deviceModel) ?? base.device_model,
-      device_imei: readString(payload.imei) ?? base.device_imei,
-      device_notes: readString(payload.deviceNotes) ?? base.device_notes,
-      issue_description: readString(payload.issueDescription) ?? base.issue_description,
-      diagnosis_result: readString(payload.diagnosisResult) ?? base.diagnosis_result,
-      accessory_notes: readString(payload.accessoryNotes) ?? base.accessory_notes,
-      warranty_text: readString(warrantyDraft.text) ?? base.warranty_text,
-      warranty_months: readNumber(warrantyDraft.months) ?? base.warranty_months,
-      warranty_change_reason: readString(warrantyDraft.changeReason) ?? base.warranty_change_reason,
-      fault_prices: repairItems.length ? repairItems : base.fault_prices,
+      // Local editing now restores the quote only. Legacy identity and repair fields
+      // must never acquire the current customer version and overwrite newer records.
+      fault_prices: Array.isArray(payload.repairItems) ? repairItems : base.fault_prices,
       deposit_amount: centsToMoney(readNumber(payload.depositAmountCents)) ?? base.deposit_amount,
       device_unlock: base.device_unlock,
     },
@@ -198,7 +161,7 @@ export function getEditOrderOfflineDraftFingerprint({
 }): string {
   return JSON.stringify({
     draftPayload: buildEditOrderOfflineDraftPayload(draft),
-    relationshipPlan: buildEditOrderOfflineRelationshipPlan(data, draft),
+    relationshipPlan: buildEditOrderOfflineRelationshipPlan(data),
     hasSensitiveVaultEntry: false,
   });
 }
@@ -248,10 +211,6 @@ function readNumber(value: unknown) {
 
 function normalizeMoneyNumber(value: number) {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
-}
-
-function normalizeInteger(value: number | undefined) {
-  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
 }
 
 function moneyToCents(value: number) {

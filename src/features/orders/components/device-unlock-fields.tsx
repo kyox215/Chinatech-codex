@@ -193,7 +193,7 @@ export function DeviceUnlockViewer({
     return () => window.clearTimeout(timeout);
   }, [revealed]);
 
-  if (!method) {
+  if (order.sensitive_redacted || !method) {
     return (
       <div
         className={cn("rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5", className)}
@@ -201,7 +201,13 @@ export function DeviceUnlockViewer({
       >
         <div className="flex min-w-0 items-center gap-1.5 text-[10px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
           <LockKeyhole className="size-3.5 shrink-0" />
-          <span className="truncate">{t("orders2b1.unlock.notProvided")}</span>
+          <span className="truncate">
+            {t(
+              order.sensitive_redacted
+                ? "orders2b2.unlock.restricted"
+                : "orders2b1.unlock.notProvided",
+            )}
+          </span>
         </div>
       </div>
     );

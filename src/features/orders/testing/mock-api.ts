@@ -43,7 +43,13 @@ import type {
   OrderWhatsappNotificationInput,
 } from "@/lib/repairdesk/types";
 import { repairOrderStatus, statusMeta, type RepairOrderStatus } from "@/lib/mock/enums";
-import { normalizePhoneBook, normalizePhoneRaw, phoneMatches } from "@/shared/lib/phone";
+import {
+  normalizePhoneBook,
+  normalizePhoneRaw,
+  phoneMatches,
+  uniqueContactPhones,
+} from "@/shared/lib/phone";
+import { normalizeOrderContactChanges } from "@/features/orders/model/order-contact-phones";
 import { classifyOrderTransitionFailure } from "@/features/orders/model/order-bulk-transition";
 import { classifyOrderSearchQuery } from "@/features/orders/model/order-search-query";
 import { normalizeDeviceUnlockInput } from "@/features/orders/model/device-unlock";
@@ -80,7 +86,7 @@ import {
 } from "@/lib/mock/workflow";
 import {
   customers,
-  decorate,
+  decorate as decorateMockOrder,
   devices,
   extraEvents,
   extraMessages,
@@ -247,6 +253,43 @@ function validateMockManualTransitionTarget(from: RepairOrderStatus, to: RepairO
   return { ok: true, label: targetStatus.label };
 }
 
+// Mock seed profiles need the same visible version field as real profiles.
+for (const customer of customers) customer.updated_at ??= new Date().toISOString();
+
+function decorate(order: RepairOrder): OrderListItem {
+  const customer = getCustomer(order.customer_id);
+  return {
+    ...decorateMockOrder(order),
+    contact_phones: customer
+      ? uniqueContactPhones(customer.phone_e164, customer.contact_phones)
+      : order.contact_phones,
+  };
+}
+
+function assertMockCustomerVersion(customer: { updated_at?: string }, expected?: string) {
+  if (!expected)
+    throw Object.assign(new Error("缺少客户版本时间"), {
+      code: "customer_version_required",
+      status: 409,
+    });
+  if (customer.updated_at !== expected) {
+    throw Object.assign(new Error("客户档案已被更新，请重新载入并核对姓名和联系电话后再保存"), {
+      code: "customer_stale_version",
+      status: 409,
+    });
+  }
+}
+
+function nextMockMutationTime(order: { updated_at: string }, customer: { updated_at?: string }) {
+  return new Date(
+    Math.max(
+      Date.now(),
+      Date.parse(order.updated_at) + 1,
+      (Date.parse(customer.updated_at ?? "") || 0) + 1,
+    ),
+  ).toISOString();
+}
+
 function mergeContactPhones(existing: string[], incoming: string[], primaryRaw: string) {
   const result: string[] = [];
   const seen = new Set<string>(primaryRaw ? [primaryRaw] : []);
@@ -269,7 +312,10 @@ function assertCustomerPhoneAvailable(
     ...contactPhones.map((phone) => normalizePhoneRaw(phone)).filter(Boolean),
   ]);
   const conflicts = customers.filter(
-    (customer) => customer.id !== customerId && raws.has(customer.phone_raw),
+    (customer) =>
+      customer.id !== customerId &&
+      (raws.has(customer.phone_raw) ||
+        customer.contact_phones.some((phone) => raws.has(normalizePhoneRaw(phone)))),
   );
   if (conflicts.length === 0) return;
   if (conflicts.some((customer) => customer.phone_raw === primaryRaw)) {
@@ -661,7 +707,7 @@ export async function getOrder(id: string, _actor?: AuditActor) {
     Boolean(_actor?.activeMembershipId && o.assignee_membership_id === _actor.activeMembershipId);
   return {
     order: orderView,
-    customer: getCustomer(o.customer_id),
+    customer: structuredClone(getCustomer(o.customer_id)),
     device: getDevice(o.device_id),
     supplier: getSupplier(o.supplier_id),
     parts_supplier: getMockSupplier(o.parts_supplier_id, { includeArchived: true }),
@@ -1378,6 +1424,7 @@ export async function recordPayment(
 const PATCH_FIELD_LABELS: Record<keyof PatchOrderInput["changes"], string> = {
   customer_name: "客户姓名",
   customer_phone: "手机号",
+  contact_phones: "备用号码",
   device_brand: "设备品牌",
   device_model: "设备型号",
   device_imei: "IMEI/序列号",
@@ -1481,7 +1528,7 @@ export async function updateOrder(
   const deviceBrand = input.device_brand.trim();
   const deviceModel = input.device_model.trim();
   const issueDescription = input.issue_description.trim();
-  if (!customerName || !customerPhone) throw new Error("客户姓名和手机号不能为空");
+  assertMockCustomerVersion(customer, input.expected_customer_updated_at);
   if (!deviceBrand || !deviceModel) throw new Error("设备品牌和型号不能为空");
   if (!issueDescription) throw new Error("故障描述不能为空");
 
@@ -1529,7 +1576,7 @@ export async function updateOrder(
   const deviceUnlock = input.device_unlock
     ? normalizeDeviceUnlockInput(input.device_unlock)
     : undefined;
-  const now = new Date().toISOString();
+  const now = nextMockMutationTime(o, customer);
   const warranty = normalizeWarrantyPayload({
     warranty_months: input.warranty_months,
     warranty_text: input.warranty_text,
@@ -1544,15 +1591,25 @@ export async function updateOrder(
   const warrantyChanged =
     previousWarrantyMonths !== warranty.warranty_months ||
     (previousWarrantyReason ?? "") !== (warranty.warranty_change_reason ?? "");
-  const phoneBook = normalizePhoneBook(customerPhone);
-  if (!phoneBook.primaryRaw) throw new Error("手机号格式不正确");
-  const customerContactPhones = mergeContactPhones([], phoneBook.contacts, phoneBook.primaryRaw);
-  assertCustomerPhoneAvailable(customer.id, phoneBook.primaryRaw, customerContactPhones);
+  const contactChanges = normalizeOrderContactChanges({
+    customer_phone: customerPhone,
+    contact_phones: input.contact_phones,
+  });
+  const customerContactPhones = uniqueContactPhones(
+    contactChanges.phone_e164 ?? customer.phone_e164,
+    contactChanges.contact_phones ?? customer.contact_phones,
+  );
+  assertCustomerPhoneAvailable(
+    customer.id,
+    contactChanges.phone_raw ?? customer.phone_raw,
+    customerContactPhones,
+  );
 
-  customer.name = customerName;
-  customer.phone_e164 = phoneBook.primary;
-  customer.phone_raw = phoneBook.primaryRaw;
-  customer.contact_phones = customerContactPhones;
+  Object.assign(customer, contactChanges, {
+    name: customerName,
+    contact_phones: customerContactPhones,
+    updated_at: now,
+  });
 
   o.issue_description = issueDescription;
   o.diagnosis_result = input.diagnosis_result?.trim() || undefined;
@@ -1570,7 +1627,6 @@ export async function updateOrder(
     o.warranty_changed_by = typeof operator === "string" ? undefined : operator.id;
     o.warranty_changed_at = now;
   }
-  o.contact_phones = customerContactPhones;
   o.quotation_amount = quotation;
   o.deposit_amount = deposit;
   o.balance_amount = nextBalance;
@@ -1635,7 +1691,44 @@ export async function updateOrder(
   return { ok: true };
 }
 
+const mockOrderPatchReceipts = new Map<string, { fingerprint: string; result: PatchOrderResult }>();
+
+function canonicalMockMutation(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalMockMutation);
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, item]) => item !== undefined)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, item]) => [key, canonicalMockMutation(item)]),
+    );
+  return value;
+}
+
 export async function patchOrder(
+  id: string,
+  input: PatchOrderInput,
+  operator: MockOperator = "前台",
+): Promise<PatchOrderResult> {
+  const { idempotency_key, ...request } = input;
+  const fingerprint = JSON.stringify(canonicalMockMutation({ id, operator, request }));
+  const store = typeof operator === "string" ? "mock" : operator.storeId;
+  const key = JSON.stringify([store, idempotency_key ?? fingerprint]);
+  const receipt = mockOrderPatchReceipts.get(key);
+  if (receipt) {
+    if (receipt.fingerprint !== fingerprint)
+      throw Object.assign(new Error("本次保存标识已用于不同内容"), {
+        code: "idempotency_conflict",
+        status: 409,
+      });
+    return structuredClone(receipt.result);
+  }
+  const result = await applyMockOrderPatch(id, input, operator);
+  mockOrderPatchReceipts.set(key, { fingerprint, result: structuredClone(result) });
+  return result;
+}
+
+async function applyMockOrderPatch(
   id: string,
   input: PatchOrderInput,
   operator: MockOperator = "前台",
@@ -1652,16 +1745,21 @@ export async function patchOrder(
     const beforeCustomer = customer ? structuredClone(customer) : undefined;
     const beforeEvents = structuredClone(extraEvents);
     try {
-      const routine = await patchOrder(
+      const routine = await applyMockOrderPatch(
         id,
-        { expected_updated_at: input.expected_updated_at, changes: input.changes },
+        {
+          expected_updated_at: input.expected_updated_at,
+          expected_customer_updated_at: input.expected_customer_updated_at,
+          changes: input.changes,
+        },
         operator,
       );
-      return await patchOrderFinance(
+      const finance = await patchOrderFinance(
         id,
         { ...input.finance, expected_updated_at: routine.updated_at },
         operator,
       );
+      return { ...finance, customer_updated_at: routine.customer_updated_at };
     } catch (error) {
       for (const key of Object.keys(o)) delete (o as unknown as Record<string, unknown>)[key];
       Object.assign(o, beforeOrder);
@@ -1683,28 +1781,43 @@ export async function patchOrder(
   ][];
   if (entries.length === 0) throw new Error("没有可保存的字段");
 
-  const customer = getCustomer(o.customer_id);
+  const storedCustomer = getCustomer(o.customer_id);
   const device = getDevice(o.device_id);
-  if (!customer || !device) throw new Error("工单缺少客户或设备关联");
+  if (!storedCustomer || !device) throw new Error("工单缺少客户或设备关联");
+  const customer = structuredClone(storedCustomer);
+  const storedOrder = o;
+  const stagedOrder = structuredClone(o);
+  const customerChanged = entries.some(([field]) =>
+    ["customer_name", "customer_phone", "contact_phones"].includes(field),
+  );
+  if (customerChanged) assertMockCustomerVersion(customer, input.expected_customer_updated_at);
+  const contactsChanged =
+    input.changes.customer_phone !== undefined || input.changes.contact_phones !== undefined;
+  if (contactsChanged) {
+    Object.assign(customer, normalizeOrderContactChanges(input.changes));
+    customer.contact_phones = uniqueContactPhones(customer.phone_e164, customer.contact_phones);
+    assertCustomerPhoneAvailable(customer.id, customer.phone_raw, customer.contact_phones);
+  }
 
   const nextSnapshot = {
-    brand: o.device_snapshot?.brand || device.brand,
-    model: o.device_snapshot?.model || device.model,
-    serial_or_imei: o.device_snapshot?.serial_or_imei || device.serial_or_imei,
-    device_notes: o.device_snapshot?.device_notes || device.device_notes,
+    brand: stagedOrder.device_snapshot?.brand || device.brand,
+    model: stagedOrder.device_snapshot?.model || device.model,
+    serial_or_imei: stagedOrder.device_snapshot?.serial_or_imei || device.serial_or_imei,
+    device_notes: stagedOrder.device_snapshot?.device_notes || device.device_notes,
   };
   const changedFields: string[] = [];
 
   for (const [field, rawValue] of entries) {
     changedFields.push(PATCH_FIELD_LABELS[field]);
+    if (field === "customer_phone" || field === "contact_phones") continue;
     if (field === "assignee_membership_id") {
       const membershipId = typeof rawValue === "string" ? rawValue.trim() : "";
-      o.assignee_membership_id = membershipId || undefined;
-      o.technician_name = membershipId ? "Hexiang" : "未分配";
+      stagedOrder.assignee_membership_id = membershipId || undefined;
+      stagedOrder.technician_name = membershipId ? "Hexiang" : "未分配";
       continue;
     }
     if (field === "device_unlock") {
-      applyDeviceUnlock(o, rawValue as PatchOrderInput["changes"]["device_unlock"]);
+      applyDeviceUnlock(stagedOrder, rawValue as PatchOrderInput["changes"]["device_unlock"]);
       continue;
     }
     if (field === "parts_supplier_id") {
@@ -1712,7 +1825,7 @@ export async function patchOrder(
       if (supplierId && !getMockSupplier(supplierId)) {
         throw new Error("配件供应商不存在或不属于当前店铺");
       }
-      o.parts_supplier_id = supplierId || undefined;
+      stagedOrder.parts_supplier_id = supplierId || undefined;
       continue;
     }
     if (field === "warranty_months") {
@@ -1720,32 +1833,14 @@ export async function patchOrder(
       if (!Number.isInteger(months) || months < 0 || months > 36) {
         throw new Error("质保期限必须是 0 到 36 个月的整数");
       }
-      o.warranty_months = months;
+      stagedOrder.warranty_months = months;
       continue;
     }
     if (typeof rawValue !== "string") throw new Error(`${PATCH_FIELD_LABELS[field]}格式不正确`);
     const value = rawValue.trim();
     switch (field) {
       case "customer_name":
-        if (!value) throw new Error("客户姓名不能为空");
         customer.name = value;
-        break;
-      case "customer_phone":
-        if (!value) throw new Error("手机号不能为空");
-        {
-          const phoneBook = normalizePhoneBook(value, customer.contact_phones);
-          if (!phoneBook.primaryRaw) throw new Error("手机号格式不正确");
-          const contactPhones = mergeContactPhones(
-            customer.contact_phones,
-            phoneBook.contacts,
-            phoneBook.primaryRaw,
-          );
-          assertCustomerPhoneAvailable(customer.id, phoneBook.primaryRaw, contactPhones);
-          customer.phone_e164 = phoneBook.primary;
-          customer.phone_raw = phoneBook.primaryRaw;
-          customer.contact_phones = contactPhones;
-          o.contact_phones = contactPhones;
-        }
         break;
       case "device_brand":
         if (!value) throw new Error("设备品牌不能为空");
@@ -1764,26 +1859,26 @@ export async function patchOrder(
         break;
       case "issue_description":
         if (!value) throw new Error("故障描述不能为空");
-        o.issue_description = value;
+        stagedOrder.issue_description = value;
         break;
       case "diagnosis_result":
-        o.diagnosis_result = value || undefined;
+        stagedOrder.diagnosis_result = value || undefined;
         break;
       case "internal_tag": {
         const tagInput = normalizeOrderTagInput({ internalTag: value });
-        o.internal_tag = tagInput.internalTag;
+        stagedOrder.internal_tag = tagInput.internalTag;
         break;
       }
       case "accessory_notes": {
         const tagInput = normalizeOrderTagInput({ accessoryNotes: value });
-        o.accessory_notes = tagInput.accessoryNotes;
+        stagedOrder.accessory_notes = tagInput.accessoryNotes;
         break;
       }
       case "warranty_text":
-        o.warranty_text = value || undefined;
+        stagedOrder.warranty_text = value || undefined;
         break;
       case "warranty_change_reason":
-        o.warranty_change_reason = value || undefined;
+        stagedOrder.warranty_change_reason = value || undefined;
         break;
     }
   }
@@ -1794,13 +1889,16 @@ export async function patchOrder(
     )
   ) {
     if (!nextSnapshot.brand || !nextSnapshot.model) throw new Error("设备品牌和型号不能为空");
-    o.device_snapshot = nextSnapshot;
+    stagedOrder.device_snapshot = nextSnapshot;
   }
 
-  const now = new Date().toISOString();
-  o.updated_at = now;
+  const now = nextMockMutationTime(stagedOrder, customer);
+  stagedOrder.updated_at = now;
+  if (customerChanged) customer.updated_at = now;
+  Object.assign(storedOrder, stagedOrder);
+  if (customerChanged) Object.assign(storedCustomer, customer);
   writeMergedPatchEvent(id, changedFields, now, operator);
-  return { ok: true, updated_at: now };
+  return { ok: true, updated_at: now, customer_updated_at: customer.updated_at };
 }
 
 export async function patchOrderFinance(
@@ -2801,6 +2899,7 @@ export async function createOrder(
         consent_sms: true,
         preferred_channel: "whatsapp",
         language: "it",
+        updated_at: new Date().toISOString(),
       };
       customers.push(customer);
       customerContactPhones = phoneBook.contacts;

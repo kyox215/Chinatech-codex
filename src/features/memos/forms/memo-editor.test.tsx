@@ -7,7 +7,10 @@ import { NavigationGuardProvider } from "@/components/navigation-guard-provider"
 
 import { MemoEditor } from "./memo-editor";
 
-vi.mock("@/hooks/use-mobile", () => ({ useIsCompactWorkspace: () => false }));
+vi.mock("@/hooks/use-mobile", () => ({
+  useIsCompactWorkspace: () => false,
+  useIsMobile: () => false,
+}));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
 }));

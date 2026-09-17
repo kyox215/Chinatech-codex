@@ -3,6 +3,7 @@ import type {
   PatchOrderChanges,
   UpdateOrderInput,
 } from "@/lib/repairdesk/types";
+import { uniqueContactPhones } from "@/shared/lib/phone";
 
 const intakeStringFields = [
   "customer_name",
@@ -34,6 +35,11 @@ export function buildOrderPatchChanges(
       if (normalizeText(baseline[field]) !== normalizeText(draft[field])) {
         changes[field] = normalizeText(draft[field]);
       }
+    }
+    if (draft.contact_phones !== undefined) {
+      const before = uniqueContactPhones(baseline.customer_phone, baseline.contact_phones);
+      const after = uniqueContactPhones(draft.customer_phone, draft.contact_phones);
+      if (JSON.stringify(before) !== JSON.stringify(after)) changes.contact_phones = after;
     }
   }
 

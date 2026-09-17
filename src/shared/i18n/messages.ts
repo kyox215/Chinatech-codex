@@ -2057,6 +2057,9 @@ const zhCN = {
   "orders2b1.quote.saving": "保存中…",
   "orders2b1.quote.publish": "发布正式报价",
   "orders2b1.quote.saveDiagnosis": "保存检测结论",
+  "orders2b1.quote.retryHint":
+    "上次提交结果未确认。重试将核对原版本和原内容；取消并放弃会清除本次重试记录，重新打开会创建新的提交。",
+  "orders2b1.quote.rejectedHint": "报价未保存，请检查诊断和金额后重试。",
   "orders2b1.quote.saveFailed": "保存失败，请重试",
   "orders2b1.quote.missing.diagnosis": "请先填写检测结论",
   "orders2b1.quote.missing.items": "请至少填写一个完整报价项目",
@@ -2717,7 +2720,7 @@ const zhCN = {
   "orders2b2.validation.warrantyReason": "请填写质保调整原因。",
   "orders2b2.validation.checkOrder": "请检查工单信息后再保存。",
   "orders2b2.permission.edit": "当前工单状态或账号权限不允许编辑。",
-  "orders2b2.draft.restored": "本机编辑草稿已恢复",
+  "orders2b2.draft.restored": "本机报价草稿已恢复；客户和维修信息保持当前记录",
   "orders2b2.draft.discarded": "本机编辑草稿已丢弃",
   "orders2b2.customerStatus.prepareFailed": "工单二维码准备失败，请重试。",
   "orders2b2.customerStatus.resetConfirm": "重置这张工单的固定二维码？此前打印的二维码将立即失效。",
@@ -3041,14 +3044,24 @@ const zhCN = {
   "orders2b2.offline.unavailable": "本机编辑草稿暂不可用",
   "orders2b2.offline.draft": "本机编辑草稿",
   "orders2b2.offline.conflict": "工单已经更新，为避免覆盖其他人的修改，当前草稿不能直接恢复。",
-  "orders2b2.offline.restoreHelp": "草稿仅保存在当前浏览器；恢复后仍需在线点击保存。",
+  "orders2b2.offline.restoreHelp":
+    "仅恢复报价项目和定金；旧草稿中的客户、设备和维修信息不会恢复。确认后请在线保存。",
   "orders2b2.offline.lastSaved": "最近保存：{date}。草稿仅保存在当前浏览器。",
   "orders2b2.offline.defaultHelp": "编辑内容会保存在当前浏览器，在线保存后才会进入系统。",
   "orders2b2.offline.unlockHelp":
     "手机密码、PIN 或图案不会进入普通本机草稿，刷新后需要重新输入或在线保存。",
-  "orders2b2.offline.restore": "恢复编辑",
+  "orders2b2.offline.restore": "恢复报价",
   "orders2b2.offline.discard": "丢弃草稿",
   "orders2b2.unlock.edit": "编辑手机密码",
+  "orders2b2.edit.customerSync": "姓名和号码同步客户档案，历史接单快照保留。",
+  "orders2b2.edit.internalTag": "内部标签",
+  "orders2b2.edit.addName": "添加姓名",
+  "orders2b2.edit.addPhone": "添加手机号",
+  "orders2b2.edit.finishCurrent": "请先保存或取消当前编辑。",
+  "orders2b2.edit.saveContinue": "保存并继续",
+  "orders2b2.unlock.add": "添加密码",
+  "orders2b2.unlock.restricted": "密码访问受限",
+  "orders2b2.notify.phoneChanged": "客户号码已更新。请加载最新资料并核对收件人后继续。",
   "orders2b2.unlock.entry": "密码",
   "orders2b2.unlock.help": "{publicNo} · 默认只在详情里遮挡查看，不进入列表、打印或消息正文。",
   "orders2b2.fault.edit": "编辑故障描述",
@@ -6387,6 +6400,10 @@ const itIT: Record<MessageKey, string> = {
   "orders2b1.quote.saving": "Salvataggio…",
   "orders2b1.quote.publish": "Pubblica preventivo",
   "orders2b1.quote.saveDiagnosis": "Salva diagnosi",
+  "orders2b1.quote.retryHint":
+    "Esito non confermato. Riprova con gli stessi dati e la stessa versione. Annullando e scartando perdi questo tentativo; riaprire avvia un nuovo invio.",
+  "orders2b1.quote.rejectedHint":
+    "Preventivo non salvato. Controlla diagnosi e importi, poi riprova.",
   "orders2b1.quote.saveFailed": "Salvataggio non riuscito. Riprova.",
   "orders2b1.quote.missing.diagnosis": "Inserisci prima la diagnosi",
   "orders2b1.quote.missing.items": "Inserisci almeno una voce completa",
@@ -6715,7 +6732,8 @@ const itIT: Record<MessageKey, string> = {
   "orders2b1.new.fault.inspect": "Da verificare",
   "orders2b1.new.fault.inspectHelp": "Mostra le opzioni di verifica",
   "orders2b1.new.fault.clear": "Deseleziona",
-  "orders2b1.new.toast.restored": "Bozza locale ripristinata",
+  "orders2b1.new.toast.restored":
+    "Bozza del preventivo ripristinata; cliente e riparazione mantengono i dati attuali",
   "orders2b1.new.toast.discarded": "Bozza locale eliminata",
   "orders2b1.new.toast.created": "Ordine creato",
   "orders2b1.new.toast.createdConfirmed": "Creazione ordine confermata",
@@ -7092,7 +7110,8 @@ const itIT: Record<MessageKey, string> = {
   "orders2b2.validation.checkOrder": "Controlla i dati dell’ordine prima di salvare.",
   "orders2b2.permission.edit":
     "Lo stato dell’ordine o i permessi correnti non consentono la modifica.",
-  "orders2b2.draft.restored": "Bozza locale ripristinata",
+  "orders2b2.draft.restored":
+    "Bozza del preventivo ripristinata; cliente e riparazione mantengono i dati attuali",
   "orders2b2.draft.discarded": "Bozza locale eliminata",
   "orders2b2.customerStatus.prepareFailed":
     "Impossibile preparare il codice QR dell’ordine. Riprova.",
@@ -7480,16 +7499,27 @@ const itIT: Record<MessageKey, string> = {
   "orders2b2.offline.conflict":
     "L’ordine è cambiato; questa bozza non può essere ripristinata senza sovrascrivere altre modifiche.",
   "orders2b2.offline.restoreHelp":
-    "La bozza resta solo in questo browser; dopo il ripristino devi comunque salvarla online.",
+    "Ripristina solo interventi e acconto. I dati di cliente, dispositivo e riparazione delle vecchie bozze non vengono ripristinati. Salva poi online.",
   "orders2b2.offline.lastSaved":
     "Ultimo salvataggio: {date}. La bozza resta solo in questo browser.",
   "orders2b2.offline.defaultHelp":
     "Le modifiche restano in questo browser e entrano nel sistema solo dopo il salvataggio online.",
   "orders2b2.offline.unlockHelp":
     "Password, PIN o sequenza non entrano nella bozza locale; reinseriscili dopo l’aggiornamento o salvali online.",
-  "orders2b2.offline.restore": "Ripristina modifica",
+  "orders2b2.offline.restore": "Ripristina preventivo",
   "orders2b2.offline.discard": "Scarta bozza",
   "orders2b2.unlock.edit": "Modifica codice telefono",
+  "orders2b2.edit.customerSync":
+    "Nome e numeri aggiornano il cliente; i dati storici di accettazione restano invariati.",
+  "orders2b2.edit.internalTag": "Etichetta interna",
+  "orders2b2.edit.addName": "Aggiungi nome",
+  "orders2b2.edit.addPhone": "Aggiungi telefono",
+  "orders2b2.edit.finishCurrent": "Salva o annulla la modifica in corso.",
+  "orders2b2.edit.saveContinue": "Salva e continua",
+  "orders2b2.unlock.add": "Aggiungi codice",
+  "orders2b2.unlock.restricted": "Accesso al codice limitato",
+  "orders2b2.notify.phoneChanged":
+    "Il numero del cliente è cambiato. Carica i dati aggiornati e verifica il destinatario prima di continuare.",
   "orders2b2.unlock.entry": "Codice",
   "orders2b2.unlock.help":
     "{publicNo} · Nascosto nei dettagli; non compare in elenchi, stampa o messaggi.",
@@ -10952,6 +10982,10 @@ const en: Record<MessageKey, string> = {
   "orders2b1.quote.saving": "Saving…",
   "orders2b1.quote.publish": "Publish final quote",
   "orders2b1.quote.saveDiagnosis": "Save diagnosis",
+  "orders2b1.quote.retryHint":
+    "The last result is unconfirmed. Retry uses the same version and content. Cancelling and discarding clears this retry record; reopening starts a new submission.",
+  "orders2b1.quote.rejectedHint":
+    "Quote not saved. Check the diagnosis and amounts, then try again.",
   "orders2b1.quote.saveFailed": "Could not save. Try again.",
   "orders2b1.quote.missing.diagnosis": "Enter the diagnosis first",
   "orders2b1.quote.missing.items": "Enter at least one complete quote item",
@@ -11650,7 +11684,8 @@ const en: Record<MessageKey, string> = {
   "orders2b2.validation.warrantyReason": "Enter a reason for the warranty change.",
   "orders2b2.validation.checkOrder": "Review the order information before saving.",
   "orders2b2.permission.edit": "The order status or your current permissions do not allow editing.",
-  "orders2b2.draft.restored": "Local edit draft restored",
+  "orders2b2.draft.restored":
+    "Quote draft restored; customer and repair details keep their current values",
   "orders2b2.draft.discarded": "Local edit draft discarded",
   "orders2b2.customerStatus.prepareFailed": "Could not prepare the order QR code. Try again.",
   "orders2b2.customerStatus.resetConfirm":
@@ -12028,15 +12063,26 @@ const en: Record<MessageKey, string> = {
   "orders2b2.offline.conflict":
     "The order changed; this draft cannot be restored without overwriting someone else’s changes.",
   "orders2b2.offline.restoreHelp":
-    "The draft is stored only in this browser; after restoring it, you must still save online.",
+    "Restore quote items and deposit only. Customer, device and repair details from older drafts are not restored. Save online after reviewing.",
   "orders2b2.offline.lastSaved": "Last saved: {date}. The draft is stored only in this browser.",
   "orders2b2.offline.defaultHelp":
     "Edits are stored in this browser and enter the system only after an online save.",
   "orders2b2.offline.unlockHelp":
     "Passwords, PINs, or patterns are not stored in the local draft; re-enter them after refresh or save online.",
-  "orders2b2.offline.restore": "Restore editing",
+  "orders2b2.offline.restore": "Restore quote",
   "orders2b2.offline.discard": "Discard draft",
   "orders2b2.unlock.edit": "Edit device passcode",
+  "orders2b2.edit.customerSync":
+    "Name and numbers update the customer profile; historical intake snapshots are retained.",
+  "orders2b2.edit.internalTag": "Internal tag",
+  "orders2b2.edit.addName": "Add name",
+  "orders2b2.edit.addPhone": "Add phone",
+  "orders2b2.edit.finishCurrent": "Save or cancel the current edit first.",
+  "orders2b2.edit.saveContinue": "Save and continue",
+  "orders2b2.unlock.add": "Add passcode",
+  "orders2b2.unlock.restricted": "Passcode access restricted",
+  "orders2b2.notify.phoneChanged":
+    "The customer’s numbers have changed. Load the latest details and check the recipient before continuing.",
   "orders2b2.unlock.entry": "Passcode",
   "orders2b2.unlock.help":
     "{publicNo} · Masked in details by default; it does not appear in lists, printouts, or message bodies.",

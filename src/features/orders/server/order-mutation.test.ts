@@ -13,6 +13,23 @@ const base = {
 };
 
 describe("atomic order mutation identity", () => {
+  it("includes the frozen customer version and backup replacement in retry identity", () => {
+    const request = {
+      ...base.request,
+      expected_customer_updated_at: "2026-09-17T08:00:00Z",
+      changes: { contact_phones: [] as string[] },
+    };
+    const identity = orderMutationIdentity({ ...base, request });
+    expect(
+      orderMutationIdentity({
+        ...base,
+        request: { ...request, expected_customer_updated_at: "2026-09-17T08:01:00Z" },
+      }).requestHash,
+    ).not.toBe(identity.requestHash);
+    expect(
+      orderMutationIdentity({ ...base, request: { ...request, changes: {} } }).requestHash,
+    ).not.toBe(identity.requestHash);
+  });
   it("reuses an intent for the same original payload and version regardless of key order", () => {
     const first = orderMutationIdentity(base);
     expect(
@@ -57,6 +74,35 @@ describe("atomic order mutation identity", () => {
 });
 
 describe("atomic order mutation transport", () => {
+  it("sends the originally observed customer version and exposes both committed versions", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        ok: true,
+        updated_at: "2026-09-17T09:00:00Z",
+        customer_updated_at: "2026-09-17T09:00:00Z",
+      },
+      error: null,
+    });
+    const result = await mutateOrderAtomic({
+      ...base,
+      request: { ...base.request, expected_customer_updated_at: "2026-09-17T08:00:00Z" },
+      supabase: { rpc } as unknown as Parameters<typeof mutateOrderAtomic>[0]["supabase"],
+      orderChanges: {},
+      customerChanges: { contact_phones: [] },
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      "repairdesk_mutate_order_v4",
+      expect.objectContaining({
+        p_expected_customer_updated_at: "2026-09-17T08:00:00Z",
+        p_customer_changes: { contact_phones: [] },
+      }),
+    );
+    expect(result).toEqual({
+      ok: true,
+      updated_at: "2026-09-17T09:00:00Z",
+      customer_updated_at: "2026-09-17T09:00:00Z",
+    });
+  });
   function setup(response: { data: unknown; error: unknown }) {
     const rpc = vi.fn().mockResolvedValue(response);
     const from = vi.fn();
@@ -87,7 +133,7 @@ describe("atomic order mutation transport", () => {
         fault_prices: [{ line_id: crypto.randomUUID(), name: "Repair", price: 120 }],
       },
     });
-    expect(rpc.mock.calls[0]?.[0]).toBe("repairdesk_mutate_order_v3");
+    expect(rpc.mock.calls[0]?.[0]).toBe("repairdesk_mutate_order_v4");
     expect(rpc.mock.calls[0]?.[1].p_operation_id).toBe(rpc.mock.calls[1]?.[1].p_operation_id);
     expect(rpc.mock.calls[0]?.[1].p_request_hash).toBe(rpc.mock.calls[1]?.[1].p_request_hash);
     expect(from).not.toHaveBeenCalled();
@@ -118,6 +164,8 @@ describe("atomic order mutation transport", () => {
     "quote_below_received_amount",
     "deposit_correction_required",
     "stale_version",
+    "customer_stale_version",
+    "customer_version_required",
     "idempotency_conflict",
   ])("preserves domain failure %s", async (code) => {
     const { args } = setup({ data: { ok: false, code }, error: null });

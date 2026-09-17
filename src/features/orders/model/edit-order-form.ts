@@ -17,8 +17,10 @@ export function buildEditForm(data: OrderDetail, defaultWarrantyMonths = 6): Upd
       : parseWarrantyMonths(order.warranty_text, defaultWarrantyMonths);
   return {
     expected_updated_at: order.updated_at,
+    expected_customer_updated_at: customer?.updated_at,
     customer_name: customer?.name ?? order.customer_name,
-    customer_phone: [primaryPhone, ...backupPhones].filter(Boolean).join(" / "),
+    customer_phone: primaryPhone,
+    contact_phones: backupPhones,
     device_brand: snapshot?.brand ?? device?.brand ?? "",
     device_model: snapshot?.model ?? device?.model ?? "",
     device_imei: snapshot?.serial_or_imei ?? order.device_imei ?? device?.serial_or_imei,

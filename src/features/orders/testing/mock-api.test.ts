@@ -1217,8 +1217,10 @@ describe("mock order inline editing workflow", () => {
 
     await updateOrder(id, {
       expected_updated_at: before.order.updated_at,
+      expected_customer_updated_at: before.customer?.updated_at,
       customer_name: before.order.customer_name,
-      customer_phone: "+39 366 120 230 / +39 366 520 630",
+      customer_phone: "+39 366 120 230",
+      contact_phones: ["+39 366 520 630"],
       device_brand: before.order.device_snapshot?.brand ?? "Apple",
       device_model: before.order.device_snapshot?.model ?? "iPhone",
       device_imei: before.order.device_imei,
@@ -1243,6 +1245,7 @@ describe("mock order inline editing workflow", () => {
 
     const result = await patchOrder(id, {
       expected_updated_at: before.order.updated_at,
+      expected_customer_updated_at: before.customer?.updated_at,
       changes: {
         customer_name: "Cliente Aggiornato",
         device_model: "iPhone Inline",
@@ -1351,6 +1354,7 @@ describe("mock order inline editing workflow", () => {
 
     await updateOrder(id, {
       expected_updated_at: created.order.updated_at,
+      expected_customer_updated_at: created.customer?.updated_at,
       customer_name: created.order.customer_name,
       customer_phone: created.order.customer_phone,
       device_brand: created.order.device_snapshot?.brand ?? "Apple",
@@ -1377,6 +1381,7 @@ describe("mock order inline editing workflow", () => {
     await expect(
       updateOrder(id, {
         expected_updated_at: updated.order.updated_at,
+        expected_customer_updated_at: updated.customer?.updated_at,
         customer_name: updated.order.customer_name,
         customer_phone: updated.order.customer_phone,
         device_brand: updated.order.device_snapshot?.brand ?? "Apple",
@@ -1475,6 +1480,7 @@ describe("mock order inline editing workflow", () => {
       id,
       {
         expected_updated_at: before.order.updated_at,
+        expected_customer_updated_at: before.customer?.updated_at,
         customer_name: "Cliente Editato",
         customer_phone: before.order.customer_phone,
         device_brand: "Samsung",
@@ -1866,5 +1872,80 @@ describe("mock atomic notification intent", () => {
     await expect(
       sendNotification(id, input, { ...actor, storeId: "other-store" }),
     ).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe("mock customer CAS across order views", () => {
+  it("edits an anonymous profile, removes backups, refreshes both orders, and preserves first replay versions", async () => {
+    const firstId = await createMockOrder({
+      customer_name: "",
+      customer_phone: "+390000018101 / +390000018102",
+    });
+    const initial = await getOrder(firstId);
+    const secondId = await createMockOrder({
+      customer_id: initial.customer?.id,
+      customer_phone: undefined,
+    });
+    const beforeFirst = await getOrder(firstId);
+    const beforeSecond = await getOrder(secondId);
+    const input = {
+      idempotency_key: crypto.randomUUID(),
+      expected_updated_at: beforeFirst.order.updated_at,
+      expected_customer_updated_at: beforeFirst.customer?.updated_at,
+      changes: { customer_phone: "+390000018103", contact_phones: [] },
+    };
+    const saved = await patchOrder(firstId, input);
+    const afterFirst = await getOrder(firstId);
+    const afterSecond = await getOrder(secondId);
+    expect(afterFirst.customer?.name).toBe("");
+    expect(afterFirst.order.customer_phone).toBe("+390000018103");
+    expect(afterSecond.order.customer_phone).toBe("+390000018103");
+    expect(afterSecond.order.contact_phones).toEqual([]);
+    expect(afterSecond.order.updated_at).toBe(beforeSecond.order.updated_at);
+    expect(afterFirst.order.customer_phone_snapshot).toBe(
+      beforeFirst.order.customer_phone_snapshot,
+    );
+    await expect(
+      patchOrder(secondId, {
+        expected_updated_at: beforeSecond.order.updated_at,
+        expected_customer_updated_at: beforeSecond.customer?.updated_at,
+        changes: { customer_name: "Stale name" },
+      }),
+    ).rejects.toMatchObject({ code: "customer_stale_version", status: 409 });
+    await patchOrder(firstId, {
+      expected_updated_at: saved.updated_at,
+      expected_customer_updated_at: saved.customer_updated_at,
+      changes: { contact_phones: ["+390000018104"] },
+    });
+    expect(await patchOrder(firstId, input)).toEqual(saved);
+    expect((await listOrders({ search: "390000018103" })).map((item) => item.id)).toEqual(
+      expect.arrayContaining([firstId, secondId]),
+    );
+    expect(
+      (await listOrders({ search: "390000018102" })).some((item) =>
+        [firstId, secondId].includes(item.id),
+      ),
+    ).toBe(false);
+  });
+
+  it("preserves omitted backups and leaves the entire patch unchanged after validation failure", async () => {
+    const id = await createMockOrder({ customer_phone: "+390000018201 / +390000018202" });
+    const before = await getOrder(id);
+    const saved = await patchOrder(id, {
+      expected_updated_at: before.order.updated_at,
+      expected_customer_updated_at: before.customer?.updated_at,
+      changes: { customer_phone: "+390000018203" },
+    });
+    const after = await getOrder(id);
+    expect(after.order.contact_phones).toEqual(["+390000018202"]);
+    await expect(
+      patchOrder(id, {
+        expected_updated_at: saved.updated_at,
+        expected_customer_updated_at: saved.customer_updated_at,
+        changes: { customer_name: "Must not persist", device_brand: "" },
+      }),
+    ).rejects.toThrow("设备品牌不能为空");
+    expect((await getOrder(id)).customer).toEqual(after.customer);
+    expect((await getOrder(id)).order.updated_at).toBe(saved.updated_at);
   });
 });

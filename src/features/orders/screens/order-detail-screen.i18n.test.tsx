@@ -3,12 +3,14 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { DiagnosisQuoteDialogProps } from "@/components/orders/diagnosis-quote-dialog";
+import { buildEditForm } from "@/features/orders/model/edit-order-form";
 import { formatOrderDateTime } from "@/features/orders/model/order-date";
 import { fallbackOrderWorkflowStatuses } from "@/features/orders/model/order-workflow";
 import { orders } from "@/lib/mock/fixtures";
 import type { FinanceDraftState } from "@/features/orders/model/order-finance-draft";
 import { RepairDeskApiError, RepairDeskTransportError } from "@/lib/repairdesk/api";
-import type { UpdateOrderInput } from "@/lib/repairdesk/api";
+import type { OrderDetail, UpdateOrderInput } from "@/lib/repairdesk/api";
 import type { RepairDeskOptions } from "@/lib/repairdesk/types";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import { translateMessage } from "@/shared/i18n/messages";
@@ -41,6 +43,7 @@ const detailOrder = {
   customer_phone: "+393335719865",
   contact_phones: ["+393335719865"],
   device_label: "华为 Mate 自定义",
+  device_imei: "490154203237518",
   device_snapshot: {
     brand: "华为",
     model: "Mate 自定义",
@@ -74,6 +77,9 @@ const detailOrder = {
 
 const mocks = vi.hoisted(() => ({
   patchOrder: vi.fn(),
+  publishOrderQuote: vi.fn(),
+  quoteDialogProps: null as DiagnosisQuoteDialogProps | null,
+  legacyDraft: null as UpdateOrderInput | null,
   patchOrderFinance: vi.fn(),
   transitionOrder: vi.fn(),
   updateOrderCustody: vi.fn(),
@@ -178,10 +184,11 @@ vi.mock("@/features/orders/api/use-edit-order-offline-autosave", () => ({
     state: "idle",
     errorMessage: null,
     lastSavedAt: null,
-    draftPrompt: null,
+    draftPrompt: mocks.legacyDraft ? { hasConflict: false } : null,
     pendingRestoreNotice: null,
     hasSensitiveUnlockDraft: false,
-    restorePromptDraft: vi.fn(),
+    restorePromptDraft: async () =>
+      mocks.legacyDraft ? { status: "restored", draft: mocks.legacyDraft } : null,
     discardPromptDraft: vi.fn(),
     discardCurrentDraft: vi.fn().mockResolvedValue(true),
     saveDraftSnapshot: vi.fn().mockResolvedValue(true),
@@ -216,7 +223,10 @@ vi.mock("@/features/orders/components/order-terminal-actions", () => ({
   OrderTerminalActions: () => null,
 }));
 vi.mock("@/components/orders/diagnosis-quote-dialog", () => ({
-  DiagnosisQuoteDialog: () => null,
+  DiagnosisQuoteDialog: (props: DiagnosisQuoteDialogProps) => {
+    mocks.quoteDialogProps = props;
+    return null;
+  },
 }));
 vi.mock("@/features/orders/forms/cancel-dialog", () => ({ CancelDialog: () => null }));
 vi.mock("@/features/orders/forms/notify-dialog", () => ({ NotifyDialog: () => null }));
@@ -274,6 +284,10 @@ vi.mock("@/features/orders/components/order-overview-tab", async (importOriginal
       responsibilityPanel,
       onPhotoCapture,
       onEditFinance,
+      onEditCustomer,
+      financeEditor,
+      canEditIntake,
+      canAdjustFinance,
     }: {
       order: typeof detailOrder;
       isEditing: boolean;
@@ -284,12 +298,22 @@ vi.mock("@/features/orders/components/order-overview-tab", async (importOriginal
       responsibilityPanel?: ReactNode;
       onPhotoCapture?: (kind: "other", trigger: HTMLButtonElement) => void;
       onEditFinance?: React.MouseEventHandler<HTMLButtonElement>;
+      onEditCustomer?: React.MouseEventHandler<HTMLButtonElement>;
+      financeEditor?: ReactNode;
+      canEditIntake: boolean;
+      canAdjustFinance: boolean;
     }) => (
       <div>
         <span>{order.customer_name}</span>
         <span>{order.device_label}</span>
         <span>{order.issue_description}</span>
-        {onEditFinance ? <button onClick={onEditFinance}>Harness finance summary</button> : null}
+        {onEditFinance && canAdjustFinance ? (
+          <button onClick={onEditFinance}>Harness finance summary</button>
+        ) : null}
+        {onEditCustomer && canEditIntake ? (
+          <button onClick={onEditCustomer}>Harness customer</button>
+        ) : null}
+        {financeEditor}
         {custodyControl}
         {responsibilityPanel}
         {onPhotoCapture ? (
@@ -336,6 +360,7 @@ vi.mock("@/lib/repairdesk/api", async (importOriginal) => {
   return {
     ...actual,
     patchOrder: mocks.patchOrder,
+    publishOrderQuote: mocks.publishOrderQuote,
     patchOrderFinance: mocks.patchOrderFinance,
     transitionOrder: mocks.transitionOrder,
     updateOrderCustody: mocks.updateOrderCustody,
@@ -427,6 +452,30 @@ vi.mock("@tanstack/react-query", () => {
 import { OrderDetailScreen } from "@/features/orders/screens/order-detail-screen";
 
 const locales = ["zh-CN", "it-IT", "en"] as const;
+async function restoreQuoteEdit(locale: (typeof locales)[number]) {
+  mocks.legacyDraft = {
+    ...buildEditForm((mocks.detail ?? makeDetail()) as unknown as OrderDetail, 6),
+    fault_prices: [
+      {
+        line_id: "00000000-0000-4000-8000-000000000221",
+        catalog_key: "display:original",
+        name: "原装屏幕",
+        price: 160,
+        note: "客户自定义备注",
+      },
+    ],
+    deposit_amount: 20,
+  };
+  const view = renderDetail(locale);
+  fireEvent.click(
+    screen.getByRole("button", { name: translateMessage(locale, "orders2b2.offline.restore") }),
+  );
+  await waitFor(() =>
+    expect(document.querySelector("[data-order-desktop-finance-editor]")).toBeVisible(),
+  );
+  mocks.toastSuccess.mockClear();
+  return view;
+}
 
 function makeDetail() {
   return {
@@ -504,6 +553,7 @@ function renderDetail(locale: (typeof locales)[number], surface: "dialog" | "pag
 
 describe("OrderDetailScreen i18n", () => {
   beforeEach(() => {
+    mocks.legacyDraft = null;
     vi.clearAllMocks();
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
@@ -609,7 +659,12 @@ describe("OrderDetailScreen i18n", () => {
     mocks.viewport = "compact";
     const view = renderDetail("en", "page");
     fireEvent.click(
-      screen.getByRole("button", { name: translateMessage("en", "orders2b2.unlock.entry") }),
+      screen.getByRole("button", {
+        name: translateMessage(
+          "en",
+          detailOrder.device_unlock_method ? "orders2b2.unlock.edit" : "orders2b2.unlock.add",
+        ),
+      }),
     );
     const editor = screen.getByRole("dialog", {
       name: translateMessage("en", "orders2b2.unlock.edit"),
@@ -665,7 +720,9 @@ describe("OrderDetailScreen i18n", () => {
     });
     expect(notes).toBeDisabled();
     fireEvent.change(
-      within(editor).getByRole("textbox", { name: translateMessage("en", "customers.form.brand") }),
+      within(editor).getByRole("combobox", {
+        name: translateMessage("en", "customers.form.brand"),
+      }),
       { target: { value: "Synthetic brand" } },
     );
     fireEvent.click(
@@ -714,6 +771,40 @@ describe("OrderDetailScreen i18n", () => {
     );
     expect(item).toHaveTextContent("Synthetic stale quote");
     expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
+  });
+
+  it("passes the formal quote opening version through diagnosis and publish after a refresh", async () => {
+    const latest = makeDetail();
+    latest.order.updated_at = "2026-09-17T08:01:00.000Z";
+    mocks.detail = latest;
+    mocks.publishOrderQuote.mockResolvedValue({ replayed: true });
+    renderDetail("en");
+    const props = mocks.quoteDialogProps!;
+    expect(props).not.toBeNull();
+    const openingVersion = "2026-09-17T08:00:00.000Z";
+    await act(async () => {
+      await props.onSaveDiagnosis("Opening diagnosis", openingVersion);
+    });
+    expect(mocks.patchOrder).toHaveBeenCalledWith(detailOrder.id, {
+      expected_updated_at: openingVersion,
+      changes: { diagnosis_result: "Opening diagnosis" },
+    });
+    const input = {
+      expectedUpdatedAt: openingVersion,
+      idempotencyKey: "stable-dialog-key",
+      diagnosisResult: "Opening diagnosis",
+      faultPrices: detailOrder.fault_prices,
+    };
+    await act(async () => {
+      await props.onPublish(input);
+    });
+    expect(mocks.publishOrderQuote).toHaveBeenCalledWith(detailOrder.id, {
+      expected_updated_at: openingVersion,
+      idempotency_key: "stable-dialog-key",
+      diagnosis_result: "Opening diagnosis",
+      fault_prices: detailOrder.fault_prices,
+      price_exception: undefined,
+    });
   });
 
   it.each(locales)(
@@ -1387,7 +1478,13 @@ describe("OrderDetailScreen i18n", () => {
         Boolean(
           screen.queryByRole("button", { name: translateMessage("en", "orders2b2.hero.edit") }),
         ),
-      ).toBe(editVisible);
+      ).toBe(false);
+      expect(Boolean(screen.queryByRole("button", { name: "Harness customer" }))).toBe(
+        canEditIntake,
+      );
+      expect(Boolean(screen.queryByRole("button", { name: "Harness finance summary" }))).toBe(
+        canAdjustFinance,
+      );
       expect(Boolean(screen.queryByRole("button", { name: "Harness open photo capture" }))).toBe(
         canUploadPhoto,
       );
@@ -1551,7 +1648,12 @@ describe("OrderDetailScreen i18n", () => {
     );
     expect(screen.getByTestId("mobile-order-header-meta")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: translateMessage(locale, "orders2b2.unlock.entry") }),
+      screen.getByRole("button", {
+        name: translateMessage(
+          locale,
+          detailOrder.device_unlock_method ? "orders2b2.unlock.edit" : "orders2b2.unlock.add",
+        ),
+      }),
     ).toBeVisible();
     fireEvent.click(
       screen.getByRole("tab", { name: translateMessage(locale, "orders.workspace.history") }),
@@ -1782,110 +1884,105 @@ describe("OrderDetailScreen i18n", () => {
     },
   );
 
-  it.each(locales)("shows localized %s edit validation and remote-conflict recovery", (locale) => {
-    const view = renderDetail(locale);
-    fireEvent.click(
-      screen.getByRole("button", { name: translateMessage(locale, "orders2b2.hero.edit") }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Harness invalidate customer" }));
-    expect(
-      screen.getByRole("alert", {
-        name: "",
-      }),
-    ).toHaveTextContent(translateMessage(locale, "orders2b2.validation.customerName"));
+  it.each(locales)(
+    "shows localized %s quote draft validation and remote-conflict recovery",
+    async (locale) => {
+      const view = await restoreQuoteEdit(locale);
+      const editor = document.querySelector<HTMLElement>("[data-order-desktop-finance-editor]")!;
+      const amount = within(editor).getByRole("textbox", {
+        name: translateMessage(locale, "orders2b2.overview.itemAmount", { index: 1 }),
+      });
+      fireEvent.change(amount, { target: { value: "" } });
+      expect(
+        screen.getByRole("alert", {
+          name: "",
+        }),
+      ).toHaveTextContent(translateMessage(locale, "orders2b2.finance.completeItem"));
 
-    fireEvent.click(screen.getByRole("button", { name: "Harness change canonical draft" }));
-    mocks.detail = {
-      ...makeDetail(),
-      order: { ...detailOrder, updated_at: "2026-09-02T11:00:00.000Z" },
-    };
-    view.rerender(
-      <LocaleProvider initialLocale={locale}>
-        <OrderDetailScreen id={detailOrder.id} surface="dialog" onClose={vi.fn()} />
-      </LocaleProvider>,
-    );
+      mocks.detail = {
+        ...makeDetail(),
+        order: { ...detailOrder, updated_at: "2026-09-02T11:00:00.000Z" },
+      };
+      view.rerender(
+        <LocaleProvider initialLocale={locale}>
+          <OrderDetailScreen id={detailOrder.id} surface="dialog" onClose={vi.fn()} />
+        </LocaleProvider>,
+      );
 
-    expect(screen.getByText(translateMessage(locale, "orders2b2.conflict.title"))).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: translateMessage(locale, "orders2b2.conflict.reload") }),
-    ).toBeVisible();
-    fireEvent.click(
-      screen.getByRole("button", { name: translateMessage(locale, "orders2b2.conflict.reload") }),
-    );
-    return waitFor(() =>
-      expect(mocks.toastSuccess).toHaveBeenCalledWith(
-        translateMessage(locale, "orders2b2.conflict.loaded"),
-      ),
-    );
-  });
+      expect(screen.getByText(translateMessage(locale, "orders2b2.conflict.title"))).toBeVisible();
+      expect(
+        screen.getByRole("button", { name: translateMessage(locale, "orders2b2.conflict.reload") }),
+      ).toBeVisible();
+      fireEvent.click(
+        screen.getByRole("button", { name: translateMessage(locale, "orders2b2.conflict.reload") }),
+      );
+      return waitFor(() =>
+        expect(mocks.toastSuccess).toHaveBeenCalledWith(
+          translateMessage(locale, "orders2b2.conflict.loaded"),
+        ),
+      );
+    },
+  );
 
   it.each(locales)(
-    "keeps a failed %s mixed edit intact and retries one atomic request",
+    "keeps a failed %s restored quote edit intact and retries one finance request",
     async (locale) => {
       const providerSentinel = "PROVIDER_SECRET_ATOMIC_SAVE";
-      mocks.patchOrder.mockRejectedValueOnce({ status: 503, message: providerSentinel });
-      const view = renderDetail(locale);
-      fireEvent.click(
-        screen.getByRole("button", { name: translateMessage(locale, "orders2b2.hero.edit") }),
-      );
-      fireEvent.click(screen.getByRole("button", { name: "Harness change canonical draft" }));
+      mocks.patchOrderFinance.mockRejectedValueOnce({ status: 503, message: providerSentinel });
+      const view = await restoreQuoteEdit(locale);
+
       fireEvent.click(
         screen.getByRole("button", { name: translateMessage(locale, "orders2b2.hero.save") }),
       );
       await waitFor(() =>
         expect(mocks.toastError).toHaveBeenCalledWith(
           translateMessage(locale, "orders2b2.error.unavailable", {
-            operation: translateMessage(locale, "orders2b2.operation.save"),
+            operation: translateMessage(locale, "orders2b2.operation.finance"),
           }),
         ),
       );
-      expect(mocks.patchOrder).toHaveBeenCalledTimes(1);
-      expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
+      expect(mocks.patchOrderFinance).toHaveBeenCalledTimes(1);
+      expect(mocks.patchOrder).not.toHaveBeenCalled();
       expect(JSON.stringify(mocks.toastError.mock.calls)).not.toContain(providerSentinel);
       expect(mocks.toastSuccess).not.toHaveBeenCalled();
-      const firstRequest = structuredClone(mocks.patchOrder.mock.calls[0]);
+      const firstRequest = structuredClone(mocks.patchOrderFinance.mock.calls[0]);
       fireEvent.click(
         screen.getByRole("button", { name: translateMessage(locale, "orders2b2.hero.save") }),
       );
-      await waitFor(() => expect(mocks.patchOrder).toHaveBeenCalledTimes(2));
-      expect(mocks.patchOrder.mock.calls[1]).toEqual(firstRequest);
-      expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
+      await waitFor(() => expect(mocks.patchOrderFinance).toHaveBeenCalledTimes(2));
+      expect(mocks.patchOrderFinance.mock.calls[1]).toEqual(firstRequest);
+      expect(mocks.patchOrder).not.toHaveBeenCalled();
       view.unmount();
     },
   );
 
-  it("submits one byte-equivalent mixed mutation in all locales", async () => {
+  it("submits one byte-equivalent restored quotation mutation in all locales", async () => {
     const calls: unknown[][] = [];
     for (const locale of locales) {
-      const view = renderDetail(locale);
-      fireEvent.click(
-        screen.getByRole("button", { name: translateMessage(locale, "orders2b2.hero.edit") }),
-      );
-      fireEvent.click(screen.getByRole("button", { name: "Harness change canonical draft" }));
+      const view = await restoreQuoteEdit(locale);
+
       fireEvent.click(
         screen.getByRole("button", { name: translateMessage(locale, "orders2b2.hero.save") }),
       );
-      await waitFor(() => expect(mocks.patchOrder).toHaveBeenCalledTimes(1));
-      expect(mocks.patchOrderFinance).not.toHaveBeenCalled();
-      calls.push(structuredClone(mocks.patchOrder.mock.calls[0]!));
-      expect(mocks.patchOrder.mock.calls[0]?.[1]).toMatchObject({
+      await waitFor(() => expect(mocks.patchOrderFinance).toHaveBeenCalledTimes(1));
+      expect(mocks.patchOrder).not.toHaveBeenCalled();
+      calls.push(structuredClone(mocks.patchOrderFinance.mock.calls[0]!));
+      expect(mocks.patchOrderFinance.mock.calls[0]?.[1]).toMatchObject({
         expected_updated_at: detailOrder.updated_at,
-        changes: { customer_name: "动态中文客户改" },
-        finance: {
-          fault_prices: [
-            {
-              line_id: "00000000-0000-4000-8000-000000000221",
-              catalog_key: "display:original",
-              name: "原装屏幕",
-              price: 160,
-              note: "客户自定义备注",
-            },
-          ],
-          deposit_amount: 20,
-        },
+
+        fault_prices: [
+          {
+            line_id: "00000000-0000-4000-8000-000000000221",
+            catalog_key: "display:original",
+            name: "原装屏幕",
+            price: 160,
+            note: "客户自定义备注",
+          },
+        ],
+        deposit_amount: 20,
       });
       view.unmount();
-      mocks.patchOrder.mockClear();
+      mocks.patchOrderFinance.mockClear();
     }
     expect(calls[1]).toEqual(calls[0]);
     expect(calls[2]).toEqual(calls[0]);
