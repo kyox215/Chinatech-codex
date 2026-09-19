@@ -11,7 +11,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { orderQueueGroups } from "@/features/orders/model/order-queue-classification";
-import type { OrderResultGroup } from "@/lib/repairdesk/types";
+import type { OrderListView, OrderResultGroup } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
 
@@ -27,6 +27,7 @@ export function OrderSearchFeedback({
   canSearchArchive,
   archiveSearchAvailable = false,
   archiveSearchActive = false,
+  view = "active",
   onArchiveSearchChange,
   onRetry,
   compact = false,
@@ -42,6 +43,7 @@ export function OrderSearchFeedback({
   canSearchArchive: boolean;
   archiveSearchAvailable?: boolean;
   archiveSearchActive?: boolean;
+  view?: OrderListView;
   onArchiveSearchChange?: (active: boolean) => void;
   onRetry: () => void;
   compact?: boolean;
@@ -100,7 +102,9 @@ export function OrderSearchFeedback({
         ) : (
           <>
             {t("orders.searchFound", {
-              scope: archiveSearchActive ? t("orders.scopeArchive") : t("orders.scopeCurrent"),
+              scope: archiveSearchActive
+                ? t("orders.scopeArchive")
+                : t(view === "active" ? "orders.allQueues" : `orders.range.${view}`),
               query: committedValue,
               total,
               counts: resultGroupCounts

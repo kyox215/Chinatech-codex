@@ -56,6 +56,65 @@ function makeOrder(): OrderDetail["order"] {
 }
 
 describe("OrderOverviewTab localized runtime", () => {
+  it.each([
+    { canEditIntake: false, canEditRepair: false },
+    { canEditIntake: true, canEditRepair: false },
+    { canEditIntake: false, canEditRepair: true },
+  ])("labels field viewing according to the existing capabilities %j", (capabilities) => {
+    const onEditField = vi.fn();
+    const { container } = render(
+      <LocaleProvider initialLocale="en">
+        <OrderOverviewTab
+          order={makeOrder()}
+          deviceBrand="Samsung"
+          deviceModel="Galaxy A54"
+          deviceImei=""
+          {...capabilities}
+          onEditField={onEditField}
+        />
+      </LocaleProvider>,
+    );
+    for (const field of ["accessories", "warranty", "notes", "internal_tag", "diagnosis"]) {
+      const trigger = container.querySelector(`[data-order-field-trigger="${field}"]`)!;
+      const editable =
+        field === "accessories" ? capabilities.canEditIntake : capabilities.canEditRepair;
+      if (editable) expect(trigger).not.toHaveAttribute("aria-label");
+      else expect(trigger.getAttribute("aria-label")).toMatch(/^View .+ \(read-only\)$/);
+      fireEvent.click(trigger);
+    }
+    expect(onEditField).toHaveBeenCalledTimes(5);
+  });
+
+  it.each([
+    { total: 50, deposit: 0, balance: 0, received: 50 },
+    { total: 100, deposit: 20, balance: 80, received: 20 },
+    { total: 100, deposit: 20, balance: 30, received: 70 },
+    { total: 0, deposit: 0, balance: 0, received: 0 },
+  ])("shows total received separately from deposit for $total/$deposit/$balance", (amounts) => {
+    const { container } = render(
+      <LocaleProvider initialLocale="en">
+        <OrderOverviewTab
+          order={{
+            ...makeOrder(),
+            quotation_amount: amounts.total,
+            deposit_amount: amounts.deposit,
+            balance_amount: amounts.balance,
+          }}
+          deviceBrand="Samsung"
+          deviceModel="Galaxy A54"
+          deviceImei=""
+        />
+      </LocaleProvider>,
+    );
+    const received = container.querySelector('[data-order-workbench-amount="received"]')!;
+    expect(received.querySelector("dt")).toHaveTextContent("Total received");
+    expect(received.querySelector("dd > span")).toHaveTextContent(amounts.received.toFixed(2));
+    expect(received).toHaveTextContent(`Includes deposit €${amounts.deposit.toFixed(2)}`);
+    expect(container.querySelector('[data-order-workbench-amount="balance"] dd')).toHaveTextContent(
+      amounts.balance.toFixed(2),
+    );
+  });
+
   it("renders empty customer, phone, backup, diagnosis, tag and passcode direct entries", () => {
     const onEditCustomer = vi.fn(),
       onEditField = vi.fn(),

@@ -1,7 +1,8 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import { translateMessage } from "@/shared/i18n/messages";
 import { EmptyOrdersState } from "./order-list-states";
 
 afterEach(cleanup);
@@ -45,6 +46,53 @@ const cases = {
 } as const;
 
 describe("EmptyOrdersState", () => {
+  it.each(["zh-CN", "it-IT", "en"] as const)(
+    "explains the current queue and offers the authorized history action in %s",
+    async (locale) => {
+      const onSearchArchive = vi.fn();
+      const onClearFilters = vi.fn();
+      render(
+        <LocaleProvider initialLocale={locale}>
+          <EmptyOrdersState
+            hasActiveFilters
+            currentQueue
+            searchQuery="R2027071"
+            onClearFilters={onClearFilters}
+            onSearchArchive={onSearchArchive}
+          />
+        </LocaleProvider>,
+      );
+      await waitFor(() =>
+        expect(
+          screen.getByText(translateMessage(locale, "orders.currentSearchHelp")),
+        ).toBeVisible(),
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: translateMessage(locale, "orders.searchArchive") }),
+      );
+      expect(onSearchArchive).toHaveBeenCalledOnce();
+      expect(onClearFilters).not.toHaveBeenCalled();
+    },
+  );
+
+  it("offers creation when the current queue is empty without implying history is empty", () => {
+    const onCreateOrder = vi.fn();
+    render(
+      <LocaleProvider initialLocale="en">
+        <EmptyOrdersState
+          hasActiveFilters={false}
+          currentQueue
+          onClearFilters={vi.fn()}
+          onCreateOrder={onCreateOrder}
+        />
+      </LocaleProvider>,
+    );
+    expect(screen.getByRole("heading")).toHaveTextContent("No orders in the current queue");
+    expect(screen.queryByRole("button", { name: "Search history" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: translateMessage("en", "orders.new") }));
+    expect(onCreateOrder).toHaveBeenCalledOnce();
+  });
+
   it.each(Object.keys(cases) as Array<keyof typeof cases>)(
     "covers empty states in %s",
     (locale) => {

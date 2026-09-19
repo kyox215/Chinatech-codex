@@ -72,6 +72,7 @@ describe("fault editor draft and conditional-write contract", () => {
   });
   it("repair permission alone never grants note editing", () => {
     render(<OrderFaultDescriptionEditor {...props} canEditIntake={false} />);
+    expect(screen.getByRole("heading", { name: "查看备注（只读）" })).toBeVisible();
     expect(fields()).toHaveLength(1);
     expect(fields()[0]).toHaveAttribute("readonly");
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();

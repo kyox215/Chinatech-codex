@@ -41,6 +41,7 @@ const mocks = vi.hoisted(() => ({
     lastSavedAt: null as string | null,
     errorMessage: null as string | null,
     hasSensitiveUnlockDraft: false,
+    hasSessionOnlyDraft: false,
     draftPrompt: null as null | {
       localDraftId: string;
       updatedAt: string;
@@ -253,6 +254,7 @@ describe("NewOrderScreen i18n", () => {
       lastSavedAt: null,
       errorMessage: null,
       hasSensitiveUnlockDraft: false,
+      hasSessionOnlyDraft: false,
       draftPrompt: null,
       pendingRestoreNotice: null,
       restoredForm: null,
@@ -856,6 +858,77 @@ describe("NewOrderScreen i18n", () => {
       mocks.autosaveOptions.mock.calls.some(([options]) => options.scope?.storeId === "store-b"),
     ).toBe(false);
   });
+
+  it("allows an untouched session to close while retaining an unrestored local draft", () => {
+    const onCancel = vi.fn();
+    const storedDraft = {
+      localDraftId: "existing-draft-1",
+      updatedAt: "2026-09-02T10:00:00.000Z",
+      relationshipNeedsReview: false,
+    };
+    mocks.offline.draftPrompt = storedDraft;
+    render(
+      <LocaleProvider initialLocale="en">
+        <NewOrderScreen surface="dialog" onCancel={onCancel} />
+      </LocaleProvider>,
+    );
+
+    expect(latestNavigationGuard().isDirty()).toBe(false);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: translateMessage("en", "orders2b1.new.closeAria") })[0],
+    );
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(mocks.offline.draftPrompt).toBe(storedDraft);
+    expect(mocks.saveNow).not.toHaveBeenCalled();
+    expect(mocks.discardPromptDraft).not.toHaveBeenCalled();
+    expect(mocks.discardSessionDrafts).not.toHaveBeenCalled();
+  });
+
+  it("still guards new input while an older local draft awaits restoration", async () => {
+    mocks.offline.draftPrompt = {
+      localDraftId: "existing-draft-1",
+      updatedAt: "2026-09-02T10:00:00.000Z",
+      relationshipNeedsReview: false,
+    };
+    mocks.isCurrentDraftDirty.mockImplementation(() =>
+      Boolean(mocks.autosaveOptions.mock.lastCall?.[0].form.customerName),
+    );
+    render(
+      <LocaleProvider initialLocale="en">
+        <NewOrderScreen />
+      </LocaleProvider>,
+    );
+    expect(latestNavigationGuard().isDirty()).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Populate customer" }));
+    const guard = latestNavigationGuard();
+    expect(guard.isDirty()).toBe(true);
+    expect(guard.canSave()).toBe(false);
+    await expect(guard.save()).resolves.toEqual({ status: "blocked" });
+    expect(mocks.saveNow).not.toHaveBeenCalled();
+    expect(mocks.discardSessionDrafts).not.toHaveBeenCalled();
+  });
+
+  it.each(locales)(
+    "blocks saving session-only input on close with localized feedback in %s",
+    async (locale) => {
+      mocks.isCurrentDraftDirty.mockReturnValue(true);
+      mocks.offline.hasSessionOnlyDraft = true;
+      render(
+        <LocaleProvider initialLocale={locale}>
+          <NewOrderScreen />
+        </LocaleProvider>,
+      );
+      const guard = latestNavigationGuard();
+      expect(guard.isDirty()).toBe(true);
+      expect(guard.canSave()).toBe(false);
+      await expect(guard.save()).resolves.toEqual({ status: "blocked" });
+      expect(mocks.saveNow).not.toHaveBeenCalled();
+      expect(
+        screen.getAllByText(translateMessage(locale, "orders2b1.new.sessionOnlyDraftWarning"))
+          .length,
+      ).toBeGreaterThan(0);
+    },
+  );
 
   it.each(locales)("completes localized dirty-leave save and discard in %s", async (locale) => {
     mocks.isCurrentDraftDirty.mockReturnValue(true);

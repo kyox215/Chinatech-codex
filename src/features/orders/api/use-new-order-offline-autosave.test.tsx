@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -19,6 +19,127 @@ const scope: RepairDeskOfflineScope = { storeId: "store_1", userId: "user_1" };
 type HookValue = ReturnType<typeof useNewOrderOfflineAutosave>;
 
 describe("useNewOrderOfflineAutosave", () => {
+  it.each([
+    ["PIN", { deviceUnlock: { method: "pin", value: "058392" } }],
+    ["empty unlock method", { deviceUnlock: { method: "text", value: "" } }],
+    ["device notes", { deviceNotes: "Synthetic intake note" }],
+    ["internal tag", { internalTag: "Synthetic session tag" }],
+  ] satisfies Array<[string, Partial<NewOrderFormState>]>)(
+    "guards %s-only input while keeping an untouched older draft clean",
+    async (_label, patch) => {
+      const harness = createServiceHarness();
+      await harness.service.saveDraft(
+        buildNewOrderOfflineDraftInput({ form: makeForm({ model: "Older synthetic draft" }) }),
+      );
+      const { result, rerender } = renderHook(
+        ({ form }) =>
+          useNewOrderOfflineAutosave({
+            form,
+            scope,
+            debounceMs: 0,
+            serviceFactory: () => harness.service,
+          }),
+        { initialProps: { form: initialNewOrderForm } },
+      );
+      await waitFor(() => expect(result.current.draftPrompt).not.toBeNull());
+      expect(result.current.isCurrentDraftDirty()).toBe(false);
+      rerender({ form: makeForm(patch) });
+      expect(result.current.isCurrentDraftDirty()).toBe(true);
+      await act(async () => expect(await result.current.saveNow()).toBe(false));
+      rerender({ form: initialNewOrderForm });
+      expect(result.current.isCurrentDraftDirty()).toBe(false);
+      const drafts = await harness.service.listLocalDrafts();
+      expect(drafts.ok && drafts.value).toHaveLength(1);
+      expect(drafts.ok && drafts.value[0]?.draftPayload.deviceModel).toBe("Older synthetic draft");
+    },
+  );
+
+  it.each([
+    { deviceUnlock: { method: "pin", value: "058392" } },
+    { internalTag: "Synthetic session tag" },
+  ] satisfies Partial<NewOrderFormState>[])(
+    "keeps session-only input dirty after the safe fields autosave",
+    async (patch) => {
+      const harness = createServiceHarness();
+      const { result } = renderHook(() =>
+        useNewOrderOfflineAutosave({
+          form: makeForm({ customerName: "Synthetic name", ...patch }),
+          scope,
+          debounceMs: 0,
+          serviceFactory: () => harness.service,
+        }),
+      );
+      await waitFor(() => expect(result.current.state).toBe("saved"));
+      expect(result.current.hasSessionOnlyDraft).toBe(true);
+      expect(result.current.isCurrentDraftDirty()).toBe(true);
+      const drafts = await harness.service.listLocalDrafts();
+      expect(drafts.ok && drafts.value).toHaveLength(1);
+      const saved = JSON.stringify(drafts.ok && drafts.value);
+      expect(saved).not.toContain("058392");
+      expect(saved).not.toContain("Synthetic session tag");
+    },
+  );
+
+  it("saves and restores device-note-only input", async () => {
+    const harness = createServiceHarness();
+    const form = makeForm({ deviceNotes: "Synthetic device condition" });
+    const { result, unmount } = renderHook(() =>
+      useNewOrderOfflineAutosave({
+        form,
+        scope,
+        debounceMs: 0,
+        serviceFactory: () => harness.service,
+      }),
+    );
+    await waitFor(() => expect(result.current.state).toBe("saved"));
+    expect(result.current.isCurrentDraftDirty()).toBe(false);
+    unmount();
+    const reopened = renderHook(() =>
+      useNewOrderOfflineAutosave({
+        form: initialNewOrderForm,
+        scope,
+        serviceFactory: () => harness.service,
+      }),
+    );
+    await waitFor(() => expect(reopened.result.current.draftPrompt).not.toBeNull());
+    await act(async () => {
+      const restored = await reopened.result.current.restorePromptDraft();
+      expect(restored?.form.deviceNotes).toBe(form.deviceNotes);
+    });
+  });
+
+  it("uses hydrated store defaults as clean while guarding actual settings changes", async () => {
+    const harness = createServiceHarness();
+    const { result, rerender } = renderHook(
+      ({ form, defaultForm }) =>
+        useNewOrderOfflineAutosave({
+          form,
+          defaultForm,
+          scope,
+          debounceMs: 0,
+          serviceFactory: () => harness.service,
+        }),
+      { initialProps: { form: initialNewOrderForm, defaultForm: initialNewOrderForm } },
+    );
+    await waitFor(() => expect(result.current.state).toBe("ready"));
+    const hydratedDefaults = makeForm({
+      warrantyMonths: 3,
+      warrantyText: "3个月",
+      status: "repairing",
+    });
+    rerender({ form: hydratedDefaults, defaultForm: hydratedDefaults });
+    expect(result.current.isCurrentDraftDirty()).toBe(false);
+    expect(await result.current.saveNow()).toBe(true);
+    expect((await harness.service.listLocalDrafts()).ok).toBe(true);
+    const drafts = await harness.service.listLocalDrafts();
+    expect(drafts.ok && drafts.value).toEqual([]);
+    rerender({
+      form: { ...hydratedDefaults, warrantyMonths: 12, warrantyText: "12个月" },
+      defaultForm: hydratedDefaults,
+    });
+    expect(result.current.isCurrentDraftDirty()).toBe(true);
+  });
+
   it("retains the recovery card with one preflight when a parent supplies a new inline factory", async () => {
     const harness = createServiceHarness();
     await harness.service.saveDraft(

@@ -57,7 +57,7 @@ import {
   consumeScanSearchIntent,
   subscribeScanSearchIntent,
 } from "@/features/capture";
-import { useRealtimeSync } from "@/features/realtime";
+import { useRealtimeCoordinator } from "@/features/realtime";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
 import {
@@ -100,7 +100,7 @@ export function CustomerListScreen() {
   const shell = useStoreShellContext();
   const viewportMode = useViewportMode();
   const activeStoreId = shell.activeStore?.id;
-  const realtimeSync = useRealtimeSync();
+  const realtimeSync = useRealtimeCoordinator();
   const initialUrlStateRef = useRef<ReturnType<typeof parseCustomerListUrlState> | null>(null);
   if (!initialUrlStateRef.current) {
     initialUrlStateRef.current = parseCustomerListUrlState(searchParams);

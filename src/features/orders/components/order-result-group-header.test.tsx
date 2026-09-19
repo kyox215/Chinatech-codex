@@ -6,9 +6,9 @@ import { OrderResultGroupHeader } from "./order-result-group-header";
 afterEach(cleanup);
 describe("OrderResultGroupHeader", () => {
   it.each([
-    ["zh-CN", "已载入 3 / 共 45", "已载入 3 条"],
-    ["it-IT", "Caricati 3 / Tot. 45", "3 caricati"],
-    ["en", "Loaded 3 / Total 45", "3 loaded"],
+    ["zh-CN", "已载入 3 / 本组 45", "已载入 3 条"],
+    ["it-IT", "Caricati 3 / Gruppo 45", "3 caricati"],
+    ["en", "Loaded 3 / Group 45", "3 loaded"],
   ] as const)(
     "keeps loaded and total counts explicit in compact %s groups",
     (locale, count, ariaCount) => {

@@ -118,6 +118,7 @@ describe("OrderDetailFieldEditor", () => {
   });
   it("lets read-only users read full notes without any save control", () => {
     setup("notes", { canEditIntake: false, canEditRepair: false });
+    expect(screen.getByRole("heading", { name: "查看设备备注（只读）" })).toBeVisible();
     expect(screen.getByText("Existing note")).toBeVisible();
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByRole("button", { name: "保存" })).toBeNull();

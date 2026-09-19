@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   AlertTriangle,
   Filter,
@@ -143,14 +143,14 @@ import {
   ORDER_DETAIL_PRELOAD_GC_TIME,
 } from "@/features/preload/model/order-detail-preload";
 import { isRepairDeskPreloadEnabled } from "@/features/preload/model/preload-plan";
-import { useRealtimeSync } from "@/features/realtime";
+import { useRealtimeCoordinator } from "@/features/realtime";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
 import { useViewportMode } from "@/hooks/use-mobile";
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
-import { floatingBar, stagger } from "@/lib/motion";
+import { fadeUp, floatingBar } from "@/lib/motion";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { batchTransition, type OrderListFilters, type OrderListItem } from "@/lib/repairdesk/api";
 import type { OrderListPageInput, OrderListView, OrderQueueGroup } from "@/lib/repairdesk/types";
@@ -219,6 +219,7 @@ function orderListRequestHash(input: OrderListPageInput) {
 
 export function OrderListScreen() {
   const { t } = useLocale();
+  const prefersReducedMotion = useReducedMotion();
   const [presentationView, setPresentationView] = useState<OrderListPresentationView>("list");
   const [statusGroup, setStatusGroup] = useState<"all" | OrderQueueGroup>("all");
   const [statusCode, setStatusCode] = useState<string>("all");
@@ -287,7 +288,7 @@ export function OrderListScreen() {
   }, [searchParamsKey]);
   const activeStoreId = shell.activeStore?.id;
   const canLoadOrderData = Boolean(activeStoreId) && !shell.isRefreshing;
-  const { coordinator } = useRealtimeSync();
+  const { coordinator } = useRealtimeCoordinator();
   const detailPreloadScheduler = useMemo(() => new BoundedPreloadScheduler(1), []);
   const detailPreloadEnabled = isRepairDeskPreloadEnabled();
   const commitSearch = useCallback(
@@ -628,11 +629,11 @@ export function OrderListScreen() {
     return [
       {
         key: "all" as const,
-        label: t("orders.allStatuses"),
-        shortLabel: t("orders.allStatuses"),
+        label: t("orders.allQueues"),
+        shortLabel: t("orders.allQueues"),
         tone: "neutral" as const,
         count: queueCounts.all,
-        hint: t("orders.allStatuses"),
+        hint: t("orders.allQueues"),
       },
       ...orderQueueGroups.map((key) => {
         const localized = localizeOrderQueueGroup(key, t);
@@ -1795,6 +1796,7 @@ export function OrderListScreen() {
             canSearchArchive={canSearchOrderArchive}
             archiveSearchAvailable={archiveSearchAvailable}
             archiveSearchActive={archiveSearchActive}
+            view={orderListView}
             onArchiveSearchChange={changeArchiveSearchScope}
             onRetry={() => void refetchOrders()}
           />
@@ -1938,6 +1940,7 @@ export function OrderListScreen() {
               canSearchArchive={canSearchOrderArchive}
               archiveSearchAvailable={archiveSearchAvailable}
               archiveSearchActive={archiveSearchActive}
+              view={orderListView}
               onArchiveSearchChange={changeArchiveSearchScope}
               onRetry={() => void refetchOrders()}
             />
@@ -2034,6 +2037,13 @@ export function OrderListScreen() {
             hasActiveFilters={hasActiveFilters}
             searchQuery={searchInput.committedValue}
             onClearFilters={clearAllFilters}
+            currentQueue={orderListView === "active" && !archiveSearchActive}
+            onSearchArchive={
+              isOnline && canSearchOrderArchive && archiveSearchAvailable && !archiveSearchActive
+                ? () => changeArchiveSearchScope(true)
+                : undefined
+            }
+            onCreateOrder={isOnline ? openNewOrder : undefined}
           />
         ) : (
           <>
@@ -2100,8 +2110,8 @@ export function OrderListScreen() {
                           aria-label={t("orders.groupAria", {
                             label: localizeOrderResultGroup(section.group, t).label,
                           })}
-                          variants={stagger(0.025)}
-                          initial="hidden"
+                          variants={fadeUp}
+                          initial={prefersReducedMotion ? false : "hidden"}
                           animate="show"
                           className="space-y-1.5"
                         >
@@ -2363,7 +2373,7 @@ export function OrderListScreen() {
         >
           <DialogHeader className="sr-only">
             <DialogTitle>
-              {t(detailFaultEditorActive ? "orders.faultEditor.title" : "orders.detailDialogTitle")}
+              {t(detailFaultEditorActive ? "orders.notes.label" : "orders.detailDialogTitle")}
             </DialogTitle>
             <DialogDescription>{t("orders.detailDialogDescription")}</DialogDescription>
           </DialogHeader>

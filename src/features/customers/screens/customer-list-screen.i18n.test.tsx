@@ -141,7 +141,7 @@ vi.mock("@/features/stores/api/use-store-shell-context", () => ({
   }),
 }));
 vi.mock("@/features/realtime", () => ({
-  useRealtimeSync: () => ({ coordinator: undefined }),
+  useRealtimeCoordinator: () => ({ coordinator: undefined }),
 }));
 vi.mock("@/features/capture", () => ({
   consumeScanSearchIntent: () => "",

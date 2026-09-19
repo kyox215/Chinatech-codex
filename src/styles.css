@@ -386,6 +386,16 @@
 }
 
 /* Order queue presentations: current-page UI only, with unchanged mobile default. */
+.order-list-workbench .order-queue-render-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 94px;
+}
+@media print {
+  .order-list-workbench .order-queue-render-row {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
+  }
+}
 .order-list-workbench [data-order-desktop-list] section,
 .order-list-workbench [data-order-desktop-list] section > [role="list"] {
   margin-top: 0;

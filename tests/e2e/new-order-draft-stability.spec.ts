@@ -277,8 +277,7 @@ for (const width of [390, 820, 1440]) {
     }
     await page.screenshot({ path: testInfo.outputPath(`draft-found-stable-${width}.png`) });
 
-    // A found draft always requires a decision, so cancellation is independent
-    // of whether a later edited draft is inside its autosave debounce window.
+    // New input still requires a decision while the older draft blocks autosave.
     await page.getByRole("button", { name: "关闭新建维修工单", exact: true }).click();
     const guard = page.locator('[data-navigation-guard-dialog="true"]');
     await expect(guard).toBeVisible();
@@ -342,7 +341,31 @@ for (const width of [390, 820, 1440]) {
   });
 }
 
-test("closes once when discard is chosen while a found local draft is still pending", async ({
+test("closes an untouched session and preserves its unrestored local draft", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const baseURL = String(testInfo.project.use.baseURL);
+  await page.context().addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL }]);
+  await page.goto("/orders", { waitUntil: "domcontentloaded" });
+  await expect(page.locator('[data-order-list-refreshing="false"]')).toBeAttached();
+  await seedSyntheticDraft(page);
+  await replaceIntent(page, "synthetic-discard-session");
+  await expect(page.locator(cardSelector)).toBeVisible();
+
+  await page.getByRole("button", { name: "关闭新建维修工单", exact: true }).click();
+  await expect(page.locator(rootSelector)).toHaveCount(0);
+  await expect(page.locator('[data-navigation-guard-dialog="true"]')).toHaveCount(0);
+  await replaceIntent(page, "synthetic-preserved-session-reopened");
+  await expect(page.locator(cardSelector)).toBeVisible();
+  await page.getByRole("button", { name: "恢复本机草稿", exact: true }).click();
+  await page.locator('[data-mobile-edit="customer"]').click();
+  await expect(page.locator(inputSelector)).toHaveValue("Synthetic restored");
+  await page.screenshot({ path: testInfo.outputPath("untouched-draft-preserved-mobile.png") });
+});
+
+test("still guards new input and closes once after an explicit session discard", async ({
   page,
 }, testInfo) => {
   test.setTimeout(90_000);
@@ -351,9 +374,11 @@ test("closes once when discard is chosen while a found local draft is still pend
   await page.context().addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL }]);
   await page.goto("/orders", { waitUntil: "domcontentloaded" });
   await seedSyntheticDraft(page);
-  await replaceIntent(page, "synthetic-discard-session");
+  await replaceIntent(page, "synthetic-edited-session");
   await expect(page.locator(cardSelector)).toBeVisible();
-
+  await page.locator('[data-mobile-edit="customer"]').click();
+  await page.locator(inputSelector).fill("Synthetic current edit");
+  await page.getByRole("button", { name: "完成", exact: true }).click();
   await page.getByRole("button", { name: "关闭新建维修工单", exact: true }).click();
   const guard = page.locator('[data-navigation-guard-dialog="true"]');
   await expect(guard).toBeVisible();

@@ -7,7 +7,7 @@ import { customerListPageQueryOptions } from "@/features/customers/api";
 import { inventorySummaryQueryOptions } from "@/features/inventory";
 import { storeSettingsQueryOptions } from "@/features/messages";
 import { orderQueueSummaryQueryOptions, orderWorkflowQueryOptions } from "@/features/orders/api";
-import { useRealtimeSync } from "@/features/realtime";
+import { useRealtimeCoordinator } from "@/features/realtime";
 import { CACHE_TIMES } from "@/lib/query-performance";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 
@@ -35,7 +35,7 @@ type WindowWithIdleCallback = Window & {
 
 export function AppPreloadBridge({ children = null }: { children?: ReactNode }) {
   const pathname = usePathname();
-  const { coordinator, storeId } = useRealtimeSync();
+  const { coordinator, storeId } = useRealtimeCoordinator();
   const shell = useStoreShellContext();
   const canReadInventory = Boolean(shell.permissions?.canReadInventory);
   const canReadStoreSettings = shell.permissions?.canReadStoreSettings === true;

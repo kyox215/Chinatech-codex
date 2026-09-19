@@ -26,6 +26,25 @@ import {
 
 export type OrderDetailField = "accessories" | "notes" | "warranty" | "diagnosis" | "internal_tag";
 
+const fieldTitleKeys = {
+  accessories: "orders2b2.overview.accessories",
+  notes: "orders2b2.overview.deviceNotes",
+  warranty: "orders2b2.overview.warranty",
+  diagnosis: "orders2b2.overview.diagnosis",
+  internal_tag: "orders2b2.edit.internalTag",
+} as const;
+
+export function getOrderDetailFieldReadOnlyLabel(
+  field: OrderDetailField,
+  canEditIntake: boolean,
+  canEditRepair: boolean,
+  t: ReturnType<typeof useLocale>["t"],
+) {
+  return (field === "accessories" ? canEditIntake : canEditRepair)
+    ? undefined
+    : t("orders2b2.field.viewOnly", { field: t(fieldTitleKeys[field]) });
+}
+
 export function OrderDetailFieldEditor({
   field,
   initial,
@@ -106,7 +125,9 @@ export function OrderDetailFieldEditor({
         }}
       >
         <DialogHeader className={componentOverlay.denseEditorHeader}>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>
+            {editable ? title : t("orders2b2.field.viewOnly", { field: title })}
+          </DialogTitle>
         </DialogHeader>
         {session.confirmDiscard ? (
           <EditorDiscardConfirmation
