@@ -49,8 +49,9 @@ export function getOrderAmountAnomalyReasons(
   const shouldBePaid = balanceCents === 0;
   if (input.isPaid !== shouldBePaid) reasons.push("paid_balance_mismatch");
 
+  const hasReceivedPayment = depositCents > 0 || balanceCents < quotationCents;
   const expectedPaymentStatus =
-    input.isPaid || shouldBePaid ? "paid" : depositCents > 0 ? "partial" : "unpaid";
+    input.isPaid || shouldBePaid ? "paid" : hasReceivedPayment ? "partial" : "unpaid";
   if (
     input.paymentStatus &&
     input.paymentStatus !== "refunded" &&

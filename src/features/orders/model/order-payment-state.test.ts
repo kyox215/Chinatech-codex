@@ -35,6 +35,49 @@ describe("order payment state", () => {
     ).toBe(true);
   });
 
+  it("keeps a no-deposit partial payment collectible for the remaining balance", () => {
+    const partiallyPaid = order({
+      quotation_amount: 70,
+      deposit_amount: 0,
+      balance_amount: 65,
+      payment_status: "partial",
+      approval_flow_status: "approved",
+    });
+
+    expect(deriveOrderFinancialState(partiallyPaid)).toMatchObject({
+      quote: "approved",
+      settlement: "partial",
+      collectible: true,
+    });
+    expect(isOrderPaymentCollectible(partiallyPaid)).toBe(true);
+    expect(getOrderLiveOutstandingAmount(partiallyPaid)).toBe(65);
+  });
+
+  it.each([
+    [{ finance_redacted: true }, "hidden"],
+    [{ payment_status: "refunded" }, "refunded"],
+    [{ status: "cancelled" }, "cancelled"],
+    [{ record_state: "voided" }, "cancelled"],
+  ] as const)(
+    "preserves payment restrictions after a no-deposit partial payment",
+    (overrides, settlement) => {
+      const restricted = order({
+        quotation_amount: 70,
+        deposit_amount: 0,
+        balance_amount: 65,
+        payment_status: "partial",
+        approval_flow_status: "approved",
+        ...overrides,
+      });
+
+      expect(deriveOrderFinancialState(restricted)).toMatchObject({
+        settlement,
+        collectible: false,
+      });
+      expect(isOrderPaymentCollectible(restricted)).toBe(false);
+    },
+  );
+
   it.each([
     { status: "cancelled" as const },
     { status: "repairing" as const, exception_status: "cancelled" as const },
@@ -241,6 +284,8 @@ describe("order payment state", () => {
     [80, 40, false, "partial"],
     [0, 100, true, "paid"],
     [40, 60, false, "unpaid"],
+    [0, 100, false, "partial"],
+    [0, 60, false, "unpaid"],
   ] as const)(
     "sends inconsistent approved amounts to review",
     (depositAmount, balanceAmount, isPaid, paymentStatus) => {

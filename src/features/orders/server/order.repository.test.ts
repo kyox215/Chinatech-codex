@@ -350,6 +350,30 @@ describe("order repository role projection", () => {
     expect(projectOrderCapabilities(order(changes), actor("owner")).canCollectPayment).toBe(false);
   });
 
+  it.each([
+    ["owner", true],
+    ["manager", true],
+    ["sales", true],
+    ["technician", false],
+    ["viewer", false],
+  ] as const)(
+    "preserves %s collection permission after a no-deposit partial payment",
+    (role, canCollectPayment) => {
+      const partiallyPaid = order({
+        quotation_amount: 70,
+        deposit_amount: 0,
+        balance_amount: 65,
+        payment_status: "partial",
+        approval_status: "approved",
+        approval_flow_status: "approved",
+      });
+
+      expect(projectOrderCapabilities(partiallyPaid, actor(role)).canCollectPayment).toBe(
+        canCollectPayment,
+      );
+    },
+  );
+
   it("redacts detail customer contact, messages, event payloads, and attachment links", () => {
     const projected = projectOrderDetailForActor(detail(), actor("viewer"));
 
