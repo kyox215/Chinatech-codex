@@ -57,6 +57,45 @@ describe("order calculations", () => {
     expect(hasOrderAmountAnomaly(input)).toBe(false);
   });
 
+  it.each([
+    [70, false, "unpaid"],
+    [69.99, false, "partial"],
+    [65, false, "partial"],
+    [0, true, "paid"],
+  ] as const)(
+    "accepts a no-deposit payment balance of %s with status %s / %s",
+    (balanceAmount, isPaid, paymentStatus) => {
+      const input = {
+        quotationAmount: 70,
+        depositAmount: 0,
+        balanceAmount,
+        isPaid,
+        paymentStatus,
+      };
+      expect(getOrderAmountAnomalyReasons(input)).toEqual([]);
+      expect(hasOrderAmountAnomaly(input)).toBe(false);
+    },
+  );
+
+  it.each([
+    [70, "partial"],
+    [65, "unpaid"],
+    [65, "paid"],
+  ] as const)(
+    "rejects a no-deposit payment status that contradicts balance %s / %s",
+    (balanceAmount, paymentStatus) => {
+      expect(
+        getOrderAmountAnomalyReasons({
+          quotationAmount: 70,
+          depositAmount: 0,
+          balanceAmount,
+          isPaid: false,
+          paymentStatus,
+        }),
+      ).toEqual(["payment_status_mismatch"]);
+    },
+  );
+
   it("detects invalid precision, over-allocation, paid flags and payment status mismatches", () => {
     expect(
       getOrderAmountAnomalyReasons({
