@@ -21,7 +21,7 @@ import {
   type RefObject,
 } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -83,6 +83,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -282,6 +283,7 @@ import {
   orderTaskStages,
   type OrderTaskStage,
 } from "@/features/orders/model/order-task-flow";
+import { buildOrderDetailReturnHref } from "@/features/orders/model/order-workspace-intent";
 import { fadeUp, stagger } from "@/lib/motion";
 import { detailWorkspace, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
@@ -4292,12 +4294,18 @@ function MobileOrderDetailView({
     primaryAction && availableMobileActions.includes(primaryAction)
       ? primaryAction
       : (availableMobileActions[0] ?? null);
-  const mobileDockActions = mobilePrimaryAction
-    ? [
-        mobilePrimaryAction,
-        ...availableMobileActions.filter((action) => action !== mobilePrimaryAction).slice(0, 2),
-      ]
-    : [];
+  const mobileSecondaryAction =
+    availableMobileActions.includes("payment") && mobilePrimaryAction !== "payment"
+      ? "payment"
+      : availableMobileActions.includes("notify") && mobilePrimaryAction !== "notify"
+        ? "notify"
+        : null;
+  const mobileDockActions = [mobilePrimaryAction, mobileSecondaryAction].filter(
+    (action): action is Exclude<OrderDetailPrimaryAction, null> => Boolean(action),
+  );
+  const mobileOverflowActions = availableMobileActions.filter(
+    (action) => !mobileDockActions.includes(action),
+  );
 
   const renderMobileDockAction = (
     action: Exclude<OrderDetailPrimaryAction, null>,
@@ -4411,6 +4419,26 @@ function MobileOrderDetailView({
         customerStatusRevokePending={customerStatusRevokePending}
         onCancel={onCancel}
         canCancel={canCancel}
+        overflowActions={mobileOverflowActions.map((action) => ({
+          key: action,
+          label:
+            action === "approval"
+              ? t("orders2b2.overview.approvalAction")
+              : action === "notify"
+                ? "WhatsApp"
+                : action === "flow"
+                  ? t("orders2b2.overview.flowAction")
+                  : t("orders2b2.overview.collect"),
+          onSelect:
+            action === "approval"
+              ? onApprovalDecision
+              : action === "notify"
+                ? onNotify
+                : action === "flow"
+                  ? () => setStatusSheetOpen(true)
+                  : onPay,
+          disabled: action === "flow" && transitionPending,
+        }))}
       />
 
       <section
@@ -4964,6 +4992,14 @@ function MobileOrderDetailView({
                     appearance="workbench-summary"
                   />
                 </button>
+                <MobilePaymentSummary
+                  total={order.quotation_amount}
+                  deposit={order.deposit_amount}
+                  received={order.deposit_amount + paidAmount}
+                  balance={order.balance_amount}
+                  cancelled={cancelled}
+                  className="-mx-2 mt-1 border-y border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2"
+                />
                 <div className="order-workbench-quote-heading">
                   <MobileSectionTitle
                     icon={ReceiptText}
@@ -5083,15 +5119,6 @@ function MobileOrderDetailView({
                     />
                   </DialogContent>
                 </Dialog>
-
-                <MobilePaymentSummary
-                  total={order.quotation_amount}
-                  deposit={order.deposit_amount}
-                  received={order.deposit_amount + paidAmount}
-                  balance={order.balance_amount}
-                  cancelled={cancelled}
-                  className="-mx-2 -mb-2 mt-2 border-t border-[var(--border-panel)] bg-[var(--surface-panel-muted)] p-2"
-                />
               </section>
             )}
           </div>
@@ -5195,17 +5222,6 @@ function MobileOrderDetailView({
             mobileDockActions.map((action) =>
               renderMobileDockAction(action, action === mobilePrimaryAction),
             )}
-          <OrderSecondaryActions
-            className="order-workbench-bottom-secondary"
-            onPrint={onPrint}
-            printDisabled={printDisabled}
-            printDisabledReason={printDisabledReason}
-            onRevokeCustomerStatusLinks={onRevokeCustomerStatusLinks}
-            customerStatusRevokePending={customerStatusRevokePending}
-            onCancel={onCancel}
-            canCancel={canCancel}
-            disabled={transitionPending || financeEditing || financePending}
-          />
         </div>
       </div>
 
@@ -5950,6 +5966,7 @@ function MobileStickyWorkflowHeader({
   customerStatusRevokePending,
   onCancel,
   canCancel,
+  overflowActions,
 }: {
   tabs: ReactNode;
   order: OrderDetail["order"];
@@ -5966,11 +5983,22 @@ function MobileStickyWorkflowHeader({
   customerStatusRevokePending: boolean;
   onCancel: () => void;
   canCancel: boolean;
+  overflowActions: Array<{
+    key: Exclude<OrderDetailPrimaryAction, null>;
+    label: string;
+    onSelect: () => void;
+    disabled?: boolean;
+  }>;
 }) {
   const { locale, t } = useLocale();
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const openedFromOrdersList = searchParams.get("from") === "orders";
+  const returnSource = searchParams.get("from");
+  const backHref = buildOrderDetailReturnHref(returnSource, order.customer_id);
+  const backLabel = t(
+    returnSource === "customer" && order.customer_id
+      ? "customers.detail.backShort"
+      : "orders2b2.backOrdersAria",
+  );
   const shellRef = useRef<HTMLDivElement | null>(null);
   const cancelled = isOrderCancelledState(order);
   const localizedCurrentStage = localizeOrderFlowStage(currentStage, t);
@@ -6019,15 +6047,7 @@ function MobileStickyWorkflowHeader({
       <section className={repairOs.mobileFloatingHeaderCard}>
         <header className={repairOs.mobileFloatingHeaderNav}>
           <Button asChild variant="ghost" size="iconDense" className="size-9 rounded-lg">
-            <Link
-              href="/orders"
-              aria-label={t("orders2b2.backOrdersAria")}
-              onClick={(event) => {
-                if (!openedFromOrdersList) return;
-                event.preventDefault();
-                router.replace("/orders");
-              }}
-            >
+            <Link href={backHref} aria-label={backLabel}>
               <ArrowLeft className="size-4" />
             </Link>
           </Button>
@@ -6070,6 +6090,16 @@ function MobileStickyWorkflowHeader({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {overflowActions.map((action) => (
+                  <DropdownMenuItem
+                    key={action.key}
+                    disabled={action.disabled}
+                    onClick={action.onSelect}
+                  >
+                    {action.label}
+                  </DropdownMenuItem>
+                ))}
+                {overflowActions.length ? <DropdownMenuSeparator /> : null}
                 {onRevokeCustomerStatusLinks ? (
                   <DropdownMenuItem
                     disabled={customerStatusRevokePending}

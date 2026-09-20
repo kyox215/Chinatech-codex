@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildNewOrderWorkspaceHref,
+  buildOrderDetailPageHref,
+  buildOrderDetailReturnHref,
   buildOrderDetailWorkspaceHref,
   clearOrderWorkspaceIntentHref,
   getOrderWorkspaceIntentKey,
@@ -72,7 +74,20 @@ describe("order workspace intent", () => {
     expect(parseOrderWorkspaceIntent(new URLSearchParams(href.split("?")[1]))).toEqual({
       kind: "order-detail",
       orderId: "order/1",
+      source: "profit",
     });
+  });
+
+  it("builds an encoded phone page and only accepts internal return destinations", () => {
+    expect(buildOrderDetailPageHref("order/1", { from: "customer" })).toBe(
+      "/orders/order%2F1?from=customer",
+    );
+    expect(buildOrderDetailPageHref("order/1", { from: "orders" })).toBe(
+      "/orders/order%2F1?from=orders",
+    );
+    expect(buildOrderDetailReturnHref("customer", "customer/1")).toBe("/customers/customer%2F1");
+    expect(buildOrderDetailReturnHref("https://example.com", "customer-1")).toBe("/orders");
+    expect(buildOrderDetailReturnHref("customer", undefined)).toBe("/orders");
   });
 
   it("rejects incomplete detail intents and clears only workspace parameters", () => {

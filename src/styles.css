@@ -1468,6 +1468,33 @@
   display: contents;
 }
 
+/* Phone detail is a single prioritized reading flow, independent from the
+ * tablet/desktop workbench columns. The mounted editors remain owned by their
+ * original feature components; only their summary cards are reordered. */
+@container order-detail (max-width: 679.98px) {
+  .order-unified-workbench [data-mobile-order-page] [data-order-detail-column] {
+    display: contents;
+  }
+  .order-unified-workbench [data-mobile-order-identity] {
+    order: 1;
+  }
+  .order-unified-workbench [data-order-workbench-quote] {
+    order: 2;
+  }
+  .order-unified-workbench [data-mobile-order-fault] {
+    order: 3;
+  }
+  .order-unified-workbench [data-mobile-order-diagnosis] {
+    order: 4;
+  }
+  .order-unified-workbench [data-mobile-order-people] {
+    order: 5;
+  }
+  .order-unified-workbench [data-mobile-order-meta-row] {
+    display: none;
+  }
+}
+
 /* A mounted desktop editor keeps its renderer when zoom narrows the container. */
 @container order-detail (max-width: 679.98px) {
   .order-unified-workbench[data-order-detail-render-mode="desktop"] .order-workbench-summary-panel {
@@ -2766,6 +2793,17 @@ body:has([data-order-detail-root], [data-order-task-root], [data-new-order-submi
 }
 body:has([data-order-desktop-transition-panel]) [data-sonner-toaster][data-y-position="bottom"] {
   bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+/* The phone order route stays a dedicated, single-column surface through the
+ * final CSS pixel below the desktop dialog breakpoint. This viewport guard is
+ * intentionally later than the shared container-query workbench rules so a
+ * 767px browser cannot accidentally inherit the tablet summary grid. */
+@media (max-width: 767px) {
+  .order-unified-workbench[data-order-detail-surface="page"] {
+    max-width: 430px !important;
+    padding-inline: 8px !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

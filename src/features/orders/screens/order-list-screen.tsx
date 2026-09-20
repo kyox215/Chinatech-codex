@@ -131,8 +131,10 @@ import {
   type OrderListStatusTab,
 } from "@/features/orders/model/order-workflow";
 import {
+  buildOrderDetailPageHref,
   buildOrderDetailWorkspaceHref,
   clearOrderWorkspaceIntentHref,
+  getOrderDetailReturnSource,
   getOrderWorkspaceIntentKey,
   parseOrderWorkspaceIntent,
 } from "@/features/orders/model/order-workspace-intent";
@@ -146,7 +148,7 @@ import { isRepairDeskPreloadEnabled } from "@/features/preload/model/preload-pla
 import { useRealtimeCoordinator } from "@/features/realtime";
 import { useStoreShellContext } from "@/features/stores/api/use-store-shell-context";
 import { StoreShellUnavailableState } from "@/features/stores/components/store-shell-unavailable-state";
-import { useViewportMode } from "@/hooks/use-mobile";
+import { useMobileViewportMode, useViewportMode } from "@/hooks/use-mobile";
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
 import { componentOverlay } from "@/lib/component-patterns";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
@@ -277,6 +279,7 @@ export function OrderListScreen() {
   const queryClient = useQueryClient();
   const shell = useStoreShellContext();
   const viewportMode = useViewportMode();
+  const mobileViewportMode = useMobileViewportMode();
   const workspaceIntent = useMemo(
     () => parseOrderWorkspaceIntent(new URLSearchParams(searchParamsKey)),
     [searchParamsKey],
@@ -393,8 +396,22 @@ export function OrderListScreen() {
     }
     setNewOrderOpen(false);
     setNewOrderPrefill(undefined);
+    if (mobileViewportMode === "pending") {
+      consumedWorkspaceIntentRef.current = null;
+      return;
+    }
+    if (mobileViewportMode === "compact") {
+      setDetailOrderId(null);
+      router.replace(
+        buildOrderDetailPageHref(workspaceIntent.orderId, {
+          from: getOrderDetailReturnSource(workspaceIntent.source),
+        }),
+        { scroll: false },
+      );
+      return;
+    }
     setDetailOrderId(workspaceIntent.orderId);
-  }, [workspaceIntent]);
+  }, [mobileViewportMode, router, workspaceIntent]);
 
   useEffect(() => {
     const wasOpen = previousNewOrderOpenRef.current;
@@ -1382,6 +1399,11 @@ export function OrderListScreen() {
       onCreated={handleNewOrderCreated}
     />
   );
+  const mobileDetailRedirecting =
+    workspaceIntent?.kind === "order-detail" && mobileViewportMode !== "desktop";
+  if (mobileDetailRedirecting) {
+    return <OrderDetailSkeleton surface="page" />;
+  }
   const listFallback =
     !isOnline && !listResult ? (
       <OrdersErrorState message={t("orders.offlineNoCache")} onRetry={() => refreshOrderData()} />
@@ -2345,7 +2367,10 @@ export function OrderListScreen() {
         onDownload={downloadPreparedPdf}
       />
       {newOrderDialog}
-      <Dialog open={Boolean(detailOrderId)} onOpenChange={handleDetailOpenChange}>
+      <Dialog
+        open={mobileViewportMode === "desktop" && Boolean(detailOrderId)}
+        onOpenChange={handleDetailOpenChange}
+      >
         <DialogContent
           data-order-detail-dialog-shell="true"
           onCloseAutoFocus={(event) => {
@@ -2377,7 +2402,7 @@ export function OrderListScreen() {
             </DialogTitle>
             <DialogDescription>{t("orders.detailDialogDescription")}</DialogDescription>
           </DialogHeader>
-          {detailOrderId && (
+          {mobileViewportMode === "desktop" && detailOrderId && (
             <Suspense
               fallback={
                 <OrderDetailSkeleton

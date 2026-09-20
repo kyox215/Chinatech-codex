@@ -2,7 +2,12 @@ import { act, renderHook } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useIsCompactWorkspace, useIsMobile, useViewportMode } from "@/hooks/use-mobile";
+import {
+  useIsCompactWorkspace,
+  useIsMobile,
+  useMobileViewportMode,
+  useViewportMode,
+} from "@/hooks/use-mobile";
 
 type MediaController = {
   setWidth: (width: number) => void;
@@ -106,6 +111,17 @@ describe("useViewportMode", () => {
     const desktop = renderHook(() => useViewportMode());
     expect(desktop.result.current).toBe("desktop");
     desktop.unmount();
+  });
+
+  it.each([
+    [390, "compact"],
+    [767, "compact"],
+    [768, "desktop"],
+  ] as const)("resolves the strict phone boundary at %spx", (width, expected) => {
+    installMatchMedia(width);
+    const viewport = renderHook(() => useMobileViewportMode());
+    expect(viewport.result.current).toBe(expected);
+    viewport.unmount();
   });
 
   it("updates on viewport changes and cleans up modern listeners", () => {

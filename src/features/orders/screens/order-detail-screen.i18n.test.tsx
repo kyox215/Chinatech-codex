@@ -99,11 +99,12 @@ const mocks = vi.hoisted(() => ({
   activeStore: { id: "store-1", name: "动态中文门店", role: "owner" } as
     | { id: string; name: string; role: string }
     | undefined,
+  searchParams: "",
 }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(mocks.searchParams),
 }));
 vi.mock("sonner", () => ({
   toast: { error: mocks.toastError, success: mocks.toastSuccess, info: vi.fn() },
@@ -569,6 +570,7 @@ describe("OrderDetailScreen i18n", () => {
     mocks.mutatePending = false;
     mocks.repairDeskOptions = null;
     mocks.viewport = "desktop";
+    mocks.searchParams = "";
     mocks.shellStatus = "ready";
     mocks.activeStore = { id: "store-1", name: "动态中文门店", role: "owner" };
     mocks.patchOrder.mockResolvedValue({ updated_at: "2026-09-02T10:02:00.000Z" });
@@ -1662,6 +1664,62 @@ describe("OrderDetailScreen i18n", () => {
     expect(screen.getByRole("tabpanel")).toHaveTextContent(
       translateMessage(locale, "orders2b2.overview.noTimeline"),
     );
+  });
+
+  it.each([
+    ["from=orders", "/orders", "orders2b2.backOrdersAria"],
+    [
+      "from=customer",
+      `/customers/${encodeURIComponent(String(detailOrder.customer_id))}`,
+      "customers.detail.backShort",
+    ],
+  ] as const)("uses the deterministic compact return target for %s", (query, href, labelKey) => {
+    mocks.viewport = "compact";
+    mocks.searchParams = query;
+
+    renderDetail("en", "page");
+
+    expect(screen.getByRole("link", { name: translateMessage("en", labelKey) })).toHaveAttribute(
+      "href",
+      href,
+    );
+  });
+
+  it("keeps the compact dock to two actions and moves the remaining action into more", async () => {
+    mocks.viewport = "compact";
+    mocks.detail = {
+      ...makeDetail(),
+      order: {
+        ...detailOrder,
+        status: "waiting_approval",
+        approval_status: "pending",
+        approval_flow_status: "waiting_customer",
+      },
+      capabilities: { ...makeDetail().capabilities, canCollectPayment: true },
+    };
+    const user = userEvent.setup();
+    const view = renderDetail("en", "page");
+    const dock = view.container.querySelector<HTMLElement>("[data-mobile-order-action-dock]")!;
+
+    expect(within(dock).getAllByRole("button")).toHaveLength(2);
+    await user.click(
+      screen.getByRole("button", { name: translateMessage("en", "orders2b2.hero.more") }),
+    );
+    expect(
+      screen.getByRole("menuitem", {
+        name: translateMessage("en", "orders2b2.overview.flowAction"),
+      }),
+    ).toBeVisible();
+  });
+
+  it("places the compact amount summary before quotation items", () => {
+    mocks.viewport = "compact";
+    const view = renderDetail("en", "page");
+    const quote = view.container.querySelector<HTMLElement>("#mobile-order-quote")!;
+    const summary = quote.querySelector<HTMLElement>("[data-mobile-payment-summary]")!;
+    const items = quote.querySelector<HTMLElement>("[data-order-quote-trigger-heading]")!;
+
+    expect(summary.compareDocumentPosition(items) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it.each(locales)("keeps the localized %s compact read-only assignee fallback", (locale) => {

@@ -88,6 +88,18 @@ export function useViewportMode(): ViewportMode {
   return isCompact ? "compact" : "desktop";
 }
 
+/** Resolves the strict phone boundary without treating iPad widths as mobile. */
+export function useMobileViewportMode(): ViewportMode {
+  const isMobile = useSyncExternalStore(
+    mobileViewportStore.subscribe,
+    mobileViewportStore.getSnapshot,
+    mobileViewportStore.getServerSnapshot,
+  );
+
+  if (isMobile === undefined) return "pending";
+  return isMobile ? "compact" : "desktop";
+}
+
 function useViewportBelow(store: ViewportStore) {
   const matches = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
   return matches === true;

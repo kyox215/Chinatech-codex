@@ -25,7 +25,9 @@ type SearchParamsReader = {
 
 export type OrderWorkspaceIntent =
   | { kind: "new-order"; prefill: NewOrderPrefill }
-  | { kind: "order-detail"; orderId: string };
+  | { kind: "order-detail"; orderId: string; source: string };
+
+export type OrderDetailReturnSource = "customer" | "orders";
 
 export function buildNewOrderWorkspaceHref({
   source,
@@ -78,7 +80,29 @@ export function parseOrderWorkspaceIntent(
   }
   if (workspace !== workspaceOrderDetail) return null;
   const orderId = normalizeRouteValue(searchParams.get("orderId"), 128);
-  return orderId ? { kind: "order-detail", orderId } : null;
+  const source = normalizeRouteValue(searchParams.get("source"), 64);
+  return orderId ? { kind: "order-detail", orderId, source } : null;
+}
+
+export function getOrderDetailReturnSource(source: string): OrderDetailReturnSource {
+  return source === "customer" ? "customer" : "orders";
+}
+
+export function buildOrderDetailPageHref(
+  orderId: string,
+  { from }: { from: OrderDetailReturnSource },
+) {
+  return `/orders/${encodeURIComponent(orderId)}?from=${from}`;
+}
+
+export function buildOrderDetailReturnHref(
+  from: string | null,
+  customerId: string | null | undefined,
+) {
+  if (from === "customer" && customerId) {
+    return `/customers/${encodeURIComponent(customerId)}`;
+  }
+  return "/orders";
 }
 
 export function getOrderWorkspaceIntentKey(intent: OrderWorkspaceIntent | null) {
