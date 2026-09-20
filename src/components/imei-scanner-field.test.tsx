@@ -569,6 +569,7 @@ describe("ImeiScannerField", () => {
 
     expect(onChange).toHaveBeenLastCalledWith("356938035643809");
     expect(toastMocks.success).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" })).toHaveFocus(),
     );

@@ -314,6 +314,72 @@ describe("customer workbench model", () => {
     expect(currentItems).toEqual([]);
   });
 
+  it.each([
+    [
+      "paid but legacy balance remains",
+      order({
+        id: "paid-legacy-balance",
+        device_id: "dev_1",
+        status: "completed",
+        deposit_amount: 0,
+        balance_amount: 47,
+        is_paid: true,
+        payment_status: "paid",
+      }),
+    ],
+    [
+      "awaiting customer approval",
+      order({
+        id: "approval-pending",
+        device_id: "dev_1",
+        status: "completed",
+        deposit_amount: 0,
+        balance_amount: 100,
+        approval_status: "pending",
+        approval_flow_status: "waiting_customer",
+        payment_status: "unpaid",
+        is_paid: false,
+      }),
+    ],
+    [
+      "rejected quote",
+      order({
+        id: "approval-rejected",
+        device_id: "dev_1",
+        status: "completed",
+        deposit_amount: 0,
+        balance_amount: 100,
+        approval_status: "rejected",
+        approval_flow_status: "rejected",
+        payment_status: "unpaid",
+        is_paid: false,
+      }),
+    ],
+    [
+      "cancelled order",
+      order({
+        id: "cancelled",
+        device_id: "dev_1",
+        status: "cancelled",
+        exception_status: "cancelled",
+        deposit_amount: 0,
+        balance_amount: 100,
+        payment_status: "unpaid",
+        is_paid: false,
+      }),
+    ],
+  ])("keeps non-collectible %s out of every customer receivable surface", (_scenario, order) => {
+    const data = detail({ orders: [order] });
+    const summary = buildCustomerWorkbenchSummary(data);
+    const [device] = buildCustomerDeviceWorkbenchItems(data);
+    const currentItems = buildCustomerCurrentItems(data);
+
+    expect(summary.unpaidOrders).toEqual([]);
+    expect(summary.payment).toMatchObject({ unpaidAmount: 0, unpaidOrderCount: 0 });
+    expect(device.unpaidAmount).toBe(0);
+    expect(currentItems).not.toContainEqual(expect.objectContaining({ kind: "unpaid" }));
+  });
+
   it("does not turn redacted finance fields into NaN or fake payable amounts", () => {
     const redacted = order({ id: "redacted", device_id: "dev_1" });
     Reflect.deleteProperty(redacted, "quotation_amount");
