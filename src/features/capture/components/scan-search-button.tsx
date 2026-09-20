@@ -177,7 +177,6 @@ export function ScanSearchSheet({
     if (action.kind === "search" && onSearch) {
       helpers.close();
       onSearch(action.searchValue);
-      toast.success(t("scanSearch.filled", { scope: getScanSearchScopeLabel(scope, locale) }));
       return;
     }
     if (action.kind === "search") {

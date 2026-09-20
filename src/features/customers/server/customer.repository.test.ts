@@ -249,6 +249,8 @@ describe("customer repository tenant write boundaries", () => {
           record_state: "active",
           quotation_amount: 70,
           balance_amount: 70,
+          is_paid: true,
+          payment_status: "paid",
           created_at: "2026-09-02T10:00:00Z",
         },
         {
@@ -294,9 +296,11 @@ describe("customer repository tenant write boundaries", () => {
       device_count: 1,
       order_count: 1,
       total_spent: 70,
+      unpaid_amount: 0,
       next_followup_at: "2027-02-01T10:00:00Z",
       tags: [{ id: "t2", name: "Business" }],
     });
+    expect(result.stats.unpaid).toBe(1);
     expect(result.customers.find((customer) => customer.id === "c3")).toMatchObject({
       device_count: 0,
       order_count: 0,

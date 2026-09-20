@@ -27,6 +27,10 @@ const baseCustomer: CustomerDetail["customer"] = {
 };
 
 function order(input: Partial<OrderListItem> & Pick<OrderListItem, "id" | "device_id">) {
+  const quotationAmount = input.quotation_amount ?? 100;
+  const depositAmount = input.deposit_amount ?? 30;
+  const balanceAmount = input.balance_amount ?? 70;
+  const isPaid = input.is_paid ?? balanceAmount <= 0;
   return {
     id: input.id,
     public_no: input.public_no ?? `TEST-${input.id}`,
@@ -41,12 +45,15 @@ function order(input: Partial<OrderListItem> & Pick<OrderListItem, "id" | "devic
     customer_id: "cust_1",
     device_id: input.device_id,
     issue_description: input.issue_description ?? "屏幕碎裂",
-    quotation_amount: input.quotation_amount ?? 100,
-    deposit_amount: input.deposit_amount ?? 30,
-    balance_amount: input.balance_amount ?? 70,
+    quotation_amount: quotationAmount,
+    deposit_amount: depositAmount,
+    balance_amount: balanceAmount,
     currency_code: "EUR",
-    is_paid: input.is_paid ?? false,
-    approval_status: input.approval_status ?? "pending",
+    is_paid: isPaid,
+    payment_status:
+      input.payment_status ?? (isPaid ? "paid" : depositAmount > 0 ? "partial" : "unpaid"),
+    approval_status: input.approval_status ?? "approved",
+    approval_flow_status: input.approval_flow_status ?? "not_required",
     warranty_text: input.warranty_text,
     warranty_months: input.warranty_months,
     technician_name: input.technician_name ?? "ALESSIO",
@@ -176,6 +183,7 @@ describe("customer workbench model", () => {
           device_id: "dev_1",
           status: "repairing",
           quotation_amount: 50,
+          deposit_amount: 20,
           balance_amount: 30,
           created_at: "2026-05-03T10:00:00.000Z",
         }),
@@ -277,6 +285,33 @@ describe("customer workbench model", () => {
       settledOrderCount: 1,
       unpaidOrderCount: 1,
     });
+  });
+
+  it("keeps paid positive-balance conflicts out of collection and marks them for review", () => {
+    const conflicted = order({
+      id: "paid-conflict",
+      device_id: "dev_1",
+      status: "completed",
+      quotation_amount: 100,
+      deposit_amount: 0,
+      balance_amount: 47,
+      is_paid: true,
+      payment_status: "paid",
+    });
+    const data = detail({ orders: [conflicted] });
+    const summary = buildCustomerWorkbenchSummary(data);
+    const [device] = buildCustomerDeviceWorkbenchItems(data);
+    const currentItems = buildCustomerCurrentItems(data);
+
+    expect(summary.unpaidOrders).toEqual([]);
+    expect(summary.payment).toMatchObject({ unpaidAmount: 0, unpaidOrderCount: 0 });
+    expect(summary.orderItems[0].financialState).toMatchObject({
+      settlement: "review",
+      label: "金额待核对",
+      collectible: false,
+    });
+    expect(device.unpaidAmount).toBe(0);
+    expect(currentItems).toEqual([]);
   });
 
   it("does not turn redacted finance fields into NaN or fake payable amounts", () => {

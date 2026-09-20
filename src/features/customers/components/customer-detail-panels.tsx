@@ -37,7 +37,10 @@ import { RepairOsSectionHeader } from "@/shared/ui";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { buildOrderDetailWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
-import { localizeWorkflowStatusLabel } from "@/features/orders/model/order-i18n";
+import {
+  localizeOrderFinancialLabel,
+  localizeWorkflowStatusLabel,
+} from "@/features/orders/model/order-i18n";
 import { useLocale } from "@/shared/i18n/locale-provider";
 import {
   localizeCustomerChannel,
@@ -486,17 +489,14 @@ export function CustomerOrdersPanel({
                             <MoneyText amount={Math.max(0, item.order.balance_amount)} />
                             <span className="block">{t("customers.detail.notOutstanding")}</span>
                           </div>
-                        ) : (
-                          <div
-                            className={cn(
-                              "text-[10px] lg:text-[11px] lg:leading-4",
-                              item.order.balance_amount > 0
-                                ? "text-status-danger-foreground"
-                                : "text-muted-foreground",
-                            )}
-                          >
+                        ) : item.financialState.collectible ? (
+                          <div className="text-[10px] text-status-danger-foreground lg:text-[11px] lg:leading-4">
                             {t("customers.detail.outstanding")}{" "}
                             <MoneyText amount={Math.max(0, item.order.balance_amount)} />
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                            {localizeOrderFinancialLabel(item.financialState, t)}
                           </div>
                         )}
                       </>

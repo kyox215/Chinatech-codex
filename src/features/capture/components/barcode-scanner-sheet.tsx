@@ -186,14 +186,6 @@ export function BarcodeScannerSheet({
       onDetected?.(payload);
       safelyVibrate();
       stopScanner();
-      if (payload.value) {
-        const toastId = toast.success(
-          tRef.current("scanner.recognized", {
-            label: getCapturePayloadDisplayLabel(payload, localeRef.current),
-          }),
-        );
-        scannerToastIdsRef.current.push(toastId);
-      }
     },
     [onDetected, parsePayload, stopScanner],
   );

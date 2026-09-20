@@ -5339,7 +5339,6 @@ function ImeiCaptureSheet({
         return;
       }
       onChange(candidate.value);
-      toast.success("已识别并填入 IMEI");
     } catch (error) {
       const message = getOrderDetailSafeErrorMessage(error, "ocr", t);
       setError(message);

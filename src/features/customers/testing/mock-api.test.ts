@@ -64,7 +64,7 @@ describe("customer mock api pagination", () => {
     expect(search.items.some((customer) => customer.id === customerWithDevice!.id)).toBe(true);
   });
 
-  it("keeps cancelled orders in customer history while excluding them from €70 totals", async () => {
+  it("keeps cancelled orders in history without treating unapproved quotes as receivables", async () => {
     const phone = "+393339997070";
     const create = (suffix: string) =>
       createOrder({
@@ -92,8 +92,8 @@ describe("customer mock api pagination", () => {
       order_count: 2,
       valid_order_count: 1,
       lifetime_quoted_amount: 70,
-      outstanding_amount: 70,
-      unpaid_amount: 70,
+      outstanding_amount: 0,
+      unpaid_amount: 0,
     });
   });
 });

@@ -282,12 +282,11 @@ export function ImeiScannerField({
       setWarning(candidate.reason ?? "");
       onChangeRef.current(candidate.value);
       onCommitSourceRef.current?.("scan");
-      toast.success(t("inventory2b4.scanner.recorded"));
       stopScanner();
       setScannerOpen(false);
       resetCaptureState();
     },
-    [resetCaptureState, stopScanner, t],
+    [resetCaptureState, stopScanner],
   );
 
   const handleCapturedText = useCallback(
@@ -379,9 +378,7 @@ export function ImeiScannerField({
       onChangeRef.current(normalized.value);
       onCommitSourceRef.current?.(source === "scan" ? "scan" : "manual");
 
-      if (source === "scan") {
-        toast.success(t("inventory2b4.scanner.recorded"));
-      } else if (source === "paste") {
+      if (source === "paste") {
         toast.success(t("inventory2b4.scanner.pasted"));
       }
 

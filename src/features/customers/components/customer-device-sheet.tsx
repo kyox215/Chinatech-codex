@@ -37,7 +37,10 @@ import {
   buildNewOrderWorkspaceHref,
   buildOrderDetailWorkspaceHref,
 } from "@/features/orders/model/order-workspace-intent";
-import { localizeWorkflowStatusLabel } from "@/features/orders/model/order-i18n";
+import {
+  localizeOrderFinancialLabel,
+  localizeWorkflowStatusLabel,
+} from "@/features/orders/model/order-i18n";
 import { useLocale } from "@/shared/i18n/locale-provider";
 import {
   localizeCustomerDeviceDeleteReason,
@@ -83,9 +86,7 @@ export function CustomerDeviceSheet({
     () =>
       item?.financeRedacted
         ? undefined
-        : item?.orderItems.find(
-            (orderItem) => orderItem.state !== "closed" && orderItem.order.balance_amount > 0,
-          ),
+        : item?.orderItems.find((orderItem) => orderItem.financialState.collectible),
     [item],
   );
   const primaryOrder = activeOrder ?? unpaidOrder;
@@ -460,10 +461,12 @@ function DeviceHistoryRow({
               {t("customers.detail.cancelBalance")} <MoneyText amount={balance} /> ·{" "}
               {t("customers.detail.notOutstanding")}
             </span>
-          ) : (
-            <span className={balance > 0 ? "text-status-danger-foreground" : ""}>
+          ) : item.financialState.collectible ? (
+            <span className="text-status-danger-foreground">
               {t("customers.detail.outstanding")} <MoneyText amount={balance} />
             </span>
+          ) : (
+            <span>{localizeOrderFinancialLabel(item.financialState, t)}</span>
           )}
         </div>
       )}

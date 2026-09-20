@@ -197,7 +197,8 @@ describe("ImeiScannerField", () => {
           }),
         );
         expect(input).toHaveValue("356938035643809");
-        expect(toastMocks.success).toHaveBeenCalledWith(
+        expect(toastMocks.success).toHaveBeenCalledTimes(1);
+        expect(toastMocks.success).not.toHaveBeenCalledWith(
           translateMessage(locale, "inventory2b4.scanner.recorded"),
         );
         expect(onCommitSource).toHaveBeenLastCalledWith("scan");
@@ -567,7 +568,10 @@ describe("ImeiScannerField", () => {
     await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
 
     expect(onChange).toHaveBeenLastCalledWith("356938035643809");
-    expect(toastMocks.success).toHaveBeenCalledWith("已录入 IMEI");
+    expect(toastMocks.success).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "摄像头扫码录入 IMEI" })).toHaveFocus(),
+    );
   });
 
   it("remembers the working camera mode and reuses it after reopening the scanner", async () => {
@@ -893,7 +897,7 @@ describe("ImeiScannerField", () => {
     await user.click(screen.getByRole("button", { name: "使用选择的编号" }));
 
     expect(onChange).toHaveBeenLastCalledWith("356938035643809");
-    expect(toastMocks.success).toHaveBeenCalledWith("已录入 IMEI");
+    expect(toastMocks.success).not.toHaveBeenCalled();
   });
 
   it("captures the current camera frame and shows all detected barcode candidates", async () => {

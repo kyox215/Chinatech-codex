@@ -5,6 +5,12 @@ type ToasterProps = React.ComponentProps<typeof Sonner>;
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
+      position="top-center"
+      duration={2_500}
+      visibleToasts={1}
+      closeButton
+      offset={{ top: 16 }}
+      mobileOffset={{ top: "calc(env(safe-area-inset-top, 0px) + 12px)", left: 12, right: 12 }}
       className="toaster group"
       toastOptions={{
         classNames: {

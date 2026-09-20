@@ -13,8 +13,10 @@ const navigationMocks = vi.hoisted(() => ({
     return { status: "executed" as const };
   }),
 }));
+const toastMocks = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
 const scannerState = vi.hoisted(() => ({
   calls: 0,
+  payload: null as CapturePayload | null,
   props: null as {
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
@@ -24,6 +26,7 @@ const scannerState = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: navigationMocks.push }) }));
+vi.mock("sonner", () => ({ toast: toastMocks }));
 vi.mock("@/components/navigation-guard-provider", () => ({
   useNavigationGuard: () => ({ runGuardedTransition: navigationMocks.runGuardedTransition }),
 }));
@@ -41,7 +44,7 @@ vi.mock("@/features/capture/components/barcode-scanner-sheet", () => ({
     return (
       <div>
         {props.renderActions?.(
-          {
+          scannerState.payload ?? {
             kind: "customer_status_link",
             raw: "",
             value: "",
@@ -62,6 +65,7 @@ describe("ScanSearchSheet customer status routing", () => {
     vi.clearAllMocks();
     scannerState.calls = 0;
     scannerState.props = null;
+    scannerState.payload = null;
   });
 
   it("routes only through /r and never invokes ordinary order search", async () => {
@@ -83,6 +87,22 @@ describe("ScanSearchSheet customer status routing", () => {
     expect(navigateDocument).toHaveBeenCalledWith(`/r#${token}`);
     expect(navigationMocks.push).not.toHaveBeenCalled();
     expect(onSearch).not.toHaveBeenCalled();
+  });
+
+  it("fills the visible search without adding a redundant success toast", async () => {
+    scannerState.payload = {
+      kind: "imei",
+      raw: "490154203237518",
+      value: "490154203237518",
+      label: "IMEI",
+    };
+    const onSearch = vi.fn();
+    render(<ScanSearchSheet open onOpenChange={vi.fn()} scope="orders" onSearch={onSearch} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "在订单搜索" }));
+
+    expect(onSearch).toHaveBeenCalledWith("490154203237518");
+    expect(toastMocks.success).not.toHaveBeenCalled();
   });
 
   it("does not mount the scanner before the trigger and keeps it mounted across close", async () => {

@@ -164,6 +164,7 @@ describe("BarcodeScannerSheet", () => {
       }),
     );
     expect(navigator.vibrate).toHaveBeenCalledTimes(1);
+    expect(toastMocks.success).not.toHaveBeenCalled();
   });
 
   it("stops video tracks when the user pauses scanning", async () => {

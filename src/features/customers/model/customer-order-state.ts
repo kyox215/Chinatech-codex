@@ -1,4 +1,5 @@
 import { workflowStatusFromLegacyStatus } from "@/features/orders/model/canonical-order-status";
+import { deriveOrderFinancialState } from "@/features/orders/model/order-payment-state";
 import type { OrderListItem, OrderWorkflowStatusCode } from "@/lib/repairdesk/types";
 
 type CustomerOrderStateInput = Pick<OrderListItem, "status"> &
@@ -10,7 +11,18 @@ type CustomerOrderStateInput = Pick<OrderListItem, "status"> &
   >;
 
 type CustomerOrderFinanceInput = CustomerOrderStateInput &
-  Pick<OrderListItem, "quotation_amount" | "balance_amount" | "created_at">;
+  Pick<OrderListItem, "quotation_amount" | "balance_amount" | "created_at" | "is_paid"> &
+  Partial<
+    Pick<
+      OrderListItem,
+      | "deposit_amount"
+      | "payment_status"
+      | "fault_prices"
+      | "finance_redacted"
+      | "approval_status"
+      | "approval_flow_status"
+    >
+  >;
 
 export interface CustomerOrderFinanceSummary {
   historicalOrderCount: number;
@@ -62,7 +74,11 @@ export function buildCustomerOrderFinanceSummary(
       0,
     ),
     outstandingAmount: validOrders.reduce(
-      (sum, order) => sum + safeNonNegativeMoney(order.balance_amount),
+      (sum, order) =>
+        sum +
+        (deriveOrderFinancialState(order).collectible
+          ? safeNonNegativeMoney(order.balance_amount)
+          : 0),
       0,
     ),
     lastOrderAt: orders

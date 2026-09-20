@@ -13,7 +13,11 @@ function order(overrides: Partial<OrderListItem> = {}) {
   return {
     status: "repairing",
     quotation_amount: 70,
+    deposit_amount: 0,
     balance_amount: 70,
+    is_paid: false,
+    payment_status: "unpaid",
+    approval_flow_status: "not_required",
     created_at: "2026-07-16T10:00:00.000Z",
     ...overrides,
   } as OrderListItem;
@@ -47,6 +51,18 @@ describe("customer order finance contract", () => {
 
     expect(summary.validOrderCount).toBe(0);
     expect(summary.lifetimeQuotedAmount).toBe(0);
+    expect(summary.outstandingAmount).toBe(0);
+  });
+
+  it.each([
+    { is_paid: true, payment_status: "paid" as const },
+    { is_paid: false, payment_status: "paid" as const },
+    { is_paid: false, payment_status: "refunded" as const },
+  ])("excludes paid, refunded, and conflicting positive balances from collection", (state) => {
+    const summary = buildCustomerOrderFinanceSummary([order(state)]);
+
+    expect(summary.validOrderCount).toBe(1);
+    expect(summary.lifetimeQuotedAmount).toBe(70);
     expect(summary.outstandingAmount).toBe(0);
   });
 });

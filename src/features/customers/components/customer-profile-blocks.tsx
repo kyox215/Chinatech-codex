@@ -16,7 +16,10 @@ import {
   buildNewOrderWorkspaceHref,
   buildOrderDetailWorkspaceHref,
 } from "@/features/orders/model/order-workspace-intent";
-import { localizeWorkflowStatusLabel } from "@/features/orders/model/order-i18n";
+import {
+  localizeOrderFinancialLabel,
+  localizeWorkflowStatusLabel,
+} from "@/features/orders/model/order-i18n";
 import { RepairOsBadge, RepairOsBusinessCard, RepairOsInfoTile } from "@/shared/ui";
 import { useLocale } from "@/shared/i18n/locale-provider";
 import {
@@ -415,10 +418,12 @@ export function CustomerWorkbenchOrderRow({
                     {t("customers.detail.cancelBalance")} <MoneyText amount={unpaid} /> ·{" "}
                     {t("customers.detail.notOutstanding")}
                   </span>
-                ) : (
-                  <span className={unpaid > 0 ? "text-status-danger-foreground" : ""}>
+                ) : item.financialState.collectible ? (
+                  <span className="text-status-danger-foreground">
                     {t("customers.detail.outstanding")} <MoneyText amount={unpaid} />
                   </span>
+                ) : (
+                  <span>{localizeOrderFinancialLabel(item.financialState, t)}</span>
                 )}
               </div>
             </>

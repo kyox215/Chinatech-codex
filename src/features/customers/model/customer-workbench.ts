@@ -1,4 +1,8 @@
 import type { CustomerDetail, Device, OrderListItem } from "@/lib/repairdesk/api";
+import {
+  deriveOrderFinancialState,
+  type OrderFinancialState,
+} from "@/features/orders/model/order-payment-state";
 import { APP_TIME_ZONE, type AppLocale } from "@/shared/i18n/locales";
 import { translateMessage } from "@/shared/i18n/messages";
 
@@ -38,6 +42,7 @@ export interface CustomerOrderWorkbenchItem {
   deviceLabel: string;
   deviceImei: string;
   state: CustomerOrderWorkbenchState;
+  financialState: OrderFinancialState;
   financeRedacted: boolean;
 }
 
@@ -127,7 +132,8 @@ export function buildCustomerDeviceWorkbenchItems(
         0,
       ),
       unpaidAmount: billableOrders.reduce(
-        (sum, item) => sum + safeAmount(item.order.balance_amount),
+        (sum, item) =>
+          sum + (item.financialState.collectible ? safeAmount(item.order.balance_amount) : 0),
         0,
       ),
       financeRedacted: financeRedacted || linkedOrders.some((item) => item.order.finance_redacted),
@@ -151,10 +157,7 @@ export function buildCustomerWorkbenchSummary(data: CustomerDetail): CustomerWor
     activeOrders: orderItems.filter((item) => item.state === "active"),
     unpaidOrders: payment.financeRedacted
       ? []
-      : orderItems.filter(
-          (item) =>
-            isCustomerOrderBillable(item.order) && safeAmount(item.order.balance_amount) > 0,
-        ),
+      : orderItems.filter((item) => item.financialState.collectible),
     latestOrder: orderItems[0],
     openFollowupCount: data.followups.filter((followup) => followup.status === "open").length,
     contactSummary: {
@@ -229,9 +232,7 @@ export function buildCustomerCurrentItems(
 
   if (!data.stats.finance_redacted) {
     orderItems
-      .filter(
-        (item) => isCustomerOrderBillable(item.order) && safeAmount(item.order.balance_amount) > 0,
-      )
+      .filter((item) => item.financialState.collectible)
       .forEach((item) => {
         items.push({
           id: `order:${item.order.id}:unpaid`,
@@ -266,12 +267,14 @@ export function buildCustomerOrderWorkbenchItems(
     .sort((a, b) => orderTime(b) - orderTime(a))
     .map((order) => {
       const device = deviceById.get(order.device_id);
+      const financialState = deriveCustomerOrderFinancialState(order, financeRedacted);
       return {
         order,
         device,
         deviceLabel: device ? `${device.brand} ${device.model}` : order.device_label,
         deviceImei: device?.serial_or_imei || order.device_imei || "",
         state: getCustomerOrderWorkbenchState(order, financeRedacted),
+        financialState,
         financeRedacted,
       };
     });
@@ -296,13 +299,16 @@ export function buildCustomerPaymentSummary(
       if (!isCustomerOrderBillable(order)) return summary;
       if (order.finance_redacted) return summary;
 
-      const unpaid = safeAmount(order.balance_amount);
+      const financialState = deriveOrderFinancialState(order);
+      const unpaid = financialState.collectible ? safeAmount(order.balance_amount) : 0;
+      const settled =
+        financialState.settlement === "settled" || financialState.settlement === "zero_charge";
       return {
         totalQuoted: summary.totalQuoted + safeAmount(order.quotation_amount),
         depositTotal: summary.depositTotal + safeAmount(order.deposit_amount),
         unpaidAmount: summary.unpaidAmount + unpaid,
-        settledOrderCount: summary.settledOrderCount + (unpaid <= 0 ? 1 : 0),
-        unpaidOrderCount: summary.unpaidOrderCount + (unpaid > 0 ? 1 : 0),
+        settledOrderCount: summary.settledOrderCount + (settled ? 1 : 0),
+        unpaidOrderCount: summary.unpaidOrderCount + (financialState.collectible ? 1 : 0),
       };
     },
     {
@@ -316,23 +322,24 @@ export function buildCustomerPaymentSummary(
 }
 
 export function getCustomerOrderWorkbenchState(
-  order: Pick<
-    OrderListItem,
-    | "status"
-    | "balance_amount"
-    | "workflow_status"
-    | "workflow_bucket"
-    | "exception_status"
-    | "record_state"
-    | "deleted_at"
-  >,
+  order: OrderListItem,
   financeRedacted = false,
 ): CustomerOrderWorkbenchState {
   if (isCustomerOrderCancelled(order)) return "closed";
   if (!isCustomerOrderClosed(order)) return "active";
   if (financeRedacted) return "closed";
-  if (safeAmount(order.balance_amount) > 0) return "unpaid";
-  return "settled";
+  const financialState = deriveCustomerOrderFinancialState(order, financeRedacted);
+  if (financialState.collectible) return "unpaid";
+  if (financialState.settlement === "settled" || financialState.settlement === "zero_charge") {
+    return "settled";
+  }
+  return "closed";
+}
+
+function deriveCustomerOrderFinancialState(order: OrderListItem, financeRedacted = false) {
+  return deriveOrderFinancialState(
+    financeRedacted && !order.finance_redacted ? { ...order, finance_redacted: true } : order,
+  );
 }
 
 function orderTime(order: Pick<OrderListItem, "updated_at" | "created_at">) {

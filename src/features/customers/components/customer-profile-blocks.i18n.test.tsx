@@ -13,6 +13,7 @@ import type {
   CustomerOrderWorkbenchItem,
 } from "@/features/customers/model/customer-workbench";
 import type { OrderListItem } from "@/lib/repairdesk/api";
+import { deriveOrderFinancialState } from "@/features/orders/model/order-payment-state";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import { translateMessage } from "@/shared/i18n/messages";
 
@@ -48,6 +49,36 @@ const item: CustomerDeviceWorkbenchItem = {
 };
 
 describe("CustomerDeviceCard keyboard boundaries", () => {
+  it.each(["zh-CN", "it-IT", "en"] as const)(
+    "shows a paid positive-balance conflict as review instead of collectible in %s",
+    (locale) => {
+      const order = {
+        ...buildOrder("completed", false),
+        is_paid: true,
+        payment_status: "paid" as const,
+      };
+      const orderItem: CustomerOrderWorkbenchItem = {
+        order,
+        deviceLabel: "Dynamic Device",
+        deviceImei: "490154203237518",
+        state: "closed",
+        financialState: deriveOrderFinancialState(order),
+        financeRedacted: false,
+      };
+
+      render(
+        <LocaleProvider initialLocale={locale}>
+          <CustomerWorkbenchOrderRow item={orderItem} />
+        </LocaleProvider>,
+      );
+
+      expect(screen.getByText(translateMessage(locale, "orders.amountReview"))).toBeInTheDocument();
+      expect(
+        screen.queryByText(translateMessage(locale, "customers.detail.outstanding")),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   it.each([
     ["zh-CN", "completed", false, "orders.workflowClosed"],
     ["it-IT", "completed", false, "orders.workflowClosed"],
@@ -67,6 +98,7 @@ describe("CustomerDeviceCard keyboard boundaries", () => {
         deviceLabel: "Dynamic Device",
         deviceImei: "490154203237518",
         state: status === "completed" || cancelled ? "closed" : "active",
+        financialState: deriveOrderFinancialState(order),
         financeRedacted: true,
       };
       render(
@@ -226,6 +258,7 @@ function buildDeviceSheetItem(status: string, cancelled: boolean): CustomerDevic
     deviceLabel: `${item.device.brand} ${item.device.model}`,
     deviceImei: item.device.serial_or_imei ?? "",
     state: status === "completed" || cancelled ? "closed" : "active",
+    financialState: deriveOrderFinancialState(order),
     financeRedacted: true,
   };
   return {

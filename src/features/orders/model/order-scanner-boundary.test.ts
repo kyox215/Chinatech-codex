@@ -20,4 +20,10 @@ describe("order scanner component boundary", () => {
     expect(orderScanner).toContain('scanMode="qr-only"');
     expect(orderScanner).not.toMatch(/imei-scanner-field|imei-candidates/i);
   });
+
+  it("keeps successful order-detail IMEI OCR feedback inline", () => {
+    const orderDetail = source("src/features/orders/screens/order-detail-screen.tsx");
+    expect(orderDetail).toContain("onChange(candidate.value)");
+    expect(orderDetail).not.toContain('toast.success("已识别并填入 IMEI")');
+  });
 });
