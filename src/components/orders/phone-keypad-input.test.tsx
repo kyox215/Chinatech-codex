@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -69,6 +69,21 @@ describe("PhoneKeypadInput", () => {
     expect(document.querySelector("[data-phone-keypad]")).toBeNull();
     expect(screen.getByTestId("value")).toHaveTextContent("2025550100");
     expect(trigger).toHaveFocus();
+  });
+
+  it("keeps every rapid virtual-keypad digit when React batches the clicks", async () => {
+    setViewport(390, true);
+    const user = userEvent.setup();
+    render(<PhoneKeypadHarness />);
+    await user.click(screen.getByRole("button", { name: "客户电话号码" }));
+
+    act(() => {
+      for (const key of ["+39", "3", "4", "5"]) {
+        fireEvent.click(screen.getByRole("button", { name: key }));
+      }
+    });
+
+    expect(screen.getByTestId("value")).toHaveTextContent("+39345");
   });
 
   it("uses a native tel input for desktop typing without opening the app keypad", async () => {

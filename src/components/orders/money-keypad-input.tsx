@@ -64,6 +64,7 @@ export function MoneyKeypadInput({
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => normalizeMoneyKeypadDraft(value));
+  const draftRef = useRef(draft);
   const [nativeEditing, setNativeEditing] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const nativeInputRef = useRef<HTMLInputElement | null>(null);
@@ -72,7 +73,11 @@ export function MoneyKeypadInput({
   const quoteEditorLayout = layout === "quote-editor";
 
   useEffect(() => {
-    if (!open && !nativeEditing) setDraft(normalizeMoneyKeypadDraft(value));
+    if (!open && !nativeEditing) {
+      const nextDraft = normalizeMoneyKeypadDraft(value);
+      draftRef.current = nextDraft;
+      setDraft(nextDraft);
+    }
   }, [nativeEditing, open, value]);
 
   useEffect(() => {
@@ -94,7 +99,8 @@ export function MoneyKeypadInput({
 
   const updateDraft = (key: MoneyKeypadKey) => {
     if (!canEdit()) return;
-    const nextDraft = applyMoneyKeypadKey(draft, key);
+    const nextDraft = applyMoneyKeypadKey(draftRef.current, key);
+    draftRef.current = nextDraft;
     setDraft(nextDraft);
     onChange(nextDraft);
   };
@@ -102,7 +108,11 @@ export function MoneyKeypadInput({
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen && !canEdit()) return;
     setOpen(nextOpen);
-    if (nextOpen) setDraft(normalizeMoneyKeypadDraft(value));
+    if (nextOpen) {
+      const nextDraft = normalizeMoneyKeypadDraft(value);
+      draftRef.current = nextDraft;
+      setDraft(nextDraft);
+    }
   };
 
   const handlePhysicalKey = (event: KeyboardEvent<HTMLElement>) => {
@@ -160,12 +170,15 @@ export function MoneyKeypadInput({
             valueClassName,
           )}
           onFocus={() => {
-            setDraft(normalizeMoneyKeypadDraft(value));
+            const nextDraft = normalizeMoneyKeypadDraft(value);
+            draftRef.current = nextDraft;
+            setDraft(nextDraft);
             setNativeEditing(true);
           }}
           onBlur={() => setNativeEditing(false)}
           onChange={(event) => {
             const next = normalizeMoneyKeypadDraft(event.target.value);
+            draftRef.current = next;
             setDraft(next);
             onChange(next);
           }}

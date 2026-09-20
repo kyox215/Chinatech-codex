@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { DeviceIdentityAutocomplete } from "./device-identity-autocomplete";
@@ -128,5 +128,28 @@ describe("device identity autocomplete", () => {
     fireEvent.change(input, { target: { value: "" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(input).toHaveValue("Name-only model");
+  });
+
+  it("uses a scrollable bottom sheet from the 44px compact selector trigger", () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    render(<Harness />);
+
+    const input = screen.getByRole("combobox", { name: "Brand" });
+    const trigger = document.querySelector(
+      '[data-device-identity-selector-trigger="true"]',
+    ) as HTMLButtonElement;
+    input.focus();
+    fireEvent.click(trigger);
+
+    expect(trigger).toHaveClass("size-11");
+    expect(input).not.toHaveFocus();
+    const sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByRole("listbox", { name: "Brand" })).toHaveClass(
+      "overflow-y-auto",
+      "overscroll-contain",
+    );
+    fireEvent.click(within(sheet).getByRole("option", { name: "Apple" }));
+    expect(input).toHaveValue("Apple");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

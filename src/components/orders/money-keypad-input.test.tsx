@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -127,6 +127,21 @@ describe("MoneyKeypadInput", () => {
 
     await user.click(screen.getByRole("button", { name: "清空" }));
     expect(screen.getByTestId("value")).toBeEmptyDOMElement();
+  });
+
+  it("keeps every rapid virtual-keypad amount key when React batches the clicks", async () => {
+    setViewport(390, true);
+    const user = userEvent.setup();
+    render(<MoneyKeypadHarness />);
+    await user.click(screen.getByRole("button", { name: "报价金额" }));
+
+    act(() => {
+      for (const key of ["1", "2", ".", "5"]) {
+        fireEvent.click(screen.getByRole("button", { name: key }));
+      }
+    });
+
+    expect(screen.getByTestId("value")).toHaveTextContent("12.5");
   });
 
   it("keeps keypad actions inside the portal while finishing an amount of 100", async () => {

@@ -28,6 +28,16 @@ test("keeps mobile intake controls stable and supports direct touch gestures", a
   await dialog.locator('[data-mobile-edit="device"]').click();
   const deviceEditor = page.locator('[data-new-order-mobile-panel="device"]');
   const deviceDialog = page.getByRole("dialog").filter({ has: deviceEditor });
+  const brandSelector = deviceEditor
+    .locator('[data-device-identity-selector-trigger="true"]')
+    .first();
+  await brandSelector.click();
+  const brandOptions = page.getByRole("listbox", { name: "品牌" });
+  await expect(brandOptions).toBeVisible();
+  await expect(brandOptions).toHaveCSS("overflow-y", "auto");
+  await expect(brandOptions.getByRole("option", { name: "Apple" })).toBeVisible();
+  await brandOptions.getByRole("option", { name: "Apple" }).click();
+  await expect(deviceEditor.locator("#new-order-device-brand")).toHaveValue("APPLE");
   await deviceEditor.locator("#new-order-device-brand").fill("xiaomi");
   await deviceEditor.locator("#new-order-device-model").fill("redmi note 13 pro");
   await expect(deviceEditor.locator("#new-order-device-brand")).toHaveValue("XIAOMI");

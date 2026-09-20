@@ -79,12 +79,17 @@ export function PhoneKeypadInput({
   const resolvedPlaceholder = placeholder ?? t("orders2b1.keypad.phonePlaceholder");
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => normalizePhoneKeypadDraft(value));
+  const draftRef = useRef(draft);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const nativeInputRef = useRef<HTMLInputElement | null>(null);
   const keyboardSurface = useVirtualKeyboardSurface();
 
   useEffect(() => {
-    if (!open) setDraft(normalizePhoneKeypadDraft(value));
+    if (!open) {
+      const nextDraft = normalizePhoneKeypadDraft(value);
+      draftRef.current = nextDraft;
+      setDraft(nextDraft);
+    }
   }, [open, value]);
 
   useEffect(() => {
@@ -108,13 +113,21 @@ export function PhoneKeypadInput({
     if (nextOpen && !canEdit()) return;
     setOpen(nextOpen);
     onOpenChange?.(nextOpen);
-    if (nextOpen) setDraft(normalizePhoneKeypadDraft(value));
+    if (nextOpen) {
+      const nextDraft = normalizePhoneKeypadDraft(value);
+      draftRef.current = nextDraft;
+      setDraft(nextDraft);
+    }
   };
 
   const updateDraft = (key: PhoneKeypadKey) => {
     if (!canEdit()) return;
-    const nextDraft = applyPhoneKeypadKey(open ? draft : normalizePhoneKeypadDraft(value), key);
+    const nextDraft = applyPhoneKeypadKey(
+      open ? draftRef.current : normalizePhoneKeypadDraft(value),
+      key,
+    );
     if (maxLength !== undefined && nextDraft.length > maxLength) return;
+    draftRef.current = nextDraft;
     setDraft(nextDraft);
     onChange(nextDraft);
   };
@@ -183,13 +196,20 @@ export function PhoneKeypadInput({
           triggerClassName,
           valueClassName,
         )}
-        onChange={(event) =>
-          onChange(
-            preserveFormatting ? event.target.value : normalizePhoneKeypadDraft(event.target.value),
-          )
-        }
+        onChange={(event) => {
+          const next = preserveFormatting
+            ? event.target.value
+            : normalizePhoneKeypadDraft(event.target.value);
+          draftRef.current = next;
+          onChange(next);
+        }}
         onFocus={() => onOpenChange?.(true)}
         onBlur={() => onOpenChange?.(false)}
+        onInput={(event) => {
+          draftRef.current = preserveFormatting
+            ? event.currentTarget.value
+            : normalizePhoneKeypadDraft(event.currentTarget.value);
+        }}
         onKeyDown={(event) => {
           onCandidateKeyDown?.(event);
           if (event.key === "Escape") onOpenChange?.(false);
