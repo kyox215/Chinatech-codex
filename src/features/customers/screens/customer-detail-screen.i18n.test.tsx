@@ -455,7 +455,13 @@ describe("CustomerDetailScreen i18n", () => {
     const mobileActions = document.querySelector('[data-ui="customer-detail-mobile-actions"]');
     const mainTabs = document.querySelector('[data-ui="customer-detail-main-tabs"]');
 
-    expect(page).toHaveClass("md:!pb-20", "lg:!pt-5", "lg:!pb-8");
+    expect(page).toHaveClass(
+      "max-w-[430px]",
+      "!pb-[calc(var(--customer-detail-mobile-actions-height,68px)+0.75rem)]",
+      "md:!max-w-2xl",
+      "lg:!pt-5",
+      "lg:!pb-8",
+    );
     expect(page).not.toHaveClass("md:!pt-5");
     expect(page?.className).not.toContain("md:!pt-[var(--repair-os-mobile-floating-offset");
     expect(mobileHeader).toHaveClass("lg:!hidden");
@@ -464,6 +470,7 @@ describe("CustomerDetailScreen i18n", () => {
     expect(desktopHero).toHaveClass("hidden", "lg:block");
     expect(mobileActions).toHaveClass("lg:hidden");
     expect(mobileActions).not.toHaveClass("md:hidden");
+    expect(mobileActions?.firstElementChild).toHaveClass("w-full", "max-w-[430px]", "md:max-w-2xl");
     expect(mainTabs).toHaveClass("hidden", "lg:sticky", "lg:block");
     expect(mainTabs).not.toHaveClass("md:block");
 

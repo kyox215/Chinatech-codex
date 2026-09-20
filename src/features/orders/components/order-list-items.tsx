@@ -77,14 +77,14 @@ export function OrderMobileCard({
     stage: currentStageLabel,
     payment: paymentLabel,
   });
-  const hasOutstandingBalance = !cancelled && order.balance_amount > 0;
-  const paymentAmount = hasOutstandingBalance ? order.balance_amount : order.quotation_amount;
+  const hasOutstandingBalance = financialState.collectible;
+  const paymentAmount = financialState.collectible ? order.balance_amount : order.quotation_amount;
   const paymentAmountLabel = cancelled
     ? t("orders.recordAmount")
     : hasOutstandingBalance
       ? t("orders.amountDue")
       : t("orders.amountTotal");
-  const paymentAmountClass = hasOutstandingBalance
+  const paymentAmountClass = financialState.collectible
     ? "text-status-danger-foreground"
     : "text-foreground";
   const showCustodyBadge = order.device_custody_status !== "with_shop";
@@ -242,7 +242,7 @@ export function OrderMobileCard({
                 />
               </p>
               <p className="flex max-w-full flex-wrap items-center justify-end gap-x-1 gap-y-0.5 text-[9px] leading-3 text-muted-foreground">
-                {hasOutstandingBalance ? (
+                {financialState.collectible ? (
                   <span className="whitespace-nowrap">
                     <span>{t("orders.amountTotal")} </span>
                     <MoneyText amount={order.quotation_amount} className="whitespace-nowrap" />

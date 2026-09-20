@@ -50,8 +50,7 @@ import {
 import { formatCustomerWorkbenchDate } from "@/features/customers/model/customer-workbench";
 
 const customerDetailSectionClass = cn(repairOs.mobileInfoCard, "sm:p-2.5 md:rounded-2xl md:p-3");
-const customerDetailSectionTitleClass =
-  "text-[11px] leading-4 sm:text-sm lg:text-[13px] lg:leading-5";
+const customerDetailSectionTitleClass = "text-xs leading-4 sm:text-sm lg:text-[13px] lg:leading-5";
 
 export function CustomerOverviewPanel({
   data,
@@ -205,7 +204,7 @@ function CustomerCurrentItemsPanel({
           <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
           <div className="min-w-0">
             <p className="text-xs font-semibold">{t("customers.detail.noCurrentItems")}</p>
-            <p className="text-[10px] leading-4 opacity-80 lg:text-xs lg:leading-[18px] lg:opacity-100">
+            <p className="text-[11px] leading-4 opacity-80 lg:text-xs lg:leading-[18px] lg:opacity-100">
               {t("customers.detail.noCurrentItemsDescription")}
             </p>
           </div>

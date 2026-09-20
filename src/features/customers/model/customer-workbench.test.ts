@@ -284,6 +284,8 @@ describe("customer workbench model", () => {
       unpaidAmount: 75,
       settledOrderCount: 1,
       unpaidOrderCount: 1,
+      pendingQuoteCount: 0,
+      financeReviewCount: 0,
     });
   });
 
@@ -380,6 +382,25 @@ describe("customer workbench model", () => {
     expect(currentItems).not.toContainEqual(expect.objectContaining({ kind: "unpaid" }));
   });
 
+  it("counts a rejected quote without received money as pending customer finance work", () => {
+    const rejected = order({
+      id: "rejected-only",
+      device_id: "dev_1",
+      quotation_amount: 100,
+      deposit_amount: 0,
+      balance_amount: 100,
+      approval_status: "rejected",
+      approval_flow_status: "rejected",
+    });
+
+    expect(buildCustomerPaymentSummary([rejected])).toMatchObject({
+      unpaidAmount: 0,
+      unpaidOrderCount: 0,
+      pendingQuoteCount: 1,
+      financeReviewCount: 0,
+    });
+  });
+
   it("does not turn redacted finance fields into NaN or fake payable amounts", () => {
     const redacted = order({ id: "redacted", device_id: "dev_1" });
     Reflect.deleteProperty(redacted, "quotation_amount");
@@ -393,6 +414,8 @@ describe("customer workbench model", () => {
       unpaidAmount: 0,
       settledOrderCount: 0,
       unpaidOrderCount: 0,
+      pendingQuoteCount: 0,
+      financeReviewCount: 0,
     });
     expect(buildCustomerDeviceWorkbenchItems(detail({ orders: [redacted] }))[0]).toMatchObject({
       totalQuoted: 0,

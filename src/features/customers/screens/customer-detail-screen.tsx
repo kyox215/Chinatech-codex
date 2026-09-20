@@ -103,10 +103,12 @@ export function CustomerDetailScreen({
   const queryClient = useQueryClient();
   const router = useRouter();
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
+  const mobileActionsRef = useRef<HTMLDivElement | null>(null);
   const lastInvokingControlRef = useRef<HTMLElement | null>(null);
   const followupReturnFocusRef = useRef<HTMLElement | null>(null);
   const deviceReturnFocusRef = useRef<HTMLElement | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
+  const [mobileActionsHeight, setMobileActionsHeight] = useState(0);
   const [tab, setTab] = useState<CustomerDetailTabKey>("overview");
   const editReturnFocusRef = useRef<HTMLElement | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -174,6 +176,25 @@ export function CustomerDetailScreen({
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", updateHeaderHeight);
+    };
+  }, [data?.customer.id]);
+
+  useEffect(() => {
+    const actions = mobileActionsRef.current;
+    if (!actions) return;
+
+    const updateActionsHeight = () => {
+      setMobileActionsHeight(Math.ceil(actions.getBoundingClientRect().height));
+    };
+
+    updateActionsHeight();
+    const observer = new ResizeObserver(updateActionsHeight);
+    observer.observe(actions);
+    window.addEventListener("resize", updateActionsHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateActionsHeight);
     };
   }, [data?.customer.id]);
 
@@ -337,9 +358,14 @@ export function CustomerDetailScreen({
     label: localizeCustomerTab(item.key, item.label, t),
   }));
   const detailStyle =
-    surface === "page" && mobileHeaderHeight
+    surface === "page"
       ? ({
-          "--repair-os-mobile-floating-offset": `${mobileHeaderHeight + 8}px`,
+          ...(mobileHeaderHeight
+            ? { "--repair-os-mobile-floating-offset": `${mobileHeaderHeight + 8}px` }
+            : {}),
+          ...(mobileActionsHeight
+            ? { "--customer-detail-mobile-actions-height": `${mobileActionsHeight}px` }
+            : {}),
         } as CSSProperties)
       : undefined;
   const openCustomerFollowup = () => {
@@ -423,7 +449,7 @@ export function CustomerDetailScreen({
           ? cn(
               "mx-auto max-w-[430px] px-2",
               repairOs.mobileFloatingPage,
-              "md:!max-w-2xl md:!pb-20 md:px-5 lg:!max-w-7xl lg:!space-y-3 lg:!pb-8 lg:!pt-5 lg:px-6",
+              "!pb-[calc(var(--customer-detail-mobile-actions-height,68px)+0.75rem)] md:!max-w-2xl md:px-5 lg:!max-w-7xl lg:!space-y-3 lg:!pb-8 lg:!pt-5 lg:px-6",
             )
           : cn(detailWorkspace.root, "flex h-full min-h-0 flex-col"),
       )}
@@ -542,6 +568,7 @@ export function CustomerDetailScreen({
 
       {surface === "page" ? (
         <CustomerMobileActionBar
+          actionBarRef={mobileActionsRef}
           customerId={customer.id}
           onMessage={() => setMessageOpen(true)}
           onFollowup={openCustomerFollowupFromControl}
@@ -656,7 +683,7 @@ function CustomerMobileFloatingHeader({
             <h1 className="whitespace-normal break-words text-xs font-semibold leading-4">
               {t("customers.detail.title")}
             </h1>
-            <p className="truncate text-[9px] leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
+            <p className="truncate text-[11px] leading-4 text-muted-foreground">
               {summary.label} · {customer.preferred_channel === "sms" ? "SMS" : "WhatsApp"}
             </p>
           </div>
@@ -675,7 +702,7 @@ function CustomerMobileFloatingHeader({
                   {customer.name}
                 </button>
                 {customer.blacklisted_at ? (
-                  <span className="shrink-0 rounded-full bg-status-danger px-1.5 py-0.5 text-[9px] font-semibold leading-none text-status-danger-foreground lg:text-[11px] lg:leading-4">
+                  <span className="shrink-0 rounded-full bg-status-danger px-1.5 py-0.5 text-xs font-semibold leading-4 text-status-danger-foreground">
                     {t("customers.detail.blacklisted")}
                   </span>
                 ) : null}
@@ -691,6 +718,8 @@ function CustomerMobileFloatingHeader({
                 active_order_count: stats.active_order_count ?? 0,
                 outstanding_amount: stats.outstanding_amount ?? stats.unpaid_amount,
                 unpaid_amount: stats.unpaid_amount,
+                pending_quote_count: stats.pending_quote_count,
+                finance_review_count: stats.finance_review_count,
                 finance_redacted: stats.finance_redacted,
               }}
               className="max-w-[9rem] justify-end"
@@ -712,10 +741,12 @@ function CustomerMobileFloatingHeader({
 }
 
 function CustomerMobileActionBar({
+  actionBarRef,
   customerId,
   onMessage,
   onFollowup,
 }: {
+  actionBarRef: RefObject<HTMLDivElement | null>;
   customerId: string;
   onMessage: () => void;
   onFollowup: (control: HTMLButtonElement) => void;
@@ -730,11 +761,12 @@ function CustomerMobileActionBar({
 
   return (
     <div
+      ref={actionBarRef}
       data-ui="customer-detail-mobile-actions"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur transition-[left] lg:hidden"
       style={workspaceInset ? { left: workspaceInset } : undefined}
     >
-      <div className="mx-auto grid max-w-2xl grid-cols-3 gap-2">
+      <div className="mx-auto grid w-full max-w-[430px] grid-cols-3 gap-2 md:max-w-2xl">
         <Button
           asChild
           size="sm"

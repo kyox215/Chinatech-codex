@@ -3,7 +3,7 @@
 Status: active
 Owner: Hexiang Huang / 鹤祥
 Scope: current Next.js RepairDesk customer finance projection, routine order edits, terminal correction/reopen, cancelled custody confirmation and Owner safe void
-Last reviewed: 2026-07-17 CEST
+Last reviewed: 2026-09-20 CEST
 Source task: `TASK-20260716-003-customer-finance-order-correction-plan`
 
 ## 1. Authority
@@ -19,7 +19,9 @@ This is the active product/API/data/security contract for the scope above. Histo
 - Actual collected/refunded/reversed value remains ledger-derived and must not be inferred from `is_paid`, quotation or balance fields.
 - Repair state and payment state are orthogonal. A completed order may be `已交付 · 待收`; a cancelled balance is historical and not receivable.
 - Finance-restricted responses omit amounts, payment KPIs and unpaid filters. Missing authority must never be rendered as `€0.00`.
-- Customer list/read code uses the v3 fact contract. Compatibility fallback to v2 is allowed only when v3 is demonstrably absent; runtime or invalid-contract failures fail closed.
+- Customer list/read code uses the additive v4 fact contract. v4 preserves the v3 projection and adds `pending_quote_count` and `finance_review_count`; an older application may continue using v3 unchanged. The current reader falls back to v3 only when v4 is demonstrably absent, and runtime or invalid-contract failures fail closed.
+- Unquoted, draft, awaiting-approval and rejected-without-money orders are not receivable and are not settled; they contribute to `pending_quote_count`. Rejected orders with received money and inconsistent amount, payment or approval facts contribute to `finance_review_count` instead.
+- Customer finance amounts are aggregated in integer cents. The v4 projection is read-only and performs no fact rewrite or backfill.
 
 ## 3. Routine active-order edits
 
@@ -86,4 +88,4 @@ The reference evidence is `.ai-company/memory/tasks/TASK-20260716-003-customer-f
 
 ## 9. Rollback and recovery
 
-This contract is additive. If application behavior regresses, disable the new UI/API entry points and forward-fix while retaining lifecycle columns, terminal-operation evidence and payment ledger rows. Do not roll back by deleting audit, payment or terminal-operation records. The older customer v2 reader remains a compatibility path only; invalid v3 runtime behavior must fail closed rather than silently changing finance meaning.
+This contract is additive. If application behavior regresses, disable the new UI/API entry points and forward-fix while retaining lifecycle columns, terminal-operation evidence and payment ledger rows. Do not roll back by deleting audit, payment or terminal-operation records. The older customer v3/v2 readers remain compatibility paths only; invalid v4 runtime behavior must fail closed rather than silently changing finance meaning.

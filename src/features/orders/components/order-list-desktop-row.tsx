@@ -323,7 +323,7 @@ export function DesktopOrderQueueRow({
           <div
             className={cn(
               "text-[10px] leading-3 lg:text-xs lg:leading-4",
-              !cancelled && order.balance_amount > 0
+              financialState.collectible
                 ? "text-status-danger-foreground"
                 : "text-muted-foreground",
             )}
@@ -336,7 +336,7 @@ export function DesktopOrderQueueRow({
                   className="inline-block whitespace-nowrap"
                 />
               </>
-            ) : order.balance_amount > 0 ? (
+            ) : financialState.collectible ? (
               <>
                 {t("orders.balanceDue")}{" "}
                 <MoneyText

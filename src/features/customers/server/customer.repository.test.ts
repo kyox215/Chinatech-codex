@@ -38,7 +38,7 @@ describe("customer repository tenant write boundaries", () => {
     mocks.supabase.rpc.mockReset();
   });
 
-  it("uses the v3 historical/valid contract without re-summing cancelled balances", async () => {
+  it("uses the v4 finance-state contract without re-summing cancelled balances", async () => {
     mocks.supabase.rpc.mockResolvedValue({
       data: {
         items: [
@@ -56,6 +56,8 @@ describe("customer repository tenant write boundaries", () => {
             active_order_count: 1,
             lifetime_quoted_amount: 70,
             outstanding_amount: 70,
+            pending_quote_count: 2,
+            finance_review_count: 1,
           },
         ],
         total: 1,
@@ -82,7 +84,7 @@ describe("customer repository tenant write boundaries", () => {
     );
 
     expect(mocks.supabase.rpc).toHaveBeenCalledWith(
-      "repairdesk_customer_list_page_v3",
+      "repairdesk_customer_list_page_v4",
       expect.any(Object),
     );
     expect(result.items[0]).toMatchObject({
@@ -90,6 +92,8 @@ describe("customer repository tenant write boundaries", () => {
       valid_order_count: 1,
       total_spent: 70,
       unpaid_amount: 70,
+      pending_quote_count: 2,
+      finance_review_count: 1,
     });
     expect(result.items[0]).not.toHaveProperty("phone_raw");
     expect(result.items[0]).not.toHaveProperty("contact_phones");
@@ -100,7 +104,7 @@ describe("customer repository tenant write boundaries", () => {
     expect(mocks.supabase.from).not.toHaveBeenCalled();
   });
 
-  it("fails closed on a real v3 error instead of reviving the known-wrong v2 path", async () => {
+  it("fails closed on a real v4 error instead of reviving an older path", async () => {
     mocks.supabase.rpc.mockResolvedValue({
       data: null,
       error: { code: "XX000", message: "aggregate query failed" },
@@ -355,14 +359,22 @@ describe("customer intake structured search", () => {
   });
 });
 
-describe("customer v3 pagination compatibility", () => {
+describe("customer v4 pagination compatibility", () => {
   beforeEach(() => {
     mocks.supabase.from.mockReset();
     mocks.supabase.rpc.mockReset();
   });
 
-  it("falls back to v2 only when the v3 function is absent", async () => {
+  it("falls back through v3 to v2 only when newer functions are absent", async () => {
     mocks.supabase.rpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: "PGRST202",
+          message:
+            "Could not find the function public.repairdesk_customer_list_page_v4 in the schema cache",
+        },
+      })
       .mockResolvedValueOnce({
         data: null,
         error: {
@@ -375,28 +387,28 @@ describe("customer v3 pagination compatibility", () => {
 
     await expect(listCustomersPage({}, ownerActor())).resolves.toMatchObject({ total: 1 });
     expect(mocks.supabase.rpc).toHaveBeenNthCalledWith(
-      2,
+      3,
       "repairdesk_customer_list_page_v2",
       expect.objectContaining({ p_store_id: "store_1" }),
     );
   });
 
-  it("fails closed when the v3 function reports a runtime error", async () => {
+  it("fails closed when the v4 function reports a runtime error", async () => {
     mocks.supabase.rpc.mockResolvedValueOnce({
       data: null,
-      error: { code: "P0001", message: "v3 aggregate invariant failed" },
+      error: { code: "P0001", message: "v4 aggregate invariant failed" },
     });
 
     await expect(listCustomersPage({}, ownerActor())).rejects.toThrow(
-      "v3 aggregate invariant failed",
+      "v4 aggregate invariant failed",
     );
     expect(mocks.supabase.rpc).toHaveBeenCalledTimes(1);
   });
 
-  it("fails closed when the v3 response violates its contract", async () => {
+  it("fails closed when the v4 response violates its contract", async () => {
     mocks.supabase.rpc.mockResolvedValueOnce({ data: { items: [] }, error: null });
 
-    await expect(listCustomersPage({}, ownerActor())).rejects.toThrow("v3 数据契约无效");
+    await expect(listCustomersPage({}, ownerActor())).rejects.toThrow("v4 数据契约无效");
     expect(mocks.supabase.rpc).toHaveBeenCalledTimes(1);
   });
 
@@ -406,7 +418,7 @@ describe("customer v3 pagination compatibility", () => {
     const result = await listCustomersPage({ work: "unpaid" }, storeActor);
 
     expect(mocks.supabase.rpc).toHaveBeenCalledWith(
-      "repairdesk_customer_list_page_v3",
+      "repairdesk_customer_list_page_v4",
       expect.objectContaining({ p_work_filter: "all" }),
     );
     expect(result.stats.unpaid).toBe(0);
@@ -414,6 +426,8 @@ describe("customer v3 pagination compatibility", () => {
     expect(result.items[0]).toMatchObject({ finance_redacted: true });
     expect(result.items[0]).not.toHaveProperty("lifetime_quoted_amount");
     expect(result.items[0]).not.toHaveProperty("outstanding_amount");
+    expect(result.items[0]).not.toHaveProperty("pending_quote_count");
+    expect(result.items[0]).not.toHaveProperty("finance_review_count");
   });
 });
 

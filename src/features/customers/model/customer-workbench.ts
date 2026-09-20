@@ -33,6 +33,8 @@ export interface CustomerPaymentSummary {
   unpaidAmount: number;
   settledOrderCount: number;
   unpaidOrderCount: number;
+  pendingQuoteCount: number;
+  financeReviewCount: number;
   financeRedacted?: boolean;
 }
 
@@ -127,14 +129,11 @@ export function buildCustomerDeviceWorkbenchItems(
       latestOrder: linkedOrders[0],
       repairCount: billableOrders.length,
       activeOrderCount: linkedOrders.filter((item) => item.state === "active").length,
-      totalQuoted: billableOrders.reduce(
-        (sum, item) => sum + safeAmount(item.order.quotation_amount),
-        0,
-      ),
-      unpaidAmount: billableOrders.reduce(
-        (sum, item) =>
-          sum + (item.financialState.collectible ? safeAmount(item.order.balance_amount) : 0),
-        0,
+      totalQuoted: sumMoney(billableOrders.map((item) => item.order.quotation_amount)),
+      unpaidAmount: sumMoney(
+        billableOrders.flatMap((item) =>
+          item.financialState.collectible ? [item.order.balance_amount] : [],
+        ),
       ),
       financeRedacted: financeRedacted || linkedOrders.some((item) => item.order.finance_redacted),
       warranty,
@@ -291,34 +290,56 @@ export function buildCustomerPaymentSummary(
       unpaidAmount: 0,
       settledOrderCount: 0,
       unpaidOrderCount: 0,
+      pendingQuoteCount: 0,
+      financeReviewCount: 0,
       financeRedacted: true,
     };
   }
-  return orders.reduce<CustomerPaymentSummary>(
+  const summaryCents = orders.reduce(
     (summary, order) => {
-      if (!isCustomerOrderBillable(order)) return summary;
-      if (order.finance_redacted) return summary;
+      if (!isCustomerOrderBillable(order) || order.finance_redacted) return summary;
 
       const financialState = deriveOrderFinancialState(order);
-      const unpaid = financialState.collectible ? safeAmount(order.balance_amount) : 0;
       const settled =
         financialState.settlement === "settled" || financialState.settlement === "zero_charge";
+      const pendingQuote =
+        financialState.settlement === "not_due" &&
+        (financialState.quote === "not_quoted" ||
+          financialState.quote === "draft" ||
+          financialState.quote === "awaiting_approval" ||
+          financialState.quote === "rejected");
       return {
-        totalQuoted: summary.totalQuoted + safeAmount(order.quotation_amount),
-        depositTotal: summary.depositTotal + safeAmount(order.deposit_amount),
-        unpaidAmount: summary.unpaidAmount + unpaid,
+        totalQuotedCents: summary.totalQuotedCents + (moneyToCents(order.quotation_amount) ?? 0),
+        depositTotalCents: summary.depositTotalCents + (moneyToCents(order.deposit_amount) ?? 0),
+        unpaidAmountCents:
+          summary.unpaidAmountCents +
+          (financialState.collectible ? (moneyToCents(order.balance_amount) ?? 0) : 0),
         settledOrderCount: summary.settledOrderCount + (settled ? 1 : 0),
         unpaidOrderCount: summary.unpaidOrderCount + (financialState.collectible ? 1 : 0),
+        pendingQuoteCount: summary.pendingQuoteCount + (pendingQuote ? 1 : 0),
+        financeReviewCount:
+          summary.financeReviewCount + (financialState.settlement === "review" ? 1 : 0),
       };
     },
     {
-      totalQuoted: 0,
-      depositTotal: 0,
-      unpaidAmount: 0,
+      totalQuotedCents: 0,
+      depositTotalCents: 0,
+      unpaidAmountCents: 0,
       settledOrderCount: 0,
       unpaidOrderCount: 0,
+      pendingQuoteCount: 0,
+      financeReviewCount: 0,
     },
   );
+  return {
+    totalQuoted: summaryCents.totalQuotedCents / 100,
+    depositTotal: summaryCents.depositTotalCents / 100,
+    unpaidAmount: summaryCents.unpaidAmountCents / 100,
+    settledOrderCount: summaryCents.settledOrderCount,
+    unpaidOrderCount: summaryCents.unpaidOrderCount,
+    pendingQuoteCount: summaryCents.pendingQuoteCount,
+    financeReviewCount: summaryCents.financeReviewCount,
+  };
 }
 
 export function getCustomerOrderWorkbenchState(
@@ -347,8 +368,19 @@ function orderTime(order: Pick<OrderListItem, "updated_at" | "created_at">) {
 }
 
 function safeAmount(value: unknown) {
+  const cents = moneyToCents(value);
+  return cents === null ? 0 : cents / 100;
+}
+
+function moneyToCents(value: unknown) {
   const amount = Number(value);
-  return Number.isFinite(amount) ? Math.max(0, amount) : 0;
+  if (!Number.isFinite(amount) || amount < 0) return null;
+  const cents = Math.round(amount * 100);
+  return Math.abs(amount * 100 - cents) < 1e-7 ? cents : null;
+}
+
+function sumMoney(values: unknown[]) {
+  return values.reduce<number>((sum, value) => sum + (moneyToCents(value) ?? 0), 0) / 100;
 }
 
 function formatEuro(value: unknown) {

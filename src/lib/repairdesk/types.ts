@@ -1263,6 +1263,10 @@ export interface CustomerListItem extends Customer {
   active_order_count: number;
   lifetime_quoted_amount?: number;
   outstanding_amount?: number;
+  /** Valid orders whose quote is missing, draft, or waiting for customer approval. */
+  pending_quote_count?: number;
+  /** Valid orders whose money facts conflict and require human review. */
+  finance_review_count?: number;
   /** @deprecated Compatibility alias for lifetime_quoted_amount. */
   total_spent?: number;
   /** @deprecated Compatibility alias for outstanding_amount. */
@@ -1315,6 +1319,8 @@ export interface CustomerDetail {
     active_order_count?: number;
     lifetime_quoted_amount?: number;
     outstanding_amount?: number;
+    pending_quote_count?: number;
+    finance_review_count?: number;
     /** @deprecated Compatibility alias for lifetime_quoted_amount. */
     total_spent?: number;
     /** @deprecated Compatibility alias for outstanding_amount. */

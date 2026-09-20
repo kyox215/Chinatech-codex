@@ -29,8 +29,12 @@ const locales = ["zh-CN", "it-IT", "en"] as const;
 const widths = [390, 430, 768, 1024, 1280, 1440] as const;
 const coreCases = locales.flatMap((locale) => widths.map((width) => ({ locale, width })));
 const detailCases = [
+  { locale: "zh-CN", width: 320 },
+  { locale: "en", width: 360 },
   { locale: "zh-CN", width: 390 },
+  { locale: "zh-CN", width: 430 },
   { locale: "it-IT", width: 768 },
+  { locale: "it-IT", width: 1024 },
   { locale: "en", width: 1440 },
 ] as const;
 
@@ -154,16 +158,7 @@ for (const { locale, width } of detailCases) {
     await expect(root).toContainText(synthetic.tag);
     await expect(root).toContainText(synthetic.historyBody);
 
-    if (width === 390) {
-      await expect(mobileHeader).toBeVisible();
-      await expect(appBar).toBeHidden();
-      await expect(desktopHero).toBeHidden();
-      await expect(mobileActions).toBeVisible();
-      await expectVisibleTabs(root, 5);
-      await expect(root.getByRole("tablist")).toHaveCount(1);
-      await root.getByRole("tab").nth(2).click();
-      await expect(root).toContainText(synthetic.warranty);
-    } else if (width === 768) {
+    if (width < 1024) {
       await expect(mobileHeader).toBeVisible();
       await expect(appBar).toBeHidden();
       await expect(desktopHero).toBeHidden();
@@ -180,6 +175,7 @@ for (const { locale, width } of detailCases) {
       await devicesTab.click();
       await expect(devicesTab).toHaveAttribute("aria-selected", "true");
       await expect(root).toContainText(synthetic.warranty);
+      await expectMobileDetailBottomReachability(page, root, mobileHeader, mobileActions);
     } else {
       await expect(mobileHeader).toBeHidden();
       await expect(appBar).toBeVisible();
@@ -764,7 +760,51 @@ async function assertEvidence(
 }
 
 async function expectVisibleTabs(root: Locator, count: number) {
-  await expect(root.getByRole("tab")).toHaveCount(count);
+  const tabs = root.getByRole("tab");
+  await expect(tabs).toHaveCount(count);
+  for (let index = 0; index < count; index += 1) await expect(tabs.nth(index)).toBeVisible();
+}
+
+async function expectMobileDetailBottomReachability(
+  page: Page,
+  root: Locator,
+  mobileHeader: Locator,
+  mobileActions: Locator,
+) {
+  await expect
+    .poll(() => mobileHeader.evaluate((element) => getComputedStyle(element).position))
+    .toBe("fixed");
+  await expect
+    .poll(() => mobileActions.evaluate((element) => getComputedStyle(element).position))
+    .toBe("fixed");
+  await expect
+    .poll(async () => {
+      const [paddingBottom, actionHeight] = await Promise.all([
+        root.evaluate((element) => Number.parseFloat(getComputedStyle(element).paddingBottom)),
+        mobileActions.evaluate((element) => element.getBoundingClientRect().height),
+      ]);
+      return paddingBottom + 1 >= actionHeight;
+    })
+    .toBe(true);
+
+  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight }));
+  const reachability = await root.evaluate((element) => {
+    const actions = document.querySelector('[data-ui="customer-detail-mobile-actions"]');
+    const panel = element.querySelector('[role="tabpanel"]');
+    const lastContent = panel?.lastElementChild ?? panel;
+    if (!(actions instanceof HTMLElement) || !(lastContent instanceof HTMLElement)) return null;
+    const actionBox = actions.getBoundingClientRect();
+    const contentBox = lastContent.getBoundingClientRect();
+    return {
+      actionTop: actionBox.top,
+      contentBottom: contentBox.bottom,
+      contentTop: contentBox.top,
+    };
+  });
+  expect(reachability).not.toBeNull();
+  expect(reachability!.contentBottom).toBeLessThanOrEqual(reachability!.actionTop + 1);
+  expect(reachability!.contentBottom).toBeGreaterThan(0);
+  expect(reachability!.contentTop).toBeLessThan(page.viewportSize()?.height ?? 0);
 }
 
 async function expectNoHorizontalOverflow(page: Page) {

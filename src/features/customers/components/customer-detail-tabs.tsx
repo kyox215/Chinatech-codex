@@ -67,7 +67,7 @@ export function CustomerDetailTabs<T extends string>({
           onClick={() => onChange(item.key)}
           className={cn(
             repairOs.chip,
-            "h-11 min-w-0 justify-center gap-1 px-1 text-[11px] sm:px-2 sm:text-xs lg:h-10",
+            "h-11 min-w-0 justify-center gap-1 px-1 text-xs sm:px-2 lg:h-10",
             activeTab === item.key && repairOs.chipActive,
           )}
         >
@@ -77,7 +77,7 @@ export function CustomerDetailTabs<T extends string>({
           {item.count !== undefined ? (
             <span
               className={cn(
-                "hidden shrink-0 rounded-full px-1 py-0.5 font-mono text-[9px] leading-none tabular-nums min-[390px]:inline",
+                "hidden shrink-0 rounded-full px-1 py-0.5 font-mono text-[11px] leading-none tabular-nums min-[390px]:inline",
                 activeTab === item.key
                   ? "bg-primary-foreground/20 text-primary-foreground"
                   : "bg-[var(--surface-panel-muted)] text-muted-foreground",

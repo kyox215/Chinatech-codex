@@ -30,6 +30,8 @@ export interface CustomerOrderFinanceSummary {
   activeOrderCount: number;
   lifetimeQuotedAmount: number;
   outstandingAmount: number;
+  pendingQuoteCount: number;
+  financeReviewCount: number;
   lastOrderAt?: string;
 }
 
@@ -64,29 +66,46 @@ export function buildCustomerOrderFinanceSummary(
   orders: CustomerOrderFinanceInput[],
 ): CustomerOrderFinanceSummary {
   const validOrders = orders.filter(isCustomerOrderBillable);
+  const financialStates = validOrders.map((order) => ({
+    order,
+    state: deriveOrderFinancialState(order),
+  }));
+  const lifetimeQuotedCents = financialStates.reduce(
+    (sum, { order }) => sum + (moneyToCents(order.quotation_amount) ?? 0),
+    0,
+  );
+  const outstandingCents = financialStates.reduce(
+    (sum, { order, state }) =>
+      sum + (state.collectible ? (moneyToCents(order.balance_amount) ?? 0) : 0),
+    0,
+  );
 
   return {
     historicalOrderCount: orders.length,
     validOrderCount: validOrders.length,
     activeOrderCount: validOrders.filter((order) => !isCustomerOrderClosed(order)).length,
-    lifetimeQuotedAmount: validOrders.reduce(
-      (sum, order) => sum + safeNonNegativeMoney(order.quotation_amount),
-      0,
-    ),
-    outstandingAmount: validOrders.reduce(
-      (sum, order) =>
-        sum +
-        (deriveOrderFinancialState(order).collectible
-          ? safeNonNegativeMoney(order.balance_amount)
-          : 0),
-      0,
-    ),
+    lifetimeQuotedAmount: lifetimeQuotedCents / 100,
+    outstandingAmount: outstandingCents / 100,
+    pendingQuoteCount: financialStates.filter(({ state }) => isPendingQuoteState(state)).length,
+    financeReviewCount: financialStates.filter(({ state }) => state.settlement === "review").length,
     lastOrderAt: orders
       .map((order) => order.created_at)
       .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0],
   };
 }
 
-function safeNonNegativeMoney(value: number) {
-  return Number.isFinite(value) ? Math.max(0, value) : 0;
+function isPendingQuoteState(state: ReturnType<typeof deriveOrderFinancialState>) {
+  return (
+    state.settlement === "not_due" &&
+    (state.quote === "not_quoted" ||
+      state.quote === "draft" ||
+      state.quote === "awaiting_approval" ||
+      state.quote === "rejected")
+  );
+}
+
+function moneyToCents(value: number) {
+  if (!Number.isFinite(value) || value < 0) return null;
+  const cents = Math.round(value * 100);
+  return Math.abs(value * 100 - cents) < 1e-7 ? cents : null;
 }

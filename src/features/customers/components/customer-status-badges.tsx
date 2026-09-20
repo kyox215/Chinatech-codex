@@ -1,4 +1,4 @@
-import { CircleCheck, LockKeyhole, WalletCards, Wrench } from "lucide-react";
+import { CircleAlert, CircleCheck, Clock3, LockKeyhole, WalletCards, Wrench } from "lucide-react";
 
 import { MoneyText } from "@/components/orders/badges";
 import {
@@ -16,7 +16,12 @@ import { useLocale } from "@/shared/i18n/locale-provider";
 
 type CustomerStatusFacts = Pick<
   CustomerListItem,
-  "active_order_count" | "outstanding_amount" | "unpaid_amount" | "finance_redacted"
+  | "active_order_count"
+  | "outstanding_amount"
+  | "unpaid_amount"
+  | "pending_quote_count"
+  | "finance_review_count"
+  | "finance_redacted"
 >;
 
 export function CustomerStatusBadges({
@@ -31,7 +36,7 @@ export function CustomerStatusBadges({
   const { t } = useLocale();
   const repair = getCustomerRepairState(customer);
   const payment = getCustomerPaymentState(customer);
-  const sizeClass = compact ? "text-[9px]" : "text-[11px]";
+  const sizeClass = compact ? "text-xs" : "text-xs";
   const iconClass = compact ? "size-2.5" : "size-3";
 
   return (
@@ -54,13 +59,21 @@ export function CustomerStatusBadges({
           sizeClass,
           payment.kind === "outstanding"
             ? "bg-status-warn text-status-warn-foreground"
-            : payment.kind === "settled"
-              ? "bg-status-success text-status-success-foreground"
-              : "bg-status-neutral text-status-neutral-foreground",
+            : payment.kind === "review"
+              ? "bg-status-danger/10 text-status-danger-foreground"
+              : payment.kind === "pending_quote"
+                ? "bg-status-info text-status-info-foreground"
+                : payment.kind === "settled"
+                  ? "bg-status-success text-status-success-foreground"
+                  : "bg-status-neutral text-status-neutral-foreground",
         )}
       >
         {payment.kind === "outstanding" ? (
           <WalletCards className={iconClass} aria-hidden="true" />
+        ) : payment.kind === "review" ? (
+          <CircleAlert className={iconClass} aria-hidden="true" />
+        ) : payment.kind === "pending_quote" ? (
+          <Clock3 className={iconClass} aria-hidden="true" />
         ) : payment.kind === "settled" ? (
           <CircleCheck className={iconClass} aria-hidden="true" />
         ) : (
@@ -69,6 +82,10 @@ export function CustomerStatusBadges({
         {payment.kind === "outstanding" ? (
           <>
             {localizeCustomerPaymentState(payment, t)} <MoneyText amount={payment.amount} />
+          </>
+        ) : payment.kind === "review" || payment.kind === "pending_quote" ? (
+          <>
+            {localizeCustomerPaymentState(payment, t)} · {payment.count}
           </>
         ) : (
           localizeCustomerPaymentState(payment, t)

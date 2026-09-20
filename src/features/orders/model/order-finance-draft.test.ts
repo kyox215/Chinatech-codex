@@ -235,4 +235,28 @@ describe("order finance draft", () => {
       error: "押金不能超过总报价。",
     });
   });
+
+  it.each(["12.345", "0,009"])("rejects quote drafts beyond cent precision: %s", (priceText) => {
+    expect(
+      normalizeFinanceDraft(
+        { faults: [{ name: "Display", priceText, note: "" }], depositText: "0" },
+        0,
+      ),
+    ).toMatchObject({ canSave: false, error: "金额最多保留两位小数。" });
+  });
+
+  it("aggregates quote, deposit and balance in integer cents", () => {
+    expect(
+      normalizeFinanceDraft(
+        {
+          faults: [
+            { name: "A", priceText: "0.10", note: "" },
+            { name: "B", priceText: "0.20", note: "" },
+          ],
+          depositText: "0.10",
+        },
+        0.1,
+      ),
+    ).toMatchObject({ canSave: true, quotation: 0.3, deposit: 0.1, balance: 0.1 });
+  });
 });

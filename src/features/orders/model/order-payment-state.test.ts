@@ -5,6 +5,7 @@ import type { OrderListItem } from "@/lib/repairdesk/types";
 import {
   deriveOrderFinancialState,
   getOrderLiveOutstandingAmount,
+  isOrderInitialDepositLocked,
   isOrderCancelledState,
   isOrderPaymentCollectible,
   isOrderTerminalState,
@@ -30,6 +31,29 @@ describe("order payment state", () => {
           balance_amount: 70,
           fault_prices: [{ name: "屏幕", price: 100 }],
           approval_flow_status: "not_required",
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("locks ordinary deposit editing after payment or approval evidence", () => {
+    expect(
+      isOrderInitialDepositLocked(
+        order({ quotation_amount: 100, deposit_amount: 20, balance_amount: 80 }),
+      ),
+    ).toBe(false);
+    expect(
+      isOrderInitialDepositLocked(
+        order({ quotation_amount: 100, deposit_amount: 20, balance_amount: 70 }),
+      ),
+    ).toBe(true);
+    expect(
+      isOrderInitialDepositLocked(
+        order({
+          quotation_amount: 100,
+          deposit_amount: 20,
+          balance_amount: 80,
+          approval_status: "approved",
         }),
       ),
     ).toBe(true);
@@ -250,6 +274,90 @@ describe("order payment state", () => {
         }),
       ),
     ).toMatchObject({ settlement: "review", label: "金额待核对", collectible: false });
+  });
+
+  it.each([
+    { approval_flow_status: "approved" as const, approval_status: "pending" as const },
+    { approval_flow_status: "approved" as const, approval_status: "rejected" as const },
+  ])("sends conflicting approval evidence to finance review", (approval) => {
+    expect(
+      deriveOrderFinancialState(
+        order({
+          quotation_amount: 100,
+          deposit_amount: 0,
+          balance_amount: 100,
+          fault_prices: [{ name: "屏幕", price: 100 }],
+          ...approval,
+        }),
+      ),
+    ).toMatchObject({ settlement: "review", collectible: false });
+  });
+
+  it("keeps a not-required legacy flow pending when the approval status is pending", () => {
+    expect(
+      deriveOrderFinancialState(
+        order({
+          quotation_amount: 100,
+          deposit_amount: 0,
+          balance_amount: 100,
+          fault_prices: [{ name: "屏幕", price: 100 }],
+          approval_flow_status: "not_required",
+          approval_status: "pending",
+        }),
+      ),
+    ).toMatchObject({ quote: "awaiting_approval", settlement: "not_due", collectible: false });
+  });
+
+  it.each([
+    { balance_amount: 60, payment_status: "unpaid" as const },
+    { balance_amount: 100, payment_status: "paid" as const },
+  ])("sends rejected quotes with payment evidence to review", (payment) => {
+    expect(
+      deriveOrderFinancialState(
+        order({
+          quotation_amount: 100,
+          deposit_amount: 0,
+          fault_prices: [{ name: "屏幕", price: 100 }],
+          approval_flow_status: "not_required",
+          approval_status: "rejected",
+          ...payment,
+        }),
+      ),
+    ).toMatchObject({ quote: "rejected", settlement: "review", collectible: false });
+  });
+
+  it.each([
+    { deposit_amount: 10, payment_status: "partial" as const, is_paid: false },
+    { deposit_amount: 0, payment_status: "paid" as const, is_paid: false },
+  ])("sends zero-value rejected quotes with payment evidence to review", (payment) => {
+    expect(
+      deriveOrderFinancialState(
+        order({
+          quotation_amount: 0,
+          balance_amount: 0,
+          fault_prices: [{ name: "保修处理", price: 0 }],
+          approval_flow_status: "not_required",
+          approval_status: "rejected",
+          ...payment,
+        }),
+      ),
+    ).toMatchObject({ quote: "rejected", settlement: "review", collectible: false });
+  });
+
+  it("keeps not-required plus rejected without funds as pending finance work", () => {
+    expect(
+      deriveOrderFinancialState(
+        order({
+          quotation_amount: 100,
+          deposit_amount: 0,
+          balance_amount: 100,
+          payment_status: "unpaid",
+          fault_prices: [{ name: "屏幕", price: 100 }],
+          approval_flow_status: "not_required",
+          approval_status: "rejected",
+        }),
+      ),
+    ).toMatchObject({ quote: "rejected", settlement: "not_due", collectible: false });
   });
 
   it("does not collect a legacy positive balance without a quote", () => {

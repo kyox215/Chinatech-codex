@@ -40,7 +40,7 @@ export function CustomerDetailTagList({ tags }: { tags: CustomerTag[] }) {
   const { t } = useLocale();
   if (!tags.length)
     return (
-      <span className="text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+      <span className="text-[11px] leading-4 text-muted-foreground">
         {t("customers.detail.noTags")}
       </span>
     );
@@ -58,14 +58,14 @@ export function CustomerDetailTagList({ tags }: { tags: CustomerTag[] }) {
         <RepairOsBadge
           key={tag.id}
           title={tag.name}
-          className="max-w-20 border bg-card text-[10px] lg:text-[11px] lg:leading-4"
+          className="max-w-20 border bg-card text-xs leading-4"
           style={{ borderColor: tag.color, color: tag.color }}
         >
           <span className="truncate">{tag.name}</span>
         </RepairOsBadge>
       ))}
       {hiddenCount > 0 ? (
-        <RepairOsBadge className="bg-[var(--surface-panel-muted)] text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+        <RepairOsBadge className="bg-[var(--surface-panel-muted)] text-xs leading-4 text-muted-foreground">
           +{hiddenCount}
         </RepairOsBadge>
       ) : null}
@@ -78,7 +78,7 @@ export function CustomerMetric({ label, value }: { label: string; value: React.R
     <RepairOsInfoTile
       label={label}
       value={value}
-      labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
+      labelClassName="text-xs leading-4"
       valueClassName="truncate font-mono text-sm font-semibold leading-5 tabular-nums sm:text-base"
     />
   );
@@ -90,7 +90,7 @@ export function CustomerInfoBlock({ label, value }: { label: string; value: Reac
       label={label}
       value={value}
       frame="plain"
-      labelClassName="text-[10px] lg:text-[11px] lg:leading-4"
+      labelClassName="text-xs leading-4"
       valueClassName="text-xs leading-4 sm:text-sm"
     />
   );
@@ -143,7 +143,7 @@ export function CustomerDeviceCard({
           >
             {device.brand} {device.model}
           </div>
-          <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground sm:text-xs lg:text-[11px] lg:leading-4">
+          <div className="mt-0.5 truncate font-mono text-[11px] leading-4 text-muted-foreground sm:text-xs">
             {device.serial_or_imei || t("customers.detail.noImei")}
           </div>
         </div>
@@ -160,7 +160,7 @@ export function CustomerDeviceCard({
           value={t("customers.detail.repairsCount", { count: item.repairCount })}
           frame="plain"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
-          labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
+          labelClassName="text-xs leading-4"
           valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
         />
         <RepairOsInfoTile
@@ -174,7 +174,7 @@ export function CustomerDeviceCard({
           }
           frame="plain"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
-          labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
+          labelClassName="text-xs leading-4"
           valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
         />
         <RepairOsInfoTile
@@ -188,7 +188,7 @@ export function CustomerDeviceCard({
           }
           frame="plain"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
-          labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
+          labelClassName="text-xs leading-4"
           valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
         />
         <RepairOsInfoTile
@@ -196,7 +196,7 @@ export function CustomerDeviceCard({
           value={localizeCustomerWarranty(item.warranty, t)}
           frame="plain"
           className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
-          labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
+          labelClassName="text-xs leading-4"
           valueClassName="truncate text-xs font-semibold leading-4"
         />
       </div>

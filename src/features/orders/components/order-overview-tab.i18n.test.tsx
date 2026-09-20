@@ -198,6 +198,26 @@ describe("OrderOverviewTab localized runtime", () => {
     );
   });
 
+  it("locks the ordinary deposit field and points to the authorized correction flow", () => {
+    const draft = createFinanceDraftState([{ name: "屏幕", price: 100 }], 20);
+    render(
+      <LocaleProvider initialLocale="zh-CN">
+        <FinanceInlineEditor
+          draft={draft}
+          normalized={normalizeFinanceDraft(draft, 0)}
+          onChange={vi.fn()}
+          depositLocked
+          dense={false}
+        />
+      </LocaleProvider>,
+    );
+
+    expect(document.querySelector('[data-order-deposit-locked="true"]')).toHaveTextContent(
+      "初始订金已锁定",
+    );
+    expect(screen.queryByRole("textbox", { name: "订金" })).not.toBeInTheDocument();
+  });
+
   it.each([
     ["zh-CN", "屏幕 - 原装"],
     ["it-IT", "Display - Ricambio originale"],

@@ -40,8 +40,57 @@ describe("customer order finance contract", () => {
       activeOrderCount: 1,
       lifetimeQuotedAmount: 70,
       outstandingAmount: 70,
+      pendingQuoteCount: 0,
+      financeReviewCount: 0,
       lastOrderAt: "2026-07-16T11:00:00.000Z",
     });
+  });
+
+  it("separates pending quotes and finance review from collectible balances", () => {
+    const summary = buildCustomerOrderFinanceSummary([
+      order({
+        quotation_amount: 100,
+        balance_amount: 100,
+        approval_flow_status: "waiting_customer",
+      }),
+      order({ quotation_amount: 100, balance_amount: 0, is_paid: false, payment_status: "unpaid" }),
+      order({ quotation_amount: 50, balance_amount: 50, approval_flow_status: "approved" }),
+    ]);
+
+    expect(summary).toMatchObject({
+      outstandingAmount: 50,
+      pendingQuoteCount: 1,
+      financeReviewCount: 1,
+    });
+  });
+
+  it("keeps a rejected-only quote out of the settled customer state", () => {
+    const summary = buildCustomerOrderFinanceSummary([
+      order({
+        quotation_amount: 100,
+        deposit_amount: 0,
+        balance_amount: 100,
+        approval_flow_status: "rejected",
+      }),
+    ]);
+
+    expect(summary).toMatchObject({
+      outstandingAmount: 0,
+      pendingQuoteCount: 1,
+      financeReviewCount: 0,
+    });
+  });
+
+  it("aggregates customer amounts in cents and excludes over-precision values", () => {
+    const summary = buildCustomerOrderFinanceSummary([
+      order({ quotation_amount: 0.1, balance_amount: 0.1, approval_flow_status: "approved" }),
+      order({ quotation_amount: 0.2, balance_amount: 0.2, approval_flow_status: "approved" }),
+      order({ quotation_amount: 1.001, balance_amount: 1.001, approval_flow_status: "approved" }),
+    ]);
+
+    expect(summary.lifetimeQuotedAmount).toBe(0.3);
+    expect(summary.outstandingAmount).toBe(0.3);
+    expect(summary.financeReviewCount).toBe(1);
   });
 
   it("also excludes exception-cancelled orders whose legacy status was not updated", () => {

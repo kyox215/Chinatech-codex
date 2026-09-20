@@ -85,6 +85,7 @@ import {
 import {
   deriveOrderFinancialState,
   isOrderCancelledForPayment,
+  isOrderInitialDepositLocked,
 } from "@/features/orders/model/order-payment-state";
 import type { OrderDetailPrimaryAction } from "@/features/orders/model/order-detail-primary-action";
 import { fadeUp } from "@/lib/motion";
@@ -1059,6 +1060,7 @@ function OrderOverviewFinancePanel({
               normalized={normalizedDraft}
               error={financeError}
               onChange={onFinanceDraftChange}
+              depositLocked={isOrderInitialDepositLocked(order)}
               dense={dense}
             />
             {approvalTouched ? (
@@ -2027,12 +2029,14 @@ export function FinanceInlineEditor({
   normalized,
   error,
   onChange,
+  depositLocked = false,
   dense,
 }: {
   draft: FinanceDraftState;
   normalized: ReturnType<typeof normalizeFinanceDraft>;
   error?: string;
   onChange: (draft: FinanceDraftState) => void;
+  depositLocked?: boolean;
   dense: boolean;
 }) {
   const { locale, t } = useLocale();
@@ -2154,15 +2158,32 @@ export function FinanceInlineEditor({
         balance={normalized.balance}
         appearance="quote-editor"
         depositControl={
-          <MoneyDraftField
-            ariaLabel={t("orders2b2.overview.deposit")}
-            value={draft.depositText}
-            placeholder="0"
-            invalid={Boolean(normalized.error?.startsWith("押金"))}
-            onChange={(value) => onChange({ ...draft, depositText: value })}
-          />
+          depositLocked ? (
+            <MoneyText
+              amount={normalized.deposit}
+              className="block min-h-8 whitespace-nowrap text-right font-mono text-base font-semibold leading-8 tabular-nums max-[389px]:text-xs"
+            />
+          ) : (
+            <MoneyDraftField
+              ariaLabel={t("orders2b2.overview.deposit")}
+              value={draft.depositText}
+              placeholder="0"
+              invalid={Boolean(normalized.error?.startsWith("押金"))}
+              onChange={(value) => onChange({ ...draft, depositText: value })}
+            />
+          )
         }
       />
+
+      {depositLocked ? (
+        <p
+          data-order-deposit-locked="true"
+          className="rounded-md bg-status-warn px-2 py-1 text-[11px] leading-4 text-status-warn-foreground"
+        >
+          <strong>{t("orders2b2.finance.depositLocked")}</strong>{" "}
+          {t("orders2b2.finance.depositCorrectionHelp")}
+        </p>
+      ) : null}
 
       {message ? (
         <p

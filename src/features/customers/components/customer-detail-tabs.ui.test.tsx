@@ -31,6 +31,8 @@ describe("CustomerDetailTabs", () => {
     expect(screen.getAllByRole("tab")).toHaveLength(5);
 
     const overview = screen.getByRole("tab", { name: "总览" });
+    expect(overview).toHaveClass("text-xs");
+    expect(screen.getByText("2")).toHaveClass("text-[11px]", "min-[390px]:inline");
     fireEvent.keyDown(overview, { key: "ArrowRight" });
     expect(onChange).toHaveBeenCalledWith("orders");
     expect(screen.getByRole("tab", { name: /工单/ })).toHaveFocus();

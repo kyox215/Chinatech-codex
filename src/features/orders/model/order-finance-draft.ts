@@ -88,6 +88,7 @@ export function normalizeFinanceDraft(
   paidAmount: number,
 ): NormalizedFinanceDraft {
   const faultPrices: FaultPriceItem[] = [];
+  let quotationCents = 0;
 
   for (const item of draft.faults) {
     const name = item.name.trim();
@@ -111,9 +112,10 @@ export function normalizeFinanceDraft(
       price: parsedPrice.value,
       ...(note ? { note } : {}),
     });
+    quotationCents += parsedPrice.cents;
   }
 
-  const quotation = faultPrices.reduce((sum, item) => sum + item.price, 0);
+  const quotation = centsToMoney(quotationCents);
   const parsedDeposit = parseMoneyDraft(draft.depositText, { emptyAsZero: true, label: "押金" });
   if (parsedDeposit.error) {
     return {
@@ -125,12 +127,23 @@ export function normalizeFinanceDraft(
       error: parsedDeposit.error,
     };
   }
-  if (parsedDeposit.value > quotation) {
+  const paidCents = moneyNumberToCents(paidAmount);
+  if (paidCents === null) {
     return {
       faultPrices,
       quotation,
       deposit: parsedDeposit.value,
-      balance: Math.max(0, quotation - parsedDeposit.value - paidAmount),
+      balance: Math.max(0, quotation - parsedDeposit.value),
+      canSave: false,
+      error: "已收金额格式不正确，请先核对收款记录。",
+    };
+  }
+  if (parsedDeposit.cents > quotationCents) {
+    return {
+      faultPrices,
+      quotation,
+      deposit: parsedDeposit.value,
+      balance: centsToMoney(Math.max(0, quotationCents - parsedDeposit.cents - paidCents)),
       canSave: false,
       error: "押金不能超过总报价。",
     };
@@ -140,7 +153,7 @@ export function normalizeFinanceDraft(
     faultPrices,
     quotation,
     deposit: parsedDeposit.value,
-    balance: Math.max(0, quotation - parsedDeposit.value - paidAmount),
+    balance: centsToMoney(Math.max(0, quotationCents - parsedDeposit.cents - paidCents)),
     canSave: true,
   };
 }
@@ -150,12 +163,17 @@ function invalidDraft(
   faultPrices: FaultPriceItem[],
   paidAmount: number,
 ): NormalizedFinanceDraft {
-  const quotation = faultPrices.reduce((sum, item) => sum + item.price, 0);
+  const quotationCents = faultPrices.reduce(
+    (sum, item) => sum + (moneyNumberToCents(item.price) ?? 0),
+    0,
+  );
+  const paidCents = moneyNumberToCents(paidAmount) ?? 0;
+  const quotation = centsToMoney(quotationCents);
   return {
     faultPrices,
     quotation,
     deposit: 0,
-    balance: Math.max(0, quotation - paidAmount),
+    balance: centsToMoney(Math.max(0, quotationCents - paidCents)),
     canSave: false,
     error,
   };
@@ -164,20 +182,39 @@ function invalidDraft(
 function parseMoneyDraft(
   text: string,
   opts: { emptyAsZero?: boolean; label?: string } = {},
-): { empty: boolean; value: number; error?: string } {
+): { empty: boolean; value: number; cents: number; error?: string } {
   const label = opts.label ?? "金额";
   const normalized = text.trim().replace(",", ".");
   if (!normalized) {
     return opts.emptyAsZero
-      ? { empty: true, value: 0 }
-      : { empty: true, value: 0, error: `${label}不能为空。` };
+      ? { empty: true, value: 0, cents: 0 }
+      : { empty: true, value: 0, cents: 0, error: `${label}不能为空。` };
   }
-  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) {
-    return { empty: false, value: 0, error: `${label}格式不正确。` };
+  if (!/^(?:\d+(?:\.\d{0,2})?|\.\d{1,2})$/.test(normalized)) {
+    return {
+      empty: false,
+      value: 0,
+      cents: 0,
+      error: /\.\d{3,}$/.test(normalized) ? `${label}最多保留两位小数。` : `${label}格式不正确。`,
+    };
   }
   const value = Number(normalized);
   if (!Number.isFinite(value) || value < 0) {
-    return { empty: false, value: 0, error: `${label}不能为负数。` };
+    return { empty: false, value: 0, cents: 0, error: `${label}不能为负数。` };
   }
-  return { empty: false, value };
+  const cents = moneyNumberToCents(value);
+  if (cents === null) {
+    return { empty: false, value: 0, cents: 0, error: `${label}最多保留两位小数。` };
+  }
+  return { empty: false, value: centsToMoney(cents), cents };
+}
+
+function moneyNumberToCents(value: number) {
+  if (!Number.isFinite(value) || value < 0) return null;
+  const cents = Math.round(value * 100);
+  return Math.abs(value * 100 - cents) < 1e-7 ? cents : null;
+}
+
+function centsToMoney(cents: number) {
+  return cents / 100;
 }

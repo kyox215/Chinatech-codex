@@ -49,6 +49,8 @@ export type CustomerRepairState =
 
 export type CustomerPaymentState =
   | { kind: "outstanding"; amount: number; label: string }
+  | { kind: "pending_quote"; count: number; label: string }
+  | { kind: "review"; count: number; label: string }
   | { kind: "settled"; label: string }
   | { kind: "redacted"; label: string };
 
@@ -251,6 +253,8 @@ export function getCustomerWorkSummary(
     CustomerListItem,
     | "active_order_count"
     | "unpaid_amount"
+    | "pending_quote_count"
+    | "finance_review_count"
     | "order_count"
     | "valid_order_count"
     | "device_count"
@@ -331,12 +335,23 @@ export function getCustomerRepairState(
 }
 
 export function getCustomerPaymentState(
-  customer: Pick<CustomerListItem, "outstanding_amount" | "unpaid_amount" | "finance_redacted">,
+  customer: Pick<
+    CustomerListItem,
+    | "outstanding_amount"
+    | "unpaid_amount"
+    | "pending_quote_count"
+    | "finance_review_count"
+    | "finance_redacted"
+  >,
 ): CustomerPaymentState {
   if (customer.finance_redacted) return { kind: "redacted", label: "金额受限" };
   const amount = Math.max(0, customer.outstanding_amount ?? customer.unpaid_amount ?? 0);
-  return amount > 0
-    ? { kind: "outstanding", amount, label: "待收" }
+  if (amount > 0) return { kind: "outstanding", amount, label: "待收" };
+  const reviewCount = Math.max(0, Math.floor(customer.finance_review_count ?? 0));
+  if (reviewCount > 0) return { kind: "review", count: reviewCount, label: "待核对" };
+  const pendingQuoteCount = Math.max(0, Math.floor(customer.pending_quote_count ?? 0));
+  return pendingQuoteCount > 0
+    ? { kind: "pending_quote", count: pendingQuoteCount, label: "待确认报价" }
     : { kind: "settled", label: "已结清" };
 }
 
@@ -358,6 +373,8 @@ export function getCustomerDetailWorkSummary(data: CustomerDetail): CustomerWork
   return getCustomerWorkSummary({
     active_order_count: activeOrderCount,
     unpaid_amount: data.stats.unpaid_amount,
+    pending_quote_count: data.stats.pending_quote_count,
+    finance_review_count: data.stats.finance_review_count,
     finance_redacted: data.stats.finance_redacted,
     order_count: data.stats.order_count,
     valid_order_count: data.stats.valid_order_count,

@@ -149,6 +149,8 @@ export function localizeCustomerPaymentState(
   t: CustomerTranslate,
 ) {
   if (state.kind === "outstanding") return t("customers.payment.outstanding");
+  if (state.kind === "pending_quote") return t("customers.payment.pendingQuote");
+  if (state.kind === "review") return t("customers.payment.review");
   if (state.kind === "settled") return t("customers.payment.settled");
   if (state.kind === "redacted") return t("customers.payment.redacted");
   return state.label;

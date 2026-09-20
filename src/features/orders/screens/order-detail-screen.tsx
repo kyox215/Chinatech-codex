@@ -217,6 +217,7 @@ import {
   type FinanceDraftState,
 } from "@/features/orders/model/order-finance-draft";
 import {
+  isOrderInitialDepositLocked,
   isOrderCancelledState,
   isOrderTerminalState,
   isOrderPaymentCollectible,
@@ -2399,6 +2400,7 @@ export function OrderDetailScreen({
                                   normalized={editFinance}
                                   onChange={setFinanceDraft}
                                   error={editValidationError || undefined}
+                                  depositLocked={isOrderInitialDepositLocked(order)}
                                   dense
                                 />
                               </fieldset>
@@ -5066,6 +5068,7 @@ function MobileOrderDetailView({
                       normalized={normalizedFinance}
                       saveError={financeSaveError}
                       pending={financePending}
+                      depositLocked={isOrderInitialDepositLocked(order)}
                       onChange={onFinanceDraftChange}
                       onCancel={() => closeFinance(false)}
                       onSave={async () => {
@@ -6314,6 +6317,7 @@ function MobileFinanceEditor({
   normalized,
   saveError,
   pending,
+  depositLocked,
   onChange,
   onCancel,
   onSave,
@@ -6324,6 +6328,7 @@ function MobileFinanceEditor({
   normalized: ReturnType<typeof normalizeFinanceDraft>;
   saveError: string;
   pending: boolean;
+  depositLocked: boolean;
   onChange: (draft: FinanceDraftState) => void;
   onCancel: () => void;
   onSave: () => Promise<boolean>;
@@ -6456,17 +6461,34 @@ function MobileFinanceEditor({
             balance={normalized.balance}
             appearance="quote-editor"
             depositControl={
-              <MobileDenseFinanceInput
-                value={draft.depositText}
-                onValueChange={(value) => onChange({ ...draft, depositText: value })}
-                disabled={pending}
-                placeholder={t("orders2b2.finance.deposit")}
-                inputMode="decimal"
-                align="right"
-                mono
-              />
+              depositLocked ? (
+                <MoneyText
+                  amount={normalized.deposit}
+                  className="block min-h-8 whitespace-nowrap text-right font-mono text-base font-semibold leading-8 tabular-nums max-[389px]:text-xs"
+                />
+              ) : (
+                <MobileDenseFinanceInput
+                  value={draft.depositText}
+                  onValueChange={(value) => onChange({ ...draft, depositText: value })}
+                  disabled={pending}
+                  placeholder={t("orders2b2.finance.deposit")}
+                  inputMode="decimal"
+                  align="right"
+                  mono
+                />
+              )
             }
           />
+
+          {depositLocked ? (
+            <p
+              data-order-deposit-locked="true"
+              className="rounded-md bg-status-warn px-2 py-1 text-[11px] leading-4 text-status-warn-foreground"
+            >
+              <strong>{t("orders2b2.finance.depositLocked")}</strong>{" "}
+              {t("orders2b2.finance.depositCorrectionHelp")}
+            </p>
+          ) : null}
 
           {normalized.error || saveError ? (
             <p

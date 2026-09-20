@@ -14,6 +14,7 @@ import {
   getCustomerDetailHref,
   getCustomerListSubtitle,
   getCustomerListSubtitleFact,
+  getCustomerPaymentState,
   getCustomerPageRange,
   getCustomerQuickGroup,
   getCustomerWorkSummary,
@@ -185,6 +186,33 @@ describe("customer list helpers", () => {
         device_count: 1,
       }),
     ).toMatchObject({ label: "有设备", actionLabel: "新工单可复用", tone: "neutral" });
+  });
+
+  it("keeps real receivables visible ahead of finance review and pending quotes", () => {
+    expect(
+      getCustomerPaymentState({
+        outstanding_amount: 42.5,
+        unpaid_amount: 42.5,
+        finance_review_count: 2,
+        pending_quote_count: 3,
+      }),
+    ).toEqual({ kind: "outstanding", amount: 42.5, label: "待收" });
+    expect(
+      getCustomerPaymentState({
+        outstanding_amount: 0,
+        unpaid_amount: 0,
+        finance_review_count: 2,
+        pending_quote_count: 3,
+      }),
+    ).toEqual({ kind: "review", count: 2, label: "待核对" });
+    expect(
+      getCustomerPaymentState({
+        outstanding_amount: 0,
+        unpaid_amount: 0,
+        finance_review_count: 0,
+        pending_quote_count: 1,
+      }),
+    ).toEqual({ kind: "pending_quote", count: 1, label: "待确认报价" });
   });
 
   it.each(["zh-CN", "it-IT", "en"] as const)(

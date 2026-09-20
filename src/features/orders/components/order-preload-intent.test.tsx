@@ -108,7 +108,7 @@ describe("order detail preload intent", () => {
       card?.querySelector("[data-order-mobile-identity]")?.firstElementChild,
     ).toHaveTextContent(makeOrder().customer_phone);
     expect(card).toHaveTextContent("待审批");
-    expect(card).toHaveTextContent("待收");
+    expect(card).not.toHaveTextContent("待收");
     expect(card).not.toHaveTextContent("定金");
     expect(card).not.toHaveTextContent("门店保管");
   });

@@ -9,6 +9,14 @@ const collectibleMigration = readFileSync(
   "supabase/migrations/20260920192000_customer_finance_collectible_consistency.sql",
   "utf8",
 ).toLowerCase();
+const precisionMigration = readFileSync(
+  "supabase/migrations/20260920202421_customer_finance_precision_consistency.sql",
+  "utf8",
+).toLowerCase();
+const reviewCountsMigration = readFileSync(
+  "supabase/migrations/20260920202422_customer_finance_review_counts.sql",
+  "utf8",
+).toLowerCase();
 
 describe("cancelled customer finance migration", () => {
   it("keeps history separate from valid and finance facts", () => {
@@ -94,6 +102,73 @@ describe("customer collectible finance migration", () => {
     expect(collectibleMigration).not.toMatch(/\bdelete\s+from\b/);
     expect(collectibleMigration).not.toMatch(/\btruncate\b/);
     expect(collectibleMigration).not.toMatch(/\bdrop\s+(table|column|function|type)\b/);
+  });
+});
+
+describe("customer finance review-count expansion", () => {
+  it("removes over-precision amounts from v3 receivables before v4 paging and stats", () => {
+    expect(precisionMigration).toContain(
+      "raw_order_facts.quotation_amount = round(raw_order_facts.quotation_amount, 2)",
+    );
+    expect(precisionMigration).toContain(
+      "raw_order_facts.deposit_amount = round(raw_order_facts.deposit_amount, 2)",
+    );
+    expect(precisionMigration).toContain(
+      "raw_order_facts.balance_amount = round(raw_order_facts.balance_amount, 2)",
+    );
+    expect(precisionMigration).toContain("raw_order_facts.deposit_amount >= 0");
+    expect(precisionMigration).toContain("raw_order_facts.payment_status = ''");
+    expect(precisionMigration).toContain(
+      "or raw_order_facts.balance_amount < raw_order_facts.quotation_amount then 'partial'",
+    );
+    expect(precisionMigration).toContain("order_fact.quotation_amount >= 0");
+    expect(precisionMigration).toContain(
+      "order_fact.quotation_amount = round(order_fact.quotation_amount, 2)",
+    );
+    expect(precisionMigration.match(/unpaid_order\.is_collectible/g)).toHaveLength(2);
+    expect(precisionMigration).not.toMatch(/\b(update|delete|truncate)\s+public\.repair_orders\b/);
+  });
+
+  it("adds a v4 read contract without replacing or dropping v3", () => {
+    expect(reviewCountsMigration).toContain(
+      "create or replace function public.repairdesk_customer_list_page_v4",
+    );
+    expect(reviewCountsMigration).toContain("public.repairdesk_customer_list_page_v3(");
+    expect(reviewCountsMigration).toContain("'pending_quote_count'");
+    expect(reviewCountsMigration).toContain("'finance_review_count'");
+    expect(reviewCountsMigration).toContain("classified.quote_rejected::integer");
+    expect(reviewCountsMigration).toContain("+ classified.quote_pending::integer");
+    expect(reviewCountsMigration).toContain("+ classified.quote_explicitly_approved::integer");
+    expect(reviewCountsMigration).toContain("approval_flow_status in ('approved', 'not_required')");
+    expect(reviewCountsMigration).toContain("and not classified.quote_pending");
+    expect(reviewCountsMigration).toContain("and not classified.quote_rejected");
+    expect(reviewCountsMigration).toContain("and classified.quotation_amount > 0");
+    expect(reviewCountsMigration).toContain(
+      "or classified.balance_amount < classified.quotation_amount",
+    );
+    expect(reviewCountsMigration).toContain("or classified.payment_status in ('partial', 'paid')");
+    expect(reviewCountsMigration).toContain("or financial_state.quote_rejected");
+    expect(reviewCountsMigration).toContain(
+      "or classified.balance_amount < classified.quotation_amount then 'partial'",
+    );
+    expect(reviewCountsMigration).not.toContain("and not financial_state.quote_rejected");
+    expect(reviewCountsMigration).not.toContain(
+      "create or replace function public.repairdesk_customer_list_page_v3",
+    );
+    expect(reviewCountsMigration).not.toMatch(/\bdrop\s+function\b/);
+  });
+
+  it("uses cent precision, tenant scoping, invoker rights and no data rewrite", () => {
+    expect(reviewCountsMigration).toContain("round(coalesce(repair_order.quotation_amount, 0), 2)");
+    expect(reviewCountsMigration).toContain("repair_order.store_id = p_store_id");
+    expect(reviewCountsMigration).toContain("workflow_status.store_id = repair_order.store_id");
+    expect(reviewCountsMigration).toContain("security invoker");
+    expect(reviewCountsMigration).toContain("set search_path = ''");
+    expect(reviewCountsMigration).toContain("from public, anon, authenticated");
+    expect(reviewCountsMigration).toContain("to service_role");
+    expect(reviewCountsMigration).not.toMatch(
+      /\b(update|delete|truncate)\s+public\.repair_orders\b/,
+    );
   });
 });
 

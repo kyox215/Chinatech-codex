@@ -32,6 +32,17 @@ type OrderFinancialStateInput = OrderPaymentStateInput &
     >
   >;
 
+type OrderInitialDepositProtectionInput = Pick<
+  OrderListItem,
+  "quotation_amount" | "deposit_amount" | "balance_amount"
+> &
+  Partial<
+    Pick<
+      OrderListItem,
+      "approval_status" | "approval_flow_status" | "approval_sent_at" | "approval_confirmed_at"
+    >
+  >;
+
 export type OrderQuoteState =
   | "hidden"
   | "not_quoted"
@@ -84,6 +95,30 @@ export function isOrderPaymentCollectible(order: OrderFinancialStateInput) {
   return deriveOrderFinancialState(order).collectible;
 }
 
+export function isOrderInitialDepositLocked(order: OrderInitialDepositProtectionInput) {
+  const quotationCents = moneyToCents(order.quotation_amount);
+  const depositCents = moneyToCents(order.deposit_amount);
+  const balanceCents = moneyToCents(order.balance_amount);
+  if (quotationCents === null || depositCents === null || balanceCents === null) return true;
+
+  const derivedPaidCents = Math.max(quotationCents - depositCents - balanceCents, 0);
+  const approvalTouched =
+    order.approval_status === "approved" ||
+    order.approval_status === "rejected" ||
+    order.approval_flow_status === "waiting_customer" ||
+    Boolean(order.approval_sent_at) ||
+    Boolean(order.approval_confirmed_at);
+
+  return derivedPaidCents > 0 || approvalTouched || balanceCents !== quotationCents - depositCents;
+}
+
+function moneyToCents(value: number) {
+  if (!Number.isFinite(value) || value < 0) return null;
+  const cents = value * 100;
+  const rounded = Math.round(cents);
+  return Math.abs(cents - rounded) <= 1e-7 ? rounded : null;
+}
+
 export function getOrderLiveOutstandingAmount(order: OrderPaymentStateInput) {
   return isOrderCancelledForPayment(order) ? 0 : Math.max(0, order.balance_amount);
 }
@@ -115,22 +150,45 @@ export function deriveOrderFinancialState(order: OrderFinancialStateInput): Orde
   const hasQuoteLines = Boolean(order.fault_prices?.length);
   const hasQuote = hasQuoteLines || quotationAmount > 0;
 
+  const hasRejectedQuote =
+    order.approval_flow_status === "rejected" || order.approval_status === "rejected";
+  const hasPendingQuote =
+    order.approval_flow_status === "waiting_customer" || order.approval_status === "pending";
+  const hasExplicitApprovedQuote =
+    order.approval_flow_status === "approved" || order.approval_status === "approved";
+  if (Number(hasRejectedQuote) + Number(hasPendingQuote) + Number(hasExplicitApprovedQuote) > 1) {
+    return { quote: "draft", settlement: "review", label: "金额待核对", collectible: false };
+  }
+
+  const rejectedQuoteHasPaymentEvidence =
+    hasRejectedQuote &&
+    (depositAmount > 0 ||
+      balanceAmount < quotationAmount ||
+      order.payment_status === "partial" ||
+      order.payment_status === "paid" ||
+      order.is_paid);
+  if (rejectedQuoteHasPaymentEvidence) {
+    return {
+      quote: "rejected",
+      settlement: "review",
+      label: "报价已拒绝 · 款项待核对",
+      collectible: false,
+    };
+  }
+
   if (!hasQuote) {
     return balanceAmount > 0
       ? { quote: "not_quoted", settlement: "review", label: "金额待核对", collectible: false }
       : { quote: "not_quoted", settlement: "not_due", label: "待报价", collectible: false };
   }
 
-  const quote: OrderQuoteState =
-    order.approval_flow_status === "rejected" || order.approval_status === "rejected"
-      ? "rejected"
-      : order.approval_flow_status === "waiting_customer" || order.approval_status === "pending"
-        ? "awaiting_approval"
-        : order.approval_flow_status === "approved" ||
-            order.approval_flow_status === "not_required" ||
-            order.approval_status === "approved"
-          ? "approved"
-          : "draft";
+  const quote: OrderQuoteState = hasRejectedQuote
+    ? "rejected"
+    : hasPendingQuote
+      ? "awaiting_approval"
+      : hasExplicitApprovedQuote || order.approval_flow_status === "not_required"
+        ? "approved"
+        : "draft";
 
   if (quotationAmount === 0) {
     if (quote === "awaiting_approval") {
@@ -157,14 +215,7 @@ export function deriveOrderFinancialState(order: OrderFinancialStateInput): Orde
     return { quote, settlement: "not_due", label: "待确认报价", collectible: false };
   }
   if (quote === "rejected") {
-    return depositAmount > 0 || order.payment_status === "partial" || order.is_paid
-      ? {
-          quote,
-          settlement: "review",
-          label: "报价已拒绝 · 款项待核对",
-          collectible: false,
-        }
-      : { quote, settlement: "not_due", label: "报价已拒绝", collectible: false };
+    return { quote, settlement: "not_due", label: "报价已拒绝", collectible: false };
   }
 
   if (amountAnomalyReasons.length > 0) {

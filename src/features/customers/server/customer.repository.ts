@@ -492,6 +492,8 @@ function customerStatsFromOrders(orders: OrderListItem[]) {
     active_order_count: finance.activeOrderCount,
     lifetime_quoted_amount: finance.lifetimeQuotedAmount,
     outstanding_amount: finance.outstandingAmount,
+    pending_quote_count: finance.pendingQuoteCount,
+    finance_review_count: finance.financeReviewCount,
     total_spent: finance.lifetimeQuotedAmount,
     unpaid_amount: finance.outstandingAmount,
     last_order_at: finance.lastOrderAt,
@@ -523,6 +525,8 @@ function buildCustomerListItem(
     active_order_count: stats.active_order_count,
     lifetime_quoted_amount: stats.lifetime_quoted_amount,
     outstanding_amount: stats.outstanding_amount,
+    pending_quote_count: stats.pending_quote_count,
+    finance_review_count: stats.finance_review_count,
     total_spent: stats.total_spent,
     unpaid_amount: stats.unpaid_amount,
     last_order_at: stats.last_order_at,
@@ -621,6 +625,8 @@ export function projectCustomerAggregateFinance(
     outstanding_amount: _outstandingAmount,
     total_spent: _totalSpent,
     unpaid_amount: _unpaidAmount,
+    pending_quote_count: _pendingQuoteCount,
+    finance_review_count: _financeReviewCount,
     ...visible
   } = customer;
   return { ...visible, finance_redacted: true };
@@ -872,6 +878,17 @@ export async function listCustomersPage(
     p_page: page,
     p_page_size: pageSize,
   };
+  const v4Result = await supabase.rpc("repairdesk_customer_list_page_v4", rpcInput);
+  if (!v4Result.error) {
+    if (!isCustomerListPageResult(v4Result.data)) {
+      throw new Error("读取客户分页失败：v4 数据契约无效");
+    }
+    return normalizeCustomerPageResult(v4Result.data, page, pageSize, actor);
+  }
+  if (!isMissingCustomerListRpc(v4Result.error, "repairdesk_customer_list_page_v4")) {
+    throw new Error(`读取客户分页失败：${v4Result.error.message}`);
+  }
+
   const v3Result = await supabase.rpc("repairdesk_customer_list_page_v3", rpcInput);
   if (!v3Result.error) {
     if (!isCustomerListPageResult(v3Result.data)) {
@@ -906,6 +923,7 @@ export async function listCustomersPage(
       return paginateCustomerListResult(legacy, page, pageSize);
     } catch (fallbackError) {
       const reasons = [
+        v4Result.error?.message,
         v3Result.error?.message,
         v2Result.error?.message,
         legacyRpcResult.error?.message,
@@ -921,7 +939,12 @@ export async function listCustomersPage(
     const legacy = await listCustomers(visibleInput, actor);
     return paginateCustomerListResult(legacy, page, pageSize);
   } catch (fallbackError) {
-    const reasons = [v3Result.error?.message, v2Result.error?.message, errorMessage(fallbackError)]
+    const reasons = [
+      v4Result.error?.message,
+      v3Result.error?.message,
+      v2Result.error?.message,
+      errorMessage(fallbackError),
+    ]
       .filter(Boolean)
       .join(" / ");
     throw new Error(reasons ? `读取客户分页失败：${reasons}` : "读取客户分页失败");
@@ -1000,6 +1023,8 @@ function normalizeCustomerAggregateFacts(item: CustomerListItem): CustomerListIt
     item.lifetime_quoted_amount ?? item.total_spent,
   );
   const outstandingAmount = safeNonNegativeNumber(item.outstanding_amount ?? item.unpaid_amount);
+  const pendingQuoteCount = safeNonNegativeInteger(item.pending_quote_count);
+  const financeReviewCount = safeNonNegativeInteger(item.finance_review_count);
   return {
     ...item,
     order_count: historicalOrderCount,
@@ -1007,6 +1032,8 @@ function normalizeCustomerAggregateFacts(item: CustomerListItem): CustomerListIt
     active_order_count: activeOrderCount,
     lifetime_quoted_amount: lifetimeQuotedAmount,
     outstanding_amount: outstandingAmount,
+    pending_quote_count: pendingQuoteCount,
+    finance_review_count: financeReviewCount,
     total_spent: lifetimeQuotedAmount,
     unpaid_amount: outstandingAmount,
   };
@@ -1015,6 +1042,10 @@ function normalizeCustomerAggregateFacts(item: CustomerListItem): CustomerListIt
 function safeNonNegativeNumber(value: unknown) {
   const normalized = Number(value ?? 0);
   return Number.isFinite(normalized) ? Math.max(0, normalized) : 0;
+}
+
+function safeNonNegativeInteger(value: unknown) {
+  return Math.floor(safeNonNegativeNumber(value));
 }
 
 function paginateCustomerListResult(
