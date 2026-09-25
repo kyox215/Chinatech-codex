@@ -1,6 +1,10 @@
 import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+test.beforeEach(async ({ context, baseURL }) => {
+  await context.addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL! }]);
+});
+
 const enabled =
   process.env.REPAIRDESK_E2E_ORDER_AUDIT === "1" ||
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";

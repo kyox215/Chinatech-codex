@@ -854,7 +854,9 @@ test.describe("settings members and suppliers workspace", () => {
     await technicianCard.getByRole("button", { name: "管理" }).click();
     const sheet = page.getByRole("dialog", { name: "演示技术员" });
     await expect(sheet).toBeVisible();
-    expect((await sheet.getByRole("button", { name: "关闭" }).boundingBox())?.height ?? 0).toBe(36);
+    expect(
+      (await sheet.getByRole("button", { name: "关闭" }).boundingBox())?.height ?? 0,
+    ).toBeGreaterThanOrEqual(44);
     expect(
       (await sheet.locator('label[for="member-permission-supplier:manage"]').boundingBox())
         ?.height ?? 0,
@@ -1541,22 +1543,20 @@ async function routeCompleteStoreSettings(page: Page, overrides: Record<string, 
 }
 
 async function routeReadonlySettingsContext(page: Page) {
-  await page.route("**/api/repairdesk/stores/context", async (route) => {
-    const response = await route.fetch();
-    const payload = (await response.json()) as {
-      data: {
-        activeStore?: { role?: string };
-        permissions?: Record<string, boolean>;
-      };
-    };
-    if (payload.data.activeStore) payload.data.activeStore.role = "viewer";
-    payload.data.permissions = {
-      ...(payload.data.permissions ?? {}),
-      canReadStoreSettings: true,
-      canUpdateStoreSettings: false,
-      canReadMessageTemplates: false,
-      canUpdateMessageTemplates: false,
-    };
-    await route.fulfill({ response, json: payload });
-  });
+  for (const endpoint of ["shell/bootstrap", "stores/context"]) {
+    await page.route(`**/api/repairdesk/${endpoint}`, async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      const context = endpoint === "shell/bootstrap" ? payload.data.storeContext : payload.data;
+      expect(context.permissions).toBeDefined();
+      if (context.activeStore) context.activeStore.role = "viewer";
+      Object.assign(context.permissions, {
+        canReadStoreSettings: true,
+        canUpdateStoreSettings: false,
+        canReadMessageTemplates: false,
+        canUpdateMessageTemplates: false,
+      });
+      await route.fulfill({ response, json: payload });
+    });
+  }
 }

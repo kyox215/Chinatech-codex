@@ -96,8 +96,12 @@ for (const locale of locales)
           [identitySurface, fault, people, quote].map((x) => x.boundingBox()),
         );
         if (workspace!.width < 680) {
-          for (let i = 1; i < boxes.length; i++)
-            expect(boxes[i]!.y).toBeGreaterThanOrEqual(boxes[i - 1]!.y + boxes[i - 1]!.height);
+          // Mobile prioritizes the quote immediately after identity, before repair notes.
+          const mobileFlow = [boxes[0]!, boxes[3]!, boxes[1]!, boxes[2]!];
+          for (let i = 1; i < mobileFlow.length; i++)
+            expect(mobileFlow[i].y).toBeGreaterThanOrEqual(
+              mobileFlow[i - 1].y + mobileFlow[i - 1].height,
+            );
         } else {
           // The stable compact renderer has three summary regions followed by repair/support rows.
           const device = await identity

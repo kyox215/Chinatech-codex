@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { fillNumericInput, setKeyboardDeviceViewport } from "./input-keypad-helpers";
 import {
   expect,
@@ -21,11 +22,9 @@ if (!enabled) {
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const baseOrigin = new URL(baseURL).origin;
-const evidenceRoot = resolve(
-  process.cwd(),
-  process.env.REPAIRDESK_I18N_EVIDENCE_DIR ?? "screenshots",
-  "release2b4",
-);
+const evidenceRoot = process.env.REPAIRDESK_I18N_EVIDENCE_DIR
+  ? resolve(process.env.REPAIRDESK_I18N_EVIDENCE_DIR, "release2b4")
+  : runEvidencePath("release2b4");
 const locales = ["zh-CN", "it-IT", "en"] as const;
 const widths = [390, 430, 768, 1024, 1280, 1440] as const;
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
