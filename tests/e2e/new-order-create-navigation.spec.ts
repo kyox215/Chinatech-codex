@@ -13,6 +13,16 @@ test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for order creation na
 test.use({ viewport: { width: 1440, height: 900 } });
 test.describe.configure({ mode: "serial" });
 
+test.beforeEach(async ({ context, baseURL }) => {
+  expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
+  await context.addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL! }]);
+  await context.route("**/*", (route) =>
+    new URL(route.request().url()).origin === new URL(baseURL!).origin
+      ? route.continue()
+      : route.abort(),
+  );
+});
+
 test("direct new-order page opens the canonical order detail after creation", async ({ page }) => {
   await stubSuccessfulOrderCreation(page, "ord_1");
   await page.goto("/orders/new");
@@ -74,7 +84,7 @@ async function completeRequiredOrderFields(page: Page, phone: string) {
   await expect(form).toBeVisible();
 
   await form.getByRole("combobox", { name: "客户电话号码", exact: true }).fill(phone);
-  await form.getByRole("button", { name: /设备留店/ }).click();
+  await form.getByRole("button", { name: /门店保管/ }).click();
   await form.getByPlaceholder("选择品牌").fill("Apple");
   await form.getByPlaceholder("例如 iPhone 13").fill("iPhone 13");
 

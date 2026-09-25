@@ -1,10 +1,9 @@
 "use client";
 
-import { CheckCircle2, Plus, Send, Tags } from "lucide-react";
+import { CheckCircle2, Edit3, Plus, Send, Tags } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import {
   CustomerEmptyLine,
   CustomerInfoBlock,
@@ -16,6 +15,8 @@ import { RepairOsBusinessCard, RepairOsSectionHeader } from "@/shared/ui";
 import { repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
+import { PhoneText } from "@/components/orders/badges";
+import { uniqueContactPhones } from "@/shared/lib/phone";
 import {
   localizeCustomerChannel,
   localizeCustomerFollowupStatus,
@@ -78,16 +79,18 @@ export function CustomerProfilePanel({
   customer,
   tags,
   onManageTags,
+  onEdit,
 }: {
   customer: CustomerDetail["customer"];
   tags: CustomerDetail["tags"];
   onManageTags: () => void;
+  onEdit: (control: HTMLButtonElement) => void;
 }) {
   const { locale, t } = useLocale();
   return (
     <section className={customerDetailSectionClass}>
       <RepairOsSectionHeader
-        title={t("customers.detail.profile")}
+        title={t("customers.detail.basicInfo")}
         className="mb-2"
         titleClassName={customerDetailSectionTitleClass}
         action={
@@ -95,70 +98,132 @@ export function CustomerProfilePanel({
             size="sm"
             variant="outline"
             className="h-11 gap-1.5 lg:h-8"
-            onClick={onManageTags}
+            onClick={(event) => onEdit(event.currentTarget)}
           >
-            <Tags className="size-3.5" /> {t("customers.detail.manageTags")}
+            <Edit3 className="size-3.5" /> {t("customers.detail.edit")}
           </Button>
         }
       />
-      <div className="mb-2 min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
-        <p className="mb-1 text-[10px] font-medium leading-3 text-muted-foreground lg:text-[11px] lg:leading-4">
-          {t("customers.detail.serviceTags")}
-        </p>
-        {tags.length ? (
-          <div className="flex min-w-0 flex-wrap gap-1">
-            {tags.map((tag) => (
-              <span
-                key={tag.id}
-                className="max-w-full truncate rounded-full border bg-card px-2 py-0.5 text-[10px] font-semibold leading-4 lg:text-[11px] lg:leading-4"
-                style={{ borderColor: tag.color, color: tag.color }}
-                title={tag.name}
-              >
-                {tag.name}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
-            {t("customers.detail.noTags")}
-          </p>
-        )}
-      </div>
       <div className="grid min-w-0 grid-cols-2 gap-2">
         <CustomerInfoBlock
-          label={t("customers.detail.contactPermission")}
-          value={
-            customer.consent_marketing && !customer.blacklisted_at
-              ? t("customers.detail.contactAllowed")
-              : t("customers.detail.contactBlocked")
-          }
+          label={t("customers.form.name")}
+          value={customer.name?.trim() || t("customers.detail.missingName")}
         />
         <CustomerInfoBlock
-          label={t("customers.detail.preferredChannel")}
-          value={localizeCustomerChannel(
-            customer.preferred_channel ?? "whatsapp",
-            customer.preferred_channel ?? "whatsapp",
-            t,
-          )}
+          label={t("customers.detail.primaryPhone")}
+          value={<PhoneText value={customer.phone_e164} />}
         />
-        <CustomerInfoBlock
-          label={t("customers.detail.language")}
-          value={localizeCustomerLanguage(customer.language ?? "it", customer.language ?? "it", t)}
-        />
-        <CustomerInfoBlock
-          label={t("customers.detail.lastContact")}
-          value={
-            customer.last_contacted_at
-              ? formatCustomerDateTime(customer.last_contacted_at, locale)
-              : "—"
-          }
-        />
+        <CustomerInfoBlock label={t("customers.form.email")} value={customer.email || "—"} />
       </div>
-      <Separator className="my-2" />
-      <CustomerInfoBlock
-        label={t("customers.detail.serviceNotes")}
-        value={customer.marketing_notes || t("customers.detail.noServiceNotes")}
-      />
+      <details
+        className="mt-2 rounded-lg border border-[var(--border-panel)] px-2 py-1.5"
+        data-ui="customer-profile-backup-contacts"
+      >
+        <summary className="cursor-pointer text-xs font-semibold">
+          {t("customers.detail.backupPhones")}
+        </summary>
+        <div className="mt-2 grid min-w-0 gap-1.5">
+          {uniqueContactPhones(customer.phone_e164, customer.contact_phones).map((phone) => (
+            <PhoneText key={phone} value={phone} />
+          ))}
+        </div>
+      </details>
+      <details
+        className="mt-2 rounded-lg border border-[var(--border-panel)] px-2 py-1.5"
+        data-ui="customer-profile-preferences"
+      >
+        <summary className="cursor-pointer text-xs font-semibold">
+          {t("customers.detail.contactPreferences")}
+        </summary>
+        <div className="mt-2 grid min-w-0 grid-cols-2 gap-2">
+          <CustomerInfoBlock
+            label={t("customers.detail.contactPermission")}
+            value={
+              customer.consent_marketing && !customer.blacklisted_at
+                ? t("customers.detail.contactAllowed")
+                : t("customers.detail.contactBlocked")
+            }
+          />
+          <CustomerInfoBlock
+            label={t("customers.detail.preferredChannel")}
+            value={localizeCustomerChannel(
+              customer.preferred_channel ?? "whatsapp",
+              customer.preferred_channel ?? "whatsapp",
+              t,
+            )}
+          />
+          <CustomerInfoBlock
+            label={t("customers.detail.language")}
+            value={localizeCustomerLanguage(
+              customer.language ?? "it",
+              customer.language ?? "it",
+              t,
+            )}
+          />
+          <CustomerInfoBlock
+            label={t("customers.detail.lastContact")}
+            value={
+              customer.last_contacted_at
+                ? formatCustomerDateTime(customer.last_contacted_at, locale)
+                : "—"
+            }
+          />
+        </div>
+      </details>
+      <details
+        className="mt-2 rounded-lg border border-[var(--border-panel)] px-2 py-1.5"
+        data-ui="customer-profile-notes"
+      >
+        <summary className="cursor-pointer text-xs font-semibold">
+          {t("customers.detail.customerNotes")}
+        </summary>
+        <div className="mt-2 grid min-w-0 gap-2">
+          <CustomerInfoBlock
+            label={t("customers.form.customerNotes")}
+            value={customer.notes || "—"}
+          />
+          <CustomerInfoBlock
+            label={t("customers.detail.serviceNotes")}
+            value={customer.marketing_notes || t("customers.detail.noServiceNotes")}
+          />
+        </div>
+      </details>
+      <details
+        className="mt-2 rounded-lg border border-[var(--border-panel)] px-2 py-1.5"
+        data-ui="customer-profile-tags"
+      >
+        <summary className="cursor-pointer text-xs font-semibold">
+          {t("customers.detail.serviceTags")}
+        </summary>
+        <Button
+          size="sm"
+          variant="outline"
+          className="my-2 h-11 gap-1.5 lg:h-8"
+          onClick={onManageTags}
+        >
+          <Tags className="size-3.5" /> {t("customers.detail.manageTags")}
+        </Button>
+        <div className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5">
+          {tags.length ? (
+            <div className="flex min-w-0 flex-wrap gap-1">
+              {tags.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="max-w-full truncate rounded-full border bg-card px-2 py-0.5 text-[10px] font-semibold leading-4 lg:text-[11px] lg:leading-4"
+                  style={{ borderColor: tag.color, color: tag.color }}
+                  title={tag.name}
+                >
+                  {tag.name}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] leading-4 text-muted-foreground lg:text-xs lg:leading-4">
+              {t("customers.detail.noTags")}
+            </p>
+          )}
+        </div>
+      </details>
     </section>
   );
 }

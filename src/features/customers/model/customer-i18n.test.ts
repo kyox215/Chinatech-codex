@@ -27,7 +27,7 @@ const tFor =
 
 describe("customer stable presentation adapters", () => {
   it.each([
-    ["zh-CN", "处理中", "要跟进", "在修 2", "待收", "总览"],
+    ["zh-CN", "处理中", "要跟进", "在修 2", "待收", "概览"],
     ["it-IT", "In lavorazione", "Da contattare", "In riparazione 2", "Da incassare", "Panoramica"],
     ["en", "In progress", "Follow up", "In repair 2", "Due", "Overview"],
   ] as const)(

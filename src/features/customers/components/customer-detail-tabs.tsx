@@ -47,7 +47,8 @@ export function CustomerDetailTabs<T extends string>({
 
   return (
     <div
-      className={cn("mb-2 grid w-full min-w-0 grid-cols-5 gap-1", className)}
+      className={cn("mb-2 grid w-full min-w-0 gap-1", className)}
+      style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
       role="tablist"
       aria-label={t("customers.detail.tabsLabel")}
     >

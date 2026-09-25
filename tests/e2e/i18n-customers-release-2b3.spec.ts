@@ -154,11 +154,48 @@ for (const { locale, width } of detailCases) {
     await expect(root).toBeVisible();
     await expect(root).toContainText(synthetic.customer);
     await expect(root).toContainText(synthetic.phone);
-    await expect(root).toContainText(synthetic.note);
-    await expect(root).toContainText(synthetic.tag);
-    await expect(root).toContainText(synthetic.historyBody);
+    await expect(root.locator('[data-ui="customer-unfinished-orders"]')).toBeVisible();
 
-    if (width < 1024) {
+    const mainTabs = customerMainTabs(root, width);
+    await expectVisibleTabs(mainTabs, 3);
+    const profileTab = mainTabs.getByRole("tab", {
+      name: translateMessage(locale, "customers.tab.profile"),
+      exact: true,
+    });
+    await profileTab.click();
+    await expect(profileTab).toHaveAttribute("aria-selected", "true");
+    const notes = root.locator('[data-ui="customer-profile-notes"]');
+    await notes.locator("summary").click();
+    await expect(notes).toContainText(synthetic.note);
+    const tags = root.locator('[data-ui="customer-profile-tags"]');
+    await tags.locator("summary").click();
+    await expect(tags).toContainText(synthetic.tag);
+
+    const businessTab = mainTabs.getByRole("tab", {
+      name: translateMessage(locale, "customers.tab.business"),
+      exact: true,
+    });
+    await businessTab.click();
+    await expect(businessTab).toHaveAttribute("aria-selected", "true");
+    const businessTabs = root.locator('[data-ui="customer-business-panel"]').getByRole("tablist");
+    await expectVisibleTabs(businessTabs, 3);
+    const devicesTab = businessTabs.getByRole("tab", {
+      name: translateMessage(locale, "customers.tab.devices"),
+      exact: true,
+    });
+    await devicesTab.click();
+    await expect(devicesTab).toHaveAttribute("aria-selected", "true");
+    await expect(root).toContainText(synthetic.warranty);
+    const followupsTab = businessTabs.getByRole("tab", {
+      name: translateMessage(locale, "customers.tab.followups"),
+      exact: true,
+    });
+    await followupsTab.click();
+    const contactRecords = root.locator('[data-ui="customer-message-records"]');
+    await contactRecords.locator("summary").click();
+    await expect(contactRecords).toContainText(synthetic.historyBody);
+
+    if (width < 768) {
       await expect(mobileHeader).toBeVisible();
       await expect(appBar).toBeHidden();
       await expect(desktopHero).toBeHidden();
@@ -167,24 +204,12 @@ for (const { locale, width } of detailCases) {
         1,
       );
       await expect(page.locator('[data-app-bar="true"]:visible')).toHaveCount(0);
-      await expectVisibleTabs(root, 5);
-      await expect(root.getByRole("tablist")).toHaveCount(1);
-      const devicesTab = root.getByRole("tab", {
-        name: new RegExp(translateMessage(locale, "customers.tab.devices")),
-      });
-      await devicesTab.click();
-      await expect(devicesTab).toHaveAttribute("aria-selected", "true");
-      await expect(root).toContainText(synthetic.warranty);
       await expectMobileDetailBottomReachability(page, root, mobileHeader, mobileActions);
     } else {
       await expect(mobileHeader).toBeHidden();
       await expect(appBar).toBeVisible();
       await expect(desktopHero).toBeVisible();
       await expect(mobileActions).toBeHidden();
-      await expectVisibleTabs(root, 5);
-      await expect(root.getByRole("tablist")).toHaveCount(1);
-      await root.getByRole("tab").nth(2).click();
-      await expect(root).toContainText(synthetic.warranty);
     }
     await expectNoHorizontalOverflow(page);
     await expectNoUnexpectedFixedHan(root, locale);
@@ -289,13 +314,22 @@ test("heavy it-IT 768px preserves tab identity and dialog focus contracts", asyn
   await expect(root).toContainText(synthetic.customer);
   await switchLocale(page, "it-IT");
   await expect(page).toHaveURL(initialUrl);
-  await expect(page.locator('[data-ui="customer-detail-mobile-header"]')).toBeVisible();
-  await expect(page.locator('[data-ui="customer-detail-mobile-header"]:visible')).toHaveCount(1);
-  await expect(page.locator('[data-app-bar="true"]:visible')).toHaveCount(0);
-  await expectVisibleTabs(root, 5);
-  await expect(root.getByRole("tablist")).toHaveCount(1);
-  const devicesTab = root.getByRole("tab", {
-    name: new RegExp(translateMessage("it-IT", "customers.tab.devices")),
+  await expect(page.locator('[data-ui="customer-detail-mobile-header"]')).toBeHidden();
+  await expect(page.locator('[data-ui="customer-detail-mobile-header"]:visible')).toHaveCount(0);
+  await expect(page.locator('[data-app-bar="true"]:visible')).toHaveCount(1);
+  const mainTabs = customerMainTabs(root, 768);
+  await expectVisibleTabs(mainTabs, 3);
+  await mainTabs
+    .getByRole("tab", {
+      name: translateMessage("it-IT", "customers.tab.business"),
+      exact: true,
+    })
+    .click();
+  const businessTabs = root.locator('[data-ui="customer-business-panel"]').getByRole("tablist");
+  await expectVisibleTabs(businessTabs, 3);
+  const devicesTab = businessTabs.getByRole("tab", {
+    name: translateMessage("it-IT", "customers.tab.devices"),
+    exact: true,
   });
   await devicesTab.click();
   await expect(devicesTab).toHaveAttribute("aria-selected", "true");
@@ -362,10 +396,21 @@ test("heavy en 1440px preserves list context through full-page detail, keyboard 
   });
   await overview.focus();
   await page.keyboard.press("ArrowRight");
-  const orders = root.getByRole("tab", { name: /.+/ }).nth(1);
-  await expect(orders).toHaveAttribute("aria-selected", "true");
+  const business = root.getByRole("tab", {
+    name: translateMessage("en", "customers.tab.business"),
+    exact: true,
+  });
+  await expect(business).toHaveAttribute("aria-selected", "true");
+  const orders = root.getByRole("tab", {
+    name: translateMessage("en", "customers.tab.orders"),
+    exact: true,
+  });
+  await orders.focus();
   await page.keyboard.press("ArrowRight");
-  const devices = root.getByRole("tab", { name: /.+/ }).nth(2);
+  const devices = root.getByRole("tab", {
+    name: translateMessage("en", "customers.tab.devices"),
+    exact: true,
+  });
   await expect(devices).toHaveAttribute("aria-selected", "true");
   const deviceCard = root.getByRole("button", {
     name: translateMessage("en", "customers.detail.viewDevice", {
@@ -445,10 +490,7 @@ for (const failure of [false, true]) {
         })
         .click();
     } else {
-      await page
-        .locator('[data-ui="customer-detail-mobile-header"]')
-        .getByRole("button", { name: translateMessage("en", "customers.detail.back"), exact: true })
-        .click();
+      await page.locator('[data-entity-context-back="customers"]:visible').click();
     }
     await expect(page).toHaveURL(listUrl);
     await expect(open).toBeFocused();
@@ -759,8 +801,18 @@ async function assertEvidence(
   ).toEqual([]);
 }
 
-async function expectVisibleTabs(root: Locator, count: number) {
-  const tabs = root.getByRole("tab");
+function customerMainTabs(root: Locator, width: number) {
+  return root
+    .locator(
+      width < 768
+        ? '[data-ui="customer-detail-mobile-header"]'
+        : '[data-ui="customer-detail-main-tabs"]',
+    )
+    .getByRole("tablist");
+}
+
+async function expectVisibleTabs(tablist: Locator, count: number) {
+  const tabs = tablist.getByRole("tab");
   await expect(tabs).toHaveCount(count);
   for (let index = 0; index < count; index += 1) await expect(tabs.nth(index)).toBeVisible();
 }

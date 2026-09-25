@@ -53,7 +53,9 @@ export function CustomerMessageDialog({
   onReloadStoreContext,
   busy,
   onConfirm,
+  initialChannel,
 }: {
+  initialChannel?: "whatsapp" | "sms";
   open: boolean;
   onOpenChange: (value: boolean) => void;
   data: CustomerDetail;
@@ -68,7 +70,7 @@ export function CustomerMessageDialog({
 }) {
   const { t } = useLocale();
   const [channel, setChannel] = useState<"whatsapp" | "sms">(
-    data.customer.preferred_channel ?? "whatsapp",
+    initialChannel ?? data.customer.preferred_channel ?? "whatsapp",
   );
   const phoneOptions = customerPhoneOptions(data);
   const [phone, setPhone] = useState(phoneOptions[0] ?? "");
@@ -80,14 +82,14 @@ export function CustomerMessageDialog({
   const [channelOpenError, setChannelOpenError] = useState(false);
   useEffect(() => {
     if (open) {
-      setChannel(data.customer.preferred_channel ?? "whatsapp");
+      setChannel(initialChannel ?? data.customer.preferred_channel ?? "whatsapp");
       setPhone(customerPhoneOptions(data)[0] ?? "");
       setPhoneCountry(inferWhatsappCountry(customerPhoneOptions(data)[0] ?? ""));
       setBody(buildCustomerMessage(data, appOrigin, storeIdentity));
       setChannelOpened(false);
       setChannelOpenError(false);
     }
-  }, [data, open, appOrigin, storeIdentity]);
+  }, [data, open, appOrigin, storeIdentity, initialChannel]);
   const phoneResolution = resolveWhatsappPhone(phone, phoneCountry);
   const updatePhone = (nextPhone: string) => {
     setPhone(nextPhone);
