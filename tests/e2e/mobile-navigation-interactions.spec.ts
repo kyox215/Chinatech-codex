@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const enabled =
@@ -69,7 +70,9 @@ test.describe("mobile navigation interaction reliability", () => {
         await page.waitForTimeout(250);
         await hideNextDevIndicator(page);
         await page.screenshot({
-          path: `screenshots/TASK-20260712-002-mobile-interaction-click-reliability/account-menu-open-${testInfo.project.name}-390.png`,
+          path: runEvidencePath(
+            `screenshots/TASK-20260712-002-mobile-interaction-click-reliability/account-menu-open-${testInfo.project.name}-390.png`,
+          ),
         });
       }
 
@@ -78,7 +81,9 @@ test.describe("mobile navigation interaction reliability", () => {
 
       if (captureEvidence) {
         await page.screenshot({
-          path: `screenshots/TASK-20260712-002-mobile-interaction-click-reliability/account-page-${testInfo.project.name}-390.png`,
+          path: runEvidencePath(
+            `screenshots/TASK-20260712-002-mobile-interaction-click-reliability/account-page-${testInfo.project.name}-390.png`,
+          ),
           fullPage: true,
         });
       }

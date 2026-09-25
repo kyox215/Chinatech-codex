@@ -1,10 +1,13 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const captureScreenshots = process.env.REPAIRDESK_E2E_SCREENSHOTS === "1";
 const screenshotDirectory =
   process.env.REPAIRDESK_E2E_SCREENSHOT_DIR ??
-  "artifacts/screenshots/TASK-20260809-005-global-compact-selector-typography-release";
+  runEvidencePath(
+    "artifacts/screenshots/TASK-20260809-005-global-compact-selector-typography-release",
+  );
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for inventory intake checks.");
 

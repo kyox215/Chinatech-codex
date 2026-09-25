@@ -7,6 +7,7 @@
     ".storybook/**/*.ts",
     ".storybook/**/*.tsx",
     "vitest.config.ts",
+    "vitest.risk.config.ts",
     "vitest.setup.ts",
     "playwright.config.ts",
     ".next/types/cache-life.d.ts",
@@ -20,11 +21,7 @@
     "target": "ES2022",
     "jsx": "react-jsx",
     "module": "ESNext",
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     /* Bundler mode */
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
@@ -38,9 +35,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     },
     "plugins": [
       {
@@ -53,6 +48,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
+  // Next dev generated types may point at an in-progress preview; production types stay checked.
+  // Space/suffix globs exclude macOS duplicate-copy artifacts, never normal source files.
   "exclude": [
     "node_modules",
     ".next/dev/types/**/*",

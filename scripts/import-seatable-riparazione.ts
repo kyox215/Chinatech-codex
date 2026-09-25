@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { buildSeaTableRiparazioneImport } from "../src/features/orders/import/seatable-riparazione";
 import {
@@ -48,7 +48,7 @@ const PREFLIGHT_TABLES = [
   "order_payment_ledger",
 ] as const;
 
-type SupabaseAdminClient = ReturnType<typeof createClient>;
+type SupabaseAdminClient = SupabaseClient;
 
 function loadEnvFile(filePath: string) {
   if (!existsSync(filePath)) return;
@@ -74,11 +74,7 @@ function ensureNodeWebSocketTransport() {
   Object.assign(globalThis, { WebSocket });
 }
 
-async function fetchAllRows(
-  client: ReturnType<typeof createClient>,
-  table: string,
-  storeId: string,
-) {
+async function fetchAllRows(client: SupabaseClient, table: string, storeId: string) {
   const pageSize = 1000;
   const rows: unknown[] = [];
   for (let from = 0; ; from += pageSize) {
@@ -94,11 +90,7 @@ async function fetchAllRows(
   return rows;
 }
 
-async function backupRepairDeskDomain(
-  client: ReturnType<typeof createClient>,
-  backupDir: string,
-  storeId: string,
-) {
+async function backupRepairDeskDomain(client: SupabaseClient, backupDir: string, storeId: string) {
   const backup: Record<string, unknown[]> = {};
   for (const table of [...CLEAR_TABLES].reverse()) {
     backup[table.name] = await fetchAllRows(client, table.name, storeId);
@@ -110,7 +102,7 @@ async function backupRepairDeskDomain(
   return writePrivateJson(filePath, backup);
 }
 
-async function clearRepairDeskDomain(client: ReturnType<typeof createClient>, storeId: string) {
+async function clearRepairDeskDomain(client: SupabaseClient, storeId: string) {
   for (const table of CLEAR_TABLES) {
     const { error } = await client
       .from(table.name)
@@ -122,7 +114,7 @@ async function clearRepairDeskDomain(client: ReturnType<typeof createClient>, st
   }
 }
 
-async function insertRows(client: ReturnType<typeof createClient>, table: string, rows: unknown[]) {
+async function insertRows(client: SupabaseClient, table: string, rows: unknown[]) {
   const chunkSize = 500;
   for (let index = 0; index < rows.length; index += chunkSize) {
     const chunk = rows.slice(index, index + chunkSize);
@@ -132,7 +124,7 @@ async function insertRows(client: ReturnType<typeof createClient>, table: string
   console.log(`Inserted ${rows.length} rows into ${table}`);
 }
 
-async function upsertRows(client: ReturnType<typeof createClient>, table: string, rows: unknown[]) {
+async function upsertRows(client: SupabaseClient, table: string, rows: unknown[]) {
   const chunkSize = 500;
   for (let index = 0; index < rows.length; index += chunkSize) {
     const chunk = rows.slice(index, index + chunkSize);
@@ -143,7 +135,7 @@ async function upsertRows(client: ReturnType<typeof createClient>, table: string
 }
 
 async function prepareSuppliers(
-  client: ReturnType<typeof createClient>,
+  client: SupabaseClient,
   result: ReturnType<typeof buildSeaTableRiparazioneImport>,
   storeId: string,
 ) {
@@ -340,7 +332,11 @@ async function findCollisions(
   const uniqueValues = [...new Set(values.filter(Boolean))];
   for (let index = 0; index < uniqueValues.length; index += 250) {
     const chunk = uniqueValues.slice(index, index + 250);
-    const { data, error } = await client.from(table).select(`${column},store_id`).in(column, chunk);
+    const { data, error } = await client
+      .from(table)
+      .select(`${column},store_id`)
+      .in(column, chunk)
+      .overrideTypes<Record<string, unknown>[], { merge: false }>();
     if (error)
       throw new Error(`Preflight collision check ${table}.${column} failed: ${error.message}`);
     for (const row of (data ?? []) as Record<string, unknown>[]) {
@@ -373,7 +369,8 @@ async function buildCleanupPreview(client: SupabaseAdminClient, storeId: string)
       .from("order_events")
       .select("id,order_id,payload")
       .eq("store_id", storeId)
-      .in("order_id", chunk);
+      .in("order_id", chunk)
+      .overrideTypes<Record<string, unknown>[], { merge: false }>();
     if (eventError) throw new Error(`Cleanup evidence query failed: ${eventError.message}`);
     for (const event of (eventRows ?? []) as Record<string, unknown>[]) {
       const orderId = maybeString(event.order_id);
@@ -456,7 +453,8 @@ async function fetchRelatedRowsByOrder(
       .from(table)
       .select(select)
       .eq("store_id", storeId)
-      .in("order_id", chunk);
+      .in("order_id", chunk)
+      .overrideTypes<Record<string, unknown>[], { merge: false }>();
     if (error) throw new Error(`Cleanup guard query ${table} failed: ${error.message}`);
     for (const row of (data ?? []) as Record<string, unknown>[]) {
       const orderId = maybeString(row.order_id);

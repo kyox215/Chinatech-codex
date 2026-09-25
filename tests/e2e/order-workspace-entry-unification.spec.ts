@@ -1,9 +1,10 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { mkdirSync } from "node:fs";
 
 import { expect, test, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
-const evidenceDir = "screenshots/TASK-20260723-006-order-entry-unification";
+const evidenceDir = runEvidencePath("screenshots/TASK-20260723-006-order-entry-unification");
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for order workspace entry checks.");
 

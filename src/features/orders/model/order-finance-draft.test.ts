@@ -13,6 +13,36 @@ import {
 } from "./order-finance-draft";
 
 describe("order finance draft", () => {
+  it.each(["-1", "1.234", "not-money"])(
+    "rejects an invalid deposit %s without allowing save",
+    (deposit) => {
+      const draft = createFinanceDraftState([{ name: "Repair", price: 80 }], 0);
+      draft.depositText = deposit;
+      expect(normalizeFinanceDraft(draft, 10)).toMatchObject({
+        canSave: false,
+        quotation: 80,
+        balance: 70,
+      });
+    },
+  );
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, -1, 1.234])(
+    "rejects invalid collected money %s",
+    (paid) => {
+      const draft = createFinanceDraftState([{ name: "Repair", price: 80 }], 10);
+      expect(normalizeFinanceDraft(draft, paid)).toMatchObject({
+        canSave: false,
+        error: "已收金额格式不正确，请先核对收款记录。",
+      });
+    },
+  );
+
+  it("rejects an overflowing decimal instead of saving Infinity", () => {
+    const draft = createFinanceDraftState([{ name: "Repair", price: 80 }], 0);
+    draft.faults[0].priceText = "9".repeat(400);
+    expect(normalizeFinanceDraft(draft, 0).canSave).toBe(false);
+  });
+
   it("assigns catalog identity and preserves custom line identity through the picker mapping", () => {
     const catalogLineId = "00000000-0000-4000-8000-000000000110";
     const customLineId = "00000000-0000-4000-8000-000000000111";

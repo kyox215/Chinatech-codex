@@ -153,6 +153,23 @@ afterEach(() => {
 });
 
 describe("Transparent Buyback screen i18n", () => {
+  it.each(["zh-CN", "it-IT", "en"] as const)(
+    "keeps paused writes disabled for an owner in %s",
+    async (locale) => {
+      renderBuyback(locale, false, false);
+      expect(
+        await screen.findByText(translateMessage(locale, "buyback2b5.writePaused")),
+      ).toBeVisible();
+      const buttons = screen.getAllByRole("button", {
+        name: translateMessage(locale, "buyback2b5.new"),
+      });
+      for (const button of buttons) expect(button).toBeDisabled();
+      expect(mocks.create).not.toHaveBeenCalled();
+      expect(mocks.revise).not.toHaveBeenCalled();
+      expect(mocks.respond).not.toHaveBeenCalled();
+    },
+  );
+
   it("keeps the server and client-first root deterministic while the store authority restores", async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } },
@@ -161,7 +178,7 @@ describe("Transparent Buyback screen i18n", () => {
       <QueryClientProvider client={client}>
         <LocaleProvider initialLocale="en">
           <SidebarProvider>
-            <BuybackScreen />
+            <BuybackScreen quoteWriteEnabled />
           </SidebarProvider>
         </LocaleProvider>
       </QueryClientProvider>
@@ -1566,7 +1583,7 @@ function LocaleController() {
   return null;
 }
 
-function renderBuyback(locale: AppLocale, switcher = false) {
+function renderBuyback(locale: AppLocale, switcher = false, quoteWriteEnabled = true) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } },
   });
@@ -1575,7 +1592,7 @@ function renderBuyback(locale: AppLocale, switcher = false) {
       <LocaleProvider initialLocale={locale}>
         <SidebarProvider>
           {switcher ? <LocaleController /> : null}
-          <BuybackScreen />
+          <BuybackScreen quoteWriteEnabled={quoteWriteEnabled} />
         </SidebarProvider>
       </LocaleProvider>
     </QueryClientProvider>

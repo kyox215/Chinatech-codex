@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
@@ -6,7 +7,7 @@ import { expect, test, type Page } from "@playwright/test";
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const screenshotDir = path.resolve(
   process.env.REPAIRDESK_E2E_NOVICE_SCREENSHOT_DIR ??
-    "screenshots/TASK-20260717-008-desktop-novice-ui-implementation",
+    runEvidencePath("screenshots/TASK-20260717-008-desktop-novice-ui-implementation"),
 );
 
 test.skip(!enabled, "Enable the controlled RepairDesk mock environment.");

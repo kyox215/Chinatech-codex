@@ -48,3 +48,6 @@ __pycache__/
 .vercel
 .env*.local
 supabase/.temp
+
+# Local project copies; source and durable evidence remain outside this directory.
+/work/

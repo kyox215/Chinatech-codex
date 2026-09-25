@@ -1,8 +1,9 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { mkdirSync } from "node:fs";
 
 import { expect, test } from "@playwright/test";
 
-const screenshotDir = "screenshots/TASK-20260908-003-responsive-virtual-keypad";
+const screenshotDir = runEvidencePath("screenshots/TASK-20260908-003-responsive-virtual-keypad");
 
 test.skip(
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP !== "1",

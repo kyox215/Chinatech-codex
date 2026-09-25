@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -5,7 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const screenshotDir = resolve(
   process.cwd(),
-  "artifacts/screenshots/TASK-20260810-003-apple-inventory-form-implementation",
+  runEvidencePath("artifacts/screenshots/TASK-20260810-003-apple-inventory-form-implementation"),
 );
 const editableProductId = "00000000-0000-4000-8000-000000000203";
 const inspectionE2eEnabled = process.env.REPAIRDESK_E2E_INVENTORY_INSPECTION === "1";

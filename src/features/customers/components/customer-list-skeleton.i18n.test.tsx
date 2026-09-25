@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { CustomerListSkeleton } from "@/features/customers/components/customer-list-skeleton";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
 import { translateMessage } from "@/shared/i18n/messages";
@@ -19,7 +20,9 @@ describe("CustomerListSkeleton i18n", () => {
     (locale) => {
       render(
         <LocaleProvider initialLocale={locale}>
-          <CustomerListSkeleton />
+          <SidebarProvider>
+            <CustomerListSkeleton />
+          </SidebarProvider>
         </LocaleProvider>,
       );
       expect(

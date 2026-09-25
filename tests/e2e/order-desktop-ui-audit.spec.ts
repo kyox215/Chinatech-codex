@@ -1,10 +1,13 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const enabled =
   process.env.REPAIRDESK_E2E_ORDER_AUDIT === "1" ||
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const layoutOnly = process.env.REPAIRDESK_E2E_ORDER_LAYOUT_ONLY === "1";
-const taskScreenshotDir = "screenshots/TASK-20260720-004-order-detail-alignment-polish";
+const taskScreenshotDir = runEvidencePath(
+  "screenshots/TASK-20260720-004-order-detail-alignment-polish",
+);
 
 const desktopQueueViewports = [
   { width: 1024, height: 768 },

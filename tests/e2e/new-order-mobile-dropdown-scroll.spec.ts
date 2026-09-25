@@ -1,8 +1,9 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { mkdirSync } from "node:fs";
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-const screenshotDir = "screenshots/TASK-20260730-015-repair-option-logic";
+const screenshotDir = runEvidencePath("screenshots/TASK-20260730-015-repair-option-logic");
 const enabled =
   process.env.REPAIRDESK_E2E_ORDER_AUDIT === "1" ||
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";

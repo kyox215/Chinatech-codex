@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 import { resolve } from "node:path";
 import { localeDisplayNames, type AppLocale } from "@/shared/i18n/locales";
@@ -5,7 +6,7 @@ import { translateMessage } from "@/shared/i18n/messages";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3182";
 const baseOrigin = new URL(baseURL).origin;
-const evidenceDir = resolve("artifacts/orders-locale-density-20260908");
+const evidenceDir = resolve(runEvidencePath("artifacts/orders-locale-density-20260908"));
 const locales = ["zh-CN", "it-IT", "en"] as const;
 const widths = [390, 430, 768, 1280] as const;
 const readPosts = new Set([

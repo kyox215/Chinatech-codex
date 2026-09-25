@@ -1,7 +1,8 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
-const evidenceDir = "screenshots/TASK-20260729-009-quick-order-mobile-density";
+const evidenceDir = runEvidencePath("screenshots/TASK-20260729-009-quick-order-mobile-density");
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for mobile search checks.");
 test.use({ isMobile: true, hasTouch: true });

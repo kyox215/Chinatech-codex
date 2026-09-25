@@ -1,3 +1,4 @@
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 if (process.env.REPAIRDESK_E2E_ATOMIC_ONBOARDING_POSTGREST === "1") {
@@ -5,6 +6,12 @@ if (process.env.REPAIRDESK_E2E_ATOMIC_ONBOARDING_POSTGREST === "1") {
     "Sensitive store-signup PostgREST E2E requires --config=playwright.store-signup-postgrest.config.ts.",
   );
 }
+
+process.env.REPAIRDESK_E2E_EVIDENCE_ROOT ??= path.resolve(
+  "test-results",
+  "evidence",
+  `${Date.now()}-${process.pid}`,
+);
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const reuseExistingServer = process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER
@@ -31,7 +38,7 @@ export default defineConfig({
     baseURL,
     screenshot: "only-on-failure",
     video: "off",
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
   },
   projects: [browserProject],
   webServer: {

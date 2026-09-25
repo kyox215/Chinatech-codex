@@ -793,6 +793,10 @@ def should_skip_validation_path(path: Path, root: Path) -> bool:
         rel = path.relative_to(root)
     except ValueError:
         return False
+    # Local copies/archives are not the canonical governance bundle. Keep docs/archive
+    # in scope and continue checking links from canonical documents into local material.
+    if rel.parts and rel.parts[0] in {"work", "archive.local"}:
+        return True
     return any(part in VALIDATION_SKIP_DIRS for part in rel.parts)
 
 
@@ -965,7 +969,14 @@ def validate_bundle(root: Path, strict: bool = False) -> ValidationReport:
 
     # Balanced fenced blocks and local links. Link gaps are warnings because
     # imported policy references can be deployment-layout dependent.
-    md_files = [path for path in root.rglob("*.md") if not should_skip_validation_path(path, root)]
+    md_files = []
+    for current, directories, filenames in os.walk(root):
+        current_path = Path(current)
+        directories[:] = [
+            name for name in directories
+            if not should_skip_validation_path(current_path / name, root)
+        ]
+        md_files.extend(current_path / name for name in filenames if name.endswith(".md"))
     broken_links: list[str] = []
     for path in md_files:
         text = path.read_text(encoding="utf-8", errors="replace")

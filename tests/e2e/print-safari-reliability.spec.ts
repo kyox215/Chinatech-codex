@@ -1,16 +1,18 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { PDFDocument } from "pdf-lib";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const evidenceDir =
-  process.env.REPAIRDESK_PRINT_EVIDENCE_DIR ?? "screenshots/TASK-20260724-005-a5-order-print";
+  process.env.REPAIRDESK_PRINT_EVIDENCE_DIR ??
+  runEvidencePath("screenshots/TASK-20260724-005-a5-order-print");
 const optimizedEvidenceDir = process.env.REPAIRDESK_PRINT_EVIDENCE_DIR
   ? `${evidenceDir}/fixed-pdf`
-  : "screenshots/TASK-20260724-007-in-page-pdf-print";
+  : runEvidencePath("screenshots/TASK-20260724-007-in-page-pdf-print");
 const mobilePerformanceEvidenceDir = process.env.REPAIRDESK_PRINT_EVIDENCE_DIR
   ? `${evidenceDir}/mobile-performance`
-  : "screenshots/TASK-20260724-008-mobile-print-performance";
+  : runEvidencePath("screenshots/TASK-20260724-008-mobile-print-performance");
 const mobilePrintButtonName = /^(?:打印|Stampa|Print)$/;
 
 // This suite uses Chinese semantic assertions; first-visit language detection is covered

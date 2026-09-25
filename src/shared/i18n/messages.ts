@@ -24,6 +24,7 @@ const zhCN = {
   "orders.newFlow.discardChanges": "放弃修改",
   "orders.newFlow.noHistory": "暂无历史设备，可返回手动填写。",
   "orders.newFlow.ready": "信息已齐全",
+  "orders.newFlow.openingOrder": "工单已保存，正在打开详情…",
   "orders.newFlow.photoUploading": "工单已创建，照片正在上传…",
   "orders.newFlow.photoRemaining": "部分照片尚未上传，可以继续处理未发送的照片。",
 
@@ -1216,6 +1217,7 @@ const zhCN = {
   "buyback2b5.quoteOnly":
     "当前只记录报价与客户口头答复，不会付款、采集证件/签名、标记已回收或联动商品库存。",
   "buyback2b5.offline": "当前处于离线状态。可继续查看已有资料，恢复网络后才能保存报价或客户答复。",
+  "buyback2b5.writePaused": "透明报价写入已暂停；历史记录仍可查看。",
   "buyback2b5.readOnly": "当前角色为只读；新建报价、改价或记录客户答复需要相应负责人权限。",
   "buyback2b5.stale": "正在显示上次成功读取的资料；最新刷新失败。",
   "buyback2b5.loading": "正在读取回收报价",
@@ -4189,6 +4191,7 @@ const itIT: Record<MessageKey, string> = {
   "orders.newFlow.discardChanges": "Scarta modifiche",
   "orders.newFlow.noHistory": "Nessun dispositivo precedente. Torna indietro per inserirlo.",
   "orders.newFlow.ready": "Dati completi",
+  "orders.newFlow.openingOrder": "Ordine salvato, apertura dei dettagli…",
   "orders.newFlow.photoUploading": "Ordine creato, caricamento delle foto…",
   "orders.newFlow.photoRemaining":
     "Alcune foto non sono state inviate. Puoi continuare il caricamento.",
@@ -5488,6 +5491,7 @@ const itIT: Record<MessageKey, string> = {
     "Registra solo l’offerta e la risposta verbale del cliente. Non effettua pagamenti, non raccoglie documenti o firme, non segna il ritiro come completato e non aggiorna il magazzino.",
   "buyback2b5.offline":
     "Sei offline. Puoi consultare i dati disponibili, ma devi tornare online per salvare offerte o risposte.",
+  "buyback2b5.writePaused": "La scrittura dei preventivi è sospesa. Lo storico resta consultabile.",
   "buyback2b5.readOnly":
     "Il ruolo corrente è in sola lettura; servono le autorizzazioni previste per creare o modificare offerte e registrare risposte.",
   "buyback2b5.stale":
@@ -8821,6 +8825,7 @@ const en: Record<MessageKey, string> = {
   "orders.newFlow.discardChanges": "Discard changes",
   "orders.newFlow.noHistory": "No previous devices. Go back to enter one manually.",
   "orders.newFlow.ready": "Information complete",
+  "orders.newFlow.openingOrder": "Order saved, opening details…",
   "orders.newFlow.photoUploading": "Order created, uploading photos…",
   "orders.newFlow.photoRemaining":
     "Some photos have not been sent. You can continue uploading them.",
@@ -10103,6 +10108,7 @@ const en: Record<MessageKey, string> = {
     "This records only the quote and the customer’s verbal response. It does not pay, collect documents or signatures, mark a buyback complete, or update inventory.",
   "buyback2b5.offline":
     "You are offline. Existing details remain available, but you must reconnect before saving a quote or response.",
+  "buyback2b5.writePaused": "Quote changes are paused. Existing records remain available.",
   "buyback2b5.readOnly":
     "The current role is read-only; the appropriate permission is required to create or revise quotes and record responses.",
   "buyback2b5.stale": "Showing the last successfully loaded details; the latest refresh failed.",

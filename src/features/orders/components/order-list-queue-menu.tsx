@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   BadgeCheck,
   Bell,
@@ -69,6 +69,7 @@ export function OrderListQueueMenu({
 }) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const active = groups.find((group) => group.key === value);
   if (groups.length === 0) {
     return (
@@ -84,6 +85,7 @@ export function OrderListQueueMenu({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
+          ref={triggerRef}
           variant="ghost"
           disabled={disabled}
           className="h-auto min-h-11 min-w-0 justify-start gap-1 px-1 py-1 text-xs font-semibold"
@@ -110,6 +112,10 @@ export function OrderListQueueMenu({
       <DialogContent
         editorLayout
         initialFocus="container"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          triggerRef.current?.focus({ preventScroll: true });
+        }}
         closeLabel={t("common.close")}
         closeClassName="!size-11"
         className={cn(

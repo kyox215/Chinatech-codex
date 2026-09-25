@@ -1,8 +1,9 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
-const evidenceDir = "screenshots/TASK-20260725-001-mobile-dashboard-scan-density";
+const evidenceDir = runEvidencePath("screenshots/TASK-20260725-001-mobile-dashboard-scan-density");
 
 const viewports = [
   { width: 320, height: 568 },

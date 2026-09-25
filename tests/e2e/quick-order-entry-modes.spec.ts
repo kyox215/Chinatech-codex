@@ -1,7 +1,10 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_QUICK_ORDER_MODES === "1";
-const evidenceDir = "screenshots/TASK-20260728-007-quick-order-mode-implementation";
+const evidenceDir = runEvidencePath(
+  "screenshots/TASK-20260728-007-quick-order-mode-implementation",
+);
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_QUICK_ORDER_MODES=1 for entry-mode verification.");
 

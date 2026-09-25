@@ -1,5 +1,5 @@
-import { extractImeiCandidates } from "@/features/capture/model/barcode-parser";
-import { recognizeTextWithLocalOcr } from "@/features/capture/model/local-ocr";
+import { extractImeiCandidates } from "@/shared/lib/imei-candidates";
+import { recognizeTextWithLocalOcr } from "@/shared/lib/local-ocr";
 import { inventoryRecognitionSchema, type InventoryRecognition } from "./contracts";
 import type { PreparedInventoryImage } from "./inventory-image";
 import { buildLocalInventoryRecognition } from "./inventory-recognition";

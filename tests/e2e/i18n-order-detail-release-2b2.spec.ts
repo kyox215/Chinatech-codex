@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Page, type Request, type Route, type TestInfo } from "@playwright/test";
 import { resolve } from "node:path";
 
@@ -976,7 +977,7 @@ async function saveEvidenceScreenshot(page: Page, testInfo: TestInfo, name: stri
   }
   await page.screenshot({
     path: resolve(
-      process.env.REPAIRDESK_EVIDENCE_DIR ?? "screenshots/release2b2",
+      process.env.REPAIRDESK_EVIDENCE_DIR ?? runEvidencePath("screenshots/release2b2"),
       testInfo.project.name,
       `${name}.png`,
     ),

@@ -3,6 +3,11 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const cleanScreenshotStyle = "nextjs-portal,[data-sonner-toast]{display:none!important}";
 
+test.skip(
+  process.env.REPAIRDESK_BUYBACK_TRANSPARENT_QUOTE_WRITE_ENABLED !== "1",
+  "Use npm run test:e2e:buyback:mock for the explicitly write-enabled fixture.",
+);
+
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for transparent buyback checks.");
 
 test.beforeEach(async ({ context, baseURL }) => {
@@ -336,13 +341,13 @@ test("creating a buyback quote does not change the product inventory collection"
   await useStoreRole(page, "owner");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/buyback", { waitUntil: "domcontentloaded" });
-  const before = await readProductInventorySnapshot(page);
+  const before = await readInventorySnapshot(page);
   await page.getByRole("button", { name: "新建透明报价" }).filter({ visible: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByPlaceholder("例如 iPhone 15 Pro").fill("iPhone 14 隔离验证");
   await dialog.getByRole("button", { name: "保存透明报价" }).click();
   await expect(dialog).toBeHidden();
-  const after = await readProductInventorySnapshot(page);
+  const after = await readInventorySnapshot(page);
   expect(after).toEqual(before);
 });
 
@@ -598,16 +603,22 @@ async function expectFooterDoesNotCoverContent(
   expect(geometry.contentBottom).toBeLessThanOrEqual(geometry.footerTop + 1);
 }
 
-async function readProductInventorySnapshot(page: Page) {
+// Read the underlying collection, not the separately gated product UI projection.
+// Product membership follows isProductInventoryItem: source_type !== "buyback".
+// Compare complete source records rather than the smaller UI projection.
+async function readInventorySnapshot(page: Page) {
   return page.evaluate(async () => {
-    const response = await fetch("/api/repairdesk/inventory/products/list", {
+    const response = await fetch("/api/repairdesk/inventory/list", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({}),
     });
-    if (!response.ok) throw new Error(`product inventory snapshot failed: ${response.status}`);
+    if (!response.ok) throw new Error(`inventory snapshot failed: ${response.status}`);
     const payload = (await response.json()) as { data?: unknown };
-    return JSON.stringify(payload.data ?? null);
+    if (!Array.isArray(payload.data)) throw new Error("inventory fixture must return records");
+    const products = payload.data.filter((item) => item.source_type !== "buyback");
+    if (!products.length) throw new Error("inventory isolation requires a seeded product");
+    return JSON.stringify(products);
   });
 }
 

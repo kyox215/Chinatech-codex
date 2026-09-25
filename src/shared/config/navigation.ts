@@ -20,8 +20,8 @@ import {
 } from "lucide-react";
 
 import { REPAIRDESK_NEW_ORDER_EVENT } from "@/lib/app-events";
-import { buildNewOrderWorkspaceHref } from "@/features/orders/model/order-workspace-intent";
-import { isRepairDeskToolkitEnabled } from "@/features/toolkit/model/toolkit-feature";
+import { buildNewOrderWorkspaceHref } from "@/shared/config/order-workspace-links";
+import { isRepairDeskToolkitEnabled } from "@/shared/config/toolkit-feature";
 
 export type RepairDeskModuleId =
   | "dashboard"

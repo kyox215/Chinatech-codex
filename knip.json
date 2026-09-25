@@ -1,9 +1,8 @@
 {
-  "entry": ["src/app/**/*.{ts,tsx}", "src/features/**/index.ts", "scripts/*.ts"],
+  "entry": ["src/app/**/*.{ts,tsx}", "scripts/*.ts"],
   "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts", ".storybook/**/*.{ts,tsx}", "scripts/*.ts"],
   "ignoreFiles": [
     "src/components/ui/**",
-    "src/routes/**",
     "src/components/app-header.tsx",
     "src/components/bottom-tab-bar.tsx",
     "src/components/top-nav.tsx",
@@ -17,7 +16,6 @@
   ],
   "ignoreDependencies": [
     "@hookform/resolvers",
-    "@radix-ui/react-.*",
     "@testing-library/react",
     "@testing-library/user-event",
     "date-fns",

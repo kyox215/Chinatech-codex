@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Page } from "@playwright/test";
 
 const enabled =
@@ -55,7 +56,9 @@ test.describe("settings order-data responsive workflow", () => {
       if (viewport.width === 390 || viewport.width === 1440) {
         await hideNextDevIndicators(page);
         await page.screenshot({
-          path: `screenshots/responsive-density/settings/wp07-order-data-${viewport.width}x${viewport.height}.png`,
+          path: runEvidencePath(
+            `screenshots/responsive-density/settings/wp07-order-data-${viewport.width}x${viewport.height}.png`,
+          ),
           fullPage: true,
         });
       }
@@ -123,7 +126,9 @@ test.describe("settings order-data responsive workflow", () => {
 
     await hideNextDevIndicators(page);
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp07-order-data-preview-390x844.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp07-order-data-preview-390x844.png",
+      ),
       fullPage: true,
     });
 
@@ -184,7 +189,9 @@ test.describe("settings order-data responsive workflow", () => {
     }
     await hideNextDevIndicators(page);
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp07-order-data-confirm-1280x800.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp07-order-data-confirm-1280x800.png",
+      ),
     });
     await confirm.getByRole("button", { name: "确认并应用" }).click();
 
@@ -198,7 +205,9 @@ test.describe("settings order-data responsive workflow", () => {
     await expectNoPageOverflow(page, "order-data partial 1280px");
     await hideNextDevIndicators(page);
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp07-order-data-partial-1280x800.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp07-order-data-partial-1280x800.png",
+      ),
       fullPage: true,
     });
   });

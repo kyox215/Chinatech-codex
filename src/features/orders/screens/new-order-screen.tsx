@@ -258,10 +258,11 @@ export function NewOrderScreen({
     completionRef.current.generation += 1;
   }
   useEffect(() => {
-    completionRef.current.mounted = true;
+    const completion = completionRef.current;
+    completion.mounted = true;
     return () => {
-      completionRef.current.mounted = false;
-      completionRef.current.generation += 1;
+      completion.mounted = false;
+      completion.generation += 1;
     };
   }, []);
   const isCompletionCurrent = useCallback(
@@ -755,6 +756,7 @@ export function NewOrderScreen({
 
   const offlineStatus = {
     created: Boolean(createdOrderId),
+    createdWithPhotos: Boolean(createdOrderId && photoDraft.photos.length),
     state: offlineDraft.state,
     lastSavedAt: offlineDraft.lastSavedAt,
     errorMessage: offlineDraft.errorMessage,
@@ -1136,7 +1138,17 @@ export function NewOrderScreen({
               </div>
             ) : null}
 
-            {createdOrderId ? (
+            {createdOrderId && photoDraft.photos.length === 0 ? (
+              <section
+                data-new-order-completion="true"
+                role="status"
+                aria-live="polite"
+                className="mb-3 space-y-1 rounded-xl border border-border bg-[var(--surface-panel-muted)] p-3"
+              >
+                <p className="font-semibold">{t("orders2b1.new.toast.created")}</p>
+                <p className="text-sm text-muted-foreground">{t("orders.newFlow.openingOrder")}</p>
+              </section>
+            ) : createdOrderId ? (
               <section
                 data-new-order-photo-result="true"
                 role="status"
@@ -1549,6 +1561,7 @@ function NewOrderCreateRecoveryCard({
 
 type NewOrderOfflineStatusSummary = {
   created?: boolean;
+  createdWithPhotos?: boolean;
   state: NewOrderOfflineAutosaveState;
   lastSavedAt: string | null;
   errorMessage: string | null;
@@ -2001,7 +2014,7 @@ function NewOrderOfflineStatusLine({
 }) {
   const { locale, t } = useLocale();
   const copy = status.created
-    ? t("orders.newFlow.createdPhotos")
+    ? t(status.createdWithPhotos ? "orders.newFlow.createdPhotos" : "orders.newFlow.openingOrder")
     : getNewOrderOfflineStatusCopy(status, locale, t);
   const isError = status.state === "error" || status.state === "unavailable";
   if (!copy && !status.hasSensitiveUnlockDraft && !status.hasSessionOnlyDraft) return null;

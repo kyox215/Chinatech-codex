@@ -15,9 +15,21 @@ jobs:
           node-version: 22.12.0
           cache: npm
       - run: npm ci
+      - run: npm run agents:check
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test
+      - run: npm run test:risk-coverage
+      - name: Report unused-code candidates (existing debt; not an automatic deletion gate)
+        continue-on-error: true
+        run: npx knip --reporter json > knip-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quality-evidence
+          path: |
+            coverage/risk
+            knip-report.json
       - run: npm run build
 
   i18n-browser:
@@ -49,7 +61,7 @@ jobs:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:3131
           PLAYWRIGHT_BROWSER: chromium
           PLAYWRIGHT_REUSE_EXISTING_SERVER: "0"
-          PLAYWRIGHT_WEBSERVER_COMMAND: REPAIRDESK_E2E_BUSINESS_DESKTOP=1 npx next dev -H 127.0.0.1 -p 3131
+          PLAYWRIGHT_WEBSERVER_COMMAND: REPAIRDESK_E2E_BUSINESS_DESKTOP=1 REPAIRDESK_BUYBACK_TRANSPARENT_QUOTE_WRITE_ENABLED=1 npx next dev -H 127.0.0.1 -p 3131
           REPAIRDESK_E2E_BUSINESS_DESKTOP: "1"
           REPAIRDESK_I18N_EVIDENCE_DIR: test-results/i18n-chromium
       - uses: actions/upload-artifact@v4

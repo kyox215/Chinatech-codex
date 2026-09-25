@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test } from "@playwright/test";
 
 import { repairDeskStyleReloadStateKey } from "../../src/shared/lib/app-style-recovery";
@@ -198,7 +199,9 @@ test("recovers the standalone offline shell once and preserves browser state", a
 
     if (process.env.REPAIRDESK_CAPTURE_STYLE_RECOVERY_EVIDENCE === "1") {
       await page.screenshot({
-        path: `screenshots/TASK-20260719-007-fast-app-recovery/sw-recovered-${browserName}.png`,
+        path: runEvidencePath(
+          `screenshots/TASK-20260719-007-fast-app-recovery/sw-recovered-${browserName}.png`,
+        ),
         fullPage: true,
       });
     }
