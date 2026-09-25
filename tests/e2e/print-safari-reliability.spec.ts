@@ -777,7 +777,20 @@ async function expectFreshIntake(page: Page, dialog: Locator) {
 async function gotoReady(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-  await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => undefined);
+  // A cold dev build can finish a network-idle interval before shell recovery completes.
+  // Require actual hydrated content before fixture requests or print actions.
+  await page.waitForFunction(
+    () =>
+      (window as Window & { __repairDeskRuntimeReady?: boolean }).__repairDeskRuntimeReady ===
+        true && !document.documentElement.hasAttribute("data-style-recovery"),
+  );
+  const ready =
+    path === "/orders"
+      ? '[data-order-row="true"]:visible, [data-order-mobile-list="true"] a[href^="/orders/"]:visible'
+      : path === "/"
+        ? '[data-dashboard-quick-start="new-order"]:visible'
+        : '[data-order-task-header="true"]';
+  await expect(page.locator(ready).first()).toBeVisible({ timeout: 30_000 });
 }
 
 async function printCallCount(page: Page) {

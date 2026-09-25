@@ -49,7 +49,9 @@ async function ready(page: Page, locale: (typeof locales)[number], width = 390, 
     ]);
   await page.setViewportSize({ width, height });
   await page.goto("/orders/ord_1");
-  await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible();
+  // Each CI shard owns a cold Next dev server; wait for data-backed detail readiness,
+  // not the default 5s assertion window that can expire while route/API chunks compile.
+  await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible({ timeout: 30_000 });
   await page.waitForLoadState("networkidle");
 }
 async function noOverflow(page: Page) {
