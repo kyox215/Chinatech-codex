@@ -6,6 +6,7 @@
 !public/**
 !scripts
 !scripts/copy-local-ocr-assets.mjs
+!scripts/check-runtime.mjs
 !package.json
 !package-lock.json
 !next.config.ts
