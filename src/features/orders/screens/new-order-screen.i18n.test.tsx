@@ -301,6 +301,43 @@ describe("NewOrderScreen i18n", () => {
     expect(container.querySelector('[data-new-order-submit-spacer="true"]')).toBeNull();
   });
 
+  it.each(locales)(
+    "shows saved-navigation feedback without photo language for a no-photo create in %s",
+    async (locale) => {
+      let finishSync!: () => void;
+      mocks.synchronize.mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          finishSync = resolve;
+        }),
+      );
+      const onCreated = vi.fn();
+      const view = render(
+        <LocaleProvider initialLocale={locale}>
+          <NewOrderScreen onCreated={onCreated} />
+        </LocaleProvider>,
+      );
+      populateValidForm();
+      fireEvent.submit(view.container.querySelector("form")!);
+
+      const completion = await waitFor(() => {
+        const node = view.container.querySelector('[data-new-order-completion="true"]');
+        expect(node).not.toBeNull();
+        return node!;
+      });
+      expect(completion).toHaveTextContent(translateMessage(locale, "orders.newFlow.openingOrder"));
+      expect(completion).not.toHaveTextContent(
+        translateMessage(locale, "orders.newFlow.photoUploading"),
+      );
+      expect(view.container.querySelector('[data-new-order-photo-result="true"]')).toBeNull();
+      expect(mocks.getOrder).not.toHaveBeenCalled();
+      expect(mocks.uploadPhoto).not.toHaveBeenCalled();
+      expect(onCreated).not.toHaveBeenCalled();
+
+      await act(async () => finishSync());
+      await waitFor(() => expect(onCreated).toHaveBeenCalledWith("order-created-1"));
+    },
+  );
+
   it("creates once with the note and retains uncertain photos until explicit leave confirmation", async () => {
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:synthetic-photo");
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});

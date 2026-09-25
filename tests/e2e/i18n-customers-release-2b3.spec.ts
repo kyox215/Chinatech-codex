@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { fillPhoneInput } from "./input-keypad-helpers";
 import {
   expect,
@@ -7,7 +8,6 @@ import {
   type Request,
   type TestInfo,
 } from "@playwright/test";
-import { resolve } from "node:path";
 
 import type {
   CustomerDetail,
@@ -897,7 +897,7 @@ async function saveScreenshot(page: Page, testInfo: TestInfo, name: string) {
   const engine = testInfo.project.name;
   await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
   await page.screenshot({
-    path: resolve(process.cwd(), "screenshots", "release2b3", engine, `${name}.png`),
+    path: runEvidencePath(`release2b3/${engine}/${name}.png`),
     fullPage: true,
     animations: "disabled",
   });

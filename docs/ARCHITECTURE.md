@@ -156,6 +156,11 @@ The historical `AI_ASSISTANT_*` documents below are reference records, not activ
 
 ## Legacy Route Migration Status
 
+2026-09-25 remediation: the Owner requested remediation of all audit findings and subsequent push/deploy. Fresh source/config scans found no live imports of the six legacy routes; all six were unchanged in Git before removal and were backed up with SHA-256 evidence. They have now been removed locally under TASK-20260925-003. The App Router remains the sole route entry. Final release remains subject to the current task gates. See [retirement manifest](../artifacts/audit-remediation-20260925/retired-routes.json).
+
+The following June record is historical; its pending-deletion state is superseded by the local removal above.
+
+
 Current verified state as of 2026-06-20 CEST by `TASK-20260620-002`:
 
 - `src/app/*` is the current route layer.

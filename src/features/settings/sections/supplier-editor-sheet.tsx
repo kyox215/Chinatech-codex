@@ -396,7 +396,7 @@ function SupplierField({
       {children}
       {error ? (
         <p id={`${id}-error`} className="text-xs text-status-danger-foreground">
-          {translateSettingsOperations(locale, "请检查此字段")}
+          {translateSettingsOperations(locale, supplierValidationMessage(error))}
         </p>
       ) : null}
     </div>
@@ -441,4 +441,25 @@ function focusFirstSupplierError(
   const control = field ? document.getElementById(`supplier-${field}`) : null;
   if (control instanceof HTMLElement) control.focus();
   else fallback.current?.focus();
+}
+
+const supplierValidationMessages = [
+  "供应商名称不能为空",
+  "供应商名称不能超过 120 个字符",
+  "供应商简称不能超过 32 个字符",
+  "供应商颜色格式不正确",
+  "联系人不能超过 120 个字符",
+  "供应商电话不能超过 40 个字符",
+  "供应商邮箱格式不正确",
+  "供应商邮箱不能超过 254 个字符",
+  "供应商网站必须是完整的 http 或 https 地址",
+  "供应商网站不能超过 500 个字符",
+  "供应商网站只允许 http 或 https",
+  "供应商备注不能超过 2000 个字符",
+] as const satisfies readonly Parameters<typeof translateSettingsOperations>[1][];
+
+function supplierValidationMessage(
+  error: string,
+): Parameters<typeof translateSettingsOperations>[1] {
+  return supplierValidationMessages.find((message) => message === error) ?? "请检查此字段";
 }

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   assertSupabaseAdminMutationTarget,
   parseCliArgs,
@@ -134,7 +134,7 @@ function paymentStatusFromMoney(input: { balance: number; deposit: number }) {
 }
 
 async function deleteStoreRows(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   table: string,
   storeId: string,
   opts: { optional?: boolean } = {},
@@ -155,7 +155,7 @@ async function deleteStoreRows(
 }
 
 async function upsertRows(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   table: string,
   rows: unknown[],
   opts: { optional?: boolean } = {},
@@ -174,7 +174,7 @@ async function upsertRows(
 }
 
 async function insertRows(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   table: string,
   rows: unknown[],
   opts: { optional?: boolean } = {},
@@ -231,11 +231,7 @@ function filterRowsForTable(
   );
 }
 
-async function backupStoreRows(
-  supabase: ReturnType<typeof createClient>,
-  storeId: string,
-  backupDir: string,
-) {
+async function backupStoreRows(supabase: SupabaseClient, storeId: string, backupDir: string) {
   mkdirSync(backupDir, { recursive: true, mode: 0o700 });
   const backup: Record<string, unknown[]> = {};
   for (const table of [...RESET_TABLES, "customer_tags"]) {

@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const enabled =
@@ -102,7 +103,9 @@ test.describe("settings overview responsive shell", () => {
       if (viewport.width === 390 || viewport.width === 1440) {
         await hideNextDevIndicators(page);
         await page.screenshot({
-          path: `screenshots/responsive-density/settings/wp08-overview-${viewport.width}x${viewport.height}.png`,
+          path: runEvidencePath(
+            `screenshots/responsive-density/settings/wp08-overview-${viewport.width}x${viewport.height}.png`,
+          ),
           fullPage: true,
         });
       }
@@ -295,7 +298,9 @@ test.describe("settings account and store workspace details", () => {
     expect((await sectionRetry.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
     await hideNextDevIndicators(page);
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp08-store-recovery-390x844.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp08-store-recovery-390x844.png",
+      ),
       fullPage: true,
     });
   });
@@ -314,7 +319,7 @@ test.describe("settings account and store workspace details", () => {
     );
     await expectNoPageOverflow(page, "account settings 390px");
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp03b-account-390x844.png",
+      path: runEvidencePath("screenshots/responsive-density/settings/wp03b-account-390x844.png"),
       fullPage: true,
     });
   });
@@ -335,7 +340,7 @@ test.describe("settings account and store workspace details", () => {
     await expect(page.getByRole("heading", { name: "创建独立店铺" })).toBeVisible();
     await expectNoPageOverflow(page, "store settings 1280px");
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp03b-store-1280x800.png",
+      path: runEvidencePath("screenshots/responsive-density/settings/wp03b-store-1280x800.png"),
       fullPage: true,
     });
     await page.getByLabel("新店铺名称").fill("Second Repair Lab");
@@ -344,7 +349,9 @@ test.describe("settings account and store workspace details", () => {
     await expect(confirm).toContainText("Second Repair Lab");
     await expect(confirm).toContainText("当前店铺的数据与权限不会复制");
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp03b-store-create-confirm-1280x800.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp03b-store-create-confirm-1280x800.png",
+      ),
     });
     await confirm.getByRole("button", { name: "取消" }).click();
     await expect
@@ -402,7 +409,9 @@ test.describe("settings account and store workspace details", () => {
     await page.evaluate(() => window.scrollTo(0, 0));
     await expectNoPageOverflow(page, "readonly store settings 390px");
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp03b-store-readonly-390x844.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp03b-store-readonly-390x844.png",
+      ),
       fullPage: true,
     });
   });
@@ -436,7 +445,9 @@ test.describe("settings account and store workspace details", () => {
     await expect(page.getByText("客户输出当前保持关闭")).toBeVisible();
     await expectNoPageOverflow(page, "store draft projection 390px");
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp03b-store-draft-390x844.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp03b-store-draft-390x844.png",
+      ),
       fullPage: true,
     });
   });
@@ -478,7 +489,9 @@ test.describe("settings notifications and default rules", () => {
     }
     await expectNoPageOverflow(page, "notification settings dirty 390px");
     await page.screenshot({
-      path: "artifacts/TASK-20260912-002-ui-consistency-framework/fullscreen-run3/final-previews/390-notifications-saved-vs-draft.png",
+      path: runEvidencePath(
+        "artifacts/TASK-20260912-002-ui-consistency-framework/fullscreen-run3/final-previews/390-notifications-saved-vs-draft.png",
+      ),
       fullPage: false,
     });
   });
@@ -500,7 +513,9 @@ test.describe("settings notifications and default rules", () => {
     );
     await expectNoPageOverflow(page, "notification settings 1280px");
     await page.screenshot({
-      path: "artifacts/TASK-20260912-002-ui-consistency-framework/fullscreen-run3/final-previews/1280-notifications-saved-output.png",
+      path: runEvidencePath(
+        "artifacts/TASK-20260912-002-ui-consistency-framework/fullscreen-run3/final-previews/1280-notifications-saved-output.png",
+      ),
       fullPage: false,
     });
   });
@@ -520,7 +535,9 @@ test.describe("settings notifications and default rules", () => {
     await expect(section.getByText("当前账号无模板读取权限")).toBeVisible();
     await expectNoPageOverflow(page, "readonly notification settings 430px");
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp03c-notifications-readonly-430x932.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp03c-notifications-readonly-430x932.png",
+      ),
       fullPage: true,
     });
   });
@@ -543,7 +560,9 @@ test.describe("settings notifications and default rules", () => {
     expect((await inventoryWarranty.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
     await expectNoPageOverflow(page, "rules settings dirty 390px");
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp03c-rules-dirty-390x844.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp03c-rules-dirty-390x844.png",
+      ),
       fullPage: true,
     });
   });
@@ -580,7 +599,9 @@ test.describe("settings notifications and default rules", () => {
       .toBeGreaterThanOrEqual(36);
     expect(updates).toEqual([]);
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp03c-rules-restore-1280x800.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp03c-rules-restore-1280x800.png",
+      ),
     });
     await dialog.getByRole("button", { name: "应用默认值到草稿" }).click();
     await expect(restoreButton).toBeFocused();
@@ -644,7 +665,9 @@ test.describe("settings notifications and default rules", () => {
     await expect(section.getByRole("button", { name: "恢复系统默认" })).toHaveCount(0);
     await expectNoPageOverflow(page, "readonly rules settings 1440px");
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp03c-rules-readonly-1440x900.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp03c-rules-readonly-1440x900.png",
+      ),
       fullPage: true,
     });
   });
@@ -747,7 +770,9 @@ test.describe("settings customer iPad workspace", () => {
     }
     await hideNextDevIndicators(page);
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp05-kiosk-review-return-390x844.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp05-kiosk-review-return-390x844.png",
+      ),
       fullPage: true,
     });
     await returnConfirm.getByRole("button", { name: "确认提交" }).click();
@@ -762,7 +787,9 @@ test.describe("settings customer iPad workspace", () => {
     await expect(page.getByLabel("Nome")).toHaveValue("Cliente Test Kiosk");
     await hideNextDevIndicators(page);
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp05-kiosk-public-returned-390x844.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp05-kiosk-public-returned-390x844.png",
+      ),
       fullPage: true,
     });
 
@@ -774,7 +801,9 @@ test.describe("settings customer iPad workspace", () => {
     await expect(revokeConfirm).toContainText("设备 token 会立即失效");
     await hideNextDevIndicators(page);
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp05-kiosk-device-revoke-1280x800.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp05-kiosk-device-revoke-1280x800.png",
+      ),
     });
     await revokeConfirm.getByRole("button", { name: "确认撤销" }).click();
     await expect(revokeConfirm).toBeHidden();
@@ -825,7 +854,8 @@ test.describe("settings members and suppliers workspace", () => {
     await technicianCard.getByRole("button", { name: "管理" }).click();
     const sheet = page.getByRole("dialog", { name: "演示技术员" });
     await expect(sheet).toBeVisible();
-    expect((await sheet.getByRole("button", { name: "关闭" }).boundingBox())?.height ?? 0).toBe(36);
+    // Read the CSS hit-target size; an in-flight overlay transform can report 43.99994px.
+    await expect(sheet.getByRole("button", { name: "关闭" })).toHaveCSS("height", "44px");
     expect(
       (await sheet.locator('label[for="member-permission-supplier:manage"]').boundingBox())
         ?.height ?? 0,
@@ -844,7 +874,9 @@ test.describe("settings members and suppliers workspace", () => {
     await expect(confirm).toBeVisible();
     await hideNextDevIndicators(page);
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp04-member-grant-confirm-390x844.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp04-member-grant-confirm-390x844.png",
+      ),
       fullPage: true,
     });
     await confirm.getByRole("button", { name: "确认并保存" }).click();
@@ -886,7 +918,9 @@ test.describe("settings members and suppliers workspace", () => {
     await expect(sheet).toBeVisible();
     await hideNextDevIndicators(page);
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp08-member-drawer-1280x800.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp08-member-drawer-1280x800.png",
+      ),
     });
     await sheet.getByRole("combobox").click();
     await page.getByRole("option", { name: "前台" }).click();
@@ -955,7 +989,9 @@ test.describe("settings members and suppliers workspace", () => {
     await expectNoPageOverflow(page, "supplier settings 1280px");
     await hideNextDevIndicators(page);
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp04-supplier-created-1280x800.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp04-supplier-created-1280x800.png",
+      ),
       fullPage: true,
     });
 
@@ -963,7 +999,9 @@ test.describe("settings members and suppliers workspace", () => {
     await expectNoPageOverflow(page, "supplier card 390px");
     await hideNextDevIndicators(page);
     await page.screenshot({
-      path: "screenshots/responsive-density/settings/wp04-supplier-card-390x844.png",
+      path: runEvidencePath(
+        "screenshots/responsive-density/settings/wp04-supplier-card-390x844.png",
+      ),
       fullPage: true,
     });
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -1312,7 +1350,9 @@ test.describe("WP06 settings workflow draft contract", () => {
         await page.waitForTimeout(250);
         await hideNextDevIndicators(page);
         await page.screenshot({
-          path: "screenshots/responsive-density/settings/wp06-workflow-editor-390x844.png",
+          path: runEvidencePath(
+            "screenshots/responsive-density/settings/wp06-workflow-editor-390x844.png",
+          ),
         });
         await editor.getByRole("button", { name: "完成编辑" }).click();
         await expect(section.getByText("WP06 本地状态").first()).toBeVisible();
@@ -1328,7 +1368,9 @@ test.describe("WP06 settings workflow draft contract", () => {
         await page.waitForTimeout(200);
         await hideNextDevIndicators(page);
         await page.screenshot({
-          path: "screenshots/responsive-density/settings/wp06-workflow-review-390x844.png",
+          path: runEvidencePath(
+            "screenshots/responsive-density/settings/wp06-workflow-review-390x844.png",
+          ),
         });
         await review.getByRole("button", { name: "返回继续编辑" }).click();
         await expect(review).toBeHidden();
@@ -1337,7 +1379,9 @@ test.describe("WP06 settings workflow draft contract", () => {
         await expectNoPageOverflow(page, "dirty workflow settings 390px");
         await page.evaluate(() => window.scrollTo(0, 0));
         await page.screenshot({
-          path: "screenshots/responsive-density/settings/wp06-workflow-390x844.png",
+          path: runEvidencePath(
+            "screenshots/responsive-density/settings/wp06-workflow-390x844.png",
+          ),
         });
 
         await page.getByRole("link", { name: "返回设置总览" }).first().click();
@@ -1361,7 +1405,9 @@ test.describe("WP06 settings workflow draft contract", () => {
       if (viewport.width === 1440) {
         await hideNextDevIndicators(page);
         await page.screenshot({
-          path: "screenshots/responsive-density/settings/wp06-workflow-1440x900.png",
+          path: runEvidencePath(
+            "screenshots/responsive-density/settings/wp06-workflow-1440x900.png",
+          ),
         });
       }
 
@@ -1496,22 +1542,20 @@ async function routeCompleteStoreSettings(page: Page, overrides: Record<string, 
 }
 
 async function routeReadonlySettingsContext(page: Page) {
-  await page.route("**/api/repairdesk/stores/context", async (route) => {
-    const response = await route.fetch();
-    const payload = (await response.json()) as {
-      data: {
-        activeStore?: { role?: string };
-        permissions?: Record<string, boolean>;
-      };
-    };
-    if (payload.data.activeStore) payload.data.activeStore.role = "viewer";
-    payload.data.permissions = {
-      ...(payload.data.permissions ?? {}),
-      canReadStoreSettings: true,
-      canUpdateStoreSettings: false,
-      canReadMessageTemplates: false,
-      canUpdateMessageTemplates: false,
-    };
-    await route.fulfill({ response, json: payload });
-  });
+  for (const endpoint of ["shell/bootstrap", "stores/context"]) {
+    await page.route(`**/api/repairdesk/${endpoint}`, async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      const context = endpoint === "shell/bootstrap" ? payload.data.storeContext : payload.data;
+      expect(context.permissions).toBeDefined();
+      if (context.activeStore) context.activeStore.role = "viewer";
+      Object.assign(context.permissions, {
+        canReadStoreSettings: true,
+        canUpdateStoreSettings: false,
+        canReadMessageTemplates: false,
+        canUpdateMessageTemplates: false,
+      });
+      await route.fulfill({ response, json: payload });
+    });
+  }
 }

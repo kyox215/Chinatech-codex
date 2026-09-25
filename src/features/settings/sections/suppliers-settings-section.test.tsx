@@ -35,8 +35,7 @@ describe("SuppliersSettingsSection", () => {
     fireEvent.change(screen.getByLabelText("名称"), { target: { value: "New Supplier" } });
     fireEvent.change(screen.getByLabelText("邮箱"), { target: { value: "not-an-email" } });
     fireEvent.click(screen.getByRole("button", { name: "保存供应商" }));
-    expect(await screen.findByText("请检查此字段")).toBeVisible();
-    expect(screen.queryByText("供应商邮箱格式不正确")).not.toBeInTheDocument();
+    expect(await screen.findByText("供应商邮箱格式不正确")).toBeVisible();
     expect(onSave).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByLabelText("邮箱"), { target: { value: "sales@example.com" } });
@@ -49,6 +48,37 @@ describe("SuppliersSettingsSection", () => {
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
+
+  it.each([
+    ["zh-CN" as const, "编辑", "网站", "保存供应商", "供应商网站只允许 http 或 https"],
+    [
+      "it-IT" as const,
+      "Modifica",
+      "Sito web",
+      "Salva fornitore",
+      "Il sito consente solo http o https",
+    ],
+    [
+      "en" as const,
+      "Edit",
+      "Website",
+      "Save supplier",
+      "Supplier website allows only http or https",
+    ],
+  ])(
+    "explains invalid website protocols in %s without saving",
+    async (locale, edit, website, save, error) => {
+      const onSave = vi.fn();
+      renderSuppliers({ onSave }, locale);
+      fireEvent.click(screen.getByRole("button", { name: edit }));
+      fireEvent.change(screen.getByLabelText(website), {
+        target: { value: "javascript:alert(1)" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: save }));
+      expect(await screen.findByText(error)).toBeVisible();
+      expect(onSave).not.toHaveBeenCalled();
+    },
+  );
 
   it("keeps quick contact actions in read-only mode without edit controls", () => {
     renderSuppliers({ canManage: false });

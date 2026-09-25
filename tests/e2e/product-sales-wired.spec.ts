@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -18,7 +19,7 @@ import type { AppLocale } from "../../src/shared/i18n/locales";
 if (process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP !== "1")
   throw new Error("Synthetic fixture server required; never run against production");
 const evidence = resolve(
-  "artifacts/TASK-20260912-002-ui-consistency-framework/fullscreen-run3/sales",
+  runEvidencePath("artifacts/TASK-20260912-002-ui-consistency-framework/fullscreen-run3/sales"),
 );
 test.describe.configure({ retries: 0 });
 

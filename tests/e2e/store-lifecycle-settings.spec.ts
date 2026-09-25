@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
@@ -30,7 +31,7 @@ test("renders the beginner-safe store close entry on mobile", async ({ page }) =
   expect(horizontalOverflow).toBeLessThanOrEqual(1);
 
   await page.screenshot({
-    path: "screenshots/store-lifecycle-beginner-entry-mobile.png",
+    path: runEvidencePath("screenshots/store-lifecycle-beginner-entry-mobile.png"),
     fullPage: true,
   });
 });
@@ -64,7 +65,7 @@ test("requires the displayed request phrase in the archived-store mobile sheet",
   );
   expect(horizontalOverflow).toBeLessThanOrEqual(1);
   await page.screenshot({
-    path: "screenshots/TASK-20260827-005-store-purge-mobile.png",
+    path: runEvidencePath("screenshots/TASK-20260827-005-store-purge-mobile.png"),
     fullPage: true,
   });
 });
@@ -85,7 +86,7 @@ test("uses the desktop dialog for the archived-store confirmation", async ({ pag
     }),
   ).toBeDisabled();
   await page.screenshot({
-    path: "screenshots/TASK-20260827-005-store-purge-desktop.png",
+    path: runEvidencePath("screenshots/TASK-20260827-005-store-purge-desktop.png"),
     fullPage: true,
   });
 });

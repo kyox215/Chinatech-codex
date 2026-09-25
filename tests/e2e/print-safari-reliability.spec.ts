@@ -1,16 +1,19 @@
+import { waitForApplicationReady } from "./helpers/app-ready";
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { PDFDocument } from "pdf-lib";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const evidenceDir =
-  process.env.REPAIRDESK_PRINT_EVIDENCE_DIR ?? "screenshots/TASK-20260724-005-a5-order-print";
+  process.env.REPAIRDESK_PRINT_EVIDENCE_DIR ??
+  runEvidencePath("screenshots/TASK-20260724-005-a5-order-print");
 const optimizedEvidenceDir = process.env.REPAIRDESK_PRINT_EVIDENCE_DIR
   ? `${evidenceDir}/fixed-pdf`
-  : "screenshots/TASK-20260724-007-in-page-pdf-print";
+  : runEvidencePath("screenshots/TASK-20260724-007-in-page-pdf-print");
 const mobilePerformanceEvidenceDir = process.env.REPAIRDESK_PRINT_EVIDENCE_DIR
   ? `${evidenceDir}/mobile-performance`
-  : "screenshots/TASK-20260724-008-mobile-print-performance";
+  : runEvidencePath("screenshots/TASK-20260724-008-mobile-print-performance");
 const mobilePrintButtonName = /^(?:打印|Stampa|Print)$/;
 
 // This suite uses Chinese semantic assertions; first-visit language detection is covered
@@ -226,8 +229,12 @@ test("fixed PDF prints all four modes from the current page without a visible po
     };
   });
   await page.setViewportSize({ width: 1440, height: 900 });
+  let releaseQr!: () => void;
+  const qrRelease = new Promise<void>((resolve) => {
+    releaseQr = resolve;
+  });
   await page.route("**/api/repairdesk/customer-status-links/issue", async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await qrRelease;
     const body = route.request().postDataJSON() as { order_ids?: string[] };
     const orderIds = Array.isArray(body.order_ids) ? body.order_ids : [];
     await route.fulfill({
@@ -271,11 +278,17 @@ test("fixed PDF prints all four modes from the current page without a visible po
     }
     await page.getByRole("button", { name: mode.button }).click();
     if (index === 0) {
-      await expect(page.getByText("正在准备订单二维码…")).toBeVisible();
-      await page.screenshot({
-        path: `${optimizedEvidenceDir}/current-page-progress.png`,
-        fullPage: true,
-      });
+      try {
+        await expect(page.getByText("正在准备订单二维码…")).toBeVisible();
+        await page.screenshot({
+          path: `${optimizedEvidenceDir}/current-page-progress.png`,
+          fullPage: true,
+        });
+      } finally {
+        // CI screenshots can exceed the 2s success-toast lifetime. Release the mocked
+        // QR response only after the progress evidence is captured, without changing app timing.
+        releaseQr();
+      }
     }
     await expect(page.getByText("打印预览已打开")).toBeVisible({ timeout: 30_000 });
     expect(popupCount).toBe(0);
@@ -775,7 +788,16 @@ async function expectFreshIntake(page: Page, dialog: Locator) {
 async function gotoReady(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-  await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => undefined);
+  // A cold dev build can finish a network-idle interval before shell recovery completes.
+  // Require actual hydrated content before fixture requests or print actions.
+  await waitForApplicationReady(page);
+  const ready =
+    path === "/orders"
+      ? '[data-order-row="true"]:visible, [data-order-mobile-list="true"] a[href^="/orders/"]:visible'
+      : path === "/"
+        ? '[data-dashboard-quick-start="new-order"]:visible'
+        : '[data-order-task-header="true"]';
+  await expect(page.locator(ready).first()).toBeVisible({ timeout: 30_000 });
 }
 
 async function printCallCount(page: Page) {

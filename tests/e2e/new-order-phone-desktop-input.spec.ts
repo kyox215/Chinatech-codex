@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { mkdirSync } from "node:fs";
 
 import { expect, test } from "@playwright/test";
@@ -5,7 +6,7 @@ import { expect, test } from "@playwright/test";
 const enabled =
   process.env.REPAIRDESK_E2E_ORDER_AUDIT === "1" ||
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
-const screenshotDir = "screenshots/TASK-20260908-003-responsive-virtual-keypad";
+const screenshotDir = runEvidencePath("screenshots/TASK-20260908-003-responsive-virtual-keypad");
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_ORDER_AUDIT=1 for desktop phone input checks.");
 

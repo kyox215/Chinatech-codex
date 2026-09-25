@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { isBuybackTransparentQuoteWriteEnabled } from "@/features/buyback/server/transparent-quote-policy";
 import { BuybackScreen } from "@/features/buyback";
 import { createLocalizedMetadata } from "@/shared/i18n/metadata";
 import { translateMessage } from "@/shared/i18n/messages";
@@ -18,7 +19,7 @@ export default async function Page() {
         </div>
       }
     >
-      <BuybackScreen />
+      <BuybackScreen quoteWriteEnabled={isBuybackTransparentQuoteWriteEnabled()} />
     </Suspense>
   );
 }

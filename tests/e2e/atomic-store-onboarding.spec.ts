@@ -1,7 +1,8 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_ATOMIC_ONBOARDING === "1";
-const evidenceDir = "screenshots/TASK-20260724-005-atomic-store-onboarding";
+const evidenceDir = runEvidencePath("screenshots/TASK-20260724-005-atomic-store-onboarding");
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_ATOMIC_ONBOARDING=1 for onboarding checks.");
 

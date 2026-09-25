@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
@@ -105,7 +106,9 @@ test.describe("customer-output identity recovery", () => {
       }
 
       await page.screenshot({
-        path: `screenshots/responsive-density/settings/output-recovery-${viewport.width}x${viewport.height}.png`,
+        path: runEvidencePath(
+          `screenshots/responsive-density/settings/output-recovery-${viewport.width}x${viewport.height}.png`,
+        ),
         fullPage: false,
         mask: [messageBody, ...visibleLocators(dialog.getByRole("combobox"))],
       });

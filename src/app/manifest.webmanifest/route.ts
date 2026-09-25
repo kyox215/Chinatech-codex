@@ -1,10 +1,15 @@
 import type { MetadataRoute } from "next";
-import { getServerLocale } from "@/shared/i18n/server";
+import type { NextRequest } from "next/server";
+import { readLocaleCookie, resolvePreferredLocale } from "@/shared/i18n/locales";
 import { translateMessage } from "@/shared/i18n/messages";
 
-export default async function manifest(): Promise<MetadataRoute.Manifest> {
-  const locale = await getServerLocale();
-  return {
+export function GET(request: NextRequest) {
+  // Read the explicit request: metadata discovery can run outside request scope in dev.
+  const locale =
+    readLocaleCookie(request.headers.get("cookie") ?? "") ??
+    resolvePreferredLocale(request.headers.get("accept-language"));
+  const manifest: MetadataRoute.Manifest = {
+    lang: locale,
     name: "RepairDesk",
     short_name: "RepairDesk",
     description: translateMessage(locale, "manifest.description"),
@@ -30,4 +35,11 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     ],
     categories: ["business", "productivity"],
   };
+  return Response.json(manifest, {
+    headers: {
+      "Content-Type": "application/manifest+json",
+      "Cache-Control": "private, no-store",
+      Vary: "Cookie, Accept-Language",
+    },
+  });
 }

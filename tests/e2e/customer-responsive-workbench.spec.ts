@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
@@ -43,7 +44,9 @@ test.describe("customer responsive workbench", () => {
         await expect(page.locator("table")).not.toBeVisible();
         if (viewport.width === 390) {
           await page.screenshot({
-            path: "screenshots/TASK-20260802-001-customer-group-navigation-previews/customer-group-underline-mobile.png",
+            path: runEvidencePath(
+              "screenshots/TASK-20260802-001-customer-group-navigation-previews/customer-group-underline-mobile.png",
+            ),
             fullPage: true,
           });
         }
@@ -53,13 +56,17 @@ test.describe("customer responsive workbench", () => {
       await expect(page.locator('[data-ui="customer-current-items"]:visible')).toBeVisible();
       if (viewport.width === 390) {
         await page.screenshot({
-          path: "screenshots/TASK-20260801-004-customer360-style-previews/customer-360-command-center-mobile.png",
+          path: runEvidencePath(
+            "screenshots/TASK-20260801-004-customer360-style-previews/customer-360-command-center-mobile.png",
+          ),
           fullPage: true,
         });
       }
       if (viewport.width === 1440) {
         await page.screenshot({
-          path: "screenshots/TASK-20260801-004-customer360-style-previews/customer-360-command-center-desktop.png",
+          path: runEvidencePath(
+            "screenshots/TASK-20260801-004-customer360-style-previews/customer-360-command-center-desktop.png",
+          ),
           fullPage: true,
         });
       }
@@ -142,7 +149,9 @@ test.describe("customer responsive workbench", () => {
     await expectMinTouchHeight(dialog.getByRole("button", { name: "保存并新建工单" }));
     await expectMinTouchHeight(dialog.getByRole("button", { name: "仅保存并查看客户" }));
     await page.screenshot({
-      path: "screenshots/TASK-20260801-004-customer360-style-previews/customer-create-identity-mobile.png",
+      path: runEvidencePath(
+        "screenshots/TASK-20260801-004-customer360-style-previews/customer-create-identity-mobile.png",
+      ),
       fullPage: true,
     });
 

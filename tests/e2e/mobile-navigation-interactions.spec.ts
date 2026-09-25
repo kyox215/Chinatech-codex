@@ -1,4 +1,9 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+
+test.beforeEach(async ({ context, baseURL }) => {
+  await context.addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL! }]);
+});
 
 const enabled =
   process.env.REPAIRDESK_E2E_ORDER_AUDIT === "1" ||
@@ -69,7 +74,9 @@ test.describe("mobile navigation interaction reliability", () => {
         await page.waitForTimeout(250);
         await hideNextDevIndicator(page);
         await page.screenshot({
-          path: `screenshots/TASK-20260712-002-mobile-interaction-click-reliability/account-menu-open-${testInfo.project.name}-390.png`,
+          path: runEvidencePath(
+            `screenshots/TASK-20260712-002-mobile-interaction-click-reliability/account-menu-open-${testInfo.project.name}-390.png`,
+          ),
         });
       }
 
@@ -78,7 +85,9 @@ test.describe("mobile navigation interaction reliability", () => {
 
       if (captureEvidence) {
         await page.screenshot({
-          path: `screenshots/TASK-20260712-002-mobile-interaction-click-reliability/account-page-${testInfo.project.name}-390.png`,
+          path: runEvidencePath(
+            `screenshots/TASK-20260712-002-mobile-interaction-click-reliability/account-page-${testInfo.project.name}-390.png`,
+          ),
           fullPage: true,
         });
       }

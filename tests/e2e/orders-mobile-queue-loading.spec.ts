@@ -187,7 +187,7 @@ test("keeps the last successful queue visible and stops transitions while offlin
   await expect(page.getByRole("button", { name: "扫描订单二维码" })).toBeDisabled();
   await expect(page.locator('[data-order-queue-trigger="true"]')).toHaveAttribute(
     "aria-label",
-    /全部状态/,
+    /当前队列/,
   );
   await expect(page.locator('[data-order-list-blocked="true"]')).toBeHidden();
   expect(listPageRequests).toBe(0);

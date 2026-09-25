@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -6,7 +7,7 @@ import { expect, test, type Page } from "@playwright/test";
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 const screenshotDir = resolve(
   process.cwd(),
-  "artifacts/screenshots/TASK-20260803-001-sitewide-memo-spacing",
+  runEvidencePath("artifacts/screenshots/TASK-20260803-001-sitewide-memo-spacing"),
 );
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for sitewide spacing checks.");

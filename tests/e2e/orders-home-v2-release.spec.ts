@@ -1,8 +1,9 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
-const evidence = "artifacts/orders-home-v2-release";
+const evidence = runEvidencePath("artifacts/orders-home-v2-release");
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const captureLocalReads = process.env.REPAIRDESK_LOCAL_HAR_CAPTURE === "1";
 test.use({

@@ -2,7 +2,7 @@ import {
   extractImeiCandidates,
   isValidImei,
   normalizeCaptureIdentifier,
-} from "@/features/capture/model/barcode-parser";
+} from "@/shared/lib/imei-candidates";
 import {
   INVENTORY_RECOGNITION_CONTRACT_VERSION,
   inventoryRecognitionSchema,

@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
@@ -5,7 +6,9 @@ import { translateMessage } from "@/shared/i18n/messages";
 
 test.skip(process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP !== "1", "Isolated synthetic preview only.");
 const evidence = resolve(
-  "artifacts/TASK-20260912-002-ui-consistency-framework/fullscreen-run3/final-previews",
+  runEvidencePath(
+    "artifacts/TASK-20260912-002-ui-consistency-framework/fullscreen-run3/final-previews",
+  ),
 );
 for (const viewport of [
   { width: 390, height: 844, locale: "zh-CN" },

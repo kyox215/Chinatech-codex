@@ -22,7 +22,7 @@ describe("order scanner component boundary", () => {
   });
 
   it("keeps successful order-detail IMEI OCR feedback inline", () => {
-    const orderDetail = source("src/features/orders/screens/order-detail-screen.tsx");
+    const orderDetail = source("src/features/orders/components/order-imei-capture-sheet.tsx");
     expect(orderDetail).toContain("onChange(candidate.value)");
     expect(orderDetail).not.toContain('toast.success("已识别并填入 IMEI")');
   });

@@ -1,8 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test.beforeEach(async ({ context, baseURL }) => {
+  await context.addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL! }]);
+});
+
 async function gotoWithStableStoreShell(page: Page, path: string) {
   const storeContext = page.waitForResponse(
-    (response) => response.url().includes("/api/repairdesk/stores/context") && response.ok(),
+    (response) => response.url().includes("/api/repairdesk/shell/bootstrap") && response.ok(),
   );
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await storeContext;

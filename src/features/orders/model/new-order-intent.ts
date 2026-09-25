@@ -5,7 +5,8 @@ export interface NewOrderPrefill {
   identifier?: string;
 }
 
-export type NewOrderIntentSource = "dashboard" | "command" | "mobile" | "customer" | "unknown";
+import type { NewOrderIntentSource } from "@/shared/config/order-workspace-links";
+export type { NewOrderIntentSource } from "@/shared/config/order-workspace-links";
 
 type SearchParamValue = string | string[] | undefined;
 

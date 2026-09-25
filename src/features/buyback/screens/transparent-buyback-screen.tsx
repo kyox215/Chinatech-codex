@@ -190,7 +190,7 @@ function isUnknownWriteResult(error: unknown) {
   );
 }
 
-export function BuybackScreen() {
+export function BuybackScreen({ quoteWriteEnabled = false }: { quoteWriteEnabled?: boolean }) {
   const { t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -201,9 +201,11 @@ export function BuybackScreen() {
   const authorityKey = shell.authorityFingerprint;
   const [isHydrated, setIsHydrated] = useState(false);
   useEffect(() => setIsHydrated(true), []);
-  const canCreate = isHydrated && (role === "owner" || role === "manager" || role === "sales");
-  const canRevise = isHydrated && (role === "owner" || role === "manager");
-  const canRespond = isHydrated && (role === "owner" || role === "manager" || role === "sales");
+  const canCreate =
+    quoteWriteEnabled && isHydrated && (role === "owner" || role === "manager" || role === "sales");
+  const canRevise = quoteWriteEnabled && isHydrated && (role === "owner" || role === "manager");
+  const canRespond =
+    quoteWriteEnabled && isHydrated && (role === "owner" || role === "manager" || role === "sales");
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [filter, setFilter] = useState<ListFilter>("all");
   const [workspaceState, setWorkspaceState] = useState<AuthorityBound<WorkspaceState> | null>(null);
@@ -447,7 +449,7 @@ export function BuybackScreen() {
           role="note"
           className="mb-2 rounded-xl border border-[var(--border-panel)] bg-[var(--surface-panel-muted)] px-2.5 py-1.5 text-[10px] leading-4 text-muted-foreground sm:text-xs lg:text-xs lg:leading-[18px]"
         >
-          {t("buyback2b5.readOnly")}
+          {t(quoteWriteEnabled ? "buyback2b5.readOnly" : "buyback2b5.writePaused")}
         </div>
       ) : null}
 
@@ -524,7 +526,7 @@ export function BuybackScreen() {
         </section>
       )}
 
-      {workspace !== null ? (
+      {workspace !== null && quoteWriteEnabled ? (
         <TransparentQuoteWorkspace
           state={workspace}
           isOnline={isOnline}

@@ -1,3 +1,4 @@
+import { installInventoryLayoutFixture } from "./helpers/inventory-layout-fixture";
 import { expect, test, type Page } from "@playwright/test";
 
 const enabled =
@@ -60,6 +61,16 @@ async function expectNoPageOverflow(page: Page) {
 
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.innerWidth);
 }
+
+test.beforeEach(async ({ page, context }, info) => {
+  await context.addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL }]);
+  if (/mobile editable controls|representative mobile actions/.test(info.title)) {
+    await installInventoryLayoutFixture(page, baseURL);
+  }
+});
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "wait" });
+});
 
 test.describe("responsive overflow guard", () => {
   for (const locale of ["it-IT", "en"] as const) {

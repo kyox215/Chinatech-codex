@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import { Providers } from "@/app/providers";
 import { AppStyleRecovery } from "@/components/app-style-recovery";
 import {
@@ -10,21 +10,24 @@ import { translateMessage } from "@/shared/i18n/messages";
 import { getServerLocale } from "@/shared/i18n/server";
 import "@/styles.css";
 
-const repairDeskSans = Inter({
-  subsets: ["latin"],
+const repairDeskSans = localFont({
+  src: "./fonts/inter-latin.woff2",
+  weight: "100 900",
   display: "swap",
   variable: "--repairdesk-font-sans",
 });
 
-const repairDeskDisplay = Space_Grotesk({
-  subsets: ["latin"],
+const repairDeskDisplay = localFont({
+  src: "./fonts/space-grotesk-latin.woff2",
+  weight: "300 700",
   display: "swap",
   variable: "--repairdesk-font-display",
   preload: false,
 });
 
-const repairDeskMono = JetBrains_Mono({
-  subsets: ["latin"],
+const repairDeskMono = localFont({
+  src: "./fonts/jetbrains-mono-latin.woff2",
+  weight: "100 800",
   display: "swap",
   variable: "--repairdesk-font-mono",
   preload: false,

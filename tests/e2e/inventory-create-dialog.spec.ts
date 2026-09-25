@@ -1,12 +1,10 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { expect, test, type Page, type Locator } from "@playwright/test";
 
 test.skip(process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP !== "1", "Isolated synthetic fixture only.");
-const screenshotDir = resolve(
-  process.cwd(),
-  "artifacts/TASK-20260912-002-ui-consistency-framework/fullscreen-run3/entry",
-);
+const screenshotDir = resolve(process.cwd(), runEvidencePath("inventory-create"));
 test.beforeAll(async () => {
   await mkdir(screenshotDir, { recursive: true });
 });
@@ -18,6 +16,21 @@ test.beforeEach(async ({ context, baseURL }) => {
       ? route.continue()
       : route.abort(),
   );
+  // This story explicitly exercises the product-entry capability. Production flags
+  // remain off; the browser fixture declares its own enabled contract.
+  await context.route("**/api/repairdesk/shell/bootstrap", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    expect(body.data?.storeContext?.permissions).toBeDefined();
+    Object.assign(body.data.storeContext.permissions, {
+      inventoryProductsUiEnabled: true,
+      inventoryProductQuickCreateEnabled: true,
+      canReadInventory: true,
+      canCreateInventory: true,
+      canUpdateInventory: true,
+    });
+    await route.fulfill({ response, json: body });
+  });
   await context.route("**/api/repairdesk/inventory/sales/list", (route) =>
     route.fulfill({
       status: 403,

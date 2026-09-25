@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
@@ -7,8 +8,10 @@ test.skip(process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP !== "1", "Synthetic localh
 const evidence = resolve(
   process.cwd(),
   process.env.PLAYWRIGHT_BROWSER === "webkit"
-    ? "artifacts/TASK-20260912-002-ui-consistency-framework/figma-run4/workspace-webkit"
-    : "artifacts/TASK-20260912-002-ui-consistency-framework/figma-run4/workspace",
+    ? runEvidencePath(
+        "artifacts/TASK-20260912-002-ui-consistency-framework/figma-run4/workspace-webkit",
+      )
+    : runEvidencePath("artifacts/TASK-20260912-002-ui-consistency-framework/figma-run4/workspace"),
 );
 const product = {
   id: "00000000-0000-4000-8000-000000009404",

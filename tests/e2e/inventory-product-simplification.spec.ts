@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -5,7 +6,9 @@ import { expect, test, type Page } from "@playwright/test";
 
 const screenshotDir = resolve(
   process.cwd(),
-  "artifacts/screenshots/TASK-20260729-011-inventory-product-simplification-implementation",
+  runEvidencePath(
+    "artifacts/screenshots/TASK-20260729-011-inventory-product-simplification-implementation",
+  ),
 );
 
 test.beforeAll(async () => {

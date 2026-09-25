@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { fillNumericInput, setKeyboardDeviceViewport } from "./input-keypad-helpers";
 import {
   expect,
@@ -8,7 +9,6 @@ import {
   type Route,
   type TestInfo,
 } from "@playwright/test";
-import { resolve } from "node:path";
 
 import type { InventoryListItem } from "@/lib/repairdesk/types";
 import type { AppLocale } from "@/shared/i18n/locales";
@@ -770,6 +770,7 @@ function isAllowedRead(request: Request) {
       url.pathname.startsWith("/_next/") ||
       url.pathname === "/favicon.ico" ||
       url.pathname === "/manifest.webmanifest" ||
+      url.pathname === "/recovery-probe.txt" ||
       url.pathname === "/__nextjs_font/geist-latin.woff2" ||
       readGets.has(url.pathname)
     );
@@ -1168,7 +1169,7 @@ async function switchLocale(page: Page, locale: AppLocale) {
 async function saveScreenshot(page: Page, testInfo: TestInfo, name: string) {
   const engine = testInfo.project.name.includes("webkit") ? "webkit" : "chromium";
   await page.screenshot({
-    path: resolve(process.cwd(), "screenshots", "release2b5", engine, `${name}.png`),
+    path: runEvidencePath(`release2b5/${engine}/${name}.png`),
     fullPage: true,
     animations: "disabled",
   });

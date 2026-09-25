@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -5,7 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const screenshotDir = resolve(
   process.cwd(),
-  "artifacts/TASK-20260912-002-ui-consistency-framework/figma-run4/detail",
+  runEvidencePath("artifacts/TASK-20260912-002-ui-consistency-framework/figma-run4/detail"),
 );
 const productId = "00000000-0000-4000-8000-000000000501";
 const rawImei = "356789012344321";

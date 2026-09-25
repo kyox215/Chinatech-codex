@@ -14,7 +14,11 @@ on:
       - "src/features/orders/**"
       - "src/features/print/**"
       - "src/styles.css"
-      - "tests/e2e/print-safari-reliability.spec.ts"
+      - "tests/e2e/**"
+      - "playwright.config.ts"
+      - ".github/workflows/e2e.yml"
+      - "src/features/customers/**"
+      - "src/features/buyback/**"
       - "package.json"
   push:
     branches: [main]
@@ -29,12 +33,15 @@ on:
       - "src/features/orders/**"
       - "src/features/print/**"
       - "src/styles.css"
-      - "tests/e2e/print-safari-reliability.spec.ts"
+      - "tests/e2e/**"
+      - "playwright.config.ts"
+      - ".github/workflows/e2e.yml"
+      - "src/features/customers/**"
+      - "src/features/buyback/**"
       - "package.json"
 
 jobs:
   playwright:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -46,6 +53,15 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e:desktop:mock
       - run: npm run test:e2e:interactions:mock
+      - run: npm run test:e2e:buyback-paused:mock
+      - run: npm run test:e2e:buyback:mock
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: business-interactions
+          path: |
+            playwright-report
+            test-results
   print-safari:
     runs-on: ubuntu-latest
     strategy:
@@ -70,4 +86,3 @@ jobs:
           path: |
             playwright-report
             test-results
-            screenshots/TASK-20260720-003-smart-print-qr

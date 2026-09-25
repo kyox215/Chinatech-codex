@@ -1,3 +1,4 @@
+import { waitForApplicationReady } from "./helpers/app-ready";
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
@@ -49,7 +50,10 @@ async function ready(page: Page, locale: (typeof locales)[number], width = 390, 
     ]);
   await page.setViewportSize({ width, height });
   await page.goto("/orders/ord_1");
-  await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible();
+  await waitForApplicationReady(page);
+  // Each CI shard owns a cold Next dev server; wait for data-backed detail readiness,
+  // not the default 5s assertion window that can expire while route/API chunks compile.
+  await expect(page.locator('[data-order-detail-root="true"]')).toBeVisible({ timeout: 30_000 });
   await page.waitForLoadState("networkidle");
 }
 async function noOverflow(page: Page) {
@@ -96,8 +100,12 @@ for (const locale of locales)
           [identitySurface, fault, people, quote].map((x) => x.boundingBox()),
         );
         if (workspace!.width < 680) {
-          for (let i = 1; i < boxes.length; i++)
-            expect(boxes[i]!.y).toBeGreaterThanOrEqual(boxes[i - 1]!.y + boxes[i - 1]!.height);
+          // Mobile prioritizes the quote immediately after identity, before repair notes.
+          const mobileFlow = [boxes[0]!, boxes[3]!, boxes[1]!, boxes[2]!];
+          for (let i = 1; i < mobileFlow.length; i++)
+            expect(mobileFlow[i].y).toBeGreaterThanOrEqual(
+              mobileFlow[i - 1].y + mobileFlow[i - 1].height,
+            );
         } else {
           // The stable compact renderer has three summary regions followed by repair/support rows.
           const device = await identity

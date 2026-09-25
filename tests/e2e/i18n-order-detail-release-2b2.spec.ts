@@ -1,3 +1,5 @@
+import { waitForApplicationReady } from "./helpers/app-ready";
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Page, type Request, type Route, type TestInfo } from "@playwright/test";
 import { resolve } from "node:path";
 
@@ -70,11 +72,11 @@ for (const { locale, width } of directCases) {
     const evidence = await preparePage(page, locale, { canUploadPhoto: true });
     await page.setViewportSize({ width, height: viewportHeight(width) });
     await page.goto("/orders/ord_1", { waitUntil: "domcontentloaded" });
-    await page.waitForLoadState("networkidle");
+    await waitForApplicationReady(page);
 
     const root = page.locator('[data-order-detail-root="true"]');
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
-    await expect(root).toBeVisible();
+    await expect(root).toBeVisible({ timeout: 30_000 });
     await expect(root).toHaveCount(1);
     await expect(root).toHaveAttribute("data-order-detail-surface", "page");
     await expect(root).toHaveAttribute(
@@ -181,44 +183,47 @@ for (const { locale, width } of directCases) {
 }
 
 for (const { locale, width } of workspaceCases) {
-  test(`workspace ${locale} ${width}px preserves dialog identity and selected records tab`, async ({
+  test(`workspace ${locale} ${width}px preserves responsive detail identity and selected records tab`, async ({
     page,
   }, testInfo) => {
     const evidence = await preparePage(page, locale, { canUploadPhoto: true });
     await page.setViewportSize({ width, height: viewportHeight(width) });
     const workspaceUrl = "/orders?workspace=order-detail&orderId=ord_1&source=i18n-release-2b2";
     await page.goto(workspaceUrl, { waitUntil: "domcontentloaded" });
-    await page.waitForLoadState("networkidle");
+    await waitForApplicationReady(page);
 
     const dialog = page.locator('[data-order-detail-dialog-shell="true"]');
-    const root = dialog.locator('[data-order-detail-root="true"]');
+    const compact = width < 768;
+    const prefix = compact ? "order-detail-mobile" : "order-detail-workspace";
+    const root = compact
+      ? page.locator('[data-order-detail-root="true"]')
+      : dialog.locator('[data-order-detail-root="true"]');
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
-    await expect(dialog).toBeVisible();
+    if (!compact) await expect(dialog).toBeVisible();
+    else await expect(dialog).toHaveCount(0);
     await expect(root).toHaveCount(1);
-    await expect(root).toHaveAttribute("data-order-detail-surface", "dialog");
-    await expect(root).toHaveAttribute("data-order-detail-render-mode", "desktop");
-    await expect(page.locator("[data-order-detail-renderer]")).toHaveCount(1);
-    await expect(page).toHaveURL(new RegExp(`${escapeRegExp(workspaceUrl)}$`));
-    await expect(page.locator("#order-detail-workspace-tab-overview")).toHaveAttribute(
-      "aria-selected",
-      "true",
+    await expect(root).toHaveAttribute("data-order-detail-surface", compact ? "page" : "dialog");
+    await expect(root).toHaveAttribute(
+      "data-order-detail-render-mode",
+      compact ? "compact" : "desktop",
     );
+    await expect(page.locator("[data-order-detail-renderer]")).toHaveCount(1);
+    if (compact) await expect(page).toHaveURL(/\/orders\/ord_1(?:\?|$)/);
+    else await expect(page).toHaveURL(new RegExp(`${escapeRegExp(workspaceUrl)}$`));
+    await expect(page.locator(`#${prefix}-tab-overview`)).toHaveAttribute("aria-selected", "true");
     await expectDynamicDetail(root);
 
-    const historyShortcut = root.locator("#order-detail-workspace-tab-records");
+    const historyShortcut = root.locator(`#${prefix}-tab-records`);
     await historyShortcut.focus();
     await expect(historyShortcut).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(page.locator("#order-detail-workspace-tab-records")).toBeFocused();
-    await expect(page.locator("#order-detail-workspace-tab-records")).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    await expect(page.locator(`#${prefix}-tab-records`)).toBeFocused();
+    await expect(page.locator(`#${prefix}-tab-records`)).toHaveAttribute("aria-selected", "true");
     await expect(root.locator('[data-order-records-timeline="true"]')).toBeVisible();
     await expect(root.locator('[data-order-records-messages="true"]')).toBeVisible();
     await expectExactVisible(root, synthetic.historyAction);
     await expectExactVisible(root, synthetic.operator);
-    await expect(root.locator('[data-order-action-dock="true"]')).toBeVisible();
+    await expectResponsiveActions(root, compact ? width : 1440);
     await expectNoHorizontalOverflow(page);
     await expectNoUnexpectedFixedHan(root, locale);
     await saveEvidenceScreenshot(page, testInfo, `workspace-${locale}-${width}`);
@@ -232,10 +237,10 @@ test("heavy zh-CN 390px hides every photo entry without capability and sends zer
   const evidence = await preparePage(page, "zh-CN", { canUploadPhoto: false });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/orders/ord_1", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
+  await waitForApplicationReady(page);
 
   const root = page.locator('[data-order-detail-root="true"]');
-  await expect(root).toBeVisible();
+  await expect(root).toBeVisible({ timeout: 30_000 });
   for (const photoKey of ["front", "back", "other"] as const) {
     await expect(
       root.getByRole("button", {
@@ -289,7 +294,7 @@ test("heavy it-IT 768px uploads exact front, back and other photos through the r
   });
   await page.setViewportSize({ width: 768, height: 1024 });
   await page.goto("/orders/ord_1", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
+  await waitForApplicationReady(page);
 
   const root = page.locator('[data-order-detail-root="true"]');
   const photosTab = root.getByRole("tab", {
@@ -380,9 +385,10 @@ test("heavy en 1440px keeps scoped finance drafts and localized pending transiti
   });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/orders/ord_1", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
+  await waitForApplicationReady(page);
 
   const root = page.locator('[data-order-detail-root="true"]');
+  await expect(root).toBeVisible({ timeout: 30_000 });
   const initialUrl = page.url();
   await page.evaluate(() => {
     Object.assign(window, { __release2b2DocumentMarker: "same-order-document" });
@@ -976,7 +982,7 @@ async function saveEvidenceScreenshot(page: Page, testInfo: TestInfo, name: stri
   }
   await page.screenshot({
     path: resolve(
-      process.env.REPAIRDESK_EVIDENCE_DIR ?? "screenshots/release2b2",
+      process.env.REPAIRDESK_EVIDENCE_DIR ?? runEvidencePath("screenshots/release2b2"),
       testInfo.project.name,
       `${name}.png`,
     ),

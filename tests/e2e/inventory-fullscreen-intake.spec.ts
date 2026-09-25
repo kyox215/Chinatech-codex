@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { devices, expect, test, type Page } from "@playwright/test";
@@ -9,7 +10,7 @@ test.skip(
 );
 const evidence = resolve(
   process.cwd(),
-  "artifacts/TASK-20260912-002-ui-consistency-framework/figma-run4/intake",
+  runEvidencePath("artifacts/TASK-20260912-002-ui-consistency-framework/figma-run4/intake"),
 );
 
 test.beforeEach(async ({ context, baseURL }) => {

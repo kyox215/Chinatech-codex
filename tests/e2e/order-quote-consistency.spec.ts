@@ -187,7 +187,9 @@ for (const viewport of [
         if (locale === "en" && viewport.width === 1440) {
           await expect.poll(() => Boolean(releaseSave)).toBe(true);
           await expect(firstAmount).toBeDisabled();
-          await expect(save).toBeDisabled();
+          await expect(
+            editor.getByRole("button", { name: t("orders2b2.hero.saving"), exact: true }),
+          ).toBeDisabled();
           await page.keyboard.press("Escape");
           await expect(editor).toBeVisible();
           expect(saveRequests).toHaveLength(1);

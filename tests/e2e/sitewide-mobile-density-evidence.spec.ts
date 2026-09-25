@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Page } from "@playwright/test";
 
 const enabled = process.env.REPAIRDESK_E2E_MOBILE_DENSITY === "1";
@@ -23,7 +24,9 @@ test.describe("sitewide mobile density evidence", () => {
       await gotoReady(page, target.path, target.ready);
       await expectNoPageOverflow(page);
       await page.screenshot({
-        path: `screenshots/TASK-20260731-002-sitewide-mobile-density/${target.name}.png`,
+        path: runEvidencePath(
+          `screenshots/TASK-20260731-002-sitewide-mobile-density/${target.name}.png`,
+        ),
         animations: "disabled",
       });
     });
@@ -34,7 +37,9 @@ test.describe("sitewide mobile density evidence", () => {
     await gotoReady(page, "/finance", "main");
     await expectNoPageOverflow(page);
     await page.screenshot({
-      path: "screenshots/TASK-20260731-002-sitewide-mobile-density/finance-1440x900.png",
+      path: runEvidencePath(
+        "screenshots/TASK-20260731-002-sitewide-mobile-density/finance-1440x900.png",
+      ),
       animations: "disabled",
     });
   });

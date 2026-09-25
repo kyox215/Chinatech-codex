@@ -1,3 +1,4 @@
+import { runEvidencePath } from "./helpers/evidence";
 import { expect, test } from "@playwright/test";
 
 import {
@@ -80,7 +81,9 @@ test("never exposes raw markup and provides a reachable manual action when style
   );
   if (process.env.REPAIRDESK_CAPTURE_STYLE_RECOVERY_EVIDENCE === "1") {
     await page.screenshot({
-      path: "screenshots/TASK-20260719-007-fast-app-recovery/manual-recovery-mobile.png",
+      path: runEvidencePath(
+        "screenshots/TASK-20260719-007-fast-app-recovery/manual-recovery-mobile.png",
+      ),
       fullPage: true,
     });
   }
@@ -94,7 +97,9 @@ test("never exposes raw markup and provides a reachable manual action when style
   );
   if (process.env.REPAIRDESK_CAPTURE_STYLE_RECOVERY_EVIDENCE === "1") {
     await page.screenshot({
-      path: "screenshots/TASK-20260719-007-fast-app-recovery/manual-recovery-desktop.png",
+      path: runEvidencePath(
+        "screenshots/TASK-20260719-007-fast-app-recovery/manual-recovery-desktop.png",
+      ),
       fullPage: true,
     });
   }

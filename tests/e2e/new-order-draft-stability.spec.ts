@@ -184,6 +184,8 @@ for (const width of [390, 820, 1440]) {
       await page.getByRole("textbox", { name: "报价项目 1 金额", exact: true }).fill("77");
       await page.getByRole("textbox", { name: "定金", exact: true }).fill("17");
       if (width < 768) await page.locator('[data-mobile-edit="notes"]').click();
+      else if (!(await page.getByRole("textbox", { name: "备注", exact: true }).isVisible()))
+        await page.locator("summary").filter({ hasText: "备注 · 选填" }).click();
       await page.getByRole("textbox", { name: "备注", exact: true }).fill("Synthetic old note");
       if (width < 768) {
         await page.getByRole("button", { name: "完成", exact: true }).click();
@@ -217,7 +219,12 @@ for (const width of [390, 820, 1440]) {
           );
         await page.locator('[data-mobile-edit="customer"]').click();
       } else {
+        await page.locator("summary").filter({ hasText: "备注 · 选填" }).click();
         await expect(page.getByRole("textbox", { name: "备注", exact: true })).toHaveValue("");
+      }
+      const editCustomer = page.getByRole("button", { name: "编辑或改选客户", exact: true });
+      if (width >= 768 && prefill.customerId && (await editCustomer.isVisible())) {
+        await editCustomer.click();
       }
       await expect(input).toHaveValue(prefill.customerId ? `Synthetic ${prefill.customerId}` : "");
       const reads = await page.evaluate(() => window.__newOrderStability.draftReads);
@@ -261,11 +268,15 @@ for (const width of [390, 820, 1440]) {
         queryKey: ["orders", "queue-summary"],
       });
     });
-    await expect(page.locator('[data-ui="order-list-skeleton"]')).toBeAttached();
+    // Warm queue metadata keeps the workspace shell mounted during refetch.
+    // Require the real pending request state, not an obsolete full-page skeleton.
+    await expect(page.locator('[data-order-list-refreshing="true"]')).toBeAttached();
+    await expect(page.locator('[data-ui="order-list-skeleton"]')).toHaveCount(0);
     await expectRetainedDom(page);
     await input.fill("Synthetic pending");
     await page.screenshot({ path: testInfo.outputPath(`draft-pending-list-${width}.png`) });
     releaseList?.();
+    await expect(page.locator('[data-order-list-refreshing="false"]')).toBeAttached();
     await expect(page.locator('[data-ui="order-list-skeleton"]')).toHaveCount(0);
     await expectRetainedDom(page);
     await expect(input).toHaveValue("Synthetic pending");
