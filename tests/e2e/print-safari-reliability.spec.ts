@@ -1,3 +1,4 @@
+import { waitForApplicationReady } from "./helpers/app-ready";
 import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -228,8 +229,12 @@ test("fixed PDF prints all four modes from the current page without a visible po
     };
   });
   await page.setViewportSize({ width: 1440, height: 900 });
+  let releaseQr!: () => void;
+  const qrRelease = new Promise<void>((resolve) => {
+    releaseQr = resolve;
+  });
   await page.route("**/api/repairdesk/customer-status-links/issue", async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await qrRelease;
     const body = route.request().postDataJSON() as { order_ids?: string[] };
     const orderIds = Array.isArray(body.order_ids) ? body.order_ids : [];
     await route.fulfill({
@@ -273,11 +278,17 @@ test("fixed PDF prints all four modes from the current page without a visible po
     }
     await page.getByRole("button", { name: mode.button }).click();
     if (index === 0) {
-      await expect(page.getByText("正在准备订单二维码…")).toBeVisible();
-      await page.screenshot({
-        path: `${optimizedEvidenceDir}/current-page-progress.png`,
-        fullPage: true,
-      });
+      try {
+        await expect(page.getByText("正在准备订单二维码…")).toBeVisible();
+        await page.screenshot({
+          path: `${optimizedEvidenceDir}/current-page-progress.png`,
+          fullPage: true,
+        });
+      } finally {
+        // CI screenshots can exceed the 2s success-toast lifetime. Release the mocked
+        // QR response only after the progress evidence is captured, without changing app timing.
+        releaseQr();
+      }
     }
     await expect(page.getByText("打印预览已打开")).toBeVisible({ timeout: 30_000 });
     expect(popupCount).toBe(0);
@@ -779,11 +790,7 @@ async function gotoReady(page: Page, path: string) {
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
   // A cold dev build can finish a network-idle interval before shell recovery completes.
   // Require actual hydrated content before fixture requests or print actions.
-  await page.waitForFunction(
-    () =>
-      (window as Window & { __repairDeskRuntimeReady?: boolean }).__repairDeskRuntimeReady ===
-        true && !document.documentElement.hasAttribute("data-style-recovery"),
-  );
+  await waitForApplicationReady(page);
   const ready =
     path === "/orders"
       ? '[data-order-row="true"]:visible, [data-order-mobile-list="true"] a[href^="/orders/"]:visible'

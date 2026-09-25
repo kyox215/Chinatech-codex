@@ -770,6 +770,7 @@ function isAllowedRead(request: Request) {
       url.pathname.startsWith("/_next/") ||
       url.pathname === "/favicon.ico" ||
       url.pathname === "/manifest.webmanifest" ||
+      url.pathname === "/recovery-probe.txt" ||
       url.pathname === "/__nextjs_font/geist-latin.woff2" ||
       readGets.has(url.pathname)
     );

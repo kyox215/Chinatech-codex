@@ -1,3 +1,4 @@
+import { waitForApplicationReady } from "./helpers/app-ready";
 import { runEvidencePath } from "./helpers/evidence";
 import { expect, test, type Page, type Request, type Route, type TestInfo } from "@playwright/test";
 import { resolve } from "node:path";
@@ -71,11 +72,11 @@ for (const { locale, width } of directCases) {
     const evidence = await preparePage(page, locale, { canUploadPhoto: true });
     await page.setViewportSize({ width, height: viewportHeight(width) });
     await page.goto("/orders/ord_1", { waitUntil: "domcontentloaded" });
-    await page.waitForLoadState("networkidle");
+    await waitForApplicationReady(page);
 
     const root = page.locator('[data-order-detail-root="true"]');
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
-    await expect(root).toBeVisible();
+    await expect(root).toBeVisible({ timeout: 30_000 });
     await expect(root).toHaveCount(1);
     await expect(root).toHaveAttribute("data-order-detail-surface", "page");
     await expect(root).toHaveAttribute(
@@ -189,7 +190,7 @@ for (const { locale, width } of workspaceCases) {
     await page.setViewportSize({ width, height: viewportHeight(width) });
     const workspaceUrl = "/orders?workspace=order-detail&orderId=ord_1&source=i18n-release-2b2";
     await page.goto(workspaceUrl, { waitUntil: "domcontentloaded" });
-    await page.waitForLoadState("networkidle");
+    await waitForApplicationReady(page);
 
     const dialog = page.locator('[data-order-detail-dialog-shell="true"]');
     const compact = width < 768;
@@ -236,10 +237,10 @@ test("heavy zh-CN 390px hides every photo entry without capability and sends zer
   const evidence = await preparePage(page, "zh-CN", { canUploadPhoto: false });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/orders/ord_1", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
+  await waitForApplicationReady(page);
 
   const root = page.locator('[data-order-detail-root="true"]');
-  await expect(root).toBeVisible();
+  await expect(root).toBeVisible({ timeout: 30_000 });
   for (const photoKey of ["front", "back", "other"] as const) {
     await expect(
       root.getByRole("button", {
@@ -293,7 +294,7 @@ test("heavy it-IT 768px uploads exact front, back and other photos through the r
   });
   await page.setViewportSize({ width: 768, height: 1024 });
   await page.goto("/orders/ord_1", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
+  await waitForApplicationReady(page);
 
   const root = page.locator('[data-order-detail-root="true"]');
   const photosTab = root.getByRole("tab", {
@@ -384,9 +385,10 @@ test("heavy en 1440px keeps scoped finance drafts and localized pending transiti
   });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/orders/ord_1", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
+  await waitForApplicationReady(page);
 
   const root = page.locator('[data-order-detail-root="true"]');
+  await expect(root).toBeVisible({ timeout: 30_000 });
   const initialUrl = page.url();
   await page.evaluate(() => {
     Object.assign(window, { __release2b2DocumentMarker: "same-order-document" });

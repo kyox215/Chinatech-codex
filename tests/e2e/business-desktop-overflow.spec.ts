@@ -1,3 +1,4 @@
+import { waitForApplicationReady } from "./helpers/app-ready";
 import { installInventoryLayoutFixture } from "./helpers/inventory-layout-fixture";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
@@ -359,7 +360,7 @@ async function auditSettingsAndOutputWorkspaces(page: Page, viewport: DesktopVie
 
 async function gotoReady(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.locator("body").waitFor({ state: "visible" });
+  await waitForApplicationReady(page);
 }
 
 async function expectNoPageOverflow(page: Page, route: string, width: number) {

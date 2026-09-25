@@ -854,9 +854,8 @@ test.describe("settings members and suppliers workspace", () => {
     await technicianCard.getByRole("button", { name: "管理" }).click();
     const sheet = page.getByRole("dialog", { name: "演示技术员" });
     await expect(sheet).toBeVisible();
-    expect(
-      (await sheet.getByRole("button", { name: "关闭" }).boundingBox())?.height ?? 0,
-    ).toBeGreaterThanOrEqual(44);
+    // Read the CSS hit-target size; an in-flight overlay transform can report 43.99994px.
+    await expect(sheet.getByRole("button", { name: "关闭" })).toHaveCSS("height", "44px");
     expect(
       (await sheet.locator('label[for="member-permission-supplier:manage"]').boundingBox())
         ?.height ?? 0,
