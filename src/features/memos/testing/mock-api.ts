@@ -1,6 +1,7 @@
 import type {
   MemoArchiveInput,
   MemoAssignee,
+  MemoChecklistItemUpdateInput,
   MemoCreateInput,
   MemoListInput,
   MemoListResult,
@@ -12,6 +13,7 @@ import type {
 } from "@/features/memos/model/contracts";
 import type { AuditActor, StoreRole } from "@/lib/repairdesk/types";
 import { getActiveMockStoreId } from "@/features/stores/testing/mock-api";
+import { checklistCounts, checklistStatus } from "@/features/memos/model/memo-checklist";
 
 const rows: StoreMemo[] = [];
 const operationReceipts = new Map<string, { hash: string; id: string; appliedVersion: number }>();
@@ -68,7 +70,12 @@ export async function listMemos(
     )
     .filter((memo) => {
       const search = input.search?.trim().toLocaleLowerCase();
-      return !search || `${memo.title}\n${memo.content}`.toLocaleLowerCase().includes(search);
+      return (
+        !search ||
+        `${memo.title}\n${memo.content}\n${memo.checklist.map((item) => item.text).join("\n")}`
+          .toLocaleLowerCase()
+          .includes(search)
+      );
     })
     .sort(compareMemos)
     .map((memo) => toListItem(memo, identity));
@@ -95,7 +102,11 @@ export async function getMemo(id: string, actor?: AuditActor) {
   const identity = mockIdentity(actor);
   const memo = findMemo(id, identity.storeId);
   if (!memo) throw new Error("备忘录不存在");
-  return { ...memo, capabilities: rowCapabilities(memo, identity) };
+  return {
+    ...memo,
+    checklist: memo.checklist.map((item) => ({ ...item })),
+    capabilities: rowCapabilities(memo, identity),
+  };
 }
 
 export async function getMemoSummary(actor?: AuditActor): Promise<MemoSummary> {
@@ -141,24 +152,31 @@ export async function createMemo(input: MemoCreateInput, actor?: AuditActor) {
     throw new Error("当前员工没有权限分配给其他成员");
   }
   const now = new Date().toISOString();
+  const checklist =
+    input.kind === "todo" ? (input.checklist ?? []).map((item) => ({ ...item })) : [];
+  const counts = checklistCounts(checklist);
+  const initialStatus = input.kind === "todo" ? checklistStatus(checklist, "pending") : null;
   const memo: StoreMemo = {
     id: crypto.randomUUID(),
     store_id: identity.storeId,
     kind: input.kind,
     title: input.title.trim(),
     content: input.content,
-    todo_status: input.kind === "todo" ? "pending" : null,
+    todo_status: initialStatus,
     due_at: input.kind === "todo" ? (input.dueAt ?? null) : null,
     assignee_membership_id: input.kind === "todo" ? (input.assigneeMembershipId ?? null) : null,
     assignee_name: input.assigneeMembershipId ? identity.name : null,
     created_by_membership_id: identity.membershipId,
     created_by_name_snapshot: identity.name,
     updated_by_name_snapshot: identity.name,
-    completed_at: null,
+    completed_at: initialStatus === "completed" ? now : null,
     archived_at: null,
     version: 1,
     created_at: now,
     updated_at: now,
+    checklist,
+    checklist_total: counts.total,
+    checklist_completed: counts.completed,
     capabilities: {
       canEdit: true,
       canClaim: input.kind === "todo" && !input.assigneeMembershipId,
@@ -198,6 +216,11 @@ export async function updateMemo(input: MemoUpdateInput, actor?: AuditActor) {
   if (memo.kind === "todo") {
     memo.due_at = input.dueAt ?? null;
     memo.assignee_membership_id = input.assigneeMembershipId ?? null;
+    if (input.checklist !== undefined) {
+      const previousStatus = memo.todo_status ?? "pending";
+      memo.checklist = input.checklist.map((item) => ({ ...item }));
+      syncChecklistAggregate(memo, previousStatus);
+    }
   }
   touch(memo, identity.name);
   saveReceipt("update", input, identity, memo);
@@ -219,11 +242,33 @@ export async function transitionMemo(input: MemoTransitionInput, actor?: AuditAc
     memo.assignee_name = identity.name;
   } else {
     assertScope(memo, identity);
+    if (memo.checklist.length) throw checklistManagedConflict();
     memo.todo_status = input.transition === "complete" ? "completed" : "pending";
     memo.completed_at = input.transition === "complete" ? new Date().toISOString() : null;
   }
   touch(memo, identity.name);
   saveReceipt(input.transition, input, identity, memo);
+  return mutationResult(memo);
+}
+
+export async function updateMemoChecklistItem(
+  input: MemoChecklistItemUpdateInput,
+  actor?: AuditActor,
+) {
+  const identity = mockIdentity(actor);
+  const replay = await replayReceipt("set_checklist_item", input, identity, actor);
+  if (replay) return replay;
+  const memo = findMemo(input.id, identity.storeId);
+  if (!memo) throw new Error("备忘录不存在");
+  assertScope(memo, identity);
+  if (memo.version !== input.expectedVersion) throw conflict();
+  if (memo.kind !== "todo" || memo.archived_at) throw conflict();
+  const item = memo.checklist.find((candidate) => candidate.id === input.itemId);
+  if (!item) throw conflict();
+  item.completed = input.completed;
+  syncChecklistAggregate(memo, memo.todo_status ?? "pending");
+  touch(memo, identity.name);
+  saveReceipt("set_checklist_item", input, identity, memo);
   return mutationResult(memo);
 }
 
@@ -255,6 +300,16 @@ function touch(memo: StoreMemo, name: string) {
   memo.version += 1;
   memo.updated_at = new Date().toISOString();
   memo.updated_by_name_snapshot = name;
+}
+
+function syncChecklistAggregate(memo: StoreMemo, emptyFallback: "pending" | "completed") {
+  const counts = checklistCounts(memo.checklist);
+  memo.checklist_total = counts.total;
+  memo.checklist_completed = counts.completed;
+  const nextStatus = checklistStatus(memo.checklist, emptyFallback);
+  memo.todo_status = nextStatus;
+  memo.completed_at =
+    nextStatus === "completed" ? (memo.completed_at ?? new Date().toISOString()) : null;
 }
 
 function findMemo(id: string, storeId: string) {
@@ -301,6 +356,7 @@ function toListItem(memo: StoreMemo, identity: ReturnType<typeof mockIdentity>) 
     store_id: _storeId,
     content: _content,
     created_by_membership_id: _creatorId,
+    checklist: _checklist,
     ...item
   } = {
     ...memo,
@@ -314,7 +370,11 @@ function mutationResult(
   replayed = false,
   appliedVersion = memo.version,
 ): MemoMutationResult {
-  return { memo: { ...memo }, replayed, appliedVersion };
+  return {
+    memo: { ...memo, checklist: memo.checklist.map((item) => ({ ...item })) },
+    replayed,
+    appliedVersion,
+  };
 }
 
 async function replayReceipt(
@@ -365,6 +425,13 @@ function conflict() {
   };
   error.status = 409;
   error.code = "MEMO_VERSION_CONFLICT";
+  return error;
+}
+
+function checklistManagedConflict() {
+  const error = conflict();
+  error.message = "含清单的待办状态由清单自动汇总";
+  error.code = "MEMO_CHECKLIST_MANAGED";
   return error;
 }
 

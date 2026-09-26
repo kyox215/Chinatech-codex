@@ -2575,6 +2575,28 @@ const memoTitleSchema = z.string().trim().min(1, "请填写标题").max(120, "�
 const memoContentSchema = z.string().max(4000, "正文不能超过 4000 个字符");
 const memoDueAtSchema = z.string().datetime({ offset: true }).nullable().optional();
 const memoAssigneeSchema = z.string().uuid("负责人不正确").nullable().optional();
+const memoChecklistItemSchema = z
+  .object({
+    id: z
+      .string()
+      .uuid("清单项 id 不正确")
+      .transform((value) => value.toLowerCase()),
+    text: z
+      .string()
+      .trim()
+      .min(1, "清单项不能为空")
+      .refine((value) => Array.from(value).length <= 200, "清单项不能超过 200 个字符"),
+    completed: z.boolean(),
+  })
+  .strict();
+const memoChecklistSchema = z
+  .array(memoChecklistItemSchema)
+  .max(100, "清单最多 100 项")
+  .superRefine((items, context) => {
+    if (new Set(items.map((item) => item.id)).size !== items.length) {
+      context.addIssue({ code: "custom", message: "清单项 id 不能重复" });
+    }
+  });
 
 export const memoListBodySchema = z
   .object({
@@ -2597,6 +2619,7 @@ export const memoCreateBodySchema = z
         kind: z.enum(memoKinds),
         title: memoTitleSchema,
         content: memoContentSchema,
+        checklist: memoChecklistSchema.optional(),
         dueAt: memoDueAtSchema,
         assigneeMembershipId: memoAssigneeSchema,
       })
@@ -2607,6 +2630,9 @@ export const memoCreateBodySchema = z
             code: "custom",
             message: "普通记录不能设置负责人或到期时间",
           });
+        }
+        if (input.kind === "note" && input.checklist?.length) {
+          context.addIssue({ code: "custom", message: "普通记录不能设置清单" });
         }
       }),
   })
@@ -2621,6 +2647,7 @@ export const memoUpdateBodySchema = z
         expectedVersion: z.number().int().min(1),
         title: memoTitleSchema,
         content: memoContentSchema,
+        checklist: memoChecklistSchema.optional(),
         dueAt: memoDueAtSchema,
         assigneeMembershipId: memoAssigneeSchema,
       })
@@ -2636,6 +2663,23 @@ export const memoTransitionBodySchema = z
         id: z.string().uuid("备忘录 id 不正确"),
         expectedVersion: z.number().int().min(1),
         transition: z.enum(["claim", "complete", "reopen"]),
+      })
+      .strict(),
+  })
+  .strict();
+
+export const memoChecklistItemUpdateBodySchema = z
+  .object({
+    input: z
+      .object({
+        operationId: memoOperationIdSchema,
+        id: z.string().uuid("备忘录 id 不正确"),
+        expectedVersion: z.number().int().min(1),
+        itemId: z
+          .string()
+          .uuid("清单项 id 不正确")
+          .transform((value) => value.toLowerCase()),
+        completed: z.boolean(),
       })
       .strict(),
   })

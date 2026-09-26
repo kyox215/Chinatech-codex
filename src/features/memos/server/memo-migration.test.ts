@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync("supabase/migrations/20260727005412_store_memos_v1.sql", "utf8");
+const checklistMigration = readFileSync(
+  "supabase/migrations/20260925221231_memo_checklist_atomic.sql",
+  "utf8",
+);
 
 describe("store memos migration contract", () => {
   it("creates exactly the private business and metadata receipt tables", () => {
@@ -45,5 +49,32 @@ describe("store memos migration contract", () => {
     expect(migration).toContain("jsonb_build_array('memos.all')");
     expect(migration).not.toContain("'title', v_memo.title");
     expect(migration).not.toContain("'content', v_memo.content");
+  });
+});
+
+describe("store memo checklist migration contract", () => {
+  it("adds bounded structured data and minimal generated list/search fields", () => {
+    expect(checklistMigration).toContain("add column checklist jsonb not null default '[]'::jsonb");
+    expect(checklistMigration).toContain("add column checklist_total integer generated always");
+    expect(checklistMigration).toContain("add column checklist_completed integer generated always");
+    expect(checklistMigration).toContain("add column checklist_search_text text generated always");
+    expect(checklistMigration).toContain("pg_catalog.jsonb_array_length(value) <= 100");
+    expect(checklistMigration).toContain(
+      "pg_catalog.char_length(item->>'text') not between 1 and 200",
+    );
+    expect(checklistMigration).toContain("coalesce(item->>'id','') !~ '^[0-9a-f]");
+  });
+
+  it("keeps V1 compatibility behind a service-only atomic V2 aggregate", () => {
+    expect(checklistMigration).toContain("repairdesk_mutate_store_memo_v2_rpc");
+    expect(checklistMigration).toContain("'set_checklist_item'");
+    expect(checklistMigration).toContain("MEMO_CHECKLIST_MANAGED");
+    expect(checklistMigration).toContain("MEMO_VERSION_CONFLICT");
+    expect(checklistMigration).toContain("MEMO_IDEMPOTENCY_CONFLICT");
+    expect(checklistMigration).toContain("to service_role");
+    expect(checklistMigration).toContain("from public, anon, authenticated");
+    expect(checklistMigration).toContain("select public.repairdesk_mutate_store_memo_v2_rpc(");
+    expect(checklistMigration).toContain("'checklist_total', v_memo.checklist_total");
+    expect(checklistMigration).toContain("'checklist_completed', v_memo.checklist_completed");
   });
 });

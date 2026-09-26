@@ -856,10 +856,13 @@ test.describe("settings members and suppliers workspace", () => {
     await expect(sheet).toBeVisible();
     // Read the CSS hit-target size; an in-flight overlay transform can report 43.99994px.
     await expect(sheet.getByRole("button", { name: "关闭" })).toHaveCSS("height", "44px");
-    expect(
-      (await sheet.locator('label[for="member-permission-supplier:manage"]').boundingBox())
-        ?.height ?? 0,
-    ).toBeGreaterThanOrEqual(44);
+    await expect
+      .poll(() =>
+        sheet
+          .locator('label[for="member-permission-supplier:manage"]')
+          .evaluate((element) => Number.parseFloat(getComputedStyle(element).height)),
+      )
+      .toBeGreaterThanOrEqual(44);
     await sheet.getByLabel("管理供应商").click();
     expect(permissionRequests).toEqual([]);
     expect(roleRequests).toEqual([]);
@@ -1419,7 +1422,9 @@ test.describe("WP06 settings workflow draft contract", () => {
 async function gotoReady(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.locator("body").waitFor({ state: "visible" });
-  await hideNextDevIndicators(page);
+  // Mock runs already disable dev indicators in next.config.ts. Leave navigation
+  // readiness to each scenario's retrying UI assertions, without DOM setup that
+  // can race a client redirect after DOMContentLoaded.
 }
 
 async function hideNextDevIndicators(page: Page) {

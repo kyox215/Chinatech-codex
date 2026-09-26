@@ -25,8 +25,8 @@ describe("MemoEditorOverlay", () => {
       "max-w-full",
       "overflow-x-hidden",
       "overflow-hidden",
-      "bg-[var(--memo-quick-entry-surface)]",
-      "rounded-t-[1.25rem]",
+      "bg-card",
+      "rounded-t-[var(--radius-lg)]",
     );
     expect(screen.getByText("快速写下，详情稍后补充")).toBeVisible();
   });
@@ -45,11 +45,11 @@ describe("MemoEditorOverlay", () => {
     );
 
     expect(screen.getByRole("dialog")).toHaveClass(
-      "w-[min(576px,calc(100vw-24px))]",
+      "w-[min(640px,calc(100vw-24px))]",
       "overflow-hidden",
-      "bg-[var(--memo-quick-entry-surface)]",
-      "rounded-[1rem]",
-      "p-4",
+      "bg-card",
+      "rounded-xl",
+      "p-0",
     );
   });
 });

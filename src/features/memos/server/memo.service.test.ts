@@ -13,7 +13,7 @@ const repository = vi.hoisted(() => ({
 
 vi.mock("./memo.repository", () => repository);
 
-import { readMemoList } from "./memo.service";
+import { readMemoList, updateMemoChecklistItem } from "./memo.service";
 
 const storeA = {
   id: "20000000-0000-4000-8000-000000000001",
@@ -71,5 +71,65 @@ describe("memo service authority and attempt fences", () => {
     await expect(readMemoList({}, actor)).resolves.toMatchObject({ items: [] });
     expect(repository.consumeMemoAttempt).toHaveBeenCalledOnce();
     expect(repository.listMemos).toHaveBeenCalledOnce();
+  });
+
+  it("passes desired checklist state through the scoped transition authority", async () => {
+    const technician: AuditActor = {
+      ...actor,
+      storeRole: "technician",
+      activeMembershipId: "30000000-0000-4000-8000-000000000009",
+    };
+    repository.getMemo.mockResolvedValue({
+      created_by_membership_id: actor.activeMembershipId,
+      assignee_membership_id: technician.activeMembershipId,
+    });
+    repository.mutateMemoRpc.mockResolvedValue({ memo: {}, replayed: false, appliedVersion: 2 });
+    const input = {
+      operationId: "40000000-0000-4000-8000-000000000001",
+      id: "50000000-0000-4000-8000-000000000001",
+      expectedVersion: 1,
+      itemId: "60000000-0000-4000-8000-000000000001",
+      completed: true,
+    };
+
+    await updateMemoChecklistItem(input, technician);
+
+    expect(repository.mutateMemoRpc).toHaveBeenCalledWith(
+      expect.objectContaining({ activeMembershipId: technician.activeMembershipId }),
+      {
+        operation: "set_checklist_item",
+        operationId: input.operationId,
+        memoId: input.id,
+        expectedVersion: 1,
+        checklistItemId: input.itemId,
+        checklistItemCompleted: true,
+      },
+    );
+  });
+
+  it("rejects an out-of-scope employee checklist transition before the RPC", async () => {
+    const technician: AuditActor = {
+      ...actor,
+      storeRole: "technician",
+      activeMembershipId: "30000000-0000-4000-8000-000000000009",
+    };
+    repository.getMemo.mockResolvedValue({
+      created_by_membership_id: actor.activeMembershipId,
+      assignee_membership_id: null,
+    });
+
+    await expect(
+      updateMemoChecklistItem(
+        {
+          operationId: "40000000-0000-4000-8000-000000000002",
+          id: "50000000-0000-4000-8000-000000000001",
+          expectedVersion: 1,
+          itemId: "60000000-0000-4000-8000-000000000001",
+          completed: true,
+        },
+        technician,
+      ),
+    ).rejects.toThrow("当前员工没有权限执行此操作");
+    expect(repository.mutateMemoRpc).not.toHaveBeenCalled();
   });
 });

@@ -134,6 +134,7 @@ export {
   restoreMemo,
   transitionMemo,
   updateMemo,
+  updateMemoChecklistItem,
 } from "@/features/memos/testing/mock-api";
 
 export { allTechnicians, customers, devices, suppliers } from "@/lib/mock/state";

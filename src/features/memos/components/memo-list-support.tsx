@@ -86,7 +86,7 @@ function FilterPill({
       className={cn(
         "min-h-10 rounded-full border-[var(--border-panel)] px-3 text-sm shadow-none",
         selected
-          ? "border-foreground bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+          ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
           : "bg-background text-muted-foreground hover:text-foreground",
       )}
       aria-pressed={selected}
@@ -187,7 +187,7 @@ export function MemoFiltersOverlay({
         </Button>
         <Button
           type="button"
-          className="min-h-10 rounded-lg bg-foreground px-4 text-background hover:bg-foreground/90"
+          className="min-h-10 rounded-lg px-4"
           onClick={() => {
             onApply(draft);
             onOpenChange(false);

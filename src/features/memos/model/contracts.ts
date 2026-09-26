@@ -4,6 +4,12 @@ export type MemoKind = (typeof memoKinds)[number];
 export const memoTodoStatuses = ["pending", "completed"] as const;
 export type MemoTodoStatus = (typeof memoTodoStatuses)[number];
 
+export type MemoChecklistItem = {
+  id: string;
+  text: string;
+  completed: boolean;
+};
+
 export const memoViews = [
   "active",
   "pending",
@@ -40,6 +46,8 @@ export type MemoListItem = {
   version: number;
   created_at: string;
   updated_at: string;
+  checklist_total: number;
+  checklist_completed: number;
   capabilities: {
     canEdit: boolean;
     canClaim: boolean;
@@ -52,6 +60,7 @@ export type MemoListItem = {
 export type StoreMemo = MemoListItem & {
   store_id: string;
   content: string;
+  checklist: MemoChecklistItem[];
   created_by_membership_id: string;
 };
 
@@ -97,6 +106,7 @@ export type MemoCreateInput = {
   kind: MemoKind;
   title: string;
   content: string;
+  checklist?: MemoChecklistItem[];
   dueAt?: string | null;
   assigneeMembershipId?: string | null;
 };
@@ -107,6 +117,8 @@ export type MemoUpdateInput = {
   expectedVersion: number;
   title: string;
   content: string;
+  /** Omitted keeps the stored checklist; [] clears it. */
+  checklist?: MemoChecklistItem[];
   dueAt?: string | null;
   assigneeMembershipId?: string | null;
 };
@@ -124,4 +136,12 @@ export type MemoArchiveInput = {
   operationId: string;
   id: string;
   expectedVersion: number;
+};
+
+export type MemoChecklistItemUpdateInput = {
+  operationId: string;
+  id: string;
+  expectedVersion: number;
+  itemId: string;
+  completed: boolean;
 };

@@ -26,6 +26,7 @@ import {
   INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES,
   INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES,
   MEMO_COMMAND_REQUEST_MAX_BYTES,
+  MEMO_EDITOR_REQUEST_MAX_BYTES,
 } from "@/server/api/repairdesk-request-limits";
 
 import { GET, POST } from "./route";
@@ -200,7 +201,7 @@ describe("RepairDesk attachment route request envelope", () => {
 
   it("rejects oversized memo envelopes with and without content-length", async () => {
     for (const withContentLength of [true, false]) {
-      const body = `{"input":{"content":"${"A".repeat(MEMO_COMMAND_REQUEST_MAX_BYTES)}"}}`;
+      const body = `{"input":{"content":"${"A".repeat(MEMO_EDITOR_REQUEST_MAX_BYTES)}"}}`;
       const request = new NextRequest("http://localhost/api/repairdesk/memos/create", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -216,6 +217,39 @@ describe("RepairDesk attachment route request envelope", () => {
       expect(mocks.handleRepairDeskPost).not.toHaveBeenCalled();
       mocks.handleRepairDeskPost.mockClear();
     }
+
+    const maxChecklistBody = JSON.stringify({
+      input: {
+        checklist: Array.from({ length: 100 }, (_, index) => ({
+          id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+          text: "交".repeat(200),
+          completed: false,
+        })),
+      },
+    });
+    const maxChecklistRequest = new NextRequest("http://localhost/api/repairdesk/memos/update", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: maxChecklistBody,
+    });
+    const maxChecklistResponse = await POST(maxChecklistRequest, {
+      params: Promise.resolve({ path: ["memos", "update"] }),
+    });
+    expect(new TextEncoder().encode(maxChecklistBody).byteLength).toBeLessThan(
+      MEMO_EDITOR_REQUEST_MAX_BYTES,
+    );
+    expect(maxChecklistResponse.status).toBe(200);
+    mocks.handleRepairDeskPost.mockClear();
+
+    const smallCommand = new NextRequest("http://localhost/api/repairdesk/memos/checklist-item", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ padding: "A".repeat(MEMO_COMMAND_REQUEST_MAX_BYTES) }),
+    });
+    const smallCommandResponse = await POST(smallCommand, {
+      params: Promise.resolve({ path: ["memos", "checklist-item"] }),
+    });
+    expect(smallCommandResponse.status).toBe(413);
   });
 
   it("returns 404 for retired assistant endpoints before body parsing or actor dispatch", async () => {

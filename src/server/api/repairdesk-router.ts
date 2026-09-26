@@ -132,6 +132,7 @@ import {
   restoreMemo,
   transitionMemo,
   updateMemo,
+  updateMemoChecklistItem,
 } from "@/features/memos/server/memo.service";
 import {
   getStoreSettings,
@@ -423,6 +424,7 @@ import {
   kioskSessionReturnBodySchema,
   kioskSessionReviewBodySchema,
   memoArchiveBodySchema,
+  memoChecklistItemUpdateBodySchema,
   memoCreateBodySchema,
   memoIdBodySchema,
   memoListBodySchema,
@@ -513,6 +515,7 @@ const supabaseSource = {
   restoreMemo,
   transitionMemo,
   updateMemo,
+  updateMemoChecklistItem,
   acceptKioskSession,
   batchTransition,
   confirmCancelledOrderReturn,
@@ -3450,6 +3453,10 @@ export async function handleRepairDeskPost(
       case "memos/transition": {
         const { input } = memoTransitionBodySchema.parse(body);
         return ok(await api.transitionMemo(input, actor));
+      }
+      case "memos/checklist-item": {
+        const { input } = memoChecklistItemUpdateBodySchema.parse(body);
+        return ok(await api.updateMemoChecklistItem(input, actor));
       }
       case "memos/archive": {
         const { input } = memoArchiveBodySchema.parse(body);

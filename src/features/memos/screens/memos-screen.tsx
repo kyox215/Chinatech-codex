@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, SlidersHorizontal, WifiOff, X } from "lucide-react";
@@ -13,6 +13,7 @@ import type {
   MemoListInput,
   MemoListItem,
   MemoMutationResult,
+  MemoChecklistItem,
   MemoView,
   StoreMemo,
 } from "@/features/memos/model/contracts";
@@ -38,6 +39,7 @@ import {
   listMemos,
   restoreMemo,
   transitionMemo,
+  updateMemoChecklistItem,
   updateMemo,
 } from "@/lib/repairdesk/api";
 import { repairOs } from "@/lib/ui-patterns";
@@ -48,12 +50,24 @@ import { getMemoPresentationCopy, translateMemoPresentation } from "@/shared/i18
 import { APP_TIME_ZONE } from "@/shared/i18n/locales";
 
 export function MemosScreen() {
+  const shell = useStoreShellContext();
+  const scopeKey = `${shell.activeStore?.id ?? "none"}:${shell.authorityFingerprint ?? ""}:${Boolean(shell.permissions?.canReadMemos)}`;
+  return <MemoWorkspace key={scopeKey} shell={shell} />;
+}
+
+function MemoWorkspace({ shell }: { shell: ReturnType<typeof useStoreShellContext> }) {
   const { locale, t } = useLocale();
   const copy = getMemoPresentationCopy(locale);
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const shell = useStoreShellContext();
   const storeId = shell.activeStore?.id;
+  const workspaceActive = useRef(false);
+  useLayoutEffect(() => {
+    workspaceActive.current = true;
+    return () => {
+      workspaceActive.current = false;
+    };
+  }, []);
   const [view, setView] = useState<MemoView>("active");
   const [kind, setKind] = useState<MemoListInput["kind"]>("all");
   const [assigneeId, setAssigneeId] = useState("");
@@ -63,7 +77,14 @@ export function MemosScreen() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [selected, setSelected] = useState<MemoListItem | StoreMemo | null>(null);
   const [editingMemo, setEditingMemo] = useState<StoreMemo | null>(null);
+  const [editorDirty, setEditorDirty] = useState(false);
   const [conflictMemoId, setConflictMemoId] = useState<string | null>(null);
+  const [expandedMemoId, setExpandedMemoId] = useState<string | null>(null);
+  const [expandedAnchor, setExpandedAnchor] = useState<MemoListItem | StoreMemo | null>(null);
+  const [pendingChecklistMemoIds, setPendingChecklistMemoIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const pendingChecklistMemoIdsRef = useRef(new Set<string>());
   const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const input = useMemo<MemoListInput>(
     () => ({
@@ -93,6 +114,11 @@ export function MemosScreen() {
     queryFn: ({ signal }) => getMemo(selected!.id, { signal }),
     enabled: Boolean(storeId && selected?.id && editorOpen),
   });
+  const inlineDetailQuery = useQuery({
+    queryKey: memosKeys.detail(storeId, expandedMemoId ?? "none"),
+    queryFn: ({ signal }) => getMemo(expandedMemoId!, { signal }),
+    enabled: Boolean(storeId && expandedMemoId),
+  });
   useEffect(() => {
     const onOnline = () => setOnline(true);
     const onOffline = () => setOnline(false);
@@ -112,21 +138,40 @@ export function MemosScreen() {
   }, [searchParams, shell.permissions?.canCreateMemos]);
   useEffect(() => {
     if (!editorOpen || !selected || !detailQuery.data) return;
-    setEditingMemo((current) => (current?.id === selected.id ? current : detailQuery.data));
-  }, [detailQuery.data, editorOpen, selected]);
+    setEditingMemo((current) =>
+      current?.id === selected.id && editorDirty ? current : detailQuery.data,
+    );
+  }, [detailQuery.data, editorDirty, editorOpen, selected]);
   const refresh = async () => {
+    if (!workspaceActive.current) return;
     await queryClient.invalidateQueries({ queryKey: memosKeys.store(storeId) });
+  };
+  const acceptMemoResult = (memo: StoreMemo) => {
+    const key = memosKeys.detail(storeId, memo.id);
+    const cached = queryClient.getQueryData<StoreMemo>(key);
+    if (cached && cached.version > memo.version) return cached;
+    queryClient.setQueryData(key, memo);
+    return memo;
   };
   const mutation = useMutation({
     mutationFn: async (operation: () => Promise<MemoMutationResult>) => operation(),
     onSuccess: async (result) => {
+      if (!workspaceActive.current || result.memo.store_id !== storeId) return;
+      const nextMemo = acceptMemoResult(result.memo);
       setConflictMemoId(null);
       toast.success(copy.updatedToast);
-      setSelected(result.memo);
-      queryClient.setQueryData(memosKeys.detail(storeId, result.memo.id), result.memo);
+      setSelected(nextMemo);
+      setExpandedAnchor((current) =>
+        current?.id === nextMemo.id && current.version <= nextMemo.version ? nextMemo : current,
+      );
+      setEditingMemo((current) =>
+        current?.id === nextMemo.id && current.version <= nextMemo.version ? nextMemo : current,
+      );
+
       await refresh();
     },
     onError: (error) => {
+      if (!workspaceActive.current) return;
       if (
         selected?.id &&
         typeof error === "object" &&
@@ -144,13 +189,25 @@ export function MemosScreen() {
     setConflictMemoId(null);
     setSelected(null);
     setEditingMemo(null);
+    setEditorDirty(false);
     setEditorOpen(true);
   };
   const openExisting = (memo: MemoListItem) => {
     setConflictMemoId(null);
     setSelected(memo);
     setEditingMemo(null);
+    setEditorDirty(false);
     setEditorOpen(true);
+  };
+  const toggleExpanded = (memo: MemoListItem) => {
+    if (expandedMemoId === memo.id) {
+      setExpandedMemoId(null);
+      setExpandedAnchor(null);
+      void refresh();
+      return;
+    }
+    setExpandedMemoId(memo.id);
+    setExpandedAnchor(memo);
   };
   const saveEditor = async (value: MemoEditorSaveInput) => {
     await mutation.mutateAsync(() => ("kind" in value ? createMemo(value) : updateMemo(value)));
@@ -169,7 +226,65 @@ export function MemosScreen() {
         transition: next,
       }),
     );
-    if (editorOpen && editingMemo?.id === memo.id) setEditingMemo(result.memo);
+    if (workspaceActive.current && editorOpen && editingMemo?.id === memo.id) {
+      const nextMemo = acceptMemoResult(result.memo);
+      setEditingMemo((current) =>
+        current && current.version > nextMemo.version ? current : nextMemo,
+      );
+    }
+  };
+  const toggleChecklistItem = async (
+    memo: StoreMemo,
+    item: MemoChecklistItem,
+    completed: boolean,
+  ) => {
+    if (!online || pendingChecklistMemoIdsRef.current.has(memo.id)) return;
+    pendingChecklistMemoIdsRef.current.add(memo.id);
+    setPendingChecklistMemoIds(new Set(pendingChecklistMemoIdsRef.current));
+    try {
+      const result = await updateMemoChecklistItem({
+        operationId: crypto.randomUUID(),
+        id: memo.id,
+        expectedVersion: memo.version,
+        itemId: item.id,
+        completed,
+      });
+      if (!workspaceActive.current || result.memo.store_id !== storeId) return;
+      const nextMemo = acceptMemoResult(result.memo);
+      setConflictMemoId(null);
+      setExpandedAnchor((current) =>
+        current?.id === nextMemo.id && current.version <= nextMemo.version ? nextMemo : current,
+      );
+      setSelected((current) =>
+        current?.id === nextMemo.id && current.version <= nextMemo.version ? nextMemo : current,
+      );
+      setEditingMemo((current) =>
+        current?.id === nextMemo.id && !editorDirty && current.version <= nextMemo.version
+          ? nextMemo
+          : current,
+      );
+
+      toast.success(copy.updatedToast);
+      await refresh();
+    } catch (error) {
+      if (!workspaceActive.current) return;
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "status" in error &&
+        error.status === 409
+      ) {
+        setConflictMemoId(memo.id);
+        await queryClient.invalidateQueries({ queryKey: memosKeys.detail(storeId, memo.id) });
+      }
+      toast.error(error instanceof Error ? error.message : copy.operationFailed);
+      throw error;
+    } finally {
+      pendingChecklistMemoIdsRef.current.delete(memo.id);
+      if (workspaceActive.current) {
+        setPendingChecklistMemoIds(new Set(pendingChecklistMemoIdsRef.current));
+      }
+    }
   };
   const detailMemo = editingMemo ?? (selected && "content" in selected ? selected : null);
   const latestDetail = detailQuery.data;
@@ -178,7 +293,7 @@ export function MemosScreen() {
     <Button
       type="button"
       size="iconDense"
-      className="size-9 rounded-lg bg-foreground text-background shadow-none hover:bg-foreground/90"
+      className="size-9 rounded-lg"
       onClick={openCreate}
       aria-label={copy.newMemo}
       disabled={!online || mutation.isPending}
@@ -191,6 +306,10 @@ export function MemosScreen() {
   if (!shell.permissions?.canReadMemos) return <MemoDeniedState />;
   const listMeta = listQuery.data?.pages[0];
   const visibleItems = listQuery.data?.pages.flatMap((result) => result.items) ?? [];
+  const displayItems =
+    expandedMemoId && expandedAnchor && !visibleItems.some((memo) => memo.id === expandedMemoId)
+      ? [expandedAnchor, ...visibleItems]
+      : visibleItems;
   const filterValue = { view, kind, assigneeId };
   const filterCount = getMemoFilterCount(filterValue);
   const activeFilterLabels = getMemoFilterLabels(filterValue, assigneesQuery.data ?? [], locale);
@@ -214,7 +333,7 @@ export function MemosScreen() {
       type="button"
       onClick={openCreate}
       disabled={!online || mutation.isPending}
-      className="h-10 rounded-xl bg-foreground px-3 text-background shadow-none hover:bg-foreground/90"
+      className="h-10 rounded-xl px-3"
     >
       <Plus className="size-4" />
       {copy.newMemo}
@@ -228,7 +347,7 @@ export function MemosScreen() {
       className={cn(
         compact ? "size-9" : "h-10 px-3",
         "relative rounded-xl border-[var(--border-panel)] bg-card shadow-none",
-        filterCount > 0 && "border-foreground text-foreground",
+        filterCount > 0 && "border-primary bg-primary/10 text-primary",
       )}
       aria-label={
         filterCount
@@ -243,7 +362,7 @@ export function MemosScreen() {
       {filterCount > 0 ? (
         <span
           className={cn(
-            "grid size-5 place-items-center rounded-full bg-foreground text-[10px] font-semibold text-background lg:text-[11px] lg:leading-4",
+            "grid size-5 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground lg:text-[11px] lg:leading-4",
             compact && "absolute -right-1 -top-1",
           )}
         >
@@ -360,19 +479,16 @@ export function MemosScreen() {
           <MemoErrorState error={listQuery.error} onRetry={() => void listQuery.refetch()} />
         ) : listQuery.isLoading ? (
           <MemoLoadingRows />
-        ) : visibleItems.length ? (
+        ) : displayItems.length ? (
           <>
-            <section
-              className="min-w-0 overflow-hidden rounded-2xl border border-[var(--border-panel)] bg-card shadow-[var(--shadow-card)]"
-              aria-label={copy.storeListAria}
-            >
-              <header className="border-b border-border/50 px-3 py-3 sm:px-4">
-                <div className="flex min-w-0 items-end justify-between gap-3">
+            <section className="min-w-0 space-y-2 lg:space-y-3" aria-label={copy.storeListAria}>
+              <header className={cn(repairOs.toolbar, "justify-between rounded-xl px-3 py-2")}>
+                <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary lg:text-[11px] lg:leading-4 lg:tracking-normal">
+                    <p className="text-[10px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
                       {copy.today}
                     </p>
-                    <h2 className="truncate text-lg font-semibold tracking-tight">{todayLabel}</h2>
+                    <h2 className="truncate text-sm font-semibold leading-5">{todayLabel}</h2>
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="font-mono text-xs font-semibold tabular-nums">
@@ -389,7 +505,7 @@ export function MemosScreen() {
                   </div>
                 </div>
                 {visibleTodoCount ? (
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="flex min-w-[7rem] max-w-48 flex-1 items-center gap-2">
                     <div
                       className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
                       role="progressbar"
@@ -409,13 +525,29 @@ export function MemosScreen() {
                   </div>
                 ) : null}
               </header>
-              <div className="min-w-0">
-                {visibleItems.map((memo) => (
+              <div className={repairOs.cardList}>
+                {displayItems.map((memo) => (
                   <MemoCard
                     key={memo.id}
                     memo={memo}
-                    busy={!online || mutation.isPending}
+                    busy={!online || mutation.isPending || pendingChecklistMemoIds.has(memo.id)}
+                    expanded={expandedMemoId === memo.id}
+                    detail={
+                      expandedMemoId === memo.id && inlineDetailQuery.data?.id === memo.id
+                        ? inlineDetailQuery.data
+                        : undefined
+                    }
+                    detailLoading={expandedMemoId === memo.id && inlineDetailQuery.isFetching}
+                    detailError={expandedMemoId === memo.id && inlineDetailQuery.isError}
+                    search={deferredSearch}
                     onOpen={() => openExisting(memo)}
+                    onExpand={() => toggleExpanded(memo)}
+                    onRetryDetail={() => void inlineDetailQuery.refetch()}
+                    onToggleChecklistItem={async (item, completed) => {
+                      const detail = inlineDetailQuery.data;
+                      if (!detail || detail.id !== memo.id) return;
+                      await toggleChecklistItem(detail, item, completed);
+                    }}
                     onTransition={() => void runTransition(memo).catch(() => undefined)}
                   />
                 ))}
@@ -460,8 +592,18 @@ export function MemosScreen() {
         busy={mutation.isPending || !online}
         onOpenChange={(nextOpen) => {
           setEditorOpen(nextOpen);
-          if (!nextOpen) setEditingMemo(null);
+          if (!nextOpen) {
+            setEditingMemo(null);
+            setEditorDirty(false);
+          }
         }}
+        checklistSearch={deferredSearch}
+        onDirtyChange={setEditorDirty}
+        onToggleChecklistItem={
+          detailMemo
+            ? (item, completed) => toggleChecklistItem(detailMemo, item, completed)
+            : undefined
+        }
         onSave={saveEditor}
         onReloadLatest={
           conflictMemoId === detailMemo?.id && latestDetail
