@@ -240,11 +240,11 @@ vi.mock("@/features/customers/forms/customer-tags-dialog", () => ({
 
 import { CustomerDetailScreen } from "@/features/customers/screens/customer-detail-screen";
 
-function renderScreen(locale: "zh-CN" | "it-IT" | "en") {
+function renderScreen(locale: "zh-CN" | "it-IT" | "en", surface: "page" | "dialog" = "page") {
   return render(
     <LocaleProvider initialLocale={locale}>
       <SidebarProvider>
-        <CustomerDetailScreen id={mocks.data?.customer.id ?? "cus_1"} />
+        <CustomerDetailScreen id={mocks.data?.customer.id ?? "cus_1"} surface={surface} />
       </SidebarProvider>
     </LocaleProvider>,
   );
@@ -255,8 +255,12 @@ function clickFirstButton(name: string | RegExp) {
 }
 
 async function exerciseMutations(locale: "zh-CN" | "it-IT" | "en") {
+  clickFirstButton(new RegExp(translateMessage(locale, "customers.detail.profile")));
   clickFirstButton(translateMessage(locale, "customers.detail.edit"));
   fireEvent.click(screen.getByRole("button", { name: "Harness save edit" }));
+  fireEvent.click(
+    screen.getAllByRole("tab", { name: translateMessage(locale, "customers.tab.business") })[0],
+  );
 
   fireEvent.click(
     screen.getAllByRole("tab", {
@@ -289,7 +293,7 @@ async function exerciseMutations(locale: "zh-CN" | "it-IT" | "en") {
   clickFirstButton(translateMessage(locale, "customers.detail.addFollowup"));
   fireEvent.click(screen.getByRole("button", { name: "Harness save followup" }));
 
-  clickFirstButton(translateMessage(locale, "customers.detail.sendMessage"));
+  clickFirstButton(translateMessage(locale, "customers.channel.whatsapp"));
   fireEvent.click(screen.getByRole("button", { name: "Harness confirm message" }));
 
   fireEvent.click(
@@ -297,6 +301,7 @@ async function exerciseMutations(locale: "zh-CN" | "it-IT" | "en") {
       name: new RegExp(translateMessage(locale, "customers.tab.profile")),
     })[0],
   );
+  fireEvent.click(document.querySelector('[data-ui="customer-profile-tags"] summary')!);
   fireEvent.click(
     screen.getByRole("button", {
       name: new RegExp(translateMessage(locale, "customers.detail.manageTags")),
@@ -400,8 +405,11 @@ describe("CustomerDetailScreen i18n", () => {
       ).toBeVisible();
       expect(screen.getAllByText("动态中文客户 Ω").length).toBeGreaterThan(0);
       expect(
-        screen.getAllByText(translateMessage(locale, "customers.detail.currentItems")).length,
+        screen.getAllByText(translateMessage(locale, "customers.detail.businessRecords")).length,
       ).toBeGreaterThan(0);
+      fireEvent.click(
+        screen.getAllByRole("tab", { name: translateMessage(locale, "customers.tab.business") })[0],
+      );
       fireEvent.click(
         screen.getAllByRole("tab", {
           name: new RegExp(translateMessage(locale, "customers.tab.orders")),
@@ -438,6 +446,7 @@ describe("CustomerDetailScreen i18n", () => {
           name: new RegExp(translateMessage(locale, "customers.tab.profile")),
         })[0],
       );
+      fireEvent.click(document.querySelector('[data-ui="customer-profile-tags"] summary')!);
       expect(screen.getByText("动态标签 Ω")).toBeVisible();
       expect(
         screen.getByText(translateMessage(locale, "customers.detail.refreshWarning")),
@@ -446,7 +455,26 @@ describe("CustomerDetailScreen i18n", () => {
     },
   );
 
-  it("keeps the floating customer header through tablet widths and switches at the 1024px shell", () => {
+  it("keeps the dialog surface minimal with the same business and profile destinations", () => {
+    renderScreen("en", "dialog");
+    expect(document.querySelector('[data-ui="customer-detail-workspace"]')).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-ui="customer-detail-mobile-header"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-ui="customer-detail-mobile-actions"]'),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole("tab")).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "WhatsApp" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /Business records/ }));
+    expect(screen.getByRole("tab", { name: "Orders" })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(screen.getByRole("tab", { name: "Profile" }));
+    expect(
+      screen.getByRole("button", { name: translateMessage("en", "customers.detail.edit") }),
+    ).toBeVisible();
+  });
+
+  it("uses page header actions from tablet widths and retains phone dock", () => {
     renderScreen("en");
 
     const page = document.querySelector('[data-ui="customer-detail-page"]');
@@ -458,34 +486,57 @@ describe("CustomerDetailScreen i18n", () => {
     expect(page).toHaveClass(
       "max-w-[430px]",
       "!pb-[calc(var(--customer-detail-mobile-actions-height,68px)+0.75rem)]",
-      "md:!max-w-2xl",
-      "lg:!pt-5",
-      "lg:!pb-8",
+      "md:!max-w-4xl",
+      "md:!pt-5",
+      "md:!pb-8",
     );
-    expect(page).not.toHaveClass("md:!pt-5");
     expect(page?.className).not.toContain("md:!pt-[var(--repair-os-mobile-floating-offset");
-    expect(mobileHeader).toHaveClass("lg:!hidden");
-    expect(mobileHeader).not.toHaveClass("md:!hidden");
+    expect(mobileHeader).toHaveClass("md:!hidden");
     expect(mobileHeader).not.toHaveClass("md:!block");
-    expect(desktopHero).toHaveClass("hidden", "lg:block");
-    expect(mobileActions).toHaveClass("lg:hidden");
-    expect(mobileActions).not.toHaveClass("md:hidden");
-    expect(mobileActions?.firstElementChild).toHaveClass("w-full", "max-w-[430px]", "md:max-w-2xl");
-    expect(mainTabs).toHaveClass("hidden", "lg:sticky", "lg:block");
-    expect(mainTabs).not.toHaveClass("md:block");
+    expect(desktopHero).toHaveClass("hidden", "md:block");
+    expect(mobileActions).toHaveClass("md:hidden");
+    expect(mobileActions?.firstElementChild).toHaveClass("w-full", "max-w-[430px]", "grid-cols-2");
+    expect(mainTabs).toHaveClass("hidden", "md:sticky", "md:block");
 
     const deviceTab = document.querySelector<HTMLButtonElement>(
-      "#customer-detail-main-tab-devices",
+      "#customer-detail-main-tab-business",
     );
     expect(deviceTab).toHaveAccessibleName(
-      new RegExp(translateMessage("en", "customers.tab.devices")),
+      new RegExp(translateMessage("en", "customers.tab.business")),
     );
     fireEvent.click(deviceTab!);
     expect(deviceTab).toHaveAttribute("aria-selected", "true");
-    expect(document.querySelector("#customer-detail-panel-devices")).toHaveAttribute(
+    expect(document.querySelector("#customer-detail-panel-business")).toHaveAttribute(
       "aria-label",
-      expect.stringContaining(translateMessage("en", "customers.tab.devices")),
+      expect.stringContaining(translateMessage("en", "customers.tab.business")),
     );
+  });
+
+  it("remembers the business section on top-level switches and resets for a different customer", () => {
+    const view = renderScreen("en");
+    fireEvent.click(screen.getAllByRole("tab", { name: "Business" })[0]);
+    fireEvent.click(screen.getByRole("tab", { name: "Devices" }));
+    fireEvent.click(screen.getAllByRole("tab", { name: "Profile" })[0]);
+    fireEvent.click(screen.getAllByRole("tab", { name: "Business" })[0]);
+    expect(screen.getByRole("tab", { name: "Devices" })).toHaveAttribute("aria-selected", "true");
+
+    mocks.data = {
+      ...detailData,
+      customer: { ...detailData.customer, id: "cus_different", name: "Second customer" },
+    };
+    view.rerender(
+      <LocaleProvider initialLocale="en">
+        <SidebarProvider>
+          <CustomerDetailScreen id="cus_different" />
+        </SidebarProvider>
+      </LocaleProvider>,
+    );
+    expect(screen.getAllByRole("tab", { name: "Overview" })[0]).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    fireEvent.click(screen.getAllByRole("tab", { name: "Business" })[0]);
+    expect(screen.getByRole("tab", { name: "Orders" })).toHaveAttribute("aria-selected", "true");
   });
 
   it.each(["zh-CN", "it-IT", "en"] as const)(

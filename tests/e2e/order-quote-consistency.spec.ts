@@ -2,6 +2,7 @@ import { devices, expect, test, type Locator, type Page, type TestInfo } from "@
 
 import type { FaultPriceItem } from "@/lib/repairdesk/types";
 import { translateMessage } from "@/shared/i18n/messages";
+import { waitForApplicationReady } from "./helpers/app-ready";
 
 test.skip(
   process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP !== "1",
@@ -47,9 +48,49 @@ for (const viewport of [
         // Reuse the real new-order entry and quote primitives with local draft values only.
         const creation = await context.newPage();
         await creation.route("**/api/repairdesk/orders/create", (route) =>
-          route.fulfill({ status: 400, json: { error: "Synthetic test: no order creation" } }),
+          route.fulfill({ status: 200, json: { data: { id: "ord_1" } } }),
         );
         await creation.goto("/orders/new", { waitUntil: "domcontentloaded" });
+        await waitForApplicationReady(creation);
+        const customerOpener = creation.locator('[data-mobile-edit="customer"]');
+        await expect(creation.locator('[data-new-order-form="true"]')).toBeVisible();
+        const compact = viewport.width < 680;
+        if (compact) await customerOpener.click();
+        const phone = creation.getByRole("combobox", {
+          name: t("orders2b1.new.lookup.phoneAria"),
+          exact: true,
+        });
+        await expect(phone).toBeVisible();
+        if ((await phone.evaluate((node) => node.tagName)) !== "INPUT") {
+          await phone.click();
+          for (const digit of "3457000199")
+            await creation.locator(`[data-phone-keypad-key="${digit}"]:visible`).click();
+          await creation.locator('[data-phone-keypad-done="true"]:visible').click();
+        } else {
+          await phone.fill("3457000199");
+        }
+        if (compact) {
+          await creation
+            .getByRole("dialog")
+            .getByRole("button", {
+              name: t("orders2b1.keypad.done"),
+              exact: true,
+            })
+            .click();
+          await creation.locator('[data-mobile-edit="device"]').click();
+        }
+        await creation.locator("#new-order-device-brand").fill("Apple");
+        await creation.locator("#new-order-device-model").fill("iPhone 13");
+        await creation.locator("#new-order-device-model").press("Tab");
+        if (compact)
+          await creation
+            .getByRole("dialog")
+            .getByRole("button", {
+              name: t("orders2b1.keypad.done"),
+              exact: true,
+            })
+            .click();
+        await creation.getByRole("button", { name: new RegExp(t("orders.custodyShop")) }).click();
         const newQuote = creation.locator('[data-new-order-section="quotation"]');
         await newQuote.locator('[data-fault-category="battery"] > button').first().click();
         await setMoney(creation, moneyControl(newQuote).first(), "85");
@@ -58,6 +99,14 @@ for (const viewport of [
         await newQuote.scrollIntoViewIfNeeded();
         await assertNoOverflow(creation);
         await capture(creation, testInfo, "new-order");
+        await creation
+          .getByRole("button", {
+            name: t("orders2b1.new.create"),
+            exact: true,
+          })
+          .click();
+        await expect(creation).toHaveURL(/\/orders\/ord_1$/);
+        await expect(creation.locator('[data-order-detail-root="true"]')).toBeVisible();
         await creation.close();
 
         const openingVersion = "2026-09-12T10:00:00.000Z";
@@ -217,6 +266,13 @@ for (const viewport of [
         await page.keyboard.press("Escape");
         await expect(editor).toHaveCount(0);
         await expect(trigger).toBeFocused();
+        // A remounted page must read saved state, not only the client query cache.
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await trigger.click();
+        await expectAmount(firstAmount, "95.5");
+        await capture(page, testInfo, "detail-reloaded");
+        await page.keyboard.press("Escape");
+        await expect(editor).toHaveCount(0);
         expect(pageErrors).toEqual([]);
       });
     }

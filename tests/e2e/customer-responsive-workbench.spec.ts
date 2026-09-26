@@ -14,6 +14,16 @@ const viewports = [
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for customer workbench checks.");
 
+test.beforeEach(async ({ context, baseURL }) => {
+  expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
+  await context.addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL! }]);
+  await context.route("**/*", (route) =>
+    new URL(route.request().url()).origin === new URL(baseURL!).origin
+      ? route.continue()
+      : route.abort(),
+  );
+});
+
 test.describe("customer responsive workbench", () => {
   for (const viewport of viewports) {
     test(`keeps the simple list and detail workbench at ${viewport.width}px`, async ({ page }) => {
@@ -53,7 +63,7 @@ test.describe("customer responsive workbench", () => {
       }
 
       await openCustomerDetail(page, viewport.width);
-      await expect(page.locator('[data-ui="customer-current-items"]:visible')).toBeVisible();
+      await expect(page.locator('[data-ui="customer-unfinished-orders"]:visible')).toBeVisible();
       if (viewport.width === 390) {
         await page.screenshot({
           path: runEvidencePath(
@@ -71,19 +81,16 @@ test.describe("customer responsive workbench", () => {
         });
       }
       const visibleTabs = page.locator('[role="tablist"][aria-label="客户详情分组"]:visible');
-      await expect(visibleTabs.getByRole("tab")).toHaveCount(5);
+      await expect(visibleTabs.getByRole("tab")).toHaveCount(3);
       await expect(page.locator('[role="tabpanel"]:visible')).toHaveAttribute("aria-label", /.+/);
 
-      if (viewport.width < 1024) {
+      if (viewport.width < 768) {
         const createOrderAction = page.getByRole("link", { name: "新建工单" });
-        const messageAction = page.getByRole("button", { name: "发消息" });
-        const followupAction = page.getByRole("button", { name: "加待办" });
+        const messageAction = page.getByRole("button", { name: "WhatsApp" });
         await expect(createOrderAction).toBeVisible();
         await expect(messageAction).toBeVisible();
-        await expect(followupAction).toBeVisible();
         await expectMinTouchHeight(createOrderAction);
         await expectMinTouchHeight(messageAction);
-        await expectMinTouchHeight(followupAction);
         for (const tab of await visibleTabs.getByRole("tab").all()) {
           await expectMinTouchHeight(tab);
         }

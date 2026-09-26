@@ -63,7 +63,8 @@ export interface CustomerWorkSummary {
   tone: CustomerWorkSummaryTone;
 }
 
-export type CustomerDetailTabKey = "overview" | "devices" | "orders" | "profile" | "followups";
+export type CustomerDetailTabKey = "overview" | "business" | "profile";
+export type CustomerBusinessTabKey = "orders" | "devices" | "followups";
 
 export interface CustomerDetailTabMeta {
   key: CustomerDetailTabKey;
@@ -383,15 +384,11 @@ export function getCustomerDetailWorkSummary(data: CustomerDetail): CustomerWork
   });
 }
 
-export function buildCustomerDetailTabs(data: CustomerDetail): CustomerDetailTabMeta[] {
-  const followupCount = data.followups.filter((followup) => followup.status === "open").length;
-
+export function buildCustomerDetailTabs(_data: CustomerDetail): CustomerDetailTabMeta[] {
   return [
-    { key: "overview", label: "总览" },
-    { key: "orders", label: "工单", count: data.orders.length },
-    { key: "devices", label: "设备", count: data.devices.length },
-    { key: "followups", label: "跟进", count: followupCount },
-    { key: "profile", label: "资料", count: data.tags.length },
+    { key: "overview", label: "概览" },
+    { key: "business", label: "业务" },
+    { key: "profile", label: "资料" },
   ];
 }
 

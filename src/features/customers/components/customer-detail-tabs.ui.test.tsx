@@ -7,14 +7,12 @@ afterEach(cleanup);
 
 describe("CustomerDetailTabs", () => {
   const tabs = [
-    { key: "overview", label: "总览" },
-    { key: "orders", label: "工单", count: 2 },
-    { key: "devices", label: "设备", count: 1 },
-    { key: "followups", label: "跟进", count: 3 },
+    { key: "overview", label: "概览" },
+    { key: "business", label: "业务" },
     { key: "profile", label: "资料" },
   ] as const;
 
-  it("keeps all five groups in one tablist and supports arrow navigation", () => {
+  it("keeps three groups in one tablist and supports arrow navigation", () => {
     const onChange = vi.fn();
     render(
       <CustomerDetailTabs
@@ -27,14 +25,14 @@ describe("CustomerDetailTabs", () => {
     );
 
     const tablist = screen.getByRole("tablist", { name: "客户详情分组" });
-    expect(tablist).toHaveClass("grid-cols-5");
-    expect(screen.getAllByRole("tab")).toHaveLength(5);
+    expect(tablist).toHaveStyle({ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" });
+    expect(screen.getAllByRole("tab")).toHaveLength(3);
 
-    const overview = screen.getByRole("tab", { name: "总览" });
+    const overview = screen.getByRole("tab", { name: "概览" });
     expect(overview).toHaveClass("text-xs");
-    expect(screen.getByText("2")).toHaveClass("text-[11px]", "min-[390px]:inline");
+    expect(screen.queryByText("2")).not.toBeInTheDocument();
     fireEvent.keyDown(overview, { key: "ArrowRight" });
-    expect(onChange).toHaveBeenCalledWith("orders");
-    expect(screen.getByRole("tab", { name: /工单/ })).toHaveFocus();
+    expect(onChange).toHaveBeenCalledWith("business");
+    expect(screen.getByRole("tab", { name: /业务/ })).toHaveFocus();
   });
 });

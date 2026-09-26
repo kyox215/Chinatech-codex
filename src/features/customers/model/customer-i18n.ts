@@ -30,9 +30,7 @@ const workFilterKeys = {
 
 const tabKeys = {
   overview: "customers.tab.overview",
-  orders: "customers.tab.orders",
-  devices: "customers.tab.devices",
-  followups: "customers.tab.followups",
+  business: "customers.tab.business",
   profile: "customers.tab.profile",
 } as const satisfies Record<CustomerDetailTabKey, MessageKey>;
 
