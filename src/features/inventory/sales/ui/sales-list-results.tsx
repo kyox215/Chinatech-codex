@@ -55,7 +55,10 @@ export function SalesQueueBar({
 }) {
   const { locale } = useLocale();
   return (
-    <div className="mb-2 flex gap-1 overflow-x-auto pb-1" aria-label={salesCopy(locale, "title")}>
+    <div
+      className="mb-2 grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-5"
+      aria-label={salesCopy(locale, "title")}
+    >
       {(["all", "available", "awaiting_payment", "paid_pending_pickup", "delivered"] as const).map(
         (queue) => (
           <Button
@@ -63,7 +66,7 @@ export function SalesQueueBar({
             key={queue}
             variant={value === queue ? "default" : "outline"}
             size="sm"
-            className="min-h-11 shrink-0 gap-1 px-2 text-[11px] lg:text-xs"
+            className="min-h-11 min-w-0 gap-1 whitespace-normal px-2 text-[11px] lg:text-xs"
             aria-pressed={value === queue}
             onClick={() => onChange(queue)}
           >
@@ -164,7 +167,11 @@ export function SalesListResults({
                 ) : null}
               </span>
               <strong className="tabular-nums">
-                {money(row.order?.price_cents ?? row.inspection.list_price_cents ?? 0)}
+                {row.order
+                  ? money(row.order.price_cents)
+                  : row.inspection.list_price_cents == null
+                    ? "—"
+                    : money(row.inspection.list_price_cents)}
               </strong>
               <span className="tabular-nums">{row.order ? money(row.order.paid_cents) : "—"}</span>
               <span className="tabular-nums">

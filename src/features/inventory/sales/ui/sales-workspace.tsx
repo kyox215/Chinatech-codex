@@ -18,14 +18,19 @@ import { salesCopy, salesLanguage, type SalesCopyKey } from "./sales-copy";
 import { commandIdentity, salesErrorKey, salesStatusKey } from "./sales-ui-adapter";
 import { Fact, SalesTransactionDialog } from "./sales-transaction-dialog";
 import { SalesInspectionDialog } from "./sales-inspection-dialog";
+import { SalesFollowupPanel } from "./sales-followup-panel";
 import { SalesReceiptDialog } from "./sales-receipt-dialog";
 
 export function SalesWorkspace({
   summary,
+  productLabel,
+  canManageWorkflow = false,
   storeId,
   onRefresh,
 }: {
   summary: InventorySalesSummary;
+  productLabel?: string;
+  canManageWorkflow?: boolean;
   storeId: string;
   onRefresh: () => Promise<unknown>;
 }) {
@@ -280,6 +285,13 @@ export function SalesWorkspace({
           ))}
         </div>
       ) : null}
+      {order && canManageWorkflow ? (
+        <SalesFollowupPanel
+          key={`${storeId}:${order.id}`}
+          saleOrderId={order.id}
+          storeId={storeId}
+        />
+      ) : null}
       {error ? (
         <p role="alert" className="text-xs text-destructive">
           {c(error)}
@@ -288,6 +300,7 @@ export function SalesWorkspace({
       {command ? (
         <SalesTransactionDialog
           summary={current}
+          productLabel={productLabel}
           command={command}
           storeId={storeId}
           onClose={() => setCommand(null)}

@@ -2,7 +2,7 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumericKeypadInput } from "@/components/ui/numeric-keypad-input";
@@ -30,9 +30,10 @@ import {
   type InventorySalesCommand,
   type InventorySalesCommandBody,
   type InventorySalesPayment,
+  type InventorySalesCommandResult,
 } from "../model/contracts";
 import { salesDocumentMoney } from "../model/sales-document";
-import { invalidateInventorySales } from "../api/queries";
+import { inventorySalesDetailOptions, invalidateInventorySales } from "../api/queries";
 import { salesCopy, salesLanguage, type SalesCopyKey } from "./sales-copy";
 import {
   commandIdentity,
@@ -105,12 +106,14 @@ export function SalesDialog({
 
 export function SalesTransactionDialog({
   summary: liveSummary,
+  productLabel,
   command,
   storeId,
   onClose,
   onRefresh,
 }: {
   summary: InventorySalesSummary;
+  productLabel?: string;
   command: InventorySalesCommand;
   storeId: string;
   onClose: () => void;
@@ -124,7 +127,11 @@ export function SalesTransactionDialog({
   const order = summary.order;
   const creating = command === "sale.create";
   const pickup = command === "pickup.confirm";
-  const [price, setPrice] = useState(String((summary.inspection.list_price_cents ?? 0) / 100));
+  const [price, setPrice] = useState(
+    summary.inspection.list_price_cents == null
+      ? ""
+      : String(summary.inspection.list_price_cents / 100),
+  );
   const [amount, setAmount] = useState(
     creating ? price : String((order?.balance_cents ?? 0) / 100),
   );
@@ -141,6 +148,15 @@ export function SalesTransactionDialog({
   const [customerId, setCustomerId] = useState<string>();
   const [newIntent, setNewIntent] = useState<CustomerIntakeNewCustomerPolicy | null>(null);
   const [sharedConfirmed, setSharedConfirmed] = useState(false);
+  const [step, setStep] = useState<"edit" | "review">("edit");
+  const [touched, setTouched] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const [result, setResult] = useState<InventorySalesCommandResult | null>(null);
+  const resultDetail = useQuery({
+    ...inventorySalesDetailOptions(result?.sale_order_id ?? "", storeId),
+    enabled: Boolean(result?.sale_order_id),
+    retry: false,
+  });
   const [error, setError] = useState<SalesCopyKey | null>(null);
   const identity = useRef<ReturnType<typeof commandIdentity> | null>(null);
   const lock = useRef(false);
@@ -175,8 +191,24 @@ export function SalesTransactionDialog({
         (pickup
           ? fullyPaid && summary.capabilities.can_deliver && !summary.inspection_missing.length
           : canDeliver)));
+  function requestClose() {
+    if (busy) return;
+    if (!result && (touched || customerId || deliver || note)) setDiscardOpen(true);
+    else onClose();
+  }
   async function submit() {
-    if (lock.current || !ready) return;
+    if (lock.current || !ready || result) return;
+    if (step === "edit") {
+      try {
+        const at = romeDateTimeToIso(date);
+        if (Date.parse(at) > Date.now() + 300_000) throw new Error("invalidDate");
+        setError(null);
+        setStep("review");
+      } catch {
+        setError("invalidDate");
+      }
+      return;
+    }
     lock.current = true;
     setError(null);
     try {
@@ -229,15 +261,16 @@ export function SalesTransactionDialog({
         payload,
         idempotency_key: identity.current.key,
       });
-      await mutation.mutateAsync(body);
-      await Promise.all([
+      const committed = await mutation.mutateAsync(body);
+      setResult(committed);
+      // Once committed, refresh failures must never present a retry-payment action.
+      await Promise.allSettled([
         invalidateInventorySales(client, storeId),
         client.invalidateQueries({
           queryKey: customersKeys.all,
           predicate: (q) => q.queryKey.includes(storeId),
         }),
       ]);
-      onClose();
     } catch (cause) {
       setError(
         cause instanceof Error && cause.message === "invalidDate"
@@ -276,271 +309,366 @@ export function SalesTransactionDialog({
   return (
     <SalesDialog
       workspace={creating}
-      title={c(creating ? "sell" : pickup ? "pickup" : "collect")}
+      title={c(
+        result
+          ? "completed"
+          : discardOpen
+            ? "discardTitle"
+            : step === "review"
+              ? "reviewTitle"
+              : creating
+                ? "sell"
+                : pickup
+                  ? "pickup"
+                  : "collect",
+      )}
       description={order?.sale_number ?? c("title")}
-      onClose={onClose}
+      onClose={requestClose}
       pending={busy}
     >
-      <form
-        className="flex min-h-0 flex-1 flex-col"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void submit();
-        }}
-      >
-        <div data-editor-body className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
-          {creating ? (
-            <section className="grid min-w-0 gap-2 rounded-xl border border-border p-2">
-              <CustomerIdentityLookup
-                phone={phone}
-                name={name}
-                selectedCustomerId={customerId}
-                onPhoneChange={(v) => {
-                  setPhone(v);
-                  setCustomerId(undefined);
-                }}
-                onNameChange={(v) => {
-                  setName(v);
-                  setCustomerId(undefined);
-                }}
-                onClearCustomerSelection={() => setCustomerId(undefined)}
-                onPickCustomer={({ customer }) => {
-                  setCustomerId(customer.id);
-                  setPhone(customer.phone_e164);
-                  setName(customer.name);
-                }}
-                onNewCustomerIntentChange={setNewIntent}
-                disabled={busy}
-                deviceLimit={1}
-              />
-              {customerId ? (
-                <Link
-                  className="w-fit text-xs text-primary underline"
-                  href={`/customers/${customerId}`}
-                >
-                  {c("customer")} · {name}
-                </Link>
-              ) : null}
-              {newIntent === "requires_shared_phone_confirmation" ? (
-                <CheckField
-                  checked={sharedConfirmed}
-                  onChange={setSharedConfirmed}
-                  label={c("sharedPhone")}
-                />
-              ) : null}
-              {!customerId && newIntent && !newIntent.startsWith("blocked") ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={
-                    busy || (newIntent === "requires_shared_phone_confirmation" && !sharedConfirmed)
-                  }
-                  onClick={() => void addCustomer()}
-                >
-                  {c("createCustomer")}
-                </Button>
-              ) : null}
-            </section>
-          ) : null}
-          {!pickup ? (
-            <div className="grid grid-cols-2 gap-2">
-              {creating ? (
-                <MoneyField
-                  label={c("price")}
-                  value={price}
-                  disabled={busy}
-                  onChange={(v) => {
-                    setPrice(v);
-                    setDeliver(false);
-                  }}
-                />
-              ) : (
-                <Fact
-                  label={c("balance")}
-                  value={salesDocumentMoney(order?.balance_cents ?? 0, salesLanguage(locale))}
-                />
-              )}
-              <MoneyField
-                label={c("amount")}
-                value={amount}
-                disabled={busy}
-                onChange={(v) => {
-                  setAmount(v);
-                  setDeliver(false);
-                }}
-              />
-              <Field label={c("method")}>
-                <select
-                  aria-label={c("method")}
-                  className="min-h-11 w-full rounded-lg border border-input bg-background px-2 text-base lg:text-sm"
-                  value={method}
-                  disabled={busy}
-                  onChange={(e) => setMethod(e.target.value as typeof method)}
-                >
-                  {(["cash", "card", "bancomat", "transfer", "other"] as const).map((m) => (
-                    <option key={m} value={m}>
-                      {c(m)}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label={c("date")}>
-                <Input
-                  type="datetime-local"
-                  aria-label={c("date")}
-                  value={date}
-                  disabled={busy}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="min-w-0 text-base lg:text-sm"
-                />
-              </Field>
-            </div>
-          ) : (
-            <Field label={c("date")}>
-              <Input
-                type="datetime-local"
-                aria-label={c("date")}
-                value={date}
-                disabled={busy}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </Field>
-          )}
-          {!pickup && !validAmount ? (
-            <p role="alert" className="text-xs text-destructive">
-              {c("overpayment")}
-            </p>
-          ) : null}
-          {!canReserve ? (
-            <p role="alert" className="text-xs text-destructive">
-              {c("permission")}
-            </p>
-          ) : null}
-          {creating ? (
-            <section className="grid gap-2 rounded-xl border border-border p-2">
-              <CheckField
-                checked={used}
-                onChange={(v) => {
-                  setUsed(v);
-                  setMonths(24);
-                  setConsent(false);
-                }}
-                label={c("used")}
-                disabled={busy}
-              />
-              <Field label={c("warranty")}>
-                <select
-                  aria-label={c("warranty")}
-                  className="min-h-11 rounded-lg border border-input bg-background px-2 text-base lg:text-sm"
-                  value={months}
-                  disabled={busy}
-                  onChange={(e) => {
-                    setMonths(Number(e.target.value) as 12 | 24);
-                    setConsent(false);
-                  }}
-                >
-                  <option value={24}>{c("months24")}</option>
-                  {used ? <option value={12}>{c("months12")}</option> : null}
-                </select>
-              </Field>
-              {months === 12 ? (
-                <CheckField
-                  checked={consent}
-                  onChange={setConsent}
-                  label={c("consent")}
-                  disabled={busy}
-                />
-              ) : null}
-            </section>
-          ) : null}
-          {!pickup ? (
-            <>
-              <Field label={c("note")}>
-                <Textarea
-                  aria-label={c("note")}
-                  maxLength={500}
-                  value={note}
-                  disabled={busy}
-                  onChange={(e) => setNote(e.target.value)}
-                  rows={2}
-                />
-              </Field>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant={!deliver ? "default" : "outline"}
-                  aria-pressed={!deliver}
-                  disabled={busy}
-                  onClick={() => {
-                    setDeliver(false);
-                    setConfirmedDelivery(false);
-                  }}
-                >
-                  {c("hold")}
-                </Button>
-                <Button
-                  type="button"
-                  variant={deliver ? "default" : "outline"}
-                  aria-pressed={deliver}
-                  disabled={busy || !canDeliver}
-                  title={!canDeliver ? c(fullyPaid ? "blocked" : "overpayment") : undefined}
-                  onClick={() => setDeliver(true)}
-                >
-                  {c("deliverNow")}
-                </Button>
-              </div>
-            </>
-          ) : null}
-          {actualDelivery ? (
-            <CheckField
-              checked={confirmedDelivery}
-              onChange={setConfirmedDelivery}
-              label={c("deliveryNote")}
-              disabled={busy}
-            />
-          ) : (
-            <p className="text-xs text-muted-foreground">{c("heldNote")}</p>
-          )}
-          {error ? (
-            <div
-              role="alert"
-              className="space-y-2 rounded-lg bg-destructive/5 p-2 text-xs text-destructive"
-            >
-              <p>{c(error)}</p>
-              {error === "conflict" || error === "blocked" ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => {
-                    void onRefresh();
-                    onClose();
-                  }}
-                >
-                  {c("refresh")}
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
+      {discardOpen ? (
+        <div className="grid gap-3 p-3">
+          <p>{c("discardTitle")}</p>
+          <Button onClick={() => setDiscardOpen(false)}>{c("continueEditing")}</Button>
+          <Button variant="outline" onClick={onClose}>
+            {c("discard")}
+          </Button>
         </div>
-        <footer
-          data-editor-footer
-          className="grid shrink-0 grid-cols-2 gap-2 border-t border-border bg-card p-3 md:flex md:justify-end"
-        >
+      ) : result ? (
+        <div className="grid gap-3 overflow-y-auto p-3" role="status">
+          <Fact
+            label={c("recordedNumber")}
+            value={resultDetail.data?.order?.sale_number ?? result.sale_order_id}
+          />
+          <p>{productLabel}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Fact
+              label={c("paid")}
+              value={salesDocumentMoney(result.paid_cents, salesLanguage(locale))}
+            />
+            <Fact
+              label={c("balance")}
+              value={salesDocumentMoney(result.balance_cents, salesLanguage(locale))}
+            />
+          </div>
+          <p>{c(result.status)}</p>
+          <p className="text-xs text-muted-foreground">{c("externalReceiptNote")}</p>
           <Button
-            type="button"
-            variant="outline"
-            className="min-h-11"
-            disabled={busy}
-            onClick={onClose}
+            onClick={() => {
+              void onRefresh();
+              onClose();
+            }}
           >
-            {c("cancel")}
+            {c("viewResult")}
           </Button>
-          <Button type="submit" className="min-h-11" disabled={busy || !ready}>
-            {busy ? c("pending") : c("save")}
-          </Button>
-        </footer>
-      </form>
+        </div>
+      ) : (
+        <form
+          className="flex min-h-0 flex-1 flex-col"
+          onChangeCapture={() => setTouched(true)}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
+          <div data-editor-body className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+            {step === "review" ? (
+              <section className="grid gap-3" aria-label={c("reviewTitle")}>
+                {productLabel ? <p className="font-semibold">{productLabel}</p> : null}
+                {creating ? <Fact label={c("customer")} value={`${name} · ${phone}`} /> : null}
+                <div className="grid grid-cols-2 gap-3">
+                  <Fact
+                    label={c("price")}
+                    value={salesDocumentMoney(priceCents ?? 0, salesLanguage(locale))}
+                  />
+                  {!pickup ? (
+                    <>
+                      <Fact
+                        label={c("amount")}
+                        value={salesDocumentMoney(amountCents ?? 0, salesLanguage(locale))}
+                      />
+                      <Fact label={c("method")} value={c(method)} />
+                      <Fact
+                        label={c("balance")}
+                        value={salesDocumentMoney(
+                          (maxAmount ?? 0) - (amountCents ?? 0),
+                          salesLanguage(locale),
+                        )}
+                      />
+                    </>
+                  ) : null}
+                  <Fact label={c("date")} value={date.replace("T", " ")} />
+                  {creating ? (
+                    <Fact
+                      label={c("warranty")}
+                      value={c(months === 24 ? "months24" : "months12")}
+                    />
+                  ) : null}
+                </div>
+                <p className="rounded-lg bg-muted p-3 text-sm">
+                  {c(actualDelivery ? "deliveryNote" : "heldNote")}
+                </p>
+                {note ? <Fact label={c("note")} value={note} /> : null}
+              </section>
+            ) : (
+              <>
+                {creating ? (
+                  <section className="grid min-w-0 gap-2 rounded-xl border border-border p-2">
+                    <CustomerIdentityLookup
+                      phone={phone}
+                      name={name}
+                      selectedCustomerId={customerId}
+                      onPhoneChange={(v) => {
+                        setPhone(v);
+                        setCustomerId(undefined);
+                      }}
+                      onNameChange={(v) => {
+                        setName(v);
+                        setCustomerId(undefined);
+                      }}
+                      onClearCustomerSelection={() => setCustomerId(undefined)}
+                      onPickCustomer={({ customer }) => {
+                        setCustomerId(customer.id);
+                        setPhone(customer.phone_e164);
+                        setName(customer.name);
+                      }}
+                      onNewCustomerIntentChange={setNewIntent}
+                      disabled={busy}
+                      deviceLimit={1}
+                    />
+                    {customerId ? (
+                      <Link
+                        className="w-fit text-xs text-primary underline"
+                        href={`/customers/${customerId}`}
+                      >
+                        {c("customer")} · {name}
+                      </Link>
+                    ) : null}
+                    {newIntent === "requires_shared_phone_confirmation" ? (
+                      <CheckField
+                        checked={sharedConfirmed}
+                        onChange={setSharedConfirmed}
+                        label={c("sharedPhone")}
+                      />
+                    ) : null}
+                    {!customerId && newIntent && !newIntent.startsWith("blocked") ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={
+                          busy ||
+                          (newIntent === "requires_shared_phone_confirmation" && !sharedConfirmed)
+                        }
+                        onClick={() => void addCustomer()}
+                      >
+                        {c("createCustomer")}
+                      </Button>
+                    ) : null}
+                  </section>
+                ) : null}
+                {!pickup ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {creating ? (
+                      <MoneyField
+                        label={c("price")}
+                        value={price}
+                        disabled={busy}
+                        onChange={(v) => {
+                          if (amount === price) setAmount(v);
+                          setPrice(v);
+                          setDeliver(false);
+                        }}
+                      />
+                    ) : (
+                      <Fact
+                        label={c("balance")}
+                        value={salesDocumentMoney(order?.balance_cents ?? 0, salesLanguage(locale))}
+                      />
+                    )}
+                    <MoneyField
+                      label={c("amount")}
+                      value={amount}
+                      disabled={busy}
+                      onChange={(v) => {
+                        setAmount(v);
+                        setDeliver(false);
+                      }}
+                    />
+                    <Field label={c("method")}>
+                      <select
+                        aria-label={c("method")}
+                        className="min-h-11 w-full rounded-lg border border-input bg-background px-2 text-base lg:text-sm"
+                        value={method}
+                        disabled={busy}
+                        onChange={(e) => setMethod(e.target.value as typeof method)}
+                      >
+                        {(["cash", "card", "bancomat", "transfer", "other"] as const).map((m) => (
+                          <option key={m} value={m}>
+                            {c(m)}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label={c("date")}>
+                      <Input
+                        type="datetime-local"
+                        aria-label={c("date")}
+                        value={date}
+                        disabled={busy}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="min-w-0 text-base lg:text-sm"
+                      />
+                    </Field>
+                  </div>
+                ) : (
+                  <Field label={c("date")}>
+                    <Input
+                      type="datetime-local"
+                      aria-label={c("date")}
+                      value={date}
+                      disabled={busy}
+                      onChange={(e) => setDate(e.target.value)}
+                    />
+                  </Field>
+                )}
+                {!pickup && !validAmount ? (
+                  <p role="alert" className="text-xs text-destructive">
+                    {c("overpayment")}
+                  </p>
+                ) : null}
+                {!canReserve ? (
+                  <p role="alert" className="text-xs text-destructive">
+                    {c("permission")}
+                  </p>
+                ) : null}
+                {creating ? (
+                  <section className="grid gap-2 rounded-xl border border-border p-2">
+                    <CheckField
+                      checked={used}
+                      onChange={(v) => {
+                        setUsed(v);
+                        setMonths(24);
+                        setConsent(false);
+                      }}
+                      label={c("used")}
+                      disabled={busy}
+                    />
+                    <Field label={c("warranty")}>
+                      <select
+                        aria-label={c("warranty")}
+                        className="min-h-11 rounded-lg border border-input bg-background px-2 text-base lg:text-sm"
+                        value={months}
+                        disabled={busy}
+                        onChange={(e) => {
+                          setMonths(Number(e.target.value) as 12 | 24);
+                          setConsent(false);
+                        }}
+                      >
+                        <option value={24}>{c("months24")}</option>
+                        {used ? <option value={12}>{c("months12")}</option> : null}
+                      </select>
+                    </Field>
+                    {months === 12 ? (
+                      <CheckField
+                        checked={consent}
+                        onChange={setConsent}
+                        label={c("consent")}
+                        disabled={busy}
+                      />
+                    ) : null}
+                  </section>
+                ) : null}
+                {!pickup ? (
+                  <>
+                    <Field label={c("note")}>
+                      <Textarea
+                        aria-label={c("note")}
+                        maxLength={500}
+                        value={note}
+                        disabled={busy}
+                        onChange={(e) => setNote(e.target.value)}
+                        rows={2}
+                      />
+                    </Field>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        variant={!deliver ? "default" : "outline"}
+                        aria-pressed={!deliver}
+                        disabled={busy}
+                        onClick={() => {
+                          setDeliver(false);
+                          setConfirmedDelivery(false);
+                        }}
+                      >
+                        {c("hold")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={deliver ? "default" : "outline"}
+                        aria-pressed={deliver}
+                        disabled={busy || !canDeliver}
+                        title={!canDeliver ? c(fullyPaid ? "blocked" : "overpayment") : undefined}
+                        onClick={() => setDeliver(true)}
+                      >
+                        {c("deliverNow")}
+                      </Button>
+                    </div>
+                  </>
+                ) : null}
+                {actualDelivery ? (
+                  <CheckField
+                    checked={confirmedDelivery}
+                    onChange={setConfirmedDelivery}
+                    label={c("deliveryNote")}
+                    disabled={busy}
+                  />
+                ) : (
+                  <p className="text-xs text-muted-foreground">{c("heldNote")}</p>
+                )}
+              </>
+            )}
+            {error ? (
+              <div
+                role="alert"
+                className="space-y-2 rounded-lg bg-destructive/5 p-2 text-xs text-destructive"
+              >
+                <p>{c(error)}</p>
+                {error === "conflict" || error === "blocked" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => {
+                      void onRefresh();
+                      onClose();
+                    }}
+                  >
+                    {c("refresh")}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          <footer
+            data-editor-footer
+            className="grid shrink-0 grid-cols-2 gap-2 border-t border-border bg-card p-3 md:flex md:justify-end"
+          >
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              disabled={busy}
+              onClick={() => (step === "review" ? setStep("edit") : requestClose())}
+            >
+              {c(step === "review" ? "editDraft" : "cancel")}
+            </Button>
+            <Button type="submit" className="min-h-11" disabled={busy || !ready}>
+              {busy ? c("pending") : c(step === "review" ? "save" : "review")}
+            </Button>
+          </footer>
+        </form>
+      )}
     </SalesDialog>
   );
 }

@@ -136,6 +136,10 @@ function InventoryProductDetailContent({
         sales.isSuccess && sales.data ? (
           <SalesWorkspace
             summary={sales.data}
+            canManageWorkflow={shell.permissions.canSellInventory === true}
+            productLabel={[item.brand, item.model, item.specification, item.masked_identifier]
+              .filter(Boolean)
+              .join(" · ")}
             storeId={storeId}
             onRefresh={() => sales.refetch()}
           />

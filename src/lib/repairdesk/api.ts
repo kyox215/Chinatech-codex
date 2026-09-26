@@ -1,4 +1,12 @@
 import type {
+  InventorySalesWorkflowCommandBody,
+  InventorySalesWorkflowCommandResult,
+  InventorySalesWorkflowReadInput,
+  InventorySalesWorkflowReadResult,
+  InventorySalesWorkflowReportInput,
+  InventorySalesWorkflowReport,
+} from "@/features/inventory/sales/model/workflow-contracts";
+import type {
   InventorySalesCommandBody,
   InventorySalesCommandResult,
   InventorySalesDetail,
@@ -1776,4 +1784,14 @@ export async function readInventorySalesReceipt(input: InventorySalesReceiptInpu
 
 export async function readInventorySalesList(input: InventorySalesListInput) {
   return postJson<InventorySalesList>("inventory/sales/list", input);
+}
+
+export async function readInventorySalesWorkflow(input: InventorySalesWorkflowReadInput) {
+  return postJson<InventorySalesWorkflowReadResult>("inventory/sales/workflow/read", input);
+}
+export async function runInventorySalesWorkflowCommand(input: InventorySalesWorkflowCommandBody) {
+  return postJson<InventorySalesWorkflowCommandResult>("inventory/sales/workflow/command", input);
+}
+export async function readInventorySalesWorkflowReport(input: InventorySalesWorkflowReportInput) {
+  return postJson<InventorySalesWorkflowReport>("inventory/sales/workflow/report", input);
 }

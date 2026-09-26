@@ -40,6 +40,14 @@ export function romeDateTime(value = new Date()) {
   const read = (type: string) => parts.find((p) => p.type === type)?.value;
   return `${read("year")}-${read("month")}-${read("day")}T${read("hour")}:${read("minute")}`;
 }
+export function salesRomeDateTime(value: string, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: "Europe/Rome",
+    dateStyle: "medium",
+    timeStyle: "short",
+    hourCycle: "h23",
+  }).format(new Date(value));
+}
 export function romeDateTimeToIso(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) throw new Error("invalidDate");
   const base = Date.parse(`${value}:00Z`);
