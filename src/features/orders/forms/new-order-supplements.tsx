@@ -35,6 +35,7 @@ export function NewOrderSupplements({
   disabled,
   locked,
   compact = false,
+  showNotes = true,
 }: {
   notes: string;
   onNotesChange: (value: string) => void;
@@ -44,6 +45,7 @@ export function NewOrderSupplements({
   disabled: boolean;
   locked: boolean;
   compact?: boolean;
+  showNotes?: boolean;
 }) {
   const { t } = useLocale();
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -215,7 +217,7 @@ export function NewOrderSupplements({
           </p>
         ) : null}
       </PhotoSection>
-      {!compact ? (
+      {!compact && showNotes ? (
         <details className="group min-w-0" open={Boolean(notes) || undefined}>
           <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 rounded-md text-xs text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
             <span>

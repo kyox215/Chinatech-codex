@@ -398,7 +398,7 @@ function deviceSnapshotFromRow(value: unknown): DeviceSnapshot | undefined {
     brand,
     model,
     serial_or_imei: requiredString(row.serial_or_imei),
-    device_notes: maybeString(row.device_notes),
+    device_notes: typeof row.device_notes === "string" ? row.device_notes : undefined,
   };
 }
 

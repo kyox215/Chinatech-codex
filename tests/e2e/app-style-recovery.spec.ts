@@ -11,7 +11,7 @@ const cssAssetPattern = /\/_next\/static\/.*\.css(?:\?.*)?$/;
 const jsAssetPattern = /\/_next\/static\/.*\.js(?:\?.*)?$/;
 const recoveryProbePattern = "**/recovery-probe.txt**";
 
-test.use({ serviceWorkers: "block" });
+test.use({ serviceWorkers: "block", locale: "zh-CN" });
 
 async function seedReloadLimit(page: import("@playwright/test").Page) {
   await page.addInitScript(

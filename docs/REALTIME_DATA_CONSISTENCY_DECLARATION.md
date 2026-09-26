@@ -5,6 +5,18 @@ Owner: Architecture + Data + Security + Integration Lead
 Effective: 2026-07-23
 Scope: all store-scoped business reads, mutations, cache keys, Realtime events, and foreground recovery checks.
 
+## 2026-09-26 工单状态变更补充
+
+单单状态变更必须携带 `expected_updated_at` 与 `idempotency_key`；批量请求为
+`{items:[{id,expected_updated_at,idempotency_key}],to}`，每批1–100个不同工单与不同操作键。
+版本取自用户开始该操作时的快照。网络错误、未知400或5xx结果不明确时，重试必须保留原版本和键；
+仅已确认成功或明确拒绝后结束该次尝试，不能因后台刷新而重新生成操作身份。
+
+服务端使用原子RPC重查当前门店/成员/员工/工单授权，并在事务锁内读取或提交状态回执。
+工作流默认状态切换与边集合替换必须在单个事务内完成，不允许顺序写入降级。
+旧 `{ids,to}` 批量客户端需要刷新；上线前先部署加法迁移，详见
+[迁移、隔离数据库验证及恢复步骤](../supabase/tests/orders_remediation_README.md)。
+
 ## 1. 目标与边界
 
 数据库与 RepairDesk BFF 是唯一业务数据源。跨设备同步只传递“数据已变化”的元数据，

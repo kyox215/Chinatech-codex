@@ -355,8 +355,7 @@ describe("NewOrderScreen i18n", () => {
       </LocaleProvider>,
     );
     populateValidForm();
-    fireEvent.click(screen.getByText("Notes · Optional"));
-    fireEvent.change(screen.getByRole("textbox", { name: "Notes" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Reported issue" }), {
       target: { value: "Synthetic intake note" },
     });
     fireEvent.change(view.container.querySelector('input[type="file"]')!, {

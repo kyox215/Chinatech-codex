@@ -9,7 +9,8 @@ import type {
   StoreRole,
 } from "@/lib/repairdesk/types";
 import { DEFAULT_LOCALE, type AppLocale } from "@/shared/i18n/locales";
-import { translateMessage, type MessageKey } from "@/shared/i18n/messages";
+import { translateLoadedMessage as translateMessage } from "@/shared/i18n/runtime-messages";
+import { type MessageKey } from "@/shared/i18n/messages";
 
 export type MemberPermissionGroup = "history-finance" | "suppliers";
 

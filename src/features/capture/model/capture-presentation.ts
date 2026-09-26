@@ -1,6 +1,7 @@
 import type { CapturePayload } from "@/features/capture/model/barcode-parser";
 import type { AppLocale } from "@/shared/i18n/locales";
-import { translateMessage, type MessageKey } from "@/shared/i18n/messages";
+import { translateLoadedMessage as translateMessage } from "@/shared/i18n/runtime-messages";
+import { type MessageKey } from "@/shared/i18n/messages";
 
 const labelRules: Record<CapturePayload["kind"], { key: MessageKey; labels: readonly string[] }> = {
   order_link: {

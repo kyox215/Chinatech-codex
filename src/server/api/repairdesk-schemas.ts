@@ -1632,8 +1632,8 @@ export const transitionOrderBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),
   to: repairOrderStatusSchema,
   reason: optionalText,
-  expected_updated_at: z.string().min(1, "缺少版本时间").optional(),
-  idempotency_key: z.string().uuid("状态操作标识无效").optional(),
+  expected_updated_at: z.string().datetime({ offset: true }),
+  idempotency_key: z.string().uuid("状态操作标识无效"),
 });
 
 export const confirmCancelledOrderReturnBodySchema = z.object({
@@ -1656,10 +1656,29 @@ export const updateOrderCustodyBodySchema = z
   })
   .strict();
 
-export const batchTransitionBodySchema = z.object({
-  ids: z.array(z.string().min(1)),
-  to: repairOrderStatusSchema,
-});
+export const batchTransitionBodySchema = z
+  .object({
+    items: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1),
+            expected_updated_at: z.string().datetime({ offset: true }),
+            idempotency_key: z.string().uuid("状态操作标识无效"),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(100)
+      .refine(
+        (items) =>
+          new Set(items.map((item) => item.id)).size === items.length &&
+          new Set(items.map((item) => item.idempotency_key)).size === items.length,
+        "批量流转不能重复工单或操作标识",
+      ),
+    to: repairOrderStatusSchema,
+  })
+  .strict();
 
 export const paymentBodySchema = z.object({
   id: z.string().min(1, "缺少 id"),

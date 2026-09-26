@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  batchTransition,
+  createOrderWorkflowStatus,
+  updateOrderWorkflowStatus,
+  updateOrderWorkflowTransitions,
+  updateOrder,
   confirmCancelledOrderReturn,
   decideOrderApproval,
   correctTerminalOrder,
@@ -915,8 +920,13 @@ describe("order repository database pagination", () => {
         }),
       );
 
+    mocks.supabase.rpc.mockResolvedValueOnce({ data: { ok: true, found: false }, error: null });
     await expect(
-      transitionOrder("order_custom_guard", "waiting_vendor", { operator: actor("owner") }),
+      transitionOrder("order_custom_guard", "waiting_vendor", {
+        operator: actor("owner"),
+        expectedUpdatedAt: "2026-07-09T10:00:00.000Z",
+        idempotencyKey: "00000000-0000-4000-8000-000000000600",
+      }),
     ).rejects.toThrow("尚未绑定主流程阶段");
     expect(mocks.supabase.from).toHaveBeenCalledTimes(3);
   });
@@ -997,7 +1007,11 @@ describe("order repository database pagination", () => {
     );
 
     await expect(
-      transitionOrder("order_1", "repairing", { operator: actor("technician") }),
+      transitionOrder("order_1", "repairing", {
+        operator: actor("technician"),
+        expectedUpdatedAt: "2026-07-09T10:00:00.000Z",
+        idempotencyKey: "00000000-0000-4000-8000-000000000600",
+      }),
     ).rejects.toThrow("设备保管功能尚未完成数据库迁移");
     expect(mocks.supabase.rpc).not.toHaveBeenCalled();
   });
@@ -1253,6 +1267,7 @@ describe("order repository custody writes", () => {
       error: null,
       count: 1,
     });
+    mocks.supabase.rpc.mockResolvedValueOnce({ data: { ok: true, found: false }, error: null });
     mocks.supabase.rpc.mockResolvedValueOnce({
       data: { ok: true, code: "updated", updated_at: "2026-07-09T10:01:00.000Z" },
       error: null,
@@ -1269,7 +1284,7 @@ describe("order repository custody writes", () => {
     });
 
     expect(mocks.supabase.rpc).toHaveBeenCalledWith(
-      "repairdesk_apply_order_atomic_mutation",
+      "repairdesk_apply_order_transition",
       expect.objectContaining({
         p_store_id: "store_1",
         p_order_id: "order_1",
@@ -1303,8 +1318,11 @@ describe("order repository custody writes", () => {
       .mockReturnValueOnce(currentBucketQuery)
       .mockReturnValueOnce(targetQuery);
 
+    mocks.supabase.rpc.mockResolvedValueOnce({ data: { ok: true, found: false }, error: null });
     await expect(
       transitionOrder("order_1", "customer_cancelled" as RepairOrderStatus, {
+        expectedUpdatedAt: "2026-07-09T10:00:00.000Z",
+        idempotencyKey: "00000000-0000-4000-8000-000000000600",
         operator: actor("owner"),
       }),
     ).rejects.toThrow("需要填写原因");
@@ -1949,3 +1967,271 @@ function mockLegacyAssignmentLookup() {
       }),
     );
 }
+
+describe("order remediation contracts", () => {
+  const expected = "2026-07-09T10:00:00.000Z";
+  const key = "00000000-0000-4000-8000-000000000601";
+  beforeEach(() => {
+    mocks.supabase.from.mockReset();
+    mocks.supabase.rpc.mockReset();
+  });
+
+  it("does not borrow the server version or generate a key for an unversioned intent", async () => {
+    await expect(
+      transitionOrder("order_1", "repairing", {
+        operator: actor("owner"),
+      } as Parameters<typeof transitionOrder>[2]),
+    ).rejects.toMatchObject({ code: "missing_expected_version" });
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    null,
+    {},
+    { ok: false, code: "unexpected" },
+    { ok: true },
+    { ok: true, found: true, receipt: null },
+    { ok: true, found: true, receipt: { ok: true, from: "new" } },
+  ])("treats malformed receipt as uncertain without writing: %o", async (data) => {
+    mocks.supabase.from.mockReturnValue(
+      createSupabaseQuery({ data: orderRow(), error: null, count: 1 }),
+    );
+    mocks.supabase.rpc.mockResolvedValueOnce({ data, error: null });
+    await expect(
+      transitionOrder("order_1", "repairing", {
+        expectedUpdatedAt: "2026-07-09T10:00:00.000Z",
+        idempotencyKey: "00000000-0000-4000-8000-000000000800",
+        operator: actor("owner"),
+      }),
+    ).rejects.toMatchObject({ status: 503, code: "ORDER_TRANSITION_UNCERTAIN" });
+    expect(
+      mocks.supabase.rpc.mock.calls.some(([name]) => name === "repairdesk_apply_order_transition"),
+    ).toBe(false);
+  });
+
+  it("replays the original receipt after a committed completion response is lost", async () => {
+    let committed = false;
+    let requestHash: string | undefined;
+    mocks.supabase.from.mockImplementation((table: string) =>
+      createSupabaseQuery({
+        data:
+          table === "repair_orders"
+            ? orderRow({
+                status: committed ? "completed" : "repaired",
+                workflow_status: committed ? "closed" : "pickup",
+                record_state: "active",
+                device_custody_status: committed ? "with_customer" : "with_shop",
+              })
+            : {
+                code: "completed",
+                label: "已完成",
+                bucket: committed ? "done" : "pickup",
+                enabled: true,
+              },
+        error: null,
+        count: 1,
+      }),
+    );
+    mocks.supabase.rpc.mockImplementation(async (name: string, args: Record<string, unknown>) => {
+      if (name === "repairdesk_order_transition_receipt") {
+        if (committed) {
+          expect(args.p_request_hash).toBe(requestHash);
+          return {
+            data: {
+              ok: true,
+              found: true,
+              receipt: { ok: true, from: "repaired", to: "completed" },
+            },
+            error: null,
+          };
+        }
+        requestHash = args.p_request_hash as string;
+        return { data: { ok: true, found: false }, error: null };
+      }
+      committed = true;
+      return { data: null, error: { code: "08006", message: "connection lost after commit" } };
+    });
+    const intent = { expectedUpdatedAt: expected, idempotencyKey: key, operator: actor("owner") };
+    await expect(transitionOrder("order_1", "completed", intent)).rejects.toMatchObject({
+      status: 503,
+      code: "ORDER_TRANSITION_UNCERTAIN",
+    });
+    await expect(transitionOrder("order_1", "completed", intent)).resolves.toEqual({
+      ok: true,
+      from: "repaired",
+      to: "completed",
+    });
+    expect(
+      mocks.supabase.rpc.mock.calls.filter(
+        ([name]) => name === "repairdesk_apply_order_transition",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it.each(["actor_forbidden", "idempotency_conflict", "order_not_found"])(
+    "rejects receipt lookup %s without a mutation",
+    async (code) => {
+      mocks.supabase.from.mockReturnValue(
+        createSupabaseQuery({ data: orderRow(), error: null, count: 1 }),
+      );
+      mocks.supabase.rpc.mockResolvedValue({ data: { ok: false, code }, error: null });
+      await expect(
+        transitionOrder("order_1", "repairing", {
+          expectedUpdatedAt: expected,
+          idempotencyKey: key,
+          operator: actor("owner"),
+        }),
+      ).rejects.toMatchObject({ code });
+      expect(mocks.supabase.rpc).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("passes each bulk item's observed version and key to CAS, preserving partial failure", async () => {
+    mocks.supabase.from.mockImplementation((table: string) =>
+      createSupabaseQuery({
+        data:
+          table === "repair_orders"
+            ? orderRow({
+                status: "new",
+                record_state: "active",
+                updated_at: "2026-07-09T12:00:00.000Z",
+              })
+            : { code: "repairing", bucket: "repair", enabled: true },
+        error: null,
+        count: 1,
+      }),
+    );
+    const writes: Record<string, unknown>[] = [];
+    mocks.supabase.rpc.mockImplementation(async (name: string, args: Record<string, unknown>) => {
+      if (name === "repairdesk_order_transition_receipt")
+        return { data: { ok: true, found: false }, error: null };
+      writes.push(args);
+      return {
+        data:
+          args.p_order_id === "order_stale"
+            ? { ok: false, code: "stale_version" }
+            : { ok: true, updated_at: "2026-07-09T13:00:00.000Z" },
+        error: null,
+      };
+    });
+    const items = [
+      { id: "order_stale", expected_updated_at: expected, idempotency_key: key },
+      {
+        id: "order_fresh",
+        expected_updated_at: "2026-07-09T12:00:00.000Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000602",
+      },
+    ];
+    const result = await batchTransition(items, "repairing", actor("owner"));
+    expect(result).toMatchObject({ ok: false, count: 1, failures: [{ id: "order_stale" }] });
+    expect(writes.map((write) => [write.p_expected_updated_at, write.p_idempotency_key])).toEqual(
+      items.map((item) => [item.expected_updated_at, item.idempotency_key]),
+    );
+  });
+
+  it.each(["create", "update", "transitions"])(
+    "uses one atomic configuration RPC for %s, with no direct table writes or fallback on error",
+    async (mode) => {
+      mocks.supabase.rpc.mockResolvedValue({
+        data: null,
+        error: { message: "synthetic late write failure" },
+      });
+      const action =
+        mode === "create"
+          ? createOrderWorkflowStatus(
+              {
+                code: "custom_new",
+                label: "New",
+                tone: "neutral",
+                bucket: "intake",
+                is_default_create_status: true,
+              },
+              actor("owner"),
+            )
+          : mode === "update"
+            ? updateOrderWorkflowStatus(
+                "status_1",
+                { is_default_create_status: true },
+                actor("owner"),
+              )
+            : updateOrderWorkflowTransitions(
+                {
+                  from_status_code: "new",
+                  transitions: [{ to_status_code: "repairing", enabled: true }],
+                },
+                actor("owner"),
+              );
+      await expect(action).rejects.toThrow("synthetic late write failure");
+      expect(mocks.supabase.rpc).toHaveBeenCalledTimes(1);
+      expect(mocks.supabase.from).not.toHaveBeenCalled();
+    },
+  );
+
+  it("stores a cleared device note in the order snapshot instead of deleting its override", async () => {
+    mocks.supabase.from.mockReturnValue(
+      createSupabaseQuery({
+        data: orderRow({ device_snapshot: { brand: "Test", model: "Phone", device_notes: "old" } }),
+        error: null,
+        count: 1,
+      }),
+    );
+    mocks.supabase.rpc.mockResolvedValue({ data: { ok: true, updated_at: expected }, error: null });
+    await patchOrder(
+      "order_1",
+      { expected_updated_at: expected, changes: { device_notes: "  " } },
+      actor("owner"),
+    );
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith(
+      "repairdesk_mutate_order_v4",
+      expect.objectContaining({
+        p_order_changes: expect.objectContaining({
+          device_snapshot: expect.objectContaining({ device_notes: "" }),
+        }),
+      }),
+    );
+  });
+  it.each([undefined, "", " new note "])(
+    "full editor preserves absent versus explicit device note %s",
+    async (note) => {
+      mocks.supabase.from.mockReturnValue(
+        createSupabaseQuery({
+          data: orderRow({
+            device_snapshot: { brand: "Test", model: "Phone", device_notes: "kept" },
+          }),
+          error: null,
+          count: 1,
+        }),
+      );
+      mocks.supabase.rpc.mockResolvedValue({
+        data: { ok: true, updated_at: expected },
+        error: null,
+      });
+      await updateOrder(
+        "order_1",
+        {
+          expected_updated_at: expected,
+          expected_customer_updated_at: expected,
+          customer_name: "Test",
+          customer_phone: "+393330001111",
+          device_brand: "Test",
+          device_model: "Phone",
+          device_notes: note,
+          issue_description: "Test",
+          fault_prices: [{ name: "Fix", price: 100 }],
+        },
+        actor("owner"),
+      );
+      expect(mocks.supabase.rpc).toHaveBeenCalledWith(
+        "repairdesk_mutate_order_v4",
+        expect.objectContaining({
+          p_order_changes: expect.objectContaining({
+            device_snapshot: expect.objectContaining({
+              device_notes: note === undefined ? "kept" : note.trim(),
+            }),
+          }),
+        }),
+      );
+    },
+  );
+});

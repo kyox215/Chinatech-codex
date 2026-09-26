@@ -151,7 +151,17 @@ import { componentOverlay } from "@/lib/component-patterns";
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import { fadeUp, floatingBar } from "@/lib/motion";
 import { CACHE_TIMES } from "@/lib/query-performance";
-import { batchTransition, type OrderListFilters, type OrderListItem } from "@/lib/repairdesk/api";
+import {
+  getOrderTransitionAttempt,
+  isDefinitiveTransitionFailure,
+  type OrderTransitionAttempt,
+} from "@/features/orders/model/order-transition-attempt";
+import {
+  batchTransition,
+  type OrderTransitionItem,
+  type OrderListFilters,
+  type OrderListItem,
+} from "@/lib/repairdesk/api";
 import type { OrderListPageInput, OrderListView, OrderQueueGroup } from "@/lib/repairdesk/types";
 import { appShell, brandGradientStyle, controls, layoutGuards, repairOs } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
@@ -442,9 +452,13 @@ export function OrderListScreen() {
   const bulkScopeKey = JSON.stringify([activeStoreId, shell.userId, queueRequestHash]);
   const bulkScopeRef = useRef(bulkScopeKey);
   const bulkScopeVersionRef = useRef(0);
+  const selectedVersionsRef = useRef(new Map<string, string>());
+  const bulkAttemptsRef = useRef(new Map<string, OrderTransitionAttempt>());
   useEffect(() => {
     bulkScopeVersionRef.current += 1;
     bulkScopeRef.current = bulkScopeKey;
+    selectedVersionsRef.current.clear();
+    bulkAttemptsRef.current.clear();
     setSelected([]);
     setBulkRecovery(null);
   }, [bulkScopeKey]);
@@ -910,15 +924,16 @@ export function OrderListScreen() {
 
   const bulk = useMutation({
     mutationFn: ({
-      ids,
+      items,
       to,
     }: {
       ids: string[];
+      items: OrderTransitionItem[];
       to: RepairOrderStatus;
       scopeKey: string;
       scopeVersion: number;
       orders: { id: string; publicNo?: string }[];
-    }) => batchTransition(ids, to),
+    }) => batchTransition(items, to),
     onSuccess: (result, vars) => {
       refreshOrderData();
       if (
@@ -926,6 +941,13 @@ export function OrderListScreen() {
         vars.scopeVersion !== bulkScopeVersionRef.current
       )
         return;
+      for (const id of vars.ids) {
+        const failure = result.failures.find((item) => item.id === id);
+        const code = failure && classifyOrderTransitionFailure(failure.reason);
+        if (!failure || (code !== "UNAVAILABLE" && code !== "TRANSITION_FAILED")) {
+          bulkAttemptsRef.current.delete(id);
+        }
+      }
       const failedIds = getFailedOrderTransitionIds(vars.ids, result.failures);
       const failures = failedIds.map((id) => ({
         id,
@@ -956,6 +978,9 @@ export function OrderListScreen() {
         vars.scopeVersion !== bulkScopeVersionRef.current
       )
         return;
+      if (isDefinitiveTransitionFailure(error)) {
+        for (const id of vars.ids) bulkAttemptsRef.current.delete(id);
+      }
       const reason = classifyOrderTransitionFailure(error);
       setSelected(vars.ids);
       setBulkRecovery({
@@ -981,9 +1006,27 @@ export function OrderListScreen() {
       : null;
   const submitBulkTransition = (ids: string[], to: RepairOrderStatus) => {
     if (bulkRequestLockRef.current || !ids.length || !isOnline || !canBatchTransitionOrders) return;
+    const items = ids.map((id) => {
+      const updatedAt = selectedVersionsRef.current.get(id);
+      if (!updatedAt) return null;
+      const attempt = getOrderTransitionAttempt(bulkAttemptsRef.current.get(id), {
+        scope: bulkScopeKey,
+        id,
+        to,
+        updatedAt,
+      });
+      bulkAttemptsRef.current.set(id, attempt);
+      return {
+        id,
+        expected_updated_at: attempt.expected_updated_at,
+        idempotency_key: attempt.idempotency_key,
+      };
+    });
+    if (items.some((item) => item === null)) return;
     bulkRequestLockRef.current = true;
     bulk.mutate({
       ids: [...ids],
+      items: items as OrderTransitionItem[],
       to,
       scopeKey: bulkScopeKey,
       scopeVersion: bulkScopeVersionRef.current,
@@ -994,6 +1037,15 @@ export function OrderListScreen() {
           activeBulkRecovery?.failures.find((failure) => failure.id === id)?.publicNo,
       })),
     });
+  };
+
+  const selectAllVisible = (checked: boolean) => {
+    if (bulkRequestLockRef.current) return;
+    selectedVersionsRef.current.clear();
+    bulkAttemptsRef.current.clear();
+    if (checked)
+      for (const order of data) selectedVersionsRef.current.set(order.id, order.updated_at);
+    setSelected(checked ? data.map((order) => order.id) : []);
   };
 
   const allSelected = data.length > 0 && data.every((order) => selected.includes(order.id));
@@ -1345,15 +1397,21 @@ export function OrderListScreen() {
       onOpen={() => openDetail(order.id)}
       onPrefetch={() => scheduleOrderDetailPrefetch(order.id, "intent")}
       onCancelPrefetch={() => cancelOrderDetailPrefetch(order.id)}
-      onCheckedChange={(value) =>
+      onCheckedChange={(value) => {
+        if (bulkRequestLockRef.current) return;
+        if (value) selectedVersionsRef.current.set(order.id, order.updated_at);
+        else {
+          selectedVersionsRef.current.delete(order.id);
+          bulkAttemptsRef.current.delete(order.id);
+        }
         setSelected((previous) =>
           bulkRequestLockRef.current
             ? previous
             : value
               ? [...new Set([...previous, order.id])]
               : previous.filter((id) => id !== order.id),
-        )
-      }
+        );
+      }}
       onPrint={() => requestPrintRows([order])}
       canPrint={canPrintSingleOrders}
       printDisabledReason={singlePrintDisabledReason}
@@ -2087,7 +2145,7 @@ export function OrderListScreen() {
                         <Checkbox
                           checked={allSelected}
                           disabled={bulk.isPending}
-                          onCheckedChange={(v) => setSelected(v ? data.map((o) => o.id) : [])}
+                          onCheckedChange={(v) => selectAllVisible(Boolean(v))}
                           aria-label={t("orders.selectPage")}
                         />
                       ) : null}
@@ -2175,7 +2233,7 @@ export function OrderListScreen() {
                       <Checkbox
                         checked={allSelected}
                         disabled={bulk.isPending}
-                        onCheckedChange={(v) => setSelected(v ? data.map((order) => order.id) : [])}
+                        onCheckedChange={(v) => selectAllVisible(Boolean(v))}
                         aria-label={t("orders.selectPage")}
                       />
                       {t("orders.selectPage")}

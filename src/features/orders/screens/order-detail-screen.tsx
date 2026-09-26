@@ -23,6 +23,11 @@ import {
   type RefObject,
 } from "react";
 import Link from "next/link";
+import {
+  getOrderTransitionAttempt,
+  isDefinitiveTransitionFailure,
+  type OrderTransitionAttempt,
+} from "@/features/orders/model/order-transition-attempt";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
@@ -670,16 +675,26 @@ export function OrderDetailScreen({
     mobileFinanceVersionRef.current = null;
   }, [activeStoreId, id]);
 
+  const transitionAttemptRef = useRef<OrderTransitionAttempt | undefined>(undefined);
   const transition = useMutation({
     mutationFn: (vars: { to: RepairOrderStatus; reason?: string }) => {
       if (!data) throw new Error("工单未加载");
+      const attempt = getOrderTransitionAttempt(transitionAttemptRef.current, {
+        scope: `${activeStoreId ?? ""}:${shell.userId ?? ""}`,
+        id,
+        to: vars.to,
+        reason: vars.reason,
+        updatedAt: data.order.updated_at,
+      });
+      transitionAttemptRef.current = attempt;
       return transitionOrder(id, vars.to, {
         reason: vars.reason,
-        expectedUpdatedAt: data.order.updated_at,
-        idempotencyKey: crypto.randomUUID(),
+        expectedUpdatedAt: attempt.expected_updated_at,
+        idempotencyKey: attempt.idempotency_key,
       });
     },
     onSuccess: (_r, vars) => {
+      transitionAttemptRef.current = undefined;
       toast.success(
         t("orders2b2.success.transition", {
           status: localizeWorkflowStatusLabel(workflow, vars.to, t),
@@ -687,8 +702,10 @@ export function OrderDetailScreen({
       );
       invalidate();
     },
-    onError: (error: unknown) =>
-      toast.error(getOrderDetailSafeErrorMessage(error, "transition", t)),
+    onError: (error: unknown) => {
+      if (isDefinitiveTransitionFailure(error)) transitionAttemptRef.current = undefined;
+      toast.error(getOrderDetailSafeErrorMessage(error, "transition", t));
+    },
   });
 
   // Keep the picker, its host and its trigger in one synchronous UI pending
@@ -1707,7 +1724,7 @@ export function OrderDetailScreen({
   const deviceLabel = `${deviceBrand} ${deviceModel}`.trim() || order.device_label;
   const deviceImei =
     order.device_snapshot?.serial_or_imei || order.device_imei || device?.serial_or_imei || "";
-  const deviceNotes = order.device_snapshot?.device_notes || device?.device_notes;
+  const deviceNotes = order.device_snapshot?.device_notes ?? device?.device_notes;
   const accessoryNotes = order.accessory_notes;
   const canUpdateCustody = Boolean(
     data.capabilities?.canEditIntake || data.capabilities?.canCorrect,
@@ -4644,56 +4661,71 @@ function MobileOrderDetailView({
                   >
                     <DetailRows rows={[["IMEI / SN", deviceImei || "-"]]} />
                   </button>
-                  <div className="order-detail-mobile-fields">
-                    {(
-                      [
-                        [
-                          "warranty",
-                          t("orders2b2.overview.warranty"),
-                          locale === "zh-CN"
-                            ? order.warranty_text || "-"
-                            : typeof order.warranty_months === "number"
-                              ? localizeWarrantyText(
-                                  normalizeWarrantyMonths(order.warranty_months),
-                                  t,
-                                )
-                              : order.warranty_text
-                                ? localizeWarrantyText(parseWarrantyMonths(order.warranty_text), t)
-                                : "-",
-                        ],
-                        ["accessories", t("orders2b2.overview.accessories"), accessoryNotes || "-"],
-                      ] as const
-                    ).map(([field, label, value]) => (
-                      <button
-                        key={field}
-                        type="button"
-                        data-order-field-trigger={field}
-                        aria-label={fieldReadOnlyLabel(field)}
-                        title={fieldReadOnlyLabel(field)}
-                        onClick={(event) => onEditField(field, event.currentTarget)}
-                        className="order-detail-mobile-field"
-                      >
-                        <span className="text-muted-foreground">{label}</span>
-                        <span className="min-w-0 break-words">{value}</span>
-                        <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
-                      </button>
-                    ))}
-                  </div>
                   <DeviceUnlockViewer order={order} compact className="mt-1 !px-1.5 !py-1" />
-                  <button
-                    type="button"
-                    data-order-field-trigger="notes"
-                    aria-label={fieldReadOnlyLabel("notes")}
-                    title={fieldReadOnlyLabel("notes")}
-                    onClick={(event) => onEditField("notes", event.currentTarget)}
-                    className="order-detail-mobile-field"
-                  >
-                    <span className="text-muted-foreground">
-                      {t("orders2b2.overview.deviceNotes")}
-                    </span>
-                    <span className="min-w-0 truncate">{identityInitial.device_notes || "—"}</span>
-                    <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
-                  </button>
+                  <details className="order-workbench-disclosure">
+                    <summary className="min-h-11">
+                      {t("orders2b2.overview.keyInfo")}
+                      <ChevronDown aria-hidden="true" />
+                    </summary>
+                    <div className="order-detail-mobile-fields">
+                      {(
+                        [
+                          [
+                            "warranty",
+                            t("orders2b2.overview.warranty"),
+                            locale === "zh-CN"
+                              ? order.warranty_text || "-"
+                              : typeof order.warranty_months === "number"
+                                ? localizeWarrantyText(
+                                    normalizeWarrantyMonths(order.warranty_months),
+                                    t,
+                                  )
+                                : order.warranty_text
+                                  ? localizeWarrantyText(
+                                      parseWarrantyMonths(order.warranty_text),
+                                      t,
+                                    )
+                                  : "-",
+                          ],
+                          [
+                            "accessories",
+                            t("orders2b2.overview.accessories"),
+                            accessoryNotes || "-",
+                          ],
+                        ] as const
+                      ).map(([field, label, value]) => (
+                        <button
+                          key={field}
+                          type="button"
+                          data-order-field-trigger={field}
+                          aria-label={fieldReadOnlyLabel(field)}
+                          title={fieldReadOnlyLabel(field)}
+                          onClick={(event) => onEditField(field, event.currentTarget)}
+                          className="order-detail-mobile-field"
+                        >
+                          <span className="text-muted-foreground">{label}</span>
+                          <span className="min-w-0 break-words">{value}</span>
+                          <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      data-order-field-trigger="notes"
+                      aria-label={fieldReadOnlyLabel("notes")}
+                      title={fieldReadOnlyLabel("notes")}
+                      onClick={(event) => onEditField("notes", event.currentTarget)}
+                      className="order-detail-mobile-field"
+                    >
+                      <span className="text-muted-foreground">
+                        {t("orders2b2.overview.deviceNotes")}
+                      </span>
+                      <span className="min-w-0 truncate">
+                        {identityInitial.device_notes || "—"}
+                      </span>
+                      <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
+                    </button>{" "}
+                  </details>
                 </div>
                 <button
                   type="button"
@@ -5123,7 +5155,7 @@ function MobileOrderDetailView({
               rows={[
                 [
                   t("orders2b2.overview.deviceNotes"),
-                  order.device_snapshot?.device_notes || data.device?.device_notes || "—",
+                  (order.device_snapshot?.device_notes ?? data.device?.device_notes) || "—",
                 ],
               ]}
             />

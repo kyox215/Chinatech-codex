@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   acceptKioskSession,
+  batchTransition,
+  transitionOrder,
   createOrder,
   downloadOrderDataTemplate,
   getDashboardSummary,
@@ -27,6 +29,35 @@ describe("repairdesk api client", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("posts unchanged observed versions and operation keys when retrying transitions", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ data: { ok: true, count: 1, failures: [] } }), {
+          status: 200,
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const item = {
+      id: "order_1",
+      expected_updated_at: "2026-09-26T10:00:00Z",
+      idempotency_key: "00000000-0000-4000-8000-000000000100",
+    };
+    await batchTransition([item], "repairing");
+    await batchTransition([item], "repairing");
+    const requests = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    expect(requests[0][1].body).toEqual(requests[1][1].body);
+    expect(
+      JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string),
+    ).toEqual({ items: [item], to: "repairing" });
+    await transitionOrder(item.id, "repairing", {
+      expectedUpdatedAt: item.expected_updated_at,
+      idempotencyKey: item.idempotency_key,
+    });
+    expect(
+      JSON.parse((fetchMock.mock.calls[2] as unknown as [string, RequestInit])[1].body as string),
+    ).toEqual({ ...item, to: "repairing" });
   });
 
   it("unwraps repairdesk response data", async () => {

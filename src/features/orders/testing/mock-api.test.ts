@@ -9,6 +9,7 @@ import type {
 import { orders as mockOrders } from "@/lib/mock/state";
 import { createMockSupplier, resetMockSuppliers } from "@/features/suppliers/testing/mock-api";
 import {
+  batchTransition,
   confirmCancelledOrderReturn,
   correctTerminalOrder,
   createOrderWorkflowStatus,
@@ -1980,5 +1981,42 @@ describe("mock creation phone ownership", () => {
       customer_phone: "+390000998852 / +390000998854",
     });
     expect((await getOrder(otherId)).customer).toEqual(other.customer);
+  });
+});
+
+describe("mock transition remediation", () => {
+  it("replays the original completion and rejects changed intent before terminal validation", async () => {
+    const id = await createMockOrder({ device_custody_status: "with_shop" });
+    const expected = (await getOrder(id)).order.updated_at;
+    const opts = { expectedUpdatedAt: expected, idempotencyKey: crypto.randomUUID() };
+    const receipt = await transitionOrder(id, "completed", opts);
+    await expect(transitionOrder(id, "completed", opts)).resolves.toEqual(receipt);
+    await expect(
+      transitionOrder(id, "completed", { ...opts, reason: "different" }),
+    ).rejects.toMatchObject({ code: "idempotency_conflict" });
+    const detail = await getOrder(id);
+    expect(
+      detail.events.filter((event) => event.payload.idempotency_key === opts.idempotencyKey),
+    ).toHaveLength(1);
+  });
+  it("batch rejects an obsolete observed version and carries successful receipts across retry", async () => {
+    const staleId = await createMockOrder({ device_custody_status: "with_shop" });
+    const freshId = await createMockOrder({ device_custody_status: "with_shop" });
+    const items = [
+      {
+        id: staleId,
+        expected_updated_at: "2000-01-01T00:00:00Z",
+        idempotency_key: crypto.randomUUID(),
+      },
+      {
+        id: freshId,
+        expected_updated_at: (await getOrder(freshId)).order.updated_at,
+        idempotency_key: crypto.randomUUID(),
+      },
+    ];
+    const result = await batchTransition(items, "completed");
+    expect(result).toMatchObject({ ok: false, count: 1, failures: [{ id: staleId }] });
+    await expect(batchTransition(items, "completed")).resolves.toEqual(result);
+    expect((await getOrder(staleId)).order.status).toBe("new");
   });
 });

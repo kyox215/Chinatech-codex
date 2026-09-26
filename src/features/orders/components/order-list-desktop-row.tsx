@@ -179,6 +179,7 @@ export function DesktopOrderQueueRow({
       <div data-order-cell="selection" className="px-1.5 py-1.5 pl-2.5" onClick={onStopInteraction}>
         {selectable ? (
           <Checkbox
+            className="relative after:absolute after:left-1/2 after:top-1/2 after:size-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']"
             checked={checked}
             onCheckedChange={(value) => onCheckedChange(Boolean(value))}
             aria-label={t("orders.selectOrder", { id: order.public_no })}
@@ -293,7 +294,7 @@ export function DesktopOrderQueueRow({
       </div>
 
       <div data-order-cell="status" className="min-w-0 px-2 py-2">
-        <OrderListStatus order={order} workflow={workflow} />
+        <OrderListStatus order={order} workflow={workflow} showProgress={false} />
       </div>
 
       <div
@@ -319,7 +320,8 @@ export function DesktopOrderQueueRow({
             {t("orders.excludedFromBalance")}
           </div>
         ) : null}
-        {!order.finance_redacted ? (
+        {!order.finance_redacted &&
+        (cancelled || financialState.collectible || financialState.settlement === "settled") ? (
           <div
             className={cn(
               "text-[10px] leading-3 lg:text-xs lg:leading-4",

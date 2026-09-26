@@ -346,3 +346,78 @@ function makeOrderDetail(overrides: { orderId?: string; updatedAt?: string } = {
     attachments: [],
   } as OrderDetail;
 }
+
+// Returning to the server baseline must also reconcile local persistence.
+it("removes an older saved quotation after the user returns to baseline", async () => {
+  const harness = createServiceHarness();
+  const data = makeOrderDetail();
+  const base = buildEditForm(data);
+  let latest: HookValue | undefined;
+  const serviceFactory = () => harness.service;
+  const onValue = (value: HookValue) => {
+    latest = value;
+  };
+  const view = render(
+    <AutosaveHarness
+      orderDetail={data}
+      draft={{ ...base, deposit_amount: 25 }}
+      onValue={onValue}
+      serviceFactory={serviceFactory}
+    />,
+  );
+  await waitFor(() => expect(latest?.state).toBe("saved"));
+  view.rerender(
+    <AutosaveHarness
+      orderDetail={data}
+      draft={base}
+      onValue={onValue}
+      serviceFactory={serviceFactory}
+    />,
+  );
+  await waitFor(async () => {
+    const drafts = await harness.store.listOrderDrafts({ ...scope, status: "draft_local" });
+    expect(drafts.ok && drafts.value).toHaveLength(0);
+  });
+  expect(latest?.state).toBe("ready");
+  expect(latest?.lastSavedAt).toBeNull();
+});
+
+it("serializes reverting behind an in-flight quotation save", async () => {
+  const harness = createServiceHarness();
+  const data = makeOrderDetail();
+  const base = buildEditForm(data);
+  let latest: HookValue | undefined;
+  const serviceFactory = () => harness.service;
+  const onValue = (value: HookValue) => {
+    latest = value;
+  };
+  render(
+    <AutosaveHarness
+      orderDetail={data}
+      draft={base}
+      onValue={onValue}
+      serviceFactory={serviceFactory}
+    />,
+  );
+  await waitFor(() => expect(latest?.state).toBe("ready"));
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const originalSave = harness.service.saveDraft.bind(harness.service);
+  harness.service.saveDraft = async (input) => {
+    await gate;
+    return originalSave(input);
+  };
+  await act(async () => {
+    const save = requireHook(latest).saveDraftSnapshot({
+      orderDetail: data,
+      draft: { ...base, deposit_amount: 25 },
+    });
+    const revert = requireHook(latest).saveDraftSnapshot({ orderDetail: data, draft: base });
+    release();
+    await Promise.all([save, revert]);
+  });
+  const drafts = await harness.store.listOrderDrafts({ ...scope, status: "draft_local" });
+  expect(drafts.ok && drafts.value).toHaveLength(0);
+});

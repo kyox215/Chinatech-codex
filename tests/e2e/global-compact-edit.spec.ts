@@ -34,6 +34,7 @@ async function openCustomerProfile(page: Page) {
 }
 async function readableQuoteGrid(grid: Locator) {
   await expect(grid.locator("[data-fault-category]")).toHaveCount(12);
+  const gridBox = (await grid.boundingBox())!;
   const metrics = await grid.locator("[data-fault-category]").evaluateAll((nodes) =>
     nodes.map((node) => {
       const box = node.getBoundingClientRect();
@@ -43,22 +44,56 @@ async function readableQuoteGrid(grid: Locator) {
       return {
         x: Math.round(box.x),
         y: Math.round(box.y),
+        right: box.right,
+        bottom: box.bottom,
         height: box.height,
-        split: mainBox.width / expandBox.width,
-        singleLine: getComputedStyle(main.querySelector("span")!).whiteSpace === "nowrap",
-        fullAccessibleLabel: Boolean(main.getAttribute("aria-label")),
+        mainWidth: mainBox.width,
+        mainHeight: mainBox.height,
+        expandWidth: expandBox.width,
+        expandHeight: expandBox.height,
+        controlsSeparate: mainBox.right <= expandBox.left + 1,
+        controlsInside:
+          mainBox.left >= box.left &&
+          expandBox.right <= box.right &&
+          mainBox.top >= box.top &&
+          Math.max(mainBox.bottom, expandBox.bottom) <= box.bottom,
+        mainLabel: main.getAttribute("aria-label")?.trim(),
+        expandLabel: expand.getAttribute("aria-label")?.trim(),
+        pressed: main.getAttribute("aria-pressed"),
+        expandable:
+          expand.getAttribute("aria-haspopup") === "dialog" &&
+          expand.getAttribute("aria-expanded") === "false",
       };
     }),
   );
-  expect(new Set(metrics.map((m) => m.x)).size).toBe(4);
-  expect(new Set(metrics.map((m) => m.y)).size).toBe(3);
+  // Available content width determines the columns; every category and both
+  // actions must remain usable in phone, tablet and desktop editor containers.
+  const columns = new Set(metrics.map((m) => m.x)).size;
+  expect(columns).toBeGreaterThanOrEqual(2);
+  expect(columns).toBeLessThanOrEqual(4);
+  expect(new Set(metrics.map((m) => m.y)).size).toBe(Math.ceil(12 / columns));
   for (const metric of metrics) {
-    expect(metric.height).toBeCloseTo(36, 1);
-    expect(metric.split).toBeCloseTo(2, 1);
-    expect(metric.singleLine).toBe(true);
-    expect(metric.fullAccessibleLabel).toBe(true);
+    expect(metric.height).toBeGreaterThanOrEqual(44);
+    expect(metric.mainWidth).toBeGreaterThanOrEqual(44);
+    expect(metric.mainHeight).toBeGreaterThanOrEqual(44);
+    expect(metric.expandWidth).toBeGreaterThanOrEqual(44);
+    expect(metric.expandHeight).toBeGreaterThanOrEqual(44);
+    expect(metric.controlsSeparate).toBe(true);
+    expect(metric.controlsInside).toBe(true);
+    expect(metric.mainLabel).toBeTruthy();
+    expect(metric.expandLabel).toContain(metric.mainLabel!);
+    expect(["true", "false"]).toContain(metric.pressed);
+    expect(metric.expandable).toBe(true);
+    expect(metric.x).toBeGreaterThanOrEqual(gridBox.x - 1);
+    expect(metric.right).toBeLessThanOrEqual(gridBox.x + gridBox.width + 1);
+    expect(metric.bottom).toBeLessThanOrEqual(gridBox.y + gridBox.height + 1);
   }
-  expect(await grid.evaluate((node) => getComputedStyle(node).rowGap)).toBe("4px");
+  for (let index = 1; index < metrics.length; index++) {
+    const previous = metrics[index - 1];
+    const current = metrics[index];
+    if (current.y === previous.y) expect(current.x).toBeGreaterThanOrEqual(previous.right - 1);
+    else expect(current.y).toBeGreaterThanOrEqual(previous.bottom - 1);
+  }
 }
 
 async function readableQuoteRows(root: Locator) {
@@ -615,9 +650,11 @@ for (const locale of locales)
       await screenshot(page, `quote-multilingual-new-${locale}-${width}`);
       await discloseQuoteContent(page, form, `quote-new-expanded-${locale}-${width}`);
       const trigger = grid.locator("[data-fault-category-expand]").first();
+      const categoryLabel = (await main.getAttribute("aria-label"))!;
       await trigger.click();
       const options = page.getByRole("dialog").filter({ visible: true }).last();
       await expect(options).toBeVisible();
+      await expect(options).toHaveAccessibleName(categoryLabel);
       await expect(options).toHaveCSS("opacity", "1");
       if (width < 1024) await bottomEditor(page, options, width, height);
       await options
