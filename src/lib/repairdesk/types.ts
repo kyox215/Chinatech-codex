@@ -572,6 +572,62 @@ export interface PartsProcurementResult {
   allocations: OrderPartAllocation[];
 }
 
+export type OrderPurchaseStatus = "needed" | "ordered" | "arrived";
+
+export interface OrderPurchaseLine {
+  id: string;
+  order_id: string;
+  line_id: string | null;
+  part_name: string;
+  supplier_id: string | null;
+  supplier_name: string | null;
+  unit_cost_eur: string | null;
+  quantity: number;
+  status: OrderPurchaseStatus;
+  revision: number;
+  ordered_at: string | null;
+  arrived_at: string | null;
+  updated_at: string;
+}
+
+export interface OrderPurchasingBoardResult {
+  groups: Array<{ order_id: string; lines: OrderPurchaseLine[] }>;
+  suppliers: Array<{ id: string; name: string }>;
+  permissions: {
+    canManage: boolean;
+    canAssignSupplier: boolean;
+  };
+}
+
+export interface SaveOrderPurchaseInput {
+  expected_store_id: string;
+  id?: string;
+  order_id: string;
+  line_id?: string | null;
+  part_name: string;
+  supplier_id: string | null;
+  unit_cost_eur: string | null;
+  quantity: number;
+  status: "needed" | "ordered";
+  expected_revision: number;
+  idempotency_key: string;
+}
+
+export type BatchOrderPurchaseOperation = "assign_supplier" | "mark_ordered" | "mark_arrived";
+
+export interface BatchOrderPurchasesInput {
+  expected_store_id: string;
+  operation: BatchOrderPurchaseOperation;
+  items: Array<{ id: string; expected_revision: number }>;
+  supplier_id?: string;
+  idempotency_key: string;
+}
+
+export interface BatchOrderPurchasesResult {
+  replayed: boolean;
+  results: Array<{ id: string; ok: boolean; code?: string; revision?: number }>;
+}
+
 export interface CreatePartCatalogItemInput {
   expected_store_id: string;
   sku: string;

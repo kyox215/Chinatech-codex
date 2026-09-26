@@ -140,6 +140,10 @@ import type {
   OrderListItem,
   OrderListPageInput,
   OrderListResult,
+  OrderPurchasingBoardResult,
+  SaveOrderPurchaseInput,
+  BatchOrderPurchasesInput,
+  BatchOrderPurchasesResult,
   OrderQueueSummary,
   OrderQueueSummaryInput,
   OrderStats,
@@ -378,6 +382,10 @@ export type {
   OrderListResult,
   OrderNotifyStatus,
   OrderPartAllocation,
+  OrderPurchasingBoardResult,
+  SaveOrderPurchaseInput,
+  BatchOrderPurchasesInput,
+  BatchOrderPurchasesResult,
   OrderPartsStatus,
   OrderPaymentStatus,
   OrderQueueSummary,
@@ -1580,6 +1588,25 @@ export async function getPartsProcurement(
   options?: RepairDeskRequestOptions,
 ): Promise<PartsProcurementResult> {
   return postJson("procurement/parts/read", orderId ? { order_id: orderId } : {}, options);
+}
+
+export async function readOrderPurchasingBoard(
+  input: { expected_store_id: string; order_ids: string[] },
+  options?: RepairDeskRequestOptions,
+): Promise<OrderPurchasingBoardResult> {
+  return postJson<OrderPurchasingBoardResult>("orders/purchasing/read", input, options);
+}
+
+export async function saveOrderPurchase(
+  input: SaveOrderPurchaseInput,
+): Promise<{ line: import("@/lib/repairdesk/types").OrderPurchaseLine; replayed: boolean }> {
+  return postJson("orders/purchasing/save", input);
+}
+
+export async function batchOrderPurchases(
+  input: BatchOrderPurchasesInput,
+): Promise<BatchOrderPurchasesResult> {
+  return postJson("orders/purchasing/batch", input);
 }
 
 export async function createPartCatalogItem(input: CreatePartCatalogItemInput) {

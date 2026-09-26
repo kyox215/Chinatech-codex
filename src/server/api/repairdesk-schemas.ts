@@ -1310,6 +1310,161 @@ export const partsProcurementReadBodySchema = z
   .object({ order_id: z.string().trim().min(1).max(120).optional() })
   .strict();
 
+const orderPurchaseMoneySchema = z
+  .string()
+  .trim()
+  .regex(/^(?:0|[1-9]\d{0,5})(?:\.\d{1,2})?$/, "采购单价无效")
+  .nullable();
+const orderPurchaseRevisionSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+
+export const orderPurchasingReadBodySchema = z
+  .object({
+    expected_store_id: z.string().uuid("店铺标识无效"),
+    order_ids: z.array(z.string().uuid("工单标识无效")).min(1).max(50),
+  })
+  .strict()
+  .refine((input) => new Set(input.order_ids).size === input.order_ids.length, {
+    path: ["order_ids"],
+    message: "工单标识不能重复",
+  });
+
+export const saveOrderPurchaseBodySchema = z
+  .object({
+    expected_store_id: z.string().uuid("店铺标识无效"),
+    id: z.string().uuid("采购明细标识无效").optional(),
+    order_id: z.string().uuid("工单标识无效"),
+    line_id: z.string().uuid("报价行标识无效").nullable().optional(),
+    part_name: z.string().trim().min(1).max(160),
+    supplier_id: z.string().uuid("供应商标识无效").nullable(),
+    unit_cost_eur: orderPurchaseMoneySchema,
+    quantity: procurementQuantitySchema,
+    status: z.enum(["needed", "ordered"]),
+    expected_revision: orderPurchaseRevisionSchema,
+    idempotency_key: procurementIdempotencyKeySchema,
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if ((input.id === undefined) !== (input.expected_revision === 0)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["expected_revision"],
+        message: "新增采购明细版本必须为 0，更新时必须提供正版本",
+      });
+    }
+    if (input.status === "ordered" && (!input.supplier_id || input.unit_cost_eur === null)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["status"],
+        message: "标记下单前必须填写供应商和采购单价",
+      });
+    }
+  });
+
+export const batchOrderPurchasesBodySchema = z
+  .object({
+    expected_store_id: z.string().uuid("店铺标识无效"),
+    operation: z.enum(["assign_supplier", "mark_ordered", "mark_arrived"]),
+    items: z
+      .array(
+        z
+          .object({
+            id: z.string().uuid("采购明细标识无效"),
+            expected_revision: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(50),
+    supplier_id: z.string().uuid("供应商标识无效").optional(),
+    idempotency_key: procurementIdempotencyKeySchema,
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (new Set(input.items.map((item) => item.id)).size !== input.items.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["items"],
+        message: "采购明细不能重复",
+      });
+    }
+    if ((input.operation === "assign_supplier") !== Boolean(input.supplier_id)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["supplier_id"],
+        message: "批量分配供应商时必须且只能提供 supplier_id",
+      });
+    }
+  });
+
+// The in-memory business fixture predates UUID-backed persistence. These schemas
+// are selected only after the router has resolved the E2E/mock source.
+const mockEntityIdSchema = z.string().trim().min(1).max(120);
+export const orderPurchasingMockReadBodySchema = orderPurchasingReadBodySchema
+  .innerType()
+  .extend({
+    expected_store_id: mockEntityIdSchema,
+    order_ids: z.array(mockEntityIdSchema).min(1).max(50),
+  })
+  .refine((input) => new Set(input.order_ids).size === input.order_ids.length, {
+    path: ["order_ids"],
+    message: "工单标识不能重复",
+  });
+export const saveOrderPurchaseMockBodySchema = saveOrderPurchaseBodySchema
+  .innerType()
+  .extend({
+    expected_store_id: mockEntityIdSchema,
+    id: mockEntityIdSchema.optional(),
+    order_id: mockEntityIdSchema,
+    line_id: mockEntityIdSchema.nullable().optional(),
+    supplier_id: mockEntityIdSchema.nullable(),
+  })
+  .superRefine((input, context) => {
+    if ((input.id === undefined) !== (input.expected_revision === 0)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["expected_revision"],
+        message: "版本无效",
+      });
+    }
+    if (input.status === "ordered" && (!input.supplier_id || input.unit_cost_eur === null)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["status"],
+        message: "下单信息不完整",
+      });
+    }
+  });
+export const batchOrderPurchasesMockBodySchema = batchOrderPurchasesBodySchema
+  .innerType()
+  .extend({
+    expected_store_id: mockEntityIdSchema,
+    items: z
+      .array(
+        z
+          .object({ id: mockEntityIdSchema, expected_revision: z.number().int().positive() })
+          .strict(),
+      )
+      .min(1)
+      .max(50),
+    supplier_id: mockEntityIdSchema.optional(),
+  })
+  .superRefine((input, context) => {
+    if (new Set(input.items.map((item) => item.id)).size !== input.items.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["items"],
+        message: "采购明细不能重复",
+      });
+    }
+    if ((input.operation === "assign_supplier") !== Boolean(input.supplier_id)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["supplier_id"],
+        message: "供应商参数无效",
+      });
+    }
+  });
+
 export const partCatalogCreateBodySchema = z
   .object({
     expected_store_id: z.string().uuid("店铺标识无效"),

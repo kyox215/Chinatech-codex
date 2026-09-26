@@ -1,9 +1,10 @@
 "use client";
 
-import { Columns3, LayoutGrid, List } from "lucide-react";
+import { TableProperties, LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { OrderListPresentationView } from "../model/order-list-presentation";
 import { useLocale } from "@/shared/i18n/locale-provider";
+import { orderPurchasingCopy } from "../model/order-purchasing-i18n";
 import { cn } from "@/lib/utils";
 
 export interface OrderListPresentationSwitchProps {
@@ -21,7 +22,7 @@ export function OrderListPresentationSwitch({
   compact = false,
   className,
 }: OrderListPresentationSwitchProps) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   return (
     <div
       role="group"
@@ -36,7 +37,7 @@ export function OrderListPresentationSwitch({
         [
           { value: "list", icon: List, label: "orders.queue.listView" },
           { value: "cards", icon: LayoutGrid, label: "orders.queue.cardsView" },
-          { value: "board", icon: Columns3, label: "orders.queue.boardView" },
+          { value: "board", icon: TableProperties, label: "orders.queue.boardView" },
         ] as const
       ).map(({ value: mode, icon: Icon, label }) => (
         <Button
@@ -54,7 +55,7 @@ export function OrderListPresentationSwitch({
           )}
         >
           <Icon className={cn("size-3.5", compact && "max-[359px]:hidden")} aria-hidden="true" />
-          {t(label)}
+          {mode === "board" ? orderPurchasingCopy(locale).title : t(label)}
         </Button>
       ))}
     </div>

@@ -53,6 +53,14 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e:desktop:mock
       - run: npm run test:e2e:interactions:mock
+      - name: Verify order purchasing flows
+        run: npx playwright test --workers=1 tests/e2e/order-purchasing.spec.ts
+        env:
+          REPAIRDESK_E2E_BUSINESS_DESKTOP: "1"
+          REPAIRDESK_ORDER_PURCHASING_ENABLED: "1"
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3217
+          PLAYWRIGHT_REUSE_EXISTING_SERVER: "0"
+          PLAYWRIGHT_WEBSERVER_COMMAND: npm run dev -- -H 127.0.0.1 -p 3217
       - run: npm run test:e2e:buyback-paused:mock
       - run: npm run test:e2e:buyback:mock
       - uses: actions/upload-artifact@v4

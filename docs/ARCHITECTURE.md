@@ -11,6 +11,10 @@ The local candidate removes the order-specific internal cost UI and direct appli
 
 This project is a modular Next.js App Router application. URLs stay in `src/app`, while business UI, data hooks, and server rules move into feature modules over time.
 
+## Order purchasing
+
+Order-scoped purchase tracking uses a separate protected read/write API and `order_part_purchases`; it does not reactivate retired internal-cost entry points or create inventory receipts/allocations. Customer quote JSON and ordinary order list payloads never carry these costs. See [ORDER_PURCHASING](ORDER_PURCHASING.md) for permissions, versioning, batch results and rollout.
+
 ## Target Structure
 
 ```txt

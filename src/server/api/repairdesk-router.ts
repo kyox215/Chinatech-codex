@@ -206,6 +206,17 @@ import {
   receivePartLot,
   releaseOrderPart,
 } from "@/features/procurement/server/procurement.repository";
+import { assertOrderPurchasingEnabled } from "@/features/orders/server/order-purchasing-feature";
+import {
+  batchOrderPurchases,
+  readOrderPurchasingBoard,
+  saveOrderPurchase,
+} from "@/features/orders/server/order-purchasing.repository";
+import {
+  batchMockOrderPurchases,
+  readMockOrderPurchasingBoard,
+  saveMockOrderPurchase,
+} from "@/features/orders/testing/order-purchasing-mock";
 import {
   readMockCostCurrencySettings,
   replaceMockCostCurrencySettings,
@@ -437,6 +448,12 @@ import {
   partCatalogCreateBodySchema,
   partLotReceiveBodySchema,
   partsProcurementReadBodySchema,
+  orderPurchasingReadBodySchema,
+  orderPurchasingMockReadBodySchema,
+  saveOrderPurchaseBodySchema,
+  saveOrderPurchaseMockBodySchema,
+  batchOrderPurchasesBodySchema,
+  batchOrderPurchasesMockBodySchema,
   patchOrderBodySchema,
   patchOrderFinanceBodySchema,
   paymentBodySchema,
@@ -556,6 +573,9 @@ const supabaseSource = {
   readCostCurrencySettings,
   replaceCostCurrencySettings,
   getPartsProcurement,
+  readOrderPurchasingBoard,
+  saveOrderPurchase,
+  batchOrderPurchases,
   getOrderCreateOperationStatus,
   getOrderStats,
   getRepairDeskOptions,
@@ -1098,6 +1118,9 @@ async function source() {
     readCostCurrencySettings: readMockCostCurrencySettings,
     replaceCostCurrencySettings: replaceMockCostCurrencySettings,
     getPartsProcurement: getMockPartsProcurement,
+    readOrderPurchasingBoard: readMockOrderPurchasingBoard,
+    saveOrderPurchase: saveMockOrderPurchase,
+    batchOrderPurchases: batchMockOrderPurchases,
     createPartCatalogItem: createMockPartCatalogItem,
     receivePartLot: receiveMockPartLot,
     allocateOrderPart: allocateMockOrderPart,
@@ -2242,6 +2265,81 @@ export async function handleRepairDeskPost(
             allocation_count: result.allocations.length,
           },
         });
+        return ok(result);
+      }
+      case "orders/purchasing/read": {
+        assertOrderPurchasingEnabled();
+        assertOrderScopedPermission(actor, "order:list");
+        assertRepairDeskPermission(actor, "finance:cost_manage");
+        assertRepairDeskPermission(actor, "supplier:read");
+        const schema =
+          api === supabaseSource
+            ? orderPurchasingReadBodySchema
+            : orderPurchasingMockReadBodySchema;
+        const input = schema.parse(body);
+        const result = await api.readOrderPurchasingBoard(input, actor);
+        await writeAuditLog({
+          actor,
+          action: "read",
+          entityType: "order_part_purchasing",
+          entityId: actor.storeId ?? "unknown",
+          metadata: {
+            order_count: result.groups.length,
+            line_count: result.groups.reduce((count, group) => count + group.lines.length, 0),
+          },
+        });
+        return ok(result);
+      }
+      case "orders/purchasing/save": {
+        assertOrderPurchasingEnabled();
+        const input = (
+          api === supabaseSource ? saveOrderPurchaseBodySchema : saveOrderPurchaseMockBodySchema
+        ).parse(body);
+        assertOrderScopedPermission(actor, "order:update_repair");
+        assertRepairDeskPermission(actor, "finance:cost_manage");
+        if (input.supplier_id !== null) {
+          assertRepairDeskPermission(actor, "supplier:read");
+        }
+        const result = await api.saveOrderPurchase(input, actor);
+        if (api !== supabaseSource && !result.replayed) {
+          await writeAuditLog({
+            actor,
+            action: "save",
+            entityType: "order_part_purchase",
+            entityId: result.line.id,
+            metadata: {
+              order_id: result.line.order_id,
+              status: result.line.status,
+              revision: result.line.revision,
+            },
+          });
+        }
+        return ok(result);
+      }
+      case "orders/purchasing/batch": {
+        assertOrderPurchasingEnabled();
+        const input = (
+          api === supabaseSource ? batchOrderPurchasesBodySchema : batchOrderPurchasesMockBodySchema
+        ).parse(body);
+        assertOrderScopedPermission(actor, "order:update_repair");
+        assertRepairDeskPermission(actor, "finance:cost_manage");
+        if (input.operation === "assign_supplier") {
+          assertRepairDeskPermission(actor, "supplier:assign");
+        }
+        const result = await api.batchOrderPurchases(input, actor);
+        if (api !== supabaseSource && !result.replayed) {
+          await writeAuditLog({
+            actor,
+            action: input.operation,
+            entityType: "order_part_purchase_batch",
+            entityId: input.idempotency_key,
+            metadata: {
+              item_count: result.results.length,
+              success_count: result.results.filter((item) => item.ok).length,
+              failure_count: result.results.filter((item) => !item.ok).length,
+            },
+          });
+        }
         return ok(result);
       }
       case "procurement/parts/create": {
