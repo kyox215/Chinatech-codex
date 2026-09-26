@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ChevronDown, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { MemoCompletionCheckbox } from "./memo-checklist-controls";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { MemoChecklistItem, StoreMemo } from "@/features/memos/model/contracts";
 import { cn } from "@/lib/utils";
@@ -68,20 +68,19 @@ export function MemoChecklistInline({
     <label
       key={item.id}
       className={cn(
-        "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 text-sm hover:bg-accent/60",
+        "flex min-h-12 cursor-pointer items-center gap-1 rounded-lg pr-2 text-base transition-colors duration-150 hover:bg-muted/40 motion-reduce:transition-none",
         busy && "cursor-wait opacity-65",
       )}
     >
-      <Checkbox
+      <MemoCompletionCheckbox
         checked={item.completed}
         disabled={busy || !memo.capabilities.canTransition}
-        className="size-5"
         aria-label={translateMemoPresentation(locale, "checklistToggleAria", { item: item.text })}
         onCheckedChange={(checked) => void onToggle(item, checked === true).catch(() => undefined)}
       />
       <span
         className={cn(
-          "min-w-0 flex-1 break-words leading-5",
+          "min-w-0 flex-1 break-words py-2 leading-6 [overflow-wrap:anywhere]",
           item.completed && "text-muted-foreground line-through",
         )}
       >
@@ -91,7 +90,7 @@ export function MemoChecklistInline({
   );
 
   return (
-    <div className="border-t border-border/45 bg-muted/20 px-2 py-2 sm:px-3">
+    <div className="ml-1 mt-3 min-w-0 sm:ml-2">
       {pending.length ? <div className="space-y-0.5">{pending.map(row)}</div> : null}
       {completed.length ? (
         <Collapsible open={completedOpen} onOpenChange={setCompletedOpen}>
@@ -99,13 +98,16 @@ export function MemoChecklistInline({
             <Button
               type="button"
               variant="ghost"
-              className="min-h-11 w-full justify-between px-2 text-xs"
+              className="mt-1 min-h-11 w-full justify-between px-3 text-xs font-normal text-muted-foreground"
             >
               {translateMemoPresentation(locale, "completedChecklistItems", {
                 count: completed.length,
               })}
               <ChevronDown
-                className={cn("size-4 transition-transform", completedOpen && "rotate-180")}
+                className={cn(
+                  "size-4 transition-transform duration-150 motion-reduce:transition-none",
+                  completedOpen && "rotate-180",
+                )}
               />
             </Button>
           </CollapsibleTrigger>

@@ -4,7 +4,10 @@ import { useEffect, useState, type ClipboardEvent } from "react";
 import { Check, ChevronDown, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  MemoCompletionCheckbox,
+  MemoChecklistProgress,
+} from "@/features/memos/components/memo-checklist-controls";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import type { MemoChecklistItem } from "@/features/memos/model/contracts";
@@ -101,23 +104,20 @@ export function MemoChecklistEditor({
   const row = (item: MemoChecklistItem) => (
     <div
       key={item.id}
-      className="grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-1.5"
+      className="group grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-1"
     >
-      <label className="grid size-11 cursor-pointer place-items-center">
-        <Checkbox
-          checked={item.completed}
-          disabled={toggleDisabled}
-          className="size-5"
-          aria-label={translateMemoPresentation(locale, "checklistToggleAria", { item: item.text })}
-          onCheckedChange={(checked) => toggle(item, checked === true)}
-        />
-      </label>
+      <MemoCompletionCheckbox
+        checked={item.completed}
+        disabled={toggleDisabled}
+        aria-label={translateMemoPresentation(locale, "checklistToggleAria", { item: item.text })}
+        onCheckedChange={(checked) => toggle(item, checked === true)}
+      />
       <Input
         value={item.text}
         disabled={disabled}
         className={cn(
           componentOverlay.editorField,
-          "h-11 min-w-0",
+          "h-12 min-w-0 rounded-md border-transparent border-b-border/50 bg-transparent px-1 text-base shadow-none transition-colors hover:border-border focus-visible:border-primary focus-visible:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring/30 motion-reduce:transition-none",
           item.completed && "text-muted-foreground line-through",
         )}
         aria-label={copy.checklistItemLabel}
@@ -150,26 +150,30 @@ export function MemoChecklistEditor({
   );
 
   return (
-    <section className={componentForm.field} aria-labelledby="memo-checklist-label">
+    <section className="min-w-0 space-y-3" aria-labelledby="memo-checklist-label">
       <div className="flex items-center justify-between gap-2">
         <label
           id="memo-checklist-label"
           htmlFor="memo-checklist-new"
-          className={componentForm.label}
+          className="text-sm font-semibold"
         >
           {copy.checklist}
         </label>
-        <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+        <span className="text-xs tabular-nums text-muted-foreground">
           {items.length}/{MEMO_CHECKLIST_MAX_ITEMS}
         </span>
       </div>
+      <MemoChecklistProgress completed={completed.length} total={items.length} />
       {pending.length ? <div className="space-y-1.5">{pending.map(row)}</div> : null}
       <div className="flex min-w-0 items-center gap-1.5">
         <Input
           id="memo-checklist-new"
           value={draft}
           disabled={disabled || items.length >= MEMO_CHECKLIST_MAX_ITEMS}
-          className={cn(componentOverlay.editorField, "h-11 min-w-0 flex-1")}
+          className={cn(
+            componentOverlay.editorField,
+            "h-11 min-w-0 flex-1 border-transparent bg-muted/40 shadow-none focus-visible:border-primary",
+          )}
           placeholder={copy.checklistPlaceholder}
           onPaste={paste}
           onChange={(event) => {
@@ -184,9 +188,9 @@ export function MemoChecklistEditor({
         />
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="iconDense"
-          className="size-11"
+          className="size-11 rounded-xl bg-muted/40 text-primary"
           disabled={disabled || !draft.trim() || items.length >= MEMO_CHECKLIST_MAX_ITEMS}
           aria-label={copy.addChecklistItem}
           onClick={() => addLines(draft)}
@@ -208,13 +212,16 @@ export function MemoChecklistEditor({
             <Button
               type="button"
               variant="ghost"
-              className="h-8 w-full justify-between px-2 text-xs"
+              className="min-h-11 w-full justify-between px-2 text-xs font-normal text-muted-foreground"
             >
               {translateMemoPresentation(locale, "completedChecklistItems", {
                 count: completed.length,
               })}
               <ChevronDown
-                className={cn("size-4 transition-transform", completedOpen && "rotate-180")}
+                className={cn(
+                  "size-4 transition-transform duration-150 motion-reduce:transition-none",
+                  completedOpen && "rotate-180",
+                )}
               />
             </Button>
           </CollapsibleTrigger>
@@ -224,7 +231,7 @@ export function MemoChecklistEditor({
         </Collapsible>
       ) : null}
       {items.length && !pending.length ? (
-        <p className="flex items-center gap-1.5 rounded-lg bg-status-success/30 px-2 py-1.5 text-xs text-status-success-foreground">
+        <p className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-primary">
           <Check className="size-4" /> {copy.checklistAllCompleted}
         </p>
       ) : null}

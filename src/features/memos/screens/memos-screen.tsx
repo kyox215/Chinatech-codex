@@ -319,9 +319,6 @@ function MemoWorkspace({ shell }: { shell: ReturnType<typeof useStoreShellContex
   ).length;
   const visiblePendingCount = visibleTodoCount - visibleCompletedCount;
   const visibleNoteCount = visibleItems.length - visibleTodoCount;
-  const visibleCompletionPercent = visibleTodoCount
-    ? Math.round((visibleCompletedCount / visibleTodoCount) * 100)
-    : 0;
   const todayLabel = new Intl.DateTimeFormat(locale, {
     timeZone: APP_TIME_ZONE,
     month: "long",
@@ -481,22 +478,25 @@ function MemoWorkspace({ shell }: { shell: ReturnType<typeof useStoreShellContex
           <MemoLoadingRows />
         ) : displayItems.length ? (
           <>
-            <section className="min-w-0 space-y-2 lg:space-y-3" aria-label={copy.storeListAria}>
-              <header className={cn(repairOs.toolbar, "justify-between rounded-xl px-3 py-2")}>
+            <section
+              className="min-w-0 rounded-xl bg-card px-4 sm:px-6"
+              aria-label={copy.storeListAria}
+            >
+              <header className="flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-border/60 py-4">
                 <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-medium text-muted-foreground lg:text-[11px] lg:leading-4">
-                      {copy.today}
-                    </p>
-                    <h2 className="truncate text-sm font-semibold leading-5">{todayLabel}</h2>
+                    <p className="text-xs font-medium text-muted-foreground">{copy.today}</p>
+                    <h2 className="mt-1 truncate text-base font-semibold leading-6">
+                      {todayLabel}
+                    </h2>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="font-mono text-xs font-semibold tabular-nums">
+                    <p className="text-sm font-medium tabular-nums">
                       {translateMemoPresentation(locale, "visibleCount", {
                         count: visibleItems.length,
                       })}
                     </p>
-                    <p className="mt-0.5 text-[10px] text-muted-foreground lg:text-[11px] lg:leading-4">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {translateMemoPresentation(locale, "visibleSummary", {
                         todos: visiblePendingCount,
                         notes: visibleNoteCount,
@@ -504,28 +504,8 @@ function MemoWorkspace({ shell }: { shell: ReturnType<typeof useStoreShellContex
                     </p>
                   </div>
                 </div>
-                {visibleTodoCount ? (
-                  <div className="flex min-w-[7rem] max-w-48 flex-1 items-center gap-2">
-                    <div
-                      className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
-                      role="progressbar"
-                      aria-label={copy.progressAria}
-                      aria-valuemin={0}
-                      aria-valuemax={visibleTodoCount}
-                      aria-valuenow={visibleCompletedCount}
-                    >
-                      <div
-                        className="h-full rounded-full bg-primary transition-[width]"
-                        style={{ width: `${visibleCompletionPercent}%` }}
-                      />
-                    </div>
-                    <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground lg:text-[11px] lg:leading-4">
-                      {visibleCompletionPercent}%
-                    </span>
-                  </div>
-                ) : null}
               </header>
-              <div className={repairOs.cardList}>
+              <div className="min-w-0 divide-y divide-border/60">
                 {displayItems.map((memo) => (
                   <MemoCard
                     key={memo.id}
