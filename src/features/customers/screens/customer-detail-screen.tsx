@@ -9,14 +9,13 @@ import {
   useState,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
-  type ReactNode,
   type RefObject,
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Bell, Edit3, RefreshCw, Send, Wrench, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, RefreshCw, Send, Wrench, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { MoneyText, PhoneText } from "@/components/orders/badges";
+import { PhoneText } from "@/components/orders/badges";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,8 +42,6 @@ import {
 import { CustomerDetailTabs } from "@/features/customers/components/customer-detail-tabs";
 import { CustomerHero } from "@/features/customers/components/customer-hero";
 import { readCustomerListReturnState } from "@/features/customers/model/customer-list-return-state";
-import { CustomerStatusBadges } from "@/features/customers/components/customer-status-badges";
-import { CustomerTimelineList } from "@/features/customers/components/customer-profile-blocks";
 import { CustomerDeviceDialog } from "@/features/customers/forms/customer-device-dialog";
 import { CustomerEditDialog } from "@/features/customers/forms/customer-edit-dialog";
 import { CustomerFollowupDialog } from "@/features/customers/forms/customer-followup-dialog";
@@ -52,7 +49,7 @@ import { CustomerMessageDialog } from "@/features/customers/forms/customer-messa
 import { CustomerTagsDialog } from "@/features/customers/forms/customer-tags-dialog";
 import {
   buildCustomerDetailTabs,
-  getCustomerDetailWorkSummary,
+  type CustomerBusinessTabKey,
   type CustomerDetailTabKey,
 } from "@/features/customers/model/customer-list";
 import {
@@ -81,12 +78,9 @@ import {
   repairOs,
 } from "@/lib/ui-patterns";
 import { cn } from "@/lib/utils";
-import { RepairOsBusinessCard, RepairOsInfoTile } from "@/shared/ui";
+import { RepairOsBusinessCard } from "@/shared/ui";
 import { useLocale } from "@/shared/i18n/locale-provider";
-import {
-  localizeCustomerTab,
-  localizeCustomerWorkSummary,
-} from "@/features/customers/model/customer-i18n";
+import { localizeCustomerTab } from "@/features/customers/model/customer-i18n";
 
 type CustomerDetailSurface = "page" | "dialog";
 
@@ -110,6 +104,18 @@ export function CustomerDetailScreen({
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const [mobileActionsHeight, setMobileActionsHeight] = useState(0);
   const [tab, setTab] = useState<CustomerDetailTabKey>("overview");
+  const [businessTab, setBusinessTab] = useState<CustomerBusinessTabKey>("orders");
+  useEffect(() => {
+    setTab("overview");
+    setBusinessTab("orders");
+    setEditOpen(false);
+    setDeviceOpen(false);
+    setEditingDevice(undefined);
+    setFollowupOpen(false);
+    setFollowupOrderId(undefined);
+    setMessageOpen(false);
+    setTagsOpen(false);
+  }, [id]);
   const editReturnFocusRef = useRef<HTMLElement | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [deviceOpen, setDeviceOpen] = useState(false);
@@ -117,6 +123,11 @@ export function CustomerDetailScreen({
   const [followupOpen, setFollowupOpen] = useState(false);
   const [followupOrderId, setFollowupOrderId] = useState<string | undefined>();
   const [messageOpen, setMessageOpen] = useState(false);
+  const [messageChannel, setMessageChannel] = useState<"whatsapp" | "sms" | undefined>();
+  const openMessage = (channel?: "whatsapp" | "sms") => {
+    setMessageChannel(channel);
+    setMessageOpen(true);
+  };
   const [tagsOpen, setTagsOpen] = useState(false);
   const shell = useStoreShellContext();
   const activeStoreId = shell.activeStore?.id;
@@ -373,11 +384,6 @@ export function CustomerDetailScreen({
     setFollowupOrderId(undefined);
     setFollowupOpen(true);
   };
-  const openCustomerFollowupFromControl = (control: HTMLButtonElement) => {
-    followupReturnFocusRef.current = control;
-    setFollowupOrderId(undefined);
-    setFollowupOpen(true);
-  };
   const rememberInvokingControl = (event: ReactMouseEvent<HTMLDivElement>) => {
     const target = event.target;
     const control = target instanceof Element ? target.closest("button, a[href]") : null;
@@ -389,54 +395,102 @@ export function CustomerDetailScreen({
   };
   const detailPanel =
     tab === "overview" ? (
-      <CustomerOverviewPanel data={data} onOpenFollowups={() => setTab("followups")} />
-    ) : tab === "devices" ? (
-      <CustomerDevicesPanel
+      <CustomerOverviewPanel
         data={data}
-        deleting={deleteDevice.isPending}
-        onRefresh={invalidate}
-        onAdd={(control) => {
-          deviceReturnFocusRef.current = control;
-          setEditingDevice(undefined);
-          setDeviceOpen(true);
-        }}
-        onEdit={(device, control) => {
-          deviceReturnFocusRef.current = control;
-          setEditingDevice(device);
-          setDeviceOpen(true);
-        }}
-        onDelete={(device) => deleteDevice.mutateAsync(device)}
+        onOpenBusiness={() => setTab("business")}
+        onOpenProfile={() => setTab("profile")}
       />
-    ) : tab === "orders" ? (
-      <CustomerOrdersPanel
-        data={data}
-        onFollowup={(orderId) => {
-          followupReturnFocusRef.current = lastInvokingControlRef.current;
-          setFollowupOrderId(orderId);
-          setFollowupOpen(true);
-        }}
-      />
-    ) : tab === "profile" ? (
-      <CustomerProfilePanel
-        customer={customer}
-        tags={data.tags}
-        onManageTags={() => setTagsOpen(true)}
-      />
-    ) : tab === "followups" ? (
-      <div className="grid min-w-0 gap-2">
-        <CustomerFollowupsPanel
-          followups={followups}
-          onAdd={openCustomerFollowup}
-          onComplete={(followupId) => completeFollowup.mutate(followupId)}
+    ) : tab === "business" ? (
+      <div className="min-w-0" data-ui="customer-business-panel">
+        <CustomerDetailTabs
+          tabs={
+            [
+              { key: "orders", label: t("customers.tab.orders") },
+              { key: "devices", label: t("customers.tab.devices") },
+              { key: "followups", label: t("customers.tab.followups") },
+            ] as const
+          }
+          activeTab={businessTab}
+          onChange={setBusinessTab}
+          idPrefix="customer-business"
+          panelIdPrefix="customer-business"
         />
-        <CustomerMessagesPanel interactions={interactions} onMessage={() => setMessageOpen(true)} />
-        <CustomerTimelinePanel data={data} />
+        <div
+          id={`customer-business-panel-${businessTab}`}
+          role="tabpanel"
+          aria-labelledby={`customer-business-tab-${businessTab}`}
+        >
+          {businessTab === "orders" ? (
+            <CustomerOrdersPanel
+              data={data}
+              onFollowup={(orderId) => {
+                followupReturnFocusRef.current = lastInvokingControlRef.current;
+                setFollowupOrderId(orderId);
+                setFollowupOpen(true);
+              }}
+            />
+          ) : businessTab === "devices" ? (
+            <CustomerDevicesPanel
+              data={data}
+              deleting={deleteDevice.isPending}
+              onRefresh={invalidate}
+              onAdd={(control) => {
+                deviceReturnFocusRef.current = control;
+                setEditingDevice(undefined);
+                setDeviceOpen(true);
+              }}
+              onEdit={(device, control) => {
+                deviceReturnFocusRef.current = control;
+                setEditingDevice(device);
+                setDeviceOpen(true);
+              }}
+              onDelete={(device) => deleteDevice.mutateAsync(device)}
+            />
+          ) : (
+            <div className="grid min-w-0 gap-2">
+              <CustomerFollowupsPanel
+                followups={followups}
+                onAdd={openCustomerFollowup}
+                onComplete={(followupId) => completeFollowup.mutate(followupId)}
+              />
+              <details
+                className="rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2"
+                data-ui="customer-message-records"
+              >
+                <summary className="cursor-pointer text-sm font-semibold">
+                  {t("customers.detail.contactRecords")}
+                </summary>
+                <div className="mt-2">
+                  <CustomerMessagesPanel
+                    interactions={interactions}
+                    onMessage={() => openMessage()}
+                  />
+                </div>
+              </details>
+              <details
+                className="rounded-xl border border-[var(--border-panel)] bg-card px-3 py-2"
+                data-ui="customer-full-timeline"
+              >
+                <summary className="cursor-pointer text-sm font-semibold">
+                  {t("customers.detail.operationLog")}
+                </summary>
+                <div className="mt-2">
+                  <CustomerTimelinePanel data={data} />
+                </div>
+              </details>
+            </div>
+          )}
+        </div>
       </div>
     ) : (
       <CustomerProfilePanel
         customer={customer}
         tags={data.tags}
         onManageTags={() => setTagsOpen(true)}
+        onEdit={(control) => {
+          editReturnFocusRef.current = control;
+          setEditOpen(true);
+        }}
       />
     );
 
@@ -449,7 +503,7 @@ export function CustomerDetailScreen({
           ? cn(
               "mx-auto max-w-[430px] px-2",
               repairOs.mobileFloatingPage,
-              "!pb-[calc(var(--customer-detail-mobile-actions-height,68px)+0.75rem)] md:!max-w-2xl md:px-5 lg:!max-w-7xl lg:!space-y-3 lg:!pb-8 lg:!pt-5 lg:px-6",
+              "!pb-[calc(var(--customer-detail-mobile-actions-height,68px)+0.75rem)] md:!max-w-4xl md:!pb-8 md:!pt-5 md:px-5 lg:!max-w-7xl lg:!space-y-3 lg:px-6",
             )
           : cn(detailWorkspace.root, "flex h-full min-h-0 flex-col"),
       )}
@@ -464,10 +518,6 @@ export function CustomerDetailScreen({
           activeTab={tab}
           onTabChange={setTab}
           onBack={goBackToCustomers}
-          onEdit={(control) => {
-            editReturnFocusRef.current = control;
-            setEditOpen(true);
-          }}
         />
       ) : null}
 
@@ -509,19 +559,15 @@ export function CustomerDetailScreen({
         data-ui="customer-detail-desktop-hero"
         className={cn(
           surface === "page"
-            ? "hidden lg:block"
+            ? "hidden md:block"
             : "shrink-0 p-2 pb-0 sm:p-3 sm:pb-0 md:p-4 md:pb-0",
         )}
       >
         <CustomerHero
           data={data}
-          onMessage={() => setMessageOpen(true)}
-          onFollowup={openCustomerFollowup}
-          onEdit={() => {
-            editReturnFocusRef.current = lastInvokingControlRef.current;
-            setEditOpen(true);
-          }}
+          onMessage={() => openMessage("whatsapp")}
           showBackLink={false}
+          onBack={surface === "page" ? goBackToCustomers : undefined}
           onClose={surface === "dialog" ? onClose : undefined}
         />
       </div>
@@ -531,7 +577,7 @@ export function CustomerDetailScreen({
         className={cn(
           surface === "dialog"
             ? "shrink-0 px-2 sm:px-3 md:px-4"
-            : "hidden lg:sticky lg:top-14 lg:z-20 lg:block lg:bg-background/95 lg:pt-2 lg:backdrop-blur",
+            : "hidden md:sticky md:top-14 md:z-20 md:block md:bg-background/95 md:pt-2 md:backdrop-blur",
         )}
       >
         <CustomerDetailTabs
@@ -545,7 +591,7 @@ export function CustomerDetailScreen({
 
       <div
         className={cn(
-          "grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_340px]",
+          "grid min-w-0 gap-3",
           surface === "dialog"
             ? "min-h-0 flex-1 overflow-y-auto px-2 pb-2 sm:px-3 sm:pb-3 md:px-4 md:pb-4"
             : "",
@@ -559,19 +605,13 @@ export function CustomerDetailScreen({
         >
           {detailPanel}
         </div>
-        <CustomerDesktopSummaryRail
-          data={data}
-          onMessage={() => setMessageOpen(true)}
-          onFollowup={openCustomerFollowupFromControl}
-        />
       </div>
 
       {surface === "page" ? (
         <CustomerMobileActionBar
           actionBarRef={mobileActionsRef}
           customerId={customer.id}
-          onMessage={() => setMessageOpen(true)}
-          onFollowup={openCustomerFollowupFromControl}
+          onMessage={() => openMessage("whatsapp")}
         />
       ) : null}
 
@@ -609,6 +649,7 @@ export function CustomerDetailScreen({
         onSave={(input) => followup.mutateAsync(input)}
       />
       <CustomerMessageDialog
+        initialChannel={messageChannel}
         open={messageOpen}
         onOpenChange={setMessageOpen}
         data={data}
@@ -639,7 +680,6 @@ function CustomerMobileFloatingHeader({
   activeTab,
   onTabChange,
   onBack,
-  onEdit,
   headerRef,
 }: {
   data: CustomerDetail;
@@ -647,12 +687,10 @@ function CustomerMobileFloatingHeader({
   activeTab: CustomerDetailTabKey;
   onTabChange: (tab: CustomerDetailTabKey) => void;
   onBack: () => void;
-  onEdit: (control: HTMLButtonElement) => void;
   headerRef: RefObject<HTMLDivElement | null>;
 }) {
   const { t } = useLocale();
-  const { customer, stats } = data;
-  const summary = localizeCustomerWorkSummary(getCustomerDetailWorkSummary(data), t);
+  const { customer } = data;
   const { isMobile, state: sidebarState } = useSidebar();
   const workspaceInset = isMobile
     ? undefined
@@ -664,7 +702,7 @@ function CustomerMobileFloatingHeader({
     <div
       ref={headerRef}
       data-ui="customer-detail-mobile-header"
-      className={cn(repairOs.mobileFloatingHeaderShell, "lg:!hidden")}
+      className={cn(repairOs.mobileFloatingHeaderShell, "md:!hidden")}
       style={workspaceInset ? { left: workspaceInset } : undefined}
     >
       <section className={cn(repairOs.mobileFloatingHeaderCard, "md:max-w-2xl")}>
@@ -683,24 +721,16 @@ function CustomerMobileFloatingHeader({
             <h1 className="whitespace-normal break-words text-xs font-semibold leading-4">
               {t("customers.detail.title")}
             </h1>
-            <p className="truncate text-[11px] leading-4 text-muted-foreground">
-              {summary.label} · {customer.preferred_channel === "sms" ? "SMS" : "WhatsApp"}
-            </p>
           </div>
         </header>
 
         <div className={repairOs.mobileFloatingHeaderBody}>
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
+          <div className="min-w-0">
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={(event) => onEdit(event.currentTarget)}
-                  aria-label={t("customers.detail.edit")}
-                  className="min-w-0 truncate text-left text-sm font-semibold leading-5 focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {customer.name}
-                </button>
+                <span className="min-w-0 truncate text-left text-sm font-semibold leading-5">
+                  {customer.name?.trim() || t("customers.detail.missingName")}
+                </span>
                 {customer.blacklisted_at ? (
                   <span className="shrink-0 rounded-full bg-status-danger px-1.5 py-0.5 text-xs font-semibold leading-4 text-status-danger-foreground">
                     {t("customers.detail.blacklisted")}
@@ -712,18 +742,6 @@ function CustomerMobileFloatingHeader({
                 className="mt-0.5 block truncate text-[11px] lg:text-xs lg:leading-4"
               />
             </div>
-            <CustomerStatusBadges
-              compact
-              customer={{
-                active_order_count: stats.active_order_count ?? 0,
-                outstanding_amount: stats.outstanding_amount ?? stats.unpaid_amount,
-                unpaid_amount: stats.unpaid_amount,
-                pending_quote_count: stats.pending_quote_count,
-                finance_review_count: stats.finance_review_count,
-                finance_redacted: stats.finance_redacted,
-              }}
-              className="max-w-[9rem] justify-end"
-            />
           </div>
 
           <CustomerDetailTabs
@@ -744,12 +762,10 @@ function CustomerMobileActionBar({
   actionBarRef,
   customerId,
   onMessage,
-  onFollowup,
 }: {
   actionBarRef: RefObject<HTMLDivElement | null>;
   customerId: string;
   onMessage: () => void;
-  onFollowup: (control: HTMLButtonElement) => void;
 }) {
   const { t } = useLocale();
   const { isMobile, state: sidebarState } = useSidebar();
@@ -763,10 +779,10 @@ function CustomerMobileActionBar({
     <div
       ref={actionBarRef}
       data-ui="customer-detail-mobile-actions"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur transition-[left] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur transition-[left] md:hidden"
       style={workspaceInset ? { left: workspaceInset } : undefined}
     >
-      <div className="mx-auto grid w-full max-w-[430px] grid-cols-3 gap-2 md:max-w-2xl">
+      <div className="mx-auto grid w-full max-w-[430px] grid-cols-2 gap-2">
         <Button
           asChild
           size="sm"
@@ -789,126 +805,10 @@ function CustomerMobileActionBar({
           className="h-11 gap-1.5 bg-card"
           onClick={onMessage}
         >
-          <Send className="size-4" /> {t("customers.detail.messageShort")}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-11 gap-1.5 bg-card"
-          onClick={(event) => onFollowup(event.currentTarget)}
-        >
-          <Bell className="size-4" /> {t("customers.detail.followupShort")}
+          <Send className="size-4" /> {t("customers.channel.whatsapp")}
         </Button>
       </div>
     </div>
-  );
-}
-
-function CustomerDesktopSummaryRail({
-  data,
-  onMessage,
-  onFollowup,
-}: {
-  data: CustomerDetail;
-  onMessage: () => void;
-  onFollowup: (control: HTMLButtonElement) => void;
-}) {
-  const { t } = useLocale();
-  const { customer, stats } = data;
-  const summary = localizeCustomerWorkSummary(getCustomerDetailWorkSummary(data), t);
-  const openFollowups = data.followups.filter((followup) => followup.status === "open").length;
-
-  return (
-    <aside className="hidden min-w-0 xl:block">
-      <section className={cn(repairOs.adminSection, "sticky top-4 space-y-3 p-3")}>
-        <p className="truncate text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 lg:text-[11px] lg:leading-4 lg:tracking-normal lg:text-muted-foreground">
-          {t("customers.detail.workspace")}
-        </p>
-
-        <div className="grid grid-cols-3 gap-2">
-          <CustomerRailMetric label={t("customers.detail.device")} value={stats.device_count} />
-          <CustomerRailMetric
-            label={t("customers.detail.historyActive")}
-            value={`${stats.order_count} / ${stats.valid_order_count ?? 0}`}
-          />
-          <CustomerRailMetric label={t("customers.detail.followups")} value={openFollowups} />
-          <CustomerRailMetric
-            label={t(
-              stats.finance_redacted ? "customers.detail.amount" : "customers.detail.outstanding",
-            )}
-            value={
-              stats.finance_redacted ? (
-                t("customers.detail.restricted")
-              ) : (
-                <MoneyText amount={stats.unpaid_amount ?? 0} />
-              )
-            }
-          />
-        </div>
-
-        <div className="rounded-lg bg-[var(--surface-panel-muted)] px-2.5 py-2">
-          <p className="truncate text-[10px] leading-3 text-muted-foreground lg:text-xs lg:leading-4">
-            {t("customers.detail.next")}
-          </p>
-          <p className="mt-0.5 line-clamp-2 text-xs font-medium leading-5">{summary.actionLabel}</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            asChild
-            size="sm"
-            className={cn("h-8 gap-1.5 text-xs", controls.brandButton)}
-            style={brandGradientStyle}
-          >
-            <Link
-              href={buildNewOrderWorkspaceHref({
-                source: "customer",
-                customerId: customer.id,
-              })}
-            >
-              <Wrench className="size-3.5" /> {t("customers.detail.orders")}
-            </Link>
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8 gap-1.5 text-xs"
-            onClick={onMessage}
-          >
-            <Send className="size-3.5" /> {t("customers.detail.messageShort")}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8 gap-1.5 text-xs"
-            onClick={(event) => onFollowup(event.currentTarget)}
-          >
-            <Bell className="size-3.5" /> {t("customers.detail.followupShort")}
-          </Button>
-        </div>
-
-        <div className="min-w-0 border-t border-[var(--border-panel)] pt-3">
-          <h3 className="mb-2 text-xs font-semibold">{t("customers.detail.recentActivity")}</h3>
-          <CustomerTimelineList data={data} limit={4} />
-        </div>
-      </section>
-    </aside>
-  );
-}
-
-function CustomerRailMetric({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <RepairOsInfoTile
-      label={label}
-      value={value}
-      frame="plain"
-      className="min-w-0 rounded-lg bg-[var(--surface-panel-muted)] px-2 py-1.5"
-      labelClassName="text-[9px] lg:text-[11px] lg:leading-4"
-      valueClassName="truncate font-mono text-xs font-semibold leading-4 tabular-nums"
-    />
   );
 }
 

@@ -299,11 +299,9 @@ describe("customer list helpers", () => {
     });
 
     expect(tabs).toEqual([
-      { key: "overview", label: "总览" },
-      { key: "orders", label: "工单", count: 3 },
-      { key: "devices", label: "设备", count: 2 },
-      { key: "followups", label: "跟进", count: 1 },
-      { key: "profile", label: "资料", count: 1 },
+      { key: "overview", label: "概览" },
+      { key: "business", label: "业务" },
+      { key: "profile", label: "资料" },
     ]);
   });
 });

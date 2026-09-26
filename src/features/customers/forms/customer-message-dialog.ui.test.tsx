@@ -46,6 +46,7 @@ describe("CustomerMessageDialog output recovery", () => {
 
   it("records contact only after the operator confirms the message was sent", async () => {
     const data = await getCustomerDetail(customers[0].id);
+    data.customer.preferred_channel = "sms";
     const identity = resolveStoreOutputIdentity({
       activeStore: { id: "store-private", name: "Etna Phone Lab" },
       settings: {
@@ -63,6 +64,7 @@ describe("CustomerMessageDialog output recovery", () => {
 
     render(
       <CustomerMessageDialog
+        initialChannel="whatsapp"
         open
         onOpenChange={vi.fn()}
         data={data}
@@ -75,6 +77,8 @@ describe("CustomerMessageDialog output recovery", () => {
       />,
     );
 
+    expect(window.open).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: /打开 WhatsApp/ }));
     expect(window.open).toHaveBeenCalledOnce();
     expect(onConfirm).not.toHaveBeenCalled();

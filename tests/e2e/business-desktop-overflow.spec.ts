@@ -252,6 +252,10 @@ async function auditCustomerDialogs(page: Page, viewport: DesktopViewport) {
   const previewDialog = page.getByRole("dialog", { name: "客户详情预览" });
   await expect(previewDialog).toBeVisible();
   const firstBox = await expectOpenDialogsFit(page, "/customers detail preview", viewport.width);
+  await clickFirstVisible(
+    previewDialog.getByRole("tab", { name: "业务", exact: true }),
+    "客户业务分组",
+  );
   await clickFirstVisible(previewDialog.getByRole("tab", { name: /工单/ }), "客户工单标签");
   const nextBox = await expectOpenDialogsFit(
     page,
@@ -261,6 +265,10 @@ async function auditCustomerDialogs(page: Page, viewport: DesktopViewport) {
   expect(Math.abs(nextBox.width - firstBox.width)).toBeLessThanOrEqual(1);
   expect(Math.abs(nextBox.height - firstBox.height)).toBeLessThanOrEqual(1);
   await expectNoPageOverflow(page, "/customers detail preview", viewport.width);
+  await clickFirstVisible(
+    previewDialog.getByRole("tab", { name: "资料", exact: true }),
+    "客户资料分组",
+  );
   await expect(previewDialog.getByRole("button", { name: /编辑客户/ }).first()).toBeVisible();
   await clickFirstVisible(previewDialog.getByRole("button", { name: /编辑客户/ }), "编辑客户");
   await expect(page.getByRole("dialog", { name: "编辑客户" })).toBeVisible();
@@ -268,6 +276,10 @@ async function auditCustomerDialogs(page: Page, viewport: DesktopViewport) {
   await expectNoPageOverflow(page, "/customers nested edit dialog", viewport.width);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "编辑客户" })).toHaveCount(0);
+  await clickFirstVisible(
+    previewDialog.getByRole("tab", { name: "业务", exact: true }),
+    "客户业务分组",
+  );
   await clickFirstVisible(previewDialog.getByRole("tab", { name: /设备/ }), "客户设备标签");
   await clickFirstVisible(previewDialog.getByRole("button", { name: /添加设备/ }), "添加设备");
   await expect(page.getByRole("dialog", { name: "添加设备" })).toBeVisible();

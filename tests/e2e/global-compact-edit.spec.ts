@@ -26,6 +26,12 @@ async function noOverflow(page: Page) {
     true,
   );
 }
+async function openCustomerProfile(page: Page) {
+  const profile = page.getByRole("tab", { name: "资料", exact: true }).filter({ visible: true });
+  await expect(profile).toHaveCount(1);
+  await profile.click();
+  await expect(profile).toHaveAttribute("aria-selected", "true");
+}
 async function readableQuoteGrid(grid: Locator) {
   await expect(grid.locator("[data-fault-category]")).toHaveCount(12);
   const metrics = await grid.locator("[data-fault-category]").evaluateAll((nodes) =>
@@ -647,6 +653,7 @@ test("customer long form retains draft and keeps footer reachable at compressed 
   await page.context().addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL() }]);
   await setKeyboardDeviceViewport(page, { width: 320, height: 350 });
   await page.goto("/customers/cus_1");
+  await openCustomerProfile(page);
   await expect(page.getByRole("button", { name: "编辑客户资料" }).first()).toBeVisible();
   await page.getByRole("button", { name: "编辑客户资料" }).last().click();
   const editor = page.getByRole("dialog").filter({ visible: true }).last();
@@ -677,6 +684,7 @@ test("pointer opening restores the actual content trigger for order and customer
   await expect(editor).toHaveCount(0);
   await expect(opener).toBeFocused();
   await page.goto("/customers/cus_1");
+  await openCustomerProfile(page);
   const customer = page.getByRole("button", { name: "编辑客户资料" }).last();
   await customer.click();
   const customerEditor = page.getByRole("dialog").filter({ visible: true }).last();
@@ -809,6 +817,7 @@ for (const width of [320, 390, 768]) {
     await screenshot(page, `a13-supplier-picker-${width}`);
     await page.keyboard.press("Escape");
     await page.goto("/customers/cus_1");
+    await openCustomerProfile(page);
     await expect(page.getByRole("button", { name: "编辑客户资料" })).toHaveCount(1);
     await page.getByRole("button", { name: "编辑客户资料" }).click();
     const customer = page.getByRole("dialog").filter({ visible: true }).last();
@@ -835,13 +844,14 @@ test("A13 customer tablet and desktop each expose one editing surface", async ({
   for (const width of [768, 1024]) {
     await setKeyboardDeviceViewport(page, { width, height: 1000 });
     await page.goto("/customers/cus_1");
+    await openCustomerProfile(page);
     const trigger = page.getByRole("button", { name: "编辑客户资料" });
     await expect(trigger).toHaveCount(1);
     await expect(page.locator('[data-ui="customer-detail-mobile-header"]')).toBeVisible({
-      visible: width < 1024,
+      visible: width < 768,
     });
     await expect(page.locator('[data-ui="customer-detail-desktop-hero"]')).toBeVisible({
-      visible: width >= 1024,
+      visible: width >= 768,
     });
     await expect(page.locator('[data-app-bar="true"]')).toBeVisible({
       visible: width >= 1024,
