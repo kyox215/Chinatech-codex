@@ -4,7 +4,7 @@ import {
   type OrderFinancialState,
 } from "@/features/orders/model/order-payment-state";
 import { APP_TIME_ZONE, type AppLocale } from "@/shared/i18n/locales";
-import { translateMessage } from "@/shared/i18n/messages";
+import { translateLoadedMessage as translateMessage } from "@/shared/i18n/runtime-messages";
 
 import {
   isCustomerOrderBillable,

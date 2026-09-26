@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import {
+  getOrderTransitionAttempt,
+  isDefinitiveTransitionFailure,
+  type OrderTransitionAttempt,
+} from "@/features/orders/model/order-transition-attempt";
 import type * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -226,22 +231,35 @@ export function OrderTaskScreen({ id }: { id: string }) {
     invalidateOrderReadCaches(queryClient, id);
   };
 
+  const transitionAttemptRef = useRef<OrderTransitionAttempt | undefined>(undefined);
   const transition = useMutation({
     mutationFn: (input: { to: RepairOrderStatus; reason?: string }) => {
       if (!order) throw new Error(t("orders2b1.task.orderUnavailable"));
+      const attempt = getOrderTransitionAttempt(transitionAttemptRef.current, {
+        scope: `${activeStoreId ?? ""}:${shell.userId ?? ""}`,
+        id,
+        to: input.to,
+        reason: input.reason,
+        updatedAt: order.updated_at,
+      });
+      transitionAttemptRef.current = attempt;
       return transitionOrder(id, input.to, {
         reason: input.reason,
-        expectedUpdatedAt: order.updated_at,
-        idempotencyKey: crypto.randomUUID(),
+        expectedUpdatedAt: attempt.expected_updated_at,
+        idempotencyKey: attempt.idempotency_key,
       });
     },
     onSuccess: () => {
+      transitionAttemptRef.current = undefined;
       toast.success(t("orders2b1.task.transitionSuccess"));
       setTransitionAction(null);
       setTransitionReason("");
       invalidate();
     },
-    onError: () => toast.error(t("orders2b1.task.actionFailed")),
+    onError: (error: unknown) => {
+      if (isDefinitiveTransitionFailure(error)) transitionAttemptRef.current = undefined;
+      toast.error(t("orders2b1.task.actionFailed"));
+    },
   });
   const diagnosisSave = useMutation({
     mutationFn: (input: { diagnosisResult: string; expectedUpdatedAt: string }) => {

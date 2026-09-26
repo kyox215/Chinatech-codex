@@ -2707,7 +2707,7 @@ export async function handleRepairDeskPost(
         );
       }
       case "order/batch-transition": {
-        const { ids, to } = batchTransitionBodySchema.parse(body);
+        const { items, to } = batchTransitionBodySchema.parse(body);
         if (to === "quoted") {
           throw routeConflict("USE_PUBLISH_QUOTE", "批量流转不能发布报价，请逐单完成检测与报价");
         }
@@ -2718,8 +2718,8 @@ export async function handleRepairDeskPost(
             "transition",
             "repair_order",
             "batch",
-            { ids, to },
-            () => api.batchTransition(ids, to, actor),
+            { ids: items.map((item) => item.id), to },
+            () => api.batchTransition(items, to, actor),
             realtimeBroadcasts.orderTransitioned,
           ),
         );

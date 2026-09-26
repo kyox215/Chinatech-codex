@@ -1639,6 +1639,12 @@ export interface OrderAssigneeOption {
   role: StoreRole;
 }
 
+export interface OrderTransitionItem {
+  id: string;
+  expected_updated_at: string;
+  idempotency_key: string;
+}
+
 export interface BatchTransitionResult {
   ok: boolean;
   count: number;

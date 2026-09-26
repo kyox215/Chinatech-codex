@@ -1479,13 +1479,13 @@
     order: 1;
   }
   .order-unified-workbench [data-order-workbench-quote] {
-    order: 2;
+    order: 4;
   }
   .order-unified-workbench [data-mobile-order-fault] {
-    order: 3;
+    order: 2;
   }
   .order-unified-workbench [data-mobile-order-diagnosis] {
-    order: 4;
+    order: 3;
   }
   .order-unified-workbench [data-mobile-order-people] {
     order: 5;
@@ -1794,9 +1794,70 @@
   }
 }
 
+/* At tablet widths, give device names and quote controls half the workspace each. */
+@container order-detail (min-width: 680px) and (max-width: 999.98px) {
+  .order-unified-workbench [data-order-panel].order-workbench-customer-inline,
+  .order-unified-workbench [data-order-workbench-customer] {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .order-unified-workbench [data-order-workbench-customer] > button {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .order-unified-workbench
+    [data-order-workbench-customer]
+    > div:not([data-order-workbench-order-meta]) {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+  .order-unified-workbench [data-order-workbench-order-meta] {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .order-unified-workbench .order-workbench-device-heading,
+  .order-unified-workbench .order-workbench-mobile-device-summary {
+    grid-column: 1 / 4;
+    grid-row: 2;
+    align-self: start;
+  }
+  .order-unified-workbench [data-order-panel="finance"]:not(.order-workbench-finance-editing),
+  .order-unified-workbench [data-order-workbench-quote] {
+    grid-column: 4 / 7;
+    grid-row: 2;
+    align-self: start;
+  }
+  .order-unified-workbench .order-workbench-repair-notes,
+  .order-unified-workbench .order-workbench-mobile-notes,
+  .order-unified-workbench [data-order-workbench-repairs],
+  .order-unified-workbench [data-order-workbench-repairs].order-workbench-wide-only,
+  .order-unified-workbench .order-workbench-restricted-quote {
+    grid-row: 3;
+  }
+  .order-unified-workbench .order-workbench-device-supplement,
+  .order-unified-workbench [data-mobile-order-custody-group],
+  .order-unified-workbench [data-mobile-order-people] {
+    grid-row: 4;
+  }
+  .order-unified-workbench .order-workbench-responsibility {
+    grid-row: 5;
+  }
+  .order-unified-workbench
+    [data-order-unified-column="customer"]
+    > details:not(.order-workbench-records-disclosure) {
+    grid-row: 6;
+  }
+}
+
 @media (min-width: 720px) {
   .order-unified-workbench[data-order-detail-surface="page"] {
     padding-bottom: 16px;
+  }
+}
+@media (min-width: 1024px) {
+  .order-unified-workbench[data-order-detail-surface="page"] {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   }
 }
 @media (max-height: 820px) {
@@ -1869,8 +1930,7 @@
   .order-unified-workbench [data-mobile-order-page] {
     padding-bottom: 16px;
   }
-  .order-unified-workbench [data-order-action-dock],
-  .order-unified-workbench[data-order-detail-surface="page"] [data-order-action-dock],
+  .order-unified-workbench[data-order-detail-surface="dialog"] [data-order-action-dock],
   .order-unified-workbench [data-mobile-order-action-dock] {
     position: sticky;
     inset-inline: auto !important;
@@ -2814,4 +2874,12 @@ body:has([data-order-desktop-transition-panel]) [data-sonner-toaster][data-y-pos
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* Four columns only when both parts of each category retain useful touch targets. */
+.order-fault-category-grid-four {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, max(7rem, calc((100% - 0.75rem) / 4))), 1fr)
+  );
 }

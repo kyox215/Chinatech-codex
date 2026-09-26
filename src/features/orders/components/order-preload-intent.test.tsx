@@ -420,6 +420,28 @@ describe("desktop order customer identity", () => {
   });
 });
 
+describe("desktop settlement labels", () => {
+  it.each([
+    { approval_status: "pending" as const },
+    { payment_status: "refunded" as const },
+    { quotation_amount: -1 },
+    { quotation_amount: 0, balance_amount: 0 },
+  ])("does not label an uncollectible order as balance clear: %o", (overrides) => {
+    render(
+      <DesktopOrderQueueRow
+        order={makeOrder(overrides)}
+        checked={false}
+        onOpen={vi.fn()}
+        onCheckedChange={vi.fn()}
+        onPrint={vi.fn()}
+        onStopInteraction={(event) => event.stopPropagation()}
+        suppliers={[]}
+      />,
+    );
+    expect(screen.queryByText("尾款清")).not.toBeInTheDocument();
+  });
+});
+
 function makeOrder(overrides: Partial<OrderListItem> = {}): OrderListItem {
   return {
     id: "order-1",

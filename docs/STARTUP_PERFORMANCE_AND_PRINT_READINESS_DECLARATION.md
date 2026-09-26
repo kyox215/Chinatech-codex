@@ -5,6 +5,15 @@ Owner: Architecture + Frontend + API + Security + QA / Integration Lead
 Scope: app shell cold start, workspace preload, tenant cache isolation, order print capability, print readiness, diagnostics and release gates.
 Last verified: 2026-07-24 CEST by `TASK-20260724-003-unblocked-order-printing`
 
+## 2026-09-26 加载优化补充
+
+- 服务端仅向 `LocaleProvider` 传递当前语言字典；其他完整字典由 `runtime-messages` 按语言异步加载。同步纯函数所需文案保留在小型 `common-messages`。客户端不得重新静态导入完整 `messages` 的运行时值。
+- 切换语言等待目标字典就绪后生效，后发请求优先；失败保留原语言与表单草稿并允许重试。缓存只含公开静态文案，不含用户或门店数据。
+- 样式已就绪但运行时仍启动时，正常等待窗口为15秒；同源 `/_next/` 脚本明确加载失败则立即进入现有恢复流程。离线策略、单次自动刷新上限与手动重试入口保持有效。
+- `html2canvas` 与 `pdf-lib` 在实际捕获/合成PDF时动态加载，保留原打印质量、就绪反馈、缓存边界与失败恢复。
+
+部署顺序及数据库兼容边界见 [工单修复验证说明](../supabase/tests/orders_remediation_README.md)。
+
 ## Fixed-PDF mobile delivery and performance addendum
 
 Order fixed-PDF printing keeps its 3× raster quality floor and exact A5/A4 MediaBox composition. Performance optimization uses only bounded in-memory capture/PDF reuse keyed by the rendered print-content fingerprint; it does not persist customer content or weaken QR readiness.

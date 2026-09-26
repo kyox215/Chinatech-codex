@@ -15,6 +15,7 @@ import { RealtimeAppBridge } from "@/features/realtime";
 import { repairDeskQueryDefaultOptions } from "@/lib/query-performance";
 import { appShell } from "@/lib/ui-patterns";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
+import type { MessageCatalog } from "@/shared/i18n/runtime-messages";
 import type { AppLocale } from "@/shared/i18n/locales";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
@@ -33,9 +34,11 @@ const ScanSearchSheet = dynamic(
 export function Providers({
   children,
   initialLocale,
+  initialMessages,
 }: {
   children: React.ReactNode;
   initialLocale: AppLocale;
+  initialMessages: MessageCatalog;
 }) {
   const [queryClient] = useState(
     () => new QueryClient({ defaultOptions: repairDeskQueryDefaultOptions }),
@@ -65,7 +68,7 @@ export function Providers({
   ) {
     const usesCustomerCommunicationLanguage = pathname === "/kiosk" || pathname === "/r";
     return (
-      <LocaleProvider initialLocale={initialLocale}>
+      <LocaleProvider initialLocale={initialLocale} initialMessages={initialMessages}>
         <QueryClientProvider client={queryClient}>
           {!usesCustomerCommunicationLanguage ? (
             <div className="fixed right-3 top-3 z-[80] rounded-xl border border-[var(--border-panel)] bg-card/95 shadow-[var(--shadow-card)] backdrop-blur">
@@ -81,7 +84,7 @@ export function Providers({
   }
 
   return (
-    <LocaleProvider initialLocale={initialLocale}>
+    <LocaleProvider initialLocale={initialLocale} initialMessages={initialMessages}>
       <QueryClientProvider client={queryClient}>
         <NavigationGuardProvider>
           <RealtimeAppBridge>

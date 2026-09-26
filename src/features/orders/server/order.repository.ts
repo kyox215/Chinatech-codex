@@ -12,6 +12,7 @@ import { CURRENCY_CODE, normalizePositiveCentAmount } from "@/lib/money";
 import { resolveWhatsappPhone } from "@/shared/lib/whatsapp-phone";
 import type {
   AuditActor,
+  OrderTransitionItem,
   CorrectTerminalOrderInput,
   CreateOrderInput,
   DeviceSnapshot,
@@ -1150,50 +1151,17 @@ export async function createOrderWorkflowStatus(
   assertStaffRole(actor ?? { displayName: "系统", isSystem: true }, ["owner", "manager"]);
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
-  const now = new Date().toISOString();
-  const code = input.code.trim().toLowerCase();
-  const label = input.label.trim();
-  const isDefault = Boolean(input.is_default_create_status);
-  const enabled = input.enabled ?? true;
-
-  const sortOrder =
-    input.sort_order ??
-    (await readWorkflowStatuses(supabase, storeId)).reduce(
-      (max, status) => Math.max(max, status.sort_order),
-      0,
-    ) + 10;
-
-  if (isDefault) {
-    const { error } = await supabase
-      .from("order_workflow_statuses")
-      .update({ is_default_create_status: false, updated_at: now, updated_by: actor?.id ?? null })
-      .eq("store_id", storeId);
-    fail(error, "更新默认状态失败");
-  }
-
-  const { data, error } = await supabase
-    .from("order_workflow_statuses")
-    .insert({
-      id: crypto.randomUUID(),
-      store_id: storeId,
-      code,
-      label,
-      short_label: input.short_label?.trim() || label.slice(0, 4),
-      tone: input.tone,
-      bucket: input.bucket,
-      sort_order: sortOrder,
-      enabled: isDefault ? true : enabled,
-      show_in_order_filters: input.show_in_order_filters ?? true,
-      allowed_for_create: isDefault ? true : (input.allowed_for_create ?? false),
-      is_default_create_status: isDefault,
-      is_system: false,
-      created_by: actor?.id ?? null,
-      updated_by: actor?.id ?? null,
-      created_at: now,
-      updated_at: now,
-    })
-    .select("*")
-    .single();
+  const { data, error } = await supabase.rpc("repairdesk_save_order_workflow", {
+    p_store_id: storeId,
+    p_actor_id: actor?.id,
+    p_mode: "create_status",
+    p_input: {
+      ...input,
+      code: input.code.trim().toLowerCase(),
+      label: input.label.trim(),
+      short_label: input.short_label?.trim() || input.label.trim().slice(0, 4),
+    },
+  });
   fail(error, "创建工单状态失败");
   return workflowStatusFromRow(data as DbRecord);
 }
@@ -1206,59 +1174,12 @@ export async function updateOrderWorkflowStatus(
   assertStaffRole(actor ?? { displayName: "系统", isSystem: true }, ["owner", "manager"]);
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
-
-  const { data: current, error: readError } = await supabase
-    .from("order_workflow_statuses")
-    .select("*")
-    .eq("store_id", storeId)
-    .eq("id", id)
-    .single();
-  fail(readError, "读取状态失败");
-  const currentStatus = workflowStatusFromRow(current as DbRecord);
-  if (currentStatus.is_default_create_status && input.enabled === false) {
-    throw new Error("默认新建状态不能停用");
-  }
-  if (currentStatus.is_default_create_status && input.is_default_create_status === false) {
-    throw new Error("请先把另一个状态设为默认新建状态");
-  }
-
-  const now = new Date().toISOString();
-  if (input.is_default_create_status) {
-    const { error } = await supabase
-      .from("order_workflow_statuses")
-      .update({ is_default_create_status: false, updated_at: now, updated_by: actor?.id ?? null })
-      .eq("store_id", storeId)
-      .neq("id", id);
-    fail(error, "更新默认状态失败");
-  }
-
-  const update: DbRecord = { updated_at: now, updated_by: actor?.id ?? null };
-  if (input.label !== undefined) update.label = input.label.trim();
-  if (input.short_label !== undefined) update.short_label = input.short_label.trim();
-  if (input.tone !== undefined) update.tone = input.tone;
-  if (input.bucket !== undefined) update.bucket = input.bucket;
-  if (input.sort_order !== undefined) update.sort_order = input.sort_order;
-  if (input.enabled !== undefined)
-    update.enabled = input.is_default_create_status ? true : input.enabled;
-  if (input.show_in_order_filters !== undefined)
-    update.show_in_order_filters = input.show_in_order_filters;
-  if (input.allowed_for_create !== undefined)
-    update.allowed_for_create = input.is_default_create_status ? true : input.allowed_for_create;
-  if (input.is_default_create_status !== undefined) {
-    update.is_default_create_status = input.is_default_create_status;
-    if (input.is_default_create_status) {
-      update.enabled = true;
-      update.allowed_for_create = true;
-    }
-  }
-
-  const { data, error } = await supabase
-    .from("order_workflow_statuses")
-    .update(update)
-    .eq("store_id", storeId)
-    .eq("id", id)
-    .select("*")
-    .single();
+  const { data, error } = await supabase.rpc("repairdesk_save_order_workflow", {
+    p_store_id: storeId,
+    p_actor_id: actor?.id,
+    p_mode: "update_status",
+    p_input: { ...input, id },
+  });
   fail(error, "保存状态失败");
   return workflowStatusFromRow(data as DbRecord);
 }
@@ -1298,58 +1219,13 @@ export async function updateOrderWorkflowTransitions(
   assertStaffRole(actor ?? { displayName: "系统", isSystem: true }, ["owner", "manager"]);
   const storeId = requireStoreIdFromActor(actor);
   const supabase = getSupabaseAdmin();
-  const now = new Date().toISOString();
-  const statuses = await readWorkflowStatuses(supabase, storeId);
-  const from = statuses.find((status) => status.code === input.from_status_code);
-  if (!from) throw new Error("来源状态不存在");
-
-  const byTarget = new Map(input.transitions.map((item) => [item.to_status_code, item]));
-  const enabledTargets = statuses
-    .filter((status) => status.code !== from.code)
-    .map((status, index) => {
-      const requested = byTarget.get(status.code);
-      return {
-        to_status_code: status.code,
-        enabled: Boolean(requested?.enabled),
-        is_primary: Boolean(requested?.enabled && requested?.is_primary),
-        sort_order: requested?.sort_order ?? (index + 1) * 10,
-      };
-    });
-  const primaryIndex = enabledTargets.findIndex((target) => target.enabled && target.is_primary);
-  const firstEnabledIndex = enabledTargets.findIndex((target) => target.enabled);
-  enabledTargets.forEach((target, index) => {
-    target.is_primary =
-      target.enabled && (primaryIndex >= 0 ? index === primaryIndex : index === firstEnabledIndex);
+  const { error } = await supabase.rpc("repairdesk_save_order_workflow", {
+    p_store_id: storeId,
+    p_actor_id: actor?.id,
+    p_mode: "transitions",
+    p_input: input,
   });
-
-  const { error: disableError } = await supabase
-    .from("order_workflow_transitions")
-    .update({ enabled: false, is_primary: false, updated_at: now, updated_by: actor?.id ?? null })
-    .eq("store_id", storeId)
-    .eq("from_status_code", from.code);
-  fail(disableError, "更新流转关系失败");
-
-  const rows = enabledTargets.map((target) => ({
-    id: crypto.randomUUID(),
-    store_id: storeId,
-    from_status_code: from.code,
-    to_status_code: target.to_status_code,
-    enabled: target.enabled,
-    is_primary: target.is_primary,
-    sort_order: target.sort_order,
-    created_by: actor?.id ?? null,
-    updated_by: actor?.id ?? null,
-    created_at: now,
-    updated_at: now,
-  }));
-
-  if (rows.length) {
-    const { error } = await supabase.from("order_workflow_transitions").upsert(rows, {
-      onConflict: "store_id,from_status_code,to_status_code",
-      ignoreDuplicates: false,
-    });
-    fail(error, "保存流转关系失败");
-  }
+  fail(error, "保存流转关系失败");
 
   return listOrderWorkflow(actor);
 }
@@ -1612,17 +1488,102 @@ export async function transitionOrder(
   to: RepairOrderStatus,
   opts: {
     reason?: string;
-    expectedUpdatedAt?: string;
-    idempotencyKey?: string;
+    expectedUpdatedAt: string;
+    idempotencyKey: string;
     operator?: string | AuditActor;
-  } = {},
+  },
 ) {
   const storeId = requireStoreIdFromActor(
     typeof opts.operator === "string" ? undefined : opts.operator,
   );
   const supabase = getSupabaseAdmin();
   const actor = typeof opts.operator === "string" ? undefined : opts.operator;
+  if (!actor?.id) throw new ForbiddenError("状态流转需要已登录员工身份");
+  if (!opts.expectedUpdatedAt || !opts.idempotencyKey) {
+    throw new OrderMutationError(
+      "缺少工单版本或操作标识，请刷新后重试",
+      "missing_expected_version",
+      409,
+    );
+  }
   const currentRow = await readOrderCustodyRow(supabase, storeId, id, actor);
+  const cleanReason = opts.reason?.trim();
+  const { requestHash } = orderMutationIdentity({
+    storeId,
+    actorId: actor.id,
+    orderId: id,
+    mode: "transition",
+    request: {
+      expected_updated_at: opts.expectedUpdatedAt,
+      idempotency_key: opts.idempotencyKey,
+      to,
+      reason: cleanReason || null,
+    },
+  });
+  // Replay before validating mutable state: the original transition may already have closed it.
+  // The RPC rechecks current membership, store status and technician assignment before disclosure.
+  const { data: replay, error: replayError } = await supabase.rpc(
+    "repairdesk_order_transition_receipt",
+    {
+      p_store_id: storeId,
+      p_actor_id: actor.id,
+      p_order_id: id,
+      p_idempotency_key: opts.idempotencyKey,
+      p_request_hash: requestHash,
+    },
+  );
+  if (replayError)
+    throw new OrderMutationError(
+      "暂时无法确认状态更新结果，请重试",
+      "ORDER_TRANSITION_UNCERTAIN",
+      503,
+    );
+  if (replay?.ok !== true) {
+    const code = requiredString(replay?.code);
+    if (
+      !["actor_forbidden", "order_not_found", "idempotency_conflict", "invalid_request"].includes(
+        code,
+      )
+    ) {
+      throw new OrderMutationError(
+        "暂时无法确认状态更新结果，请重试",
+        "ORDER_TRANSITION_UNCERTAIN",
+        503,
+      );
+    }
+    throw new OrderMutationError(
+      code === "actor_forbidden"
+        ? "当前员工无权更新此工单"
+        : code === "idempotency_conflict"
+          ? "该操作标识已用于不同请求，请刷新后重试"
+          : "工单不存在或操作请求无效",
+      code,
+      code === "actor_forbidden" ? 403 : code === "order_not_found" ? 404 : 409,
+    );
+  }
+  if (replay.found === true) {
+    const receipt = replay.receipt;
+    if (
+      !receipt ||
+      receipt.ok !== true ||
+      typeof receipt.from !== "string" ||
+      typeof receipt.to !== "string"
+    ) {
+      throw new OrderMutationError(
+        "暂时无法确认状态更新结果，请重试",
+        "ORDER_TRANSITION_UNCERTAIN",
+        503,
+      );
+    }
+    return { ok: true, from: receipt.from, to: receipt.to };
+  }
+  if (replay.found !== false) {
+    throw new OrderMutationError(
+      "暂时无法确认状态更新结果，请重试",
+      "ORDER_TRANSITION_UNCERTAIN",
+      503,
+    );
+  }
   await assertRoutineOrderMutationAllowed(supabase, storeId, currentRow);
   const currentCustodyStatus = custodyStatusFromRow(currentRow);
   const from = currentRow.status as RepairOrderStatus;
@@ -1634,8 +1595,6 @@ export async function transitionOrder(
     throw new Error("状态流转必须使用具体工单状态，不能使用主流程分组");
   }
   const legacyTo = to;
-  const cleanReason = opts.reason?.trim();
-
   const validation = await validateManualOrderTransitionTarget(supabase, storeId, from, to);
   if (!validation.ok) throw new Error(validation.reason ?? "状态流转不合法");
   const workflowTo = canonicalWorkflowStatusFromBucket(validation.bucket, to);
@@ -1678,8 +1637,7 @@ export async function transitionOrder(
     );
   }
 
-  const expectedUpdatedAt = opts.expectedUpdatedAt ?? maybeString(currentRow.updated_at);
-  if (!expectedUpdatedAt) throw new Error("缺少工单版本，请刷新后重试");
+  const expectedUpdatedAt = opts.expectedUpdatedAt;
 
   await applyAtomicOrderMutation({
     supabase,
@@ -1690,6 +1648,7 @@ export async function transitionOrder(
     update,
     eventType: "status_changed",
     eventPayload: {
+      transition_request_hash: requestHash,
       from,
       to: legacyTo,
       workflow_from: workflowFrom,
@@ -1719,8 +1678,9 @@ export async function transitionOrder(
             }
           : {}),
     },
-    idempotencyKey: opts.idempotencyKey ?? crypto.randomUUID(),
+    idempotencyKey: opts.idempotencyKey,
     context: "更新工单状态失败",
+    transitionWrite: true,
   });
 
   return { ok: true, from, to: legacyTo };
@@ -1940,16 +1900,21 @@ function buildTransitionDiagnosisResult(current: string | undefined, reason: str
 }
 
 export async function batchTransition(
-  ids: string[],
+  items: OrderTransitionItem[],
   to: RepairOrderStatus,
   operator: string | AuditActor = "前台",
 ) {
   requireStoreIdFromActor(typeof operator === "string" ? undefined : operator);
   let count = 0;
   const failures: { id: string; reason: string }[] = [];
-  for (const id of ids) {
+  for (const item of items) {
+    const { id } = item;
     try {
-      await transitionOrder(id, to, { operator });
+      await transitionOrder(id, to, {
+        operator,
+        expectedUpdatedAt: item.expected_updated_at,
+        idempotencyKey: item.idempotency_key,
+      });
       count++;
     } catch (error) {
       failures.push({ id, reason: classifyOrderTransitionFailure(error) });
@@ -2690,6 +2655,7 @@ async function applyAtomicOrderMutation({
   idempotencyKey,
   context,
   structuredConflicts = false,
+  transitionWrite = false,
 }: {
   supabase: SupabaseAdmin;
   storeId: string;
@@ -2702,21 +2668,27 @@ async function applyAtomicOrderMutation({
   idempotencyKey: string;
   context: string;
   structuredConflicts?: boolean;
+  transitionWrite?: boolean;
 }) {
   if (!actor?.id) throw new Error(`${context}：缺少已登录员工身份`);
   const safeUpdate = Object.fromEntries(
     Object.entries(update).filter(([key, value]) => key !== "updated_at" && value !== undefined),
   );
-  const { data, error } = await supabase.rpc("repairdesk_apply_order_atomic_mutation", {
-    p_store_id: storeId,
-    p_order_id: id,
-    p_actor_id: actor.id,
-    p_expected_updated_at: expectedUpdatedAt,
-    p_update: safeUpdate,
-    p_event_type: eventType,
-    p_event_payload: eventPayload,
-    p_idempotency_key: idempotencyKey,
-  });
+  const { data, error } = await supabase.rpc(
+    transitionWrite
+      ? "repairdesk_apply_order_transition"
+      : "repairdesk_apply_order_atomic_mutation",
+    {
+      p_store_id: storeId,
+      p_order_id: id,
+      p_actor_id: actor.id,
+      p_expected_updated_at: expectedUpdatedAt,
+      p_update: safeUpdate,
+      p_event_type: eventType,
+      p_event_payload: eventPayload,
+      p_idempotency_key: idempotencyKey,
+    },
+  );
   const atomicMutationUnavailable = Boolean(
     error &&
     (("code" in error && (error.code === "PGRST202" || error.code === "42883")) ||
@@ -2728,6 +2700,9 @@ async function applyAtomicOrderMutation({
   }
   if (error && isMissingRepairOrderColumnError(error)) {
     throw new Error("设备保管功能尚未完成数据库迁移，请联系店主");
+  }
+  if (transitionWrite && (error || !data || typeof data !== "object")) {
+    throw new OrderMutationError("状态更新结果暂未确认，请重试", "ORDER_TRANSITION_UNCERTAIN", 503);
   }
   fail(error, context);
   if (!data || typeof data !== "object") throw new Error(`${context}：数据库返回无效`);
@@ -2975,7 +2950,7 @@ function snapshotFromRecord(value: unknown, device?: DeviceSnapshot): DeviceSnap
     brand: requiredString(row.brand) || device?.brand || "",
     model: requiredString(row.model) || device?.model || "",
     serial_or_imei: requiredString(row.serial_or_imei) || device?.serial_or_imei || "",
-    device_notes: maybeString(row.device_notes) ?? device?.device_notes,
+    device_notes: typeof row.device_notes === "string" ? row.device_notes : device?.device_notes,
   };
 }
 
@@ -3010,7 +2985,7 @@ export async function updateOrder(
   const { data: current, error: readError } = await supabase
     .from("repair_orders")
     .select(
-      `id,updated_at,status,customer_id,device_id,quotation_amount,deposit_amount,balance_amount,fault_prices,approval_status,approval_flow_status,approval_sent_at,approval_confirmed_at,warranty_text,warranty_months,warranty_change_reason,${REPAIR_ORDER_CUSTOMER_EMBED}(contact_phones)`,
+      `id,updated_at,status,customer_id,device_id,device_snapshot,quotation_amount,deposit_amount,balance_amount,fault_prices,approval_status,approval_flow_status,approval_sent_at,approval_confirmed_at,warranty_text,warranty_months,warranty_change_reason,${REPAIR_ORDER_CUSTOMER_EMBED}(contact_phones)`,
     )
     .eq("store_id", storeId)
     .eq("id", id)
@@ -3066,10 +3041,11 @@ export async function updateOrder(
       deposit_amount: deposit,
       fault_prices: validFaults,
       device_snapshot: {
+        ...snapshotFromRecord(currentRow.device_snapshot),
         brand: deviceBrand,
         model: deviceModel,
         serial_or_imei: input.device_imei?.trim() ?? "",
-        ...(input.device_notes?.trim() ? { device_notes: input.device_notes.trim() } : {}),
+        ...(input.device_notes !== undefined ? { device_notes: input.device_notes.trim() } : {}),
       },
     },
     customerChanges: {
@@ -3207,7 +3183,7 @@ export async function patchOrder(
         nextSnapshot.serial_or_imei = value;
         break;
       case "device_notes":
-        nextSnapshot.device_notes = value || undefined;
+        nextSnapshot.device_notes = value;
         break;
       case "issue_description":
         if (!value) throw new Error("故障描述不能为空");

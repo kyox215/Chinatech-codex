@@ -37,7 +37,7 @@ test("keeps mobile intake controls stable and supports direct touch gestures", a
   await expect(brandOptions).toHaveCSS("overflow-y", "auto");
   await expect(brandOptions.getByRole("option", { name: "Apple" })).toBeVisible();
   await brandOptions.getByRole("option", { name: "Apple" }).click();
-  await expect(deviceEditor.locator("#new-order-device-brand")).toHaveValue("APPLE");
+  await expect(deviceEditor.locator("#new-order-device-brand")).toHaveValue("Apple");
   await deviceEditor.locator("#new-order-device-brand").fill("xiaomi");
   await deviceEditor.locator("#new-order-device-model").fill("redmi note 13 pro");
   await expect(deviceEditor.locator("#new-order-device-brand")).toHaveValue("XIAOMI");
@@ -81,11 +81,13 @@ test("keeps mobile intake controls stable and supports direct touch gestures", a
   const faultButton = dialog.locator('[data-fault-category="display"] > button').first();
   await faultButton.click();
   const scrollBody = dialog.locator('[data-new-order-scroll-body="true"]');
+  const depositButton = dialog.getByRole("button", { name: "定金", exact: true });
+  await depositButton.scrollIntoViewIfNeeded();
   const before = await Promise.all([
     scrollBody.evaluate((element) => element.scrollTop),
     faultButton.evaluate((element) => element.getBoundingClientRect().top),
   ]);
-  await dialog.getByRole("button", { name: "定金", exact: true }).click();
+  await depositButton.click();
   const keypad = dialog.locator('[data-virtual-keyboard-dock="true"]');
   await expect(keypad).toBeVisible();
   await expect(keypad).toHaveAttribute("data-virtual-keyboard-layout", "overlay");

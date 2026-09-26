@@ -2117,6 +2117,26 @@ describe("OrderDetailScreen i18n", () => {
     expect(flow).toBeEnabled();
   });
 
+  it.each([400, 503])(
+    "retains transition identity when an uncertain response uses HTTP %s",
+    async (status) => {
+      mocks.transitionOrder.mockRejectedValueOnce(
+        new RepairDeskApiError("uncertain transport", status),
+      );
+      const view = renderDetail("zh-CN");
+      fireEvent.click(screen.getByRole("button", { name: "Harness flow" }));
+      fireEvent.click(view.container.querySelector('[data-status-option="repaired"]')!);
+      fireEvent.click(view.container.querySelector("[data-status-confirm]")!);
+      await waitFor(() => expect(mocks.transitionOrder).toHaveBeenCalledTimes(1));
+      await waitFor(() =>
+        expect(view.container.querySelector("[data-status-confirm]")).toBeEnabled(),
+      );
+      fireEvent.click(view.container.querySelector("[data-status-confirm]")!);
+      await waitFor(() => expect(mocks.transitionOrder).toHaveBeenCalledTimes(2));
+      expect(mocks.transitionOrder.mock.calls[1]).toEqual(mocks.transitionOrder.mock.calls[0]);
+    },
+  );
+
   it("keeps transition and custody canonical inputs byte-equivalent in all locales", async () => {
     const calls: Array<{ transition: unknown[]; custody: unknown[] }> = [];
     for (const locale of locales) {

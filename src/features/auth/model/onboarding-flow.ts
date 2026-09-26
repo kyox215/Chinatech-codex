@@ -3,7 +3,8 @@ import type {
   OnboardingRequestInput,
   OnboardingStatus,
 } from "@/lib/repairdesk/types";
-import { translateMessage, type MessageKey, type MessageValues } from "@/shared/i18n/messages";
+import { translateLoadedMessage as translateMessage } from "@/shared/i18n/runtime-messages";
+import { type MessageKey, type MessageValues } from "@/shared/i18n/messages";
 
 export type OnboardingTranslator = (key: MessageKey, values?: MessageValues) => string;
 

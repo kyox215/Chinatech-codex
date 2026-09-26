@@ -58,6 +58,12 @@ jobs:
           tests/e2e/i18n-order-detail-release-2b2.spec.ts
           tests/e2e/global-compact-edit.spec.ts
           tests/e2e/order-detail-a-layout.spec.ts
+          tests/e2e/orders-remediation-layout.spec.ts
+          tests/e2e/order-detail-touch-workbench.spec.ts
+          tests/e2e/order-bulk-transition-recovery.spec.ts
+          tests/e2e/new-order-mobile-touch-reliability.spec.ts
+          tests/e2e/app-style-recovery-runtime.spec.ts
+          tests/e2e/app-style-recovery.spec.ts
           tests/e2e/i18n-customers-release-2b3.spec.ts
           tests/e2e/i18n-inventory-release-2b4.spec.ts
           tests/e2e/i18n-buyback-release-2b5.spec.ts

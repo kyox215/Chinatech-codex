@@ -7,7 +7,7 @@ export const repairDeskStyleRecoveryInitialDelayMs = 200;
 export const repairDeskStyleRecoveryPollDelayMs = 750;
 export const repairDeskStyleRecoveryProbeTimeoutMs = 750;
 export const repairDeskStyleRecoveryStyleRetryMs = 500;
-export const repairDeskStyleRecoveryRuntimeGraceMs = 1_200;
+export const repairDeskStyleRecoveryRuntimeGraceMs = 15_000;
 export const repairDeskStyleRecoveryManualActionDelayMs = 2_500;
 export const repairDeskStyleRecoveryProbePath = "/recovery-probe.txt";
 export const repairDeskStyleRecoveryProbeToken = "repairdesk-recovery-v1";
@@ -206,6 +206,7 @@ export const repairDeskStyleRecoveryBootstrap = `
   let reloadScheduled = false;
   let manualReloadScheduled = false;
   let runtimeGraceExpired = false;
+  let runtimeResourceFailed = false;
 
   const stylesReady = () =>
     window.getComputedStyle(root).getPropertyValue(config.readyProperty).trim() === "1";
@@ -375,7 +376,7 @@ export const repairDeskStyleRecoveryBootstrap = `
       markReady();
       return;
     }
-    if (stylesReady() && !runtimeGraceExpired) return;
+    if (stylesReady() && !runtimeGraceExpired && !runtimeResourceFailed) return;
     if (document.visibilityState === "hidden" || reloadScheduled || manualReloadScheduled) return;
     if (timer !== undefined) window.clearTimeout(timer);
     timer = window.setTimeout(attemptRecovery, delay);
@@ -387,7 +388,7 @@ export const repairDeskStyleRecoveryBootstrap = `
       markReady();
       return;
     }
-    if (stylesReady() && !runtimeGraceExpired) return;
+    if (stylesReady() && !runtimeGraceExpired && !runtimeResourceFailed) return;
     if (document.visibilityState === "hidden") return;
     probeInFlight = true;
     setPhase("probing", navigator.onLine === false ? "网络已断开，RepairDesk 正在自动重试…" : "正在恢复 RepairDesk…");
@@ -401,7 +402,7 @@ export const repairDeskStyleRecoveryBootstrap = `
         setPhase("waiting", "网络暂不可用，RepairDesk 正在自动重试…");
         return;
       }
-      if (!runtimeReady && !runtimeGraceExpired) {
+      if (!runtimeReady && !runtimeGraceExpired && !runtimeResourceFailed) {
         setPhase("awaiting-runtime", "网络已恢复，正在启动 RepairDesk…");
         return;
       }
@@ -450,6 +451,15 @@ export const repairDeskStyleRecoveryBootstrap = `
     (event) => {
       const target = event.target;
       if (target && target.tagName === "LINK" && target.rel === "stylesheet") wake();
+      if (target && target.tagName === "SCRIPT" && target.src) {
+        try {
+          const source = new URL(target.src, window.location.href);
+          if (source.origin === window.location.origin && source.pathname.startsWith("/_next/")) {
+            runtimeResourceFailed = true;
+            wake();
+          }
+        } catch {}
+      }
     },
     true,
   );

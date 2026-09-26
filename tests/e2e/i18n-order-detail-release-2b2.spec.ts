@@ -798,6 +798,10 @@ async function expectCompleteMobileDeviceTitle(
 }
 
 async function expectSeparatedDetailRows(root: ReturnType<Page["locator"]>, locale: AppLocale) {
+  const deviceDetails = root.locator(".order-workbench-mobile-device-summary > details");
+  await expect(deviceDetails).not.toHaveAttribute("open");
+  await deviceDetails.locator(":scope > summary").click();
+  await expect(deviceDetails).toHaveAttribute("open", "");
   const rows = root.locator(
     '[data-order-detail-row="true"]:visible, [data-order-field-trigger="warranty"]:visible, [data-order-field-trigger="accessories"]:visible',
   );

@@ -1,6 +1,6 @@
 import type { CapturePayload } from "@/features/capture/model/barcode-parser";
 import { getCapturePayloadDisplayLabel } from "@/features/capture/model/capture-presentation";
-import { translateMessage } from "@/shared/i18n/messages";
+import { translateLoadedMessage as translateMessage } from "@/shared/i18n/runtime-messages";
 import type { AppLocale } from "@/shared/i18n/locales";
 
 export type ScanSearchScope = "global" | "orders" | "customers" | "buyback" | "inventory";

@@ -13,7 +13,8 @@ import {
 
 import type { SettingsSectionKey } from "@/features/settings/model/settings-section-access";
 import { DEFAULT_LOCALE, type AppLocale } from "@/shared/i18n/locales";
-import { translateMessage, type MessageKey } from "@/shared/i18n/messages";
+import { translateLoadedMessage as translateMessage } from "@/shared/i18n/runtime-messages";
+import { type MessageKey } from "@/shared/i18n/messages";
 
 export type SettingsSectionGroupKey =
   | "personal-access"
