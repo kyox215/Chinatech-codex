@@ -509,14 +509,19 @@ test("real locale switches preserve URL search filter scroll and selection with 
     .click();
   await page.evaluate(() => window.scrollTo(0, 20));
   const scroll = await page.evaluate(() => window.scrollY);
-  const reads = evidence.allowedReads.length;
+  // Switching may fetch a static language catalog, but never business data.
+  const businessReads = () =>
+    evidence.allowedReads.filter((read) =>
+      new URL(read.split(" ")[1], baseOrigin).pathname.startsWith("/api/repairdesk/"),
+    );
+  const reads = businessReads();
   await switchLocale(page, "it-IT");
   await switchLocale(page, "en");
   await expect(page).toHaveURL(`${baseOrigin}/buyback?view=compact`);
   await expect(search).toHaveValue("Demo");
   await expect(filter).toContainText(translateMessage("en", "buyback2b5.filter.awaiting"));
   expect(await page.evaluate(() => window.scrollY)).toBe(scroll);
-  expect(evidence.allowedReads).toHaveLength(reads);
+  expect(businessReads()).toEqual(reads);
   await saveScreenshot(page, testInfo, "locale-switch-preserved-en-1440");
   await assertEvidence(page, evidence, []);
 });
