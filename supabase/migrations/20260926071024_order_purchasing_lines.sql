@@ -309,6 +309,10 @@ begin
   if not public.repairdesk_actor_can_manage_order_costs(p_store_id, p_actor_id) then
     return jsonb_build_object('ok', false, 'code', 'actor_forbidden');
   end if;
+  if p_supplier_id is not null
+     and not public.repairdesk_actor_has_supplier_permission(p_store_id, p_actor_id, 'read') then
+    return jsonb_build_object('ok', false, 'code', 'actor_forbidden');
+  end if;
 
   v_hash := encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object(
     'purchase_id', p_purchase_id, 'order_id', p_order_id, 'line_id', p_line_id,

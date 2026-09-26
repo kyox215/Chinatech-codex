@@ -2297,6 +2297,9 @@ export async function handleRepairDeskPost(
         ).parse(body);
         assertOrderScopedPermission(actor, "order:update_repair");
         assertRepairDeskPermission(actor, "finance:cost_manage");
+        if (input.supplier_id !== null) {
+          assertRepairDeskPermission(actor, "supplier:read");
+        }
         const result = await api.saveOrderPurchase(input, actor);
         if (api !== supabaseSource && !result.replayed) {
           await writeAuditLog({

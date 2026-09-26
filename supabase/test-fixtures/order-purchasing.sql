@@ -123,7 +123,36 @@ begin
     raise exception 'revoked_save_assign_replay_leaked: %',v_replay;
   end if;
 
-  -- finance:cost_manage without supplier:assign may edit cost/quantity when supplier is unchanged.
+  update public.store_member_permission_grants
+  set revoked_at = clock_timestamp()
+  where store_id='10000000-0000-4000-8000-000000000010'
+    and user_id='10000000-0000-4000-8000-000000000002'
+    and action='supplier:read';
+
+  -- A supplier-backed save and its retry must not expose the line without supplier:read.
+  v := public.repairdesk_save_order_purchase(
+    '10000000-0000-4000-8000-000000000010','10000000-0000-4000-8000-000000000002',v_ready,
+    '10000000-0000-4000-8000-000000000301',null,'Camera',
+    '10000000-0000-4000-8000-000000000201','13.00',2,'ordered',2,
+    '10000000-0000-4000-8000-000000000507');
+  if v->>'code' <> 'actor_forbidden' or v ? 'line' then
+    raise exception 'supplier_read_required_for_save: %',v;
+  end if;
+  v_replay := public.repairdesk_save_order_purchase(
+    '10000000-0000-4000-8000-000000000010','10000000-0000-4000-8000-000000000002',v_ready,
+    '10000000-0000-4000-8000-000000000301',null,'Camera',
+    '10000000-0000-4000-8000-000000000201','13.00',2,'ordered',2,
+    '10000000-0000-4000-8000-000000000507');
+  if v_replay->>'code' <> 'actor_forbidden' or v_replay ? 'line' then
+    raise exception 'supplier_read_required_for_save_retry: %',v_replay;
+  end if;
+
+  update public.store_member_permission_grants set revoked_at=null
+  where store_id='10000000-0000-4000-8000-000000000010'
+    and user_id='10000000-0000-4000-8000-000000000002'
+    and action='supplier:read';
+
+  -- finance:cost_manage plus supplier:read may edit an unchanged supplier without supplier:assign.
   v := public.repairdesk_save_order_purchase(
     '10000000-0000-4000-8000-000000000010','10000000-0000-4000-8000-000000000002',v_ready,
     '10000000-0000-4000-8000-000000000301',null,'Camera',
