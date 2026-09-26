@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+test.use({ locale: "zh-CN" });
+
 const enabled = process.env.REPAIRDESK_E2E_BUSINESS_DESKTOP === "1";
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for memo UI checks.");
@@ -29,7 +31,7 @@ test("memo search, filters, quick entry and progressive loading match the app la
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/memos");
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-  await expect(page.getByRole("searchbox", { name: "搜索备忘录" }).last()).toBeVisible();
+  await expect(page.locator('input[placeholder="搜索备忘录"]:visible')).toBeVisible();
   const memoRows = page.getByRole("button", { name: /^打开备忘：界面测试备忘/ });
   await expect(memoRows).toHaveCount(20);
 
@@ -109,4 +111,67 @@ test("memo search, filters, quick entry and progressive loading match the app la
     await editorSheet.getByRole("button", { name: "关闭" }).click();
     await expect(editorSheet).toBeHidden();
   }
+});
+
+test("memo checklist saves once, expands inline and derives parent status from desired item state", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  const title = `清单流程 ${Date.now()}`;
+  const itemTexts = [
+    "打开卷帘门",
+    "清点收银台",
+    "检查展示柜",
+    "启动前台电脑",
+    "核对预约",
+    "打开照明",
+    "检查快递",
+    "准备交接表",
+  ];
+
+  await page.setViewportSize({ width: 390, height: 520 });
+  await page.goto("/memos");
+  await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+  await page.getByRole("button", { name: "新建备忘", exact: true }).first().click();
+  const composer = page.getByRole("dialog", { name: "新建备忘", exact: true });
+  await expect(composer).toBeVisible();
+  await composer.locator("#memo-title").fill(title);
+  const checklistInput = composer.getByPlaceholder("添加清单项");
+  for (const item of itemTexts) {
+    await checklistInput.fill(item);
+    await checklistInput.press("Enter");
+  }
+
+  const footer = composer.locator("[data-editor-footer]");
+  await expect(footer).toBeVisible();
+  const footerBox = await footer.boundingBox();
+  expect(footerBox).not.toBeNull();
+  expect((footerBox?.y ?? 0) + (footerBox?.height ?? 0)).toBeLessThanOrEqual(521);
+  await composer.getByRole("button", { name: "添加待办", exact: true }).click();
+  await expect(composer).toBeHidden();
+
+  const search = page.locator('input[placeholder="搜索备忘录"]:visible');
+  await search.fill(title);
+  await expect(page.getByRole("button", { name: `打开备忘：${title}` })).toBeVisible();
+  const progress = page.getByRole("button", {
+    name: `清单进度：已完成 0 项，共 ${itemTexts.length} 项`,
+  });
+  await progress.click();
+  await expect(page.getByRole("dialog", { name: "备忘详情" })).toHaveCount(0);
+
+  for (const item of itemTexts) {
+    await page.getByRole("checkbox", { name: `切换清单项：${item}` }).click();
+  }
+  await expect(
+    page.getByRole("button", {
+      name: `清单进度：已完成 ${itemTexts.length} 项，共 ${itemTexts.length} 项`,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: `已完成（${itemTexts.length}）` }).click();
+  await page.getByRole("checkbox", { name: `切换清单项：${itemTexts[0]}` }).click();
+  await expect(
+    page.getByRole("button", {
+      name: `清单进度：已完成 ${itemTexts.length - 1} 项，共 ${itemTexts.length} 项`,
+    }),
+  ).toBeVisible();
 });

@@ -238,7 +238,10 @@ npm run storybook
   UI, server policy, repository, service and mock parity remain inside the feature boundary.
 - All reads and writes pass through the existing RepairDesk BFF. Client code does not access Supabase
   tables directly. Every repository query is store-scoped, and every mutation uses the typed,
-  service-role-only `repairdesk_mutate_store_memo_rpc`.
+  service-role-only `repairdesk_mutate_store_memo_v2_rpc`. The original signature remains as a
+  compatibility wrapper; checklist completion is derived atomically and cannot be bypassed by legacy
+  complete/reopen requests. Ordered checklist JSON lives on the memo row; lists project counts and
+  fetch item text only for expanded details. Search includes server-side checklist text.
 - `store_memos` is the business table. `store_memo_operation_receipts` is durable mutation
   idempotency metadata. A generic PII-free hashed-scope limiter counts BFF read/write attempts outside
   tenant export data. Same-store membership foreign keys prevent cross-store actors and

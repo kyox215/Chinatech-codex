@@ -10,6 +10,7 @@ import {
   INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES,
   INVENTORY_V2_COMMAND_REQUEST_MAX_BYTES,
   MEMO_COMMAND_REQUEST_MAX_BYTES,
+  MEMO_EDITOR_REQUEST_MAX_BYTES,
 } from "@/server/api/repairdesk-request-limits";
 import {
   getRepairDeskPostActor,
@@ -46,6 +47,12 @@ function isInventoryLifecycleCommandPath(path: string) {
 
 function isMemoPath(path: string) {
   return path.startsWith("memos/");
+}
+
+function memoRequestMaxBytes(path: string) {
+  return path === "memos/create" || path === "memos/update"
+    ? MEMO_EDITOR_REQUEST_MAX_BYTES
+    : MEMO_COMMAND_REQUEST_MAX_BYTES;
 }
 
 function privateError(error: string, status: number) {
@@ -173,7 +180,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (
     isMemoPath(path) &&
     Number.isFinite(contentLength) &&
-    contentLength > MEMO_COMMAND_REQUEST_MAX_BYTES
+    contentLength > memoRequestMaxBytes(path)
   ) {
     return privateError("备忘录请求过大，请缩短正文后重试", 413);
   }
@@ -221,7 +228,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             : isInventoryLifecycleCommandPath(path)
               ? await readJsonWithLimit(request, INVENTORY_LIFECYCLE_COMMAND_MAX_BYTES)
               : isMemoPath(path)
-                ? await readJsonWithLimit(request, MEMO_COMMAND_REQUEST_MAX_BYTES)
+                ? await readJsonWithLimit(request, memoRequestMaxBytes(path))
                 : await readJson(request);
   } catch (error) {
     if (error instanceof InvalidJsonPayloadError && isToolkitPost) {

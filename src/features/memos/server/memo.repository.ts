@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import type {
   MemoAssignee,
+  MemoChecklistItem,
   MemoListItem,
   MemoListInput,
   MemoListResult,
@@ -18,9 +19,10 @@ const memoListSelect = `
   id,kind,title,todo_status,due_at,assignee_membership_id,
   created_by_membership_id,created_by_name_snapshot,updated_by_name_snapshot,
   completed_at,archived_at,version,created_at,updated_at,
+  checklist_total,checklist_completed,
   assignee:store_memberships!store_memos_assignee_same_store_fkey(display_name)
 `;
-const memoDetailSelect = `store_id,content,${memoListSelect}`;
+const memoDetailSelect = `store_id,content,checklist,${memoListSelect}`;
 
 export async function listMemos(actor: MemoActor, input: MemoListInput): Promise<MemoListResult> {
   const page = input.page ?? 1;
@@ -68,7 +70,11 @@ export async function listMemos(actor: MemoActor, input: MemoListInput): Promise
   }
   if (input.search) {
     const search = escapePostgrestSearch(input.search);
-    if (search) query = query.or(`title.ilike.%${search}%,content.ilike.%${search}%`);
+    if (search) {
+      query = query.or(
+        `title.ilike.%${search}%,content.ilike.%${search}%,checklist_search_text.ilike.%${search}%`,
+      );
+    }
   }
 
   const { data, count, error } = await query
@@ -151,19 +157,30 @@ export async function listMemoAssignees(actor: MemoActor): Promise<MemoAssignee[
 export async function mutateMemoRpc(
   actor: MemoActor,
   input: {
-    operation: "create" | "update" | "claim" | "complete" | "reopen" | "archive" | "restore";
+    operation:
+      | "create"
+      | "update"
+      | "claim"
+      | "complete"
+      | "reopen"
+      | "archive"
+      | "restore"
+      | "set_checklist_item";
     operationId: string;
     memoId?: string;
     expectedVersion?: number;
     kind?: "note" | "todo";
     title?: string;
     content?: string;
+    checklist?: MemoChecklistItem[];
     dueAt?: string | null;
     assigneeMembershipId?: string | null;
+    checklistItemId?: string;
+    checklistItemCompleted?: boolean;
   },
 ): Promise<MemoMutationResult> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase.rpc("repairdesk_mutate_store_memo_rpc", {
+  const { data, error } = await supabase.rpc("repairdesk_mutate_store_memo_v2_rpc", {
     p_store_id: actor.storeId,
     p_actor_user_id: actor.id,
     p_actor_membership_id: actor.activeMembershipId,
@@ -174,8 +191,11 @@ export async function mutateMemoRpc(
     p_kind: input.kind ?? null,
     p_title: input.title ?? null,
     p_content: input.content ?? null,
+    p_checklist: input.checklist === undefined ? null : input.checklist,
     p_due_at: input.dueAt ?? null,
     p_assignee_membership_id: input.assigneeMembershipId ?? null,
+    p_checklist_item_id: input.checklistItemId ?? null,
+    p_checklist_item_completed: input.checklistItemCompleted ?? null,
   });
   if (error) throw mapMemoDatabaseError(error.message);
   const envelope = data as DbRecord | null;
@@ -213,6 +233,7 @@ function memoListItemFromRow(row: DbRecord, actor: MemoActor): MemoListItem {
   const {
     store_id: _storeId,
     content: _content,
+    checklist: _checklist,
     created_by_membership_id: _creatorId,
     ...item
   } = full;
@@ -227,6 +248,13 @@ function memoFromRow(row: DbRecord, actor: MemoActor): StoreMemo {
     kind: row.kind as StoreMemo["kind"],
     title: String(row.title),
     content: String(row.content ?? ""),
+    checklist: Array.isArray(row.checklist)
+      ? (row.checklist as MemoChecklistItem[]).map((item) => ({
+          id: String(item.id),
+          text: String(item.text),
+          completed: item.completed === true,
+        }))
+      : [],
     todo_status: (row.todo_status ?? null) as StoreMemo["todo_status"],
     due_at: row.due_at ? String(row.due_at) : null,
     assignee_membership_id: row.assignee_membership_id ? String(row.assignee_membership_id) : null,
@@ -242,6 +270,8 @@ function memoFromRow(row: DbRecord, actor: MemoActor): StoreMemo {
     version: Number(row.version),
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
+    checklist_total: Number(row.checklist_total ?? 0),
+    checklist_completed: Number(row.checklist_completed ?? 0),
     capabilities: {
       canEdit: false,
       canClaim: false,
@@ -272,6 +302,8 @@ function mapMemoDatabaseError(message: string) {
     "MEMO_ALREADY_CLAIMED",
     "MEMO_ASSIGNEE_INVALID",
     "MEMO_ARCHIVED",
+    "MEMO_CHECKLIST_ITEM_NOT_FOUND",
+    "MEMO_CHECKLIST_MANAGED",
     "MEMO_RATE_LIMITED",
     "MEMOS_FEATURE_DISABLED",
   ].find((candidate) => message.includes(candidate));
@@ -287,6 +319,10 @@ function mapMemoDatabaseError(message: string) {
       return memoError(code, "记录已发生变化，请载入最新版本", 409);
     case "MEMO_ASSIGNEE_INVALID":
       return memoError(code, "负责人无效或已经离店", 422);
+    case "MEMO_CHECKLIST_ITEM_NOT_FOUND":
+      return memoError(code, "清单项不存在，请载入最新版本", 409);
+    case "MEMO_CHECKLIST_MANAGED":
+      return memoError(code, "含清单的待办状态由清单自动汇总", 409);
     case "MEMO_RATE_LIMITED":
       return memoError(code, "操作过于频繁，请稍后重试", 429);
     case "MEMOS_FEATURE_DISABLED":

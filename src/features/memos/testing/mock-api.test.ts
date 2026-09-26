@@ -8,6 +8,7 @@ import {
   listMemos,
   resetMemoMockState,
   transitionMemo,
+  updateMemoChecklistItem,
   updateMemo,
 } from "./mock-api";
 
@@ -43,6 +44,7 @@ describe("memo mock parity", () => {
     expect(listItem).not.toHaveProperty("content");
     expect(listItem).not.toHaveProperty("store_id");
     expect(listItem).not.toHaveProperty("created_by_membership_id");
+    expect(listItem).not.toHaveProperty("checklist");
     await expect(getMemo(memo.id, storeA)).resolves.toMatchObject({ content: "private" });
   });
 
@@ -177,5 +179,61 @@ describe("memo mock parity", () => {
       completed.memo.id,
       note.memo.id,
     ]);
+  });
+
+  it("persists checklist commands by desired state and derives the parent status", async () => {
+    const owner = actor(
+      "20000000-0000-4000-8000-000000000001",
+      "30000000-0000-4000-8000-000000000001",
+      "owner",
+    );
+    const itemId = crypto.randomUUID();
+    const created = await createMemo(
+      {
+        operationId: crypto.randomUUID(),
+        kind: "todo",
+        title: "Opening",
+        content: "",
+        checklist: [{ id: itemId, text: "Count till", completed: false }],
+      },
+      owner,
+    );
+    expect(created.memo).toMatchObject({
+      todo_status: "pending",
+      checklist_total: 1,
+      checklist_completed: 0,
+    });
+    const operationId = crypto.randomUUID();
+    const checked = await updateMemoChecklistItem(
+      {
+        operationId,
+        id: created.memo.id,
+        expectedVersion: 1,
+        itemId,
+        completed: true,
+      },
+      owner,
+    );
+    expect(checked.memo).toMatchObject({
+      todo_status: "completed",
+      checklist_completed: 1,
+      version: 2,
+    });
+    await expect(
+      transitionMemo(
+        {
+          operationId: crypto.randomUUID(),
+          id: created.memo.id,
+          expectedVersion: 2,
+          transition: "reopen",
+        },
+        owner,
+      ),
+    ).rejects.toMatchObject({ code: "MEMO_CHECKLIST_MANAGED" });
+    const replay = await updateMemoChecklistItem(
+      { operationId, id: created.memo.id, expectedVersion: 1, itemId, completed: true },
+      owner,
+    );
+    expect(replay).toMatchObject({ replayed: true, appliedVersion: 2 });
   });
 });

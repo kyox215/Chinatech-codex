@@ -1,5 +1,6 @@
 import type {
   MemoAssignee,
+  MemoChecklistItem,
   MemoCreateInput,
   MemoUpdateInput,
   StoreMemo,
@@ -21,4 +22,7 @@ export type MemoEditorProps = {
   onClaim?: () => Promise<void>;
   onArchive?: () => Promise<void>;
   onRestore?: () => Promise<void>;
+  checklistSearch?: string;
+  onToggleChecklistItem?: (item: MemoChecklistItem, completed: boolean) => Promise<void>;
+  onDirtyChange?: (dirty: boolean) => void;
 };

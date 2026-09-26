@@ -1,5 +1,6 @@
 import type {
   MemoArchiveInput,
+  MemoChecklistItemUpdateInput,
   MemoCreateInput,
   MemoListInput,
   MemoTransitionInput,
@@ -57,6 +58,7 @@ export async function createMemo(input: MemoCreateInput, actor: AuditActor) {
     kind: input.kind,
     title: input.title,
     content: input.content,
+    checklist: input.checklist,
     dueAt: input.dueAt,
     assigneeMembershipId: input.assigneeMembershipId,
   });
@@ -82,8 +84,28 @@ export async function updateMemo(input: MemoUpdateInput, actor: AuditActor) {
     expectedVersion: input.expectedVersion,
     title: input.title,
     content: input.content,
+    checklist: input.checklist,
     dueAt: input.dueAt,
     assigneeMembershipId: input.assigneeMembershipId,
+  });
+}
+
+export async function updateMemoChecklistItem(
+  input: MemoChecklistItemUpdateInput,
+  actor: AuditActor,
+) {
+  const memoActor = await actorForMemos(actor, "write");
+  const current = await getMemo(memoActor, input.id);
+  assertPermission(memoActor, "memo:transition", {
+    scopeSatisfied: isMemoInScope(memoActor.activeMembershipId, current),
+  });
+  return mutateMemoRpc(memoActor, {
+    operation: "set_checklist_item",
+    operationId: input.operationId,
+    memoId: input.id,
+    expectedVersion: input.expectedVersion,
+    checklistItemId: input.itemId,
+    checklistItemCompleted: input.completed,
   });
 }
 

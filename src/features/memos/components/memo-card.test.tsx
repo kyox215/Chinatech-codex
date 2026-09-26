@@ -20,6 +20,8 @@ const pendingTodo: MemoListItem = {
   version: 1,
   created_at: "2026-07-27T08:00:00.000Z",
   updated_at: "2026-07-27T09:00:00.000Z",
+  checklist_total: 0,
+  checklist_completed: 0,
   capabilities: {
     canEdit: true,
     canClaim: false,
@@ -82,5 +84,31 @@ describe("MemoCard TodoList interaction", () => {
     expect(
       screen.queryByRole("button", { name: "完成待办：更换展示机价格牌" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("uses checklist progress instead of the whole-task transition and omits absent metadata", () => {
+    const onOpen = vi.fn();
+    const onExpand = vi.fn();
+    render(
+      <MemoCard
+        memo={{
+          ...pendingTodo,
+          checklist_total: 4,
+          checklist_completed: 2,
+          assignee_membership_id: null,
+          assignee_name: null,
+          due_at: null,
+        }}
+        onOpen={onOpen}
+        onExpand={onExpand}
+        onTransition={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "清单进度：已完成 2 项，共 4 项" }));
+    expect(onExpand).toHaveBeenCalledOnce();
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "完成待办：更换展示机价格牌" })).toBeNull();
+    expect(screen.queryByText("未分配")).toBeNull();
+    expect(screen.queryByText("无到期时间")).toBeNull();
   });
 });

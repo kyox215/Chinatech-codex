@@ -10,6 +10,7 @@ import type {
 } from "@/features/inventory/sales/model/contracts";
 import type {
   MemoArchiveInput,
+  MemoChecklistItemUpdateInput,
   MemoAssignee,
   MemoCreateInput,
   MemoListInput,
@@ -1705,6 +1706,12 @@ export function transitionMemo(input: MemoTransitionInput): Promise<MemoMutation
   return postJson<MemoMutationResult>("memos/transition", { input });
 }
 
+export function updateMemoChecklistItem(
+  input: MemoChecklistItemUpdateInput,
+): Promise<MemoMutationResult> {
+  return postJson<MemoMutationResult>("memos/checklist-item", { input });
+}
+
 export function archiveMemo(input: MemoArchiveInput): Promise<MemoMutationResult> {
   return postJson<MemoMutationResult>("memos/archive", { input });
 }
@@ -1715,6 +1722,7 @@ export function restoreMemo(input: MemoArchiveInput): Promise<MemoMutationResult
 
 export type {
   MemoArchiveInput,
+  MemoChecklistItemUpdateInput,
   MemoAssignee,
   MemoCreateInput,
   MemoListInput,

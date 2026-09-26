@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -8,6 +8,7 @@ import type { MemoListResult, StoreMemo } from "@/features/memos/model/contracts
 import { LocaleProvider, useLocale } from "@/shared/i18n/locale-provider";
 
 import { MemosScreen } from "./memos-screen";
+import { memosKeys } from "@/features/memos/api";
 
 const api = vi.hoisted(() => ({
   listMemos: vi.fn(),
@@ -18,6 +19,7 @@ const api = vi.hoisted(() => ({
   transitionMemo: vi.fn(),
   archiveMemo: vi.fn(),
   restoreMemo: vi.fn(),
+  updateMemoChecklistItem: vi.fn(),
 }));
 const shell = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
 
@@ -129,11 +131,164 @@ describe("MemosScreen localization", () => {
     renderTree("en");
     expect(await screen.findByText("No memos yet")).toBeVisible();
   });
+
+  it("expands a checklist in the list and persists the desired item state without opening editor", async () => {
+    const detail = {
+      ...memoFixture(),
+      checklist: [
+        {
+          id: "60000000-0000-4000-8000-000000000001",
+          text: "Open shutters",
+          completed: false,
+        },
+      ],
+      checklist_total: 1,
+      checklist_completed: 0,
+    };
+    api.listMemos.mockResolvedValue({ ...listFixture(), items: [detail] });
+    api.getMemo.mockResolvedValue(detail);
+    api.updateMemoChecklistItem.mockResolvedValue({
+      memo: {
+        ...detail,
+        checklist: [{ ...detail.checklist[0], completed: true }],
+        checklist_completed: 1,
+        todo_status: "completed",
+        version: 4,
+      },
+      replayed: false,
+      appliedVersion: 4,
+    });
+    renderTree("en");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Checklist progress: 0 of 1 complete" }),
+    );
+    const checkbox = await screen.findByRole("checkbox", {
+      name: "Toggle checklist item: Open shutters",
+    });
+    expect(screen.queryByRole("button", { name: "Close memo" })).toBeNull();
+    fireEvent.click(checkbox);
+
+    await waitFor(() =>
+      expect(api.updateMemoChecklistItem).toHaveBeenCalledWith({
+        operationId: expect.any(String),
+        id: detail.id,
+        expectedVersion: 3,
+        itemId: detail.checklist[0].id,
+        completed: true,
+      }),
+    );
+  });
+
+  it("closes the old store editor immediately when the active store changes", async () => {
+    const view = renderTree("en");
+    fireEvent.click(await screen.findByRole("button", { name: /Open memo: DYNAMIC/ }));
+    expect(await screen.findByRole("dialog")).toBeVisible();
+    shell.value = {
+      ...shell.value,
+      activeStore: { id: "store-b", role: "owner" },
+    };
+    api.listMemos.mockResolvedValue({ ...listFixture(), items: [], total: 0 });
+    view.rerenderScreen();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(await screen.findByText("No memos yet")).toBeVisible();
+    expect(screen.queryByText("DYNAMIC 北店 memo")).not.toBeInTheDocument();
+  });
+
+  it("discards an old store's in-flight checklist result after switching stores", async () => {
+    const detail = {
+      ...memoFixture(),
+      checklist: [
+        {
+          id: "60000000-0000-4000-8000-000000000001",
+          text: "Private store A model",
+          completed: false,
+        },
+      ],
+      checklist_total: 1,
+    };
+    api.listMemos.mockResolvedValue({ ...listFixture(), items: [detail] });
+    api.getMemo.mockResolvedValue(detail);
+    let resolveWrite!: (value: unknown) => void;
+    api.updateMemoChecklistItem.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveWrite = resolve;
+        }),
+    );
+    const view = renderTree("en");
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Checklist progress: 0 of 1 complete" }),
+    );
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Private store A model/ }));
+    await waitFor(() => expect(api.updateMemoChecklistItem).toHaveBeenCalledOnce());
+    shell.value = { ...shell.value, activeStore: { id: "store-b", role: "owner" } };
+    api.listMemos.mockResolvedValue({ ...listFixture(), items: [], total: 0 });
+    view.rerenderScreen();
+    view.client.removeQueries({ queryKey: memosKeys.store("store-a") });
+    expect(screen.queryByText("Private store A model")).not.toBeInTheDocument();
+    await act(async () =>
+      resolveWrite({
+        memo: { ...detail, version: 4, checklist_completed: 1 },
+        replayed: false,
+        appliedVersion: 4,
+      }),
+    );
+    expect(await screen.findByText("No memos yet")).toBeVisible();
+    expect(view.client.getQueryData(memosKeys.detail("store-a", detail.id))).toBeUndefined();
+    expect(screen.queryByText("DYNAMIC 北店 memo")).not.toBeInTheDocument();
+  });
+
+  it("retains newer cached details when an older checklist success arrives late", async () => {
+    const detail = {
+      ...memoFixture(),
+      checklist: [
+        {
+          id: "60000000-0000-4000-8000-000000000001",
+          text: "Private store A model",
+          completed: false,
+        },
+      ],
+      checklist_total: 1,
+    };
+    api.listMemos.mockResolvedValue({ ...listFixture(), items: [detail] });
+    api.getMemo.mockResolvedValue(detail);
+    let resolveWrite!: (value: unknown) => void;
+    api.updateMemoChecklistItem.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveWrite = resolve;
+        }),
+    );
+    const view = renderTree("en");
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Checklist progress: 0 of 1 complete" }),
+    );
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Private store A model/ }));
+    await waitFor(() => expect(api.updateMemoChecklistItem).toHaveBeenCalledOnce());
+    const newer = { ...detail, title: "Newer remote edit", version: 5 };
+    api.getMemo.mockResolvedValue(newer);
+    api.listMemos.mockResolvedValue({ ...listFixture(), items: [newer] });
+    act(() => view.client.setQueryData(memosKeys.detail("store-a", detail.id), newer));
+    await act(async () =>
+      resolveWrite({
+        memo: { ...detail, version: 4, checklist_completed: 1 },
+        replayed: false,
+        appliedVersion: 4,
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        view.client.getQueryData<StoreMemo>(memosKeys.detail("store-a", detail.id))?.version,
+      ).toBe(5),
+    );
+    expect(await screen.findByText("Newer remote edit")).toBeVisible();
+  });
 });
 
 function renderTree(locale: "zh-CN" | "it-IT" | "en", switches = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const tree = () => (
     <LocaleProvider initialLocale={locale}>
       <QueryClientProvider client={client}>
         <SidebarProvider>
@@ -143,8 +298,10 @@ function renderTree(locale: "zh-CN" | "it-IT" | "en", switches = false) {
           </NavigationGuardProvider>
         </SidebarProvider>
       </QueryClientProvider>
-    </LocaleProvider>,
+    </LocaleProvider>
   );
+  const rendered = render(tree());
+  return { ...rendered, client, rerenderScreen: () => rendered.rerender(tree()) };
 }
 
 let setTestLocale: (locale: "zh-CN" | "it-IT" | "en") => void = () => undefined;
@@ -181,6 +338,7 @@ function memoFixture(): StoreMemo {
     kind: "todo",
     title: "DYNAMIC 北店 memo",
     content: "DYNAMIC content 不翻译",
+    checklist: [],
     todo_status: "pending",
     due_at: "2099-09-03T08:00:00.000Z",
     assignee_membership_id: "member-a",
@@ -193,6 +351,8 @@ function memoFixture(): StoreMemo {
     version: 3,
     created_at: "2026-09-03T08:00:00.000Z",
     updated_at: "2026-09-03T08:00:00.000Z",
+    checklist_total: 0,
+    checklist_completed: 0,
     capabilities: {
       canEdit: true,
       canClaim: false,

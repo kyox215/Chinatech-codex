@@ -25,6 +25,7 @@ const memo: StoreMemo = {
   kind: "todo",
   title: "交班",
   content: "检查库存",
+  checklist: [],
   todo_status: "pending",
   due_at: null,
   assignee_membership_id: null,
@@ -37,6 +38,8 @@ const memo: StoreMemo = {
   version: 1,
   created_at: "2026-07-27T00:00:00.000Z",
   updated_at: "2026-07-27T00:00:00.000Z",
+  checklist_total: 0,
+  checklist_completed: 0,
   capabilities: {
     canEdit: true,
     canClaim: true,
@@ -119,21 +122,16 @@ describe("MemoEditor draft action fences", () => {
     expect(screen.getByRole("group", { name: "备忘类型" })).toBeVisible();
     expect(screen.getByRole("button", { name: "待办" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "待办" })).toHaveClass(
-      "bg-[var(--memo-quick-entry-action)]",
-      "text-[var(--memo-quick-entry-action-foreground)]",
+      "bg-primary",
+      "text-primary-foreground",
     );
-    expect(screen.getByRole("button", { name: "记录" })).toHaveClass(
-      "bg-[var(--memo-quick-entry-field)]",
-    );
+    expect(screen.getByRole("button", { name: "记录" })).toHaveClass("bg-background");
     expect(screen.getByRole("button", { name: "添加待办" })).toHaveClass(
-      "bg-[var(--memo-quick-entry-action)]",
-      "text-[var(--memo-quick-entry-action-foreground)]",
+      "bg-primary",
+      "text-primary-foreground",
     );
     expect(screen.getByText("本店成员可见")).toBeVisible();
-    expect(screen.getByLabelText("标题")).toHaveClass(
-      "bg-[var(--memo-quick-entry-field)]",
-      "rounded-lg",
-    );
+    expect(screen.getByLabelText("标题")).toHaveClass("bg-background", "rounded-lg");
     expect(screen.queryByLabelText("正文（可选）")).not.toBeInTheDocument();
     expect(screen.getByLabelText("标题")).toBeRequired();
     await userEvent.click(screen.getByRole("button", { name: "关闭备忘录" }));

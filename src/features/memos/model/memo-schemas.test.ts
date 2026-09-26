@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   memoCreateBodySchema,
+  memoChecklistItemUpdateBodySchema,
   memoListBodySchema,
   memoTransitionBodySchema,
+  memoUpdateBodySchema,
 } from "@/server/api/repairdesk-schemas";
 
 describe("memo API schemas", () => {
@@ -49,6 +51,72 @@ describe("memo API schemas", () => {
     ).toBeTruthy();
     expect(() =>
       memoTransitionBodySchema.parse({ input: { ...base, transition: "delete" } }),
+    ).toThrow();
+  });
+
+  it("validates bounded canonical checklist items", () => {
+    const operationId = crypto.randomUUID();
+    const upperId = "ABCDEFAB-1234-4ABC-8ABC-ABCDEFABCDEF";
+    const parsed = memoCreateBodySchema.parse({
+      input: {
+        operationId,
+        kind: "todo",
+        title: "Opening",
+        content: "",
+        checklist: [{ id: upperId, text: " Count till ", completed: false }],
+      },
+    });
+    expect(parsed.input.checklist?.[0]).toMatchObject({
+      id: upperId.toLowerCase(),
+      text: "Count till",
+    });
+    expect(() =>
+      memoUpdateBodySchema.parse({
+        input: {
+          operationId,
+          id: crypto.randomUUID(),
+          expectedVersion: 1,
+          title: "Opening",
+          content: "",
+          checklist: [
+            { id: upperId, text: "One", completed: false },
+            { id: upperId.toLowerCase(), text: "Two", completed: false },
+          ],
+        },
+      }),
+    ).toThrow("清单项 id 不能重复");
+    expect(
+      memoCreateBodySchema.parse({
+        input: {
+          operationId,
+          kind: "todo",
+          title: "Emoji boundary",
+          content: "",
+          checklist: [{ id: crypto.randomUUID(), text: "😀".repeat(200), completed: false }],
+        },
+      }),
+    ).toBeTruthy();
+    expect(() =>
+      memoCreateBodySchema.parse({
+        input: {
+          operationId,
+          kind: "note",
+          title: "Note",
+          content: "",
+          checklist: [{ id: crypto.randomUUID(), text: "No", completed: false }],
+        },
+      }),
+    ).toThrow("普通记录不能设置清单");
+    expect(() =>
+      memoChecklistItemUpdateBodySchema.parse({
+        input: {
+          operationId,
+          id: crypto.randomUUID(),
+          expectedVersion: 1,
+          itemId: crypto.randomUUID(),
+          completed: "yes",
+        },
+      }),
     ).toThrow();
   });
 });
