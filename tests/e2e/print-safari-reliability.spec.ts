@@ -282,7 +282,9 @@ test("fixed PDF prints all four modes from the current page without a visible po
         await expect(page.getByText("正在准备订单二维码…")).toBeVisible();
         await page.screenshot({
           path: `${optimizedEvidenceDir}/current-page-progress.png`,
-          fullPage: true,
+          // Capture the visible progress UI without a beyond-viewport capture
+          // while the QR request is intentionally held open.
+          fullPage: false,
         });
       } finally {
         // CI screenshots can exceed the 2s success-toast lifetime. Release the mocked
