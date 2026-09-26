@@ -1,4 +1,15 @@
 import {
+  inventorySalesWorkflowCommandBodySchema,
+  inventorySalesWorkflowReadBodySchema,
+  inventorySalesWorkflowReportBodySchema,
+} from "@/features/inventory/sales/model/workflow-contracts";
+import {
+  assertInventorySalesWorkflowAccess,
+  readInventorySalesWorkflow,
+  readInventorySalesWorkflowReport,
+  runInventorySalesWorkflowCommand,
+} from "@/features/inventory/sales/server/sales-workflow.repository";
+import {
   ok,
   binaryResponse,
   privateJson,
@@ -494,6 +505,9 @@ import {
 } from "./repairdesk-schemas";
 
 const supabaseSource = {
+  readInventorySalesWorkflow,
+  readInventorySalesWorkflowReport,
+  runInventorySalesWorkflowCommand,
   readInventorySalesList,
   runInventorySalesCommand,
   readInventorySalesSummary,
@@ -993,6 +1007,15 @@ async function source() {
   };
   return {
     ...mock,
+    readInventorySalesWorkflow: async () => {
+      throw Object.assign(new Error("售卖跟进服务未连接"), { status: 503, code: "unavailable" });
+    },
+    readInventorySalesWorkflowReport: async () => {
+      throw Object.assign(new Error("售卖跟进服务未连接"), { status: 503, code: "unavailable" });
+    },
+    runInventorySalesWorkflowCommand: async () => {
+      throw Object.assign(new Error("售卖跟进服务未连接"), { status: 503, code: "unavailable" });
+    },
     // Synthetic product browsing must never pretend a new sales transaction succeeded.
     runInventorySalesCommand: async () => {
       throw Object.assign(new Error("商品售卖服务未连接"), { status: 503, code: "unavailable" });
@@ -2917,6 +2940,32 @@ export async function handleRepairDeskPost(
             () => api.updateInventoryProduct(id, input, actor),
             realtimeBroadcasts.inventoryProductUpdated,
           ),
+        );
+      }
+      case "inventory/sales/workflow/read": {
+        const input = inventorySalesWorkflowReadBodySchema.parse(body);
+        assertInventorySalesWorkflowAccess(actor);
+        return ok(await api.readInventorySalesWorkflow(input, actor));
+      }
+      case "inventory/sales/workflow/report": {
+        const input = inventorySalesWorkflowReportBodySchema.parse(body);
+        assertInventorySalesWorkflowAccess(actor);
+        return ok(await api.readInventorySalesWorkflowReport(input, actor));
+      }
+      case "inventory/sales/workflow/command": {
+        const input = inventorySalesWorkflowCommandBodySchema.parse(body);
+        assertInventorySalesWorkflowAccess(actor, input);
+        return ok(
+          await runWithRealtime(actor, () => api.runInventorySalesWorkflowCommand(input, actor), {
+            domain: "inventory",
+            mutation: "updated",
+            queryGroups: [
+              "inventory.all",
+              "inventory.products",
+              "inventory.sales",
+              "inventory.lifecycle",
+            ],
+          }),
         );
       }
       case "inventory/sales/command": {

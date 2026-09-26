@@ -1,6 +1,25 @@
 import type { InventorySalesLanguage } from "../model/contracts";
 
 const messages = {
+  review: ["Verifica operazione", "Review transaction", "核对交易"],
+  reviewTitle: ["Controlla prima di confermare", "Check before confirming", "确认前请核对"],
+  editDraft: ["Modifica", "Edit details", "返回修改"],
+  completed: ["Operazione registrata", "Transaction recorded", "交易已登记"],
+  recordedNumber: ["Vendita", "Sale reference", "销售编号"],
+  viewResult: ["Apri vendita", "View sale", "查看销售记录"],
+  afterPayment: [
+    "Incassato dopo questa operazione",
+    "Received after this payment",
+    "本次后累计已收",
+  ],
+  externalReceiptNote: [
+    "Registra il documento del registratore di cassa nella vendita. Questi documenti interni non lo sostituiscono.",
+    "Link the receipt from your cash register in the sale. Internal documents do not replace it.",
+    "请在销售记录关联现有收银系统开具的财政凭证。内部单据不替代该凭证。",
+  ],
+  discardTitle: ["Scartare le modifiche?", "Discard changes?", "放弃未保存的内容？"],
+  continueEditing: ["Continua", "Continue editing", "继续填写"],
+  discard: ["Scarta", "Discard", "放弃填写"],
   legacyReserved: ["Riservato · storico", "Reserved · legacy", "已留货 · 历史记录"],
   removed: ["Rimosso", "Removed", "已移除"],
   returned: ["Reso", "Returned", "已退回"],

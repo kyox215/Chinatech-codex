@@ -60,13 +60,49 @@ function mount(node: React.ReactNode) {
 }
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.command.mockResolvedValue({ ok: true, code: "completed" });
+  mocks.command.mockResolvedValue({
+    ok: true,
+    code: "completed",
+    sale_order_id: syntheticSalesDetail().order!.id,
+    inventory_item_id: syntheticSalesDetail().inventory_item_id,
+    paid_cents: 10000,
+    balance_cents: 0,
+    status: "paid_pending_pickup",
+  });
   mocks.workflow.mockResolvedValue({ ok: true });
   mocks.detail.mockResolvedValue(syntheticSalesDetail());
   mocks.receipt.mockResolvedValue(syntheticSalesReceipt());
 });
 afterEach(cleanup);
+function reviewAndConfirm() {
+  fireEvent.click(screen.getByRole("button", { name: "Review transaction" }));
+  expect(mocks.command).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+}
 describe("real sales command components", () => {
+  it("retains the committed result when cache refresh fails without inviting another payment", async () => {
+    const refresh = vi
+      .spyOn(QueryClient.prototype, "invalidateQueries")
+      .mockRejectedValue(new Error("synthetic refresh failure"));
+    try {
+      mount(
+        <SalesTransactionDialog
+          summary={syntheticSalesDetail()}
+          command="payment.append"
+          storeId={syntheticSalesStore}
+          onClose={vi.fn()}
+          onRefresh={vi.fn()}
+        />,
+      );
+      reviewAndConfirm();
+      expect(await screen.findByRole("button", { name: "View sale" })).toBeVisible();
+      expect(screen.queryByRole("button", { name: "Confirm" })).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(mocks.command).toHaveBeenCalledOnce();
+    } finally {
+      refresh.mockRestore();
+    }
+  });
   it.each(["close", "escape"])("returns focus to the sale opener after %s", async (action) => {
     function Example() {
       const [open, setOpen] = useState(false);
@@ -126,7 +162,7 @@ describe("real sales command components", () => {
     }
     mount(<Harness />);
     fireEvent.click(screen.getByText("Remote update"));
-    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    reviewAndConfirm();
     await waitFor(() => expect(mocks.command).toHaveBeenCalledOnce());
     expect(mocks.command.mock.calls[0][0].payload).toMatchObject({
       expected_order_version: 1,
@@ -153,6 +189,7 @@ describe("real sales command components", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Collect and deliver" }));
     fireEvent.click(screen.getByLabelText(/Confirm actual handover/));
+    fireEvent.click(screen.getByRole("button", { name: "Review transaction" }));
     const submit = screen.getByRole("button", { name: "Confirm" });
     fireEvent.click(submit);
     fireEvent.click(submit);
@@ -162,13 +199,17 @@ describe("real sales command components", () => {
       payment: { amount_cents: 7000 },
       delivered_at: expect.any(String),
     });
-    expect(
-      screen
-        .getAllByRole("button", { name: "Close" })
-        .find((button) => button.getAttribute("data-slot") !== "dialog-close")!,
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Edit details" })).toBeDisabled();
     expect(close).not.toHaveBeenCalled();
-    finish({ ok: true });
+    finish({
+      ok: true,
+      code: "completed",
+      sale_order_id: syntheticSalesDetail().order!.id,
+      paid_cents: 10000,
+      balance_cents: 0,
+      status: "delivered",
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "View sale" }));
     await waitFor(() => expect(close).toHaveBeenCalledOnce());
   });
   it("does not allow a standalone pickup while a balance remains", () => {
@@ -182,7 +223,7 @@ describe("real sales command components", () => {
       />,
     );
     fireEvent.click(screen.getByLabelText(/Confirm actual handover/));
-    expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review transaction" })).toBeDisabled();
     expect(mocks.command).not.toHaveBeenCalled();
   });
   it("creates a partial paid reservation with precise cents and 24 month default", async () => {
@@ -199,7 +240,7 @@ describe("real sales command components", () => {
     fireEvent.click(screen.getByText("Select synthetic customer"));
     fireEvent.change(screen.getByLabelText("This payment (€)"), { target: { value: "10.29" } });
     expect(screen.getByRole("button", { name: "Collect and deliver" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    reviewAndConfirm();
     await waitFor(() => expect(mocks.command).toHaveBeenCalledTimes(1));
     expect(mocks.command.mock.calls[0][0]).toMatchObject({
       command: "sale.create",
@@ -211,6 +252,8 @@ describe("real sales command components", () => {
         customer_id: "60000000-0000-4000-8000-000000000001",
       },
     });
+    expect(close).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: "View sale" }));
     await waitFor(() => expect(close).toHaveBeenCalled());
   });
   it("retries identical uncertain payment with the same operation and new key after edits", async () => {
@@ -224,6 +267,7 @@ describe("real sales command components", () => {
         onRefresh={vi.fn()}
       />,
     );
+    fireEvent.click(screen.getByRole("button", { name: "Review transaction" }));
     const submit = screen.getByRole("button", { name: "Confirm" });
     fireEvent.click(submit);
     await screen.findByRole("alert");
@@ -234,8 +278,10 @@ describe("real sales command components", () => {
       mocks.command.mock.calls[1][0].idempotency_key,
     );
     await waitFor(() => expect(submit).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Edit details" }));
     fireEvent.change(screen.getByLabelText("This payment (€)"), { target: { value: "60.01" } });
-    fireEvent.click(submit);
+    fireEvent.click(screen.getByRole("button", { name: "Review transaction" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(mocks.command).toHaveBeenCalledTimes(3));
     expect(mocks.command.mock.calls[2][0].idempotency_key).not.toBe(
       mocks.command.mock.calls[0][0].idempotency_key,
@@ -252,7 +298,7 @@ describe("real sales command components", () => {
       />,
     );
     fireEvent.change(screen.getByLabelText("This payment (€)"), { target: { value: "70.01" } });
-    expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review transaction" })).toBeDisabled();
     expect(mocks.command).not.toHaveBeenCalled();
   });
   it("uses explicit 12-month consent and actual handover confirmation", () => {
@@ -267,12 +313,12 @@ describe("real sales command components", () => {
     );
     fireEvent.click(screen.getByText("Select synthetic customer"));
     fireEvent.change(screen.getByLabelText("Warranty"), { target: { value: "12" } });
-    expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review transaction" })).toBeDisabled();
     fireEvent.click(screen.getByLabelText(/expressly agreed/));
     fireEvent.click(screen.getByRole("button", { name: "Collect and deliver" }));
-    expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review transaction" })).toBeDisabled();
     fireEvent.click(screen.getByLabelText(/Confirm actual handover/));
-    expect(screen.getByRole("button", { name: "Confirm" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Review transaction" })).toBeEnabled();
   });
   it("offers refresh after CAS conflict without silently submitting a new payment", async () => {
     const refresh = vi.fn();
@@ -286,7 +332,7 @@ describe("real sales command components", () => {
         onRefresh={refresh}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    reviewAndConfirm();
     fireEvent.click(await screen.findByRole("button", { name: "Refresh and review" }));
     expect(refresh).toHaveBeenCalledOnce();
     expect(mocks.command).toHaveBeenCalledOnce();

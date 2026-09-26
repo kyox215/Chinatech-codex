@@ -1,0 +1,21 @@
+[2m[WebServer] [22m(node:36060) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 10 tests using 1 worker
+
+(node:36074) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:36074) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › tests/e2e/product-sales-wired.spec.ts:321:3 › sales page and transaction controls 390px zh-CN (1.4s)
+  ✓   2 [chromium] › tests/e2e/product-sales-wired.spec.ts:321:3 › sales page and transaction controls 430px it-IT (963ms)
+  ✓   3 [chromium] › tests/e2e/product-sales-wired.spec.ts:321:3 › sales page and transaction controls 768px en (1.1s)
+  ✓   4 [chromium] › tests/e2e/product-sales-wired.spec.ts:321:3 › sales page and transaction controls 1024px zh-CN (1.3s)
+  ✓   5 [chromium] › tests/e2e/product-sales-wired.spec.ts:321:3 › sales page and transaction controls 1280px it-IT (1.2s)
+  ✓   6 [chromium] › tests/e2e/product-sales-wired.spec.ts:321:3 › sales page and transaction controls 1440px en (1.4s)
+  ✓   7 [chromium] › tests/e2e/product-sales-wired.spec.ts:375:1 › actual UI wrappers: deposit, balance held, pickup and historical receipt (2.0s)
+  ✓   8 [chromium] › tests/e2e/product-sales-wired.spec.ts:437:3 › daily sales follow-up complete workflow 390px zh-CN (1.8s)
+  ✓   9 [chromium] › tests/e2e/product-sales-wired.spec.ts:437:3 › daily sales follow-up complete workflow 768px it-IT (2.1s)
+  ✓  10 [chromium] › tests/e2e/product-sales-wired.spec.ts:437:3 › daily sales follow-up complete workflow 1440px en (2.5s)
+
+  10 passed (17.7s)

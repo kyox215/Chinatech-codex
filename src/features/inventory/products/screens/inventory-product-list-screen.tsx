@@ -52,6 +52,7 @@ import {
 
 import { inventorySalesListOptions } from "../../sales/api/queries";
 import type { InventorySalesListInput } from "../../sales/model/contracts";
+import { SalesDailyReportButton } from "../../sales/ui/sales-daily-report";
 import { isSalesDormant } from "../../sales/ui/sales-ui-adapter";
 import {
   SalesListResults,
@@ -446,6 +447,11 @@ export function InventoryProductListScreen() {
           counts={salesQuery.data.counts}
           onChange={setSalesQueue}
         />
+      ) : null}
+      {storeId && salesQuery.isSuccess && shell.permissions?.canSellInventory ? (
+        <div className="mb-2 flex justify-end">
+          <SalesDailyReportButton key={storeId} storeId={storeId} />
+        </div>
       ) : null}
       {lifecycleExact ? (
         <InventoryLifecycleShortcutBar

@@ -1,5 +1,7 @@
 # Product sales release candidate
 
+2026-09-26 additive workflow: see [daily operations and API](PRODUCT_SALES_DAILY_WORKFLOW.md) and [database verification/recovery](../supabase/tests/sales-workflow/README.md). The original transaction and print contracts below remain applicable.
+
 This is the backend candidate for TASK-20260907-002. It is not a production execution receipt. Source is isolated in the product-sales release worktree. Integration, independent data/security review, UI acceptance, final RC checks and production approvals belong to the Integration Lead.
 
 ## Independent domain and compatibility

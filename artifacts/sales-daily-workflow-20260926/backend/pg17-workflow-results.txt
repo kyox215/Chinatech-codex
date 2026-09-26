@@ -1,0 +1,445 @@
+BEGIN
+ no_plan 
+---------
+(0 rows)
+
+GRANT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+           is            
+-------------------------
+ ok 1 - fixture sale one
+(1 row)
+
+              is               
+-------------------------------
+ ok 2 - fixture delivered sale
+(1 row)
+
+                is                 
+-----------------------------------
+ ok 3 - workflow tables enable RLS
+(1 row)
+
+               ok               
+--------------------------------
+ ok 4 - no browser table access
+(1 row)
+
+                       ok                       
+------------------------------------------------
+ ok 5 - no service direct workflow table access
+(1 row)
+
+                     ok                      
+---------------------------------------------
+ ok 6 - no service direct event table access
+(1 row)
+
+                 ok                  
+-------------------------------------
+ ok 7 - browser cannot call read RPC
+(1 row)
+
+                    ok                    
+------------------------------------------
+ ok 8 - anonymous cannot call command RPC
+(1 row)
+
+                 ok                 
+------------------------------------
+ ok 9 - service command RPC enabled
+(1 row)
+
+                         is                          
+-----------------------------------------------------
+ ok 10 - new sale has implicit workflow version zero
+(1 row)
+
+                   is                    
+-----------------------------------------
+ ok 11 - technician cannot read workflow
+(1 row)
+
+                      is                      
+----------------------------------------------
+ ok 12 - inactive member cannot read workflow
+(1 row)
+
+                   is                   
+----------------------------------------
+ ok 13 - sales can read same store sale
+(1 row)
+
+UPDATE 1
+                           is                            
+---------------------------------------------------------
+ ok 14 - inactive staff denied despite active membership
+(1 row)
+
+UPDATE 1
+UPDATE 1
+                    is                    
+------------------------------------------
+ ok 15 - suspended store denies reporting
+(1 row)
+
+UPDATE 1
+                      is                      
+----------------------------------------------
+ ok 16 - assignees only active eligible roles
+(1 row)
+
+                 is                 
+------------------------------------
+ ok 17 - sales cannot verify fiscal
+(1 row)
+
+                 is                 
+------------------------------------
+ ok 18 - sales fiscal verify denied
+(1 row)
+
+                  is                  
+--------------------------------------
+ ok 19 - cannot verify missing fiscal
+(1 row)
+
+                  is                   
+---------------------------------------
+ ok 20 - SQL denies extra payload keys
+(1 row)
+
+                    is                     
+-------------------------------------------
+ ok 21 - SQL enforces payload scalar types
+(1 row)
+
+INSERT 0 1
+SET
+UPDATE 1
+RESET
+                   is                   
+----------------------------------------
+ ok 22 - service fiscal record succeeds
+(1 row)
+
+                  is                   
+---------------------------------------
+ ok 23 - same key replays prior result
+(1 row)
+
+                   is                    
+-----------------------------------------
+ ok 24 - same key changed request denied
+(1 row)
+
+                  is                   
+---------------------------------------
+ ok 25 - same key changed actor denied
+(1 row)
+
+UPDATE 1
+                 is                  
+-------------------------------------
+ ok 26 - revoked actor cannot replay
+(1 row)
+
+UPDATE 1
+                      is                      
+----------------------------------------------
+ ok 27 - workflow CAS checks existing version
+(1 row)
+
+                   is                   
+----------------------------------------
+ ok 28 - verify matches fiscal revision
+(1 row)
+
+                is                 
+-----------------------------------
+ ok 29 - manager can verify fiscal
+(1 row)
+
+             ok              
+-----------------------------
+ ok 30 - verified time saved
+(1 row)
+
+                       is                        
+-------------------------------------------------
+ ok 31 - existing fiscal needs correction reason
+(1 row)
+
+                 is                 
+------------------------------------
+ ok 32 - fiscal correction succeeds
+(1 row)
+
+                      is                       
+-----------------------------------------------
+ ok 33 - correction increments fiscal revision
+(1 row)
+
+                   is                   
+----------------------------------------
+ ok 34 - correction clears verification
+(1 row)
+
+                       is                        
+-------------------------------------------------
+ ok 35 - history retains former fiscal reference
+(1 row)
+
+               is               
+--------------------------------
+ ok 36 - history retains reason
+(1 row)
+
+                    is                    
+------------------------------------------
+ ok 37 - technician not eligible assignee
+(1 row)
+
+              is               
+-------------------------------
+ ok 38 - assign sales followup
+(1 row)
+
+               is                
+---------------------------------
+ ok 39 - sales report scope mine
+(1 row)
+
+                         is                         
+----------------------------------------------------
+ ok 40 - sales report includes only assigned orders
+(1 row)
+
+               is               
+--------------------------------
+ ok 41 - sales no store finance
+(1 row)
+
+                 is                  
+-------------------------------------
+ ok 42 - manager needs finance grant
+(1 row)
+
+INSERT 0 1
+                     is                      
+---------------------------------------------
+ ok 43 - granted manager gets payment totals
+(1 row)
+
+UPDATE 1
+                           is                           
+--------------------------------------------------------
+ ok 44 - revoked finance grant immediately hides totals
+(1 row)
+
+                 is                 
+------------------------------------
+ ok 45 - register payment exception
+(1 row)
+
+          is           
+-----------------------
+ ok 46 - resolve issue
+(1 row)
+
+                     is                      
+---------------------------------------------
+ ok 47 - resolved issue cannot resolve again
+(1 row)
+
+                        is                        
+--------------------------------------------------
+ ok 48 - exception handling preserves paid amount
+(1 row)
+
+                        is                        
+--------------------------------------------------
+ ok 49 - exception handling preserves stock state
+(1 row)
+
+                         is                          
+-----------------------------------------------------
+ ok 50 - exception handling preserves warranty facts
+(1 row)
+
+                            is                             
+-----------------------------------------------------------
+ ok 51 - report does not count mirrored transactions twice
+(1 row)
+
+                         is                         
+----------------------------------------------------
+ ok 52 - sales use agreed date, not collection date
+(1 row)
+
+                   is                   
+----------------------------------------
+ ok 53 - agreed amount by business date
+(1 row)
+
+                     is                      
+---------------------------------------------
+ ok 54 - balanced ledgers have no difference
+(1 row)
+
+INSERT 0 1
+                              is                               
+---------------------------------------------------------------
+ ok 55 - report detects fault-injected unmatched payment entry
+(1 row)
+
+                           is                           
+--------------------------------------------------------
+ ok 56 - difference is paid_cents minus payment entries
+(1 row)
+
+                is                
+----------------------------------
+ ok 57 - pagination retains total
+(1 row)
+
+                 is                 
+------------------------------------
+ ok 58 - pending pagination bounded
+(1 row)
+
+                throws_ok                
+-----------------------------------------
+ ok 59 - workflow audit events immutable
+(1 row)
+
+                  throws_ok                   
+----------------------------------------------
+ ok 60 - workflow cross-store order FK denies
+(1 row)
+
+INSERT 0 1
+                       is                        
+-------------------------------------------------
+ ok 61 - authorized other store cannot read sale
+(1 row)
+
+                 is                  
+-------------------------------------
+ ok 62 - cross-store assignee denied
+(1 row)
+
+CREATE FUNCTION
+CREATE TRIGGER
+INSERT 0 1
+                 throws_ok                  
+--------------------------------------------
+ ok 63 - late event failure rejects command
+(1 row)
+
+                    is                     
+-------------------------------------------
+ ok 64 - event failure rolls back workflow
+(1 row)
+
+                         is                          
+-----------------------------------------------------
+ ok 65 - event failure rolls back inventory revision
+(1 row)
+
+DROP TRIGGER
+DO
+              is               
+-------------------------------
+ ok 66 - issues bounded at 100
+(1 row)
+
+              is               
+-------------------------------
+ ok 67 - history bounded at 50
+(1 row)
+
+                           is                           
+--------------------------------------------------------
+ ok 68 - bounded response explicitly signals truncation
+(1 row)
+
+CREATE FUNCTION
+               is                
+---------------------------------
+ ok 69 - spring midnight fixture
+(1 row)
+
+                 is                 
+------------------------------------
+ ok 70 - spring last second fixture
+(1 row)
+
+               is                
+---------------------------------
+ ok 71 - next spring day fixture
+(1 row)
+
+                   is                   
+----------------------------------------
+ ok 72 - 23 hour spring date boundaries
+(1 row)
+
+                    is                     
+-------------------------------------------
+ ok 73 - method totals respect spring date
+(1 row)
+
+               is                
+---------------------------------
+ ok 74 - autumn midnight fixture
+(1 row)
+
+                 is                 
+------------------------------------
+ ok 75 - autumn last second fixture
+(1 row)
+
+               is                
+---------------------------------
+ ok 76 - next autumn day fixture
+(1 row)
+
+                   is                   
+----------------------------------------
+ ok 77 - 25 hour autumn date boundaries
+(1 row)
+
+                    is                     
+-------------------------------------------
+ ok 78 - sales creates own unassigned sale
+(1 row)
+
+                             is                              
+-------------------------------------------------------------
+ ok 79 - sales sees own unassigned plus assigned orders only
+(1 row)
+
+                                is                                 
+-------------------------------------------------------------------
+ ok 80 - manager without finance grant retains store pending scope
+(1 row)
+
+GRANT
+SET
+                              is                               
+---------------------------------------------------------------
+ ok 81 - RLS still denies if table SELECT accidentally granted
+(1 row)
+
+RESET
+ finish 
+--------
+ 1..81
+(1 row)
+
+ROLLBACK
