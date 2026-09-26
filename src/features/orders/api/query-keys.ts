@@ -7,6 +7,8 @@ import { storeQueryScope } from "@/shared/lib/store-query-scope";
 
 export const ordersKeys = {
   all: ["orders"] as const,
+  purchasing: (orderIds: string[], storeId?: string | null) =>
+    [...ordersKeys.all, "purchasing", ...storeQueryScope(storeId), orderIds] as const,
   lists: () => [...ordersKeys.all, "list"] as const,
   list: (filters: OrderListFilters = {}, storeId?: string | null) =>
     [...ordersKeys.lists(), ...storeQueryScope(storeId), filters] as const,

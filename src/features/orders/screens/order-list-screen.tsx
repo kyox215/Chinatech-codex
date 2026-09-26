@@ -61,6 +61,7 @@ import { NewOrderDialog } from "@/features/orders/components/new-order-dialog";
 import { OrderDetailSkeleton } from "@/features/orders/components/order-detail-skeleton";
 import { DesktopOrderQueueRow } from "@/features/orders/components/order-list-desktop-row";
 import { OrderStatusFilterControls } from "@/features/orders/components/order-list-filters";
+import { OrderPurchasingBoard } from "@/features/orders/components/order-purchasing-board";
 import { OrderMobileCard } from "@/features/orders/components/order-list-items";
 import { orderQueueDesktopGrid } from "@/features/orders/components/order-list-layout";
 import { MobileOrdersFloatingHeader } from "@/features/orders/components/order-list-mobile-header";
@@ -103,10 +104,7 @@ import {
   createOrderResultGroupCounts,
   groupOrderListItems,
 } from "@/features/orders/model/order-list-grouping";
-import {
-  groupOrderListPresentation,
-  type OrderListPresentationView,
-} from "@/features/orders/model/order-list-presentation";
+import { type OrderListPresentationView } from "@/features/orders/model/order-list-presentation";
 import {
   readOrderListRouteState,
   writeOrderListRouteState,
@@ -123,7 +121,6 @@ import {
   sanitizeOrderSearchValue,
 } from "@/features/orders/model/order-search-safety";
 import { simpleOrderFlowStages } from "@/features/orders/model/order-simple-flow";
-import { getOrderTaskStage } from "@/features/orders/model/order-task-flow";
 import { orderTransitionRequiresReason } from "@/features/orders/model/order-transition-reasons";
 import {
   getCommonWorkflowTargets,
@@ -550,14 +547,6 @@ export function OrderListScreen() {
 
   const data = useMemo(() => listResult?.items ?? [], [listResult?.items]);
   const groupedData = useMemo(() => groupOrderListItems(data), [data]);
-  const boardGroups = useMemo(
-    () =>
-      groupOrderListPresentation(
-        groupedData.flatMap((section) => section.items),
-        t,
-      ),
-    [groupedData, t],
-  );
   const totalOrders = listResult?.total ?? 0;
   const pageCount = listResult?.pageCount ?? 1;
   const persistListContext = useCallback(
@@ -2180,7 +2169,7 @@ export function OrderListScreen() {
             ) : null}
             {presentationView !== "list" ? (
               <div data-order-alternate-list="true" className="min-w-0">
-                {viewportMode === "desktop" && canUseBulkActions ? (
+                {viewportMode === "desktop" && canUseBulkActions && presentationView === "cards" ? (
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                     <label className="inline-flex min-h-11 items-center gap-2">
                       <Checkbox
@@ -2207,47 +2196,12 @@ export function OrderListScreen() {
                       ))}
                   </div>
                 ) : (
-                  <div className="order-presentation-board">
-                    {boardGroups.map((section) => (
-                      <section
-                        key={section.stage}
-                        className="order-presentation-lane min-w-0"
-                        data-order-board-stage={section.stage}
-                        aria-labelledby={`order-board-${section.stage}`}
-                      >
-                        <header
-                          className={cn(
-                            "flex min-w-0 items-center justify-between gap-2",
-                            viewportMode === "compact" ? "mb-1.5" : "mb-3",
-                          )}
-                        >
-                          <h2 id={`order-board-${section.stage}`} className="text-xs font-semibold">
-                            {section.stage === "closed"
-                              ? t("orders.viewArchive")
-                              : localizeOrderFlowStage(getOrderTaskStage(section.stage), t).label}
-                          </h2>
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {section.orders.length}
-                          </span>
-                        </header>
-                        <div
-                          role="list"
-                          className={cn(
-                            "grid min-w-0",
-                            viewportMode === "compact" ? "gap-2" : "gap-3",
-                          )}
-                        >
-                          {section.orders.map((order) => (
-                            <div key={order.id} role="listitem">
-                              {viewportMode === "desktop"
-                                ? renderDesktopOrder(order, "card")
-                                : renderCompactOrder(order, true)}
-                            </div>
-                          ))}
-                        </div>
-                      </section>
-                    ))}
-                  </div>
+                  <OrderPurchasingBoard
+                    key={`${activeStoreId}:${shell.userId}`}
+                    orders={data}
+                    storeId={activeStoreId!}
+                    online={isOnline}
+                  />
                 )}
               </div>
             ) : null}
