@@ -86,10 +86,10 @@ describe("MemosScreen localization", () => {
     "localizes fixed list UI in %s and preserves dynamic bytes",
     async (locale, search, today, status, newMemo, closeMemo) => {
       renderTree(locale);
-      expect(await screen.findByText("DYNAMIC 北店 memo")).toBeVisible();
+      expect((await screen.findAllByText("DYNAMIC 北店 memo")).length).toBeGreaterThan(0);
       expect(screen.getAllByPlaceholderText(search).length).toBeGreaterThan(0);
       expect(screen.getByText(today)).toBeVisible();
-      expect(screen.getByText(status)).toBeVisible();
+      expect(screen.getAllByText(status).length).toBeGreaterThan(0);
       fireEvent.click(screen.getAllByRole("button", { name: newMemo })[0]);
       expect(screen.getByRole("button", { name: closeMemo })).toBeVisible();
       expect(api.listMemos.mock.calls[0]?.[0]).toEqual({
@@ -103,7 +103,7 @@ describe("MemosScreen localization", () => {
 
   it("keeps search and filter state while switching locale without a business action", async () => {
     renderTree("zh-CN", true);
-    await screen.findByText("DYNAMIC 北店 memo");
+    await screen.findAllByText("DYNAMIC 北店 memo");
     const searchInput = screen.getAllByPlaceholderText("搜索备忘录")[0];
     fireEvent.change(searchInput, { target: { value: "DYNAMIC 北店" } });
     act(() => setTestLocale("it-IT"));
@@ -111,6 +111,23 @@ describe("MemosScreen localization", () => {
     expect(api.createMemo).not.toHaveBeenCalled();
     expect(api.updateMemo).not.toHaveBeenCalled();
     expect(api.transitionMemo).not.toHaveBeenCalled();
+  });
+
+  it("puts the three frequent status scopes beside mobile search and requests the selected scope", async () => {
+    renderTree("en");
+    await screen.findAllByText("DYNAMIC 北店 memo");
+
+    expect(screen.getByRole("button", { name: "Current" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Pending" }));
+
+    await waitFor(() => {
+      expect(
+        api.listMemos.mock.calls.some(
+          ([input]) => input.view === "pending" && input.kind === "all" && input.pageSize === 20,
+        ),
+      ).toBe(true);
+    });
+    expect(screen.getByRole("button", { name: "Pending" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("localizes loading, denied and empty states", async () => {

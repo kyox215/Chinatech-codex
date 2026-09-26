@@ -22,7 +22,6 @@ import {
   MemoDeniedState,
   MemoEmptyState,
   MemoErrorState,
-  getMemoFilterCount,
   getMemoFilterLabels,
   MemoFiltersOverlay,
   MemoLoadMore,
@@ -311,14 +310,12 @@ function MemoWorkspace({ shell }: { shell: ReturnType<typeof useStoreShellContex
       ? [expandedAnchor, ...visibleItems]
       : visibleItems;
   const filterValue = { view, kind, assigneeId };
-  const filterCount = getMemoFilterCount(filterValue);
+  const filterCount = Number(kind !== "all") + Number(Boolean(assigneeId));
   const activeFilterLabels = getMemoFilterLabels(filterValue, assigneesQuery.data ?? [], locale);
-  const visibleTodoCount = visibleItems.filter((memo) => memo.kind === "todo").length;
-  const visibleCompletedCount = visibleItems.filter(
-    (memo) => memo.kind === "todo" && memo.todo_status === "completed",
+  const advancedFilterLabels = view === "active" ? activeFilterLabels : activeFilterLabels.slice(1);
+  const visiblePendingCount = visibleItems.filter(
+    (memo) => memo.kind === "todo" && memo.todo_status !== "completed",
   ).length;
-  const visiblePendingCount = visibleTodoCount - visibleCompletedCount;
-  const visibleNoteCount = visibleItems.length - visibleTodoCount;
   const todayLabel = new Intl.DateTimeFormat(locale, {
     timeZone: APP_TIME_ZONE,
     month: "long",
@@ -368,10 +365,10 @@ function MemoWorkspace({ shell }: { shell: ReturnType<typeof useStoreShellContex
       ) : null}
     </Button>
   );
-  const activeFilterSummary = activeFilterLabels.length ? (
+  const activeFilterSummary = advancedFilterLabels.length ? (
     <div className="flex min-w-0 items-center gap-2" aria-label={copy.currentFilters}>
       <span className="inline-flex min-w-0 items-center rounded-full bg-[var(--surface-panel-muted)] px-3 py-1.5 text-[11px] font-medium text-muted-foreground lg:text-xs lg:leading-4">
-        <span className="truncate">{activeFilterLabels.join(" · ")}</span>
+        <span className="truncate">{advancedFilterLabels.join(" · ")}</span>
       </span>
       <Button
         type="button"
@@ -390,7 +387,7 @@ function MemoWorkspace({ shell }: { shell: ReturnType<typeof useStoreShellContex
     </div>
   ) : null;
   const desktopToolbar = (
-    <div className="mx-auto mb-6 max-w-4xl space-y-2">
+    <div className="space-y-2">
       <div className="flex min-w-0 items-center gap-2">
         <div className={cn(repairOs.searchBar, "h-10 min-w-0 flex-1 rounded-xl shadow-none")}>
           <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -436,7 +433,36 @@ function MemoWorkspace({ shell }: { shell: ReturnType<typeof useStoreShellContex
       searchFrame="embedded"
       filterAction={filterButton(true)}
     >
-      <div className={cn(repairOs.listReadableWidth, repairOs.listModuleStack)}>
+      <div className={cn("w-full min-w-0", repairOs.listModuleStack)}>
+        <div
+          className="flex min-w-0 gap-1 overflow-x-auto pb-px lg:hidden"
+          aria-label={copy.viewScope}
+        >
+          {(
+            [
+              ["active", copy.currentViewShort],
+              ["pending", copy.pendingView],
+              ["completed", copy.completedView],
+            ] as const
+          ).map(([nextView, label]) => (
+            <Button
+              key={nextView}
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn(
+                "h-8 shrink-0 rounded-lg border-[var(--border-panel)] px-2.5 text-[11px] shadow-none",
+                view === nextView
+                  ? "border-foreground bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+                  : "bg-card text-muted-foreground hover:text-foreground",
+              )}
+              aria-pressed={view === nextView}
+              onClick={() => setView(nextView)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
         {activeFilterSummary ? <div className="lg:hidden">{activeFilterSummary}</div> : null}
         {!online ? (
           <Alert>
@@ -479,31 +505,19 @@ function MemoWorkspace({ shell }: { shell: ReturnType<typeof useStoreShellContex
         ) : displayItems.length ? (
           <>
             <section
-              className="min-w-0 rounded-xl bg-card px-4 sm:px-6"
+              className="min-w-0 rounded-xl bg-card px-3 sm:px-4"
               aria-label={copy.storeListAria}
             >
-              <header className="flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-border/60 py-4">
-                <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground">{copy.today}</p>
-                    <h2 className="mt-1 truncate text-base font-semibold leading-6">
-                      {todayLabel}
-                    </h2>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-sm font-medium tabular-nums">
-                      {translateMemoPresentation(locale, "visibleCount", {
-                        count: visibleItems.length,
-                      })}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {translateMemoPresentation(locale, "visibleSummary", {
-                        todos: visiblePendingCount,
-                        notes: visibleNoteCount,
-                      })}
-                    </p>
-                  </div>
-                </div>
+              <header className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border/60 py-1.5">
+                <h2 className="truncate text-sm font-semibold leading-5">
+                  <span>{copy.today}</span> · {todayLabel}
+                </h2>
+                <p className="shrink-0 font-mono text-[11px] font-medium tabular-nums text-muted-foreground">
+                  {translateMemoPresentation(locale, "compactSummary", {
+                    count: visibleItems.length,
+                    todos: visiblePendingCount,
+                  })}
+                </p>
               </header>
               <div className="min-w-0 divide-y divide-border/60">
                 {displayItems.map((memo) => (

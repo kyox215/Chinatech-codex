@@ -288,17 +288,16 @@ export function MemoLoadingRows() {
   const copy = getMemoPresentationCopy(locale);
   return (
     <div
-      className="min-w-0 divide-y divide-border/60 rounded-xl bg-card px-4 sm:px-6"
+      className="min-w-0 divide-y divide-border/60 rounded-xl bg-card px-3 sm:px-4"
       aria-busy="true"
     >
       <span className="sr-only" role="status">
         {copy.loadingAria}
       </span>
       {Array.from({ length: 6 }, (_, index) => (
-        <div key={index} className="space-y-3 py-6">
-          <Skeleton className="h-5 w-2/3 rounded-md" />
+        <div key={index} className="space-y-2 py-3">
+          <Skeleton className="h-4 w-2/3 rounded-md" />
           <Skeleton className="h-3 w-1/3 rounded-md" />
-          <Skeleton className="h-1 w-full rounded-full" />
         </div>
       ))}
     </div>

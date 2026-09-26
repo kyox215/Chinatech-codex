@@ -47,7 +47,7 @@ export function MemoCard({
   const completionMark = (
     <span
       className={cn(
-        "grid size-[22px] place-items-center rounded-full border-[1.5px] transition-colors duration-150 motion-reduce:transition-none",
+        "grid size-5 place-items-center rounded-full border-2 transition-colors duration-150 motion-reduce:transition-none",
         completed
           ? "border-primary bg-primary text-primary-foreground"
           : "border-muted-foreground/60",
@@ -59,7 +59,7 @@ export function MemoCard({
   );
 
   return (
-    <article className="min-w-0 py-5 sm:py-6" data-memo-id={memo.id}>
+    <article className="min-w-0 py-2.5 sm:py-3" data-memo-id={memo.id}>
       <div className="flex min-w-0 items-start gap-2">
         {!hasChecklist ? (
           memo.kind === "todo" ? (
@@ -97,19 +97,19 @@ export function MemoCard({
         ) : null}
         <button
           type="button"
-          className="min-h-11 min-w-0 flex-1 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="min-h-10 min-w-0 flex-1 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={translateMemoPresentation(locale, "openMemoAria", { title: memo.title })}
           onClick={onOpen}
         >
           <span
             className={cn(
-              "block break-words text-lg font-semibold leading-6 tracking-tight [overflow-wrap:anywhere]",
+              "block break-words text-base font-semibold leading-5 [overflow-wrap:anywhere]",
               completed && "text-muted-foreground line-through decoration-muted-foreground/40",
             )}
           >
             {memo.title}
           </span>
-          <span className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground">
+          <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] leading-4 text-muted-foreground">
             {memo.assignee_name ? (
               <span className="flex min-w-0 items-center gap-1.5">
                 <UserRound className="size-3.5 shrink-0" aria-hidden="true" />
@@ -166,7 +166,7 @@ export function MemoCard({
           {!hasChecklist || overdue || memo.archived_at ? (
             <MemoStatus
               memo={memo}
-              className="mt-2 border-transparent bg-transparent px-0 text-xs"
+              className="mt-1 border-transparent bg-transparent px-0 text-[11px]"
             />
           ) : null}
         </div>
@@ -175,7 +175,7 @@ export function MemoCard({
         <MemoChecklistProgress
           completed={memo.checklist_completed}
           total={memo.checklist_total}
-          className="mt-3"
+          className="mt-1.5"
         />
       ) : null}
       {expanded && hasChecklist && onToggleChecklistItem ? (
