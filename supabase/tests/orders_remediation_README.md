@@ -20,7 +20,7 @@ Previously committed transitions have no `transition_request_hash`; a retry with
 
 ## Isolated verification
 
-Only use a fresh, task-owned PostgreSQL 17 database. `orders_remediation_bootstrap.py` prints minimal synthetic domain tables and **the exact repository workflow table DDL, existing atomic mutation function, production lifecycle write guard and new migration**. It does not connect to a database. This fixture is not a full production-schema or production-data verification.
+Only use a fresh, task-owned PostgreSQL 17 database. `orders_remediation_bootstrap.py` prints minimal synthetic domain tables and **the exact repository workflow table DDL, existing atomic mutation function, production lifecycle write guard and new migration**. The current production lifecycle trigger body is included verbatim; its unrelated purge-worker authorization helper is stubbed to always deny in this order-only fixture. No purge or inventory-attachment mutation is exercised. It does not connect to a database. This fixture is not a full production-schema or production-data verification.
 
 ```sh
 python3 supabase/tests/orders_remediation_bootstrap.py | docker exec -i repairdesk_orders_remediation_20260926 psql -U postgres -v ON_ERROR_STOP=1

@@ -34,10 +34,13 @@ print((ROOT / 'supabase/migrations/20260926093439_order_workflow_atomic_and_tran
 print('grant usage on schema public to service_role; grant select,insert,update,delete on all tables in schema public to service_role;')
 
 # Exact production lifecycle write fence, applied to relevant synthetic domain tables.
-lifecycle = (ROOT / 'supabase/migrations/20260720013000_store_lifecycle_business_fence_and_close_recheck.sql').read_text()
+lifecycle = (ROOT / 'supabase/migrations/20260720211230_store_self_service_purge_safety.sql').read_text()
 start = lifecycle.index('create or replace function public.repairdesk_enforce_active_store_write()')
-end = lifecycle.index('\nrevoke all on function public.repairdesk_enforce_active_store_write()', start)
+end = lifecycle.index('\n$$;', start) + len('\n$$;')
 print("create table public.store_lifecycles(store_id uuid primary key references public.stores(id), phase text not null default 'active');")
+# Purge authorization is deliberately disabled in this order-only fixture. No purge
+# paths or inventory attachments are exercised; current lifecycle trigger body is exact.
+print("create function public.repairdesk_purge_worker_write_allowed(uuid,text) returns boolean language sql as 'select false';")
 print(lifecycle[start:end])
 for table in ['repair_orders', 'order_workflow_statuses', 'order_workflow_transitions']:
     print(f"create trigger lifecycle_write before insert or update or delete on public.{table} for each row execute function public.repairdesk_enforce_active_store_write();")
