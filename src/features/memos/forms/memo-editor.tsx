@@ -289,11 +289,7 @@ export function MemoEditor({
     >
       <div
         data-editor-scroll
-        className={cn(
-          componentOverlay.editorScroll,
-          componentOverlay.editorBody,
-          "space-y-3 px-3 py-3 sm:px-4 sm:py-4",
-        )}
+        className={cn(componentOverlay.editorScroll, "space-y-5 px-4 py-4 sm:px-6 sm:py-5")}
       >
         {conflict ? (
           <Alert variant="destructive" aria-live="assertive">
@@ -305,7 +301,7 @@ export function MemoEditor({
                 <Button
                   type="button"
                   variant="outline"
-                  className="min-h-9"
+                  className="min-h-11"
                   onClick={onReloadLatest}
                 >
                   <RefreshCcw className="size-4" /> {copy.reloadLatest}
@@ -321,15 +317,18 @@ export function MemoEditor({
           </Alert>
         ) : null}
         {!memo ? (
-          <fieldset className="flex flex-wrap gap-2">
+          <fieldset className="flex w-fit flex-wrap gap-1 rounded-xl bg-muted/50 p-1">
             <legend className="sr-only">{copy.memoType}</legend>
             {(["todo", "note"] as const).map((value) => (
               <Button
                 key={value}
                 type="button"
-                variant={kind === value ? "default" : "outline"}
+                variant="ghost"
                 size="sm"
-                className="min-h-9 rounded-lg px-3 shadow-none"
+                className={cn(
+                  "min-h-11 rounded-lg px-4 shadow-none",
+                  kind === value && "bg-card text-primary hover:bg-card hover:text-primary",
+                )}
                 aria-pressed={kind === value}
                 onClick={() => setKind(value)}
               >
@@ -351,7 +350,10 @@ export function MemoEditor({
             aria-describedby="memo-title-help"
             maxLength={120}
             disabled={!canEdit || busy}
-            className={cn(componentOverlay.editorField, "h-11 px-3")}
+            className={cn(
+              componentOverlay.editorField,
+              "h-12 border-transparent bg-muted/40 px-3 text-lg md:text-lg font-semibold shadow-none focus-visible:border-primary",
+            )}
             placeholder={!memo ? copy.titlePlaceholder : undefined}
             onKeyDown={submitFromTitle}
             onChange={(event) => setTitle(event.target.value)}
@@ -389,12 +391,16 @@ export function MemoEditor({
             onPendingDraftChange={setChecklistDraft}
           />
         ) : null}
-        <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <Collapsible
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
+          className="border-t border-border/60 pt-3"
+        >
           <CollapsibleTrigger asChild>
             <Button
               type="button"
               variant="ghost"
-              className="min-h-9 justify-start rounded-lg px-2 text-xs font-normal text-muted-foreground"
+              className="min-h-11 w-full justify-start rounded-lg px-0 text-sm font-medium text-muted-foreground"
               disabled={busy}
             >
               {detailsOpen ? <Minus className="size-4" /> : <Plus className="size-4" />}
@@ -406,16 +412,14 @@ export function MemoEditor({
           </CollapsibleContent>
         </Collapsible>
         {memo ? (
-          <p className="rounded-lg bg-[var(--surface-panel-muted)] p-2 text-[11px] text-muted-foreground lg:text-xs lg:leading-4">
-            {copy.savedVisibleHint}
-          </p>
+          <p className="text-xs leading-5 text-muted-foreground">{copy.savedVisibleHint}</p>
         ) : null}
       </div>
       <div
         data-editor-footer
         className={cn(
           componentOverlay.editorFooter,
-          "shrink-0 bg-card px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4",
+          "shrink-0 bg-card px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6",
           memo && "flex-wrap items-center justify-between",
         )}
       >
@@ -424,7 +428,7 @@ export function MemoEditor({
             <Button
               type="button"
               variant="outline"
-              className="min-h-9"
+              className="min-h-11"
               disabled={busy || guardedDirty}
               title={guardedDirty ? copy.saveOrDiscard : undefined}
               onClick={() => void onClaim().catch(() => undefined)}
@@ -436,7 +440,7 @@ export function MemoEditor({
             <Button
               type="button"
               variant="outline"
-              className="min-h-9"
+              className="min-h-11"
               disabled={busy || guardedDirty}
               title={guardedDirty ? copy.saveOrDiscard : undefined}
               onClick={() => void onArchive().catch(() => undefined)}
@@ -448,7 +452,7 @@ export function MemoEditor({
             <Button
               type="button"
               variant="outline"
-              className="min-h-9"
+              className="min-h-11"
               disabled={busy || guardedDirty}
               title={guardedDirty ? copy.saveOrDiscard : undefined}
               onClick={() => void onRestore().catch(() => undefined)}
@@ -469,7 +473,11 @@ export function MemoEditor({
                 {copy.scopeVisible}
               </span>
             ) : null}
-            <Button type="submit" className="min-h-10 min-w-24" disabled={!canSave || busy}>
+            <Button
+              type="submit"
+              className="min-h-11 min-w-24 rounded-xl px-5 shadow-none"
+              disabled={!canSave || busy}
+            >
               {busy
                 ? copy.saving
                 : memo

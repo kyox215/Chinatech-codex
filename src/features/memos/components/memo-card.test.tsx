@@ -39,6 +39,7 @@ describe("MemoCard TodoList interaction", () => {
     render(<MemoCard memo={pendingTodo} onOpen={onOpen} onTransition={onTransition} />);
 
     fireEvent.click(screen.getByRole("button", { name: "完成待办：更换展示机价格牌" }));
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     expect(onTransition).toHaveBeenCalledTimes(1);
     expect(onOpen).not.toHaveBeenCalled();
 
@@ -105,6 +106,8 @@ describe("MemoCard TodoList interaction", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "清单进度：已完成 2 项，共 4 项" }));
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "2");
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuemax", "4");
     expect(onExpand).toHaveBeenCalledOnce();
     expect(onOpen).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "完成待办：更换展示机价格牌" })).toBeNull();

@@ -121,17 +121,14 @@ describe("MemoEditor draft action fences", () => {
     await userEvent.type(screen.getByLabelText("标题"), "交班事项");
     expect(screen.getByRole("group", { name: "备忘类型" })).toBeVisible();
     expect(screen.getByRole("button", { name: "待办" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "待办" })).toHaveClass(
-      "bg-primary",
-      "text-primary-foreground",
-    );
-    expect(screen.getByRole("button", { name: "记录" })).toHaveClass("bg-background");
+    expect(screen.getByRole("button", { name: "待办" })).toHaveClass("bg-card", "text-primary");
+    expect(screen.getByRole("button", { name: "记录" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByRole("button", { name: "添加待办" })).toHaveClass(
       "bg-primary",
       "text-primary-foreground",
     );
     expect(screen.getByText("本店成员可见")).toBeVisible();
-    expect(screen.getByLabelText("标题")).toHaveClass("bg-background", "rounded-lg");
+    expect(screen.getByLabelText("标题")).toHaveClass("bg-muted/40", "rounded-lg");
     expect(screen.queryByLabelText("正文（可选）")).not.toBeInTheDocument();
     expect(screen.getByLabelText("标题")).toBeRequired();
     await userEvent.click(screen.getByRole("button", { name: "关闭备忘录" }));
