@@ -14,6 +14,16 @@ const viewports = [
 
 test.skip(!enabled, "Set REPAIRDESK_E2E_BUSINESS_DESKTOP=1 for customer workbench checks.");
 
+test.beforeEach(async ({ context, baseURL }) => {
+  expect(["localhost", "127.0.0.1"]).toContain(new URL(baseURL!).hostname);
+  await context.addCookies([{ name: "repairdesk_locale", value: "zh-CN", url: baseURL! }]);
+  await context.route("**/*", (route) =>
+    new URL(route.request().url()).origin === new URL(baseURL!).origin
+      ? route.continue()
+      : route.abort(),
+  );
+});
+
 test.describe("customer responsive workbench", () => {
   for (const viewport of viewports) {
     test(`keeps the simple list and detail workbench at ${viewport.width}px`, async ({ page }) => {

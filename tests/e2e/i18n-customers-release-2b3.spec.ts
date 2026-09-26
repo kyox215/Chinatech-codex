@@ -207,9 +207,15 @@ for (const { locale, width } of detailCases) {
       await expectMobileDetailBottomReachability(page, root, mobileHeader, mobileActions);
     } else {
       await expect(mobileHeader).toBeHidden();
-      await expect(appBar).toBeVisible();
       await expect(desktopHero).toBeVisible();
       await expect(mobileActions).toBeHidden();
+      if (width < 1024) {
+        await expect(appBar).toBeHidden();
+        await expect(page.locator('[data-app-bar="true"]:visible')).toHaveCount(0);
+      } else {
+        await expect(appBar).toBeVisible();
+        await expect(page.locator('[data-app-bar="true"]:visible')).toHaveCount(1);
+      }
     }
     await expectNoHorizontalOverflow(page);
     await expectNoUnexpectedFixedHan(root, locale);
@@ -316,7 +322,8 @@ test("heavy it-IT 768px preserves tab identity and dialog focus contracts", asyn
   await expect(page).toHaveURL(initialUrl);
   await expect(page.locator('[data-ui="customer-detail-mobile-header"]')).toBeHidden();
   await expect(page.locator('[data-ui="customer-detail-mobile-header"]:visible')).toHaveCount(0);
-  await expect(page.locator('[data-app-bar="true"]:visible')).toHaveCount(1);
+  await expect(page.locator('[data-ui="customer-detail-desktop-hero"]')).toBeVisible();
+  await expect(page.locator('[data-app-bar="true"]:visible')).toHaveCount(0);
   const mainTabs = customerMainTabs(root, 768);
   await expectVisibleTabs(mainTabs, 3);
   await mainTabs
@@ -352,11 +359,19 @@ test("heavy it-IT 768px preserves tab identity and dialog focus contracts", asyn
     .getByRole("button", { name: translateMessage("it-IT", "customers.detail.close") })
     .click();
   await expect(deviceSheet).toBeHidden();
+  const ordersTab = businessTabs.getByRole("tab", {
+    name: translateMessage("it-IT", "customers.tab.orders"),
+    exact: true,
+  });
+  await ordersTab.click();
+  await expect(ordersTab).toHaveAttribute("aria-selected", "true");
   const followupButton = root.getByRole("button", {
     name: translateMessage("it-IT", "customers.detail.followupShort"),
     exact: true,
   });
-  await followupButton.click();
+  await followupButton.focus();
+  await expect(followupButton).toBeFocused();
+  await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog", {
     name: translateMessage("it-IT", "customers.form.followupTitle"),
   });
@@ -490,7 +505,13 @@ for (const failure of [false, true]) {
         })
         .click();
     } else {
-      await page.locator('[data-entity-context-back="customers"]:visible').click();
+      await page
+        .locator('[data-ui="customer-detail-desktop-hero"]')
+        .getByRole("button", {
+          name: translateMessage("en", "customers.detail.backShort"),
+          exact: true,
+        })
+        .click();
     }
     await expect(page).toHaveURL(listUrl);
     await expect(open).toBeFocused();
