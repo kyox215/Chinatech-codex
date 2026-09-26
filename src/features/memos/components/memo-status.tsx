@@ -35,7 +35,7 @@ export function MemoStatus({ memo, className }: { memo: MemoListItem; className?
       variant="outline"
       className={cn(
         "h-5 gap-1 rounded-md px-1.5 text-[10px]",
-        completed && "border-status-success-foreground/30 text-status-success-foreground",
+        completed && "border-primary/30 text-primary",
         overdue && "border-status-danger-foreground/30 text-status-danger-foreground",
         !completed && !overdue && !archived && "border-primary/25 text-primary",
         archived && "text-muted-foreground",
