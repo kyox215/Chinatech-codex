@@ -100,21 +100,27 @@ for (const locale of locales)
           [identitySurface, fault, people, quote].map((x) => x.boundingBox()),
         );
         if (workspace!.width < 680) {
-          // Mobile prioritizes the quote immediately after identity, before repair notes.
-          const mobileFlow = [boxes[0]!, boxes[3]!, boxes[1]!, boxes[2]!];
+          // Establish the reported fault and diagnosis before presenting the quote.
+          const diagnosis = await page
+            .locator('[data-mobile-order-diagnosis="true"]')
+            .boundingBox();
+          expect(diagnosis).not.toBeNull();
+          const mobileFlow = [boxes[0]!, boxes[1]!, diagnosis!, boxes[3]!, boxes[2]!];
           for (let i = 1; i < mobileFlow.length; i++)
             expect(mobileFlow[i].y).toBeGreaterThanOrEqual(
               mobileFlow[i - 1].y + mobileFlow[i - 1].height,
             );
         } else {
-          // The stable compact renderer has three summary regions followed by repair/support rows.
+          // Tablet gives the customer a full row and device/quote a half-width each.
           const device = await identity
             .locator(".order-workbench-mobile-device-summary")
             .boundingBox();
           expect(device).not.toBeNull();
-          expect(device!.x).toBeGreaterThanOrEqual(boxes[0]!.x + boxes[0]!.width);
+          expect(device!.x).toBeCloseTo(boxes[0]!.x, 0);
+          expect(device!.y).toBeGreaterThanOrEqual(boxes[0]!.y + boxes[0]!.height);
           expect(boxes[3]!.x).toBeGreaterThanOrEqual(device!.x + device!.width);
-          expect(Math.abs(device!.y - boxes[0]!.y)).toBeLessThan(1);
+          expect(Math.abs(device!.y - boxes[3]!.y)).toBeLessThan(1);
+          expect(boxes[3]!.x + boxes[3]!.width).toBeCloseTo(boxes[0]!.x + boxes[0]!.width, 0);
           expect(boxes[1]!.y).toBeGreaterThanOrEqual(
             Math.max(
               boxes[0]!.y + boxes[0]!.height,
@@ -123,7 +129,6 @@ for (const locale of locales)
             ),
           );
           expect(boxes[2]!.y).toBeGreaterThanOrEqual(boxes[1]!.y + boxes[1]!.height);
-          expect(Math.abs(boxes[3]!.y - boxes[0]!.y)).toBeLessThan(1);
         }
         const tabs = page.locator('[data-order-detail-tabs="true"] [role="tab"]');
         expect(await tabs.count()).toBe(3);

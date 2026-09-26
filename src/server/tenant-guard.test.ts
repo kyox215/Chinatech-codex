@@ -60,8 +60,8 @@ describe("tenant guardrails", () => {
       "utf8",
     );
 
-    expect(source).toContain("expectedUpdatedAt?: string;");
-    expect(source).toContain("idempotencyKey?: string;");
+    expect(source).toContain("expectedUpdatedAt: string;");
+    expect(source).toContain("idempotencyKey: string;");
     expect(source).toContain("operator?: string | AuditActor;");
     expect(source).not.toContain("storeId?: string");
     expect(source).not.toContain("opts.storeId");

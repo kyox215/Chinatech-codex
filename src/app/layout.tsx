@@ -6,7 +6,7 @@ import {
   repairDeskCriticalStyleGuard,
   repairDeskStyleRecoveryBootstrap,
 } from "@/shared/lib/app-style-recovery";
-import { translateMessage } from "@/shared/i18n/messages";
+import { translateMessage, messagesByLocale } from "@/shared/i18n/messages";
 import { getServerLocale } from "@/shared/i18n/server";
 import "@/styles.css";
 
@@ -148,7 +148,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         </div>
         <div id="repairdesk-styled-shell" style={repairDeskShellStyle}>
-          <Providers initialLocale={locale}>{children}</Providers>
+          <Providers initialLocale={locale} initialMessages={messagesByLocale[locale]}>
+            {children}
+          </Providers>
         </div>
         <script
           id="repairdesk-style-recovery-bootstrap"

@@ -2,6 +2,7 @@ import { resolveWhatsappPhone } from "@/shared/lib/whatsapp-phone";
 import { CURRENCY_CODE, normalizePositiveCentAmount } from "@/lib/money";
 import type {
   AuditActor,
+  OrderTransitionItem,
   CorrectTerminalOrderInput,
   CreateOrderInput,
   OrderListFilters,
@@ -910,13 +911,47 @@ export async function transitionOrder(
 ) {
   const o = orders.find((x) => x.id === id);
   if (!o) throw new Error("工单不存在");
-  assertMockRoutineMutationAllowed(o);
-  if (
-    opts.idempotencyKey &&
-    extraEvents.some((event) => event.payload.idempotency_key === opts.idempotencyKey)
-  ) {
-    return { ok: true, from: o.status, to: o.status };
+  const actor = typeof opts.operator === "object" ? opts.operator : undefined;
+  assertMockOrderInActorScope(o, actor);
+  const storeId = actor?.storeId ?? opts.storeId ?? mockStoreId;
+  if (((o as RepairOrder & { store_id?: string }).store_id ?? mockStoreId) !== storeId) {
+    throw new Error("工单不存在或不属于当前店铺");
   }
+  const requestFingerprint = JSON.stringify(
+    canonicalMockMutation({
+      storeId,
+      actorId: actor?.id ?? operatorName(opts.operator),
+      id,
+      to,
+      expectedUpdatedAt: opts.expectedUpdatedAt,
+      reason: opts.reason?.trim() || null,
+    }),
+  );
+  const prior = opts.idempotencyKey
+    ? extraEvents.find(
+        (event) =>
+          event.payload.idempotency_key === opts.idempotencyKey &&
+          event.payload.transition_store_id === storeId,
+      )
+    : undefined;
+  if (prior) {
+    if (
+      prior.order_id !== id ||
+      prior.event_type !== "status_changed" ||
+      prior.payload.transition_request_fingerprint !== requestFingerprint
+    ) {
+      throw Object.assign(new Error("该操作标识已用于不同请求，请刷新后重试"), {
+        code: "idempotency_conflict",
+        status: 409,
+      });
+    }
+    return {
+      ok: true,
+      from: prior.payload.from as RepairOrderStatus,
+      to: prior.payload.to as RepairOrderStatus,
+    };
+  }
+  assertMockRoutineMutationAllowed(o);
   if (opts.expectedUpdatedAt && o.updated_at !== opts.expectedUpdatedAt) {
     throw new Error("工单已被更新，请刷新后再试");
   }
@@ -1013,6 +1048,8 @@ export async function transitionOrder(
             }
           : {}),
       idempotency_key: opts.idempotencyKey,
+      transition_store_id: storeId,
+      transition_request_fingerprint: requestFingerprint,
     },
     operator_name: operatorName(opts.operator),
     created_at: now,
@@ -1346,15 +1383,22 @@ export async function decideOrderApproval(
 
 // POST /api/orders/batch-transition
 export async function batchTransition(
-  ids: string[],
+  items: OrderTransitionItem[],
   to: RepairOrderStatus,
   operator: MockOperator = "前台",
 ) {
   let count = 0;
   const failures: { id: string; reason: string }[] = [];
-  for (const id of ids) {
+  for (const item of items) {
+    const { id } = item;
     try {
-      await transitionOrder(id, to, { operator });
+      if (!item.expected_updated_at || !item.idempotency_key)
+        throw new Error("缺少工单版本或操作标识");
+      await transitionOrder(id, to, {
+        operator,
+        expectedUpdatedAt: item.expected_updated_at,
+        idempotencyKey: item.idempotency_key,
+      });
       count++;
     } catch (e) {
       failures.push({ id, reason: classifyOrderTransitionFailure(e) });

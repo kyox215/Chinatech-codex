@@ -21,7 +21,8 @@ import { getMemberRoleLabels } from "@/features/settings/model/member-settings-e
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
 import { DEFAULT_LOCALE, type AppLocale } from "@/shared/i18n/locales";
-import { translateMessage, type MessageKey } from "@/shared/i18n/messages";
+import { translateLoadedMessage as translateMessage } from "@/shared/i18n/runtime-messages";
+import { type MessageKey } from "@/shared/i18n/messages";
 import type {
   ApprovedStoreRole,
   StoreInvitation,

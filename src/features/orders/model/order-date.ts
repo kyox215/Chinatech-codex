@@ -1,7 +1,7 @@
 import type { RepairOrderStatus } from "@/lib/mock/enums";
 import type { OrderEvent } from "@/lib/repairdesk/types";
 import type { AppLocale } from "@/shared/i18n/locales";
-import { translateMessage } from "@/shared/i18n/messages";
+import { translateLoadedMessage as translateMessage } from "@/shared/i18n/runtime-messages";
 
 const ROME_TIME_ZONE = "Europe/Rome";
 

@@ -15,7 +15,14 @@ const batchPath = "**/api/repairdesk/order/batch-transition";
 const ids = ["bulk-synthetic-success", "bulk-synthetic-failure"];
 const publicNumbers = ["CT-BULK-001", "CT-BULK-002"];
 const sentinel = "SECRET_SENTINEL_NEVER_DISPLAY";
-type BatchRequest = { ids: string[]; to: string };
+type BatchRequest = {
+  items: { id: string; expected_updated_at: string; idempotency_key: string }[];
+  to: string;
+};
+const requestIdentity = (request: BatchRequest) => ({
+  ids: request.items.map((item) => item.id),
+  to: request.to,
+});
 
 async function setup(page: Page) {
   const unexpectedMutations: string[] = [];
@@ -166,7 +173,7 @@ test("retains only failed orders through refresh and retries only them once", as
   }
   await feedback.getByRole("button", { name: "重试失败工单" }).click();
   await expect(feedback.getByRole("button", { name: "正在重试…" })).toBeDisabled();
-  expect(requests).toEqual([
+  expect(requests.map(requestIdentity)).toEqual([
     { ids, to: "diagnosing" },
     { ids: [ids[1]], to: "diagnosing" },
   ]);
@@ -177,7 +184,7 @@ test("retains only failed orders through refresh and retries only them once", as
   expect(state.unexpectedMutations).toEqual([]);
 });
 
-for (const failure of ["forbidden", "network"] as const) {
+for (const failure of ["forbidden", "network", "uncertain-400", "uncertain-503"] as const) {
   test(`retains the original selection after ${failure} and safely retries`, async ({
     page,
   }, testInfo) => {
@@ -187,6 +194,11 @@ for (const failure of ["forbidden", "network"] as const) {
       requests.push(route.request().postDataJSON() as BatchRequest);
       if (requests.length > 1) return reply(route, 2, []);
       if (failure === "network") return route.abort("failed");
+      if (failure.startsWith("uncertain"))
+        return route.fulfill({
+          status: failure === "uncertain-400" ? 400 : 503,
+          json: { error: sentinel },
+        });
       await route.fulfill({ status: 403, json: { error: sentinel, code: "FORBIDDEN" } });
     });
     await submit(page);
@@ -204,10 +216,17 @@ for (const failure of ["forbidden", "network"] as const) {
     });
     await feedback.getByRole("button", { name: "重试失败工单" }).click();
     await expect(feedback).toHaveCount(0);
-    expect(requests).toEqual([
+    expect(requests.map(requestIdentity)).toEqual([
       { ids, to: "diagnosing" },
       { ids, to: "diagnosing" },
     ]);
+    for (const item of requests[0].items) {
+      expect(item.expected_updated_at).toBe("2026-04-21T11:00:00.000Z");
+      expect(item.idempotency_key).toMatch(/^[0-9a-f-]{36}$/);
+    }
+    if (failure !== "forbidden") expect(requests[1].items).toEqual(requests[0].items);
+    else
+      expect(requests[1].items[0].idempotency_key).not.toBe(requests[0].items[0].idempotency_key);
     expect(state.unexpectedMutations).toEqual([]);
   });
 }

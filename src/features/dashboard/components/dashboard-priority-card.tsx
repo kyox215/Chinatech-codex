@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { DashboardPriorityItem } from "@/lib/repairdesk/types";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/shared/i18n/locale-provider";
-import { translateMessage } from "@/shared/i18n/messages";
+import { translateLoadedMessage as translateMessage } from "@/shared/i18n/runtime-messages";
 import { localizeDashboardPriorityItem } from "@/features/dashboard/model/dashboard-priority-i18n";
 
 const tierStyles: Record<DashboardPriorityItem["tier"], string> = {

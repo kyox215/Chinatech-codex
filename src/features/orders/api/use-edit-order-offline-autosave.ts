@@ -186,7 +186,22 @@ export function useEditOrderOfflineAutosave({
           defaultWarrantyMonths,
         })
       ) {
-        return false;
+        // Run removal inside the same queue as saves so an older in-flight write
+        // cannot recreate a quotation the user has already reverted.
+        const draftId = currentDraftIdRef.current;
+        if (!draftId) return false;
+        const discarded = await service.discardDraft(draftId);
+        if (!discarded.ok) {
+          setState("error");
+          setErrorMessage(formatOfflineStorageError(discarded.error));
+          return false;
+        }
+        currentDraftIdRef.current = undefined;
+        lastSavedFingerprintRef.current = undefined;
+        setLastSavedAt(null);
+        setErrorMessage(null);
+        setState("ready");
+        return true;
       }
 
       const fingerprint = getEditOrderAutosaveFingerprint({
@@ -255,7 +270,8 @@ export function useEditOrderOfflineAutosave({
         data: currentOrderDetail,
         draft,
         defaultWarrantyMonths,
-      })
+      }) &&
+      !currentDraftIdRef.current
     ) {
       return;
     }

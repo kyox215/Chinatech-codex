@@ -35,7 +35,7 @@ async function chooseQueue(page: Page, label: string) {
   await queueButton(page, label).click();
 }
 
-test("uses a compact queue disclosure, phone-first cards and the existing five-segment rail", async ({
+test("keeps the compact progress rail and a concise desktop status with next task", async ({
   page,
 }, testInfo) => {
   test.setTimeout(90_000);
@@ -55,7 +55,14 @@ test("uses a compact queue disclosure, phone-first cards and the existing five-s
         compact ? '[data-order-desktop-list="true"]' : '[data-order-mobile-list="true"]',
       ),
     ).toHaveCount(0);
-    await expect(rows.first().locator("[data-order-mini-progress-segment]")).toHaveCount(5);
+    await expect(rows.first().locator("[data-order-mini-progress-segment]")).toHaveCount(
+      compact ? 5 : 0,
+    );
+    if (!compact) {
+      await expect(rows.first().locator("[data-order-current-status]")).toBeVisible();
+      await expect(rows.first().locator("[data-order-status-context]")).toBeVisible();
+      await expect(rows.first().locator("[data-order-next-task]")).toBeVisible();
+    }
     if (compact) {
       const trigger = page.locator('[data-order-queue-trigger="true"]');
       await expect(trigger).toBeVisible();

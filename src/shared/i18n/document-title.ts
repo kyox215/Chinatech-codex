@@ -1,5 +1,6 @@
 import { APP_LOCALES, type AppLocale } from "@/shared/i18n/locales";
-import { translateMessage, type MessageKey } from "@/shared/i18n/messages";
+import { translateLoadedMessage as translateMessage } from "@/shared/i18n/runtime-messages";
+import { type MessageKey } from "@/shared/i18n/messages";
 
 const STATIC_PAGE_TITLE_KEYS = [
   "account.title",

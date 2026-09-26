@@ -195,7 +195,7 @@ export function NewOrderMobileWorkspace({
     history: t("orders2b1.new.historyModels"),
     accessories: t("orders2b1.new.accessories"),
     unlock: t("orders2b1.new.unlockTitle"),
-    notes: t("orders.newFlow.notes"),
+    notes: t("orders2b2.overview.issue"),
     settings: t("orders2b1.new.settings"),
   };
   const summaryClass =
@@ -306,21 +306,23 @@ export function NewOrderMobileWorkspace({
           </button>
         </div>
       </section>
-      {quote}
-      {photos}
       <button
         type="button"
         disabled={disabled}
         data-mobile-edit="notes"
-        className="flex min-h-9 min-w-0 items-center gap-2 border-b border-border px-1 text-left text-xs text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-border px-3 py-2 text-left text-sm focus-visible:ring-2 focus-visible:ring-ring"
         onClick={(event) => openPanel("notes", event.currentTarget)}
       >
-        <span className="min-w-0 flex-1 truncate">
-          {form.issueDescription ||
-            `${t("orders.newFlow.notes")} · ${t("orders.newFlow.optional")}`}
+        <span className="grid min-w-0 flex-1 gap-1">
+          <span className="font-medium">{t("orders2b2.overview.issue")}</span>
+          <span className="line-clamp-2 break-words text-xs text-muted-foreground">
+            {form.issueDescription || t("orders.newFlow.optional")}
+          </span>
         </span>
         <ChevronRight className="size-4 shrink-0" />
       </button>
+      {quote}
+      {photos}
       <button
         type="button"
         disabled={disabled}
@@ -548,7 +550,7 @@ export function NewOrderMobileWorkspace({
                     onChange={(event) =>
                       setDraft((current) => ({ ...current, issueDescription: event.target.value }))
                     }
-                    aria-label={t("orders.newFlow.notes")}
+                    aria-label={t("orders2b2.overview.issue")}
                     className="min-h-[104px] resize-none text-base"
                   />
                 ) : null}

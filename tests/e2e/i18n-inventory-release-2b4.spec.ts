@@ -233,14 +233,19 @@ test("heavy en 1440px preserves Quick Entry draft through real AppBar locale swi
   await model.focus();
   await page.evaluate(() => window.scrollTo(0, 20));
   const startingScroll = await page.evaluate(() => window.scrollY);
-  const readsBeforeSwitch = evidence.allowedReads.length;
+  // Language catalogs are lazy static assets; switching must not refetch business data.
+  const businessReads = () =>
+    evidence.allowedReads.filter((read) =>
+      new URL(read.split(" ")[1], baseOrigin).pathname.startsWith("/api/repairdesk/"),
+    );
+  const readsBeforeSwitch = businessReads();
   await switchLocale(page, "it-IT");
   await switchLocale(page, "en");
   await expect(page).toHaveURL(`${baseOrigin}/inventory/new`);
   await expect(brand).toHaveValue("Apple");
   await expect(model).toHaveValue("Future Apple Model Ω");
   expect(await page.evaluate(() => window.scrollY)).toBe(startingScroll);
-  expect(evidence.allowedReads).toHaveLength(readsBeforeSwitch);
+  expect(businessReads()).toEqual(readsBeforeSwitch);
 
   await root
     .getByRole("button", {

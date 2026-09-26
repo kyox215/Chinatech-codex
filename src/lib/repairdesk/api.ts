@@ -47,6 +47,7 @@ import type {
   ApplyInventoryWorkflowV2Input,
   ApplyInventoryWorkflowV2Result,
   BatchTransitionResult,
+  OrderTransitionItem,
   BuybackFinalizeInput,
   BuybackFinalizeResult,
   BuybackQuoteCommandResult,
@@ -270,6 +271,7 @@ export type {
   ApplyInventoryWorkflowV2Result,
   ApprovedStoreRole,
   BatchTransitionResult,
+  OrderTransitionItem,
   BuybackDocumentType,
   BuybackFinalizeInput,
   BuybackFinalizeResult,
@@ -1336,7 +1338,7 @@ export async function getOrder(
 export async function transitionOrder(
   id: string,
   to: RepairOrderStatus,
-  opts: { reason?: string; expectedUpdatedAt?: string; idempotencyKey?: string } = {},
+  opts: { reason?: string; expectedUpdatedAt: string; idempotencyKey: string },
 ) {
   return postJson("order/transition", {
     id,
@@ -1370,10 +1372,10 @@ export async function updateOrderCustody(
 }
 
 export async function batchTransition(
-  ids: string[],
+  items: OrderTransitionItem[],
   to: RepairOrderStatus,
 ): Promise<BatchTransitionResult> {
-  return postJson<BatchTransitionResult>("order/batch-transition", { ids, to });
+  return postJson<BatchTransitionResult>("order/batch-transition", { items, to });
 }
 
 export async function recordPayment(

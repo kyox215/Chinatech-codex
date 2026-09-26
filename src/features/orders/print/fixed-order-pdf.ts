@@ -1,8 +1,5 @@
 "use client";
 
-import html2canvas from "html2canvas";
-import { PDFDocument, rgb } from "pdf-lib";
-
 import type { PrintPaperMode } from "@/features/orders/components/print-portal";
 
 const MM_TO_PT = 72 / 25.4;
@@ -173,6 +170,7 @@ async function capturePrintTicket(sourcePages: HTMLElement[]): Promise<CapturedP
       await nextFrame(sandbox.window);
 
       const captureStartedAt = now();
+      const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(target, {
         backgroundColor: "#ffffff",
         scale: PRINT_CAPTURE_SCALE,
@@ -193,6 +191,7 @@ async function capturePrintTicket(sourcePages: HTMLElement[]): Promise<CapturedP
 }
 
 async function composeFixedOrderPdf(sourcePages: Uint8Array[], paperMode: PrintPaperMode) {
+  const { PDFDocument, rgb } = await import("pdf-lib");
   const pdf = await PDFDocument.create();
   for (const sourcePage of sourcePages) {
     const image = await pdf.embedPng(sourcePage);

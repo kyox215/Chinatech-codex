@@ -6,7 +6,7 @@ import type {
   CustomerStats,
 } from "@/lib/repairdesk/api";
 import { APP_TIME_ZONE, type AppLocale } from "@/shared/i18n/locales";
-import { translateMessage } from "@/shared/i18n/messages";
+import { translateLoadedMessage as translateMessage } from "@/shared/i18n/runtime-messages";
 
 import { isCustomerOrderClosed } from "./customer-order-state";
 

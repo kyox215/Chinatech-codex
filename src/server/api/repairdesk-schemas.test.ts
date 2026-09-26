@@ -1404,8 +1404,13 @@ describe("repairdesk API schemas", () => {
 
     for (const status of ["A_STATUS", "1status", "bad status", "x", `a${"x".repeat(48)}`]) {
       expect(() => createOrderSchema.parse({ ...validOrder, status })).toThrow();
-      expect(() => transitionOrderBodySchema.parse({ id: "R1", to: status })).toThrow();
-      expect(() => batchTransitionBodySchema.parse({ ids: ["R1"], to: status })).toThrow();
+      const item = {
+        id: "R1",
+        expected_updated_at: "2026-09-26T10:00:00Z",
+        idempotency_key: "00000000-0000-4000-8000-000000000100",
+      };
+      expect(() => transitionOrderBodySchema.parse({ ...item, to: status })).toThrow();
+      expect(() => batchTransitionBodySchema.parse({ items: [item], to: status })).toThrow();
     }
   });
 
@@ -1792,5 +1797,36 @@ describe("approval intent schema", () => {
         input: { ...input, idempotency_key: "invalid" },
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("order transition intent schema", () => {
+  const item = {
+    id: "order_1",
+    expected_updated_at: "2026-09-26T10:00:00Z",
+    idempotency_key: "00000000-0000-4000-8000-000000000100",
+  };
+  it("requires observed version and stable key for each single and bulk transition", () => {
+    expect(transitionOrderBodySchema.parse({ ...item, to: "repairing" })).toMatchObject(item);
+    expect(batchTransitionBodySchema.parse({ items: [item], to: "repairing" }).items).toEqual([
+      item,
+    ]);
+    for (const omitted of ["expected_updated_at", "idempotency_key"]) {
+      const incomplete = { ...item };
+      Reflect.deleteProperty(incomplete, omitted);
+      expect(transitionOrderBodySchema.safeParse({ ...incomplete, to: "repairing" }).success).toBe(
+        false,
+      );
+      expect(
+        batchTransitionBodySchema.safeParse({ items: [incomplete], to: "repairing" }).success,
+      ).toBe(false);
+    }
+    expect(batchTransitionBodySchema.safeParse({ ids: [item.id], to: "repairing" }).success).toBe(
+      false,
+    );
+    expect(
+      batchTransitionBodySchema.safeParse({ items: [item, item], to: "repairing" }).success,
+    ).toBe(false);
+    expect(batchTransitionBodySchema.safeParse({ items: [], to: "repairing" }).success).toBe(false);
   });
 });

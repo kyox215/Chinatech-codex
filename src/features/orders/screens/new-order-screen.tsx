@@ -38,6 +38,7 @@ import {
   useNavigationGuard,
   type NavigationGuardResolution,
 } from "@/components/navigation-guard-provider";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { NewOrderMobileWorkspace } from "@/features/orders/forms/new-order-mobile-workspace";
@@ -1260,14 +1261,33 @@ export function NewOrderScreen({
                     <div
                       data-new-order-workspace-grid="true"
                       data-new-order-single-page="true"
-                      className="grid min-w-0 items-start gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:gap-3 @[1040px]/new-order:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)_minmax(0,0.85fr)]"
+                      className="grid min-w-0 items-start gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:gap-3"
                     >
                       <div className="grid min-w-0 content-start gap-2 md:col-start-1 md:row-start-1">
                         {customerSectionNode}
                         {deviceSectionNode}
+                        <section
+                          className={cn(repairOs.mobileInfoCard, "grid gap-2 p-3")}
+                          data-new-order-section="reported-issue"
+                        >
+                          <label htmlFor="new-order-reported-issue" className="text-sm font-medium">
+                            {t("orders2b2.overview.issue")}
+                          </label>
+                          <Textarea
+                            id="new-order-reported-issue"
+                            value={form.issueDescription}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                issueDescription: event.target.value,
+                              }))
+                            }
+                            className="min-h-24 resize-y text-base md:text-sm"
+                          />
+                        </section>
                       </div>
                       {quotationSectionNode()}
-                      <div className="grid min-w-0 content-start gap-2 md:col-span-2 md:row-start-2 md:grid-cols-2 @[1040px]/new-order:col-span-1 @[1040px]/new-order:col-start-3 @[1040px]/new-order:row-start-1 @[1040px]/new-order:grid-cols-1">
+                      <div className="grid min-w-0 content-start gap-2 md:col-span-2 md:row-start-2 md:grid-cols-2">
                         {quotationSectionNode("settings")}
                         {effectiveEntryMode === "simple" ? (
                           <section className={cn(repairOs.mobileInfoCard, "p-2.5")}>
@@ -1287,6 +1307,7 @@ export function NewOrderScreen({
                           </section>
                         ) : null}
                         <NewOrderSupplements
+                          showNotes={false}
                           notes={form.issueDescription}
                           onNotesChange={(issueDescription) =>
                             setForm((current) => ({ ...current, issueDescription }))

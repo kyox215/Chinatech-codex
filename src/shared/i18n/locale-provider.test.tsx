@@ -1,7 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import * as runtimeMessages from "@/shared/i18n/runtime-messages";
+import { messagesByLocale } from "@/shared/i18n/messages";
 import { LocaleProvider, useLocale } from "@/shared/i18n/locale-provider";
 
 function StatefulHarness() {
@@ -17,6 +19,9 @@ function StatefulHarness() {
         toggle dialog
       </button>
       {dialogOpen ? <div role="dialog">draft dialog</div> : null}
+      <button type="button" onClick={() => setLocale("it-IT")}>
+        Italian
+      </button>
       <button type="button" onClick={() => setLocale("en")}>
         English
       </button>
@@ -86,6 +91,67 @@ describe("LocaleProvider", () => {
       );
     } finally {
       Reflect.deleteProperty(document, "cookie");
+    }
+  });
+});
+
+describe("deferred locale catalogs", () => {
+  it("preserves the active language and draft until the latest requested catalog is ready", async () => {
+    const cached = vi.spyOn(runtimeMessages, "getLoadedMessageCatalog").mockReturnValue(undefined);
+    let resolveEnglish!: () => void;
+    let resolveItalian!: () => void;
+    const load = vi.spyOn(runtimeMessages, "loadMessageCatalog").mockImplementation(
+      (locale) =>
+        new Promise((resolve) => {
+          const finish = () => resolve(messagesByLocale[locale]);
+          if (locale === "en") resolveEnglish = finish;
+          else resolveItalian = finish;
+        }),
+    );
+    try {
+      render(
+        <LocaleProvider initialLocale="zh-CN">
+          <StatefulHarness />
+        </LocaleProvider>,
+      );
+      const input = screen.getByRole("textbox", { name: "draft" });
+      fireEvent.change(input, { target: { value: "pending local note" } });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(screen.getByRole("button", { name: "English" }));
+      expect(screen.getByTestId("locale")).toHaveTextContent("zh-CN");
+      fireEvent.click(screen.getByRole("button", { name: "Italian" }));
+      await act(async () => resolveItalian());
+      expect(screen.getByTestId("locale")).toHaveTextContent("it-IT");
+      await act(async () => resolveEnglish());
+      expect(screen.getByTestId("locale")).toHaveTextContent("it-IT");
+      expect(input).toHaveValue("pending local note");
+      expect(screen.getByRole("dialog")).toBe(dialog);
+    } finally {
+      cached.mockRestore();
+      load.mockRestore();
+    }
+  });
+
+  it("keeps the current language and allows another attempt after a catalog download fails", async () => {
+    const cached = vi.spyOn(runtimeMessages, "getLoadedMessageCatalog").mockReturnValue(undefined);
+    const load = vi
+      .spyOn(runtimeMessages, "loadMessageCatalog")
+      .mockRejectedValueOnce(new TypeError("offline"))
+      .mockResolvedValue(messagesByLocale.en);
+    try {
+      render(
+        <LocaleProvider initialLocale="zh-CN">
+          <StatefulHarness />
+        </LocaleProvider>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "English" }));
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("语言加载失败"));
+      expect(screen.getByTestId("locale")).toHaveTextContent("zh-CN");
+      fireEvent.click(screen.getByRole("button", { name: "English" }));
+      await waitFor(() => expect(screen.getByTestId("locale")).toHaveTextContent("en"));
+    } finally {
+      cached.mockRestore();
+      load.mockRestore();
     }
   });
 });

@@ -7,6 +7,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useRef,
   type ReactNode,
 } from "react";
 
@@ -18,7 +19,14 @@ import {
   type AppLocale,
 } from "@/shared/i18n/locales";
 import { localizeKnownDocumentTitle } from "@/shared/i18n/document-title";
-import { translateMessage, type MessageKey, type MessageValues } from "@/shared/i18n/messages";
+import type { MessageKey, MessageValues } from "@/shared/i18n/messages";
+import {
+  translateLoadedMessage as translateMessage,
+  getLoadedMessageCatalog,
+  loadMessageCatalog,
+  registerMessageCatalog,
+  type MessageCatalog,
+} from "@/shared/i18n/runtime-messages";
 
 type Translate = (key: MessageKey, values?: MessageValues) => string;
 
@@ -47,12 +55,22 @@ export function persistLocaleCookie(locale: AppLocale) {
 
 export function LocaleProvider({
   initialLocale,
+  initialMessages,
   children,
 }: {
   initialLocale: AppLocale;
+  initialMessages?: MessageCatalog;
   children: ReactNode;
 }) {
+  if (initialMessages) registerMessageCatalog(initialLocale, initialMessages);
   const [locale, setLocaleState] = useState(initialLocale);
+  const localeRequestRef = useRef(0);
+  useEffect(
+    () => () => {
+      localeRequestRef.current += 1;
+    },
+    [],
+  );
   const [announcement, setAnnouncement] = useState("");
 
   useEffect(() => {
@@ -63,19 +81,28 @@ export function LocaleProvider({
 
   const setLocale = useCallback(
     (nextLocale: AppLocale) => {
+      const request = ++localeRequestRef.current;
       if (nextLocale === locale) return;
-
-      setLocaleState(nextLocale);
-      document.documentElement.lang = nextLocale;
-      document.documentElement.dataset.locale = nextLocale;
-
-      const persisted = persistLocaleCookie(nextLocale);
-      const announcementKey = persisted ? "locale.changed" : "locale.persistenceFailed";
-      setAnnouncement(
-        translateMessage(nextLocale, announcementKey, {
-          language: localeDisplayNames[nextLocale],
-        }),
-      );
+      const apply = () => {
+        if (localeRequestRef.current !== request) return;
+        setLocaleState(nextLocale);
+        document.documentElement.lang = nextLocale;
+        document.documentElement.dataset.locale = nextLocale;
+        const persisted = persistLocaleCookie(nextLocale);
+        setAnnouncement(
+          translateMessage(nextLocale, persisted ? "locale.changed" : "locale.persistenceFailed", {
+            language: localeDisplayNames[nextLocale],
+          }),
+        );
+      };
+      if (getLoadedMessageCatalog(nextLocale)) apply();
+      else
+        void loadMessageCatalog(nextLocale)
+          .then(apply)
+          .catch(() => {
+            if (localeRequestRef.current === request)
+              setAnnouncement(translateMessage(locale, "locale.loadFailed"));
+          });
     },
     [locale],
   );

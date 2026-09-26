@@ -1,4 +1,4 @@
-import { translateMessage } from "@/shared/i18n/messages";
+import { translateLoadedMessage as translateMessage } from "@/shared/i18n/runtime-messages";
 import type { AppLocale } from "@/shared/i18n/locales";
 
 export type ScannerErrorKind =
