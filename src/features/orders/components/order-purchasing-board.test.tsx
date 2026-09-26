@@ -80,6 +80,35 @@ describe("OrderPurchasingBoard", () => {
     );
     expect(await screen.findAllByRole("button", { name: "Add part" })).toHaveLength(101);
   });
+  it("limits select-all to the fifty-item API contract and lets selected rows be removed", async () => {
+    mocks.read.mockResolvedValue({
+      groups: [
+        {
+          order_id: order.id,
+          lines: Array.from({ length: 51 }, (_, index) => ({
+            ...line,
+            id: `part-${index}`,
+            part_name: `Part ${index}`,
+          })),
+        },
+      ],
+      suppliers: [],
+      permissions: { canManage: true, canAssignSupplier: true },
+    });
+    setup();
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Select visible parts" }));
+    expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(51);
+    const last = screen.getByRole("checkbox", { name: "Selected parts: R001 Part 50" });
+    expect(last).toBeDisabled();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Selected parts: R001 Part 0" }));
+    expect(last).toBeEnabled();
+    fireEvent.click(last);
+    expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(51);
+    fireEvent.click(screen.getAllByRole("button", { name: "Mark ordered" }).at(-1)!);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(mocks.batch).toHaveBeenCalledTimes(1));
+    expect(mocks.batch.mock.calls[0][0].items).toHaveLength(50);
+  });
   it("submits scoped versioned status only, never resubmits the purchase cost", async () => {
     setup();
     fireEvent.click(await screen.findByRole("button", { name: "Mark ordered" }));

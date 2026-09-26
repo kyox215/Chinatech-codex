@@ -37,6 +37,8 @@ import {
   type PurchaseDraft,
 } from "./order-purchasing-editor";
 
+const MAX_PURCHASE_BATCH = 50;
+
 type BatchIntent = Omit<BatchOrderPurchasesInput, "expected_store_id" | "idempotency_key">;
 
 type Editor =
@@ -276,8 +278,13 @@ export function OrderPurchasingBoard({
             <Checkbox
               aria-label={copy.selectPage}
               disabled={disabled || !eligible.length}
-              checked={eligible.length > 0 && selectedRows.length === eligible.length}
-              onCheckedChange={(value) => setSelected(value ? eligible.map((row) => row.id) : [])}
+              checked={
+                eligible.length > 0 &&
+                selectedRows.length === Math.min(eligible.length, MAX_PURCHASE_BATCH)
+              }
+              onCheckedChange={(value) =>
+                setSelected(value ? eligible.slice(0, MAX_PURCHASE_BATCH).map((row) => row.id) : [])
+              }
             />
             {copy.selectPage}
           </label>
@@ -349,11 +356,15 @@ export function OrderPurchasingBoard({
                           <Checkbox
                             aria-label={`${copy.selected}: ${order.public_no} ${row.part_name}`}
                             checked={selectedRows.some((item) => item.id === row.id)}
-                            disabled={disabled || row.status === "arrived"}
+                            disabled={
+                              disabled ||
+                              row.status === "arrived" ||
+                              (selected.length >= MAX_PURCHASE_BATCH && !selected.includes(row.id))
+                            }
                             onCheckedChange={(checked) =>
                               setSelected((previous) =>
                                 checked
-                                  ? [...previous, row.id]
+                                  ? [...previous, row.id].slice(0, MAX_PURCHASE_BATCH)
                                   : previous.filter((id) => id !== row.id),
                               )
                             }
@@ -370,7 +381,11 @@ export function OrderPurchasingBoard({
                         <Button
                           variant="ghost"
                           className="h-auto min-h-11 w-full min-w-0 flex-col items-start gap-0.5 whitespace-normal break-words px-0 text-left text-xs"
-                          disabled={disabled || row.status === "arrived"}
+                          disabled={
+                            disabled ||
+                            row.status === "arrived" ||
+                            (selected.length >= MAX_PURCHASE_BATCH && !selected.includes(row.id))
+                          }
                           aria-label={`${copy.edit}: ${order.public_no} ${row.part_name}`}
                           onClick={() => setEditor({ order, row, key: crypto.randomUUID() })}
                         >
