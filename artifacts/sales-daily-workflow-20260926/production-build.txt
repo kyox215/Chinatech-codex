@@ -1,0 +1,88 @@
+
+> prebuild
+> npm run check:runtime && npm run prepare:local-ocr
+
+
+> check:runtime
+> node scripts/check-runtime.mjs
+
+
+> prepare:local-ocr
+> node scripts/copy-local-ocr-assets.mjs
+
+Prepared fixed-version same-origin OCR assets.
+
+> build
+> next build
+
+▲ Next.js 16.2.11 (Turbopack)
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 13.1s
+  Running TypeScript ...
+  Finished TypeScript in 33.7s ...
+  Collecting page data using 17 workers ...
+  Generating static pages using 17 workers (0/30) ...
+  Generating static pages using 17 workers (7/30) 
+  Generating static pages using 17 workers (14/30) 
+  Generating static pages using 17 workers (22/30) 
+✓ Generating static pages using 17 workers (30/30) in 233ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /account
+├ ƒ /api/kiosk/pair
+├ ƒ /api/kiosk/session
+├ ƒ /api/kiosk/session/submit
+├ ƒ /api/public/order-status
+├ ƒ /api/repairdesk/[...path]
+├ ƒ /api/repairdesk/customer-status-links/issue
+├ ƒ /api/repairdesk/customer-status-links/revoke
+├ ƒ /api/repairdesk/customer-status-links/staff-resolve
+├ ƒ /api/repairdesk/inventory/product-thumbnails/[attachmentId]
+├ ƒ /auth/callback
+├ ƒ /auth/confirm
+├ ƒ /auth/confirm/complete
+├ ƒ /auth/recovery/complete
+├ ƒ /buyback
+├ ƒ /customers
+├ ƒ /customers/[id]
+├ ƒ /finance
+├ ƒ /forgot-password
+├ ƒ /inventory
+├ ƒ /inventory/[id]
+├ ƒ /inventory/[id]/edit
+├ ƒ /inventory/[id]/reserve
+├ ƒ /inventory/[id]/sell
+├ ƒ /inventory/after-sales
+├ ƒ /inventory/after-sales/[caseId]
+├ ƒ /inventory/new
+├ ƒ /inventory/reservations/[reservationId]
+├ ƒ /inventory/sales/[saleId]
+├ ƒ /invite/complete
+├ ƒ /kiosk
+├ ƒ /login
+├ ƒ /manifest.webmanifest
+├ ƒ /memos
+├ ƒ /messages
+├ ƒ /offline
+├ ƒ /onboarding
+├ ƒ /orders
+├ ƒ /orders/[id]
+├ ƒ /orders/[id]/task
+├ ƒ /orders/new
+├ ƒ /platform
+├ ƒ /r
+├ ƒ /register/complete
+├ ƒ /reset-password
+├ ƒ /settings
+├ ƒ /settings/closed-stores
+└ ƒ /toolkit
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand
+

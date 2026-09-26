@@ -1,0 +1,9 @@
+
+ RUN  v4.1.6 /Users/kyox215/Documents/文稿 - kyox215的MacBook Pro/Codex/2026-05-17/zip-github/work/sales-daily-workflow
+
+
+ Test Files  11 passed (11)
+      Tests  122 passed (122)
+   Start at  13:02:37
+   Duration  4.74s (transform 5.82s, setup 2.50s, import 9.31s, tests 1.85s, environment 15.79s)
+
