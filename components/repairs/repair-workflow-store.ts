@@ -4,7 +4,7 @@ import { requirePreviewPermission } from "@/lib/staff-client";
 import { useSyncExternalStore } from "react";
 import { intakeRecordTime, type RepairDirectoryEntry } from "@/lib/repair-intake-record";
 import type { ProcurementRecord } from "@/lib/procurement";
-import { applyWorkflowCommand, initialRepairWorkflow, type RepairWorkflow, type WorkflowCommand } from "@/lib/repair-workflow";
+import { applyWorkflowCommand, initialRepairWorkflow, validateWorkflowExtensions, type RepairWorkflow, type WorkflowCommand } from "@/lib/repair-workflow";
 import { repairStatusOptions } from "@/lib/repair-fixtures";
 const key = "chinatech.m1.repair-workflow.v1";
 const change = "chinatech-repair-workflow-change";
@@ -17,6 +17,7 @@ function parse(raw: string | null): Record<string, RepairWorkflow> {
   const data = JSON.parse(raw);
   if (data.version !== 1 || !data.workflows || typeof data.workflows !== "object" || Array.isArray(data.workflows)) throw new Error("本地维修状态格式异常，未覆盖原记录。");
   for (const value of Object.values(data.workflows) as RepairWorkflow[]) {
+    if (!value) throw new Error("本地维修状态格式异常。"); validateWorkflowExtensions(value);
     if (!value || !repairStatusOptions.some(option => option.value === value.status) || !["unknown", "store", "customer"].includes(value.custody) || !Array.isArray(value.events) || value.revision !== value.events.length || typeof value.updatedAt !== "string"
       || value.events.some(event => !event || typeof event.id !== "string" || typeof event.label !== "string" || typeof event.time !== "string" || typeof event.note !== "string")
       || (value.notice !== null && (!value.notice || typeof value.notice.signature !== "string" || !["notified", "unreachable"].includes(value.notice.outcome)))) throw new Error("本地维修状态格式异常，未覆盖原记录。");
@@ -35,8 +36,11 @@ export function updateRepairWorkflow(order: RepairDirectoryEntry, command: Workf
   requirePreviewPermission("repairs.edit");
   const workflows = parse(window.localStorage.getItem(key));
   const current = workflows[order.id] ?? initialRepairWorkflow(order);
-  const next = applyWorkflowCommand(current, command, { id: crypto.randomUUID(), time: intakeRecordTime() }, records, order.id, revision);
+  const actor = requirePreviewPermission("repairs.edit");
+  const next = applyWorkflowCommand(current, command, { id: crypto.randomUUID(), time: intakeRecordTime(), actorId: actor.id }, records, order.id, revision, order);
   try { window.localStorage.setItem(key, JSON.stringify({ version: 1, workflows: { ...workflows, [order.id]: next } })); }
   catch { throw new Error("本地保存失败，维修状态未改变。"); }
   window.dispatchEvent(new Event(change));
 }
+
+export function previewRepairWorkflow(order: RepairDirectoryEntry) { return parse(window.localStorage.getItem(key))[order.id] ?? initialRepairWorkflow(order); }

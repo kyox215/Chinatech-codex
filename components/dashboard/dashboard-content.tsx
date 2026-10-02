@@ -11,7 +11,7 @@ import { useProcurement } from "@/components/procurement/procurement-provider";
 import { useRetail } from "@/components/retail/retail-provider";
 import { useStaff } from "@/components/staff/use-staff";
 import { useStoreSettings } from "@/components/settings/settings-store";
-import { defaultRepairGroups } from "@/lib/repair-groups";
+import { defaultRepairGroups, visibleRepairGroups } from "@/lib/repair-groups";
 import { isBackendClient } from "@/lib/backend/client";
 import { workflowGroup, workflowGroups, type WorkflowGroup } from "@/lib/repair-workflow";
 import { procurementEventLabel } from "@/lib/procurement";
@@ -65,9 +65,9 @@ function RealDashboardContent() {
   for (const order of orders) counts[workflowGroup(order, records, workflows[order.id])]++;
   const realStats = [
     { label: "待检测", value: orders.filter(order => order.status === "diagnosis").length, note: "接单阶段", icon: Clock3, tone: "violet" },
-    { label: "配件跟进", value: counts.purchase + counts.arrival + counts.arrival_notified, note: "下单与到货阶段", icon: PackageSearch, tone: "amber" },
+    { label: "配件跟进", value: counts.purchase + counts.arrival, note: "下单与到货阶段", icon: PackageSearch, tone: "amber" },
     { label: "维修与测试", value: orders.filter(order => order.status === "repairing" || order.status === "testing").length, note: "当前维修阶段", icon: Wrench, tone: "mint" },
-    { label: "待取机", value: orders.filter(order => ["ready", "ready_notified"].includes(order.status)).length, note: "等待客户取机", icon: PackageCheck, tone: "rose" },
+    { label: "待取机", value: counts.ready, note: "等待客户取机", icon: PackageCheck, tone: "rose" },
   ];
   const recent = [...orders].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || left.id.localeCompare(right.id)).slice(0, 4);
   const activity = [
@@ -92,7 +92,7 @@ function RealDashboardContent() {
       </article>
       <article className="panel workload-panel">
         <div className="panel__header"><div><h2>维修阶段分布</h2></div>{canRepairs ? <span className="status-pill status-pill--info">{orders.length} 张</span> : null}</div>
-        {canRepairs ? <div className="legend-list">{(settings.repairGroups ?? defaultRepairGroups()).workflow.map(({key: group, label}) => <span key={group}>{label}<strong>{counts[group]}</strong></span>)}</div> : <div className="section-empty"><strong>当前账号没有维修查看权限</strong></div>}
+        {canRepairs ? <div className="legend-list">{visibleRepairGroups(settings.repairGroups ?? defaultRepairGroups(), "workflow").map(({key: group, label}) => <span key={group}>{label}<strong>{counts[group]}</strong></span>)}</div> : <div className="section-empty"><strong>当前账号没有维修查看权限</strong></div>}
       </article>
     </section>
     <section className="dashboard-grid dashboard-grid--bottom">

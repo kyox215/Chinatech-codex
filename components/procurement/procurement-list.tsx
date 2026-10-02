@@ -8,6 +8,7 @@ import { ChevronRight, PackageSearch, Plus, Search } from "lucide-react";
 import { useRepairDirectory } from "@/components/repairs/local-intake-store";
 import { arrivedQuantity, procurementStatus, procurementStatuses, type ProcurementRecord } from "@/lib/procurement";
 import { useProcurement } from "./procurement-provider";
+import { SupplierBatchDialog } from "./supplier-batch-dialog";
 import { useStaff } from "@/components/staff/use-staff";
 
 type Filter = "all" | "draft" | "cart" | "open" | "complete";
@@ -15,7 +16,8 @@ const filters: { value: Filter; label: string }[] = [{ value: "all", label: "全
 const matchesStatus = (record: ProcurementRecord, filter: Filter) => filter === "all" || (filter === "open" ? ["ordered", "partial"].includes(procurementStatus(record)) : procurementStatus(record) === filter);
 
 export function ProcurementList({ initialRepairId = "" }: { initialRepairId?: string }) {
-  const canEdit = useStaff().can("repairs.edit");
+  const [batchAction, setBatchAction] = useState<"ordered"|"arrival"|null>(null);
+  const staff = useStaff(); const canEdit = staff.can("repairs.edit");
   const { records, listView, dispatch } = useProcurement();
   const repairOrders = useRepairDirectory();
   const getRepairOrder = (id: string) => repairOrders.find(repair => repair.id === id);
@@ -33,8 +35,8 @@ export function ProcurementList({ initialRepairId = "" }: { initialRepairId?: st
   const clearFilters = () => { setQuery(""); setFilter("all"); setRepairId(""); };
 
   return <main className="module-page procurement-page">
-    <header className="module-heading"><PageTitle title="采购与到货" />{canEdit ? <Link className="button button--primary button--compact" onClick={rememberView} href={`/app/procurement/new${repairId ? `?repair=${encodeURIComponent(repairId)}` : ""}`}><Plus size={17} />新建采购</Link> : null}</header>
-    
+    <header className="module-heading"><PageTitle title="采购与到货" /><div className="module-heading__actions">{canEdit ? <><button className="button button--secondary" type="button" onClick={() => setBatchAction("ordered")}>采购车</button><button className="button button--secondary" type="button" onClick={() => setBatchAction("arrival")}>批量到货</button></> : null}{canEdit ? <Link className="button button--primary button--compact" onClick={rememberView} href={`/app/procurement/new${repairId ? `?repair=${encodeURIComponent(repairId)}` : ""}`}><Plus size={17} />新建采购</Link> : null}</div></header>
+    {batchAction && canEdit ? <SupplierBatchDialog key={`${staff.member?.id}:${staff.member?.revision}:${batchAction}`} action={batchAction} onClose={() => setBatchAction(null)} /> : null}
     <section className="procurement-stats" aria-label="采购状态筛选">{filters.map((option) => <button type="button" aria-pressed={filter === option.value} className={`repair-status-card${filter === option.value ? " repair-status-card--active" : ""}`} onClick={() => setFilter(option.value)} key={option.value}><span>{option.label}</span><strong>{records.filter((record) => matchesStatus(record, option.value)).length}</strong><small>{option.value === "open" ? "包含部分到货" : "采购条目"}</small></button>)}</section>
     <section className="panel">
       <div className="procurement-filterbar"><label className="module-search"><Search size={18} /><input aria-label="搜索采购" placeholder="配件、采购号、供应商或工单" value={query} onChange={(event) => setQuery(event.target.value)} /></label><label className="module-select"><SelectControl aria-label="关联工单筛选" value={repairOrders.some(repair => repair.id === repairId) ? repairId : ""} onChange={(event) => setRepairId(event.target.value)}><option value="">全部工单</option>{repairOrders.map((repair) => <option value={repair.id} key={repair.id}>{repair.id}</option>)}</SelectControl></label><label className="module-select"><SelectControl aria-label="采购分组" value={groupBy} onChange={(event) => setGroupBy(event.target.value)}><option value="status">按采购状态</option><option value="supplier">按供应商</option><option value="repair">按工单</option><option value="none">不分组</option></SelectControl></label></div>

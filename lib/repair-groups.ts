@@ -1,4 +1,4 @@
-import { workflowGroups, type WorkflowGroup } from "./repair-workflow";
+import { workflowGroups, retiredWorkflowGroups, type WorkflowGroup } from "./repair-workflow";
 import { repairPartsGroups, type RepairPartsGroup } from "./procurement";
 
 export type RepairGroupItem<K extends string = string> = { key: K; label: string };
@@ -38,4 +38,13 @@ export function moveRepairGroup<T extends RepairGroupItem>(rows: T[], key: strin
   if (from < 0 || to < 0 || from === to) return rows;
   const next = [...rows]; const [item] = next.splice(from, 1); next.splice(to, 0, item);
   return next;
+}
+
+export function visibleRepairGroups(settings: RepairGroupSettings, kind: "workflow"): RepairGroupItem<WorkflowGroup>[];
+export function visibleRepairGroups(settings: RepairGroupSettings, kind: "parts"): RepairGroupItem<RepairPartsGroup>[];
+export function visibleRepairGroups(settings: RepairGroupSettings, kind: RepairGroupKind): RepairGroupItem[];
+export function visibleRepairGroups(settings: RepairGroupSettings, kind: RepairGroupKind): RepairGroupItem[] { return kind === "workflow" ? settings.workflow.filter(row => !retiredWorkflowGroups.includes(row.key)) : settings.parts; }
+export function mergeVisibleRepairGroups(settings: RepairGroupSettings, kind: RepairGroupKind, rows: RepairGroupItem[]): RepairGroupSettings {
+  let index = 0; const oldVisible = new Set(visibleRepairGroups(settings, kind).map(row => row.key));
+  return parseRepairGroups({ ...settings, [kind]: settings[kind].map(row => oldVisible.has(row.key) ? rows[index++] : row) });
 }

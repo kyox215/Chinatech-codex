@@ -1619,3 +1619,44 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .device-draft { padding: 12px 0; }
 .device-draft:empty { display: none; }
 @media (max-width: 767px) { .sync-recovery__actions .button { min-height: 44px; } }
+
+/* Repair requirements and supplier batch operations reuse the existing dialog/field tokens. */
+.repair-requirements { display: grid; gap: 12px; margin-block: 16px; }
+.repair-requirements > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.repair-requirements h3 { margin: 0; font-size: 16px; }
+.repair-requirement { padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-panel); display: grid; gap: 10px; }
+.repair-requirement > div:first-child { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.repair-requirement small { color: var(--text-secondary); }
+.repair-requirement ul, .repair-batch-confirm ul { margin: 0; padding-left: 20px; overflow-wrap: anywhere; }
+.repair-requirement__actions, .repair-batch-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.repair-requirement form { display: grid; gap: 8px; }
+.supplier-batch-dialog { width: min(800px, calc(100vw - 32px)); }
+.repair-batch-rows { display: grid; gap: 8px; margin-block: 12px; }
+.repair-batch-row { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-panel); }
+.repair-batch-selection { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 200px; cursor: pointer; }
+.repair-batch-selection > span { display: grid; gap: 4px; overflow-wrap: anywhere; }
+.repair-batch-selection input, .repair-fact-check input { width: 20px; height: 20px; accent-color: var(--primary-600); }
+.repair-batch-row .field { max-width: 180px; }
+.repair-fact-check { display: flex; gap: 10px; align-items: center; min-height: 44px; }
+.repair-contact { display: grid; gap: 5px; justify-items: start; font-size: 12px; overflow-wrap: anywhere; }
+.repair-contact-filter { margin: 12px; max-width: 220px; }
+.repair-contact small { color: var(--text-secondary); }
+@media (max-width: 767px) {
+  .repair-requirement .button, .repair-batch-toolbar .button, .repair-contact .button { min-height: 44px; }
+  .repair-batch-selection { min-height: 44px; }
+  .repair-batch-row .field { max-width: none; width: 100%; }
+  .supplier-batch-dialog { width: calc(100vw - 24px); }
+}
+
+@media (min-width: 768px) {
+  .repair-unified-list .repair-module-table__head, .repair-unified-list .repair-module-row { grid-template-columns: minmax(165px,1.15fr) minmax(110px,.8fr) minmax(170px,1.1fr) minmax(180px,1.2fr) 108px 108px 148px; }
+}
+@media (max-width: 767px) {
+  .repair-unified-list .repair-module-row__quick { grid-column: 1 / -1; grid-row: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+  .repair-unified-list .repair-contact { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+  .repair-unified-list .repair-contact > span { overflow-wrap: anywhere; }
+  .repair-unified-list .repair-module-row__waiting { grid-column: 1 / -1; }
+}
+@media (max-width: 767px) {
+  .repair-page .module-heading__actions, .procurement-page .module-heading__actions { flex: 0 1 auto; max-width: 100%; width: 100%; margin-left: 0; }
+}

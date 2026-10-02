@@ -5,7 +5,9 @@ import { parseStoreSettings, type StoreSettings } from "../store-settings";
 import { normalizeCustomerPhone, updateCustomerProfile, type CustomerProfile } from "../customers";
 import { appendIntakeSignature, intakeDirectoryEntry, intakeRecordTime, validLocalIntake, type IntakeReceiptData, type IntakeSignatureDraft, type IntakePolicy } from "../repair-intake-record";
 import { initialRepairWorkflow, applyWorkflowCommand, type WorkflowCommand } from "../repair-workflow";
+import { currentRepairRequirements } from "../repair-requirements";
 import { appendProcurementEvent, isPreorder, procurementStatus, validateProcurementDraft, type ProcurementRecord, type ProcurementEvent } from "../procurement";
+import { applyProcurementBatch, ProcurementBatchError, resolveSupplierId, type ProcurementBatchItem } from "../procurement-batch";
 import { createRetailUnit, applyRetailCommand, currentRetailSale, saleProductUnit, retailCategories, type RetailUnit, type RetailCommand } from "../retail";
 import { emptyIntakeServices } from "../intake-services";
 import { projectState, loadState } from "./state";
@@ -14,7 +16,7 @@ import { retailCommandPermission, requireRetailAfterSaleRepair } from "../retail
 import { BackendError, withDatabase, type AuthIdentity } from "./database";
 import type { BackendCommand, BackendSnapshot } from "./contracts";
 import { parseIntakePhotoAttachments, putIntakePhotos } from "./intake-photos";
-import { fields, intakeFields, procurementFields, customerFields, settingsFields, memberFields, retailFields, commandFields } from "./input";
+import { fields, intakeFields, procurementFields, workflowCommandFields, customerFields, settingsFields, memberFields, retailFields, commandFields } from "./input";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function authorize(member: StaffMember, permission: Permission) { if (!can(member,permission)) throw new BackendError("当前账号没有此操作权限。",403); }
@@ -23,6 +25,27 @@ function integer(value: unknown) { if (!Number.isSafeInteger(value) || Number(va
 function identifier(value: unknown) { if (typeof value!=="string" || !value || value.length>100) throw new BackendError("记录标识无效。");return value; }
 function policy(settings:StoreSettings):IntakePolicy { return {months:settings.repairWarrantyMonths,shopName:settings.shopName,address:settings.address,phone:settings.phone}; }
 function exactKeys(value:Record<string,unknown>, allowed:string[]) {if(Object.keys(value).some(key=>!allowed.includes(key))) throw new BackendError("请求包含不支持的字段。");}
+
+function procurementSupplier(state:BackendSnapshot,record:ProcurementRecord,required=false,active=false) {
+  const supplierId=resolveSupplierId(record,state.settings.suppliers);
+  const supplier=state.settings.suppliers.find(row=>row.id===supplierId);
+  if(!supplier) {
+    if(required || record.supplierId!==undefined) throw new BackendError("供应商无法唯一核对，请重新选择门店供应商。",409);
+    return undefined;
+  }
+  if(active && !supplier.active) throw new BackendError("供应商已停用，请重新核对下单范围。",409);
+  return supplier;
+}
+function checkRequirement(state:BackendSnapshot,record:ProcurementRecord) {
+  const intake=state.intakes.find(row=>row.id===record.repairId);
+  if(!intake) throw new BackendError("关联工单不存在。",404);
+  if(record.requirementId!==undefined || record.requirementRevision!==undefined) {
+    const requirements=currentRepairRequirements(intakeDirectoryEntry(intake),state.workflows[intake.id]);
+    const item=requirements.find(item=>item.id===record.requirementId);
+    if(!item || item.mode!=="parts" || item.revision!==record.requirementRevision) throw new BackendError("维修项目或接单要求已变化，请重新核对关联。",409);
+  }
+  return intake;
+}
 
 async function putCustomer(tx:TransactionSql,storeId:string, data:CustomerProfile) {
   const [row] = await tx`insert into chinatech_v2_private.customers(store_id,normalized_phone,data) values(${storeId},${normalizeCustomerPhone(data.phone)},${tx.json(data)}) on conflict(store_id,normalized_phone) do update set data=excluded.data returning id`;
@@ -57,6 +80,19 @@ async function ensureCustomer(tx:TransactionSql,state:BackendSnapshot,data:Intak
 }
 async function putRetail(tx:TransactionSql,storeId:string,unit:RetailUnit) {await tx`insert into chinatech_v2_private.retail_units(store_id,id,data) values(${storeId},${unit.id},${tx.json(unit)}) on conflict(store_id,id) do update set data=excluded.data`;}
 
+async function putProcurementRecords(tx:TransactionSql,storeId:string,records:ProcurementRecord[],time:string) {
+  // All records have already been checked against the transaction's current state.
+  // One statement retains each work order's allocation without merging identities.
+  const rows=records.map(record=>({id:record.id,repair_id:record.repairId,data:record}));
+  await tx`insert into chinatech_v2_private.procurement_records(store_id,id,repair_id,data)
+    select ${storeId},batch_row.id,batch_row.repair_id,batch_row.data
+    from jsonb_to_recordset(${tx.json(rows)}::jsonb) as batch_row(id text,repair_id text,data jsonb)
+    on conflict(store_id,id) do update set data=excluded.data`;
+  const repairIds=[...new Set(records.map(record=>record.repairId))];
+  await tx`update chinatech_v2_private.repair_intakes set data=jsonb_set(data,'{updatedAt}',${tx.json(time)}::jsonb)
+    where store_id=${storeId} and id in ${tx(repairIds)}`;
+}
+
 async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,kind:string,p:Record<string,unknown>,requestId:string) {
   const time=intakeRecordTime();
   if(kind==="intake.save") {
@@ -88,33 +124,83 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     const data=state.intakes.find(row=>row.id===identifier(p.id));if(!data) throw new BackendError("工单不存在。",404);
     const current=state.workflows[data.id]??initialRepairWorkflow(intakeDirectoryEntry(data));
     if(current.revision!==integer(p.revision)) throw new BackendError("维修流程已变化，请重新核对。",409);
-    const next=applyWorkflowCommand(current,p.command as WorkflowCommand,{id:requestId,time},state.procurement,data.id,integer(p.revision));
+    const command=object(p.command);
+    if(typeof command.type!=="string" || !Object.hasOwn(workflowCommandFields,command.type)) throw new BackendError("不支持的维修操作。");
+    fields(command,["type",...workflowCommandFields[command.type]]);
+    const next=applyWorkflowCommand(current,p.command as WorkflowCommand,{id:requestId,time,actorId:member.id},state.procurement,data.id,integer(p.revision),intakeDirectoryEntry(data));
     await tx`update chinatech_v2_private.repair_intakes set workflow=${tx.json(next)} where store_id=${state.storeId} and id=${data.id}`;return data.id;
   }
   if(kind==="procurement") {
-    exactKeys(p,["type","record","id","event","revision"]);authorize(member,"repairs.edit");
+    exactKeys(p,["type","record","id","event","revision","workflowRevision","intakeRevision","requirementId","requirementRevision","note"]);authorize(member,"repairs.edit");
     let next:ProcurementRecord;
-    if(p.type==="create") {
+    if(p.type==="create" || p.type==="create-cart") {
       const draft=p.record as ProcurementRecord;fields(draft,procurementFields);identifier(draft.id);validateProcurementDraft(draft);
       if(draft.events.length || state.procurement.some(row=>row.id===draft.id)) throw new BackendError("采购编号已存在或包含历史事件。",409);
-      if(draft.unitCostCents!==null) authorize(member,"financial.edit");next={...draft,events:[],reference:""};
+      if(draft.unitCostCents!==null) authorize(member,"financial.edit");
+      const intake=checkRequirement(state,draft);
+      if(p.type==="create-cart") {
+        if((intake.revision??1)!==integer(p.intakeRevision) || (state.workflows[intake.id]?.revision??0)!==integer(p.workflowRevision)) throw new BackendError("工单或维修项目已变化，请重新核对选件。",409);
+        if(typeof draft.supplierId!=="string" || !draft.supplierId) throw new BackendError("请选择已登记的门店供应商。");
+      }
+      const supplier=procurementSupplier(state,draft,p.type==="create-cart",true);
+      next={...draft,...(supplier?{supplierId:supplier.id,supplier:supplier.name}:{}),events:[],reference:""};
+      if(p.type==="create-cart") next=appendProcurementEvent(next,{id:requestId,type:"cart_added",quantity:0,time,note:"核对配件后加入采购车。",actorId:member.id});
     } else {
       const id=p.type==="edit"?(p.record as ProcurementRecord)?.id:identifier(p.id);const record=state.procurement.find(row=>row.id===id);
       if(!record) throw new BackendError("采购记录不存在。",404);
       if(record.events.length!==integer(p.revision)) throw new BackendError("采购记录已变化，请重新核对。",409);
       if(p.type==="edit") {
         if(!isPreorder(record)) throw new BackendError("已下单配件不能改写。");
-        const draft=p.record as ProcurementRecord;fields(draft,procurementFields);validateProcurementDraft({...draft,events:[]});
+        const submitted=p.record as ProcurementRecord;fields(submitted,procurementFields);
+        const draft={...submitted,
+          supplierId:submitted.supplierId===undefined?record.supplierId:submitted.supplierId,
+          requirementId:submitted.requirementId===undefined?record.requirementId:submitted.requirementId,
+          requirementRevision:submitted.requirementRevision===undefined?record.requirementRevision:submitted.requirementRevision,
+          specification:submitted.specification===undefined?record.specification:submitted.specification,
+          required:submitted.required===undefined?record.required:submitted.required};
+        validateProcurementDraft({...draft,events:[]});
         if(draft.repairId!==record.repairId) throw new BackendError("不能更换关联工单。");
+        if(draft.requirementId!==record.requirementId || draft.requirementRevision!==record.requirementRevision) throw new BackendError("请通过重新核对项目关联更新需求引用。",409);
+        if(submitted.supplierId===undefined && record.supplierId!==undefined && draft.supplier!==record.supplier) throw new BackendError("供应商已使用稳定标识，请重新选择供应商。",409);
+        const supplier=procurementSupplier(state,draft,false,draft.supplierId!==record.supplierId || draft.supplier!==record.supplier);
+        if(supplier && (draft.supplierId!==record.supplierId || draft.supplier!==record.supplier)) {draft.supplierId=supplier.id;draft.supplier=supplier.name;}
         if(!can(member,"financial.edit")){if(draft.unitCostCents!==null && draft.unitCostCents!==undefined) throw new BackendError("当前账号不能编辑采购成本。",403);draft.unitCostCents=record.unitCostCents;}
-        let history=record;if(procurementStatus(record)==="cart") history=appendProcurementEvent(history,{id:randomUUID(),type:"cart_removed",quantity:0,time,note:"配件资料更正，取消原加车标记。"});
-        history=appendProcurementEvent(history,{id:requestId,type:"details_changed",quantity:0,time,note:"配件资料已更正。"});next={...draft,reference:record.reference,events:history.events};
-      } else if(p.type==="append") { const event=p.event as ProcurementEvent;next=appendProcurementEvent(record,{...event,time,id:requestId},record.events.length); }
+        let history=record;if(procurementStatus(record)==="cart") history=appendProcurementEvent(history,{id:randomUUID(),type:"cart_removed",quantity:0,time,note:"配件资料更正，取消原加车标记。",actorId:member.id});
+        history=appendProcurementEvent(history,{id:requestId,type:"details_changed",quantity:0,time,note:"配件资料已更正。",actorId:member.id});next={...draft,reference:record.reference,events:history.events};
+      } else if(p.type==="link_requirement") {
+        const requirementId=identifier(p.requirementId);const requirementRevision=integer(p.requirementRevision);
+        if(typeof p.note!=="string" || !p.note.trim() || p.note.length>500) throw new BackendError("重新核对项目关联须填写原因，最多500字。");
+        if(record.requirementId===requirementId && record.requirementRevision===requirementRevision) throw new BackendError("项目关联没有变化。");
+        const linked={...record,requirementId,requirementRevision};checkRequirement(state,linked);
+        const note=`${record.requirementId??"未关联"}@${record.requirementRevision??"未知"} → ${requirementId}@${requirementRevision}；${p.note.trim()}`;
+        next=appendProcurementEvent(linked,{id:requestId,type:"requirement_linked",quantity:0,time,note,actorId:member.id},record.events.length);
+      } else if(p.type==="append") {
+        const event=p.event as ProcurementEvent;fields(event,["type","id","time","note","quantity","arrivalId","reference"]);
+        if(event.type==="requirement_linked" || event.type==="details_changed") throw new BackendError("请通过对应资料核对操作追加历史。");
+        if(event.type==="ordered" || event.type==="cart_added") {checkRequirement(state,record);procurementSupplier(state,record,false,true);}
+        next=appendProcurementEvent(record,{...event,time,id:requestId,actorId:member.id},record.events.length);
+      }
       else throw new BackendError("未知采购操作。");
     }
     const repair=state.intakes.find(row=>row.id===next.repairId);if(!repair) throw new BackendError("关联工单不存在。",404);
-    await tx`insert into chinatech_v2_private.procurement_records(store_id,id,repair_id,data) values(${state.storeId},${next.id},${next.repairId},${tx.json(next)}) on conflict(store_id,id) do update set data=excluded.data`;
-    await putIntake(tx,state,{...repair,updatedAt:time});return next.id;
+    await putProcurementRecords(tx,state.storeId,[next],time);return next.id;
+  }
+  if(kind==="procurement.batch") {
+    exactKeys(p,["action","supplierId","items"]);authorize(member,"repairs.edit");
+    if(p.action!=="ordered" && p.action!=="arrival") throw new BackendError("请选择批量下单或实际到货。");
+    const supplierId=identifier(p.supplierId);
+    if(!Array.isArray(p.items) || p.items.length<1 || p.items.length>100) throw new BackendError("每批须选择1–100条采购。");
+    let ledger:ProcurementRecord[];
+    try {ledger=applyProcurementBatch(state.procurement,p.action,supplierId,p.items as ProcurementBatchItem[],state.settings.suppliers,{id:requestId,time,actorId:member.id});}
+    catch(error) {if(error instanceof ProcurementBatchError) throw new BackendError(error.message,error.status);throw error;}
+    const selected=new Set((p.items as ProcurementBatchItem[]).map(item=>item.id));
+    const updated=ledger.filter(record=>selected.has(record.id));
+    const intakes=new Set(state.intakes.map(intake=>intake.id));
+    for(const record of updated) {
+      if(!intakes.has(record.repairId)) throw new BackendError("关联工单不存在。",404);
+      if(p.action==="ordered") checkRequirement(state,record);
+    }
+    await putProcurementRecords(tx,state.storeId,updated,time);return requestId;
   }
   if(kind==="retail") {
     exactKeys(p,["type","unit","id","command","version"]);

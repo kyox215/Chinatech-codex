@@ -7,6 +7,7 @@ import { useRepairDirectory } from "./local-intake-store";
 import { useRepairWorkflows, updateRepairWorkflow } from "./repair-workflow-store";
 import { useProcurement } from "@/components/procurement/procurement-provider";
 import { useStaff } from "@/components/staff/use-staff";
+import { RepairContactControl } from "./repair-contact-control";
 import { RepairStageControl } from "./repair-stage-control";
 import styles from "./repair-workflow-panel.module.css";
 
@@ -21,7 +22,7 @@ export function RepairWorkflowPanel({ repairId, metadata, historyContent }: { re
   const custodyRevision = useRef<number | null>(null);
   if (!order) return null;
   const workflow = workflows[repairId] ?? initialRepairWorkflow(order);
-  const notice = arrivalNotice(workflow, records, repairId);
+  const notice = arrivalNotice(workflow, records, repairId, order);
   const update = async (command: WorkflowCommand) => {
     try {
       await updateRepairWorkflow(order, command, records, command.type === "custody" ? custodyRevision.current ?? workflow.revision : workflow.revision);
@@ -38,7 +39,7 @@ export function RepairWorkflowPanel({ repairId, metadata, historyContent }: { re
       </details> : <span className={styles.notice}><Home size={15} />{custodyLabels[workflow.custody]}</span>}
       <span className={styles.notice}><Phone size={14} />{notice}</span>
     </div>
-    {canEdit && workflow.custody === "customer" && ["未通知送机", "已通知送机"].includes(notice) ? <div className={styles.contactActions}><button className="button button--secondary button--tiny" type="button" disabled={Boolean(storageError)} onClick={() => update({ type: "arrival_notice", outcome: "notified", note: "已实际成功告知本次到货" })}>已沟通通知</button><button className="button button--secondary button--tiny" type="button" disabled={Boolean(storageError)} onClick={() => update({ type: "arrival_notice", outcome: "unreachable", note: "未接通" })}>未接通</button></div> : null}
+    <RepairContactControl order={order} />
     {error || storageError ? <p role="alert" className="form-error">{error || storageError}</p> : null}
     {metadata ? <div className={styles.metadata}>{metadata}</div> : null}
     {workflow.events.length || historyContent ? <details className={styles.history}><summary><History size={16} /><span>状态与操作历史</span>{workflow.events.length ? <small>{workflow.events.length} 次操作</small> : null}<ChevronDown size={14} /></summary>

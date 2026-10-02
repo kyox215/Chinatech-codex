@@ -35,8 +35,7 @@ test("故障标签和补充并存；照片拒绝非图像和过大文件",()=>{
 });
 const servicesModule = ts.transpileModule(readFileSync(new URL("../lib/intake-services.ts", import.meta.url),"utf8"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const { emptyIntakeServices, normalizeIntakeServices, intakeServiceLabels } = await import("data:text/javascript;base64," + Buffer.from(servicesModule).toString("base64"));
-const recordModule = ts.transpileModule(readFileSync(new URL("../lib/repair-intake-record.ts", import.meta.url),"utf8"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
-const recordUrl = "data:text/javascript;base64," + Buffer.from(recordModule).toString("base64");
+
 const dependencyUrls = new Map();
 function dependencyUrl(name) {
  if(dependencyUrls.has(name)) return dependencyUrls.get(name);
@@ -44,6 +43,7 @@ function dependencyUrl(name) {
  code=code.replace(/from "\.\/([^"]+)"/g,(_,dep)=>`from "${dependencyUrl([...name.split("/").slice(0,-1),dep].join("/"))}"`);
  const url="data:text/javascript;base64,"+Buffer.from(code).toString("base64");dependencyUrls.set(name,url);return url;
 }
+const recordUrl = dependencyUrl("repair-intake-record");
 const { parseLocalIntakes, validLocalIntake, intakeDirectoryEntry, intakeRecordTime } = await import(recordUrl);
 const receipt = {id:"LOCAL-0123456789ABCDEF",createdAt:"2026-09-30 12:00:00",updatedAt:"2026-09-30 12:00:00",previewAt:"2026-09-30 12:00",customerName:"",phone:"+39 320 000 1099",email:"",category:"手机",brand:"Apple",model:"iPhone 16",color:"蓝色",serial:"DEMO-INTAKE-099",issue:"屏幕：碎裂",accessories:["SIM 卡托"],services:emptyIntakeServices,priority:"普通",photoCount:0};
 test("配件类型不混入故障；切换品牌、原装或取消故障清理不适用选择",()=>{

@@ -129,7 +129,7 @@ test("selected device facts save, reload and supplier choice saves to the same o
   await activate(page, supplier);
   await activate(page, page.getByRole("option", { name: "MobileParts SRL", exact: true }));
   await expect(supplier).toHaveValue("MobileParts SRL");
-  await activate(page, page.getByRole("dialog", { name: "供应商与配件" }).getByRole("button", { name: "添加配件", exact: true }));
+  await activate(page, page.getByRole("dialog", { name: "供应商与配件" }).getByRole("button", { name: "加入采购车", exact: true }));
   await expect(page.getByRole("combobox", { name: "供应商" })).toHaveCount(0);
   await activate(page, page.getByRole("button", { name: "关闭配件操作" }));
   await page.reload();

@@ -4,7 +4,11 @@ export function fields(value:unknown,allowed:readonly string[]) {
   if(!value || typeof value!=="object" || Array.isArray(value) || Object.keys(value).some(key=>!allowed.includes(key))) throw new BackendError("请求包含无效或不支持的字段。");
 }
 export const intakeFields=["revision","policy","faults","issueNote","retailOrigin","custody","id","createdAt","updatedAt","previewAt","customerName","phone","email","category","brand","model","color","serial","issue","accessories","services","priority","photoCount","photos"];
-export const procurementFields=["id","repairId","item","supplier","quantity","unitCostCents","expectedAt","reference","events","required"];
+export const procurementFields=["id","repairId","item","supplier","quantity","unitCostCents","expectedAt","reference","events","required","supplierId","requirementId","requirementRevision","specification"];
+export const workflowCommandFields:Record<string,string[]>={
+  stage:["status","note"],custody:["custody"],arrival_notice:["outcome","note"],pickup_notice:["outcome","note"],
+  requirement:["item","note"],followup:["flag","value","note","delivered","unpaid"],
+};
 export const customerFields=["phone","name","email","note","updatedAt"];
 export const settingsFields=["repairGroups","revision","shopName","address","phone","paper","repairWarrantyMonths","retailWarrantyMonths","suppliers","finance"];
 export const memberFields=["id","name","email","role","accountStatus","membershipStatus","permissions","revision"];

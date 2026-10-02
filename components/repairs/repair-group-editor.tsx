@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 
 import { createPortal } from "react-dom";
 import { ArrowDown, ArrowUp, Check, GripVertical, X } from "lucide-react";
 import { saveStoreSettings } from "@/components/settings/settings-store";
-import { defaultRepairGroups, moveRepairGroup, parseRepairGroups, type RepairGroupItem, type RepairGroupKind, type RepairGroupSettings } from "@/lib/repair-groups";
+import { defaultRepairGroups, moveRepairGroup, visibleRepairGroups, mergeVisibleRepairGroups, type RepairGroupItem, type RepairGroupKind } from "@/lib/repair-groups";
 import type { StoreSettings } from "@/lib/store-settings";
 import styles from "./repair-group-editor.module.css";
 
@@ -13,7 +13,7 @@ export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settin
   const list = useRef<HTMLDivElement>(null);
   const [revision] = useState(settings.revision);
   const [initial] = useState(() => structuredClone(settings.repairGroups ?? defaultRepairGroups()));
-  const [rows, setRows] = useState<RepairGroupItem[]>(() => initial[kind]);
+  const [rows, setRows] = useState<RepairGroupItem[]>(() => visibleRepairGroups(initial, kind));
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -24,7 +24,7 @@ export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settin
   const frame = useRef<number | null>(null);
   const settle = useRef<Map<string, number> | null>(null);
   const [drag, setDrag] = useState<{ key: string; target: string; offset: number; from: number; to: number; positions: DragPosition[] } | null>(null);
-  const changed = JSON.stringify(rows) !== JSON.stringify(initial[kind]);
+  const changed = JSON.stringify(rows) !== JSON.stringify(visibleRepairGroups(initial, kind));
   function stopFrame() {
     if (frame.current !== null) cancelAnimationFrame(frame.current);
     frame.current = null;
@@ -105,7 +105,7 @@ export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settin
     if (busy.current) return;
     busy.current = true; setSaving(true); setError("");
     try {
-      const repairGroups = parseRepairGroups({ ...initial, [kind]: rows } as RepairGroupSettings);
+      const repairGroups = mergeVisibleRepairGroups(initial, kind, rows);
       await saveStoreSettings(revision, current => ({ ...current, repairGroups }));
       onSaved();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败，请重试。"); }

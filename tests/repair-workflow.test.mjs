@@ -30,27 +30,22 @@ test('SeaTable状态分组遵循既有事实，维修中和结束优先于采购
 test('到货通知组随已保存沟通与采购签名联动，未接通和新增需求不能沿用', () => {
   const customer = {...initialRepairWorkflow(order),custody:'customer'};
   const notified = apply(customer,{type:'arrival_notice',outcome:'notified',note:'DEMO沟通'});
-  assert.equal(workflowGroup(order,[part],notified),'arrival_notified');
+  assert.equal(workflowGroup(order,[part],notified),'arrival');
   assert.equal(workflowGroup(order,[part],{...notified,notice:{...notified.notice,outcome:'unreachable'}}),'arrival');
   assert.equal(workflowGroup(order,[part,{...part,id:'P2',events:[]}],notified),'purchase');
   assert.equal(workflowGroup(order,[part],{...notified,custody:'store'}),'arrival');
 });
-test('新人工阶段有共享标签并保留版本、通知和欠款保管校验', () => {
-  for (const status of ['awaiting_reply','outsourced']) {
-    const flow=apply(initialRepairWorkflow(order),{type:'stage',status,note:''});
-    assert.equal(workflowGroup(order,[],flow),status);
-    assert.equal(overlayRepair(order,flow).status,status);
-  }
-  assert.throws(()=>apply(initialRepairWorkflow(order),{type:'stage',status:'ready_notified',note:''}),/待取机/);
-  const ready={...initialRepairWorkflow(order),status:'ready'};
-  const notified=apply(ready,{type:'stage',status:'ready_notified',note:''});
-  assert.equal(workflowGroup(order,[],notified),'ready_notified');
-  assert.throws(()=>apply(ready,{type:'stage',status:'collected_unpaid',note:'DEMO确认'}),/保管/);
-  assert.throws(()=>apply({...ready,custody:'customer'},{type:'stage',status:'collected_unpaid',note:''}),/原因/);
-  const unpaid=apply({...ready,custody:'customer'},{type:'stage',status:'collected_unpaid',note:'DEMO确认欠款取走'});
-  assert.equal(workflowGroup(order,[],unpaid),'collected_unpaid');
-  assert.throws(()=>apply(unpaid,{type:'stage',status:'diagnosis',note:''},[],'A2'),/原因/);
-  assert.equal(part.events.length,2);
+test('旧等待/欠款不推断修好，旧通知兼容，交还通过明确跟进事实记录', () => {
+  for(const status of ['awaiting_reply','collected_unpaid'])assert.equal(workflowGroup({...order,status},[]),'processing');
+  assert.equal(workflowGroup({...order,status:'outsourced'},[]),'outsourced');
+  assert.throws(()=>apply(initialRepairWorkflow(order),{type:'stage',status:'ready_notified',note:''}),/修好/);
+  const ready=apply(initialRepairWorkflow(order),{type:'stage',status:'ready',note:''});
+  const notified=apply(ready,{type:'stage',status:'ready_notified',note:''},[],'A2');
+  assert.equal(workflowGroup(order,[],notified),'ready');
+  assert.throws(()=>apply(ready,{type:'stage',status:'collected_unpaid',note:'DEMO确认'},[],'A2'),/交还/);
+  assert.throws(()=>apply(ready,{type:'followup',flag:'collectedUnpaid',value:true,note:'DEMO'},[],'A2'),/交还/);
+  const unpaid=apply(ready,{type:'followup',flag:'collectedUnpaid',value:true,note:'DEMO交还欠款',delivered:true,unpaid:true},[],'A2');
+  assert.equal(unpaid.custody,'customer');assert.equal(unpaid.followUp.collectedUnpaid,true);assert.equal(workflowGroup(order,[],unpaid),'ready');assert.equal(part.events.length,2);
 });
 test('持久配件重放数量事实，拒绝损坏/超量/重复编号', () => { const state = { version: 1, records: [part], repairUpdates: {} }; assert.equal(parseProcurementState(JSON.stringify(state)).records[0].events.length, 2); assert.throws(() => parseProcurementState(JSON.stringify({ ...state, records: [{ ...part, events: [...part.events, { id: 'overflow', type: 'arrival', quantity: 1, note: '', time: activity.time }] }] }))); assert.throws(() => parseProcurementState(JSON.stringify({ ...state, records: [part, part] }))); });
 test('经营收支只计已登记且未作废的整数分，销售与采购不会自动成为收支', () => { const base = { id: 'E1', kind: 'income', amountCents: 1250, purpose: 'DEMO收款', relatedId: '', note: '', time: activity.time }; validateFinanceEntry(base); assert.throws(() => validateFinanceEntry({ ...base, amountCents: 0 })); assert.throws(() => validateFinanceEntry({ ...base, amountCents: 1.5 })); assert.deepEqual(financeTotals([base, { ...base, id: 'E2', kind: 'expense', amountCents: 250 }, { ...base, id: 'E3', voidReason: '误记' }]), { income: 1250, expense: 250, balance: 1000 }); assert.equal(defaultStoreSettings.finance.length, 0); });

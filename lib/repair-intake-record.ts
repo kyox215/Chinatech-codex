@@ -1,3 +1,4 @@
+import { intakeRequirements, type RepairRequirement } from "./repair-requirements";
 import type { IntakeServices } from "./intake-services";
 import type { RepairOrder } from "./repair-fixtures";
 
@@ -18,13 +19,13 @@ export type IntakeReceiptData = {
   issue: string; accessories: string[]; services: IntakeServices;
   priority: "普通" | "优先" | "紧急"; photoCount: number; photos?: IntakePhotoReference[];
 };
-export type RepairDirectoryEntry = Pick<RepairOrder, "id" | "status" | "statusLabel" | "tone" | "priority" | "customer" | "device" | "issue" | "accessories" | "createdAt" | "updatedAt" | "technician" | "waitingFor"> & { custody?: "store" | "customer" };
+export type RepairDirectoryEntry = Pick<RepairOrder, "id" | "status" | "statusLabel" | "tone" | "priority" | "customer" | "device" | "issue" | "accessories" | "createdAt" | "updatedAt" | "technician" | "waitingFor"> & { custody?: "store" | "customer"; requirements?: RepairRequirement[]; intakeRevision?: number; deviceFingerprint?: string };
 export const localIntakeId = (id: string) => /^LOCAL-[A-F0-9]{16}$/.test(id);
 export function intakeRecordTime(date = new Date()): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome", dateStyle: "short", timeStyle: "medium", hour12: false }).format(date);
 }
 export function intakeDirectoryEntry(data: IntakeReceiptData): RepairDirectoryEntry {
-  return { id: data.id, status: "diagnosis", statusLabel: "待检测", tone: "warning", priority: data.priority,
+  return { requirements: intakeRequirements(data), deviceFingerprint: JSON.stringify([data.category, data.brand, data.model]), intakeRevision: data.revision ?? 1, id: data.id, status: "diagnosis", statusLabel: "待检测", tone: "warning", priority: data.priority,
     customer: { name: data.customerName || "未填写姓名", phone: data.phone },
     device: { category: data.category, brand: data.brand, model: data.model, color: data.color, serial: data.serial },
     issue: data.issue, accessories: data.accessories, createdAt: data.createdAt, updatedAt: data.updatedAt,

@@ -14,13 +14,15 @@ function dataUrl(code) { return `data:text/javascript;base64,${Buffer.from(code)
 let instance = 0;
 async function store(path, extra = '', tail = '') {
   let code = compile(path).replace(/import \{[^}]+\} from "react";/g, 'let captured; const React = {createElement(type, props) {captured = props; return null;}}; const createContext = () => ({Provider: "provider"}); const useCallback = fn => fn; const useContext = () => null; const useMemo = fn => fn(); const useSyncExternalStore = (subscribe, read) => read(); const useReducer = (reducer, initial) => [initial, action => Object.assign(initial, reducer(initial, action))];');
+  code = code.replace(/from "@\/components\/repairs\/repair-workflow-store"/g, () => { let flow=compile("components/repairs/repair-workflow-store.ts").replace(/import \{[^}]+\} from "react";/g,"const useSyncExternalStore=()=>{};").replace(/from "@\/lib\/([^"]+)"/g,(_,dep)=>`from "${library(dep)}"`);return `from "${dataUrl(flow)}"`; });
   code = code.replace(/from "@\/lib\/([^"]+)"/g, (_, dep) => `from "${library(dep)}"`);
   return import(dataUrl(`${code}\nexport {read as readSnapshot${extra}};\n${tail}\n// instance ${instance++}`));
 }
 function browser(raw = null) {
   const value = new EventTarget(); let saved = raw; let staffSaved = null;
   value.denyRead = false; value.denyWrite = false; value.reads = 0; value.afterWriteDenyRead = false;
-  value.localStorage = { getItem(key) { value.reads++; if (value.denyRead) throw new Error('temporary read failure'); return key === 'chinatech.m1.staff.v1' ? staffSaved : saved; }, setItem(key, next) { if (value.denyWrite) throw new Error('quota'); if(key === 'chinatech.m1.staff.v1') staffSaved = next; else saved = next; if (value.afterWriteDenyRead) value.denyRead = true; } };
+  const others = new Map(); let primary;
+  value.localStorage = { getItem(key) { value.reads++; if (value.denyRead) throw new Error('temporary read failure'); if(key === 'chinatech.m1.staff.v1')return staffSaved; if(primary === undefined)primary=key;return key===primary?saved:others.get(key)??null; }, setItem(key,next) {if(value.denyWrite)throw new Error('quota');if(key==='chinatech.m1.staff.v1')staffSaved=next;else if(key===primary||key==='')saved=next;else others.set(key,next);if(value.afterWriteDenyRead)value.denyRead=true;} };
   value.saved = () => saved;
   return value;
 }
@@ -39,7 +41,7 @@ test('整机坏存储的错误快照保持引用稳定，修复内容后可恢�
     assert.equal(storeModule.readSnapshot(), recovered);
   });
 });
-const part = { id: 'DEMO-P1', repairId: 'DEMO-R1', item: 'DEMO 配件', supplier: 'DEMO 供应商', quantity: 1, unitCostCents: null, expectedAt: '', reference: '', events: [] };
+const part = { id: 'DEMO-P1', repairId: 'CT-2026-0929', item: 'DEMO 配件', supplier: 'MobileParts SRL', quantity: 1, unitCostCents: null, expectedAt: '', reference: '', events: [] };
 const procurementRaw = records => JSON.stringify({ version: 1, records, repairUpdates: {} });
 test('采购、设置和维修状态的暂时读失败恢复，同内容不会锁死操作', async () => {
   for (const [path, errorKey] of [['components/procurement/procurement-provider.tsx', 'storageError'], ['components/settings/settings-store.ts', 'error'], ['components/repairs/repair-workflow-store.ts', 'error']]) {
@@ -53,16 +55,16 @@ test('采购先完整验证再写入，1001条记录/事件不会破坏已有账
     [[{ ...part, events: histories }], { type: 'append', id: part.id, revision: 1000, event: { id: 'E1001', type: 'cart_added', quantity: 0, time: '2026-10-01 10:00:00', note: '' } }],
   ]) {
     const original = procurementRaw(records);
-    await withBrowser(browser(original), async () => { const storeModule = await store('components/procurement/procurement-provider.tsx', ', dispatchAction as dispatchTest'); storeModule.dispatchTest(action); assert.equal(storeModule.readSnapshot().feedback.error, true); assert.equal(window.saved(), original); assert.equal(storeModule.readSnapshot().records.length, records.length); });
+    await withBrowser(browser(original), async () => { const storeModule = await store('components/procurement/procurement-provider.tsx', ', dispatchAction as dispatchTest'); await assert.rejects(storeModule.dispatchTest(action)); assert.equal(storeModule.readSnapshot().feedback.error, true); assert.equal(window.saved(), original); assert.equal(storeModule.readSnapshot().records.length, records.length); });
   }
 });
 test('采购写入成功直接发布；随后读失败不会误报原操作失败', async () => {
-  await withBrowser(browser(procurementRaw([])), async () => { const storeModule = await store('components/procurement/procurement-provider.tsx', ', dispatchAction as dispatchTest'); storeModule.readSnapshot(); window.afterWriteDenyRead = true; storeModule.dispatchTest({ type: 'create', record: part }); assert.equal(JSON.parse(window.saved()).records[0].id, part.id); assert.equal(storeModule.readSnapshot().feedback.error, false); window.denyRead = false; assert.equal(storeModule.readSnapshot().records[0].id, part.id); });
+  await withBrowser(browser(procurementRaw([])), async () => { const storeModule = await store('components/procurement/procurement-provider.tsx', ', dispatchAction as dispatchTest'); storeModule.readSnapshot(); window.afterWriteDenyRead = true; await storeModule.dispatchTest({ type: 'create', record: part }); assert.equal(JSON.parse(window.saved()).records[0].id, part.id); assert.equal(storeModule.readSnapshot().feedback.error, false); window.denyRead = false; assert.equal(storeModule.readSnapshot().records[0].id, part.id); });
 });
 test('配件编辑保留历史并取消旧加车，写入失败或损坏存储不覆盖', async () => {
   const inCart = { ...part, events: [{ id: 'E1', type: 'cart_added', quantity: 0, time: '2026-09-30 10:00:00', note: '' }] };
-  await withBrowser(browser(procurementRaw([inCart])), async () => { const storeModule = await store('components/procurement/procurement-provider.tsx', ', dispatchAction as dispatchTest'); storeModule.dispatchTest({ type: 'edit', record: { ...inCart, supplier: 'DEMO 新供应商', quantity: 2 }, revision: 1 }); const row = storeModule.readSnapshot().records[0]; assert.deepEqual(row.events.map(event => event.type), ['cart_added', 'cart_removed', 'details_changed']); assert.equal(row.quantity, 2); const saved = window.saved(); window.denyWrite = true; storeModule.dispatchTest({ type: 'create', record: { ...part, id: 'DEMO-P2' } }); assert.equal(storeModule.readSnapshot().feedback.error, true); assert.equal(window.saved(), saved); });
-  await withBrowser(browser('{damaged'), async () => { const storeModule = await store('components/procurement/procurement-provider.tsx', ', dispatchAction as dispatchTest'); storeModule.dispatchTest({ type: 'create', record: part }); assert.equal(storeModule.readSnapshot().feedback.error, true); assert.equal(window.saved(), '{damaged'); });
+  await withBrowser(browser(procurementRaw([inCart])), async () => { const storeModule = await store('components/procurement/procurement-provider.tsx', ', dispatchAction as dispatchTest'); await storeModule.dispatchTest({ type: 'edit', record: { ...inCart, supplier: 'TechSupply Italia', quantity: 2 }, revision: 1 }); const row = storeModule.readSnapshot().records[0]; assert.deepEqual(row.events.map(event => event.type), ['cart_added', 'cart_removed', 'details_changed']); assert.equal(row.quantity, 2); const saved = window.saved(); window.denyWrite = true; await assert.rejects(storeModule.dispatchTest({ type: 'create', record: { ...part, id: 'DEMO-P2' } })); assert.equal(storeModule.readSnapshot().feedback.error, true); assert.equal(window.saved(), saved); });
+  await withBrowser(browser('{damaged'), async () => { const storeModule = await store('components/procurement/procurement-provider.tsx', ', dispatchAction as dispatchTest'); await assert.rejects(storeModule.dispatchTest({ type: 'create', record: part })); assert.equal(storeModule.readSnapshot().feedback.error, true); assert.equal(window.saved(), '{damaged'); });
 });
 test('设置与维修状态先保存再发布，旧版本/容量失败不改事实', async () => {
   await withBrowser(browser(), async () => { const settingsStore = await store('components/settings/settings-store.ts'); settingsStore.saveStoreSettings(0, current => ({ ...current, paper: 'a5' })); const saved = window.saved(); assert.equal(settingsStore.readSnapshot().settings.paper, 'a5'); assert.throws(() => settingsStore.saveStoreSettings(0, current => ({ ...current, paper: 'half' }))); assert.equal(window.saved(), saved); window.denyWrite = true; assert.throws(() => settingsStore.saveStoreSettings(1, current => ({ ...current, paper: 'half' }))); assert.equal(window.saved(), saved); });

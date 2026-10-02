@@ -11,9 +11,9 @@ test("owner renames, pointer-drags, saves, refreshes and shares groups between t
   const other = await context.newPage(); await other.goto("/app/repairs");
   await page.getByRole("button",{name:"管理分组",exact:true}).click();
   const dialog=page.getByRole("dialog",{name:"管理维修分组"});
-  await dialog.getByLabel("分组名称 久等 未答复",{exact:true}).fill("等待客户答复");
-  const handle=dialog.getByRole("button",{name:"拖动分组 寄修",exact:true});
-  const first=dialog.locator('[data-repair-group="awaiting_reply"]');
+  await dialog.getByLabel("分组名称 IN CORSO",{exact:true}).fill("等待客户答复");
+  const handle=dialog.getByRole("button",{name:"拖动分组 下单",exact:true});
+  const first=dialog.locator('[data-repair-group="outsourced"]');
   const start=await handle.boundingBox();const end=await first.boundingBox();
   expect(start).not.toBeNull();expect(end).not.toBeNull();
   if (test.info().project.name === "chromium-desktop") {
@@ -35,15 +35,15 @@ test("owner renames, pointer-drags, saves, refreshes and shares groups between t
     await page.screenshot({path:'.local/ui-proof/group-motion/webkit-during-drag.png'});
     await page.mouse.up();
   }
-  await expect(dialog.locator('[data-repair-group]').first()).toHaveAttribute('data-repair-group','outsourced');
+  await expect(dialog.locator('[data-repair-group]').first()).toHaveAttribute('data-repair-group','purchase');
   await dialog.getByRole("button",{name:"保存分组",exact:true}).click();
-  await expect(dialog).not.toBeVisible();await expect(headings(page).nth(0)).toHaveText("寄修");await expect(headings(page).nth(1)).toHaveText("等待客户答复");
-  await expect(headings(other).nth(1)).toHaveText("等待客户答复");
-  await page.reload();await expect(headings(page).nth(1)).toHaveText("等待客户答复");
+  await expect(dialog).not.toBeVisible();await expect(headings(page).nth(0)).toHaveText("下单");await expect(headings(page).nth(2)).toHaveText("等待客户答复");
+  await expect(headings(other).nth(2)).toHaveText("等待客户答复");
+  await page.reload();await expect(headings(page).nth(2)).toHaveText("等待客户答复");
   await page.getByRole("button",{name:"管理分组",exact:true}).click();
-  await dialog.getByLabel("分组名称 等待客户答复",{exact:true}).fill("寄修");
+  await dialog.getByLabel("分组名称 等待客户答复",{exact:true}).fill("下单");
   await dialog.getByRole("button",{name:"保存分组",exact:true}).click();await expect(dialog.getByRole("alert")).toContainText("重复");
-  await dialog.getByRole("button",{name:"取消",exact:true}).click();await expect(headings(page).nth(1)).toHaveText("等待客户答复");
+  await dialog.getByRole("button",{name:"取消",exact:true}).click();await expect(headings(page).nth(2)).toHaveText("等待客户答复");
   await other.close();
 });
 
@@ -66,7 +66,7 @@ test("concurrent edit is rejected and keyboard sorting works at four widths", as
   const newer=other.getByRole('dialog',{name:'管理维修分组'});await newer.getByLabel('分组名称 寄修',{exact:true}).fill('新设置');await newer.getByRole('button',{name:'保存分组',exact:true}).click();await expect(newer).not.toBeVisible();
   await dialog.getByRole('button',{name:'保存分组',exact:true}).click();await expect(dialog.getByRole('alert')).toContainText('变化');
   await dialog.getByRole('button',{name:'取消',exact:true}).click();await expect(headings(page)).toContainText(['新设置']);await other.close();
-  await page.getByRole('button',{name:'管理分组',exact:true}).click();await dialog.getByRole('button',{name:'拖动分组 新设置',exact:true}).press('ArrowUp');
+  await page.getByRole('button',{name:'管理分组',exact:true}).click();await dialog.getByRole('button',{name:'拖动分组 新设置',exact:true}).press('ArrowDown');
   await expect(dialog.locator('[data-repair-group]').nth(1)).toHaveAttribute('data-repair-group','outsourced');
   for(const width of [1440,1024,390,375]) {
     await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
@@ -86,19 +86,20 @@ test("parts group rename and order persist independently of workflow groups", as
   await dialog.getByRole('button',{name:'上移分组 待处理配件',exact:true}).click();await dialog.getByRole('button',{name:'保存分组',exact:true}).click();
   await expect(headings(page)).toHaveText(['待处理配件',original[0],...original.slice(2)]);
   await page.reload();const nextToggle=page.getByRole('button',{name:/^筛选/});if(test.info().project.use.isMobile)await nextToggle.click();
-  await expect(headings(page).first()).toHaveText('久等 未答复');
+  await expect(headings(page).first()).toHaveText('寄修');
   await page.getByLabel('工单分组',{exact:true}).selectOption('parts');await expect(headings(page).first()).toHaveText('待处理配件');
   await expect(page.getByLabel('配件状态筛选').locator('option').nth(1)).toHaveText('待处理配件');
 });
 
 test("drag previews scroll at the edge, Escape cancels and reduced motion keeps live feedback", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({width: test.info().project.use.isMobile ? 375 : 1440, height:600});
   await page.goto('/app/repairs');
   await page.getByRole('button',{name:'管理分组',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'管理维修分组'});
   const list=dialog.locator('[data-dragging]');
   const rows=dialog.locator('[data-repair-group]');
-  const first=dialog.getByRole('button',{name:'拖动分组 久等 未答复',exact:true});
+  const first=dialog.getByRole('button',{name:'拖动分组 寄修',exact:true});
   const start=(await first.boundingBox())!;const second=(await rows.nth(1).boundingBox())!;
   await page.mouse.move(start.x+20,start.y+20);await page.mouse.down();await page.mouse.move(second.x+20,second.y+20,{steps:5});
   await expect(list).toHaveAttribute('data-dragging','true');
@@ -106,7 +107,7 @@ test("drag previews scroll at the edge, Escape cancels and reduced motion keeps 
   expect(await rows.nth(1).evaluate(el=>parseFloat(getComputedStyle(el).transitionDuration))).toBeLessThanOrEqual(0.00001);
   await page.keyboard.press('Escape');await page.mouse.up();
   await expect(list).toHaveAttribute('data-dragging','false');await expect(dialog).toBeVisible();
-  await expect(rows.first()).toHaveAttribute('data-repair-group','awaiting_reply');
+  await expect(rows.first()).toHaveAttribute('data-repair-group','outsourced');
   await expect(dialog.getByRole('button',{name:'保存分组',exact:true})).toBeDisabled();
   const bounds=(await list.boundingBox())!;const next=(await first.boundingBox())!;
   await page.mouse.move(next.x+20,next.y+20);await page.mouse.down();await page.mouse.move(next.x+20,bounds.y+bounds.height-8,{steps:12});
@@ -115,5 +116,5 @@ test("drag previews scroll at the edge, Escape cancels and reduced motion keeps 
   await page.mouse.up();await expect(list).toHaveAttribute('data-dragging','false');
   await expect(dialog.getByRole('button',{name:'保存分组',exact:true})).toBeEnabled();
   await dialog.getByRole('button',{name:'取消',exact:true}).click();
-  await expect(headings(page).first()).toHaveText('久等 未答复');
+  await expect(headings(page).first()).toHaveText('寄修');
 });
