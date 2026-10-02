@@ -22,11 +22,18 @@ test("owner renames, pointer-drags, saves, refreshes and shares groups between t
     try {
       await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x:start!.x+20, y:start!.y+20 }] });
       await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x:end!.x+20, y:end!.y+20 }] });
+      await expect.poll(async()=> (await handle.boundingBox())!.y).toBeLessThan(start!.y-40);
+      await expect.poll(async()=> (await first.boundingBox())!.y).toBeGreaterThan(end!.y+40);
+      await page.screenshot({path:'.local/ui-proof/group-motion/chromium-touch-during-drag.png'});
       await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     } finally { await touch.send('Emulation.setTouchEmulationEnabled', { enabled: false }); await touch.detach(); }
   } else {
     await page.mouse.move(start!.x+20,start!.y+20); await page.mouse.down();
-    await page.mouse.move(end!.x+20,end!.y+20,{steps:8}); await page.mouse.up();
+    await page.mouse.move(end!.x+20,end!.y+20,{steps:8});
+    await expect.poll(async()=> (await handle.boundingBox())!.y).toBeLessThan(start!.y-40);
+    await expect.poll(async()=> (await first.boundingBox())!.y).toBeGreaterThan(end!.y+40);
+    await page.screenshot({path:'.local/ui-proof/group-motion/webkit-during-drag.png'});
+    await page.mouse.up();
   }
   await expect(dialog.locator('[data-repair-group]').first()).toHaveAttribute('data-repair-group','outsourced');
   await dialog.getByRole("button",{name:"保存分组",exact:true}).click();
@@ -82,4 +89,31 @@ test("parts group rename and order persist independently of workflow groups", as
   await expect(headings(page).first()).toHaveText('久等 未答复');
   await page.getByLabel('工单分组',{exact:true}).selectOption('parts');await expect(headings(page).first()).toHaveText('待处理配件');
   await expect(page.getByLabel('配件状态筛选').locator('option').nth(1)).toHaveText('待处理配件');
+});
+
+test("drag previews scroll at the edge, Escape cancels and reduced motion keeps live feedback", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/app/repairs');
+  await page.getByRole('button',{name:'管理分组',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'管理维修分组'});
+  const list=dialog.locator('[data-dragging]');
+  const rows=dialog.locator('[data-repair-group]');
+  const first=dialog.getByRole('button',{name:'拖动分组 久等 未答复',exact:true});
+  const start=(await first.boundingBox())!;const second=(await rows.nth(1).boundingBox())!;
+  await page.mouse.move(start.x+20,start.y+20);await page.mouse.down();await page.mouse.move(second.x+20,second.y+20,{steps:5});
+  await expect(list).toHaveAttribute('data-dragging','true');
+  await expect.poll(async()=> (await first.boundingBox())!.y).toBeGreaterThan(start.y+30);
+  expect(await rows.nth(1).evaluate(el=>parseFloat(getComputedStyle(el).transitionDuration))).toBeLessThanOrEqual(0.00001);
+  await page.keyboard.press('Escape');await page.mouse.up();
+  await expect(list).toHaveAttribute('data-dragging','false');await expect(dialog).toBeVisible();
+  await expect(rows.first()).toHaveAttribute('data-repair-group','awaiting_reply');
+  await expect(dialog.getByRole('button',{name:'保存分组',exact:true})).toBeDisabled();
+  const bounds=(await list.boundingBox())!;const next=(await first.boundingBox())!;
+  await page.mouse.move(next.x+20,next.y+20);await page.mouse.down();await page.mouse.move(next.x+20,bounds.y+bounds.height-8,{steps:12});
+  await expect.poll(()=>list.evaluate(el=>el.scrollTop)).toBeGreaterThan(30);
+  await expect.poll(async()=> (await dialog.getByRole('button',{name:'拖动分组 修好',exact:true}).boundingBox())!.y).toBeLessThan(bounds.y+bounds.height);
+  await page.mouse.up();await expect(list).toHaveAttribute('data-dragging','false');
+  await expect(dialog.getByRole('button',{name:'保存分组',exact:true})).toBeEnabled();
+  await dialog.getByRole('button',{name:'取消',exact:true}).click();
+  await expect(headings(page).first()).toHaveText('久等 未答复');
 });
