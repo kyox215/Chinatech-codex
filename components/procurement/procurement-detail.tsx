@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { PageTitle } from "@/components/page-title";
 import { SelectControl } from "@/components/select-control";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CheckCircle2, ClipboardList, FileClock, PackageCheck, PackageSearch, PencilLine, Truck } from "lucide-react";
 import { useRepairDirectory } from "@/components/repairs/local-intake-store";
 import { arrivalBalance, arrivedQuantity, formatCost, isPreorder, procurementEventLabel, procurementStatus, procurementStatuses, type ProcurementRecord } from "@/lib/procurement";
@@ -25,10 +25,15 @@ export function ProcurementActions({ record, embedded = false }: { record: Procu
   const [arrivalId, setArrivalId] = useState(arrivals[0]?.id ?? "");
   const preorder = isPreorder(record);
   const remaining = record.quantity - arrivedQuantity(record);
+  const busy = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  function append(type: "arrival" | "correction") {
-    if (!canEdit) return;
-    dispatch({ type: "append", id: record.id, revision: record.events.length, event: { id: crypto.randomUUID(), type, time: previewTime(), quantity: quantity.trim() ? Number(quantity) : Number.NaN, note, arrivalId: type === "correction" ? arrivalId : undefined } });
+  async function append(type: "arrival" | "correction") {
+    if (!canEdit || busy.current) return;
+    busy.current = true;
+    setSubmitting(true);
+    try {await dispatch({ type: "append", id: record.id, revision: record.events.length, event: { id: crypto.randomUUID(), type, time: previewTime(), quantity: quantity.trim() ? Number(quantity) : Number.NaN, note, arrivalId: type === "correction" ? arrivalId : undefined } });} catch { /* Provider retains operation failure feedback. */ }
+    finally { busy.current = false; setSubmitting(false); }
   }
 
   if (!canEdit) return <section className={`panel procurement-actions${embedded ? " procurement-actions--embedded" : ""}`}><div className="detail-section__head"><div><span><PackageCheck size={18} /></span><h3>配件进度</h3></div></div><div className="procurement-actions__body"><p className="procurement-action-hint">{procurementStatuses[procurementStatus(record)].label} · {arrivedQuantity(record)} / {record.quantity} 件已到货</p></div></section>;
@@ -36,12 +41,12 @@ export function ProcurementActions({ record, embedded = false }: { record: Procu
     <div className="detail-section__head"><div><span><PackageCheck size={18} /></span><div><h3>{preorder ? "配件标记" : "登记到货"}</h3></div></div></div>
     {preorder ? <div className="procurement-actions__body"><ProcurementPreparation key={record.id} record={record} /></div> : <div className="procurement-actions__body">
       <ProcurementFeedback recordId={record.id} />
-      <div className="segmented-control procurement-mode" aria-label="到货操作"><button type="button" className={mode === "arrival" ? "segmented-control__active" : ""} aria-pressed={mode === "arrival"} onClick={() => { setMode("arrival"); setQuantity(""); setNote(""); }}>本次到货</button><button type="button" className={mode === "correction" ? "segmented-control__active" : ""} aria-pressed={mode === "correction"} onClick={() => { setMode("correction"); setQuantity(""); setNote(""); setArrivalId(arrivals[0]?.id ?? ""); }} disabled={!arrivals.length}>更正历史</button></div>
-      {mode === "arrival" && remaining === 0 ? <div className="section-empty"><CheckCircle2 size={24} /><div><strong>本条采购已到齐</strong><p>如有误记，使用“更正历史”追加调整。</p></div></div> : <form noValidate onSubmit={(event) => { event.preventDefault(); append(mode); }}>
-        {mode === "correction" ? <label className="field"><span>原到货批次</span><SelectControl aria-label="原到货批次" value={arrivalId} onChange={(event) => setArrivalId(event.target.value)}>{arrivals.map((event, index) => <option value={event.id} key={event.id}>第 {index + 1} 批 · {event.time} · 当前 {arrivalBalance(record, event.id)} 件</option>)}</SelectControl></label> : null}
-        <label className="field"><span>{mode === "arrival" ? `本次到货数量（剩余 ${remaining} 件）` : "调整数量（增加填正数，减少填负数）"}</span><input aria-label={mode === "arrival" ? "本次到货数量" : "调整数量"} type="number" inputMode={mode === "arrival" ? "numeric" : undefined} step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder={mode === "arrival" ? "例如 1" : "例如 -1"} /></label>
-        <label className="field"><span>{mode === "correction" ? "更正原因（必填）" : "到货备注（选填）"}</span><textarea aria-label={mode === "correction" ? "更正原因" : "到货备注"} value={note} onChange={(event) => setNote(event.target.value)} maxLength={300} placeholder={mode === "correction" ? "说明误记原因，原记录不会被删除" : "包裹、型号或核对情况"} /></label>
-        <button className="button button--primary" type="submit">{mode === "arrival" ? <PackageCheck size={17} /> : <PencilLine size={17} />}{mode === "arrival" ? "追加本次到货" : "追加更正记录"}</button>
+      <div className="segmented-control procurement-mode" aria-label="到货操作"><button type="button" disabled={submitting} className={mode === "arrival" ? "segmented-control__active" : ""} aria-pressed={mode === "arrival"} onClick={() => { setMode("arrival"); setQuantity(""); setNote(""); }}>本次到货</button><button type="button" className={mode === "correction" ? "segmented-control__active" : ""} aria-pressed={mode === "correction"} onClick={() => { setMode("correction"); setQuantity(""); setNote(""); setArrivalId(arrivals[0]?.id ?? ""); }} disabled={submitting || !arrivals.length}>更正历史</button></div>
+      {mode === "arrival" && remaining === 0 ? <div className="section-empty"><CheckCircle2 size={24} /><div><strong>本条采购已到齐</strong><p>如有误记，使用“更正历史”追加调整。</p></div></div> : <form noValidate aria-busy={submitting} onSubmit={(event) => { event.preventDefault(); void append(mode); }}>
+        {mode === "correction" ? <label className="field"><span>原到货批次</span><SelectControl disabled={submitting} aria-label="原到货批次" value={arrivalId} onChange={(event) => setArrivalId(event.target.value)}>{arrivals.map((event, index) => <option value={event.id} key={event.id}>第 {index + 1} 批 · {event.time} · 当前 {arrivalBalance(record, event.id)} 件</option>)}</SelectControl></label> : null}
+        <label className="field"><span>{mode === "arrival" ? `本次到货数量（剩余 ${remaining} 件）` : "调整数量（增加填正数，减少填负数）"}</span><input disabled={submitting} aria-label={mode === "arrival" ? "本次到货数量" : "调整数量"} type="number" inputMode={mode === "arrival" ? "numeric" : undefined} step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder={mode === "arrival" ? "例如 1" : "例如 -1"} /></label>
+        <label className="field"><span>{mode === "correction" ? "更正原因（必填）" : "到货备注（选填）"}</span><textarea disabled={submitting} aria-label={mode === "correction" ? "更正原因" : "到货备注"} value={note} onChange={(event) => setNote(event.target.value)} maxLength={300} placeholder={mode === "correction" ? "说明误记原因，原记录不会被删除" : "包裹、型号或核对情况"} /></label>
+        <button className="button button--primary" type="submit" disabled={submitting}>{mode === "arrival" ? <PackageCheck size={17} /> : <PencilLine size={17} />}{submitting ? "正在保存…" : mode === "arrival" ? "追加本次到货" : "追加更正记录"}</button>
       </form>}
     </div>}
   </section>;

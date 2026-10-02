@@ -18,13 +18,13 @@ export function CustomerProfileForm({ customer, onSaved, onCancel }: { customer?
   const [submitting, setSubmitting] = useState(false);
   const busy = useRef(false);
   const candidates = customerCandidates(phone, customers);
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault(); if (busy.current) return;
     busy.current = true; setSubmitting(true); setError("");
     try {
       const normalized = normalizeCustomerPhone(phone);
       if (!customer && customers.some(item => item.phone === normalized)) throw new Error("该手机号已有客户档案，请打开现有档案。");
-      saveCustomerProfile({ phone: normalized, name, email, note, updatedAt: intakeRecordTime() }, customer?.version ?? 0);
+      await saveCustomerProfile({ phone: normalized, name, email, note, updatedAt: intakeRecordTime() }, customer?.version ?? 0);
       onSaved(normalized);
     } catch (error) { setError(error instanceof Error ? error.message : "客户资料保存失败，请重试。"); }
     finally { busy.current = false; setSubmitting(false); }

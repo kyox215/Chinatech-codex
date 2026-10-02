@@ -22,8 +22,8 @@ function StageDialog({ order, onClose }: { order: RepairDirectoryEntry; onClose:
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   useEffect(() => { dialog.current?.showModal(); }, []);
-  function save() {
-    try { const command: WorkflowCommand = { type: "stage", status, note }; updateRepairWorkflow(order, command, records, revision); onClose(); }
+  async function save() {
+    try { const command: WorkflowCommand = { type: "stage", status, note }; await updateRepairWorkflow(order, command, records, revision); onClose(); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败，请重试。"); }
   }
   return createPortal(<dialog ref={dialog} className="repair-parts-dialog repair-stage-dialog" aria-label="更改维修阶段" onClose={onClose}><header><div><small>{order.device.model}</small><h2>维修阶段</h2></div><button className="icon-button" aria-label="关闭维修阶段" type="button" onClick={onClose}><X size={18} /></button></header><div className="repair-stage-options">{repairStatusOptions.map(option => <button key={option.value} type="button" aria-pressed={status === option.value} className={`repair-stage-option${status === option.value ? " repair-stage-option--selected" : ""}`} onClick={() => setStatus(option.value)}><span className={`status-pill status-pill--${repairStageTones[option.value]}`}>{option.label}</span>{status === option.value ? <Check size={16} /> : null}</button>)}</div><label className="field"><span>{status === "cancelled" || ["completed", "cancelled"].includes(order.status) ? "变更原因 *" : "备注（选填）"}</span><input aria-label="维修阶段变更原因" maxLength={300} value={note} onChange={event => setNote(event.target.value)} /></label><p className="repair-stage-note">阶段标记不代表已交机或已结清款项。</p>{error || storeError ? <p role="alert" className="form-error">{error || storeError}</p> : null}<footer><button className="button button--secondary" type="button" onClick={onClose}>取消</button><button className="button button--primary" type="button" disabled={status === order.status || Boolean(storeError)} onClick={save}><Check size={17} />保存阶段</button></footer></dialog>, document.body);

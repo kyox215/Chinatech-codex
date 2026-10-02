@@ -1,4 +1,5 @@
 "use client";
+import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 import { requirePreviewPermission } from "@/lib/staff-client";
 
 import { useSyncExternalStore } from "react";
@@ -10,9 +11,10 @@ import { useRetail } from "@/components/retail/retail-provider";
 const key = "chinatech.m1.customer-profiles.v1";
 const change = "chinatech-customer-change";
 const server = { profiles: [] as CustomerProfile[], ready: false, error: "" };
+let remoteSource:ReturnType<typeof backendSnapshot>;let remoteSnapshot=server;
 let cachedRaw: string | null | undefined;
 let snapshot = server;
-function read() {
+function read() {if(isBackendClient()){const current=backendSnapshot();if(current!==remoteSource){remoteSource=current;remoteSnapshot={profiles:current?.customers??[],ready:true,error:current?"":"后台资料暂不可用。"};}return remoteSnapshot;}
   try {
     const raw = window.localStorage.getItem(key);
     if (raw !== cachedRaw || !snapshot.ready) {
@@ -23,20 +25,21 @@ function read() {
   } catch { cachedRaw = undefined; if (!snapshot.ready || !snapshot.error) snapshot = { profiles: [], ready: true, error: "浏览器禁止本地存储，客户资料暂不可保存。" }; }
   return snapshot;
 }
-function subscribe(listener: () => void) {
+function subscribe(listener: () => void) {const stop=subscribeBackend(listener);
   const storage = (event: StorageEvent) => { if (event.key === key || event.key === null) listener(); };
   window.addEventListener("storage", storage); window.addEventListener(change, listener);
-  return () => { window.removeEventListener("storage", storage); window.removeEventListener(change, listener); };
+  return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); };
 }
 export function useCustomerDirectory() {
   const profiles = useSyncExternalStore(subscribe, read, () => server);
   const repairs = useRepairDirectory();
   const local = useLocalIntakes();
   const retail = useRetail();
-  const seeds = [...intakeCustomers, ...local.records.map(record => ({ phone: record.phone, name: record.customerName, email: record.email }))];
+  const seeds = [...(isBackendClient()?[]:intakeCustomers), ...local.records.map(record => ({ phone: record.phone, name: record.customerName, email: record.email }))];
   return { customers: buildCustomerDirectory(repairs, retail.units, profiles.profiles, seeds), ready: profiles.ready && local.ready && retail.ready, error: [profiles.error, local.error, retail.error].filter(Boolean).join(" ") };
 }
 export function saveCustomerProfile(draft: Omit<CustomerProfile, "version">, expectedVersion: number) {
+  if(isBackendClient()) return backendCommand("customer.save",{draft,version:expectedVersion});
   requirePreviewPermission("customers.edit");
   let profiles: CustomerProfile[];
   try { profiles = parseCustomerProfiles(window.localStorage.getItem(key)); }

@@ -1,4 +1,5 @@
 "use client";
+import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 
 import { requirePreviewPermission } from "@/lib/staff-client";
 import { createContext, useContext, useSyncExternalStore } from "react";
@@ -48,22 +49,24 @@ function reducer(state: State, action: TimedAction): State {
   }
 }
 
-const ProcurementContext = createContext<State & { dispatch: React.Dispatch<Action> } | null>(null);
+const ProcurementContext = createContext<State & { dispatch: (action:Action)=>void|Promise<void> } | null>(null);
 
 const storageKey = "chinatech.m1.procurement.v1";
 const changed = "chinatech-procurement-change";
 const initialState: State = { records: procurementRecords, feedback: null, repairUpdates: {}, listView: { query: "", filter: "all", repairId: "", groupBy: "supplier" } };
 let store = initialState;
+let remoteSource:ReturnType<typeof backendSnapshot>;
 let cachedRaw: string | null | undefined;
-function read() {
+function read() {if(isBackendClient()){const current=backendSnapshot();if(current!==remoteSource){remoteSource=current;store={...store,records:current?.procurement??[],repairUpdates:Object.fromEntries((current?.intakes??[]).map(row=>[row.id,row.updatedAt])),storageError:current?"":"后台资料暂不可用。"};}return store;}
   try {
     const raw = window.localStorage.getItem(storageKey);
     if (raw !== cachedRaw || store.storageError) { const saved = parseProcurementState(raw); cachedRaw = raw; store = { ...store, records: saved?.records ?? procurementRecords, repairUpdates: saved?.repairUpdates ?? {}, storageError: "" }; }
   } catch { if (!store.storageError) store = { ...store, storageError: "本地配件记录无法读取，现有记录未被覆盖。" }; }
   return store;
 }
-function subscribe(listener: () => void) { const storage = (event: StorageEvent) => { if (event.key === storageKey || event.key === null) listener(); }; window.addEventListener("storage", storage); window.addEventListener(changed, listener); return () => { window.removeEventListener("storage", storage); window.removeEventListener(changed, listener); }; }
+function subscribe(listener: () => void) {const stop=subscribeBackend(listener); const storage = (event: StorageEvent) => { if (event.key === storageKey || event.key === null) listener(); }; window.addEventListener("storage", storage); window.addEventListener(changed, listener); return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(changed, listener); }; }
 function dispatchAction(action: Action) {
+    if(isBackendClient()){const current=read();if(action.type==="list-view" || action.type==="clear-feedback"){store=reducer(current,{...action,modifiedAt:""});window.dispatchEvent(new Event(changed));return;}const recordId=action.type==="create"||action.type==="edit"?action.record.id:action.id;return backendCommand("procurement",action).then(()=>{read();store={...store,feedback:{recordId,error:false,message:"配件事实已保存。"}};window.dispatchEvent(new Event(changed));}).catch(reason=>{store={...store,feedback:{recordId,error:true,message:reason instanceof Error?reason.message:"保存失败。"}};window.dispatchEvent(new Event(changed));throw reason;});}
     const current = read();
     const modifiedAt = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome", dateStyle: "short", timeStyle: "medium" }).format(new Date());
     let next: State;

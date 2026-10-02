@@ -22,9 +22,9 @@ export function RepairWorkflowPanel({ repairId, metadata, historyContent }: { re
   if (!order) return null;
   const workflow = workflows[repairId] ?? initialRepairWorkflow(order);
   const notice = arrivalNotice(workflow, records, repairId);
-  const update = (command: WorkflowCommand) => {
+  const update = async (command: WorkflowCommand) => {
     try {
-      updateRepairWorkflow(order, command, records, command.type === "custody" ? custodyRevision.current ?? workflow.revision : workflow.revision);
+      await updateRepairWorkflow(order, command, records, command.type === "custody" ? custodyRevision.current ?? workflow.revision : workflow.revision);
       setError("");
       if (custodyEditor.current) { custodyEditor.current.open = false; custodyEditor.current.querySelector("summary")?.focus(); }
     } catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败。"); }

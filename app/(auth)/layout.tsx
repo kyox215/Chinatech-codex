@@ -1,5 +1,6 @@
 import { Brand } from "@/components/brand";
 import { ClipboardList, PackageCheck, ShieldCheck } from "lucide-react";
+import { isSupabaseMode } from "@/lib/supabase/config";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -7,7 +8,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="auth-page__left">
         <Brand />
         <div className="auth-page__form-wrap">{children}</div>
-        <p className="auth-page__footnote">© 2026 ChinaTech · 当前为本地视觉样板</p>
+        <p className="auth-page__footnote">© 2026 ChinaTech{isSupabaseMode() ? "" : " · 当前为本地视觉样板"}</p>
       </div>
       <aside className="auth-showcase" aria-label="产品能力介绍">
         <div className="dot-field" aria-hidden="true" />

@@ -1,15 +1,32 @@
-# ChinaTech 重构版（M1样板）
+# ChinaTech 维修管理网站
 
-Next.js App Router、React、TypeScript的独立维修管理网站样板，包含公开首页、账号入口、维修工单、工单采购到货、一机一档整机、客户及权限演示。
+Next.js App Router、React、TypeScript。公开首页与门店后台分开；客户设备、工单采购和门店自有待售单机保持独立身份。
 
-所有内置资料均为虚构fixture。本轮仅在浏览器本地存储保存样板操作，尚未接入正式认证、服务端授权／RLS、业务事务或云文件存储；生产构建禁用本地预览登录。此候选分支尚不具备替换正式后台的条件。
+## 运行模式
 
-## 本地运行
+使用 Node.js 24，执行 `npm ci`。
 
-使用Node22或24，运行`npm ci`，将`.env.example`复制为`.env.local`，再运行`npm run dev`。LOCAL_PREVIEW仅供本地开发；不得把它当成正式认证。
+- 本地界面样板：复制 `.env.example` 为 `.env.local`，保留 `BACKEND_MODE=preview`、`LOCAL_PREVIEW=1`，执行 `npm run dev`，访问 `http://localhost:3000`。样板账号和虚构数据仅供本地预览。
+- 正式后台：设置 `BACKEND_MODE=supabase`、`LOCAL_PREVIEW=0`，配置自己的 `SUPABASE_URL`、公开发布密钥、`APP_DATABASE_URL` 和确切的 `APP_ORIGIN`。执行 `npm run build`、`npm start`。部署环境绝不启用样板登录。
+
+不要提交真实 `.env`、连接密码、账号会话或业务备份。`APP_DATABASE_URL` 只供服务端使用，必须是受限 `chinatech_runtime` 角色，不能使用 postgres 或 service_role。
+
+## 后台接入
+
+`supabase/migrations/` 建立 `chinatech_v2`、`chinatech_v2_private` 业务空间。安装前核对目标项目；迁移需要数据库管理权限，仅在已授权目标执行。迁移不导入旧业务记录，不自动为注册用户建立门店或管理员权限。
+
+运行角色密码须单独安全配置。云连接使用 Supavisor 事务池、SSL 和关闭 prepared statements。首位老板与空门店需要管理员明确初始化；后续公开注册验证邮箱后仍等待门店审核。新应用使用独立 HttpOnly 登录 cookie，Auth 身份与门店权限由服务端及数据库重新核对。
+
+工单、客户、采购、整机、销售事实、签名、门店设置和成员变更通过 Next.js 服务端事务保存，检查门店、权限、版本及稳定请求 ID。财务内容在返回浏览器前按权限投影。售后建维修与销售关联同事务提交；界面每 15 秒及窗口重新聚焦时重新查询，并在保存后刷新。当前未接 WebSocket 广播，不能承诺即时通知。
+
+接机照片在浏览器压缩为 JPEG，再由服务器解码验证；单张最多 240,000 字节、长边 1000px，当前最多六张。照片字节与工单一起写入私有表，快照只返回引用；读取再次检查登录、门店及维修查看权限，不提供公共下载 URL。每张工单最多保留 30 张照片历史，超过上限整次保存回滚。整机现有压缩照片随私有业务档案保存。
+
+记账和退款操作记录门店已发生的事实；没有连接支付、税务、供应商下单、短信、客户邮件或 AI 服务。电子签名记录核对事实，不代表已完成法律效力或硬件触笔认证。
 
 ## 验证
 
 `npm run lint`、`npm run typecheck`、`npm run test`、`npm run build`。
 
-正式系统的源码历史、数据库及附件另有私有本地备份，不属于公开源码树。
+`tests/backend.integration.mjs` 验证真实 Auth、RLS、并发版本、幂等、跨门店、财务投影、售后事务及照片访问；它只接受本项目独立本地 Supabase 端口 55421/55422 与应用 3117，并需要本机私有测试连接文件。该脚本不会连接生产环境，保留合成测试历史。
+
+`supabase/config.toml` 为独立本地配置，开发业务数据不迁入云端。源码不包含旧站业务数据、密钥或备份。

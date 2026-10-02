@@ -1,4 +1,5 @@
 "use client";
+import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 
 import { createContext, useContext, useReducer, useSyncExternalStore } from "react";
 import { retailUnits } from "@/lib/retail-fixtures";
@@ -11,9 +12,10 @@ import { projectRetailForStaff, requireRetailAfterSaleRepair, retailCommandPermi
 const storageKey = "chinatech.m1.retail.v1";
 const changeEvent = "chinatech-retail-change";
 const server = { units: retailUnits, ready: false, error: "" };
+let remoteSource:ReturnType<typeof backendSnapshot>;let remoteSnapshot=server;
 let cachedRaw: string | null | undefined;
 let snapshot = server;
-function read() {
+function read() {if(isBackendClient()){const current=backendSnapshot();if(current!==remoteSource){remoteSource=current;remoteSnapshot={units:current?.retail??[],ready:true,error:current?"":"后台资料暂不可用。"};}return remoteSnapshot;}
   try {
     const raw = window.localStorage.getItem(storageKey);
     if (raw !== cachedRaw || !snapshot.ready) {
@@ -24,10 +26,10 @@ function read() {
   } catch { cachedRaw = undefined; if (!snapshot.ready || !snapshot.error) snapshot = { ...snapshot, ready: true, error: "浏览器禁止本地存储，单机操作暂不可保存。" }; }
   return snapshot;
 }
-function subscribe(listener: () => void) {
+function subscribe(listener: () => void) {const stop=subscribeBackend(listener);
   const storage = (event: StorageEvent) => { if (event.key === storageKey || event.key === null) listener(); };
   window.addEventListener("storage", storage); window.addEventListener(changeEvent, listener);
-  return () => { window.removeEventListener("storage", storage); window.removeEventListener(changeEvent, listener); };
+  return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(changeEvent, listener); };
 }
 type Feedback = { id: string; error: boolean; message: string } | null;
 type State = { units: RetailUnit[]; ready: boolean; error: string; returnTo: string; returnScroll: number; feedback: Feedback };
@@ -36,13 +38,14 @@ type UiState = Pick<State, "returnTo" | "returnScroll" | "feedback">;
 type UiAction = { type: "remember"; url: string; scroll: number } | { type: "feedback"; feedback: Feedback };
 function uiReducer(state: UiState, action: UiAction): UiState { return action.type === "remember" ? { ...state, returnTo: action.url, returnScroll: action.scroll } : { ...state, feedback: action.feedback }; }
 
-const RetailContext = createContext<State & { dispatch: (action: Action) => boolean } | null>(null);
+const RetailContext = createContext<State & { dispatch: (action: Action) => boolean | Promise<boolean> } | null>(null);
 export function RetailProvider({ children }: { children: React.ReactNode }) {
   const stored = useSyncExternalStore(subscribe, read, () => server);
   const staff = useSyncExternalStore(subscribeStaff, readStaffSnapshot, () => staffServerSnapshot);
   const [ui, uiDispatch] = useReducer(uiReducer, { returnTo: "/app/retail", returnScroll: 0, feedback: null });
   function dispatch(action: Action) {
     if (action.type === "remember") { uiDispatch(action); return true; }
+    if(isBackendClient()){const id=action.type==="create"?action.unit.id:action.id;const payload=action.type==="create"?{type:action.type,unit:action.unit}:{type:action.type,id:action.id,command:action.command,version:action.version};return backendCommand("retail",payload).then(()=>{uiDispatch({type:"feedback",feedback:{id,error:false,message:"已保存并追加到历史。"}});return true;}).catch(reason=>{uiDispatch({type:"feedback",feedback:{id,error:true,message:reason instanceof Error?reason.message:"保存失败。"}});return false;});}
     const id = action.type === "create" ? action.unit.id : action.id;
     try {
       const authorize = () => {

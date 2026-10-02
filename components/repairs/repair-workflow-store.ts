@@ -1,4 +1,5 @@
 "use client";
+import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 import { requirePreviewPermission } from "@/lib/staff-client";
 import { useSyncExternalStore } from "react";
 import { intakeRecordTime, type RepairDirectoryEntry } from "@/lib/repair-intake-record";
@@ -8,6 +9,7 @@ import { repairStatusOptions } from "@/lib/repair-fixtures";
 const key = "chinatech.m1.repair-workflow.v1";
 const change = "chinatech-repair-workflow-change";
 const server = { workflows: {} as Record<string, RepairWorkflow>, ready: false, error: "" };
+let remoteSource:ReturnType<typeof backendSnapshot>;let remoteSnapshot=server;
 let snapshot = server;
 let cachedRaw: string | null | undefined;
 function parse(raw: string | null): Record<string, RepairWorkflow> {
@@ -21,14 +23,15 @@ function parse(raw: string | null): Record<string, RepairWorkflow> {
   }
   return data.workflows;
 }
-function read() {
+function read() {if(isBackendClient()){const current=backendSnapshot();if(current!==remoteSource){remoteSource=current;remoteSnapshot={workflows:current?.workflows??{},ready:true,error:current?"":"后台资料暂不可用。"};}return remoteSnapshot;}
   try { const raw = window.localStorage.getItem(key); if (raw !== cachedRaw || !snapshot.ready || snapshot.error) { const workflows = parse(raw); cachedRaw = raw; snapshot = { workflows, ready: true, error: "" }; } }
   catch { if (!snapshot.error || !snapshot.ready) snapshot = { ...snapshot, ready: true, error: "本地维修状态无法读取，请检查浏览器存储。" }; }
   return snapshot;
 }
-function subscribe(listener: () => void) { const storage = (event: StorageEvent) => { if (event.key === key || event.key === null) listener(); }; window.addEventListener("storage", storage); window.addEventListener(change, listener); return () => { window.removeEventListener("storage", storage); window.removeEventListener(change, listener); }; }
+function subscribe(listener: () => void) {const stop=subscribeBackend(listener); const storage = (event: StorageEvent) => { if (event.key === key || event.key === null) listener(); }; window.addEventListener("storage", storage); window.addEventListener(change, listener); return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); }; }
 export function useRepairWorkflows() { return useSyncExternalStore(subscribe, read, () => server); }
 export function updateRepairWorkflow(order: RepairDirectoryEntry, command: WorkflowCommand, records: ProcurementRecord[], revision: number) {
+  if(isBackendClient()) return backendCommand("repair.workflow",{id:order.id,command,revision});
   requirePreviewPermission("repairs.edit");
   const workflows = parse(window.localStorage.getItem(key));
   const current = workflows[order.id] ?? initialRepairWorkflow(order);

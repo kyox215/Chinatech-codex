@@ -4,19 +4,54 @@ import Image from "next/image";
 import { ImagePlus, X } from "lucide-react";
 import { PhotoCapture } from "@/components/photo-capture";
 import { intakePhotoError } from "@/lib/repair-intake";
+import { validIntakePhotos, type IntakePhotoAttachment, type IntakePhotoReference } from "@/lib/repair-intake-record";
 export type IntakePhoto = { id: string; url: string; name: string; slot: "front" | "back" | "other" };
 const slots = [{ value: "front", label: "正面" }, { value: "back", label: "背面" }, { value: "other", label: "其他" }] as const;
+const maxPhotoBytes = 240000;
+
+async function encodeJpeg(file: File, photo: IntakePhotoReference): Promise<IntakePhotoAttachment> {
+  let bitmap: ImageBitmap;
+  try { bitmap = await createImageBitmap(file); }
+  catch { throw new Error("照片无法处理，请改用 JPG / PNG 后重试。"); }
+  try {
+    if (!bitmap.width || !bitmap.height) throw new Error("照片无法读取。");
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("当前浏览器无法处理照片。");
+    let scale = Math.min(1, 1000 / Math.max(bitmap.width, bitmap.height));
+    for (let attempt = 0; attempt < 4; attempt++, scale *= 0.75) {
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      context.fillStyle = "#fff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      for (const quality of [0.8, 0.65, 0.5, 0.35]) {
+        const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error("照片压缩失败，请重新选择。")), "image/jpeg", quality));
+        if (blob.type !== "image/jpeg") throw new Error("当前浏览器无法生成 JPG 照片。");
+        if (!blob.size) throw new Error("照片压缩失败，请重新选择。");
+        if (blob.size > maxPhotoBytes) continue;
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        const chunks: string[] = [];
+        for (let offset = 0; offset < bytes.length; offset += 8192) chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + 8192)));
+        return { ...photo, mime: "image/jpeg", base64: btoa(chunks.join("")) };
+      }
+    }
+    throw new Error("压缩后照片仍过大，请选择较小的照片。");
+  } finally { bitmap.close(); }
+}
+
 export function useIntakePhotos() {
   const [photos, setPhotos] = useState<IntakePhoto[]>([]);
   const urls = useRef(new Set<string>());
+  const sourceFiles = useRef(new Map<string, File>());
   const generation = useRef({ version: 0 });
   const slotsVersion = useRef({ front: 0, back: 0, other: 0 });
   const [error, setError] = useState("");
   const [pending, setPending] = useState<IntakePhoto["slot"][]>([]);
-  useEffect(() => { const current = urls.current; const lifecycle = generation.current; return () => { lifecycle.version++; current.forEach(url => URL.revokeObjectURL(url)); current.clear(); }; }, []);
+  useEffect(() => { const current = urls.current; const sources = sourceFiles.current; const lifecycle = generation.current; return () => { lifecycle.version++; current.forEach(url => URL.revokeObjectURL(url)); current.clear(); sources.clear(); }; }, []);
   const revoke = (url: string) => { URL.revokeObjectURL(url); urls.current.delete(url); };
-  const remove = (photo: IntakePhoto) => { revoke(photo.url); setPhotos(current => current.filter(item => item.id !== photo.id)); setError(""); };
-  const clear = () => { generation.current.version++; urls.current.forEach(url => URL.revokeObjectURL(url)); urls.current.clear(); setPhotos([]); setPending([]); setError(""); };
+  const remove = (photo: IntakePhoto) => { revoke(photo.url); sourceFiles.current.delete(photo.id); setPhotos(current => current.filter(item => item.id !== photo.id)); setError(""); };
+  const clear = () => { generation.current.version++; urls.current.forEach(url => URL.revokeObjectURL(url)); urls.current.clear(); sourceFiles.current.clear(); setPhotos([]); setPending([]); setError(""); };
   const add = async (slot: IntakePhoto["slot"], files: File[]) => {
     setError("");
     const selected = slot === "other" ? files : files.slice(0,1);
@@ -38,7 +73,8 @@ export function useIntakePhotos() {
       if (epoch !== generation.current.version || attempt !== slotsVersion.current[slot]) { candidates.forEach(photo => revoke(photo.url)); return; }
       // Revoke previous previews only after all replacement images decode successfully.
       const replacing = slot === "other" ? [] : photos.filter(photo => photo.slot === slot);
-      replacing.forEach(photo => revoke(photo.url));
+      replacing.forEach(photo => { revoke(photo.url); sourceFiles.current.delete(photo.id); });
+      candidates.forEach((photo, index) => sourceFiles.current.set(photo.id, selected[index]));
       setPhotos(current => [...current.filter(photo => !replacing.some(old => old.id === photo.id)), ...candidates]);
     } catch (failure) {
       candidates.forEach(photo => revoke(photo.url));
@@ -47,7 +83,21 @@ export function useIntakePhotos() {
       if (epoch === generation.current.version && attempt === slotsVersion.current[slot]) setPending(current => current.filter(item => item !== slot));
     }
   };
-  return { photos, error, pending, add, remove, clear };
+  const encode = async (): Promise<IntakePhotoAttachment[]> => {
+    if (pending.length) throw new Error("照片正在读取，请稍候。");
+    const refs = photos.map(({ id, slot }) => ({ id, slot }));
+    if (!validIntakePhotos(refs)) throw new Error("请重新核对照片数量与位置。");
+    const epoch = generation.current.version;
+    const attachments: IntakePhotoAttachment[] = [];
+    for (const photo of refs) {
+      const file = sourceFiles.current.get(photo.id);
+      if (!file) throw new Error("照片来源已变化，请重新选择。");
+      attachments.push(await encodeJpeg(file, photo));
+      if (epoch !== generation.current.version) throw new Error("接机页面已关闭或重置，请重新核对。");
+    }
+    return attachments;
+  };
+  return { photos, error, pending, add, remove, clear, encode };
 }
 export function IntakePhotos({ photos, add, remove, error, pending }: Pick<ReturnType<typeof useIntakePhotos>, "photos" | "add" | "remove" | "error" | "pending">) {
   return <section className="intake-photos" aria-label="接机照片"><strong className="intake-field-title">接机照片</strong><div className="intake-photos__grid">{slots.map(slot => { const selected = photos.filter(photo => photo.slot === slot.value); return <div className="intake-photo-slot" key={slot.value} aria-busy={pending.includes(slot.value)}>

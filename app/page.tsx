@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ProductPreview } from "@/components/home/product-preview";
+import { isSupabaseMode } from "@/lib/supabase/config";
 
 const features = [
   {
@@ -45,6 +46,9 @@ const repairSteps = ["登记客户与设备", "诊断并生成报价", "采购�
 const retailSteps = ["扫码或手工建档", "逐项检测与拍照", "确认可售与定价", "登记出售或实物退回"];
 
 export default function HomePage() {
+  const supabaseMode = isSupabaseMode();
+  const displayedFeatures = supabaseMode ? features.map((feature, index) => ({ ...feature, body: index === 0 ? "保存接机资料、维修阶段、设备保管与客户签名；采购跟随工单记录，变更追加到历史。" : index === 2 ? "手机、电脑、平板和游戏机逐台建档，独立记录规格、检测、成本和销售历史。" : feature.body })) : features;
+  const displayedRepairSteps = supabaseMode ? ["登记客户与设备", "核对故障与维修需求", "记录采购与维修阶段", "更新设备保管与交还状态"] : repairSteps;
   return (
     <main className="marketing-page">
       <header className="public-header">
@@ -62,7 +66,7 @@ export default function HomePage() {
             <a href="#workflow">流程</a>
             <a href="#responsive">多端使用</a>
           </nav>
-          <Link className="header-dashboard-link" href="/app/dashboard">工作台样板 <ArrowRight size={16} /></Link>
+          <Link className="header-dashboard-link" href="/app/dashboard">{supabaseMode ? "进入工作台" : "工作台样板"} <ArrowRight size={16} /></Link>
         </div>
       </header>
 
@@ -84,7 +88,7 @@ export default function HomePage() {
         <div className="hero__visual">
           <div className="hero__glow" aria-hidden="true" />
           <ProductPreview />
-          <div className="floating-note floating-note--top"><History size={16} /><span><strong>完整历史</strong>报价与状态变化可追溯</span></div>
+          <div className="floating-note floating-note--top"><History size={16} /><span><strong>{supabaseMode ? "产品界面示意" : "完整历史"}</strong>{supabaseMode ? "演示数据，展示界面结构" : "报价与状态变化可追溯"}</span></div>
           <div className="floating-note floating-note--bottom"><ShieldCheck size={16} /><span><strong>受控访问</strong>注册后仍需门店授权</span></div>
         </div>
       </section>
@@ -106,7 +110,7 @@ export default function HomePage() {
           <p>同一套设计语言承载不同业务模块，数据身份和操作边界保持清楚。</p>
         </div>
         <div className="feature-grid">
-          {features.map((feature, index) => (
+          {displayedFeatures.map((feature, index) => (
             <article className="feature-card" key={feature.title}>
               <div className="feature-card__top">
                 <span className="feature-card__icon"><feature.icon size={21} /></span>
@@ -129,7 +133,7 @@ export default function HomePage() {
           <div className="workflow-grid">
             <article className="workflow-card">
               <div className="workflow-card__header"><span><Wrench size={20} /></span><div><small>客户设备</small><h3>维修主流程</h3></div></div>
-              <ol>{repairSteps.map((step, index) => <li key={step}><span>{index + 1}</span><strong>{step}</strong></li>)}</ol>
+              <ol>{displayedRepairSteps.map((step, index) => <li key={step}><span>{index + 1}</span><strong>{step}</strong></li>)}</ol>
             </article>
             <article className="workflow-card workflow-card--violet">
               <div className="workflow-card__header"><span><Laptop size={20} /></span><div><small>自有商品</small><h3>整机销售流程</h3></div></div>
@@ -144,6 +148,7 @@ export default function HomePage() {
           <span className="eyebrow">响应式网站</span>
           <h2><span>柜台电脑看全局，</span><span>手机随手处理下一步。</span></h2>
           <p>桌面保留紧凑表格与详情组合；手机改用摘要行、抽屉菜单和适合触控的短动作。两端使用同一套权限和业务规则，不宣称已有独立原生 App。</p>
+          {supabaseMode ? <p>图中工单与统计为产品界面示意。</p> : null}
           <ul>
             <li><Check size={16} />桌面、平板、手机内容驱动响应</li>
             <li><Check size={16} />关键操作不藏在 hover 里</li>
@@ -164,13 +169,13 @@ export default function HomePage() {
 
       <section className="cta-section">
         <div className="section-shell cta-section__inner">
-          <div><span className="eyebrow eyebrow--light">当前为视觉样板</span><h2>先确认结构、密度与交互，再接入真实业务数据。</h2></div>
-          <div className="cta-section__actions"><Link className="button button--white" href="/login">查看登录样板</Link><Link className="button button--ghost-light" href="/register">查看注册流程</Link></div>
+          <div><span className="eyebrow eyebrow--light">{supabaseMode ? "ChinaTech 门店后台" : "当前为视觉样板"}</span><h2>{supabaseMode ? "登录后，查看门店工单、采购与整机档案。" : "先确认结构、密度与交互，再接入真实业务数据。"}</h2></div>
+          <div className="cta-section__actions"><Link className="button button--white" href="/login">{supabaseMode ? "登录后台" : "查看登录样板"}</Link><Link className="button button--ghost-light" href="/register">{supabaseMode ? "注册账号" : "查看注册流程"}</Link></div>
         </div>
       </section>
 
       <footer className="public-footer">
-        <div className="section-shell public-footer__inner"><Brand compact /><p>ChinaTech 新系统 · M1 视觉样板 · 不包含真实客户数据</p><div><a href="#features">功能</a><Link href="/login">登录</Link></div></div>
+        <div className="section-shell public-footer__inner"><Brand compact /><p>{supabaseMode ? "ChinaTech · 维修、采购与整机管理" : "ChinaTech 新系统 · M1 视觉样板 · 不包含真实客户数据"}</p><div><a href="#features">功能</a><Link href="/login">登录</Link></div></div>
       </footer>
     </main>
   );

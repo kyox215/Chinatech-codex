@@ -1,3 +1,4 @@
+import { isSupabaseMode } from "@/lib/supabase/config";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LocalIntakeDetail } from "@/components/repairs/local-intake-detail";
@@ -9,6 +10,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> { r
 export default async function RepairDetailPage({ params }: Props) {
   const { id } = await params;
   if (localIntakeId(id)) return <LocalIntakeDetail id={id} />;
+  if(isSupabaseMode()) notFound();
   const order = getRepairOrder(id); if (!order) notFound();
   return <RepairDetail initialOrder={order} />;
 }

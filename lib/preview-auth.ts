@@ -4,5 +4,5 @@ export const PREVIEW_EMAIL = "demo@chinatech.local";
 export const PREVIEW_PASSWORD = "Preview2026!";
 
 export function isPreviewLoginAvailable() {
-  return process.env.NODE_ENV !== "production" && process.env.LOCAL_PREVIEW !== "false";
+  return process.env.BACKEND_MODE !== "supabase" && process.env.NODE_ENV !== "production" && process.env.LOCAL_PREVIEW !== "false";
 }

@@ -6,6 +6,8 @@ export type SignatureStrokes = { x:number; y:number }[][];
 export type IntakeSignatureDraft = { id:string; signedAt:string; language:"it"|"en"|"zh"; termsVersion:string; strokes:SignatureStrokes; aspectRatio?:number; snapshot:IntakeSignatureSnapshot };
 export type IntakeSignature = IntakeSignatureDraft & { orderId:string; actorId:string };
 export type IntakeSignatureSnapshot = Pick<IntakeReceiptData,"customerName"|"phone"|"email"|"category"|"brand"|"model"|"color"|"serial"|"issue"|"accessories"|"services"|"priority"|"faults"|"issueNote"> & { policy:IntakePolicy };
+export type IntakePhotoReference = { id: string; slot: "front" | "back" | "other" };
+export type IntakePhotoAttachment = IntakePhotoReference & { mime: "image/jpeg"; base64: string };
 export type IntakeReceiptData = {
   revision?: number; policy?: IntakePolicy; faults?: string[]; issueNote?: string;
   retailOrigin?: {unitId:string;saleId:string;caseId:string};
@@ -14,7 +16,7 @@ export type IntakeReceiptData = {
   customerName: string; phone: string; email: string;
   category: string; brand: string; model: string; color: string; serial: string;
   issue: string; accessories: string[]; services: IntakeServices;
-  priority: "普通" | "优先" | "紧急"; photoCount: number;
+  priority: "普通" | "优先" | "紧急"; photoCount: number; photos?: IntakePhotoReference[];
 };
 export type RepairDirectoryEntry = Pick<RepairOrder, "id" | "status" | "statusLabel" | "tone" | "priority" | "customer" | "device" | "issue" | "accessories" | "createdAt" | "updatedAt" | "technician" | "waitingFor"> & { custody?: "store" | "customer" };
 export const localIntakeId = (id: string) => /^LOCAL-[A-F0-9]{16}$/.test(id);
@@ -29,6 +31,21 @@ export function intakeDirectoryEntry(data: IntakeReceiptData): RepairDirectoryEn
     technician: "未分配", waitingFor: "接机检测", ...(data.custody ? {custody:data.custody} : {}) };
 }
 function isObject(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
+export function validIntakePhotos(value: unknown): value is IntakePhotoReference[] {
+  if (!Array.isArray(value) || value.length > 6) return false;
+  const ids = new Set<string>();
+  const counts = { front: 0, back: 0, other: 0 };
+  for (const photo of value) {
+    if (!isObject(photo) || Object.keys(photo).some(key => !["id", "slot"].includes(key))
+      || typeof photo.id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(photo.id)
+      || typeof photo.slot !== "string" || !["front", "back", "other"].includes(photo.slot)) return false;
+    const id = photo.id.toLowerCase();
+    if (ids.has(id)) return false;
+    ids.add(id);
+    counts[photo.slot as IntakePhotoReference["slot"]]++;
+  }
+  return counts.front <= 1 && counts.back <= 1 && counts.other <= 4;
+}
 function validServices(value: unknown): value is IntakeServices {
   if (!isObject(value) || !isObject(value.screen) || !isObject(value.battery) || !isObject(value.port)) return false;
   const quality = ["", "original", "assembled"];
@@ -44,6 +61,7 @@ export function validLocalIntake(value: unknown): value is IntakeReceiptData {
   if(value.faults !== undefined && (!Array.isArray(value.faults) || value.faults.length>60 || !value.faults.every(item=>typeof item==="string" && item.length<=100))) return false;
   if(value.faults!==undefined && value.issueNote!==undefined && value.issue!==[value.faults.join("、"),String(value.issueNote).trim()].filter(Boolean).join("；")) return false;
   if(value.issueNote !== undefined && (typeof value.issueNote!=="string" || value.issueNote.length>2000)) return false;
+  if(value.photos !== undefined && (!validIntakePhotos(value.photos) || value.photoCount !== value.photos.length)) return false;
   const limits = { customerName: 80, phone: 40, email: 160, category: 60, brand: 100, model: 160, color: 60, serial: 150, issue: 3000, previewAt: 30 };
   for (const [key, max] of Object.entries(limits)) if (typeof value[key] !== "string" || value[key].length > max) return false;
   if(value.retailOrigin !== undefined && (!isObject(value.retailOrigin) || ![value.retailOrigin.unitId,value.retailOrigin.saleId,value.retailOrigin.caseId].every(item=>typeof item === "string" && item.length > 0 && item.length <= 150))) return false;

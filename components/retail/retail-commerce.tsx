@@ -1,4 +1,5 @@
 "use client";
+import { isBackendClient } from "@/lib/backend/client";
 
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import Link from "next/link";
@@ -111,7 +112,7 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
     return { type: "after_sale_close", saleId, caseId: request.caseId || "", date, resolution: note, returned: true };
   }
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (busy.current) return;
     setError("");
@@ -126,7 +127,7 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
       }
       busy.current = true;
       setAttempted(true);
-      if (dispatch({ type: "command", id: unit.id, version, command: pending.command, event: { ...pending.event, time: intakeRecordTime() } })) onClose();
+      if (await dispatch({ type: "command", id: unit.id, version, command: pending.command, event: { ...pending.event, time: intakeRecordTime() } })) onClose();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "请核对资料。"); }
     finally { busy.current = false; }
   }
@@ -191,10 +192,10 @@ export function RetailSaleCard({ unit, sale }: { unit: RetailUnit; sale: RetailS
   const state = retailSaleState(sale);
   const profit = retailSaleGrossProfit(sale);
   const open = (operation: Operation, caseId?: string, entryId?: string) => { setError(""); setRequest({ operation, caseId, entryId }); };
-  function linkRepair(item: RetailAfterSale) {
+  async function linkRepair(item: RetailAfterSale) {
     try {
-      const repairId = createRetailAfterSaleRepair(unit.id, sale.id, item.id);
-      if (!dispatch({ type: "command", id: unit.id, version: unit.version, command: { type: "after_sale_link", saleId: sale.id, caseId: item.id, repairId }, event: { id: crypto.randomUUID(), time: intakeRecordTime(), title: "售后关联维修", detail: repairId } })) setError("工单已保留，可再次点击继续关联。");
+      const repairId = await createRetailAfterSaleRepair(unit.id, sale.id, item.id);
+      if (!isBackendClient() && !(await dispatch({ type: "command", id: unit.id, version: unit.version, command: { type: "after_sale_link", saleId: sale.id, caseId: item.id, repairId }, event: { id: crypto.randomUUID(), time: intakeRecordTime(), title: "售后关联维修", detail: repairId } }))) setError("工单已保留，可再次点击继续关联。");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "创建维修失败。"); }
   }
   function transaction(active: Pending) { return <TransactionForm key={requestKey(active)} unit={unit} sale={sale} request={active} restoreFocusRef={trigger} onClose={() => setRequest(null)} />; }

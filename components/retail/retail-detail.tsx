@@ -58,7 +58,7 @@ function RetailSaleForm({ unit, onClose, restoreFocusRef }: { unit: RetailUnit; 
     heading.current?.focus({ preventScroll: true });
     form.current?.scrollIntoView({ block: "nearest" });
   }, [pending]);
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault(); if (busy.current) return;
     setError("");
     try {
@@ -76,7 +76,7 @@ function RetailSaleForm({ unit, onClose, restoreFocusRef }: { unit: RetailUnit; 
       }
       if (!accepted) throw new Error("请先与客户核对商品、成交价及保修条款。");
       busy.current = true; setSubmitting(true);
-      const saved = dispatch({ type: "command", id: unit.id, version, command: pending.command, event: { id: pending.command.saleId, title: "登记售出", detail: `本台成交 ${retailMoney(pending.command.priceCents)}；商家保修 ${retailWarrantyLabel(pending.command.warranty.months)}；尚未收款；交付待确认。`, time: intakeRecordTime() } });
+      const saved = await dispatch({ type: "command", id: unit.id, version, command: pending.command, event: { id: pending.command.saleId, title: "登记售出", detail: `本台成交 ${retailMoney(pending.command.priceCents)}；商家保修 ${retailWarrantyLabel(pending.command.warranty.months)}；尚未收款；交付待确认。`, time: intakeRecordTime() } });
       if (!saved) setError("未保存售出登记，请核对最新资料和本地存储状态。");
     } catch (error) { setError(error instanceof Error ? error.message : "请核对售出资料。"); }
     finally { busy.current = false; setSubmitting(false); }
@@ -88,7 +88,7 @@ function RetailSaleForm({ unit, onClose, restoreFocusRef }: { unit: RetailUnit; 
     <label className="field field--wide"><span>买家地址（选填）</span><textarea aria-label="买家地址" autoComplete="street-address" maxLength={300} rows={2} value={address} onChange={event=>setAddress(event.target.value)}/></label>
     <label className="field field--wide"><span>买家备注（选填）</span><textarea aria-label="买家备注" maxLength={500} rows={3} value={buyerNote} onChange={event=>setBuyerNote(event.target.value)}/></label>
     <div className="field--wide"><p className={saleStyles.reference}>本台标价：<strong>{retailMoney(unit.priceCents)}</strong></p><RetailMoneyControl label="本台成交价" required value={price} onChange={setPrice} placeholder="明确填写本台成交价" /></div>
-  <label className={saleStyles.accept}><input type="checkbox" required checked={unreceived} onChange={event=>setUnreceived(event.target.checked)}/>确认本次尚未收款，登记后继续记录实际收款</label></div>}<p className={saleStyles.note}>{pending ? "" : "本次商家保修：" + retailWarrantyLabel(unit.warrantyMonths) + "。"}登记后本台变为已售出。此记录仅保存在当前浏览器，收款及交付需另行确认。</p>{error || settingsError || conflict ? <p className="form-error" role="alert">{conflict ? "单机或门店资料已变化，请关闭并重新核对。" : error || settingsError}</p> : null}<div className={saleStyles.actions}><button type="button" className="button button--secondary" disabled={submitting} onClick={onClose}>取消</button>{pending ? <button type="button" className="button button--secondary" disabled={submitting} onClick={() => { setPending(null); setAccepted(false); setError(""); }}>返回修改</button> : null}<button type="submit" className="button button--primary" disabled={submitting || conflict || !ready || !settingsReady || !!settingsError || !!storageError}><ShoppingBag size={17} />{submitting ? "正在保存" : pending ? "确认登记售出" : "继续核对售出"}</button></div></form>;
+  <label className={saleStyles.accept}><input type="checkbox" required checked={unreceived} onChange={event=>setUnreceived(event.target.checked)}/>确认本次尚未收款，登记后继续记录实际收款</label></div>}<p className={saleStyles.note}>{pending ? "" : "本次商家保修：" + retailWarrantyLabel(unit.warrantyMonths) + "。"}登记后本台变为已售出。收款及交付需另行确认。</p>{error || settingsError || conflict ? <p className="form-error" role="alert">{conflict ? "单机或门店资料已变化，请关闭并重新核对。" : error || settingsError}</p> : null}<div className={saleStyles.actions}><button type="button" className="button button--secondary" disabled={submitting} onClick={onClose}>取消</button>{pending ? <button type="button" className="button button--secondary" disabled={submitting} onClick={() => { setPending(null); setAccepted(false); setError(""); }}>返回修改</button> : null}<button type="submit" className="button button--primary" disabled={submitting || conflict || !ready || !settingsReady || !!settingsError || !!storageError}><ShoppingBag size={17} />{submitting ? "正在保存" : pending ? "确认登记售出" : "继续核对售出"}</button></div></form>;
 }
 
 function RetailActions({ unit }: { unit: RetailUnit }) {

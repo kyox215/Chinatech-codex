@@ -1,17 +1,33 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { ArrowLeft, CheckCircle2, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, UserRound } from "lucide-react";
 
-export function RegisterForm() {
+export function RegisterForm({ supabaseMode = false, previewAvailable = true }: { supabaseMode?: boolean; previewAvailable?: boolean }) {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [error, setError] = useState("");
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting || !supabaseMode && !previewAvailable) return;
+    setError("");
     setIsSubmitting(true);
+    if (supabaseMode) {
+      const form = new FormData(event.currentTarget);
+      try {
+        const response = await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store", body: JSON.stringify({ displayName: form.get("displayName"), email: form.get("email"), password: form.get("password") }) });
+        const payload = await response.json() as { message?: string };
+        if (!response.ok) { setError(payload.message ?? "无法完成注册，请稍后重试。"); return; }
+        router.replace("/account/pending"); router.refresh();
+      } catch { setError("无法连接注册服务，请稍后重试。"); }
+      finally { setIsSubmitting(false); }
+      return;
+    }
     window.setTimeout(() => {
       setIsSubmitting(false);
       setIsComplete(true);
@@ -43,11 +59,13 @@ export function RegisterForm() {
         <p>已有账号？ <Link href="/login">返回登录</Link></p>
       </div>
       <div className="auth-notice"><strong>注册不会授予后台权限</strong><span>提交后应先验证邮箱，再由门店老板邀请或审核。</span></div>
-      <div className="form-field"><label htmlFor="display-name">称呼</label><div className="input-shell"><UserRound size={20} /><input id="display-name" name="displayName" required autoComplete="name" placeholder="请输入您的称呼" /></div></div>
-      <div className="form-field"><label htmlFor="register-email">电子邮件</label><div className="input-shell"><Mail size={20} /><input id="register-email" name="email" type="email" required autoComplete="email" placeholder="请输入工作邮箱" /></div></div>
-      <div className="form-field"><label htmlFor="register-password">密码</label><div className="input-shell"><LockKeyhole size={20} /><input id="register-password" name="password" type={showPassword ? "text" : "password"} required minLength={10} autoComplete="new-password" placeholder="至少 10 位，包含字母与数字" /><button className="input-icon-button" type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "隐藏密码" : "显示密码"}>{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button></div></div>
-      <label className="checkbox-label checkbox-label--terms"><input type="checkbox" required /><span>我了解当前提交仅为界面样板，不会创建真实账号。</span></label>
-      <button className="button button--primary auth-submit" type="submit" disabled={isSubmitting}>{isSubmitting ? <><LoaderCircle className="spin" size={18} />正在提交样板</> : "继续"}</button>
+      <div className="form-field"><label htmlFor="display-name">称呼</label><div className="input-shell"><UserRound size={20} /><input id="display-name" name="displayName" required maxLength={80} autoComplete="name" placeholder="请输入您的称呼" /></div></div>
+      <div className="form-field"><label htmlFor="register-email">电子邮件</label><div className="input-shell"><Mail size={20} /><input id="register-email" name="email" type="email" required maxLength={160} autoComplete="email" placeholder="请输入工作邮箱" /></div></div>
+      <div className="form-field"><label htmlFor="register-password">密码</label><div className="input-shell"><LockKeyhole size={20} /><input id="register-password" name="password" type={showPassword ? "text" : "password"} required minLength={10} maxLength={128} autoComplete="new-password" placeholder="至少 10 位，包含字母与数字" /><button className="input-icon-button" type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "隐藏密码" : "显示密码"}>{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button></div></div>
+      {!supabaseMode ? <label className="checkbox-label checkbox-label--terms"><input type="checkbox" required /><span>我了解当前提交仅为界面样板，不会创建真实账号。</span></label> : null}
+      {!supabaseMode && !previewAvailable ? <p className="form-error" role="alert">注册服务尚未开放，请联系门店。</p> : null}
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
+      <button className="button button--primary auth-submit" type="submit" disabled={isSubmitting || !supabaseMode && !previewAvailable}>{isSubmitting ? <><LoaderCircle className="spin" size={18} />{supabaseMode ? "正在注册" : "正在提交样板"}</> : "继续"}</button>
       <Link className="auth-back-link" href="/"><ArrowLeft size={15} />返回公开首页</Link>
     </form>
   );

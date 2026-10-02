@@ -1,4 +1,5 @@
 "use client";
+import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 import { currentRetailSale, parseStoredRetailUnits, saleProductUnit, retailCategories } from "@/lib/retail";
 import { retailUnits } from "@/lib/retail-fixtures";
 import { emptyIntakeServices } from "@/lib/intake-services";
@@ -9,16 +10,17 @@ import { requirePreviewPermission } from "@/lib/staff-client";
 import type { Permission } from "@/lib/staff";
 import { useSyncExternalStore } from "react";
 import { repairOrders } from "@/lib/repair-fixtures";
-import { intakeDirectoryEntry, parseLocalIntakes, validLocalIntake, parseIntakeSignatures, appendIntakeSignature, fixtureIntakeReceipt, type IntakeSignature, type IntakeSignatureDraft, type IntakePolicy, type IntakeReceiptData } from "@/lib/repair-intake-record";
+import { intakeDirectoryEntry, parseLocalIntakes, validLocalIntake, parseIntakeSignatures, appendIntakeSignature, fixtureIntakeReceipt, type IntakeSignature, type IntakeSignatureDraft, type IntakePolicy, type IntakeReceiptData, type IntakePhotoAttachment } from "@/lib/repair-intake-record";
 import { overlayRepair } from "@/lib/repair-workflow";
 import { useRepairWorkflows } from "./repair-workflow-store";
 
 const key = "chinatech.m1.local-intakes.v1";
 const change = "chinatech-local-intake-change";
 const server = { records: [] as IntakeReceiptData[], signatures: [] as IntakeSignature[], ready: false, error: "" };
+let remoteSource:ReturnType<typeof backendSnapshot>;let remoteSnapshot=server;
 let cachedRaw: string | null | undefined;
 let snapshot = server;
-function read() {
+function read() {if(isBackendClient()){const current=backendSnapshot();if(current!==remoteSource){remoteSource=current;remoteSnapshot={records:current?.intakes??[],signatures:current?.signatures??[],ready:true,error:current?"":"后台资料暂不可用。"};}return remoteSnapshot;}
   try {
     const raw = window.localStorage.getItem(key);
     if (raw !== cachedRaw || !snapshot.ready) {
@@ -29,23 +31,25 @@ function read() {
   } catch { cachedRaw = undefined; if (!snapshot.error) snapshot = { ...snapshot, ready: true, error: "浏览器禁止本地存储，请允许本站存储后重试。" }; }
   return snapshot;
 }
-function subscribe(listener: () => void) {
+function subscribe(listener: () => void) {const stop=subscribeBackend(listener);
   const storage = (event: StorageEvent) => { if (event.key === key || event.key === null) listener(); };
   window.addEventListener("storage", storage); window.addEventListener(change, listener);
-  return () => { window.removeEventListener("storage", storage); window.removeEventListener(change, listener); };
+  return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); };
 }
 export function useLocalIntakes() { return useSyncExternalStore(subscribe, read, () => server); }
 export function useRepairDirectory() {
   const local = useLocalIntakes();
   const { workflows } = useRepairWorkflows();
-  return [...repairOrders, ...local.records.map(intakeDirectoryEntry)].map(order => overlayRepair(order, workflows[order.id]));
+  return [...(isBackendClient()?[]:repairOrders), ...local.records.map(intakeDirectoryEntry)].map(order => overlayRepair(order, workflows[order.id]));
 }
-// M1 only: browser-local, no database, network write or persisted photo blobs.
+// Preview saves retain the browser-local envelope; backend saves use the command boundary.
 export function intakePolicyFromSettings():IntakePolicy {
+  if(isBackendClient()){const settings=backendSnapshot()?.settings;if(!settings) throw new Error("门店设置尚未载入。");return {months:settings.repairWarrantyMonths,shopName:settings.shopName,address:settings.address,phone:settings.phone};}
   const settings=parseStoreSettings(window.localStorage.getItem("chinatech.m1.store-settings.v1"));
   return {months:settings.repairWarrantyMonths,shopName:settings.shopName,address:settings.address,phone:settings.phone};
 }
-export function saveLocalIntake(data: IntakeReceiptData, expectedRevision=0, signature?:IntakeSignatureDraft, expectedSignatureCount=0) {
+export function saveLocalIntake(data: IntakeReceiptData, expectedRevision=0, signature?:IntakeSignatureDraft, expectedSignatureCount=0, attachments?: IntakePhotoAttachment[]) {
+  if(isBackendClient()) return backendCommand("intake.save",{data,revision:expectedRevision,signature,signatureCount:expectedSignatureCount,...(attachments !== undefined ? {photos:attachments} : {})}).then(state=>{const saved=state.intakes.find(row=>row.id===data.id);if(!saved) throw new Error("保存结果暂不可用，请重新读取工单后核对。");return saved;});
   const actor = requirePreviewPermission("repairs.edit");
   if(data.retailOrigin) throw new Error("销售售后来源只能通过单机档案建立。");
   return persistIntake(data, "repairs.edit", actor.id,expectedRevision,signature,expectedSignatureCount);
@@ -74,6 +78,7 @@ function persistIntake(data: IntakeReceiptData, permission: Permission, actorId:
   writeEnvelope(next,nextSignatures,permission,actorId); return saved;
 }
 export function saveIntakeSignature(data:IntakeReceiptData,policy:IntakePolicy,signature:IntakeSignatureDraft,expectedCount:number) {
+  if(isBackendClient()) return backendCommand("intake.signature",{id:data.id,revision:data.revision??1,policy,signature,count:expectedCount});
   const actor=requirePreviewPermission("repairs.edit");
   const raw=window.localStorage.getItem(key);const records=parseLocalIntakes(raw);const signatures=parseIntakeSignatures(raw);
   const stored=records.find(item=>item.id===data.id);
@@ -88,6 +93,8 @@ export function saveIntakeSignature(data:IntakeReceiptData,policy:IntakePolicy,s
 }
 
 export function createRetailAfterSaleRepair(unitId:string,saleId:string,caseId:string) {
+  if(isBackendClient()){const state=backendSnapshot();const unit=state?.retail.find(row=>row.id===unitId);if(!unit) throw new Error("单机资料尚未载入。");const previous=unit.sales.find(row=>row.id===saleId)?.afterSales?.find(row=>row.id===caseId)?.repairId;const repairId=previous??("LOCAL-"+crypto.randomUUID().replaceAll("-", "").slice(0,16).toUpperCase());return backendCommand("retail.aftersale_repair",{unitId,saleId,caseId,repairId,version:unit.version}).then(()=>repairId);}
+
   const actor = requirePreviewPermission("sale.aftersales");
   const units=parseStoredRetailUnits(window.localStorage.getItem("chinatech.m1.retail.v1"),retailUnits);
   const unit=units.find(value=>value.id===unitId);

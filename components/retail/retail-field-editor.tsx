@@ -80,11 +80,11 @@ export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { 
       setCandidate(updated); setError(""); setAttempted(false);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "请核对资料。"); }
   }
-  function save() {
+  async function save() {
     if (!candidate || busy.current) return;
     busy.current = true; setSubmitting(true); setAttempted(true); setError("");
     const detail = `${label}：${retailFieldText(field, original[field])} → ${retailFieldText(field, candidate[field])}；${note.trim() || "逐项资料更正"}`;
-    const saved = dispatch({ type: "command", id: original.id, version: original.version, command: { type: "edit", change: { field, value: candidate[field] } }, event: { id: crypto.randomUUID(), title: `更正${label}`, detail, time: intakeRecordTime() } });
+    const saved = await dispatch({ type: "command", id: original.id, version: original.version, command: { type: "edit", change: { field, value: candidate[field] } }, event: { id: crypto.randomUUID(), title: `更正${label}`, detail, time: intakeRecordTime() } });
     if (saved) onClose(); else { busy.current = false; setSubmitting(false); }
   }
   const textControl = <label className="field"><span>{label}</span><input aria-label={label} value={String(value ?? "")} maxLength={field === "model" ? 120 : field === "brand" || field === "color" ? 60 : 300} type={field === "intakeDate" ? "date" : "text"} onInput={field === "intakeDate" ? event => setValue(event.currentTarget.value) : undefined} onChange={event => setValue(event.target.value)} /></label>;

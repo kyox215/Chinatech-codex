@@ -60,6 +60,7 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
   const stepsRef = useRef<HTMLElement>(null);
   const creationId = useRef("");
   const submitting = useRef(false);
+  const [saving, setSaving] = useState(false);
   function goToStep(next: number) {
     setStep(next);
     setError("");
@@ -74,20 +75,21 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
   function nextStep() {
     try { if (!classificationSelected) throw new Error("请先选择新机或翻新机。"); validateRetailUnit({ ...draft, storeOwned: true }, units); goToStep(step + 1); } catch (error) { setError(error instanceof Error ? error.message : "请核对资料。"); }
   }
-  function submit(event: React.FormEvent<HTMLFormElement>) {
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (step < 2) { nextStep(); return; }
     if (submitting.current) return;
     try {
       if (!classificationSelected) throw new Error("请先选择新机或翻新机。");
       const id = creationId.current || (creationId.current = crypto.randomUUID());
-      const unit = { ...draft, id, code: "", brand: draft.brand.trim(), model: draft.model.trim(), serial: draft.serial.trim(), imei1: normalizeImei(draft.imei1), imei2: normalizeImei(draft.imei2), productCode: draft.productCode.trim(), costCents: parseRetailMoney(cost), refurbCents: parseRetailMoney(refurb), priceCents: parseRetailMoney(price) };
+      const unit = { ...draft, id, code: "", brand: draft.brand.trim(), model: draft.model.trim(), serial: draft.serial.trim(), imei1: normalizeImei(draft.imei1), imei2: normalizeImei(draft.imei2), productCode: draft.productCode.trim(), costCents: staff.can("financial.edit") ? parseRetailMoney(cost) : null, refurbCents: staff.can("financial.edit") ? parseRetailMoney(refurb) : null, priceCents: staff.can("retail.price") ? parseRetailMoney(price) : null };
       validateRetailUnit(unit, units);
       submitting.current = true;
-      const saved=dispatch({ type: "create", unit, event: { id: crypto.randomUUID(), title: "独立单机档案已建立", detail: "确认门店自有实物；新档案保持待检测，不自动可售。", time: intakeRecordTime() } });
-      if(!saved) throw new Error("单机未保存，请核对权限与本地存储。");
+      setSaving(true);
+      const saved=await dispatch({ type: "create", unit, event: { id: crypto.randomUUID(), title: "独立单机档案已建立", detail: "确认门店自有实物；新档案保持待检测，不自动可售。", time: intakeRecordTime() } });
+      if(!saved) throw new Error("单机未保存，请核对权限并重试。");
       router.push(`/app/retail/units/${id}`);
-    } catch (error) { submitting.current = false; setError(error instanceof Error ? error.message : "请核对单机资料。"); }
+    } catch (error) { submitting.current = false; setSaving(false); setError(error instanceof Error ? error.message : "请核对单机资料。"); }
   }
 
   if(!staff.can("retail.edit")) return <AccessPanel/>;
@@ -179,7 +181,7 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
               <header className={`detail-section__head ${surface.sectionHead}`}><div><span><ShieldCheck size={17} aria-hidden="true" /></span><h3 id="retail-ownership-heading">所有权核对</h3></div></header>
               <div className={styles.confirmation}>
                 <label className={`retail-check ${styles.ownershipCheck}`}><input type="checkbox" checked={draft.storeOwned} onChange={(event) => update("storeOwned", event.target.checked)} /><span>我确认这是门店自有实物，不是客户送修设备或维修配件。</span></label>
-                <div className={`form-guidance ${styles.guidance}`}><Boxes size={18} aria-hidden="true" /><p>系统会分配一个新的独立单机编号，状态为待检测。本次操作仅保存到当前浏览器。</p></div>
+                <div className={`form-guidance ${styles.guidance}`}><Boxes size={18} aria-hidden="true" /><p>系统会分配一个新的独立单机编号，状态为待检测。保存后可在单机详情继续检测。</p></div>
               </div>
             </section>
           </>}
@@ -187,7 +189,7 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
       </div>
       <footer className={styles.footer}>
         {step > 0 ? <button className="button button--secondary" type="button" onClick={() => goToStep(step - 1)}><ArrowLeft size={17} aria-hidden="true" />上一步</button> : <Link className="button button--secondary" href={returnTo}>取消</Link>}
-        <button className="button button--primary" type="submit" disabled={!ready || Boolean(storageError) || (step === 0 && !classificationSelected)}>{step === 2 ? "创建独立档案" : "下一步"}<ChevronRight size={17} aria-hidden="true" /></button>
+        <button className="button button--primary" type="submit" disabled={saving || !ready || Boolean(storageError) || (step === 0 && !classificationSelected)}>{saving ? "正在保存" : step === 2 ? "创建独立档案" : "下一步"}<ChevronRight size={17} aria-hidden="true" /></button>
       </footer>
     </form>
   </main>;

@@ -18,10 +18,10 @@ export function RetailOperationConfirmation({ unit, pending, onClose, restoreFoc
     return () => { if (previous?.isConnected) previous.focus({preventScroll:true}); };
   }, [restoreFocusRef]);
   const conflict = unit.version !== pending.version;
-  function confirm() {
+  async function confirm() {
     if (busy.current) return;
     busy.current = true; setAttempted(true);
-    if (dispatch({ type: "command", id: unit.id, command: pending.command, event: pending.event, version: pending.version })) onClose();
+    if (await dispatch({ type: "command", id: unit.id, command: pending.command, event: pending.event, version: pending.version })) onClose();
     else busy.current = false;
   }
   const command = pending.command;
