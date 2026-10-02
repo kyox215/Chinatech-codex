@@ -17,14 +17,15 @@ export function RetailHistoryDetail({ id }: { id: string }) {
   const { records, ready, error } = useRetailHistory();
   const staff = useStaff();
   const params = useSearchParams();
-  const backHref = historyReturnHref(params.get("returnTo"));
   const record = records.find(item => item.id === id);
+  const fallback = record?.sourceStatus === "在售" ? "/app/retail" : record?.sourceStatus === "以售" || record?.sourceStatus === "已售" ? "/app/retail?view=sold" : "/app/retail?view=other";
+  const backHref = historyReturnHref(params.get("returnTo") || fallback);
   if (!ready || !record || !staff.can("retail.view")) return <main className={`module-page ${surface.page}`}><header className="module-heading"><PageTitle title="历史整机" backHref={backHref} backLabel="返回整机记录" /></header>{error ? <p className="procurement-feedback procurement-feedback--error" role="alert">{error}</p> : null}<div className="panel module-empty">{!ready ? <strong role="status">正在读取历史整机…</strong> : <><Archive size={28} /><strong>{!staff.can("retail.view") ? "当前账号无权查看整机记录" : "没有找到历史整机记录"}</strong><Link href={backHref} className="button button--secondary">返回记录列表</Link></>}</div></main>;
   let customerHref: string | null = null;
   if (record.customerPhone) { try { customerHref = `/app/customers/${customerId(record.customerPhone)}?records=history`; } catch { /* Preserve an invalid original phone as text. */ } }
   const fact = (label: string, value: ReactNode, wide = false) => <div className={wide ? styles.factWide : undefined} key={label}><dt>{label}</dt><dd>{value}</dd></div>;
   return <main className={`module-page ${surface.page}`}>
-    <header className="module-heading"><PageTitle title={historyTitle(record)} backHref={backHref} backLabel={backHref.startsWith("/app/customers/") ? "返回客户档案" : "返回历史整机"} badge={<RetailHistoryStatus record={record} />} subtitle={`${retailHistoryCode(record)} · ${record.condition}`} /></header>
+    <header className="module-heading"><PageTitle title={historyTitle(record)} backHref={backHref} backLabel={backHref.startsWith("/app/customers/") ? "返回客户档案" : "返回整机商品"} badge={<RetailHistoryStatus record={record} />} subtitle={`${retailHistoryCode(record)} · ${record.condition}`} /></header>
     {error ? <p className="procurement-feedback procurement-feedback--error" role="alert">{error}</p> : null}
     {record.reviewReasons.length ? <section className={`panel ${styles.reviewPanel}`} aria-label="历史资料待核对"><h3><AlertTriangle size={18} />待核对 · {record.reviewReasons.length}</h3><ul>{record.reviewReasons.map((reason, index) => <li key={`${index}:${reason}`}>{reason}</li>)}</ul></section> : null}
     <div className={styles.detailLayout}>

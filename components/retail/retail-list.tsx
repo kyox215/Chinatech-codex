@@ -15,7 +15,6 @@ import { useRetail } from "./retail-provider";
 import { UnitIcon } from "./unit-icon";
 import { useRetailHistory } from "./retail-history-store";
 import { RetailHistoryList } from "./retail-history-list";
-import { RetailHistorySourceTabs } from "./retail-history-shared";
 import surface from "./retail-surface.module.css";
 import styles from "./retail-list.module.css";
 
@@ -26,15 +25,15 @@ const matchStatus = (status: string, filter: string) => filter === "all" || (fil
 
 export function RetailList() {
   const staff = useStaff();
-  const { units, ready } = useRetail();
+  const { units, ready, error } = useRetail();
   const history = useRetailHistory();
   const params = useSearchParams();
   const source = params.get("source");
   if (!ready || !history.ready) return <main className={`module-page ${surface.page}`}><header className="module-heading"><PageTitle title="整机商品" /></header><div className="panel module-empty" role="status">正在读取整机记录…</div></main>;
   if (!staff.can("retail.view")) return <main className={`module-page ${surface.page}`}><header className="module-heading"><PageTitle title="整机商品" /></header><div className="panel module-empty"><strong>当前账号无权查看整机记录</strong></div></main>;
-  const showHistory = source === "history" || source !== "units" && history.records.length > 0 && units.length === 0;
-  const sourceTabs = <RetailHistorySourceTabs active={showHistory ? "history" : "units"} historyCount={history.records.length} unitCount={units.length} />;
-  return showHistory ? <RetailHistoryList {...history} sourceTabs={sourceTabs} /> : <RetailUnitList sourceTabs={sourceTabs} />;
+  return source === "units"
+    ? <RetailUnitList sourceTabs={<nav className="module-heading" aria-label="整机页面"><Link className="button button--secondary" href="/app/retail">返回在售商品</Link></nav>} />
+    : <RetailHistoryList records={history.records} ready={history.ready} error={[history.error, error].filter(Boolean).join(" ")} units={units} />;
 }
 
 function RetailUnitList({ sourceTabs }: { sourceTabs: ReactNode }) {

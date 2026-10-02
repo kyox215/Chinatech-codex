@@ -4,6 +4,8 @@
 .sourceTabs span { font-size: 12px; font-variant-numeric: tabular-nums; }
 .sourceTabs a:focus-visible, .row:focus-visible, .customerHistoryRows a:focus-visible { outline: 2px solid var(--primary-500); outline-offset: -2px; }
 .list { min-width: 0; overflow: visible; }
+.classificationBar { margin: 12px 12px 0; width: fit-content; }
+.classificationBar button { font-size: 14px; }
 .table { border-radius: 0; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; border-bottom: 1px solid var(--border); }
 .search { flex: 1 1 360px; min-width: 0; min-height: 44px; }
@@ -56,6 +58,7 @@
   .sourceTabs { margin-bottom: 8px; }
   .sourceTabs a { flex: 1; padding-inline: 10px; }
   .toolbar { padding: 8px; }
+  .classificationBar { margin: 8px 8px 0; width: auto; }
   .search { flex-basis: 100%; }
   .search input { font-size: 16px; }
   .filters { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; }
