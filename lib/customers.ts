@@ -1,5 +1,6 @@
 import type { RepairDirectoryEntry } from "./repair-intake-record";
 import type { RetailUnit } from "./retail";
+import type { RetailHistoryRecord } from "./retail-history";
 
 /** Italy is the local dialing default. Explicit foreign country codes stay distinct. */
 export function normalizeCustomerPhone(raw: string): string {
@@ -15,18 +16,26 @@ export function customerName(raw: string) { return ["未填写姓名", "未填�
 export type CustomerProfile = { phone: string; name: string; email: string; note: string; version: number; updatedAt: string };
 export type CustomerSeed = { phone: string; name: string; email?: string };
 export type CustomerSaleRecord = { id: string; unitId: string; unitCode: string; deviceName: string; time: string; priceCents: number; paidCents: number | null; delivered: boolean; note: string; refundedCents?:number; returned?:boolean; afterSaleCount?:number };
-export type Customer = CustomerProfile & { id: string; repairs: RepairDirectoryEntry[]; sales: CustomerSaleRecord[]; lastActivity: string };
+export type Customer = CustomerProfile & { id: string; repairs: RepairDirectoryEntry[]; sales: CustomerSaleRecord[]; history: RetailHistoryRecord[]; lastActivity: string };
 
-export function buildCustomerDirectory(repairs: readonly RepairDirectoryEntry[], units: readonly RetailUnit[], profiles: readonly CustomerProfile[] = [], seeds: readonly CustomerSeed[] = []): Customer[] {
+export function buildCustomerDirectory(repairs: readonly RepairDirectoryEntry[], units: readonly RetailUnit[], profiles: readonly CustomerProfile[] = [], seeds: readonly CustomerSeed[] = [], history: readonly RetailHistoryRecord[] = []): Customer[] {
   const directory = new Map<string, Customer>();
   function get(phone: string) {
     let normalized: string;
     try { normalized = normalizeCustomerPhone(phone); } catch { return null; }
     let record = directory.get(normalized);
-    if (!record) { record = { id: customerId(normalized), phone: normalized, name: "", email: "", note: "", version: 0, updatedAt: "", repairs: [], sales: [], lastActivity: "" }; directory.set(normalized, record); }
+    if (!record) { record = { id: customerId(normalized), phone: normalized, name: "", email: "", note: "", version: 0, updatedAt: "", repairs: [], sales: [], history: [], lastActivity: "" }; directory.set(normalized, record); }
     return record;
   }
   for (const seed of seeds) { const record = get(seed.phone); if (record) { if (customerName(seed.name)) record.name = customerName(seed.name); if (seed.email) record.email = seed.email; } }
+  // Keep source rows separate from confirmed sales; repeated IMEI/phone does not merge transactions.
+  for (const item of [...history].sort((a,b) => a.intakeAt.localeCompare(b.intakeAt))) {
+    if (!item.customerPhone) continue;
+    const record = get(item.customerPhone); if (!record) continue;
+    record.history.push(item);
+    if (customerName(item.customerName || "")) record.name = customerName(item.customerName || "");
+    record.lastActivity = [record.lastActivity, item.pickupDate || item.intakeAt.slice(0,10)].sort().at(-1)!;
+  }
   for (const repair of [...repairs].sort((a,b) => a.createdAt.localeCompare(b.createdAt))) {
     const record = get(repair.customer.phone); if (!record) continue;
     record.repairs.push(repair);
@@ -42,7 +51,7 @@ export function buildCustomerDirectory(repairs: readonly RepairDirectoryEntry[],
     record.lastActivity = [record.lastActivity, sale.time].sort().at(-1)!;
   }
   for (const profile of profiles) { const record = get(profile.phone); if (record) Object.assign(record, profile, { phone: normalizeCustomerPhone(profile.phone) }); }
-  for (const record of directory.values()) { record.repairs.sort((a,b) => b.createdAt.localeCompare(a.createdAt)); record.sales.sort((a,b) => b.time.localeCompare(a.time)); }
+  for (const record of directory.values()) { record.repairs.sort((a,b) => b.createdAt.localeCompare(a.createdAt)); record.sales.sort((a,b) => b.time.localeCompare(a.time)); record.history.sort((a,b) => b.intakeAt.localeCompare(a.intakeAt)); }
   return [...directory.values()].sort((a,b) => b.lastActivity.localeCompare(a.lastActivity) || a.phone.localeCompare(b.phone));
 }
 

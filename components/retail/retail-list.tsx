@@ -7,12 +7,15 @@ import { SelectControl } from "@/components/select-control";
 import { IdentifierField } from "@/components/identifier-field";
 import { ColorSwatch } from "@/components/color-picker";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Boxes, ChevronRight, ClipboardCheck, Clock3, PackageCheck, Plus, ScanLine, Search, SlidersHorizontal, X } from "lucide-react";
 import { lookupRetailCode, retailCategories, retailMoney, retailSpec, retailStatuses, type RetailCategory, type RetailCodeType } from "@/lib/retail";
 import { identifierScanValue } from "@/lib/identifier-scan";
 import { useRetail } from "./retail-provider";
 import { UnitIcon } from "./unit-icon";
+import { useRetailHistory } from "./retail-history-store";
+import { RetailHistoryList } from "./retail-history-list";
+import { RetailHistorySourceTabs } from "./retail-history-shared";
 import surface from "./retail-surface.module.css";
 import styles from "./retail-list.module.css";
 
@@ -22,6 +25,19 @@ type StatusFilter = keyof typeof statusOptions;
 const matchStatus = (status: string, filter: string) => filter === "all" || (filter === "inhouse" ? status !== "sold" : filter === "processing" ? status === "inspecting" || status === "hold" : status === filter);
 
 export function RetailList() {
+  const staff = useStaff();
+  const { units, ready } = useRetail();
+  const history = useRetailHistory();
+  const params = useSearchParams();
+  const source = params.get("source");
+  if (!ready || !history.ready) return <main className={`module-page ${surface.page}`}><header className="module-heading"><PageTitle title="整机商品" /></header><div className="panel module-empty" role="status">正在读取整机记录…</div></main>;
+  if (!staff.can("retail.view")) return <main className={`module-page ${surface.page}`}><header className="module-heading"><PageTitle title="整机商品" /></header><div className="panel module-empty"><strong>当前账号无权查看整机记录</strong></div></main>;
+  const showHistory = source === "history" || source !== "units" && history.records.length > 0 && units.length === 0;
+  const sourceTabs = <RetailHistorySourceTabs active={showHistory ? "history" : "units"} historyCount={history.records.length} unitCount={units.length} />;
+  return showHistory ? <RetailHistoryList {...history} sourceTabs={sourceTabs} /> : <RetailUnitList sourceTabs={sourceTabs} />;
+}
+
+function RetailUnitList({ sourceTabs }: { sourceTabs: ReactNode }) {
   const staff=useStaff();
   const { units, dispatch, returnTo, returnScroll } = useRetail();
   const params = useSearchParams();
@@ -67,10 +83,11 @@ export function RetailList() {
   ];
   const filterCount = Number(category !== "all") + Number(status !== "inhouse") + Number(sort !== "newest");
   const hasFilters = Boolean(query) || filterCount > 0 || condition !== "all";
-  const clearFilters = () => window.history.replaceState(null, "", "/app/retail");
+  const clearFilters = () => window.history.replaceState(null, "", "/app/retail?source=units");
 
   return <main className={"module-page " + surface.page}>
     <header className="module-heading"><PageTitle title="整机商品" /><div className="module-heading__actions"><button className="button button--secondary button--compact page-toolbar-action" type="button" aria-label="识码查找" title="识码查找" aria-expanded={scanOpen} onClick={() => setScanOpen(!scanOpen)}><ScanLine size={17} /><span>识码查找</span></button>{staff.can("retail.edit")?<Link className="button button--primary button--compact" href="/app/retail/new" onClick={remember}><Plus size={17} />新建单机</Link>:null}</div></header>
+    {sourceTabs}
     <section className={styles.stats} aria-label="整机状态筛选">{stats.map(({ value, label, icon: Icon, tone }) => <button className={styles.stat + " " + (styles[tone] || "") + (status === value ? " " + styles.active : "")} key={value} type="button" aria-pressed={status === value} onClick={() => update("status", value)}><span className={styles.statIcon}><Icon size={20} aria-hidden="true" /></span><span>{label}</span><strong>{searched.filter(unit => matchStatus(unit.status, value) && (condition === "all" || unit.condition === condition)).length}</strong></button>)}</section>
     {scanOpen ? <section className={"panel " + styles.scan} aria-label="识码查找"><div className={"detail-section__head " + surface.sectionHead}><div><span><ScanLine size={18} /></span><h3>识码查找</h3></div><button className="icon-button" type="button" aria-label="收起识码查找" onClick={() => setScanOpen(false)}><X size={17} /></button></div><form onSubmit={event => { event.preventDefault(); const raw = scanCode.trim(); const checked = codeType === "imei" ? identifierScanValue(raw,"imei") : null; if (checked?.error) {setScanError(checked.error); setScanResult(null); return;} setScanError(""); setScanResult({raw:checked?.value ?? raw,type:codeType}); }}><label className="field"><span>码类型</span><SelectControl aria-label="码类型" value={codeType} onChange={event => { setCodeType(event.target.value as RetailCodeType); setScanResult(null); setScanError(""); }}><option value="internal">内部单机码</option><option value="serial">SN 序列号</option><option value="imei">IMEI</option><option value="product">包装商品码</option></SelectControl></label><IdentifierField label="识别内容" value={scanCode} onChange={value => { setScanCode(value); setScanResult(null); setScanError(""); }} kind={codeType === "imei" ? "imei" : "serial"} placeholder={codeType === "imei" ? "15 位数字" : "输入或扫码填入识别内容"} /><button className="button button--primary" type="submit">查找候选</button></form>{scanError ? <p className="form-error" role="alert">{scanError}</p> : null}{scanResult ? <div className={styles.scanResult} role="status">{!scanResult.raw ? <p>请输入识别内容。</p> : candidates.length ? <><p>{scanResult.type === "product" ? "包装码只对应候选，需核对具体实物。" : "请选择核对后的单机档案。"}共 {candidates.length} 台</p>{candidates.map(unit => <Link href={"/app/retail/units/" + unit.id} onClick={remember} key={unit.id}>{unit.code} · {unit.brand} {unit.model}<span>{retailStatuses[unit.status].label}<ChevronRight size={16} /></span></Link>)}</> : <><p>未找到匹配。新建前请核对码类型与实物；不会自动创建。</p><Link className="button button--secondary" href={"/app/retail/new?identifier=" + encodeURIComponent(scanResult.raw) + "&kind=" + scanResult.type} onClick={remember}>用此码新建档案</Link></>}</div> : null}</section> : null}
     <section className={"panel " + styles.list}>

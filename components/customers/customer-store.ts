@@ -7,6 +7,7 @@ import { buildCustomerDirectory, parseCustomerProfiles, updateCustomerProfile, t
 import { intakeCustomers } from "@/lib/repair-intake";
 import { useLocalIntakes, useRepairDirectory } from "@/components/repairs/local-intake-store";
 import { useRetail } from "@/components/retail/retail-provider";
+import { useRetailHistory } from "@/components/retail/retail-history-store";
 
 const key = "chinatech.m1.customer-profiles.v1";
 const change = "chinatech-customer-change";
@@ -35,8 +36,9 @@ export function useCustomerDirectory() {
   const repairs = useRepairDirectory();
   const local = useLocalIntakes();
   const retail = useRetail();
+  const history = useRetailHistory();
   const seeds = [...(isBackendClient()?[]:intakeCustomers), ...local.records.map(record => ({ phone: record.phone, name: record.customerName, email: record.email }))];
-  return { customers: buildCustomerDirectory(repairs, retail.units, profiles.profiles, seeds), ready: profiles.ready && local.ready && retail.ready, error: [profiles.error, local.error, retail.error].filter(Boolean).join(" ") };
+  return { customers: buildCustomerDirectory(repairs, retail.units, profiles.profiles, seeds, history.records), ready: profiles.ready && local.ready && retail.ready && history.ready, error: [profiles.error, local.error, retail.error, history.error].filter(Boolean).join(" ") };
 }
 export function saveCustomerProfile(draft: Omit<CustomerProfile, "version">, expectedVersion: number) {
   if(isBackendClient()) return backendCommand("customer.save",{draft,version:expectedVersion});
