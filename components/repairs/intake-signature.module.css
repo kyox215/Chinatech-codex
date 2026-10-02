@@ -1,0 +1,30 @@
+.section, .editor { padding: 14px; min-width: 0; }
+.section { margin-top: 14px; }
+.editor { margin-top: 12px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); }
+.header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+.header h3 { display: flex; align-items: center; gap: 7px; font-size: 16px; margin: 0; }
+.header h3 svg { color: var(--primary-600); }
+.header :global(.icon-button) { width: 44px; height: 44px; }
+.reading { margin: 12px 0; padding: 10px 12px; background: var(--surface-subtle); border-radius: var(--radius-control); font-size: 13px; line-height: 1.5; }
+.reading p { margin: 4px 0 8px; }
+.reading dl { margin: 0; }
+.reading dl div { display: flex; gap: 10px; padding: 3px 0; }
+.reading dt { color: var(--text-secondary); flex-shrink: 0; }
+.reading dd { margin: 0; overflow-wrap: anywhere; }
+.reading summary, .help summary, .history summary { min-height: 44px; cursor: pointer; padding: 10px 0; }
+.canvas { width: 100%; height: clamp(160px,22vw,240px); display: block; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-control); touch-action: none; user-select: none; cursor: crosshair; }
+.canvas:focus-visible { outline: 2px solid var(--primary-600); outline-offset: 2px; }
+.baseline { stroke: var(--border); stroke-dasharray: 4 4; }
+.placeholder { font-size: 19px; fill: var(--text-secondary); }
+.cursor { fill: var(--primary-600); opacity: 0; }
+.canvas:focus-visible .cursor { opacity: 1; }
+.tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.tools span { color: var(--text-secondary); font-size: 12px; margin-right: auto; }
+.help, .note { font-size: 12px; color: var(--text-secondary); }
+.image { width: min(100%,400px); height: 90px; display: block; color: var(--text); }
+.accept { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; margin-top: 10px; }
+.accept input { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--primary-600); }
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.history { border-top: 1px solid var(--border); margin-top: 10px; font-size: 13px; overflow-wrap: anywhere; }
+.history > details { border-top: 1px solid var(--border); }
+@media (max-width:767px) { .editor, .section { padding: 12px; } .tools :global(.button), .actions :global(.button), .header :global(.button) { min-height: 44px; } }

@@ -1,6 +1,0 @@
-state/runtime.json
-state/*.lock
-state/*.tmp
-state/orchestration/
-memory/**/.context-cache*
-memory/**/*.lock

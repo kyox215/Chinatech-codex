@@ -1,0 +1,58 @@
+.sale { padding: 12px; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.sale > header, .case > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sale > header > div { display: grid; gap: 4px; min-width: 0; }
+.sale small { display: block; font-size: 12px; color: var(--text-secondary); }
+.buyer { display: block; margin: 8px 0; color: var(--primary-600); font-size: 14px; }
+.metrics { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin: 12px 0; }
+.metrics > div { padding: 8px; background: var(--surface-subtle); border-radius: var(--radius-control); }
+.metrics dt { font-size: 12px; color: var(--text-secondary); }
+.metrics dd { font-size: 17px; font-weight: 700; margin: 4px 0 0; font-variant-numeric: tabular-nums; }
+.buttons { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.buttons > * { min-height: 44px; }
+.note { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin: 8px 0; white-space: pre-wrap; }
+.ledger { border-top: 1px solid var(--border); padding: 8px 0; font-size: 13px; }
+.ledger summary { cursor: pointer; min-height: 44px; align-content: center; }
+.ledgerItem { padding: 8px 0; }
+.ledgerRow { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 8px 0; }
+.ledgerRow > span { min-width: 0; }
+.case { padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-control); margin-top: 12px; background: var(--surface-subtle); }
+.case > p { font-size: 14px; margin: 8px 0; white-space: pre-wrap; }
+.case > header { align-items: flex-start; }
+.case > header span { white-space: normal; }
+.reservation { display: grid; gap: 8px; }
+.reservation > p { display: grid; gap: 4px; margin: 0; font-size: 13px; }
+.reservation small { color: var(--text-secondary); }
+.transaction { min-width: 0; width: 100%; margin: 10px 0; border: 1px solid var(--border-strong); border-radius: var(--radius-control); background: var(--surface); overflow-wrap: anywhere; scroll-margin-block: 76px; }
+.transactionHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.transactionHead h4 { margin: 0; font-size: 14px; line-height: 1.5; }
+.transactionHead button { min-width: 44px; min-height: 44px; flex-shrink: 0; }
+.formBody { padding: 12px; display: grid; gap: 12px; min-width: 0; }
+.formBody > * { min-width: 0; }
+.formBody textarea { min-height: 88px; resize: vertical; }
+.transactionActions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 12px; border-top: 1px solid var(--border); }
+.transactionActions button { min-height: 44px; }
+.context, .compare, .originalEntry { display: grid; gap: 10px; margin: 0; }
+.context dt, .compare dt, .originalEntry dt, .amountContext dt { font-size: 12px; color: var(--text-secondary); }
+.context dd, .compare dd, .originalEntry dd { margin: 4px 0 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+.context { padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.amountContext { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin: 0; padding: 10px; border-radius: var(--radius-control); background: var(--surface-subtle); }
+.amountContext dd { margin: 4px 0 0; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.originalEntry { padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-control); }
+.confirmedFact { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; }
+.confirmedFact svg { color: var(--primary-600); flex-shrink: 0; }
+.methodChoice > div { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+.methodChoice > div > label { min-width: 0; justify-content: flex-start; }
+.accept { min-height: 44px; display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 1.5; }
+.accept input { flex-shrink: 0; width: 18px; height: 18px; }
+@media (max-width: 767px) {
+  .sale :global(.button), .sale :global(.icon-button) { min-height: 44px; min-width: 44px; }
+  .formBody { padding: 10px; }
+  .formBody input, .formBody textarea { font-size: 16px; }
+  .sale { padding: 10px; }
+  .sale > header { align-items: flex-start; }
+  .sale > header small { max-width: 160px; }
+  .metrics dd { font-size: 16px; }
+  .buttons > * { flex: 1 1 auto; }
+  .amountContext { padding: 8px; gap: 6px; }
+  .amountContext dd { font-size: 14px; }
+}

@@ -1,0 +1,33 @@
+.dialog { width: min(520px,calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 20px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); }
+.dialog::backdrop { background: var(--overlay); }
+.header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.header h2 { margin: 6px 0 0; font-size: 22px; }
+.dialog .closeButton, .scanButton { width: 44px; height: 44px; min-width: 44px; flex: 0 0 44px; border-radius: var(--radius-control); }
+.dialog :global(.field) { margin-top: 12px; }
+.dialog :global(.field) input, .dialog :global(.field) select { min-height: 44px; font-size: 16px; }
+.preview { position: relative; aspect-ratio: 4 / 3; max-height: 300px; display: grid; place-items: center; margin-block: 12px; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-subtle); color: var(--text-secondary); }
+.preview video { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; }
+.preview[data-active="false"] video { visibility: hidden; }
+.preview > div { z-index: 1; display: grid; justify-items: center; gap: 10px; padding: 12px; text-align: center; font-size: 13px; }
+.target { position: absolute; inset: 20% 12%; border: 2px solid var(--primary-600); border-radius: var(--radius-control); }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.actions :global(.button) { min-height: 44px; cursor: pointer; }
+.actions label:focus-within { outline: 2px solid var(--primary-600); outline-offset: 2px; }
+.disabled { opacity: .5; }
+.manual { display: flex; align-items: flex-end; gap: 8px; margin-top: 12px; }
+.manual :global(.field) { flex: 1; min-width: 0; }
+.manual :global(.button) { min-height: 44px; flex: 0 0 auto; }
+.confirmation { display: grid; gap: 10px; margin-top: 16px; font-size: 14px; }
+.raw { margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface-subtle); overflow-wrap: anywhere; white-space: pre-wrap; }
+.confirmation p { margin: 0; }
+.confirmationButtons { display: flex; flex-wrap: wrap; gap: 8px; }
+.confirmationButtons :global(.button) { min-height: 44px; }
+.inputRow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.inputRow > input { flex: 1; min-width: 0; min-height: 44px; }
+@media (max-width: 767px) {
+  .dialog { padding: 16px; }
+  .manual { flex-wrap: wrap; }
+  .manual :global(.field) { flex-basis: 100%; }
+  .manual > :global(.button) { width: 100%; }
+  .inputRow > input { font-size: 16px; }
+}

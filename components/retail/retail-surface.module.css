@@ -1,0 +1,9 @@
+.page { width: 100%; max-width: 1200px; margin-inline: auto; }
+.page .sectionHead { min-height: 48px; padding: 8px 12px; gap: 8px; }
+.page .sectionHead > div { display: flex; align-items: center; gap: 8px; }
+.page .sectionHead > div > span { width: 28px; height: 28px; border-radius: var(--radius-control); color: var(--text-secondary); background: var(--surface-subtle); }
+.page .sectionHead h3 { margin: 0; font-size: 14px; line-height: 1.4; }
+.glyph { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 44px; color: var(--primary-600); background: var(--primary-50); border: 1px solid var(--primary-100); border-radius: var(--radius-control); }
+@media (max-width:767px) {
+  .page .sectionHead { padding-inline: 10px; }
+}

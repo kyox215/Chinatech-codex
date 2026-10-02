@@ -1,53 +1,15 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-public/vendor/tesseract/
-dist
-dist-ssr
-storybook-static
-coverage
-playwright-report
-test-results
-.next
-.output
-.vinxi
-.tanstack/**
-*.tsbuildinfo
-.nitro
+node_modules/
+.next/
+.local/
+archive.local/
 .vercel/
-.env
-.env.*
+.env*
 !.env.example
-*.local
-
-# Python cache output from local tooling
-__pycache__/
-*.pyc
-
-# Wrangler / Cloudflare
-.wrangler/
-.dev.vars
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+*.tsbuildinfo
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-.vercel
-.env*.local
-supabase/.temp
-
-# Local project copies; source and durable evidence remain outside this directory.
-/work/
+coverage/
+test-results/
+playwright-report/
+*.zip
+*.bundle
+*.private.*

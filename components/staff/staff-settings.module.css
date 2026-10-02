@@ -1,0 +1,23 @@
+.note {font-size:12px;color:var(--text-secondary);margin:0 0 14px;}
+.editor {padding:14px;border:1px solid var(--border);border-radius:var(--radius-panel);background:var(--surface-subtle);margin:12px 0;}
+.heading,.footer {display:flex;align-items:center;gap:8px;}
+.heading {justify-content:space-between;margin-bottom:12px;}
+.heading h4 {margin:0;font-size:16px;}
+.footer {justify-content:flex-end;flex-wrap:wrap;margin-top:14px;}
+.permissions {border:0;padding:0;margin:14px 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
+.permissions legend {font-weight:700;font-size:14px;margin-bottom:8px;}
+.permissions label {display:flex;gap:8px;align-items:center;min-height:44px;padding:6px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-control);font-size:13px;}
+.permissions input {width:18px;height:18px;accent-color:var(--primary-600);}
+.rows {display:grid;gap:8px;}
+.rows article {display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--border);border-radius:var(--radius-control);}
+.rows article>div {display:grid;gap:3px;min-width:0;flex:1;}
+.rows small,.rows span:not(.avatar) {font-size:12px;color:var(--text-secondary);overflow-wrap:anywhere;}
+.avatar {display:grid;place-items:center;width:36px;height:36px;flex-shrink:0;color:var(--primary-700);background:var(--primary-50);border-radius:50%;font-weight:700;}
+.audit {margin-top:14px;border-top:1px solid var(--border);font-size:12px;}
+.audit summary {display:flex;align-items:center;gap:8px;min-height:44px;cursor:pointer;}
+.audit article {display:grid;gap:5px;padding:10px;border-top:1px solid var(--border);}
+.audit small {color:var(--text-secondary);}
+.audit p,.review p {margin:5px 0;overflow-wrap:anywhere;}
+.review {font-size:14px;}
+.review ul {padding-left:20px;columns:2;}
+@media(max-width:767px) {.sectionTitle>button {min-height:44px;} .permissions {grid-template-columns:minmax(0,1fr);} .editor input:not([type=checkbox]),.editor select {font-size:16px;min-height:44px;} .rows article {padding:10px 8px;} .rows article>button {min-height:44px;} .review ul {columns:1;} }
