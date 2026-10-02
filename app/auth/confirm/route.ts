@@ -1,22 +1,53 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseMode } from "@/lib/supabase/config";
 import { createSupabaseRouteClient, preventAuthCaching, trustedAuthOrigin } from "@/lib/supabase/server";
+import { clearRecoveryProof, copyAuthCookies, setRecoveryProof } from "@/lib/server/auth-flows";
 
 export async function GET(request: NextRequest) {
   const origin = trustedAuthOrigin(request);
-  const failure = () => preventAuthCaching(NextResponse.redirect(new URL("/login?notice=confirmation-failed", origin)));
+  const notice = request.nextUrl.pathname === "/auth/callback" ? "oauth-failed" : "confirmation-failed";
+  const failure = (source?: NextResponse) => {
+    const response = preventAuthCaching(NextResponse.redirect(new URL(`/login?notice=${notice}`, origin)));
+    if (source) copyAuthCookies(source, response);
+    clearRecoveryProof(response);
+    return response;
+  };
   const tokenHash = request.nextUrl.searchParams.get("token_hash");
   const code=request.nextUrl.searchParams.get("code");
   const pkce=Boolean(code && /^[a-z\d._~-]{8,1024}$/i.test(code));
-  const hashed=Boolean(request.nextUrl.searchParams.get("type")==="signup" && tokenHash && /^[a-f\d]{32,256}$/i.test(tokenHash));
-  if (!isSupabaseMode() || (!pkce && !hashed)) return failure();
+  const type = request.nextUrl.searchParams.get("type");
+  const hashed=Boolean((type === "signup" || type === "recovery") && tokenHash && /^[a-f\d]{32,256}$/i.test(tokenHash));
+  if (!isSupabaseMode() || request.nextUrl.searchParams.has("error") || (!pkce && !hashed)) return failure();
+  const response = preventAuthCaching(NextResponse.redirect(new URL("/account/pending", origin)));
   try {
-    const response = preventAuthCaching(NextResponse.redirect(new URL("/account/pending", origin)));
     const supabase = createSupabaseRouteClient(request, response);
-    const { error } = pkce ? await supabase.auth.exchangeCodeForSession(code!) : await supabase.auth.verifyOtp({ token_hash: tokenHash!, type: "signup" });
-    if (error) return failure();
+    let recovery = false;
+    if (pkce) {
+      const flowId = request.nextUrl.searchParams.get("sb_flow_id");
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code!, flowId !== null ? { flowId } : undefined);
+      if (error) return failure(response);
+      // The SDK exposes redirectType at runtime but omits it from AuthTokenResponse.
+      recovery = "redirectType" in data && data.redirectType === "recovery";
+    } else {
+      const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash!, type: type as "signup" | "recovery" });
+      if (error) return failure(response);
+      recovery = type === "recovery";
+    }
     const { data, error: userError } = await supabase.auth.getUser();
-    if (userError || !data.user?.email_confirmed_at) return failure();
+    if (userError || !data.user?.email_confirmed_at) {
+      await supabase.auth.signOut({ scope: "local" });
+      return failure(response);
+    }
+    clearRecoveryProof(response);
+    if (recovery) {
+      const { data: claims, error } = await supabase.auth.getClaims();
+      if (error || claims?.claims.sub !== data.user.id || typeof claims.claims.session_id !== "string") {
+        await supabase.auth.signOut({ scope: "local" });
+        return failure(response);
+      }
+      setRecoveryProof(response, data.user.id, claims.claims.session_id);
+      response.headers.set("Location", new URL("/reset-password", origin).toString());
+    }
     return response;
-  } catch { return failure(); }
+  } catch { return failure(response); }
 }

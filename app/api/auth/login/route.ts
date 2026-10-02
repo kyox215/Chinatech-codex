@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseMode } from "@/lib/supabase/config";
 import { authEmail, authFailure, authPassword, AuthRequestError, createSupabaseRouteClient, preventAuthCaching, readAuthBody, requireSameOrigin } from "@/lib/supabase/server";
+import { clearRecoveryProof } from "@/lib/server/auth-flows";
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseMode()) return preventAuthCaching(NextResponse.json({ message: "正式登录未开放。" }, { status: 404 }));
@@ -10,6 +11,7 @@ export async function POST(request: NextRequest) {
     const email = authEmail(body.email); const password = authPassword(body.password);
     if (body.remember !== undefined && typeof body.remember !== "boolean") throw new AuthRequestError("请求格式无效。");
     const response = preventAuthCaching(NextResponse.json({ ok: true, redirectTo: "/account/pending" }));
+    clearRecoveryProof(response);
     const supabase = createSupabaseRouteClient(request, response);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error || !data.user || !data.user.email_confirmed_at) {

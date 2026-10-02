@@ -1,182 +1,45 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  Boxes,
-  Check,
-  ClipboardList,
-  History,
-  Laptop,
-  PackageSearch,
-  ShieldCheck,
-  Smartphone,
-  Wrench,
-} from "lucide-react";
+import { ArrowDown, ArrowRight, Check, CheckCheck, ChevronDown, ClipboardList, History, Laptop, PackageCheck, ShieldCheck, Smartphone, Wrench } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ProductPreview } from "@/components/home/product-preview";
-import { isSupabaseMode } from "@/lib/supabase/config";
+import { WorkflowTour } from "@/components/home/workflow-tour";
+import styles from "@/components/home/home.module.css";
 
-const features = [
-  {
-    icon: ClipboardList,
-    eyebrow: "维修工单",
-    title: "从接机到交付，一条记录走到底",
-    body: "集中管理故障、报价版本、维修步骤、测试结果和交机记录，旧历史不会被新操作覆盖。",
-  },
-  {
-    icon: PackageSearch,
-    eyebrow: "采购跟进",
-    title: "跟着工单记录下单与到货",
-    body: "按供应商和工单查看采购进度，支持分次到货与更正记录，但不会虚构配件库存。",
-  },
-  {
-    icon: Boxes,
-    eyebrow: "整机商品",
-    title: "一机一档，成本与检测独立",
-    body: "手机、电脑、平板和游戏机逐台建档；颜色、RAM、存储、多块硬盘与照片分别保存。",
-  },
-  {
-    icon: ShieldCheck,
-    eyebrow: "权限与历史",
-    title: "敏感数据只给真正需要的人",
-    body: "成员、门店和角色范围分开校验。注册不等于进入后台，关键变更保留审计轨迹。",
-  },
+const faqs = [
+  ["注册后可以直接进入门店吗？", "邮箱注册需要先完成验证，使用 Google 登录则由 Google 验证身份。两种方式都需要门店老板授予成员权限后，才能访问门店业务。注册不会自动创建门店或管理员。"],
+  ["手机和电脑都能使用吗？", "可以。使用浏览器打开 ChinaTech 即可。电脑适合查看完整列表和详情，手机适合接机登记、拍照和随时跟进工单。"],
+  ["客户送修的设备和待售整机会混在一起吗？", "不会。客户设备和门店自有待售整机分别管理。整机逐台建档，相同型号也保留各自的规格、检测和销售历史。"],
+  ["采购功能可以记录什么？", "可以记录与工单关联的配件需求、供应商、下单和分次到货，并保留追加更正的历史。采购记录不代表配件库存，也不会向供应商自动下单。"],
 ];
 
-const repairSteps = ["登记客户与设备", "诊断并生成报价", "采购、维修与测试", "核对收款并交机"];
-const retailSteps = ["扫码或手工建档", "逐项检测与拍照", "确认可售与定价", "登记出售或实物退回"];
-
 export default function HomePage() {
-  const supabaseMode = isSupabaseMode();
-  const displayedFeatures = supabaseMode ? features.map((feature, index) => ({ ...feature, body: index === 0 ? "保存接机资料、维修阶段、设备保管与客户签名；采购跟随工单记录，变更追加到历史。" : index === 2 ? "手机、电脑、平板和游戏机逐台建档，独立记录规格、检测、成本和销售历史。" : feature.body })) : features;
-  const displayedRepairSteps = supabaseMode ? ["登记客户与设备", "核对故障与维修需求", "记录采购与维修阶段", "更新设备保管与交还状态"] : repairSteps;
-  return (
-    <main className="marketing-page">
-      <header className="public-header">
-        <div className="public-header__inner">
-          <div className="public-header__left">
-            <nav className="auth-nav" aria-label="账户入口">
-              <Link className="text-link" href="/login">登录</Link>
-              <Link className="button button--small" href="/register">注册</Link>
-            </nav>
-            <span className="header-divider" aria-hidden="true" />
-            <Brand compact />
-          </div>
-          <nav className="public-nav" aria-label="主页导航">
-            <a href="#features">功能</a>
-            <a href="#workflow">流程</a>
-            <a href="#responsive">多端使用</a>
-          </nav>
-          <Link className="header-dashboard-link" href="/app/dashboard">{supabaseMode ? "进入工作台" : "工作台样板"} <ArrowRight size={16} /></Link>
-        </div>
-      </header>
+  return <main className={styles.page}>
+    <a className={styles.skipLink} href="#main-content">跳到主要内容</a>
+    <header className={styles.header}><div className={styles.headerInner}>
+      <div className={styles.headerLeft}><nav className={styles.authNav} aria-label="账户入口"><Link href="/login">登录</Link><Link className="button button--primary" href="/register">注册</Link></nav><span className={styles.divider} /><Brand compact /></div>
+      <nav className={styles.navigation} aria-label="主页导航"><a href="#features">功能亮点</a><a href="#workflow">业务流程</a><a href="#questions">常见问题</a></nav>
+      <Link className={styles.workspaceLink} href="/app/dashboard">进入工作台 <ArrowUpRightIcon /></Link>
+    </div></header>
 
-      <section className="hero section-shell">
-        <div className="hero__copy">
-          <span className="eyebrow"><span className="eyebrow__dot" />为维修门店重新整理每天的工作</span>
-          <h1><span>让维修、采购与</span><span>整机销售，回到</span><span className="hero-title__accent">同一条清晰流程。</span></h1>
-          <p className="hero__lead">ChinaTech 把客户设备、维修工单、采购到货和自有待售整机分开管理，再在一个响应式工作台里串起真正需要的下一步。</p>
-          <div className="hero__actions">
-            <a className="button button--primary" href="#features">了解功能 <ArrowRight size={17} /></a>
-            <Link className="button button--secondary" href="/login">登录使用</Link>
-          </div>
-          <ul className="hero__checks" aria-label="产品原则">
-            <li><Check size={15} />配件采购不冒充库存</li>
-            <li><Check size={15} />整机坚持一机一档</li>
-            <li><Check size={15} />电脑与手机使用同一套业务规则</li>
-          </ul>
-        </div>
-        <div className="hero__visual">
-          <div className="hero__glow" aria-hidden="true" />
-          <ProductPreview />
-          <div className="floating-note floating-note--top"><History size={16} /><span><strong>{supabaseMode ? "产品界面示意" : "完整历史"}</strong>{supabaseMode ? "演示数据，展示界面结构" : "报价与状态变化可追溯"}</span></div>
-          <div className="floating-note floating-note--bottom"><ShieldCheck size={16} /><span><strong>受控访问</strong>注册后仍需门店授权</span></div>
-        </div>
-      </section>
+    <section className={styles.hero} id="main-content"><div className={styles.heroInner}>
+      <div className={styles.heroCopy}><span className={styles.pill}><span />为维修门店的每一天</span><h1>让繁忙有序，<br />让维修<span>更简单。</span></h1><p>从接机、配件到货，到整机销售。<br className={styles.desktopBreak} />把门店的日常，整理在一个清晰的工作台。</p><div className={styles.heroActions}><Link className="button button--primary" href="/login">开始使用 <ArrowRight size={18} /></Link><a className="button button--secondary" href="#workflow">看看如何工作 <ArrowDown size={16} /></a></div><div className={styles.heroFoot}><span><Check size={15} />电脑与手机皆可用</span><span><ShieldCheck size={15} />按门店授权访问</span></div></div>
+      <div className={styles.heroVisual}><div className={styles.orbit} aria-hidden="true" /><ProductPreview /></div>
+    </div><div className={styles.moduleStrip}><span>一个工作台，串起门店日常</span><div><span><Wrench size={19} />维修工单</span><i /><span><PackageCheck size={19} />采购到货</span><i /><span><Laptop size={19} />整机档案</span><i /><span><History size={19} />客户与历史</span></div></div></section>
 
-      <section className="trust-strip">
-        <div className="section-shell trust-strip__inner">
-          <span>围绕真实门店流程设计</span>
-          <strong><Wrench size={17} />维修闭环</strong>
-          <strong><PackageSearch size={17} />采购事实</strong>
-          <strong><Smartphone size={17} />单机档案</strong>
-          <strong><History size={17} />变更留痕</strong>
-        </div>
-      </section>
+    <section className={styles.section} id="features"><div className={styles.sectionHeading}><span className={styles.sectionLabel}>各司其职，彼此相连</span><h2>少一点翻找，<br />多一点心中有数。</h2><p>客户、设备、配件与进度，放在该在的位置。</p></div><div className={styles.bento}>
+      <article className={`${styles.feature} ${styles.featureWide}`}><div className={styles.featureCopy}><span className={styles.featureIcon}><ClipboardList size={23} /></span><h3>每张工单，都有清楚的下一步。</h3><p>从接机资料到维修进度，配件到货、设备保管和交还记录，一处查看，随时跟进。</p><a href="#workflow">查看维修流程 <ArrowRight size={16} /></a></div><div className={styles.repairGraphic} aria-label="维修阶段示意"><div><span><Smartphone size={26} /></span><strong>设备维修记录<small>接机 · 需求 · 进度</small></strong><span className="status-pill status-pill--progress">维修中</span></div><ul><li><Check size={14} />接机资料已登记<span>01</span></li><li><Check size={14} />维修需求已核对<span>02</span></li><li><PackageCheck size={14} />配件已到货<span>03</span></li><li><Wrench size={14} />跟进维修与交还<span>04</span></li></ul></div></article>
+      <article className={`${styles.feature} ${styles.procurementFeature}`}><span className={styles.featureIcon}><PackageCheck size={23} /></span><h3>配件到了，<br />工单接着走。</h3><p>按工单追踪采购与分次到货，保留每一次更正。</p><div className={styles.packageGraphic} aria-hidden="true"><div><PackageCheck size={42} /><span>采购记录</span></div><span className={styles.connector} /><div><Wrench size={30} /><span>关联工单</span></div></div></article>
+      <article className={`${styles.feature} ${styles.retailFeature}`}><span className={styles.featureIcon}><Laptop size={23} /></span><h3>每一台实物，<br />都有自己的档案。</h3><p>规格、照片、检测、成本和销售历史，逐台记录。</p><div className={styles.deviceCards} aria-label="单机档案示意"><div><Smartphone size={39} /><span>手机<small>独立编号 · 独立检测</small></span></div><div><Laptop size={44} /><span>笔记本<small>规格记录 · 销售历史</small></span></div></div></article>
+      <article className={`${styles.feature} ${styles.accessFeature}`}><div><span className={styles.featureIcon}><ShieldCheck size={23} /></span><h3>协作有分工，<br />访问有边界。</h3><p>成员按授权访问门店。关键变更留下记录，历史可追溯。</p></div><div className={styles.accessGraphic} aria-hidden="true"><span><ShieldCheck size={45} /></span><div><i /><i /><i /></div><small>身份验证 → 门店授权 → 工作台</small></div></article>
+    </div></section>
 
-      <section className="feature-section section-shell" id="features">
-        <div className="section-heading">
-          <span className="eyebrow">核心能力</span>
-          <h2>不是把旧表格搬上网页，<br />而是让每一步都有明确归属。</h2>
-          <p>同一套设计语言承载不同业务模块，数据身份和操作边界保持清楚。</p>
-        </div>
-        <div className="feature-grid">
-          {displayedFeatures.map((feature, index) => (
-            <article className="feature-card" key={feature.title}>
-              <div className="feature-card__top">
-                <span className="feature-card__icon"><feature.icon size={21} /></span>
-                <span className="feature-card__number">0{index + 1}</span>
-              </div>
-              <span className="feature-card__eyebrow">{feature.eyebrow}</span>
-              <h3>{feature.title}</h3>
-              <p>{feature.body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+    <section className={styles.workflowSection} id="workflow"><div className={styles.section}><div className={styles.sectionHeading}><span className={styles.sectionLabel}>从第一步，到下一步</span><h2>流程清楚，工作自然顺手。</h2><p>点击切换，看看每一条业务如何展开。</p></div><WorkflowTour /></div></section>
 
-      <section className="workflow-section" id="workflow">
-        <div className="section-shell workflow-section__inner">
-          <div className="section-heading section-heading--left">
-            <span className="eyebrow">两条独立流程</span>
-            <h2><span>客户送修设备与</span><span>门店待售商品，</span><span>从一开始就不混在一起。</span></h2>
-          </div>
-          <div className="workflow-grid">
-            <article className="workflow-card">
-              <div className="workflow-card__header"><span><Wrench size={20} /></span><div><small>客户设备</small><h3>维修主流程</h3></div></div>
-              <ol>{displayedRepairSteps.map((step, index) => <li key={step}><span>{index + 1}</span><strong>{step}</strong></li>)}</ol>
-            </article>
-            <article className="workflow-card workflow-card--violet">
-              <div className="workflow-card__header"><span><Laptop size={20} /></span><div><small>自有商品</small><h3>整机销售流程</h3></div></div>
-              <ol>{retailSteps.map((step, index) => <li key={step}><span>{index + 1}</span><strong>{step}</strong></li>)}</ol>
-            </article>
-          </div>
-        </div>
-      </section>
+    <section className={`${styles.section} ${styles.devicesSection}`}><div className={styles.devicesCopy}><span className={styles.sectionLabel}>在柜台，也在手边</span><h2>电脑上看全局，<br />手机上接着做。</h2><p>同一个网站，适合不同的工作时刻。坐下来处理列表，拿起手机记录设备与照片。</p><ul><li><CheckCheck size={20} />桌面完整列表，查看更从容</li><li><Smartphone size={20} />手机单栏操作，接机更顺手</li><li><ShieldCheck size={20} />两端沿用相同的门店权限</li></ul></div><div className={styles.devicesGraphic} aria-label="电脑与手机界面示意"><div className={styles.miniDesktop}><div><Laptop size={18} /><strong>门店工作台</strong><span>示意</span></div><div className={styles.miniColumns}><span>待处理<i /><i /><i /></span><span>进行中<i /><i /></span><span>已完成<i /><i /><i /></span></div></div><div className={styles.miniPhone}><span /><small>ChinaTech</small><strong>随手，记清楚。</strong><div><Smartphone size={29} /><b>接机登记</b><small>客户设备 · 维修需求</small></div><div><Check size={17} />资料已记录</div><div><PackageCheck size={17} />继续跟进</div></div></div></section>
 
-      <section className="responsive-section section-shell" id="responsive">
-        <div className="responsive-copy">
-          <span className="eyebrow">响应式网站</span>
-          <h2><span>柜台电脑看全局，</span><span>手机随手处理下一步。</span></h2>
-          <p>桌面保留紧凑表格与详情组合；手机改用摘要行、抽屉菜单和适合触控的短动作。两端使用同一套权限和业务规则，不宣称已有独立原生 App。</p>
-          {supabaseMode ? <p>图中工单与统计为产品界面示意。</p> : null}
-          <ul>
-            <li><Check size={16} />桌面、平板、手机内容驱动响应</li>
-            <li><Check size={16} />关键操作不藏在 hover 里</li>
-            <li><Check size={16} />长机型、中文与意大利语都可扩展</li>
-          </ul>
-        </div>
-        <div className="device-composition" aria-label="桌面与手机工作台示意">
-          <div className="device-window device-window--desktop"><ProductPreview /></div>
-          <div className="device-window device-window--phone">
-            <div className="phone-notch" />
-            <div className="phone-stat"><span>待报价</span><strong>8</strong></div>
-            <div className="phone-stat"><span>待采购</span><strong>5</strong></div>
-            <div className="phone-list"><span /><div><strong>iPhone 15 Pro</strong><small>等待客户确认</small></div></div>
-            <div className="phone-list"><span /><div><strong>MacBook Air</strong><small>配件部分到货</small></div></div>
-          </div>
-        </div>
-      </section>
-
-      <section className="cta-section">
-        <div className="section-shell cta-section__inner">
-          <div><span className="eyebrow eyebrow--light">{supabaseMode ? "ChinaTech 门店后台" : "当前为视觉样板"}</span><h2>{supabaseMode ? "登录后，查看门店工单、采购与整机档案。" : "先确认结构、密度与交互，再接入真实业务数据。"}</h2></div>
-          <div className="cta-section__actions"><Link className="button button--white" href="/login">{supabaseMode ? "登录后台" : "查看登录样板"}</Link><Link className="button button--ghost-light" href="/register">{supabaseMode ? "注册账号" : "查看注册流程"}</Link></div>
-        </div>
-      </section>
-
-      <footer className="public-footer">
-        <div className="section-shell public-footer__inner"><Brand compact /><p>{supabaseMode ? "ChinaTech · 维修、采购与整机管理" : "ChinaTech 新系统 · M1 视觉样板 · 不包含真实客户数据"}</p><div><a href="#features">功能</a><Link href="/login">登录</Link></div></div>
-      </footer>
-    </main>
-  );
+    <section className={`${styles.section} ${styles.faqSection}`} id="questions"><div><span className={styles.sectionLabel}>开始之前</span><h2>你可能想了解</h2><p>关于账号、设备与日常使用。</p></div><div className={styles.faqList}>{faqs.map(([question, answer]) => <details key={question}><summary>{question}<ChevronDown size={18} /></summary><p>{answer}</p></details>)}</div></section>
+    <section className={styles.finalCta}><span className={styles.ctaIcon}><Wrench size={28} /></span><h2>下一步，从这里开始。</h2><p>登录 ChinaTech，继续门店今天的工作。</p><div><Link className="button button--primary" href="/login">登录工作台 <ArrowRight size={17} /></Link><Link className="button button--secondary" href="/register">创建账号</Link></div></section>
+    <footer className={styles.footer}><Brand /><p>© 2026 ChinaTech · 让门店日常井井有条</p><div><a href="#questions">使用帮助</a><Link href="/login">登录</Link><Link href="/register">注册</Link></div></footer>
+  </main>;
 }
+function ArrowUpRightIcon() { return <ArrowRight size={16} aria-hidden="true" />; }

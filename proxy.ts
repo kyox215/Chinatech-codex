@@ -9,6 +9,8 @@ export async function proxy(request: NextRequest) {
   // Existing Supabase projects may return PKCE to their site URL or legacy login route.
   if(isSupabaseMode() && ["/","/login"].includes(path) && code && /^[a-z\d._~-]{8,1024}$/i.test(code)) {
     const target=new URL("/auth/confirm",trustedAuthOrigin(request));target.searchParams.set("code",code);
+    const flowId=request.nextUrl.searchParams.get("sb_flow_id");
+    if(flowId !== null) target.searchParams.set("sb_flow_id",flowId);
     return preventAuthCaching(NextResponse.redirect(target));
   }
   if(path==="/") return NextResponse.next();
