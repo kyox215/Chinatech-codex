@@ -59,11 +59,11 @@ test("配件原装组装屏幕技术和Apple服务全部使用所选语言且不
   }
 });
 
-test("所有颜色、优先级、随件、八阶段和保管的已知值保持同一语言", () => {
+test("所有颜色、优先级、随件、维修阶段和保管的已知值保持同一语言", () => {
   const values = ["黑色", "白色", "银色", "灰色", "午夜色", "钛灰", "蓝色", "深蓝色", "绿色", "紫色", "粉色", "红色", "金色", "原色钛金属", "黑色钛金属", "白色钛金属", "蓝色钛金属", "普通", "优先", "紧急", "SIM 卡", "SIM 卡托", "手机壳", "保护膜", "充电器", "数据线", "包装盒", "其他"];
   for (const language of latinLanguages) {
     for (const value of values) noChinese(printKnownOrOriginal(value, language));
-    for (const stage of ["diagnosis", "awaiting_quote", "awaiting_parts", "repairing", "testing", "ready", "completed", "cancelled"]) noChinese(printRepairStage(stage, language));
+    for (const stage of ["diagnosis", "awaiting_quote", "awaiting_parts", "repairing", "testing", "ready", "completed", "cancelled", "awaiting_reply", "outsourced", "collected_unpaid", "ready_notified"]) noChinese(printRepairStage(stage, language));
     for (const custody of ["unknown", "store", "customer"]) noChinese(printCustody(custody, language));
     noChinese(printAccessories(["SIM 卡", "充电器"], language));
   }
@@ -117,4 +117,12 @@ test("整机原有条款保留三语并且旧销售未知承诺、双联标题�
       assert.ok(printLabel(key, language)); if (language !== "zh") noChinese(printLabel(key, language));
     }
   }
+});
+
+test("新增维修分组状态的三语打印保留具体含义", () => {
+  for (const stage of ["awaiting_reply", "outsourced", "collected_unpaid", "ready_notified"]) for (const language of ["it", "en", "zh"]) {
+    assert.notEqual(printRepairStage(stage,language),printLabel("pending",language));
+  }
+  assert.match(printRepairStage("collected_unpaid","en"),/balance outstanding/);
+  assert.equal(printRepairStage("ready_notified","zh"),"修好已通知");
 });

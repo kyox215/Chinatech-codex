@@ -59,12 +59,12 @@ function RealDashboardContent() {
   const canRetail = staff.can("retail.view");
   const error = storageError || workflowError || retailError || staff.error;
   const counts = Object.fromEntries(Object.keys(workflowGroups).map(group => [group, 0])) as Record<WorkflowGroup, number>;
-  for (const order of orders) counts[workflowGroup(order, records)]++;
+  for (const order of orders) counts[workflowGroup(order, records, workflows[order.id])]++;
   const realStats = [
-    { label: "待检测", value: counts.reception, note: "接单阶段", icon: Clock3, tone: "violet" },
-    { label: "配件跟进", value: counts.purchase + counts.arrival, note: "下单与到货阶段", icon: PackageSearch, tone: "amber" },
+    { label: "待检测", value: orders.filter(order => order.status === "diagnosis").length, note: "接单阶段", icon: Clock3, tone: "violet" },
+    { label: "配件跟进", value: counts.purchase + counts.arrival + counts.arrival_notified, note: "下单与到货阶段", icon: PackageSearch, tone: "amber" },
     { label: "维修与测试", value: orders.filter(order => order.status === "repairing" || order.status === "testing").length, note: "当前维修阶段", icon: Wrench, tone: "mint" },
-    { label: "待取机", value: orders.filter(order => order.status === "ready").length, note: "等待客户取机", icon: PackageCheck, tone: "rose" },
+    { label: "待取机", value: orders.filter(order => ["ready", "ready_notified"].includes(order.status)).length, note: "等待客户取机", icon: PackageCheck, tone: "rose" },
   ];
   const recent = [...orders].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || left.id.localeCompare(right.id)).slice(0, 4);
   const activity = [

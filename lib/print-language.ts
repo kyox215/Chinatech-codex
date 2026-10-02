@@ -198,6 +198,10 @@ export function printServiceRequests(services: IntakeServices, language: PrintLa
   return result;
 }
 const stages: Record<string, Translation> = {
+  awaiting_reply: ["In attesa di risposta", "Awaiting customer reply", "久等 未答复"],
+  collected_unpaid: ["Ritirato, saldo da pagare", "Collected, balance outstanding", "欠款 已拿走"],
+  outsourced: ["Inviato in assistenza esterna", "Sent for external repair", "寄修"],
+  ready_notified: ["Riparato, cliente avvisato", "Repaired, customer notified", "修好已通知"],
   diagnosis: ["Da diagnosticare", "Awaiting diagnosis", "待检测"], awaiting_quote: ["In attesa di conferma", "Awaiting confirmation", "待确认"],
   awaiting_parts: ["In attesa dei ricambi", "Awaiting parts", "待配件"], repairing: ["In riparazione", "Under repair", "维修中"],
   testing: ["Da testare", "Awaiting testing", "待测试"], ready: ["Pronto per il ritiro", "Ready for collection", "待取机"],
