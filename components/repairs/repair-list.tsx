@@ -68,8 +68,8 @@ export function RepairList() {
     return compareRepairUpdates(left, right, repairUpdates);
   });
   const groups = groupBy === "parts"
-    ? groupOrder.map((group) => ({ key: group, label: repairPartsGroups[group], rows: filteredRepairs.filter((repair) => summaries.get(repair.id)!.group === group) })).filter((group) => group.rows.length)
-    : groupBy === "workflow" ? Object.entries(workflowGroups).map(([key, label]) => ({ key, label, rows: filteredRepairs.filter(order => workflowGroup(order, records, workflows[order.id]) === key) })).filter(group => group.rows.length)
+    ? groupOrder.map((group) => ({ key: group, label: repairPartsGroups[group], rows: filteredRepairs.filter((repair) => summaries.get(repair.id)!.group === group) }))
+    : groupBy === "workflow" ? Object.entries(workflowGroups).filter(([key]) => key !== "cancelled" || status === "including_cancelled" || status === "cancelled").map(([key, label]) => ({ key, label, rows: filteredRepairs.filter(order => workflowGroup(order, records, workflows[order.id]) === key) }))
     : [{ key: "all", label: "全部工单", rows: filteredRepairs }];
   const clearFilters = () => { setQuery(""); setStatus("all"); setPartsFilter("all"); };
   const setAllGroups = (open: boolean) => setOpenGroups(Object.fromEntries(groups.map((group) => [group.key, open])));
@@ -110,7 +110,7 @@ export function RepairList() {
           return <section className={`repair-parts-group${visual ? ` repair-parts-group--${visual.tone}` : ""}${expanded ? " repair-parts-group--expanded" : ""}`} key={group.key} aria-label={group.label}>
             {grouped ? <h3><button id={`repair-group-${group.key}`} className="repair-group-toggle" type="button" aria-expanded={expanded} aria-controls={`repair-group-rows-${group.key}`} onClick={() => setOpenGroups((previous) => ({ ...previous, [group.key]: !previous[group.key] }))}><ChevronRight className="repair-group-chevron" size={17} aria-hidden="true" />{GroupIcon ? <GroupIcon className="repair-group-icon" size={18} aria-hidden="true" /> : null}<span>{group.label}</span><small>{group.rows.length}</small></button></h3> : null}
             <div id={`repair-group-rows-${group.key}`} className="repair-module-list" hidden={!expanded}>
-              <TableHead />
+              {group.rows.length ? <TableHead /> : <div className="section-empty">暂无符合条件的工单</div>}
               {group.rows.map((repair) => {
                 const summary = summaries.get(repair.id)!;
                 const DeviceIcon = deviceIcons[repair.device.category as keyof typeof deviceIcons] ?? CircleHelp;

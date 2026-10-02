@@ -17,11 +17,15 @@ test("SeaTable group order, void filter and stable two-field sorting", async ({ 
   await page.addInitScript(data => localStorage.setItem("chinatech.m1.repair-workflow.v1", JSON.stringify({ version: 1, workflows: data })), workflows);
   await page.goto("/app/repairs");
   const names = page.locator(".repair-group-toggle > span");
-  await expect(names).toHaveText(["久等 未答复", "寄修", "IN CORSO", "修好", "FATTO"]);
+  const groupNames = ["久等 未答复", "欠款 已拿走", "寄修", "IN CORSO", "下单", "到货", "到货已通知", "修好", "修好已通知", "FATTO"];
+  await expect(names).toHaveText(groupNames);
+  await expect(page.locator("#repair-group-collected_unpaid small")).toHaveText("0");
+  await page.locator("#repair-group-collected_unpaid").click();
+  await expect(page.locator("#repair-group-rows-collected_unpaid")).toHaveText("暂无符合条件的工单");
   await filters(page);
   await expect(page.getByLabel("工单分组")).toHaveValue("workflow");
   await page.getByLabel("维修阶段筛选").selectOption("including_cancelled");
-  await expect(names).toHaveText(["久等 未答复", "寄修", "IN CORSO", "修好", "FATTO", "作废"]);
+  await expect(names).toHaveText([...groupNames, "作废"]);
   await page.getByLabel("工单分组").selectOption("none");
   const expected = [...repairOrders].sort((a,b)=>a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id)).map(order=>order.id);
   await expect(page.locator(".repair-module-row__device small")).toHaveText(expected);
