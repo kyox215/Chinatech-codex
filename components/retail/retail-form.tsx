@@ -1,5 +1,6 @@
 "use client";
 
+import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 import { useStoreSettings } from "@/components/settings/settings-store";
 import { useStaff } from "@/components/staff/use-staff";
 import { AccessPanel } from "@/components/staff/access-panel";
@@ -58,9 +59,13 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
   const [refurb, setRefurb] = useState("");
   const [price, setPrice] = useState("");
   const stepsRef = useRef<HTMLElement>(null);
-  const creationId = useRef("");
+  const [creationId,setCreationId] = useState(()=>crypto.randomUUID());
   const submitting = useRef(false);
   const [saving, setSaving] = useState(false);
+  const deviceDraft=useDeviceDraft(`retail-new:${copyId??""}:${identifier??""}`,{draft,step,classificationSelected,cost,refurb,price,creationId},value=>{
+    if(!value.draft?.category || !value.creationId)throw new Error("草稿格式无效。");
+    setDraft(value.draft);setStep(value.step);setClassificationSelected(value.classificationSelected);setCost(value.cost);setRefurb(value.refurb);setPrice(value.price);setCreationId(value.creationId);
+  });
   function goToStep(next: number) {
     setStep(next);
     setError("");
@@ -81,14 +86,14 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
     if (submitting.current) return;
     try {
       if (!classificationSelected) throw new Error("请先选择新机或翻新机。");
-      const id = creationId.current || (creationId.current = crypto.randomUUID());
+      const id = creationId;
       const unit = { ...draft, id, code: "", brand: draft.brand.trim(), model: draft.model.trim(), serial: draft.serial.trim(), imei1: normalizeImei(draft.imei1), imei2: normalizeImei(draft.imei2), productCode: draft.productCode.trim(), costCents: staff.can("financial.edit") ? parseRetailMoney(cost) : null, refurbCents: staff.can("financial.edit") ? parseRetailMoney(refurb) : null, priceCents: staff.can("retail.price") ? parseRetailMoney(price) : null };
       validateRetailUnit(unit, units);
       submitting.current = true;
       setSaving(true);
       const saved=await dispatch({ type: "create", unit, event: { id: crypto.randomUUID(), title: "独立单机档案已建立", detail: "确认门店自有实物；新档案保持待检测，不自动可售。", time: intakeRecordTime() } });
       if(!saved) throw new Error("单机未保存，请核对权限并重试。");
-      router.push(`/app/retail/units/${id}`);
+      await deviceDraft.clear();router.push(`/app/retail/units/${id}`);
     } catch (error) { submitting.current = false; setSaving(false); setError(error instanceof Error ? error.message : "请核对单机资料。"); }
   }
 
@@ -97,7 +102,7 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
     <header className="module-heading"><PageTitle title={sourceUnit ? "同型号新建单机" : "新建独立单机"} backHref={returnTo} backLabel="返回商品列表" /></header>
     {sourceUnit ? <div className={`inline-notice ${styles.notice}`}><Copy size={17} aria-hidden="true" /><span>从 {sourceUnit.code} 复制型号与候选规格；身份、照片、检测、电池、手柄数量、来源与金额均已清空，请逐项核对实物。</span></div> : copyId ? <div className={`inline-notice ${styles.notice}`} role="status">复制来源不存在，当前为空白新档案。</div> : identifier ? <div className={`inline-notice ${styles.notice}`} role="status">识别文本仅作为待核对字段，不证明机器身份或规格。{kind === "internal" ? "内部码由本系统另行分配，不沿用未知码。" : ""}</div> : null}
     <form className={`panel ${styles.form}`} noValidate onSubmit={submit}>
-      <nav ref={stepsRef} tabIndex={-1} className={styles.steps} aria-label="单机录入步骤">
+      <DeviceDraftNotice draft={deviceDraft}/><nav ref={stepsRef} tabIndex={-1} className={styles.steps} aria-label="单机录入步骤">
         {["基础与规格", "成色与随件", "金额与来源"].map((label, index) => <span className={`${styles.step} ${step === index ? styles.activeStep : ""}`} key={label} aria-current={step === index ? "step" : undefined}><i>{index + 1}</i><span>{label}</span></span>)}
       </nav>
       {error || storageError ? <div className="procurement-feedback procurement-feedback--error" role="alert">{error || storageError}</div> : null}

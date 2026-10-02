@@ -17,11 +17,11 @@ export async function POST(request:Request) {
     while(true) {const {done,value}=await reader.read();if(done) break;size+=value.byteLength;if(size>3*1024*1024){await reader.cancel();throw new BackendError("提交资料过大。",413);}chunks.push(value);}
     const body=Buffer.concat(chunks).toString("utf8");let command:BackendCommand;
     try {command=JSON.parse(body);} catch {throw new BackendError("请求资料无效。");}
-    if(!command || Object.keys(command).some(key=>!["kind","payload","storeId","requestId"].includes(key))) throw new BackendError("请求字段无效。");
+    if(!command || Object.keys(command).some(key=>!["kind","payload","storeId","requestId","memberId"].includes(key))) throw new BackendError("请求字段无效。");
     const identity=await getAuthIdentity();const state=await executeCommand(identity,command);
     return NextResponse.json(state,{headers:{"Cache-Control":"private, no-store"}});
   } catch(error) {
     const conflict=typeof error==="object" && error!==null && "code" in error && error.code==="40001";
-    return NextResponse.json({message:error instanceof BackendError?error.message:conflict?"资料同时被另一位成员修改，请刷新后重新核对。":error instanceof Error && !('code' in error)?error.message:"保存失败，请重试。"},{status:error instanceof BackendError?error.status:conflict?409:400,headers:{"Cache-Control":"private, no-store"}});
+    return NextResponse.json({code:error instanceof BackendError?error.code:undefined,message:error instanceof BackendError?error.message:conflict?"后台繁忙，本次结果请通过原请求核对。":error instanceof Error && !('code' in error)?error.message:"保存失败，请重试。"},{status:error instanceof BackendError?error.status:conflict?503:typeof error==="object" && error!==null && "code" in error?503:400,headers:{"Cache-Control":"private, no-store"}});
   }
 }

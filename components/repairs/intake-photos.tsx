@@ -5,15 +5,30 @@ import { ImagePlus, X } from "lucide-react";
 import { PhotoCapture } from "@/components/photo-capture";
 import { intakePhotoError } from "@/lib/repair-intake";
 import { validIntakePhotos, type IntakePhotoAttachment, type IntakePhotoReference } from "@/lib/repair-intake-record";
-export type IntakePhoto = { id: string; url: string; name: string; slot: "front" | "back" | "other" };
+type DraftPhotoFile = {name:string;type:string;lastModified:number;bytes:ArrayBuffer};
+export type IntakePhoto = { id: string; url: string; name: string; file?: File; draftFile?:DraftPhotoFile; slot: "front" | "back" | "other" };
 const slots = [{ value: "front", label: "正面" }, { value: "back", label: "背面" }, { value: "other", label: "其他" }] as const;
 const maxPhotoBytes = 240000;
 
-async function encodeJpeg(file: File, photo: IntakePhotoReference): Promise<IntakePhotoAttachment> {
-  let bitmap: ImageBitmap;
-  try { bitmap = await createImageBitmap(file); }
-  catch { throw new Error("照片无法处理，请改用 JPG / PNG 后重试。"); }
+function memoryImageUrl(bytes:ArrayBuffer,type:string) {
+  const input=new Uint8Array(bytes);const chunks:string[]=[];
+  for(let offset=0;offset<input.length;offset+=8192)chunks.push(String.fromCharCode(...input.subarray(offset,offset+8192)));
+  return `data:${type};base64,${btoa(chunks.join(""))}`;
+}
+async function readPhotoBytes(file:File):Promise<ArrayBuffer> {
+  let timer:ReturnType<typeof setTimeout>|undefined;
+  try{return await Promise.race([file.arrayBuffer(),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error("照片读取超时，请重新选择。")),5000);})]);}
+  finally{clearTimeout(timer);}
+}
+
+async function encodeJpeg(file: File, photo: IntakePhotoReference, stored?:DraftPhotoFile): Promise<IntakePhotoAttachment> {
+  const bitmap=new window.Image();
+  const sourceUrl=memoryImageUrl(stored?.bytes??await readPhotoBytes(file),stored?.type??file.type);
+  let decodeTimer:ReturnType<typeof setTimeout>|undefined;
   try {
+    bitmap.src=sourceUrl;
+    await Promise.race([bitmap.decode(),new Promise<never>((_,reject)=>{decodeTimer=setTimeout(()=>reject(new Error("照片读取超时，请重试。")),5000);})]).catch(()=>{throw new Error("照片无法处理，请改用 JPG / PNG 后重试。");});
+    clearTimeout(decodeTimer);
     if (!bitmap.width || !bitmap.height) throw new Error("照片无法读取。");
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
@@ -26,18 +41,17 @@ async function encodeJpeg(file: File, photo: IntakePhotoReference): Promise<Inta
       context.fillRect(0, 0, canvas.width, canvas.height);
       context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
       for (const quality of [0.8, 0.65, 0.5, 0.35]) {
-        const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error("照片压缩失败，请重新选择。")), "image/jpeg", quality));
-        if (blob.type !== "image/jpeg") throw new Error("当前浏览器无法生成 JPG 照片。");
-        if (!blob.size) throw new Error("照片压缩失败，请重新选择。");
-        if (blob.size > maxPhotoBytes) continue;
-        const bytes = new Uint8Array(await blob.arrayBuffer());
-        const chunks: string[] = [];
-        for (let offset = 0; offset < bytes.length; offset += 8192) chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + 8192)));
-        return { ...photo, mime: "image/jpeg", base64: btoa(chunks.join("")) };
+        const encoded=canvas.toDataURL("image/jpeg",quality);
+        if(!encoded.startsWith("data:image/jpeg;base64,"))throw new Error("当前浏览器无法生成 JPG 照片。");
+        const base64=encoded.slice("data:image/jpeg;base64,".length);
+        const byteLength=atob(base64).length;
+        if(!byteLength)throw new Error("照片压缩失败，请重新选择。");
+        if(byteLength>maxPhotoBytes)continue;
+        return {...photo,mime:"image/jpeg",base64};
       }
     }
     throw new Error("压缩后照片仍过大，请选择较小的照片。");
-  } finally { bitmap.close(); }
+  } finally { clearTimeout(decodeTimer);bitmap.src="";URL.revokeObjectURL(sourceUrl); }
 }
 
 export function useIntakePhotos() {
@@ -62,8 +76,12 @@ export function useIntakePhotos() {
     const epoch = generation.current.version;
     const attempt = ++slotsVersion.current[slot];
     setPending(current => [...current.filter(item => item !== slot),slot]);
-    const candidates = selected.map(file => { const url = URL.createObjectURL(file); urls.current.add(url); return { id: crypto.randomUUID(), url, name: file.name, slot }; });
+    const candidates: IntakePhoto[] = [];
     try {
+      candidates.push(...await Promise.all(selected.map(async file=>{
+        const bytes=await readPhotoBytes(file);const url=memoryImageUrl(bytes,file.type);urls.current.add(url);
+        return {id:crypto.randomUUID(),url,name:file.name,file,slot,draftFile:{name:file.name,type:file.type,lastModified:file.lastModified,bytes}};
+      })));
       await Promise.all(candidates.map(photo => new Promise<void>((resolve,reject) => {
         const image = new window.Image();
         const timeout = window.setTimeout(() => { image.src = ""; reject(new Error("照片读取超时，请重新选择。")); },5000);
@@ -92,12 +110,19 @@ export function useIntakePhotos() {
     for (const photo of refs) {
       const file = sourceFiles.current.get(photo.id);
       if (!file) throw new Error("照片来源已变化，请重新选择。");
-      attachments.push(await encodeJpeg(file, photo));
+      attachments.push(await encodeJpeg(file, photo,photos.find(value=>value.id===photo.id)?.draftFile));
       if (epoch !== generation.current.version) throw new Error("接机页面已关闭或重置，请重新核对。");
     }
     return attachments;
   };
-  return { photos, error, pending, add, remove, clear, encode };
+  const draftPhotos=photos.map(({id,name,slot,draftFile})=>({id,name,slot,file:draftFile}));
+  const restore=(saved:typeof draftPhotos)=>{
+    if(!Array.isArray(saved) || !validIntakePhotos(saved.map(({id,slot})=>({id,slot}))) || saved.some(photo=>!photo.file || !(photo.file.bytes instanceof ArrayBuffer) || typeof photo.file.type!=="string" || typeof photo.file.name!=="string"))throw new Error("照片草稿无法恢复。");
+    clear();
+    const next=saved.map(photo=>{const stored=photo.file!;const file=new File([stored.bytes],stored.name,{type:stored.type,lastModified:stored.lastModified});const url=memoryImageUrl(stored.bytes,stored.type);urls.current.add(url);sourceFiles.current.set(photo.id,file);return {...photo,file,draftFile:stored,url};});
+    setPhotos(next);
+  };
+  return { photos, error, pending, add, remove, clear, encode, draftPhotos, restore };
 }
 export function IntakePhotos({ photos, add, remove, error, pending }: Pick<ReturnType<typeof useIntakePhotos>, "photos" | "add" | "remove" | "error" | "pending">) {
   return <section className="intake-photos" aria-label="接机照片"><strong className="intake-field-title">接机照片</strong><div className="intake-photos__grid">{slots.map(slot => { const selected = photos.filter(photo => photo.slot === slot.value); return <div className="intake-photo-slot" key={slot.value} aria-busy={pending.includes(slot.value)}>

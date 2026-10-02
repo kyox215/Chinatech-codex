@@ -6,14 +6,14 @@ const dependencies = new Map();
 function library(name) {
   if (dependencies.has(name)) return dependencies.get(name);
   let code = compile(`lib/${name}.ts`);
-  code = code.replace(/from "\.\/([^"]+)"/g, (_, dep) => `from "${library(dep)}"`);
+  code = code.replace(/from "\.\/([^"]+)"/g, (_, dep) => `from "${library([...name.split("/").slice(0,-1),dep].join("/"))}"`);
   const url = dataUrl(code); dependencies.set(name, url); return url;
 }
 function compile(path) { return ts.transpileModule(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022, jsx: ts.JsxEmit.React } }).outputText; }
 function dataUrl(code) { return `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`; }
 let instance = 0;
 async function store(path, extra = '', tail = '') {
-  let code = compile(path).replace(/import \{[^}]+\} from "react";/g, 'let captured; const React = {createElement(type, props) {captured = props; return null;}}; const createContext = () => ({Provider: "provider"}); const useCallback = fn => fn; const useContext = () => null; const useSyncExternalStore = (subscribe, read) => read(); const useReducer = (reducer, initial) => [initial, action => Object.assign(initial, reducer(initial, action))];');
+  let code = compile(path).replace(/import \{[^}]+\} from "react";/g, 'let captured; const React = {createElement(type, props) {captured = props; return null;}}; const createContext = () => ({Provider: "provider"}); const useCallback = fn => fn; const useContext = () => null; const useMemo = fn => fn(); const useSyncExternalStore = (subscribe, read) => read(); const useReducer = (reducer, initial) => [initial, action => Object.assign(initial, reducer(initial, action))];');
   code = code.replace(/from "@\/lib\/([^"]+)"/g, (_, dep) => `from "${library(dep)}"`);
   return import(dataUrl(`${code}\nexport {read as readSnapshot${extra}};\n${tail}\n// instance ${instance++}`));
 }

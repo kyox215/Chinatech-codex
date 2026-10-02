@@ -1,4 +1,5 @@
 "use client";
+import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 import { isBackendClient } from "@/lib/backend/client";
 
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
@@ -33,7 +34,7 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
   const staff = useStaff();
   const { customers } = useCustomerDirectory();
   const currentCase = sale?.afterSales?.find(item => item.id === request.caseId);
-  const [version] = useState(unit.version);
+  const [version,setVersion] = useState(unit.version);
   const [date, setDate] = useState(intakeRecordTime().slice(0, 10));
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -54,7 +55,7 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
   const trigger = useRef<HTMLElement | null>(null);
   const selectedName = useRef("");
   const busy = useRef(false);
-  const identity = useRef(crypto.randomUUID());
+  const [identity,setIdentity] = useState(()=>crypto.randomUUID());
   const titleId = useId();
   const operation = request.operation;
   const money = ["payment", "refund", "payment_reconcile"].includes(operation);
@@ -67,6 +68,7 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
   const refundable = paid === null ? null : paid - refunded;
   const originalEntry = (operation === "payment_void" ? sale?.payments : operation === "refund_void" ? sale?.refunds : undefined)?.find(item => item.id === request.entryId);
   const reviewedSale = pending?.unit.sales.find(item => item.id === sale?.id);
+  const deviceDraft=useDeviceDraft(`retail-transaction:${unit.id}:${sale?.id??""}:${requestKey(request)}`,{version,date,amount,note,phone,name,method,custody,coverage,debt,owner,followUp,identity},value=>{setIdentity(value.identity);setVersion(value.version);setDate(value.date);setAmount(value.amount);setNote(value.note);setPhone(value.phone);setName(value.name);setMethod(value.method);setCustody(value.custody);setCoverage(value.coverage);setDebt(value.debt);setOwner(value.owner);setFollowUp(value.followUp);setChecked(false);setPending(null);});
   const today = intakeRecordTime().slice(0, 10);
   const minDate = operation === "reserve" ? today : operation === "return" ? sale?.deliveryDate || sale?.time.slice(0, 10) : operation === "after_sale_close" ? currentCase?.date || sale?.time.slice(0, 10) : sale?.time.slice(0, 10);
   const dateLabel = operation === "reserve" ? "预留截止日期" : operation === "deliver" ? "实际交付日期" : operation === "return" ? "实际退回日期" : operation === "after_sale" ? "售后接收日期" : operation === "after_sale_close" ? "售后交还日期" : operation === "refund" ? "实际退款日期" : "实际收款日期";
@@ -82,7 +84,7 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
 
   function build(): RetailCommand {
     const saleId = sale?.id || "";
-    const id = identity.current;
+    const id = identity;
     if (operation === "reserve") return { type: "reserve", name, phone, until: date, note };
     if (operation === "release_reservation") return { type: "release_reservation" };
     if (operation === "payment" || operation === "refund") {
@@ -120,14 +122,14 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
       if (conflict) throw new Error("单机已变化，请取消后重新核对。");
       if (!pending) {
         const command = build();
-        const nextEvent = { id: identity.current, title: titles[operation], detail: note.trim() || titles[operation], time: intakeRecordTime() };
+        const nextEvent = { id: identity, title: titles[operation], detail: note.trim() || titles[operation], time: intakeRecordTime() };
         const reviewedUnit = applyRetailCommand(unit, command, nextEvent, version);
         setPending({ command, event: nextEvent, unit: reviewedUnit });
         return;
       }
       busy.current = true;
       setAttempted(true);
-      if (await dispatch({ type: "command", id: unit.id, version, command: pending.command, event: { ...pending.event, time: intakeRecordTime() } })) onClose();
+      if (await dispatch({ type: "command", id: unit.id, version, command: pending.command, event: { ...pending.event, time: intakeRecordTime() } })) {await deviceDraft.clear();onClose();}
     } catch (reason) { setError(reason instanceof Error ? reason.message : "请核对资料。"); }
     finally { busy.current = false; }
   }
@@ -142,7 +144,7 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
 
   return <section className={styles.transaction} ref={section} role="region" aria-labelledby={titleId} onKeyDown={event => { if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); onClose(); } }}>
     <header className={styles.transactionHead}><h4 id={titleId} ref={heading} tabIndex={-1}>{pending ? "核对后确认 · " : ""}{titles[operation]}</h4><button className="icon-button" type="button" aria-label="关闭业务操作" onClick={onClose}><X size={18} /></button></header>
-    <form onSubmit={submit}>
+    <form onSubmit={submit}><DeviceDraftNotice draft={deviceDraft}/>{conflict?<button type="button" className="button button--secondary" onClick={()=>{setVersion(unit.version);setPending(null);setChecked(false);setError("");}}>保留输入并核对最新版本</button>:null}
       <div className={styles.formBody}>
         <dl className={styles.context}><div><dt>本台单机</dt><dd>{unit.code}</dd></div>{sale ? <div><dt>原销售买家</dt><dd>{sale.customerName || "未填写称呼"} · {sale.customerPhone || "号码待核对"}</dd></div> : null}{currentCase ? <div><dt>原售后问题</dt><dd>{currentCase.date} · {currentCase.issue}</dd></div> : null}{operation === "release_reservation" && unit.reservation ? <div><dt>原预留</dt><dd>{unit.reservation.name || "未填写称呼"} · {unit.reservation.phone || "号码待核对"}<br />截止 {unit.reservation.until}</dd></div> : null}</dl>
         {sale && ["payment", "refund", "payment_reconcile", "payment_void", "refund_void", "deliver", "return"].includes(operation) ? <dl className={styles.amountContext}><div><dt>成交价</dt><dd>{retailMoney(sale.priceCents)}</dd></div><div><dt>有效实收</dt><dd>{retailMoney(paid)}</dd></div><div><dt>{operation === "refund" || operation === "return" || operation === "refund_void" ? "可退款余额" : "待收款"}</dt><dd>{retailMoney(operation === "refund" || operation === "return" || operation === "refund_void" ? refundable : due)}</dd></div></dl> : null}

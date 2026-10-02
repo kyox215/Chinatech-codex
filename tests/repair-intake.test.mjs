@@ -41,7 +41,7 @@ const dependencyUrls = new Map();
 function dependencyUrl(name) {
  if(dependencyUrls.has(name)) return dependencyUrls.get(name);
  let code=ts.transpileModule(readFileSync(new URL(`../lib/${name}.ts`,import.meta.url),"utf8"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
- code=code.replace(/from "\.\/([^"]+)"/g,(_,dep)=>`from "${dependencyUrl(dep)}"`);
+ code=code.replace(/from "\.\/([^"]+)"/g,(_,dep)=>`from "${dependencyUrl([...name.split("/").slice(0,-1),dep].join("/"))}"`);
  const url="data:text/javascript;base64,"+Buffer.from(code).toString("base64");dependencyUrls.set(name,url);return url;
 }
 const { parseLocalIntakes, validLocalIntake, intakeDirectoryEntry, intakeRecordTime } = await import(recordUrl);
@@ -78,7 +78,7 @@ test("本地保存幂等、损坏与容量失败不覆盖；暂时读失败可�
  const previous=globalThis.window;globalThis.window=browser;
  try{
   let storeModule=ts.transpileModule(readFileSync(new URL("../components/repairs/local-intake-store.ts", import.meta.url),"utf8"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
-  storeModule=storeModule.replace(/import \{ useSyncExternalStore \} from "react";/,'const useSyncExternalStore = () => {};').replace(/import \{ repairOrders \} from "@\/lib\/repair-fixtures";/,'const repairOrders = [];').replace('"@/lib/repair-intake-record"',JSON.stringify(recordUrl)).replace('"@/lib/repair-workflow"',JSON.stringify(dependencyUrl("repair-workflow"))).replace(/import \{ useRepairWorkflows \} from "\.\/repair-workflow-store";/,'const useRepairWorkflows = () => ({workflows: {}});');
+  storeModule=storeModule.replace(/import \{[^}]+\} from "react";/,'const useSyncExternalStore = () => {}; const useMemo=fn=>fn();').replace(/import \{ repairOrders \} from "@\/lib\/repair-fixtures";/,'const repairOrders = [];').replace('"@/lib/repair-intake-record"',JSON.stringify(recordUrl)).replace('"@/lib/repair-workflow"',JSON.stringify(dependencyUrl("repair-workflow"))).replace(/import \{ useRepairWorkflows \} from "\.\/repair-workflow-store";/,'const useRepairWorkflows = () => ({workflows: {}});');
   storeModule=storeModule.replace(/from "@\/lib\/([^"]+)"/g,(_,dep)=>`from "${dependencyUrl(dep)}"`);
   storeModule+='\nexport {read as readSnapshot};';
   const {saveLocalIntake,readSnapshot}=await import("data:text/javascript;base64,"+Buffer.from(storeModule).toString("base64"));

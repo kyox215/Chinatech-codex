@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 import { useRef, useState } from "react";
 import { isBackendClient } from "@/lib/backend/client";
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, CircleAlert, ClipboardCheck, Paperclip, UserRound, Wrench, Printer, History, ShieldCheck, Cable, CreditCard, Package, Smartphone, Plug } from "lucide-react";
@@ -36,7 +37,7 @@ export function RepairIntakeForm() {
   const [signing,setSigning]=useState(false);
   const [signatureCount,setSignatureCount]=useState(0);
   const localIntakes=useLocalIntakes();
-  const savedRevision=useRef(0);
+  const [savedRevision,setSavedRevision]=useState(0);
   const [savedPolicy,setSavedPolicy]=useState<IntakePolicy|null>(null);
   const canEdit = useStaff().can("repairs.edit");
   const [step, setStep] = useState(0);
@@ -47,10 +48,16 @@ export function RepairIntakeForm() {
   const [submitted, setSubmitted] = useState<IntakeReceiptData | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const recordIdentity = useRef<{ id: string; createdAt: string } | null>(null);
+  const [draftIdentity,setDraftIdentity]=useState(()=>({id:`LOCAL-${crypto.randomUUID().replaceAll("-", "").slice(0,16).toUpperCase()}`,createdAt:intakeRecordTime()}));
+  const recordIdentity = useRef<{ id: string; createdAt: string } | null>(draftIdentity);
   const repairOrders = useRepairDirectory();
   const photos = useIntakePhotos();
   const { customers } = useCustomerDirectory();
+  const deviceDraft=useDeviceDraft("repair-intake",{form,step,signature,signatureCount,savedPolicy,identity:draftIdentity,revision:savedRevision,photos:photos.draftPhotos},value=>{
+    if(!value.form || typeof value.form.phone!=="string" || !value.identity?.id)throw new Error("草稿格式无效。");
+    photos.restore(value.photos);setForm({...value.form,consent:false});setStep(Math.min(3,Math.max(0,value.step)));setSignature(value.signature);setSignatureCount(value.signatureCount);setSavedPolicy(value.savedPolicy);setDraftIdentity(value.identity);recordIdentity.current=value.identity;setSavedRevision(value.revision);setSigning(false);setCustomer(null);setSubmitted(null);
+  },!submitted && Boolean(form.phone || form.brand || form.issue || photos.photos.length));
+
   const candidates = customerCandidates(form.phone,customers);
   const history = intakeDeviceHistory(form.serial,form.brand,form.model,repairOrders);
   const accessories = [...form.accessories.filter(value => value !== "其他"), ...(form.accessories.includes("其他") && form.otherAccessory.trim() ? [form.otherAccessory.trim()] : [])];
@@ -87,19 +94,19 @@ export function RepairIntakeForm() {
     busy.current = true; setSubmitting(true); setError("");
     try {
       const attachments = isBackendClient() ? await photos.encode() : undefined;
-      const saved = await saveLocalIntake(attachments ? {...data, photos:attachments.map(({id,slot})=>({id,slot}))} : data,savedRevision.current,signature??undefined,signatureCount,attachments);
-      savedRevision.current=saved.revision!; setSavedPolicy(saved.policy!); setSignature(null); setSubmitted(saved);
+      const saved = await saveLocalIntake(attachments ? {...data, photos:attachments.map(({id,slot})=>({id,slot}))} : data,savedRevision,signature??undefined,signatureCount,attachments);
+      await deviceDraft.clear();setSavedRevision(saved.revision!); setSavedPolicy(saved.policy!); setSignature(null); setSubmitted(saved);
     }
     catch (error) { setError(error instanceof Error ? error.message : "保存失败，请重试。"); }
     finally { busy.current = false; setSubmitting(false); }
   };
-  const reset = () => { setSubmitted(null); setStep(0); setForm(initialForm); setCustomer(null); recordIdentity.current = null; setError(""); photos.clear(); setSignature(null);setSigning(false);savedRevision.current=0;setSavedPolicy(null); };
+  const reset = () => { setSubmitted(null); setStep(0); setForm(initialForm); setCustomer(null); recordIdentity.current = {id:`LOCAL-${crypto.randomUUID().replaceAll("-", "").slice(0,16).toUpperCase()}`,createdAt:intakeRecordTime()};setDraftIdentity(recordIdentity.current);void deviceDraft.clear(); setError(""); photos.clear(); setSignature(null);setSigning(false);setSavedRevision(0);setSavedPolicy(null); };
 
   if (!canEdit) return <AccessPanel />;
   if (submitted) return <main className="module-page"><header className="module-heading"><PageTitle title="接机完成" backHref="/app/repairs" backLabel="返回工单列表" /></header><div className="intake-success"><section className="panel intake-success__card"><span className="intake-success__icon"><CheckCircle2 size={34} /></span><h2>接机信息已保存</h2><p>{submitted.id}<br />{isBackendClient() ? "已保存至门店后台 · 照片随工单保存" : "仅保存在当前浏览器 · 照片仅本次预览"}</p><div className="intake-success__summary"><span><small>客户</small><strong>{submitted.customerName || "未填写姓名"}</strong><small>{submitted.phone}</small></span><span><small>设备</small><strong>{submitted.brand} {submitted.model}</strong></span><span><small>优先级 / 照片</small><strong>{submitted.priority} · {submitted.photoCount} 张</strong></span></div><div className="intake-success__actions"><button type="button" className="button button--primary" onClick={() => setPrintOpen(true)}><Printer size={17} />打印接机单</button><Link className="button button--secondary" href={`/app/repairs/${submitted.id}`}><ClipboardCheck size={17} />查看工单</Link><button className="button button--secondary" type="button" onClick={() => { setSubmitted(null); setField("consent",false); setStep(3); }}>修改信息</button><button className="button button--secondary" type="button" onClick={reset}>再建一张</button></div></section></div>{printOpen ? <IntakeReceipt data={submitted} onClose={() => setPrintOpen(false)} /> : null}</main>;
 
   return <main className="module-page intake-page"><header className="module-heading module-heading--compact"><PageTitle title="新建维修工单" backHref="/app/repairs" backLabel="返回工单列表" /></header><div className="intake-layout"><aside className="panel intake-stepper" aria-label="新建工单步骤">{steps.map((item,index) => <div className={index === step ? "intake-step intake-step--active" : index < step ? "intake-step intake-step--done" : "intake-step"} key={item.label} aria-current={index === step ? "step" : undefined}><span>{index < step ? <Check size={16} /> : <item.icon size={17} />}</span><div><small>步骤 {index + 1}</small><strong>{item.label}</strong></div></div>)}</aside>
-    <form className="panel intake-form" aria-busy={submitting} onSubmit={event => { event.preventDefault(); if (busy.current) return; if (step < steps.length - 1) goNext(); else finishPreview(); }}><div className="intake-form__head"><span>步骤 {step + 1} / {steps.length}</span><h3>{["客户联系资料","送修设备","故障与随件","提交前核对"][step]}</h3></div><div className={`intake-form__body${step === 3 ? " intake-form__body--review" : ""}`}>
+    <form className="panel intake-form" aria-busy={submitting} onSubmit={event => { event.preventDefault(); if (busy.current) return; if (step < steps.length - 1) goNext(); else finishPreview(); }}><DeviceDraftNotice draft={deviceDraft}/><div className="intake-form__head"><span>步骤 {step + 1} / {steps.length}</span><h3>{["客户联系资料","送修设备","故障与随件","提交前核对"][step]}</h3></div><div className={`intake-form__body${step === 3 ? " intake-form__body--review" : ""}`}>
       {step === 0 ? <div className="field-grid"><SearchCombobox label="联系电话" maxLength={40} required inputMode="tel" value={form.phone} onChange={updatePhone} autoFocus placeholder="输入电话号码" filterOptions={false} emptyText={form.phone.replace(/\D/g,"").length < 3 ? "输入至少 3 位号码查找候选" : "没有匹配客户，可继续填写"} options={candidates.map(item => ({ value: item.phone, label: item.phone, detail: item.name || "未填写称呼" }))} onSelect={option => { const match = candidates.find(item => item.phone === option.value); if (match) chooseCustomer(match.id); }} /><label className="field"><span>客户称呼（选填）</span><input value={form.customerName} onChange={event => setField("customerName",event.target.value)} placeholder="例如：陈女士" maxLength={80} /></label>{customer ? <div className="intake-customer-match field--wide" role="status"><UserRound size={17} /><strong>已选择 {customer.name || "未填写称呼"}</strong><small>按手机号关联客户档案</small><button className="icon-button" type="button" aria-label="取消客户关联" onClick={() => { setCustomer(null); setForm(current => ({ ...current, customerName: "", email: "", consent: false })); }}><ArrowLeft size={16} /></button></div> : null}<label className="field field--wide"><span>电子邮件（选填）</span><input type="email" value={form.email} onChange={event => setField("email",event.target.value)} placeholder="customer@example.com" inputMode="email" maxLength={160} /></label></div> : null}
       {step === 1 ? <div className="field-grid"><label className="field"><span>设备类别 *</span><SelectControl value={form.category} onChange={event => setForm(current => ({ ...current, category: event.target.value, brand: "", model: "", services: normalizeIntakeServices(current.services,current.faults,""), consent: false }))}>{Object.keys(deviceCatalog).map(category => <option key={category}>{category}</option>)}</SelectControl></label><SearchCombobox label="品牌" maxLength={100} required value={form.brand} onChange={brand => { setForm(current => ({ ...current, brand, model: current.brand === brand ? current.model : "", services: normalizeIntakeServices(current.services,current.faults,brand), consent: false })); setError(""); }} options={Object.keys(deviceCatalog[form.category] ?? {}).map(brand => ({ value:brand,label:brand }))} placeholder="搜索或手动填写" /><SearchCombobox label="型号" maxLength={160} required value={form.model} onChange={value => setField("model",value)} options={modelsFor(form.category,form.brand).map(model => ({ value:model,label:model }))} placeholder="搜索或手动填写" /><ColorPicker value={form.color} onChange={value => setField("color",value)} /><div className="field--wide"><IdentifierField label="SN / IMEI" value={form.serial} onChange={value => setField("serial",value)} kind="serial-or-imei" placeholder="输入或扫码，未知可留空" /></div>
         {history.exact.length ? <section className="intake-device-history field--wide"><h4><History size={17} />同一标识的维修记录 <span>{history.exact.length}</span></h4><p>跨客户匹配，请核对实物；不会带入历史客户。</p>{history.exact.map(order => <Link href={`/app/repairs/${order.id}`} key={order.id} target="_blank" rel="noopener noreferrer"><span><strong>{order.device.brand} {order.device.model}</strong><small>{order.id} · {order.createdAt}</small></span><span>{order.statusLabel}<ArrowRight size={14} /></span></Link>)}</section> : form.serial.trim().length >= 5 ? <p className="intake-history-empty field--wide" role="status"><History size={16} />暂无同一标识的演示记录</p> : null}

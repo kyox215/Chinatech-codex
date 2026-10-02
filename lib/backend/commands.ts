@@ -70,6 +70,7 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     const frozen=existing?.policy??policy(state.settings);
     if(draft.policy && JSON.stringify(draft.policy)!==JSON.stringify(frozen)) throw new BackendError("门店保修已变化，请重新核对。",409);
     const data={...draft,createdAt:existing?.createdAt??time,updatedAt:time,previewAt:time,policy:frozen,revision:revision+1,photos:photos.map(({id,slot})=>({id,slot})),photoCount:photos.length};
+    if(p.signature && state.signatures.filter(row=>row.orderId===data.id).length!==integer(p.signatureCount)) throw new BackendError("签署历史已变化，请重新核对。",409);
     const signatures=p.signature?appendIntakeSignature(state.signatures,data,frozen,{...p.signature as IntakeSignatureDraft,signedAt:time},member.id,integer(p.signatureCount)):state.signatures;
     await putIntake(tx,state,data,signatures.filter(row=>row.orderId===data.id));await putIntakePhotos(tx,state.storeId,data.id,photos);return data.id;
   }
@@ -78,6 +79,7 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     const data=state.intakes.find(row=>row.id===identifier(p.id));if(!data) throw new BackendError("工单不存在。",404);
     if((data.revision??1)!==integer(p.revision)) throw new BackendError("工单已变化，请重新核对。",409);
     const frozen=data.policy??policy(state.settings);if(JSON.stringify(p.policy)!==JSON.stringify(frozen)) throw new BackendError("门店保修已变化。",409);
+    if(state.signatures.filter(row=>row.orderId===data.id).length!==integer(p.count)) throw new BackendError("签署历史已变化，请重新核对。",409);
     const signatures=appendIntakeSignature(state.signatures,data,frozen,{...p.signature as IntakeSignatureDraft,signedAt:time},member.id,integer(p.count));
     await putIntake(tx,state,data,signatures.filter(row=>row.orderId===data.id));return data.id;
   }
@@ -85,6 +87,7 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     exactKeys(p,["id","command","revision"]);authorize(member,"repairs.edit");
     const data=state.intakes.find(row=>row.id===identifier(p.id));if(!data) throw new BackendError("工单不存在。",404);
     const current=state.workflows[data.id]??initialRepairWorkflow(intakeDirectoryEntry(data));
+    if(current.revision!==integer(p.revision)) throw new BackendError("维修流程已变化，请重新核对。",409);
     const next=applyWorkflowCommand(current,p.command as WorkflowCommand,{id:requestId,time},state.procurement,data.id,integer(p.revision));
     await tx`update chinatech_v2_private.repair_intakes set workflow=${tx.json(next)} where store_id=${state.storeId} and id=${data.id}`;return data.id;
   }
@@ -123,6 +126,7 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     if(p.type!=="command") throw new BackendError("未知整机操作。");
     const unit=state.retail.find(row=>row.id===identifier(p.id));if(!unit) throw new BackendError("单机不存在。",404);
     let command=p.command as RetailCommand;object(command);if(!Object.hasOwn(commandFields,command.type)) throw new BackendError("未知单机操作。");fields(command,["type",...commandFields[command.type]]);authorize(member,retailCommandPermission(command));
+    if(unit.version!==integer(p.version)) throw new BackendError("单机已变化，请重新核对。",409);
     if(command.type==="deliver" && command.debt) authorize(member,"sale.debt");
     if(command.type==="sell") {
       command={...command,warranty:{months:unit.warrantyMonths,termsVersion:"retail-2026-10-v1",shopName:state.settings.shopName,address:state.settings.address,phone:state.settings.phone}};
@@ -150,7 +154,9 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
   }
   if(kind==="customer.save") {
     exactKeys(p,["draft","version"]);authorize(member,"customers.edit");
-    fields(p.draft,customerFields);const draft={...p.draft as Omit<CustomerProfile,"version">,updatedAt:time};const next=updateCustomerProfile(state.customers,draft,integer(p.version));
+    fields(p.draft,customerFields);const phone=normalizeCustomerPhone((p.draft as CustomerProfile).phone);
+    if((state.customers.find(row=>normalizeCustomerPhone(row.phone)===phone)?.version??0)!==integer(p.version)) throw new BackendError("客户资料已变化，请重新核对。",409);
+    const draft={...p.draft as Omit<CustomerProfile,"version">,updatedAt:time};const next=updateCustomerProfile(state.customers,draft,integer(p.version));
     await putCustomer(tx,state.storeId,next.find(row=>normalizeCustomerPhone(row.phone)===normalizeCustomerPhone(draft.phone))!);return normalizeCustomerPhone(draft.phone);
   }
   if(kind==="settings.save") {
@@ -181,6 +187,7 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
       if(!account) throw new BackendError("未找到已验证账号，请让员工先注册并验证邮箱。");
       accountId=account.id;draft={...draft,id:randomUUID(),name:account.display_name||account.email,email:account.email,revision:0};
     } else if(draft.email!==existing.email || draft.name!==existing.name || draft.accountStatus!==existing.accountStatus) throw new BackendError("成员必须绑定已验证账号，不能在员工表改写真实身份。");
+    if(state.staff.revision!==integer(p.revision) || (existing?.revision??0)!==draft.revision) throw new BackendError("员工资料已变化，请重新核对。",409);
     const next=updateStaffMember(state.staff,draft,integer(p.revision),member.id,requestId,time);
     const saved=next.members.find(row=>row.id===draft.id)!;
     if(accountId) await tx`insert into chinatech_v2.store_memberships(id,store_id,user_id,role,permissions,membership_status,revision) values(${saved.id},${state.storeId},${accountId},${saved.role},${saved.permissions},${saved.membershipStatus},${saved.revision})`;
@@ -195,14 +202,56 @@ export async function executeCommand(identity:AuthIdentity,command:BackendComman
   const payload=object(command.payload);const digest=createHash("sha256").update(JSON.stringify({kind:command.kind,payload})).digest("hex");
   return withDatabase(identity,command.storeId,async tx=>{
     await tx`select pg_advisory_xact_lock(hashtextextended(${'ct:'+command.storeId},0))`;
+    // Establish a current write version before reading receipts or applying intent.
+    // A serializable snapshot taken before the advisory wait must retry in full.
+    await tx`select revision from chinatech_v2_private.store_state where store_id=${command.storeId} for update`;
     const member=await memberInTransaction(tx,command.storeId,identity.userId);
+    if(command.memberId!==member.id) throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,"IDENTITY_CHANGED");
     const state=await loadState(tx,command.storeId,member);
     const [previous]=await tx`select digest from chinatech_v2_private.command_receipts where store_id=${command.storeId} and actor_id=${identity.userId} and request_id=${command.requestId}`;
-    if(previous) {if(previous.digest!==digest) throw new BackendError("同一请求标识不能用于不同操作。",409);return projectState(state,member);}
+    if(previous) {if(previous.digest==="cancelled") throw new BackendError("此提交已撤销，请重新核对后创建新操作。",410);if(previous.digest!==digest) throw new BackendError("同一请求标识不能用于不同操作。",409);return {...projectState(state,member),operation:await operationReceipt(tx,identity,command.storeId,command.requestId,true)};}
     const entityId=await apply(tx,state,member,command.kind,payload,command.requestId);
     await tx`insert into chinatech_v2_private.command_receipts(store_id,actor_id,request_id,digest) values(${command.storeId},${identity.userId},${command.requestId},${digest})`;
     await tx`insert into chinatech_v2_private.audit_events(store_id,actor_id,request_id,kind,entity_id) values(${command.storeId},${identity.userId},${command.requestId},${command.kind},${entityId})`;
     await tx`update chinatech_v2_private.store_state set revision=revision+1 where store_id=${command.storeId}`;
-    return projectState(await loadState(tx,command.storeId,member),await memberInTransaction(tx,command.storeId,identity.userId));
+    return {...projectState(await loadState(tx,command.storeId,member),await memberInTransaction(tx,command.storeId,identity.userId)),operation:await operationReceipt(tx,identity,command.storeId,command.requestId,false)};
+  });
+}
+
+async function operationReceipt(tx:TransactionSql,identity:AuthIdentity,storeId:string,requestId:string,replayed:boolean) {
+  const [row]=await tx`select a.entity_id,a.kind,a.created_at from chinatech_v2_private.audit_events a
+    join chinatech_v2_private.command_receipts r using(store_id,actor_id,request_id)
+    where a.store_id=${storeId} and a.actor_id=${identity.userId} and a.request_id=${requestId}`;
+  if(!row) return undefined;
+  return {requestId,entityId:row.kind==="customer.save"?"":String(row.entity_id),kind:String(row.kind),committedAt:new Date(row.created_at).toISOString(),replayed};
+}
+export async function queryOperation(identity:AuthIdentity,storeId:string,memberId:string,requestId:string) {
+  if(!uuid.test(storeId) || !uuid.test(requestId)) throw new BackendError("请求标识无效。");
+  return withDatabase(identity,storeId,async tx=>{
+    const member=await memberInTransaction(tx,storeId,identity.userId);
+    if(member.id!==memberId) throw new BackendError("登录身份已变化。",409,"IDENTITY_CHANGED");
+    const operation=await operationReceipt(tx,identity,storeId,requestId,true);
+    // Not found does NOT prove failure: the original request may still be in flight.
+    if(!operation) return {status:"not_found" as const};
+    if(operation.kind==="operation.cancelled") return {status:"cancelled" as const};
+    return {status:"committed" as const,operation,snapshot:{...projectState(await loadState(tx,storeId,member),member),operation}};
+  });
+}
+
+export async function cancelOperation(identity:AuthIdentity,storeId:string,memberId:string,requestId:string) {
+  if(!uuid.test(storeId) || !uuid.test(requestId)) throw new BackendError("请求标识无效。");
+  return withDatabase(identity,storeId,async tx=>{
+    await tx`select pg_advisory_xact_lock(hashtextextended(${'ct:'+storeId},0))`;
+    await tx`select revision from chinatech_v2_private.store_state where store_id=${storeId} for update`;
+    const member=await memberInTransaction(tx,storeId,identity.userId);
+    if(member.id!==memberId) throw new BackendError("登录身份已变化。",409,"IDENTITY_CHANGED");
+    const receipt=await operationReceipt(tx,identity,storeId,requestId,true);
+    if(receipt && receipt.kind!=="operation.cancelled") return {status:"committed" as const,snapshot:{...projectState(await loadState(tx,storeId,member),member),operation:receipt}};
+    if(!receipt){
+      await tx`insert into chinatech_v2_private.command_receipts(store_id,actor_id,request_id,digest) values(${storeId},${identity.userId},${requestId},'cancelled')`;
+      await tx`insert into chinatech_v2_private.audit_events(store_id,actor_id,request_id,kind,entity_id) values(${storeId},${identity.userId},${requestId},'operation.cancelled','')`;
+      await tx`update chinatech_v2_private.store_state set revision=revision+1 where store_id=${storeId}`;
+    }
+    return {status:"cancelled" as const};
   });
 }

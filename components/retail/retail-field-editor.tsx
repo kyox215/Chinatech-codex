@@ -1,4 +1,5 @@
 "use client";
+import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronRight, Pencil, Package, Sparkles, X } from "lucide-react";
@@ -46,7 +47,7 @@ export function RetailFieldButton({ unit, field, onEdit, children, compact = fal
 
 export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { unit: RetailUnit; field: RetailEditableField; onClose: () => void; initialCandidate?: RetailUnit }) {
   const { units, dispatch, ready, error: storageError, feedback } = useRetail();
-  const [original] = useState(unit);
+  const [original,setOriginal] = useState(unit);
   const [value, setValue] = useState<RetailFieldValue>(() => structuredClone((initialCandidate ?? unit)[field]));
   const [raw, setRaw] = useState(() => moneyFields.includes(field) ? unit[field] === null ? "" : (Number(unit[field]) / 100).toFixed(2) : String(unit[field] ?? ""));
   const [note, setNote] = useState("");
@@ -67,6 +68,7 @@ export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { 
     const target = candidate ? heading.current : body.current?.querySelector<HTMLElement>('input:not([type="hidden"]),select,textarea,button,summary');
     target?.focus({preventScroll:true});
   }, [candidate]);
+  const deviceDraft=useDeviceDraft(`retail-field:${unit.id}:${field}`,{value,raw,note,version:original.version,before:original[field]},saved=>{setValue(saved.value);setRaw(saved.raw);setNote(saved.note);setOriginal({...unit,version:saved.version,[field]:saved.before});setCandidate(null);});
   const label = retailFieldLabels[field];
   const current = units.find(item => item.id === original.id);
   const conflict = current?.version !== original.version;
@@ -85,7 +87,7 @@ export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { 
     busy.current = true; setSubmitting(true); setAttempted(true); setError("");
     const detail = `${label}：${retailFieldText(field, original[field])} → ${retailFieldText(field, candidate[field])}；${note.trim() || "逐项资料更正"}`;
     const saved = await dispatch({ type: "command", id: original.id, version: original.version, command: { type: "edit", change: { field, value: candidate[field] } }, event: { id: crypto.randomUUID(), title: `更正${label}`, detail, time: intakeRecordTime() } });
-    if (saved) onClose(); else { busy.current = false; setSubmitting(false); }
+    if (saved) {await deviceDraft.clear();onClose();} else { busy.current = false; setSubmitting(false); }
   }
   const textControl = <label className="field"><span>{label}</span><input aria-label={label} value={String(value ?? "")} maxLength={field === "model" ? 120 : field === "brand" || field === "color" ? 60 : 300} type={field === "intakeDate" ? "date" : "text"} onInput={field === "intakeDate" ? event => setValue(event.currentTarget.value) : undefined} onChange={event => setValue(event.target.value)} /></label>;
   let control: ReactNode = textControl;
@@ -106,7 +108,7 @@ export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { 
   return <section ref={region} className={styles.editor} aria-label={`编辑${label}`} onKeyDown={event => { if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); onClose(); } }}>
 
     <header><div><small>{original.code}</small><h4 ref={heading} tabIndex={-1}>{candidate ? "确认修改" : `编辑${label}`}</h4></div><button type="button" className="icon-button" aria-label="关闭资料编辑" onClick={onClose}><X size={18} /></button></header>
-    <div ref={body} className={styles.body}>{candidate ? <><dl className={styles.compare}><div><dt>修改前 · {label}</dt><dd>{retailFieldText(field, original[field])}</dd></div><div><dt>修改后 · {label}</dt><dd>{retailFieldText(field, candidate[field])}</dd></div></dl>{candidate.status !== original.status ? <p className={styles.impact}>本次更正涉及核验资料，保存后转为待检测，三项核验将重新确认。</p> : null}<p className={styles.note}>仅保存本次字段更正，并追加到本台单机历史。</p></> : <>{control}<details className={styles.noteDetails}><summary>更正备注（选填）</summary><label className="field"><span className="visually-hidden">更正备注</span><textarea aria-label="更正备注" maxLength={300} value={note} onChange={event => setNote(event.target.value)} /></label></details></>}{conflict || error || storageError || (candidate && storedFailure) ? <p className="form-error" role="alert">{conflict ? "单机已被其他操作更新，请关闭并重新打开编辑。" : error || storageError || storedFailure}</p> : null}</div>
+    <DeviceDraftNotice draft={deviceDraft}/>{conflict?<button type="button" className="button button--secondary" onClick={()=>{if(current){setOriginal(current);setCandidate(null);setError("");}}}>保留输入并核对最新版本</button>:null}<div ref={body} className={styles.body}>{candidate ? <><dl className={styles.compare}><div><dt>修改前 · {label}</dt><dd>{retailFieldText(field, original[field])}</dd></div><div><dt>修改后 · {label}</dt><dd>{retailFieldText(field, candidate[field])}</dd></div></dl>{candidate.status !== original.status ? <p className={styles.impact}>本次更正涉及核验资料，保存后转为待检测，三项核验将重新确认。</p> : null}<p className={styles.note}>仅保存本次字段更正，并追加到本台单机历史。</p></> : <>{control}<details className={styles.noteDetails}><summary>更正备注（选填）</summary><label className="field"><span className="visually-hidden">更正备注</span><textarea aria-label="更正备注" maxLength={300} value={note} onChange={event => setNote(event.target.value)} /></label></details></>}{conflict || error || storageError || (candidate && storedFailure) ? <p className="form-error" role="alert">{conflict ? "单机已被其他操作更新，请关闭并重新打开编辑。" : error || storageError || storedFailure}</p> : null}</div>
     <footer><button type="button" className="button button--secondary" disabled={submitting} onClick={onClose}>取消</button>{candidate ? <><button type="button" className="button button--secondary" disabled={submitting} onClick={() => { setCandidate(null); setError(""); }}>返回修改</button><button type="button" className="button button--primary" disabled={submitting || conflict || !ready || Boolean(storageError)} onClick={save}><Check size={17} />{submitting ? "正在保存" : "确认保存"}</button></> : <button type="button" className="button button--primary" disabled={conflict || !ready || Boolean(storageError)} onClick={next}>继续确认<ChevronRight size={17} /></button>}</footer>
   </section>;
 }

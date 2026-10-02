@@ -31,7 +31,7 @@ async function request(who,path,body,method=body===undefined?"GET":"POST"){
 }
 async function login(who){const r=await request(who,"/api/auth/login",{email:who.email,password});assert.equal(r.status,200,JSON.stringify(r.data));sessions.push(who);}
 async function state(who){const r=await request(who,"/api/backend/state");assert.equal(r.status,200,JSON.stringify(r.data));return r.data;}
-async function command(who,storeId,kind,payload,requestId=randomUUID()){return request(who,"/api/backend/command",{storeId,kind,payload,requestId});}
+async function command(who,storeId,kind,payload,requestId=randomUUID()){const [member]=await sql`select id from chinatech_v2.store_memberships where store_id=${storeId} and user_id=${who.id}`;return request(who,"/api/backend/command",{storeId,kind,payload,requestId,memberId:member?.id??randomUUID()});}
 const stores=[randomUUID(),randomUUID()];
 const settings={revision:0,shopName:"ChinaTech local test",address:"Test address",phone:"",paper:"a4",repairWarrantyMonths:6,retailWarrantyMonths:12,suppliers:[],finance:[]};
 try {
@@ -97,7 +97,7 @@ try {
  own=await state(owner);const savedIntake=own.intakes.find(row=>row.id===id);
  const signature={id:randomUUID(),signedAt:"1999-01-01 00:00:00",language:"it",termsVersion:"repair-intake-2026-10-v1",strokes:[[{x:0.1,y:0.2},{x:0.6,y:0.8}]],aspectRatio:2,snapshot:intakeDomain.intakeSignatureSnapshot(savedIntake,savedIntake.policy)};
  r=await command(owner,stores[0],"intake.signature",{id,revision:savedIntake.revision,policy:savedIntake.policy,signature,count:0});assert.equal(r.status,200,JSON.stringify(r.data));assert.equal(r.data.signatures[0].actorId,own.staff.currentId);assert.notEqual(r.data.signatures[0].signedAt,signature.signedAt);pass("signature preserves facts and uses server actor/time");
- assert.equal((await command(owner,stores[0],"intake.signature",{id,revision:savedIntake.revision,policy:savedIntake.policy,signature:{...signature,id:randomUUID()},count:0})).status,400);pass("stale signature count cannot overwrite history");
+ assert.equal((await command(owner,stores[0],"intake.signature",{id,revision:savedIntake.revision,policy:savedIntake.policy,signature:{...signature,id:randomUUID()},count:0})).status,409);pass("stale signature count cannot overwrite history");
  const day=new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Rome",dateStyle:"short"}).format(new Date());
  const unitId=randomUUID();const unit={...retailDomain.emptyRetailUnit(),id:unitId,brand:"Apple",model:"Synthetic handset",serial:"UNIT-"+suffix,storeOwned:true,intakeDate:day,costCents:12000,refurbCents:0,priceCents:22000};
  r=await command(owner,stores[0],"retail",{type:"create",unit});assert.equal(r.status,200,JSON.stringify(r.data));pass("retail physical identity created independently from customer device");
@@ -128,6 +128,45 @@ try {
  const member=(await state(pending)).staff.members[0];assert.equal(member.role,"viewer");
  own=await state(owner);const me=own.staff.members.find(row=>row.id===own.staff.currentId);
  assert.equal((await command(owner,stores[0],"staff.save",{draft:{...me,role:"manager"},revision:own.staff.revision})).status,400);pass("owner cannot silently downgrade or change own authorization");
+ // Same account in a genuinely independent Auth session; another employee shares the store.
+ const owner2={...owner,cookies:new Map()};await login(owner2);
+ let parallelState=await state(owner);let v1=parallelState.workflows[id]?.revision??0;let v2=parallelState.workflows[repairId]?.revision??0;
+ const different=await Promise.all([command(owner,stores[0],"repair.workflow",{id,command:{type:"custody",custody:parallelState.workflows[id]?.custody==="store"?"customer":"store"},revision:v1}),command(owner2,stores[0],"repair.workflow",{id:repairId,command:{type:"custody",custody:parallelState.workflows[repairId]?.custody==="store"?"customer":"store"},revision:v2})]);
+ assert.deepEqual(different.map(row=>row.status),[200,200]);pass("same account two sessions update different repairs without false conflict");
+ parallelState=await state(owner);v1=parallelState.workflows[id].revision;
+ const same=await Promise.all([command(owner2,stores[0],"repair.workflow",{id,command:{type:"custody",custody:parallelState.workflows[id].custody==="store"?"customer":"store"},revision:v1}),command(tech,stores[0],"repair.workflow",{id,command:{type:"custody",custody:parallelState.workflows[id].custody==="store"?"customer":"store"},revision:v1})]);
+ assert.equal(same.filter(row=>row.status===200).length,1,JSON.stringify(same.map(r=>({status:r.status,data:r.status===200?null:r.data}))));assert.equal(same.filter(row=>row.status===409).length,1);
+ assert.equal((await command(owner,stores[0],"repair.workflow",{id,command:{type:"custody",custody:"customer"},revision:v1})).status,409);pass("different accounts concurrent and sequential stale edits return 409 without overwrite");
+ parallelState=await state(owner);v1=parallelState.workflows[id].revision;
+ const replayId=randomUUID();const replayPayload={id,command:{type:"custody",custody:parallelState.workflows[id].custody==="store"?"customer":"store"},revision:v1};
+ const duplicates=await Promise.all([command(owner,stores[0],"repair.workflow",replayPayload,replayId),command(owner2,stores[0],"repair.workflow",replayPayload,replayId)]);
+ assert.deepEqual(duplicates.map(row=>row.status),[200,200]);assert.equal(duplicates[0].data.operation.entityId,id);assert.equal(duplicates[1].data.operation.requestId,replayId);
+ const [auditCount]=await sql`select count(*)::int count from chinatech_v2_private.audit_events where store_id=${stores[0]} and request_id=${replayId}`;assert.equal(auditCount.count,1);pass("concurrent identical intent commits once with the original receipt");
+ const boundMember=(await state(owner)).staff.currentId;
+ const operationArgs={storeId:stores[0],memberId:boundMember,requestId:replayId};
+ const receipt=await request(owner2,"/api/backend/operation?"+new URLSearchParams(operationArgs));assert.equal(receipt.status,200);assert.equal(receipt.data.status,"committed");assert.equal(receipt.data.operation.requestId,replayId);
+ const otherReceipt=await request(tech,"/api/backend/operation?"+new URLSearchParams({...operationArgs,memberId:(await state(tech)).staff.currentId}));assert.equal(otherReceipt.data.status,"not_found");pass("receipt follows account across devices but cannot be read by another member");
+ const identityWrong=await request(owner,"/api/backend/command",{kind:"repair.workflow",payload:replayPayload,requestId:randomUUID(),storeId:stores[0],memberId:(await state(tech)).staff.currentId});assert.equal(identityWrong.status,409);assert.equal(identityWrong.data.code,"IDENTITY_CHANGED");pass("old tab cannot apply its intent as the newly logged-in account");
+ const cancelId=randomUUID();const cancelled=await request(owner,"/api/backend/operation",{...operationArgs,requestId:cancelId});assert.equal(cancelled.data.status,"cancelled");
+ assert.equal((await command(owner,stores[0],"repair.workflow",replayPayload,cancelId)).status,410);
+ const already=await request(owner,"/api/backend/operation",operationArgs);assert.equal(already.data.status,"committed");pass("cancellation seals an uncommitted request and never reverses a committed operation");
+ for(let raceAttempt=0;raceAttempt<10;raceAttempt++){
+ parallelState=await state(owner);const raceId=randomUUID();const racePayload={id,command:{type:"custody",custody:parallelState.workflows[id].custody==="store"?"customer":"store"},revision:parallelState.workflows[id].revision};
+ const race=await Promise.all([command(owner,stores[0],"repair.workflow",racePayload,raceId),request(owner2,"/api/backend/operation",{...operationArgs,requestId:raceId})]);
+ assert.ok(race[0].status===200||race[0].status===410,JSON.stringify(race.map(r=>({status:r.status,data:r.status===200?r.data.status:r.data}))));assert.equal(race[1].status,200);assert.equal(race[1].data.status,race[0].status===200?"committed":"cancelled");
+ }
+ pass("ten cancel versus late delivery races each have one terminal outcome");
+ // Inject failure after repair insertion but before the retail link can commit.
+ const failingCase=randomUUID();await retailCommand({type:"after_sale",saleId,caseId:failingCase,date:day,issue:"Rollback probe",custody:"left"});
+ const faultRepair="LOCAL-"+randomBytes(8).toString("hex").toUpperCase();const faultId=randomUUID();const faultVersion=(await state(owner)).retail.find(row=>row.id===unitId).version;
+ const faultName="sync_probe_"+suffix;
+ await sql.unsafe(`create function chinatech_v2_private.${faultName}() returns trigger language plpgsql as $$ begin if new.store_id='${stores[0]}'::uuid then raise exception 'synthetic transaction failure'; end if; return new; end $$; create trigger ${faultName} before update on chinatech_v2_private.retail_units for each row execute function chinatech_v2_private.${faultName}()`);
+ try {
+  const failure=await command(owner,stores[0],"retail.aftersale_repair",{unitId,saleId,caseId:failingCase,repairId:faultRepair,version:faultVersion},faultId);assert.ok(failure.status>=400);
+  const afterFailure=await state(owner);assert.equal(afterFailure.intakes.some(row=>row.id===faultRepair),false);assert.equal(afterFailure.retail.find(row=>row.id===unitId).version,faultVersion);
+  const [count]=await sql`select count(*)::int count from chinatech_v2_private.command_receipts where store_id=${stores[0]} and request_id=${faultId}`;assert.equal(count.count,0);
+  pass("injected failure after repair insertion rolls back repair sale link and receipt");
+ }finally{await sql.unsafe(`drop trigger ${faultName} on chinatech_v2_private.retail_units; drop function chinatech_v2_private.${faultName}()`);}
  // Revoke financial read without deactivating the account; the next read must use fresh permissions.
  await sql`update chinatech_v2.store_memberships set permissions=${permissions.filter(p=>!p.startsWith("financial."))},revision=revision+1 where store_id=${stores[0]} and user_id=${owner.id}`;
  assert.equal((await state(owner)).procurement[0].unitCostCents,null);pass("permission revocation takes effect in the next database read");
@@ -135,7 +174,7 @@ try {
  const stale={cookies:oldCookies};assert.equal((await request(stale,"/api/backend/state")).status,401);pass("logged-out session rejected even with a previously valid access cookie");
  const raw=createClient(config.API_URL,config.PUBLISHABLE_KEY,{auth:{persistSession:false}});const auth=await raw.auth.signInWithPassword({email:viewer.email,password});assert.ifError(auth.error);
  const direct=await raw.schema("chinatech_v2").from("store_memberships").update({permissions}).eq("user_id",viewer.id).select();assert.ok(direct.error || !direct.data?.length);pass("direct Data API cannot grant membership permissions");await raw.auth.signOut();
- writeFileSync(".local/backend/integration-verification.json",JSON.stringify({timestamp:new Date().toISOString(),checks,count:checks.length,status:"PASS"},null,2));
+ writeFileSync(".local/backend/sync-integration-verification.json",JSON.stringify({timestamp:new Date().toISOString(),checks,count:checks.length,status:"PASS"},null,2));
 } finally {
  for(const who of sessions) await request(who,"/api/auth/logout",undefined,"POST").catch(()=>{});
  // Synthetic test history is preserved; no production or other local project is accessed.
