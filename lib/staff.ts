@@ -2,7 +2,7 @@ export const permissionLabels = {
   "retail.view": "查看整机", "retail.edit": "录入与更正整机", "retail.inspect": "检测与上架", "retail.price": "调整售价", "retail.sell": "售卖与预留",
   "sale.payment": "登记收款", "sale.reconcile": "核对与冲销收款", "sale.deliver": "确认交付", "sale.debt": "欠款放行", "sale.refund": "退回与退款", "sale.aftersales": "售后服务",
   "financial.read": "查看成本、利润与经营收支", "financial.edit": "更正成本与经营收支", "repairs.view": "查看维修与采购", "repairs.edit": "维修与采购操作", "customers.view": "查看客户", "customers.edit": "维护客户资料",
-  "settings.edit": "门店、供应商与打印设置", "staff.manage": "管理员工权限",
+  "settings.edit": "门店、分组、供应商与打印设置", "staff.manage": "管理员工权限",
 } as const;
 export type Permission = keyof typeof permissionLabels;
 export const allPermissions = Object.keys(permissionLabels) as Permission[];

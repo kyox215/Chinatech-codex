@@ -57,3 +57,22 @@ test('经营收支只计已登记且未作废的整数分，销售与采购不�
 test('设置验证拒绝重复供应商、不安全网站和坏账本，不覆盖原资料', () => { const raw = settings => JSON.stringify({ version: 1, settings }); assert.equal(parseStoreSettings(raw(defaultStoreSettings)).paper, 'a4'); assert.throws(() => parseStoreSettings(raw({ ...defaultStoreSettings, suppliers: [...defaultStoreSettings.suppliers, defaultStoreSettings.suppliers[0]] }))); assert.throws(() => parseStoreSettings(raw({ ...defaultStoreSettings, suppliers: [{ ...defaultStoreSettings.suppliers[0], website: 'javascript:alert(1)' }] }))); });
 
 test("售后接机已核对的保管事实用于初始工作流，普通旧LOCAL仍待核对", () => { assert.equal(initialRepairWorkflow({...order,custody:"store"}).custody,"store"); assert.equal(initialRepairWorkflow({...order,custody:"customer"}).custody,"customer"); assert.equal(initialRepairWorkflow(order).custody,"unknown"); });
+
+test('维修分组改名与排序保留业务标识，旧设置兼容，非法配置拒绝', async () => {
+  const { defaultRepairGroups, parseRepairGroups, moveRepairGroup } = await import(moduleUrl('repair-groups'));
+  const groups = defaultRepairGroups();
+  const reordered = moveRepairGroup(groups.workflow, 'processing', 'awaiting_reply');
+  assert.equal(reordered[0].key, 'processing');
+  const next = {...groups, workflow:reordered.map(row=>row.key==='processing'?{...row,label:'  处理中  '}:row)};
+  const parsed = parseRepairGroups(next);
+  assert.equal(parsed.workflow[0].label,'处理中');
+  assert.equal(groups.workflow[0].key,'awaiting_reply');
+  const legacy = parseStoreSettings(JSON.stringify({version:1,settings:defaultStoreSettings}));
+  assert.deepEqual(legacy.repairGroups,groups);
+  const custom = parseStoreSettings(JSON.stringify({version:1,settings:{...defaultStoreSettings,repairGroups:next}}));
+  assert.deepEqual(custom.repairGroups,parsed);
+  for (const edit of [v=>v.workflow.pop(),v=>v.workflow.push(v.workflow[0]),v=>v.workflow[0].key='invented',v=>v.workflow[0].key=v.workflow[1].key,v=>v.workflow[0].label=' ',v=>v.workflow[0].label='x'.repeat(41),v=>v.workflow[0].label='a\nb',v=>v.workflow[0].label=v.workflow[1].label,v=>v.workflow[0].role='owner']) {
+    const bad=structuredClone(groups);edit(bad);assert.throws(()=>parseRepairGroups(bad));
+  }
+  for (const bad of [null, [], {}, {...groups,extra:[]}]) assert.throws(()=>parseRepairGroups(bad));
+});

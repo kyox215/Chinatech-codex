@@ -6,7 +6,7 @@ export function fields(value:unknown,allowed:readonly string[]) {
 export const intakeFields=["revision","policy","faults","issueNote","retailOrigin","custody","id","createdAt","updatedAt","previewAt","customerName","phone","email","category","brand","model","color","serial","issue","accessories","services","priority","photoCount","photos"];
 export const procurementFields=["id","repairId","item","supplier","quantity","unitCostCents","expectedAt","reference","events","required"];
 export const customerFields=["phone","name","email","note","updatedAt"];
-export const settingsFields=["revision","shopName","address","phone","paper","repairWarrantyMonths","retailWarrantyMonths","suppliers","finance"];
+export const settingsFields=["repairGroups","revision","shopName","address","phone","paper","repairWarrantyMonths","retailWarrantyMonths","suppliers","finance"];
 export const memberFields=["id","name","email","role","accountStatus","membershipStatus","permissions","revision"];
 export const retailFields=["id","code","category","brand","model","serial","imei1","imei2","productCode","color","ramGb","bodyStorage","disks","cpu","gpu","keyboard","edition","controllers","condition","warrantyMonths","grade","batteryPercent","accessories","knownIssues","photos","costCents","refurbCents","priceCents","source","location","intakeDate","storeOwned","status","version","inspection","reservation","sales","events","currentSaleId"];
 export const commandFields:Record<string,string[]>={

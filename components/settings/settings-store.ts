@@ -19,7 +19,7 @@ export function saveStoreSettings(expectedRevision: number, update: (current: St
   const before = JSON.parse(JSON.stringify(current)) as StoreSettings;
   const next = { ...update(current), revision: current.revision + 1 };
   if (JSON.stringify(next.finance) !== JSON.stringify(before.finance)) requirePreviewPermission("financial.edit");
-  if (["shopName","address","phone","paper","suppliers","repairWarrantyMonths","retailWarrantyMonths"].some(key=>JSON.stringify(next[key as keyof StoreSettings]) !== JSON.stringify(before[key as keyof StoreSettings]))) requirePreviewPermission("settings.edit");
+  if (["shopName","address","phone","paper","suppliers","repairWarrantyMonths","retailWarrantyMonths","repairGroups"].some(key=>JSON.stringify(next[key as keyof StoreSettings]) !== JSON.stringify(before[key as keyof StoreSettings]))) requirePreviewPermission("settings.edit");
   if (JSON.stringify({...next,revision:before.revision}) === JSON.stringify(before)) return;
   const raw = JSON.stringify({ version: 1, settings: next }); parseStoreSettings(raw);
   try { window.localStorage.setItem(key, raw); } catch { throw new Error("本地保存失败，现有资料未改变。"); }

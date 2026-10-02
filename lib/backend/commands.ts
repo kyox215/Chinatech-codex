@@ -162,12 +162,13 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     proposed.suppliers.forEach(row=>fields(row,["id","name","phone","website","active"]));proposed.finance.forEach(row=>fields(row,["id","kind","amountCents","purpose","relatedId","note","time","voidReason"]));
     // An unauthorized client receives no finance rows and cannot overwrite the omitted data.
     const finance=can(member,"financial.read")?proposed.finance:state.settings.finance;
-    const next=parseStoreSettings(JSON.stringify({version:1,settings:{...proposed,finance,revision:state.settings.revision+1}}));
+    const next=parseStoreSettings(JSON.stringify({version:1,settings:{...proposed,repairGroups:proposed.repairGroups === undefined ? state.settings.repairGroups : proposed.repairGroups,finance,revision:state.settings.revision+1}}));
     if(JSON.stringify(next.finance)!==JSON.stringify(state.settings.finance)) {
       authorize(member,"financial.edit");
       for(const entry of state.settings.finance) {const replacement=next.finance.find(row=>row.id===entry.id);if(!replacement || JSON.stringify({...replacement,voidReason:entry.voidReason})!==JSON.stringify(entry) || (entry.voidReason && replacement.voidReason!==entry.voidReason)) throw new BackendError("原收支事实不能覆盖或删除；更正须追加。");}
     }
     if(["shopName","address","phone","paper","suppliers","repairWarrantyMonths","retailWarrantyMonths"].some(key=>JSON.stringify(next[key as keyof StoreSettings])!==JSON.stringify(state.settings[key as keyof StoreSettings]))) authorize(member,"settings.edit");
+    if(JSON.stringify(next.repairGroups)!==JSON.stringify(parseStoreSettings(JSON.stringify({version:1,settings:state.settings})).repairGroups)) authorize(member,"settings.edit");
     await tx`update chinatech_v2_private.store_state set settings=${tx.json(next)} where store_id=${state.storeId}`;return state.storeId;
   }
   if(kind==="staff.save") {

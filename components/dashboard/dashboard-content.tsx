@@ -10,6 +10,8 @@ import { useRepairWorkflows } from "@/components/repairs/repair-workflow-store";
 import { useProcurement } from "@/components/procurement/procurement-provider";
 import { useRetail } from "@/components/retail/retail-provider";
 import { useStaff } from "@/components/staff/use-staff";
+import { useStoreSettings } from "@/components/settings/settings-store";
+import { defaultRepairGroups } from "@/lib/repair-groups";
 import { isBackendClient } from "@/lib/backend/client";
 import { workflowGroup, workflowGroups, type WorkflowGroup } from "@/lib/repair-workflow";
 import { procurementEventLabel } from "@/lib/procurement";
@@ -50,6 +52,7 @@ export function DashboardContent() {
 }
 
 function RealDashboardContent() {
+  const { settings } = useStoreSettings();
   const orders = useRepairDirectory();
   const { records, storageError } = useProcurement();
   const { workflows, ready: workflowReady, error: workflowError } = useRepairWorkflows();
@@ -89,7 +92,7 @@ function RealDashboardContent() {
       </article>
       <article className="panel workload-panel">
         <div className="panel__header"><div><h2>维修阶段分布</h2></div>{canRepairs ? <span className="status-pill status-pill--info">{orders.length} 张</span> : null}</div>
-        {canRepairs ? <div className="legend-list">{(Object.entries(workflowGroups) as [WorkflowGroup, string][]).map(([group, label]) => <span key={group}>{label}<strong>{counts[group]}</strong></span>)}</div> : <div className="section-empty"><strong>当前账号没有维修查看权限</strong></div>}
+        {canRepairs ? <div className="legend-list">{(settings.repairGroups ?? defaultRepairGroups()).workflow.map(({key: group, label}) => <span key={group}>{label}<strong>{counts[group]}</strong></span>)}</div> : <div className="section-empty"><strong>当前账号没有维修查看权限</strong></div>}
       </article>
     </section>
     <section className="dashboard-grid dashboard-grid--bottom">
