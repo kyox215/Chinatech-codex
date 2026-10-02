@@ -29,7 +29,7 @@
   font-size: 12px;
   font-style: normal;
 }
-.activeStep { color: var(--primary-600); font-weight: 650; }
+.activeStep { color: var(--primary-600); font-weight: 600; }
 .activeStep i { color: var(--surface); border-color: var(--primary-600); background: var(--primary-600); }
 .body { padding: 12px; background: var(--surface-subtle); }
 .layout { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; gap: 12px; }
