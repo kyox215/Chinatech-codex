@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { Check, CheckCircle2, Circle, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, UserRound } from "lucide-react";
-import { GoogleSignIn } from "./google-sign-in";
+import { SocialSignIn } from "./social-sign-in";
 import { VerificationSent } from "./verification-sent";
 import styles from "./auth-experience.module.css";
 
@@ -39,7 +39,7 @@ export function RegisterForm({ supabaseMode = false, previewAvailable = true }: 
 
   return <form className="auth-form" onSubmit={handleSubmit}>
     <div className="auth-form__heading"><span className="auth-form__icon" aria-hidden="true"><UserRound size={26} /></span><h1>开始你的门店工作</h1><p>已有账号？ <Link href="/login">立即登录</Link></p></div>
-    {supabaseMode ? <GoogleSignIn disabled={isSubmitting} onBusyChange={setOAuthBusy} /> : null}
+    {supabaseMode ? <SocialSignIn disabled={isSubmitting} onBusyChange={setOAuthBusy} /> : null}
     <ol className={styles.stepper} aria-label="注册流程"><li><span>1</span>创建账号</li><li><span>2</span>验证邮箱</li><li><span>3</span>门店授权</li></ol>
     <div className="form-field"><label htmlFor="display-name">称呼</label><div className="input-shell"><UserRound size={19} aria-hidden="true" /><input id="display-name" name="displayName" required maxLength={80} autoComplete="name" placeholder="我们该如何称呼你" /></div></div>
     <div className="form-field"><label htmlFor="register-email">电子邮件</label><div className="input-shell"><Mail size={19} aria-hidden="true" /><input id="register-email" name="email" type="email" required maxLength={160} autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="name@example.com" /></div></div>

@@ -8,7 +8,7 @@ import ts from "typescript";
 
 const require = createRequire(import.meta.url);
 const { NextRequest, NextResponse } = require("next/server");
-function harness(google = true) {
+function harness(google = true, apple = false) {
   const requests = [];
   let clock = Date.now();
   class TestDate extends Date { static now() { return clock; } }
@@ -18,10 +18,12 @@ function harness(google = true) {
     if (cache.has(path)) return cache.get(path);
     const exports = {};
     const code = ts.transpileModule(readFileSync(path, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-    const context = createContext({ exports, process: { env }, Buffer, URL, AbortSignal, Date: TestDate, fetch: async (url, init) => { requests.push({ url, init }); return new Response(JSON.stringify({ external: { google } }), { status: 200 }); }, require: name => {
+    const context = createContext({ exports, process: { env }, Buffer, URL, AbortSignal, Date: TestDate, fetch: async (url, init) => { requests.push({ url, init }); return new Response(JSON.stringify({ external: { google, apple } }), { status: 200 }); }, require: name => {
       if (name === "./config" || name === "@/lib/supabase/config") return load("lib/supabase/config.ts");
       if (name === "@/lib/supabase/server") return load("lib/supabase/server.ts");
       if (name === "@/lib/server/auth-flows") return load("lib/server/auth-flows.ts");
+      if (name === "@/lib/server/account-oauth") return load("lib/server/account-oauth.ts");
+      if (name === "@/lib/server/account-auth") return load("lib/server/account-auth.ts");
       if (name === "@/lib/backend/database") return { BackendError: class extends Error {}, withDatabase: () => { throw new Error("No database allowed in OAuth initiation."); } };
       return require(name);
     } });
@@ -66,6 +68,17 @@ test("disabled provider fails clearly and does not create an OAuth verifier", as
   const h = harness(false); const response = await h.call();
   assert.equal(response.status, 503); assert.match((await response.json()).message, /尚未配置/);
   assert.equal(response.cookies.getAll().length, 0);
+});
+
+test("Apple login uses the same real SDK PKCE server flow with a fixed provider and callback", async () => {
+  const h = harness(true, true);
+  const response = await h.load("app/api/auth/apple/route.ts").POST(new NextRequest("https://shop.example.test/api/auth/apple", { method: "POST", headers: { origin: "https://shop.example.test", "content-type": "application/json" }, body: "{}" }));
+  assert.equal(response.status, 200);
+  const url = new URL((await response.json()).redirectTo);
+  assert.equal(url.origin, "https://project.example.test"); assert.equal(url.pathname, "/auth/v1/authorize");
+  assert.equal(url.searchParams.get("provider"), "apple"); assert.equal(url.searchParams.get("code_challenge_method"), "s256");
+  assert.equal(new URL(url.searchParams.get("redirect_to")).pathname, "/auth/callback");
+  assert.ok(response.cookies.getAll().some(cookie => cookie.name === "ct_rebuild_auth-code-verifier" && cookie.httpOnly && cookie.secure));
 });
 
 test("signed recovery proof expires after fifteen minutes before consulting the auth service", async () => {

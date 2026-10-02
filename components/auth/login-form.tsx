@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { AlertCircle, Check, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 
-import { GoogleSignIn } from "./google-sign-in";
+import { SocialSignIn } from "./social-sign-in";
 import styles from "./auth-experience.module.css";
 
 const demoCredentials = {
@@ -80,7 +80,7 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
       </div> : null}
       {!supabaseMode && !previewAvailable ? <p className="form-error" role="alert">登录服务尚未开放，请联系门店。</p> : null}
       {notice ? <p className={styles.successNotice} role="status">{notice}</p> : null}
-      {supabaseMode ? <GoogleSignIn disabled={isSubmitting} onBusyChange={setOAuthBusy} /> : null}
+      {supabaseMode ? <SocialSignIn disabled={isSubmitting} onBusyChange={setOAuthBusy} /> : null}
 
       <div className="form-field">
         <label htmlFor="email">电子邮件</label>
