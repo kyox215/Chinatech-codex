@@ -1,3 +1,0 @@
-# Handoff — TASK-20260720-003
-
-Status: closed and live. Production contains migration 20260720190759 and feature commit 24190b26a9a23994fc90c3c5b2e07c4337a35865; exact deployment dpl_J8AFvJEJTb9D9zikWizy42s79Dv5 is READY on both aliases. Public route/security headers, invalid-token behavior, unauthenticated issue/staff-resolve boundaries and scoped runtime logs passed. No engineering resume action is required. The only owner-side follow-up is a physical Safari + HP preview/paper print + phone scan using a non-sensitive test order. Roll back by disabling CUSTOMER_STATUS_QR_ENABLED and promoting the prior compatible deployment; retain the additive schema and audit/link history.

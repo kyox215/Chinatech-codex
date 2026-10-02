@@ -1,0 +1,10 @@
+.popover { position: fixed; z-index: 60; overflow: auto; padding: 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow-md); color: var(--text); }
+.heading { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--primary-600); }
+.heading :global(.icon-button) { width:44px; height:44px; }
+.heading strong { flex: 1; font-size: 15px; }
+.heading strong:focus { outline: none; }
+.body { display: grid; gap: 14px; }
+.popover :global(.single-choice) > div, .popover :global(.multi-choice__options) { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+.popover :global(.single-choice) label, .popover :global(.multi-choice__item) { min-height: 44px; justify-content: center; }
+.footer { display: flex; justify-content: flex-end; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.note { color: var(--text-secondary); font-size: 13px; }

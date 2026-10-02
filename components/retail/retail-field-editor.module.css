@@ -1,0 +1,35 @@
+.fieldButton { min-width: 0; min-height: 52px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 0; border-radius: 0; text-align: left; color: var(--text); background: transparent; cursor: pointer; }
+.fieldButton:hover:not(:disabled) { background: var(--primary-50); }
+.fieldButton:disabled { opacity: 1; cursor: default; }
+.fieldButton > svg { flex-shrink: 0; color: var(--text-tertiary); }
+.valueGroup { display: grid; min-width: 0; flex: 1; gap: 3px; }
+.valueGroup small { color: var(--text-secondary); font-size: 12px; line-height: 1.3; }
+.value { min-width: 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; line-height: 1.4; }
+.compact { min-height: 32px; padding: 2px 5px; gap: 5px; border-radius: var(--radius-control); }
+.compact .value { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 5px; font-weight: 500; }
+.body { display: grid; gap: 16px; padding: 16px; }
+.compare { margin: 0; display: grid; gap: 10px; }
+.compare > div { padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface-subtle); }
+.compare > div:last-child { background: var(--primary-50); border-color: var(--primary-100); }
+.compare dt { font-size: 12px; color: var(--text-secondary); }
+.compare dd { margin: 5px 0 0; font-weight: 600; font-size: 15px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.note, .impact { margin: 0; font-size: 12px; line-height: 1.6; color: var(--text-secondary); }
+.impact { padding: 10px; border-radius: var(--radius-control); color: var(--warning); background: var(--warning-soft); }
+@media (max-width:767px) {
+  .fieldButton { min-height: 52px; padding: 8px 10px; }
+  .compact { min-height: 44px; padding: 2px 5px; }
+  .body { padding: 12px; }
+}
+
+.editor { grid-column: 1 / -1; min-width: 0; margin: 8px; border: 1px solid var(--primary-100); border-radius: var(--radius-control); background: var(--surface); scroll-margin-top: 96px; }
+.editor > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; background: var(--primary-50); border-radius: var(--radius-control) var(--radius-control) 0 0; }
+.editor header small { color: var(--text-secondary); font-size: 12px; }
+.editor h4 { margin: 4px 0 0; font-size: 16px; }
+.editor > footer { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
+.editor :global(.button), .editor :global(.icon-button) { min-height: 44px; }
+.editor :global(.field) input, .editor :global(.field) select, .editor :global(.field) textarea { min-height: 44px; }
+.editor :global(.field) textarea { min-height: 72px; }
+.editor :global(.single-choice) label { min-height: 44px; }
+.editor .compare { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.noteDetails summary { min-height: 44px; align-content: center; cursor: pointer; color: var(--text-secondary); font-size: 13px; }
+@media(max-width:767px) { .editor { margin: 6px; scroll-margin-top: 88px; } .editor .compare { grid-template-columns: minmax(0,1fr); } .editor input, .editor select, .editor textarea { font-size: 16px; } }

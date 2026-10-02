@@ -1,0 +1,18 @@
+.dialog { width: min(680px,calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-panel); color: var(--text); background: var(--surface); box-shadow: var(--shadow-md); }
+.dialog::backdrop { background: var(--overlay); }
+.header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.header h2 { margin: 6px 0 0; font-size: 22px; }
+.header :global(.icon-button) { min-width: 44px; min-height: 44px; }
+.preview { position: relative; display: grid; place-items: center; aspect-ratio: 4 / 3; max-height: 55dvh; overflow: hidden; margin-block: 16px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-subtle); }
+.preview video, .preview img { display: block; width: 100%; height: 100%; position: absolute; inset: 0; object-fit: contain; }
+.preview[data-live="false"] video { visibility: hidden; }
+.placeholder { display: grid; place-items: center; gap: 10px; padding: 20px; color: var(--text-secondary); font-size: 14px; text-align: center; }
+.dialog :global(.field) { margin-block: 12px; }
+.dialog :global(.field) select { min-height: 44px; font-size: 16px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.actions :global(.button) { min-height: 44px; flex: 1; cursor: pointer; }
+.actions label:focus-within { outline: 2px solid var(--primary-600); outline-offset: 2px; }
+.disabled { opacity: .5; cursor: default; }
+.error { margin: 12px 0; color: var(--danger); font-size: 14px; line-height: 1.5; }
+.status { margin: 0 0 12px; color: var(--text-secondary); font-size: 13px; }
+@media (max-width: 767px) { .dialog { padding: 16px; } .header h2 { font-size: 20px; } .actions :global(.button) { flex-basis: calc(50% - 4px); } }

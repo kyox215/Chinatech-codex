@@ -1,0 +1,7 @@
+.control { display: grid; gap: 8px; min-width: 0; }
+.control :global(.field) input, .control :global(.field) select { min-height: 44px; }
+.note { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+
+@media (max-width:767px) {
+  .control :global(.field) input, .control :global(.field) select { font-size: 16px; }
+}

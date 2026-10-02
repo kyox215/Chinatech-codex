@@ -1,0 +1,32 @@
+.panel { min-width: 0; overflow: visible; }
+.header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 10px 14px 4px; }
+.header h3 { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 14px; }
+.header h3 svg { color: var(--primary-600); }
+.flags { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; padding: 0 14px 8px; }
+.custody { position: relative; min-width: 0; }
+.custody > summary { min-height: 44px; display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 12px; cursor: pointer; list-style: none; }
+.custody > summary::-webkit-details-marker { display: none; }
+.custody > summary > span { padding: 4px 6px; color: var(--text); background: var(--surface-subtle); border-radius: var(--radius-control); }
+.custody[open] > summary > svg:last-child { transform: rotate(180deg); }
+.editor { position: absolute; z-index: 5; top: 100%; left: 0; width: 220px; max-width: calc(100vw - 60px); padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow-md); }
+.editor select { min-height: 44px; }
+.notice { display: inline-flex; align-items: center; gap: 5px; color: var(--text-secondary); font-size: 12px; }
+.contactActions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 12px; }
+.contactActions > button { min-height: 44px; }
+.metadata { padding: 10px 14px 12px; border-top: 1px solid var(--border); }
+.metadata dl { margin: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.metadata dl > div { min-width: 0; }
+.metadata dt { display: flex; align-items: center; gap: 5px; color: var(--text-secondary); font-size: 12px; }
+.metadata dd { margin: 4px 0 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.history { border-top: 1px solid var(--border); }
+.history > summary { min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 8px 14px; color: var(--text-secondary); font-size: 12px; cursor: pointer; list-style: none; }
+.history > summary::-webkit-details-marker { display: none; }
+.history > summary > span { flex: 1; }
+.history[open] > summary > svg:last-child { transform: rotate(180deg); }
+.history :global(.detail-timeline) { padding: 4px 14px 12px; }
+.history :global(.detail-timeline strong) { font-size: 13px; }
+.history :global(.detail-timeline p), .history :global(.detail-timeline small) { font-size: 12px; }
+.panel > :global(.form-error) { margin: 0 12px 10px; }
+@media (max-width: 767px) {
+  .editor select { font-size: 16px; }
+}

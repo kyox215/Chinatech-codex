@@ -1,0 +1,17 @@
+.control { display: grid; gap: 8px; min-width: 0; }
+.capacity { display: grid; grid-template-columns: minmax(0,1fr) 90px; gap: 8px; }
+.control input, .control select { min-height: 44px; }
+@media (max-width:767px) { .control input, .control select { font-size: 16px; } }
+
+.capacity small { grid-column: 1 / -1; }
+.hint, .error { margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
+.error { color: var(--danger); }
+.disks { display: grid; gap: 10px; min-width: 0; }
+.disk { border: 1px solid var(--border); border-radius: var(--radius-control); padding: 10px; background: var(--surface-subtle); min-width: 0; }
+.disk > header, .disk strong { display: flex; align-items: center; gap: 8px; }
+.disk > header { justify-content: space-between; margin-bottom: 6px; }
+.disk strong { font-size: 13px; }
+.disk > div { display: grid; grid-template-columns: minmax(100px,.8fr) minmax(0,1.2fr); gap: 8px; }
+.disks > button { justify-self: start; min-height: 44px; }
+.disk > header button { min-height: 44px; min-width: 44px; }
+@media(max-width:767px) { .disk > div { grid-template-columns: minmax(0,1fr); } }

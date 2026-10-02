@@ -1,46 +1,32 @@
-# ChinatechOS / RepairDesk 项目入口
+# ChinaTech 维修管理网站
 
-这里是 Codex 中 **ChinatechOS** 项目绑定的原目录，对应 GitHub `kyox215/Chinatech-codex`。
-本文件只提供导航，不替代 `AGENTS.md`、架构声明或任务登记。
+Next.js App Router、React、TypeScript。公开首页与门店后台分开；客户设备、工单采购和门店自有待售单机保持独立身份。
 
-## 当前状态与验证入口
+## 运行模式
 
-当前状态以本工作区的 `git status`、实际测试结果和项目 Registry 为准。下方历史任务说明不代表当前部署版本；不要依据旧端口、旧 SHA 或旧交接中的“最新”字样判断线上状态。
+使用 Node.js 24，执行 `npm ci`。
 
-- [2026-09-25 审计报告](docs/WORKSPACE_LOADING_BUSINESS_AUDIT_2026-09-25.md)
-- [45 项整改进度](docs/AUDIT_REMEDIATION_2026-09-25.md)
-- [目录、产物与保留约定](docs/WORKSPACE_HYGIENE.md)
-- 开发前使用 `.nvmrc` 指定或满足 `package.json` engines 的 Node；运行 `npm run check:runtime`。
-- 质量门禁：`npm run check`；E2E 使用隔离的合成环境，真实后端验证另行标注。
+- 本地界面样板：复制 `.env.example` 为 `.env.local`，保留 `BACKEND_MODE=preview`、`LOCAL_PREVIEW=1`，执行 `npm run dev`，访问 `http://localhost:3000`。样板账号和虚构数据仅供本地预览。
+- 正式后台：设置 `BACKEND_MODE=supabase`、`LOCAL_PREVIEW=0`，配置自己的 `SUPABASE_URL`、公开发布密钥、`APP_DATABASE_URL` 和确切的 `APP_ORIGIN`。执行 `npm run build`、`npm start`。部署环境绝不启用样板登录。
 
-## 先看哪里
+不要提交真实 `.env`、连接密码、账号会话或业务备份。`APP_DATABASE_URL` 只供服务端使用，必须是受限 `chinatech_runtime` 角色，不能使用 postgres 或 service_role。
 
-| 目的 | 位置 |
-|---|---|
-| 修改网站页面、业务功能 | `src/` |
-| 路由入口 | `src/app/`；页面主体在 `src/features/` |
-| 工单、客户、库存等业务模块 | `src/features/` |
-| 跨模块规则与通用能力 | `src/entities/`、`src/shared/` |
-| 基础控件与现有共享 UI | `src/components/ui/`、`src/lib/ui-patterns.ts`、`src/lib/component-patterns.ts` |
-| 服务端边界 | `src/server/`、各业务模块的 `server/` |
-| 数据库版本记录 | `supabase/migrations/`；不是可随意清理的缓存 |
-| 回归测试 | 源码旁的 `*.test.*`、`tests/e2e/` |
-| 项目架构 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| 执行、安全、隔离规则 | [AGENTS.md](AGENTS.md) |
+## 后台接入
 
+`supabase/migrations/` 建立 `chinatech_v2`、`chinatech_v2_private` 业务空间。安装前核对目标项目；迁移需要数据库管理权限，仅在已授权目标执行。迁移不导入旧业务记录，不自动为注册用户建立门店或管理员权限。
 
-## 哪些不是网站运行源码
+运行角色密码须单独安全配置。云连接使用 Supavisor 事务池、SSL 和关闭 prepared statements。首位老板与空门店需要管理员明确初始化；后续公开注册验证邮箱后仍等待门店审核。新应用使用独立 HttpOnly 登录 cookie，Auth 身份与门店权限由服务端及数据库重新核对。
 
-- `screenshots/`、`artifacts/`：历史截图与验证证据，先查引用和保留需要，再决定归档。
-- `exports/`：历史交付包，不能当作正在运行的第二套源码。
-- `work/`：本地工作资料，不能直接视为已发布功能或无用文件。
-- `.ai-company/`、`.agents/`、`.codex/`：项目治理和任务记录；不能为了目录简洁批量删除。
-- `archive.local/`：仅本地可恢复归档，已由现有 `*.local` 忽略规则排除。
-- `node_modules/`：可安装的依赖，但可能被现有预览复用，不随整理删除。
-- `.next/`：运行或构建时重新生成的缓存，不是正式源码。
+工单、客户、采购、整机、销售事实、签名、门店设置和成员变更通过 Next.js 服务端事务保存，检查门店、权限、版本及稳定请求 ID。财务内容在返回浏览器前按权限投影。售后建维修与销售关联同事务提交；界面每 15 秒及窗口重新聚焦时重新查询，并在保存后刷新。当前未接 WebSocket 广播，不能承诺即时通知。
 
-## 开发与验证
+接机照片在浏览器压缩为 JPEG，再由服务器解码验证；单张最多 240,000 字节、长边 1000px，当前最多六张。照片字节与工单一起写入私有表，快照只返回引用；读取再次检查登录、门店及维修查看权限，不提供公共下载 URL。每张工单最多保留 30 张照片历史，超过上限整次保存回滚。整机现有压缩照片随私有业务档案保存。
 
-使用 Node 22.12+（本轮验证为 Node 24），沿用仓库锁文件。先运行 `npm run check:runtime`，再按改动执行 `npm run check` 与对应 E2E。预览使用隔离模拟入口，不复制生产秘密或写入真实客户数据。
+记账和退款操作记录门店已发生的事实；没有连接支付、税务、供应商下单、短信、客户邮件或 AI 服务。电子签名记录核对事实，不代表已完成法律效力或硬件触笔认证。
 
-2026-09-09/10 的目录整理与界面任务说明属于历史快照，不能代表当前 Git、服务或部署状态。完整旧入口已保存在本地 `archive.local/audit-remediation-20260925/pre-change/root/README.md`；当前整改状态见上方45项清单。
+## 验证
+
+`npm run lint`、`npm run typecheck`、`npm run test`、`npm run build`。
+
+`tests/backend.integration.mjs` 验证真实 Auth、RLS、并发版本、幂等、跨门店、财务投影、售后事务及照片访问；它只接受本项目独立本地 Supabase 端口 55421/55422 与应用 3117，并需要本机私有测试连接文件。该脚本不会连接生产环境，保留合成测试历史。
+
+`supabase/config.toml` 为独立本地配置，开发业务数据不迁入云端。源码不包含旧站业务数据、密钥或备份。
