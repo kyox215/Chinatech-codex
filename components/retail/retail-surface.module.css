@@ -1,4 +1,4 @@
-.page { width: 100%; max-width: 1200px; margin-inline: auto; }
+.page { width: 100%; max-width: none; margin-inline: auto; }
 .page .sectionHead { min-height: 48px; padding: 8px 12px; gap: 8px; }
 .page .sectionHead > div { display: flex; align-items: center; gap: 8px; }
 .page .sectionHead > div > span { width: 28px; height: 28px; border-radius: var(--radius-control); color: var(--text-secondary); background: var(--surface-subtle); }
