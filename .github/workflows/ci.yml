@@ -17,6 +17,17 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run test:controls
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: control-regression-results
+          path: |
+            test-results/
+            .local/ui-proof/controls/
+          include-hidden-files: true
+          retention-days: 7
       - run: npm run build
         env:
           BACKEND_MODE: supabase

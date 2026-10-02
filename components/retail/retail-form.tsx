@@ -112,7 +112,7 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
                 <label className="field"><span>商品类型</span><SelectControl aria-label="商品类型" value={draft.category} onChange={(event) => changeCategory(event.target.value as RetailCategory)}>{Object.entries(retailCategories).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</SelectControl></label>
                 <RetailCatalogControl field="brand" category={draft.category} units={units} label="品牌" value={draft.brand} onChange={value => setDraft(previous => ({...previous, brand:value, ...(previous.brand === value ? {} : {model:""})}))} />
                 <RetailCatalogControl field="model" category={draft.category} brand={draft.brand} units={units} label="型号 / 商品名称" required value={draft.model} onChange={value => update("model",value)} />
-                <ColorPicker value={draft.color} onChange={(value) => update("color", value)} />
+                <ColorPicker key={`color-${draft.category}`} value={draft.color} onChange={(value) => update("color", value)} />
               </div>
             </section>
             <section className={styles.section} aria-labelledby="retail-identifiers-heading">

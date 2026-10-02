@@ -40,13 +40,16 @@ export function ColorPicker({ value, onChange }: { value: string; onChange: (val
     place(); window.addEventListener("resize", place); window.addEventListener("scroll", place, true); document.addEventListener("pointerdown", outside);
     return () => { window.removeEventListener("resize", place); window.removeEventListener("scroll", place, true); document.removeEventListener("pointerdown", outside); };
   }, [open]);
+  function close() {
+    if (disclosure.current) { disclosure.current.open = false; disclosure.current.querySelector("summary")?.focus(); }
+  }
   function select(selected: string) {
     setCustom(selected === "custom"); onChange(selected === "custom" ? "" : selected);
-    if (disclosure.current) { disclosure.current.open = false; disclosure.current.querySelector("summary")?.focus(); }
+    close();
   }
   const options = (metal: boolean) => deviceColors.filter(item => item.value.includes("钛金属") === metal).map(item => ({ value: item.value, label: item.value, graphic: <ColorSwatch value={item.value} /> }));
   return <div className="field color-picker"><span>颜色</span><details ref={disclosure} onToggle={event => setOpen(event.currentTarget.open)} onKeyDown={event => { if (event.key === "Escape" && disclosure.current?.open) { event.preventDefault(); event.stopPropagation(); disclosure.current.open = false; disclosure.current.querySelector("summary")?.focus(); } }}>
     <summary aria-label="选择设备颜色"><ColorSwatch value={value} /><span>{value || (custom ? "其他颜色" : "未记录")}</span><ChevronDown size={16} /></summary>
-    <div ref={palette} className="color-picker__palette" style={position}><SingleChoice label="常规颜色" className="single-choice--colors" value={custom ? "custom" : value} options={options(false)} onChange={select} /><SingleChoice label="钛金属" className="single-choice--colors" value={custom ? "custom" : value} options={options(true)} onChange={select} /><SingleChoice label="其他" className="single-choice--color-actions" value={custom ? "custom" : value} options={[{value:"",label:"未记录",icon:Palette},{value:"custom",label:"其他颜色",icon:Palette}]} onChange={select} /></div>
+    <div ref={palette} className="color-picker__palette" style={position}><SingleChoice label="常规颜色" className="single-choice--colors" value={custom ? "custom" : value} options={options(false)} onChange={select} onRepeatSelect={close} /><SingleChoice label="钛金属" className="single-choice--colors" value={custom ? "custom" : value} options={options(true)} onChange={select} onRepeatSelect={close} /><SingleChoice label="其他" className="single-choice--color-actions" value={custom ? "custom" : value} options={[{value:"",label:"未记录",icon:Palette},{value:"custom",label:"其他颜色",icon:Palette}]} onChange={select} onRepeatSelect={close} /></div>
   </details>{custom ? <input aria-label="其他颜色" value={value} onChange={event => onChange(event.target.value)} placeholder="填写颜色" maxLength={60} /> : null}</div>;
 }

@@ -2,14 +2,17 @@
   "name": "chinatech-service-platform",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": "24.x" },
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/procurement.test.mjs tests/retail.test.mjs tests/retail-input.test.mjs tests/retail-catalog.test.mjs tests/repair-scan.test.mjs tests/repair-list-order.test.mjs tests/identifier-scan.test.mjs tests/repair-intake.test.mjs tests/repair-signature.test.mjs tests/print-language.test.mjs tests/customers.test.mjs tests/repair-workflow.test.mjs tests/local-persistence.test.mjs tests/staff.test.mjs tests/backend-client.test.mjs"
+    "test": "node --test tests/procurement.test.mjs tests/retail.test.mjs tests/retail-input.test.mjs tests/retail-catalog.test.mjs tests/repair-scan.test.mjs tests/repair-list-order.test.mjs tests/identifier-scan.test.mjs tests/repair-intake.test.mjs tests/repair-signature.test.mjs tests/print-language.test.mjs tests/customers.test.mjs tests/repair-workflow.test.mjs tests/local-persistence.test.mjs tests/staff.test.mjs tests/backend-client.test.mjs",
+    "test:controls": "playwright test"
   },
   "dependencies": {
     "@fontsource-variable/source-sans-3": "5.3.0",
@@ -24,6 +27,7 @@
     "sharp": "0.35.5"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/node": "26.6.3",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
