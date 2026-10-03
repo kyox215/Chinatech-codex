@@ -277,3 +277,38 @@ test("long synthetic models, suppliers and follow-up facts leave list controls r
   expect(unchanged.records).toEqual(data.procurement);
   expect(unchanged.workflows).toEqual(data.workflows);
 });
+
+test("detail demand, parts and signature flow together independently of a tall sidebar", async ({ page }) => {
+  test.setTimeout(90000);
+  const records = [intake("LOCAL-D000000000000001", "DEMO-LIST 少项目"), intake("LOCAL-D000000000000002", "DEMO-LIST 多项目")];
+  records[1].faults!.push("摄像头：模糊", "DEMO 扬声器", "DEMO 按键", "DEMO 其他维修");
+  for (const record of records) {
+    record.issue = record.faults!.join("、");
+    record.itemQuotes = record.faults!.map(fault => ({ item: fault.split("：")[0], amountCents: 5000 }));
+    record.accessories = Array.from({ length: 12 }, (_, index) => `DEMO 随件 ${index + 1} · 本地合成附件说明`);
+  }
+  await seed(page, { records, workflows: {}, procurement: [], settings: structuredClone(defaultStoreSettings) });
+  for (const record of records) {
+    await page.goto(`/app/repairs/${record.id}`);
+    const signature = page.getByRole("region", { name: "客户签名", exact: true });
+    await expect(signature.getByRole("button", { name: "添加签名", exact: true })).toBeEnabled();
+    for (const width of [1440, 1024, 390, 375]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await expectPageFits(page);
+      const gaps = await page.evaluate(() => {
+        const main = document.querySelector(".intake-review__main")!;
+        const issue = main.querySelector(".intake-review__issue-section")!.getBoundingClientRect();
+        const related = main.querySelector(".intake-review__related")!;
+        const [parts, signature] = [...related.children].map(element => element.getBoundingClientRect());
+        return { beforeParts: parts.top - issue.bottom, beforeSignature: signature.top - parts.bottom };
+      });
+      expect(gaps.beforeParts).toBe(width >= 768 ? 14 : 10);
+      expect(gaps.beforeSignature).toBe(width >= 768 ? 14 : 10);
+    }
+    const before = await page.evaluate(() => localStorage.getItem("chinatech.m1.local-intakes.v1"));
+    await signature.getByRole("button", { name: "添加签名", exact: true }).click();
+    await expect(signature.getByRole("button", { name: "取消", exact: true })).toBeVisible();
+    await signature.getByRole("button", { name: "取消", exact: true }).click();
+    expect(await page.evaluate(() => localStorage.getItem("chinatech.m1.local-intakes.v1"))).toBe(before);
+  }
+});

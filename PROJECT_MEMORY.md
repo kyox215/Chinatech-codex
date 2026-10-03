@@ -4,13 +4,13 @@
 
 ## 最新进行：工单简化、报价跟进与返回恢复（2026-10-04）
 
-按用户五处浏览器意见和“主要报价沟通、需要待回复”实施，方案见[docs09](docs/09-repair-table-layout-plan.md)，报价/采购边界见[docs22](docs/22-repair-supplier-batch-notification-plan.md)。列表六列去独立配件进度/型号下ID，负责人更新末列；分组管理只在设置订单管理。Figma紧凑项目行、保存前加车提示与实际cart状态分开，获权进价和报价-only规则保留；详情两栏独立流，采购与故障保持14px间距。fixture/LOCAL返回禁用默认重置，视图按门店/成员版本/权限隔离，搜索仅同页签内存；刷新保留非敏感视图，不存客户查询文字。
+方案[docs09](docs/09-repair-table-layout-plan.md)、业务边界[docs22](docs/22-repair-supplier-batch-notification-plan.md)。列表六列去独立配件进度/型号下ID，负责人更新末列；分组管理只在设置订单管理。Figma紧凑项目行，保存前加车提示与实际cart分开；获权进价与报价-only保留。详情左栏需求→配件→签名连续14px（手机10px），右栏独立流，少/多项目与12随件实测不撑开主任务；signature embedded只取消该嵌入的额外外边距，fixture默认不改，签署/快照不变。
 
-接单联系新增quote_contact三结果与说明，列表/详情/历史同源，服务端生成时间/操作者；不改变阶段、保管、到货/取机通知、客户同意或签名/打印。旧workflow兼容，无schema/SDK变化，沿既有repairs.edit、门店、版本、字段白名单、幂等事务。独立只读专项审查无确证新权限/数据问题。
+fixture/LOCAL返回禁用默认重置，视图按门店/成员版本/权限隔离，搜索仅同页签内存；刷新保留非敏感视图。返回曾丢纵横位置，修复Strict Mode清理和路由滚动冲突后精确位置断言通过。接单新增quote_contact三结果与说明，列表/详情/历史同源，由服务端生成时间/操作者，不等于客户同意，不改变阶段、保管、到货/取机、签名/打印；旧workflow兼容，无schema/SDK变化，沿原权限/门店/版本/白名单/幂等事务，独立复核无确证新数据/权限问题。
 
-292业务、完整80 Chromium/WebKit、四宽度截图/实际交互、10组真实本地正式后台验收与生产build通过；lint0错误1既有warning，最终TS顺序检查见.local/repair-refine/typecheck-final.log。真实后台覆盖重复请求不重记/版本冲突/坏输入/actor伪造/跨店/撤权/只读/作废拒绝及页面→API→DB→刷新，实验室单次保存168ms（不是线上性能）。返回实测曾丢纵横位置，修复Strict Mode清理和路由滚动冲突后双浏览器4案例及完整回归通过，精确位置断言未放宽。旧测试改为固定组ID逐组操作，不用会变动的nth选择器；移除的UI数量由实际采购到货记录继续核对。
+最终292业务、完整82 Chromium/WebKit、更新后20定向、四宽度实际交互/截图、strict TS、lint0错误1既有warning、正式build通过。10组真实隔离本地后台覆盖重复请求/版本冲突/坏输入/actor伪造/跨店/撤权/只读/作废拒绝及页面→API→DB→刷新；本地单次168ms，仅实验室样本。旧数量UI断言改为真实采购到货记录；签名新测取消不写。所有写入合成数据，无真实下单/客户消息/生产业务写入或删除，实体iPhone未测。
 
-即将基于正式main c71b8cc只发布29个公开文件，其他跟踪文件全部一致；无真实下单/客户消息/生产数据写入或删除。实体iPhone未测，截图为本地合成数据。证据.local/repair-refine/、.local/ui-proof/repair-refine/；上线与CI状态完成后补记。
+第一批29文件基于c71b8cc发布737671f9，Vercel dpl_12z94FQHnunCAHt5deihoQPB8okT READY/两域名/login200部署ID一致/匿名state401；CI37161345187静态与业务通过、浏览器仍运行。最终签名布局将以737671f9为父仅覆盖9公开文件，前后共31不同文件，无其他跟踪文件变化；发布与最终CI结果随后补记。证据.local/repair-refine/及.local/ui-proof/repair-refine/；3144已停，3121完成后停止，数据库保留。
 
 ## 最新：工单列表 Figma 适配与两端统一（2026-10-04）
 

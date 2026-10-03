@@ -84,7 +84,7 @@ export function IntakeSignatureEditor({data,policy,onConfirm,onCancel}:{data:Int
     {error || conflict?<p className="form-error" role="alert">{conflict?"资料已变化，请取消后重新签署。":error}</p>:null}<footer className={styles.actions}><button className="button button--secondary" type="button" disabled={submitting} onClick={onCancel}>取消</button><button className="button button--primary" type="button" disabled={submitting || conflict} onClick={()=>void confirm()}><Check size={17}/>{submitting?"正在保存…":"确认签名"}</button></footer>
   </section>;
 }
-export function IntakeSignatureSection({data}:{data:IntakeReceiptData}) {
+export function IntakeSignatureSection({data,embedded=false}:{data:IntakeReceiptData;embedded?:boolean}) {
   const {settings,ready:settingsReady,error:settingsError}=useStoreSettings();
   const {signatures,ready,error:storageError}=useLocalIntakes();const staff=useStaff();
   const policy=data.policy ?? {months:settings.repairWarrantyMonths,shopName:settings.shopName,address:settings.address,phone:settings.phone};
@@ -92,7 +92,7 @@ export function IntakeSignatureSection({data}:{data:IntakeReceiptData}) {
   const current=matchingIntakeSignature(signatures,data,policy);
   const [editing,setEditing]=useState<{data:IntakeReceiptData;policy:IntakePolicy;count:number}|null>(null);
   const [error,setError]=useState("");
-  return <section className={"panel "+styles.section} aria-label="客户签名"><header className={styles.header}><h3><PenLine size={18}/>客户签名</h3>{staff.can("repairs.edit")?<button className="button button--secondary button--compact" type="button" disabled={!ready || !settingsReady || !!settingsError || !!storageError || !!editing} onClick={()=>{setError("");setEditing({data:structuredClone(data),policy:structuredClone(policy),count:history.length});}}>{current?"重新签署":"添加签名"}</button>:null}</header>
+  return <section className={`panel ${styles.section}${embedded?` ${styles.embedded}`:""}`} aria-label="客户签名"><header className={styles.header}><h3><PenLine size={18}/>客户签名</h3>{staff.can("repairs.edit")?<button className="button button--secondary button--compact" type="button" disabled={!ready || !settingsReady || !!settingsError || !!storageError || !!editing} onClick={()=>{setError("");setEditing({data:structuredClone(data),policy:structuredClone(policy),count:history.length});}}>{current?"重新签署":"添加签名"}</button>:null}</header>
     {current?<><SignatureImage strokes={current.strokes} aspectRatio={current.aspectRatio} label="当前接机资料客户签名"/><small className={styles.note}>{current.signedAt} · {current.language==="it"?"Italiano":current.language==="en"?"English":"中文"} · 接机资料核对</small></>:<p className={styles.note}>{history.length?"资料与历史签署内容不同，请重新核对签署。":"未签署 · 可在此让客户签字，也可保留纸质签名。"}</p>}
     {editing?<IntakeSignatureEditor data={editing.data} policy={editing.policy} onCancel={()=>{setEditing(null);setError("");}} onConfirm={async draft=>{try{await saveIntakeSignature(editing.data,editing.policy,draft,editing.count);setEditing(null);setError("");}catch(reason){setError(reason instanceof Error?reason.message:"签名保存失败。");throw reason;}}}/>:null}
     {error || settingsError || storageError?<p className="form-error" role="alert">{error || settingsError || storageError}</p>:null}

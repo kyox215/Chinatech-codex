@@ -1342,6 +1342,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .intake-review--detail .intake-review__main, .intake-review--detail .intake-review__aside { min-width: 0; display: grid; gap: 14px; }
 .intake-review--detail .intake-review__main, .intake-review--detail .intake-review__related { min-width: 0; grid-column: 1; }
 .intake-review--detail .intake-review__aside { grid-column: 2; }
+.intake-review--detail .intake-review__related { display: grid; gap: 14px; }
 .intake-review--detail .intake-review__section { grid-area: auto; padding: 12px; }
 .intake-review--detail .intake-review__contact { display: grid; gap: 4px; }
 .intake-review--detail .intake-review__section header { margin-bottom: 6px; }
