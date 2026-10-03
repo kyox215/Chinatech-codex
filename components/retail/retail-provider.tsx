@@ -1,11 +1,14 @@
 "use client";
+import { RetailContext } from "@/components/backend-domain-context";
+import { useBackendState } from "@/lib/backend/react";
+import { useStaff } from "@/components/staff/use-staff";
 import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 
-import { createContext, useContext, useReducer, useSyncExternalStore } from "react";
+import { useContext, useReducer, useSyncExternalStore } from "react";
 import { retailUnits } from "@/lib/retail-fixtures";
 import { applyRetailCommand, createRetailUnit, parseStoredRetailUnits, type RetailCommand, type RetailEvent, type RetailUnit } from "@/lib/retail";
 
-import { readStaffSnapshot, staffServerSnapshot, subscribeStaff, requirePreviewPermission } from "@/lib/staff-client";
+import { requirePreviewPermission } from "@/lib/staff-client";
 import { parseLocalIntakes } from "@/lib/repair-intake-record";
 import { projectRetailForStaff, requireRetailAfterSaleRepair, retailCommandPermission } from "@/lib/retail-access";
 
@@ -38,10 +41,12 @@ type UiState = Pick<State, "returnTo" | "returnScroll" | "feedback">;
 type UiAction = { type: "remember"; url: string; scroll: number } | { type: "feedback"; feedback: Feedback };
 function uiReducer(state: UiState, action: UiAction): UiState { return action.type === "remember" ? { ...state, returnTo: action.url, returnScroll: action.scroll } : { ...state, feedback: action.feedback }; }
 
-const RetailContext = createContext<State & { dispatch: (action: Action) => boolean | Promise<boolean> } | null>(null);
+
 export function RetailProvider({ children }: { children: React.ReactNode }) {
-  const stored = useSyncExternalStore(subscribe, read, () => server);
-  const staff = useSyncExternalStore(subscribeStaff, readStaffSnapshot, () => staffServerSnapshot);
+  const local = useSyncExternalStore(subscribe, read, () => server);
+  const backend=useBackendState();
+  const stored=backend?{units:backend.retail,ready:true,error:""}:local;
+  const staff = useStaff();
   const [ui, uiDispatch] = useReducer(uiReducer, { returnTo: "/app/retail", returnScroll: 0, feedback: null });
   function dispatch(action: Action) {
     if (action.type === "remember") { uiDispatch(action); return true; }

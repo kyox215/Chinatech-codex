@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { CheckCircle2, ShoppingCart, Truck } from "lucide-react";
 import { isPreorder, procurementStatus, type ProcurementRecord } from "@/lib/procurement";
-import { useProcurement } from "./procurement-provider";
+import { useProcurement } from "@/components/backend-domain-context";
 import { useStaff } from "@/components/staff/use-staff";
 
 export function ProcurementFeedback({ recordId }: { recordId: string }) {

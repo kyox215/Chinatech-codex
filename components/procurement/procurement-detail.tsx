@@ -7,7 +7,7 @@ import { useRef, useState } from "react";
 import { CheckCircle2, ClipboardList, FileClock, PackageCheck, PackageSearch, PencilLine, Truck } from "lucide-react";
 import { useRepairDirectory } from "@/components/repairs/local-intake-store";
 import { arrivalBalance, arrivedQuantity, formatCost, isPreorder, procurementEventLabel, procurementStatus, procurementStatuses, type ProcurementRecord } from "@/lib/procurement";
-import { useProcurement } from "./procurement-provider";
+import { useProcurement } from "@/components/backend-domain-context";
 import { ProcurementFeedback, ProcurementPreparation } from "./procurement-preparation";
 import { useStaff } from "@/components/staff/use-staff";
 

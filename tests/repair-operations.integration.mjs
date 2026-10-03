@@ -19,7 +19,7 @@ const intakeDomain=await import(domainURL(resolve(root,"lib/repair-intake-record
 const requirementDomain=await import(domainURL(resolve(root,"lib/repair-requirements.ts")));
 const procurementDomain=await import(domainURL(resolve(root,"lib/procurement.ts")));
 const workflowDomain=await import(domainURL(resolve(root,"lib/repair-workflow.ts")));
-const config=JSON.parse(readFileSync(process.env.CT_LOCAL_CONFIG??process.env.REPAIR_OPERATIONS_CONFIG??fileURLToPath(new URL("../../../backend/connection.private.json",import.meta.url)),"utf8"));
+const config=JSON.parse(readFileSync(process.env.CT_LOCAL_CONFIG??process.env.REPAIR_OPERATIONS_CONFIG??fileURLToPath(new URL("../.local/backend/connection.private.json",import.meta.url)),"utf8"));
 const api=process.env.REPAIR_OPERATIONS_API_URL??"http://127.0.0.1:3144";
 const origin=process.env.REPAIR_OPERATIONS_ORIGIN??"http://localhost:3144";
 for(const [value,port] of [[config.API_URL,"55421"],[config.DB_URL,"55422"],[api,"3144"],[origin,"3144"]]) {
@@ -49,7 +49,9 @@ async function user(label,role,storeId,allowed) {
   const result=await request(who,"/api/auth/login",{email,password});assert.equal(result.status,200,"local login");sessions.push(who);return who;
 }
 async function state(who){const result=await request(who,"/api/backend/state");assert.equal(result.status,200,JSON.stringify(result.data));return result.data;}
-async function command(who,kind,payload,requestId=randomUUID(),storeId=who.storeId){return request(who,"/api/backend/command",{kind,payload,requestId,storeId,memberId:who.memberId});}
+async function rawCommand(who,kind,payload,requestId=randomUUID(),storeId=who.storeId){return request(who,"/api/backend/command",{kind,payload,requestId,storeId,memberId:who.memberId});}
+async function command(who,kind,payload,requestId=randomUUID(),storeId=who.storeId){const result=await rawCommand(who,kind,payload,requestId,storeId);if(result.status===200&&result.data.delta)result.data={...await state(who),operation:result.data.operation};return result;}
+async function page(who,scope){const result=await request(who,"/api/backend/state?"+new URLSearchParams({scope}));assert.equal(result.status,200,JSON.stringify(result.data));assert.equal(result.data.scope,scope);return result.data;}
 function ok(result){assert.equal(result.status,200,JSON.stringify(result.data));return result.data;}
 function requirements(snapshot,id){return requirementDomain.currentRepairRequirements(intakeDomain.intakeDirectoryEntry(snapshot.intakes.find(row=>row.id===id)),snapshot.workflows[id]);}
 async function workflow(who,id,value){const snapshot=await state(who);return command(who,"repair.workflow",{id,revision:snapshot.workflows[id]?.revision??0,command:value});}
@@ -268,6 +270,44 @@ try {
   const hundredResult=await batch(owner,"ordered",hundred.map(row=>row.id));ok(hundredResult.result);
   for(const record of hundred){const saved=hundredResult.result.data.procurement.find(row=>row.id===record.id);assert.equal(saved.events.length,2);assert.equal(saved.events.at(-1).batchId,hundredResult.requestId);}
   pass("exactly 100 allocated rows commit in one successful batch");
+
+  // Root-only page projection/command dependency integration against this run's isolated store.
+  snapshot=await state(owner);const template=snapshot.intakes.find(row=>row.id===second);
+  const pageIntakes=Array.from({length:61},(_,i)=>{
+    const id="LOCAL-"+suffix.toUpperCase()+i.toString(16).padStart(4,"0").toUpperCase();
+    return {id,data:{...template,id,serial:"Synthetic paged "+i,model:"Synthetic paged model",revision:1},workflow:{revision:1,status:i===0?"ready_notified":"ready",custody:"customer",notice:null,events:[{id:"ready-"+i,time:template.updatedAt,type:"stage",label:"Synthetic ready",note:"Synthetic page fixture"}],updatedAt:template.updatedAt,...(i===0?{}:{readyCycle:"cycle-"+i,...(i<60?{pickupNotice:{cycle:"cycle-"+i,outcome:"notified"}}:{})})}};
+  });
+  await sql`insert into chinatech_v2_private.repair_intakes(store_id,id,customer_id,device_id,data,signatures,workflow)
+    select ${stores[0]},fixture.id,source.customer_id,source.device_id,fixture.data,'[]'::jsonb,fixture.workflow
+    from jsonb_to_recordset(${sql.json(pageIntakes)}::jsonb) fixture(id text,data jsonb,workflow jsonb)
+    cross join chinatech_v2_private.repair_intakes source where source.store_id=${stores[0]} and source.id=${second}`;
+  const pageParts=pageIntakes.map((row,i)=>({...legacyRecord,id:"PO-page-"+suffix+"-"+i,repairId:row.id,supplier:"Synthetic A",supplierId:"supplier-a",unitCostCents:555,events:[{id:"cart-"+i,type:"cart_added",quantity:0,time:template.updatedAt,note:"Synthetic page fixture",actorId:owner.memberId}]}));
+  await sql`insert into chinatech_v2_private.procurement_records(store_id,id,repair_id,data)
+    select ${stores[0]},fixture.id,fixture.repair_id,fixture.data from jsonb_to_recordset(${sql.json(pageParts.map(row=>({id:row.id,repair_id:row.repairId,data:row})))}::jsonb) fixture(id text,repair_id text,data jsonb)`;
+  await sql`update chinatech_v2_private.store_state set revision=revision+1 where store_id=${stores[0]}`;
+  let projection=await page(owner,"/app/repairs?q=Synthetic+paged&group=workflow");
+  assert.equal(projection.views.repairs.groups.length,7);let readyGroup=projection.views.repairs.groups.find(row=>row.key==="ready");assert.equal(readyGroup.count,61);assert.equal(readyGroup.rows.length,50);
+  projection=await page(owner,"/app/repairs?q=Synthetic+paged&contact_ready=unnotified");readyGroup=projection.views.repairs.groups.find(row=>row.key==="ready");assert.equal(readyGroup.count,1);assert.equal(readyGroup.pageCount,1);assert.equal(readyGroup.rows[0].id,pageIntakes[60].id);
+  projection=await page(owner,"/app/repairs?q=Synthetic+paged&contact_ready=notified");assert.equal(projection.views.repairs.groups.find(row=>row.key==="ready").count,60);
+  assert.equal(workflowDomain.pickupNotice(projection.workflows[pageIntakes[0].id]),"已通知取机（旧记录）");
+  pass("root repair projection retains seven groups and legacy ready facts; contact filtering precedes 50-row pagination");
+  projection=await page(owner,"/app/repairs?q="+freshRepair);const pendingRow=projection.views.repairs.groups.flatMap(group=>group.rows).find(row=>row.id===freshRepair);
+  assert.equal(pendingRow.parts.summary.unresolvedRequirements,2);assert.equal(pendingRow.repair.requirements.length,2);assert.ok(pendingRow.repair.deviceFingerprint);assert.equal(pendingRow.repair.intakeRevision,2);
+  const listed=await page(owner,"/app/procurement?filter=cart");assert.equal(listed.procurement.length,50);
+  const batchScope="/app/procurement-batch?action=ordered&supplier=supplier-a";
+  projection=await page(tech,batchScope);assert.equal(projection.procurement.length,50);assert.ok(projection.views.procurementBatch.total>=61);assert.equal(projection.views.procurementBatch.counts["supplier-a"],projection.views.procurementBatch.total);
+  const allocated=[...projection.procurement],allDirectory=[...projection.directory];const firstPageId=projection.procurement[0].id;
+  for(let pageNumber=2;pageNumber<=projection.views.procurementBatch.pageCount;pageNumber++){const next=await page(tech,batchScope+"&page="+pageNumber);assert.ok(next.procurement.length<=50);allocated.push(...next.procurement);allDirectory.push(...next.directory);}
+  assert.equal(new Set(allocated.map(row=>row.id)).size,allocated.length);assert.equal(allocated.length,projection.views.procurementBatch.total);
+  for(const record of pageParts){assert.ok(allocated.some(row=>row.id===record.id));assert.ok(allDirectory.some(row=>row.id===record.repairId));}assert.ok(allocated.every(row=>row.unitCostCents===null));
+  const inventory=await page(tech,"/app/procurement-batch?action=ordered");assert.equal(inventory.procurement.length,0);assert.equal(inventory.views.procurementBatch.counts["supplier-a"],allocated.length);
+  const otherProjection=await page(other,batchScope);assert.ok(otherProjection.procurement.every(row=>!pageParts.some(ours=>ours.id===row.id)));
+  const secondPageId=allocated[50].id,selectedIds=[firstPageId,secondPageId];
+  const requestId=randomUUID(),payload={action:"ordered",supplierId:"supplier-a",items:selectedIds.map(id=>({id,revision:allocated.find(row=>row.id===id).events.length}))};
+  const delta=ok(await rawCommand(tech,"procurement.batch",payload,requestId));assert.equal(delta.delta,true);assert.deepEqual(delta.procurement.map(row=>row.id).sort(),selectedIds.toSorted());assert.ok(delta.procurement.every(row=>row.unitCostCents===null));for(const record of delta.procurement)assert.ok(delta.intakes.some(row=>row.id===record.repairId));
+  const recovered=ok(await request(tech,"/api/backend/operation?"+new URLSearchParams({storeId:stores[0],memberId:tech.memberId,requestId})));assert.deepEqual(recovered.snapshot.procurement.map(row=>row.id).sort(),selectedIds.toSorted());assert.ok(recovered.snapshot.procurement.every(row=>row.events.at(-1).batchId===requestId));
+  projection=await page(owner,"/app/procurement?filter=cart");assert.equal(projection.scope,"/app/procurement?filter=cart");assert.equal(projection.procurement.length,50);
+  pass("root supplier pagination counts and visits all allocations with financial/store projection; cross-page selection commits and recovery returns only both selected records");
 
   await sql`update chinatech_v2.store_memberships set permissions=${["repairs.view"]},revision=revision+1 where store_id=${stores[0]} and id=${tech.memberId}`;
   assert.equal((await batch(tech,"arrival",[a2.id],"supplier-a",[1])).result.status,403);

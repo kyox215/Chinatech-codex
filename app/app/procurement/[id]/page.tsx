@@ -1,3 +1,4 @@
+import { BackendPage } from "@/components/backend-page";
 import type { Metadata } from "next";
 import { ProcurementDetail } from "@/components/procurement/procurement-detail";
 
@@ -8,5 +9,5 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 export default async function ProcurementDetailPage({ params }: Props) {
   const { id } = await params;
-  return <ProcurementDetail key={id} id={id} />;
+  return <BackendPage scope={`/app/procurement/${encodeURIComponent(id)}`}><ProcurementDetail key={id} id={id} /></BackendPage>;
 }

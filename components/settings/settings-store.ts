@@ -1,8 +1,10 @@
 "use client";
+import { useBackendState } from "@/lib/backend/react";
+import { useStaff } from "@/components/staff/use-staff";
 import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 import { useSyncExternalStore } from "react";
 import { defaultStoreSettings, parseStoreSettings, type StoreSettings } from "@/lib/store-settings";
-import { readStaffSnapshot, staffServerSnapshot, subscribeStaff, requirePreviewPermission } from "@/lib/staff-client";
+import { requirePreviewPermission } from "@/lib/staff-client";
 import { can } from "@/lib/staff";
 const key = "chinatech.m1.store-settings.v1";
 const change = "chinatech-store-settings-change";
@@ -11,7 +13,7 @@ let remoteSource:ReturnType<typeof backendSnapshot>;let remoteSnapshot=server;
 let snapshot = server; let cachedRaw: string | null | undefined;
 function read() {if(isBackendClient()){const current=backendSnapshot();if(current!==remoteSource){remoteSource=current;remoteSnapshot={settings:current?.settings??{...defaultStoreSettings,finance:[],suppliers:[],address:"",phone:""},ready:true,error:current?"":"后台资料暂不可用。"};}return remoteSnapshot;} try { const raw = window.localStorage.getItem(key); if (raw !== cachedRaw || !snapshot.ready || snapshot.error) { const settings = parseStoreSettings(raw); cachedRaw = raw; snapshot = { settings, ready: true, error: "" }; } } catch { if (!snapshot.error || !snapshot.ready) snapshot = { ...snapshot, ready: true, error: "本地设置无法读取，现有资料未被覆盖。" }; } return snapshot; }
 function subscribe(listener: () => void) {const stop=subscribeBackend(listener); const storage = (event: StorageEvent) => { if (event.key === key || event.key === null) listener(); }; window.addEventListener("storage", storage); window.addEventListener(change, listener); return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); }; }
-export function useStoreSettings() { const state=useSyncExternalStore(subscribe,read,()=>server);const staff=useSyncExternalStore(subscribeStaff,readStaffSnapshot,()=>staffServerSnapshot);return {...state,settings:can(staff.member,"financial.read")?state.settings:{...state.settings,finance:[]}}; }
+export function useStoreSettings() { const local=useSyncExternalStore(subscribe,read,()=>server);const backend=useBackendState();const staff=useStaff();const state=backend?{settings:backend.settings,ready:true,error:""}:local;return {...state,settings:can(staff.member,"financial.read")?state.settings:{...state.settings,finance:[]}}; }
 export function saveStoreSettings(expectedRevision: number, update: (current: StoreSettings) => StoreSettings) {
   if(isBackendClient()){const current=backendSnapshot()?.settings;if(!current) throw new Error("设置尚未载入。");return backendCommand("settings.save",{revision:expectedRevision,settings:update(structuredClone(current))});}
   const current = parseStoreSettings(window.localStorage.getItem(key));

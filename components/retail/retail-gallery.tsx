@@ -6,7 +6,7 @@ import { PhotoCapture } from "@/components/photo-capture";
 import { useStaff } from "@/components/staff/use-staff";
 import { intakeRecordTime } from "@/lib/repair-intake-record";
 import type { RetailUnit } from "@/lib/retail";
-import { useRetail } from "./retail-provider";
+import { useRetail } from "@/components/backend-domain-context";
 import { UnitIcon } from "./unit-icon";
 import styles from "./retail-gallery.module.css";
 export function RetailGallery({unit}:{unit:RetailUnit}) {

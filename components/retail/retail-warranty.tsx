@@ -1,12 +1,14 @@
 "use client";
+import { useBackendMode } from "@/lib/backend/react";
 
 import { useState, type ReactNode } from "react";
 import { Check, Printer, ShieldCheck } from "lucide-react";
 import { canEditRetailField, retailWarrantyExpiry, retailWarrantyLabel, validateRetailFieldEdit, type RetailSale, type RetailUnit } from "@/lib/retail";
 import { useStaff } from "@/components/staff/use-staff";
-import { useRetail } from "./retail-provider";
+import { useRetail } from "@/components/backend-domain-context";
 import { RetailWarrantyControl } from "./retail-warranty-control";
-import { RetailReceipt } from "./retail-receipt";
+import dynamic from "next/dynamic";
+const RetailReceipt=dynamic(()=>import("./retail-receipt").then(module=>module.RetailReceipt));
 import { RetailWarrantyTerms } from "./retail-warranty-terms";
 import surface from "./retail-surface.module.css";
 import styles from "./retail-warranty.module.css";
@@ -17,11 +19,12 @@ export function RetailWarrantyPanel({ unit, onReview, editor, blocked = false }:
   const [reset, setReset] = useState(0);
   const [error, setError] = useState("");
   const { units, ready, error: storageError } = useRetail();
+  const backend = useBackendMode();
   const staff = useStaff();
   const editable = !blocked && canEditRetailField(unit, "warrantyMonths") && staff.can("retail.edit") && ready && !storageError;
   const changed = !Object.is(months, unit.warrantyMonths);
   function review() {
-    try { const candidate = validateRetailFieldEdit(unit, { field: "warrantyMonths", value: months }, units); if (candidate === unit) return; setError(""); onReview(candidate); }
+    try { const candidate = validateRetailFieldEdit(unit, { field: "warrantyMonths", value: months }, units, backend); if (candidate === unit) return; setError(""); onReview(candidate); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "请核对保修期限。"); }
   }
   return <section className="panel" aria-label="商家保修"><div className={"detail-section__head " + surface.sectionHead}><div><span><ShieldCheck size={18} /></span><h3>商家保修</h3></div></div><div className={styles.body}>

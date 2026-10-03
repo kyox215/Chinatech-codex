@@ -15,7 +15,7 @@ import { useRef, useState } from "react";
 import { ArrowLeft, Boxes, ChevronRight, Copy, Cpu, Euro, ImagePlus, MapPin, Package, ScanLine, ShieldCheck, Sparkles } from "lucide-react";
 import { changeRetailDraftCategory, copyRetailModel, emptyRetailUnit, hasBattery, isComputer, normalizeImei, parseRetailMoney, retailCategories, validateRetailUnit, type RetailCategory, type RetailUnit } from "@/lib/retail";
 import { intakeRecordTime } from "@/lib/repair-intake-record";
-import { useRetail } from "./retail-provider";
+import { useRetail } from "@/components/backend-domain-context";
 import { RetailWarrantyControl } from "./retail-warranty-control";
 import { RetailCatalogControl, RetailDisksControl, RetailRamControl, RetailStorageControl } from "./retail-spec-controls";
 import { RetailDateControl, RetailMoneyControl, RetailNumberControl } from "./retail-input-controls";

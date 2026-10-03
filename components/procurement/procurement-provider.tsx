@@ -1,10 +1,12 @@
 "use client";
+import { ProcurementContext, type ProcurementAction, type ProcurementListView } from "@/components/backend-domain-context";
+import { useBackendState } from "@/lib/backend/react";
 import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 import { requirePreviewPermission } from "@/lib/staff-client";
-import { createContext, useContext, useSyncExternalStore } from "react";
+import { useContext, useSyncExternalStore } from "react";
 import { procurementRecords } from "@/lib/procurement-fixtures";
-import { appendProcurementEvent, validateProcurementDraft, procurementStatus, isPreorder, type ProcurementEvent, type ProcurementRecord } from "@/lib/procurement";
-import { applyProcurementBatch, resolveSupplierId, type ProcurementBatchItem } from "@/lib/procurement-batch";
+import { appendProcurementEvent, validateProcurementDraft, procurementStatus, isPreorder, type ProcurementRecord } from "@/lib/procurement";
+import { applyProcurementBatch, resolveSupplierId } from "@/lib/procurement-batch";
 import { parseProcurementState } from "@/lib/procurement-storage";
 import { recordRepairUpdate, type RepairUpdates } from "@/lib/repair-list-order";
 import { parseStoreSettings } from "@/lib/store-settings";
@@ -14,9 +16,8 @@ import { getRepairOrder } from "@/lib/repair-fixtures";
 import { previewRepairWorkflow } from "@/components/repairs/repair-workflow-store";
 
 type Feedback = { recordId: string; error: boolean; message: string } | null;
-export type ProcurementListView = { query: string; filter: "all" | "draft" | "cart" | "open" | "complete"; repairId: string; groupBy: string };
+export type { ProcurementAction, ProcurementListView } from "@/components/backend-domain-context";
 type State = { storageError?: string; records: ProcurementRecord[]; feedback: Feedback; listView: ProcurementListView; repairUpdates: RepairUpdates };
-export type ProcurementAction = { type: "create"; record: ProcurementRecord } | { type: "create-cart"; record: ProcurementRecord; workflowRevision: number; intakeRevision: number } | { type: "edit"; record: ProcurementRecord; revision: number } | { type: "append"; id: string; event: ProcurementEvent; revision: number } | { type: "link_requirement"; id: string; revision: number; requirementId: string; requirementRevision: number; note: string } | { type: "batch"; action: "ordered" | "arrival"; supplierId: string; items: ProcurementBatchItem[] } | { type: "list-view"; view: ProcurementListView } | { type: "clear-feedback" };
 const recordIdOf = (action: ProcurementAction) => "record" in action ? action.record.id : "id" in action ? action.id : action.type === "batch" ? "batch" : "";
 const storageKey = "chinatech.m1.procurement.v1";
 const changed = "chinatech-procurement-change";
@@ -104,6 +105,5 @@ async function dispatchAction(action: ProcurementAction) {
   } catch(reason){store={...read(),feedback:{recordId,error:true,message:reason instanceof Error?reason.message:"保存失败。"}};window.dispatchEvent(new Event(changed));throw reason;}
   window.dispatchEvent(new Event(changed));
 }
-const ProcurementContext=createContext<State & {dispatch:(action:ProcurementAction)=>Promise<void>}|null>(null);
-export function ProcurementProvider({children}:{children:React.ReactNode}){const state=useSyncExternalStore(subscribe,read,()=>initialState);return <ProcurementContext.Provider value={{...state,dispatch:dispatchAction}}>{children}</ProcurementContext.Provider>;}
+export function ProcurementProvider({children}:{children:React.ReactNode}){const local=useSyncExternalStore(subscribe,read,()=>initialState);const backend=useBackendState();const state=backend?{...local,records:backend.procurement,repairUpdates:Object.fromEntries(backend.intakes.map(row=>[row.id,row.updatedAt])),storageError:""}:local;return <ProcurementContext.Provider value={{...state,dispatch:dispatchAction}}>{children}</ProcurementContext.Provider>;}
 export function useProcurement(){const context=useContext(ProcurementContext);if(!context)throw new Error("采购上下文缺失。");return context;}

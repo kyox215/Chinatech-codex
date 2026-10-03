@@ -1,5 +1,5 @@
 "use client";
-import { isBackendClient } from "@/lib/backend/client";
+import { useBackendMode } from "@/lib/backend/react";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -34,6 +34,7 @@ function NavItem({ item, active, onNavigate }: { item: NavItemConfig; active: bo
     : <span className="app-nav__item app-nav__item--disabled" aria-disabled="true" title={`${item.label} · 规划中`}><item.icon size={19} /><span>{item.label}</span></span>;
 }
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const backendMode=useBackendMode();
   const staff = useStaff();
   const [identityError,setIdentityError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -76,20 +77,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const routePermission = (href: string): Permission | null => href.startsWith("/app/retail") ? "retail.view" : href.startsWith("/app/repairs") || href.startsWith("/app/procurement") ? "repairs.view" : href.startsWith("/app/customer") ? "customers.view" : null;
   const allowed = Boolean(staff.ready && !staff.error && staff.member && (pathname.startsWith("/app/settings") ? staff.can("settings.edit") || staff.can("financial.read") || staff.can("staff.manage") : pathname === "/app/dashboard" ? staff.can("retail.view") && staff.can("repairs.view") && staff.can("customers.view") : !routePermission(pathname) || staff.can(routePermission(pathname)!)));
   const closeMenu = () => { setMenuOpen(false); if (account.current) account.current.open = false; };
-  return <AppNavigationContext.Provider value={{ isMobile, expanded: isMobile ? menuOpen : !collapsed, toggle: () => isMobile ? setMenuOpen((value) => !value) : setCollapsed((value) => !value) }}>
+  return <AppNavigationContext.Provider value={{ isMobile, expanded: menuOpen, toggle: () => isMobile ? setMenuOpen((value) => !value) : setCollapsed((value) => !value) }}>
     <div className={`app-shell${collapsed ? " app-shell--collapsed" : ""}`}>
       <aside id="app-sidebar" ref={sidebar} className={`app-sidebar${menuOpen ? " app-sidebar--open" : ""}`} inert={isMobile && !menuOpen} role={isMobile && menuOpen ? "dialog" : undefined} aria-modal={isMobile && menuOpen ? true : undefined} aria-label="主菜单">
         <div className="app-sidebar__brand-row"><Brand compact /><button className="app-sidebar__collapse" type="button" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "展开侧栏" : "收起侧栏"} aria-expanded={!collapsed} aria-controls="app-sidebar" title={collapsed ? "展开侧栏" : "收起侧栏"}>{collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}</button><button className="app-sidebar__close" type="button" onClick={closeMenu} aria-label="关闭菜单"><X size={20} /></button></div>
         <Link className="app-search" href="/app/repairs" aria-label="搜索工单" title="搜索工单" onClick={closeMenu}><Search size={19} /><span>搜索工单</span></Link>
         <nav className="app-nav" aria-label="内部系统主导航"><small className="app-nav__label">主菜单</small>{primaryNav.filter(item => !item.href || !routePermission(item.href) || staff.can(routePermission(item.href)!)).map((item) => <NavItem item={item} active={isActive(item.href)} key={item.label} onNavigate={closeMenu} />)}</nav>
         <details ref={account} className="sidebar-account" onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); event.preventDefault(); if (account.current) { account.current.open = false; account.current.querySelector("summary")?.focus(); } } }}>
-          <summary aria-label="账号菜单" title="账号菜单"><span className="profile-menu__avatar"><UserRound size={20} /></span><span className="sidebar-account__text"><strong>{staff.member?.name || "预览身份待核对"}</strong><small>{isBackendClient()?"门店账号":"本地预览"} · {staff.member ? staffRoles[staff.member.role] : "访问不可用"}</small></span><ChevronUp size={16} /></summary>
+          <summary aria-label="账号菜单" title="账号菜单"><span className="profile-menu__avatar"><UserRound size={20} /></span><span className="sidebar-account__text"><strong>{staff.member?.name || "预览身份待核对"}</strong><small>{backendMode?"门店账号":"本地预览"} · {staff.member ? staffRoles[staff.member.role] : "访问不可用"}</small></span><ChevronUp size={16} /></summary>
           <div className="sidebar-account__actions">
-            {isBackendClient() ? <Link className="sidebar-account__action" href="/account/settings" onClick={closeMenu}><UserRound size={18} /><span>账号设置</span></Link> : null}
+            {backendMode ? <Link className="sidebar-account__action" href="/account/settings" onClick={closeMenu}><UserRound size={18} /><span>账号设置</span></Link> : null}
             {staff.can("settings.edit") || staff.can("financial.read") || staff.can("staff.manage") ? <Link className="sidebar-account__action" href="/app/settings" onClick={closeMenu}><Settings size={18} /><span>门店设置</span></Link> : null}
-            {!isBackendClient() ? <label className="field sidebar-preview-identity"><span>预览身份</span><SelectControl aria-label="预览身份" value={staff.data.currentId} onChange={event => {try {selectPreviewMember(event.target.value);setIdentityError("");closeMenu();}catch(reason){setIdentityError(reason instanceof Error ? reason.message : "切换失败");}}}>{staff.data.members.filter(isActiveMember).map(member=><option key={member.id} value={member.id}>{member.name} · {staffRoles[member.role]}</option>)}</SelectControl>{identityError ? <small role="alert">{identityError}</small> : null}</label> : null}
+            {!backendMode ? <label className="field sidebar-preview-identity"><span>预览身份</span><SelectControl aria-label="预览身份" value={staff.data.currentId} onChange={event => {try {selectPreviewMember(event.target.value);setIdentityError("");closeMenu();}catch(reason){setIdentityError(reason instanceof Error ? reason.message : "切换失败");}}}>{staff.data.members.filter(isActiveMember).map(member=><option key={member.id} value={member.id}>{member.name} · {staffRoles[member.role]}</option>)}</SelectControl>{identityError ? <small role="alert">{identityError}</small> : null}</label> : null}
             <button type="button" className="sidebar-account__action" onClick={() => { if (account.current) { account.current.open = false; account.current.querySelector("summary")?.focus(); } notifications.current?.showModal(); }} aria-label="通知" title="通知"><Bell size={18} /><span>通知</span></button>
-            <LogoutButton supabaseMode={isBackendClient()} />
+            <LogoutButton supabaseMode={backendMode} />
           </div>
         </details>
       </aside>

@@ -120,9 +120,9 @@ test("selected device facts save, reload and supplier choice saves to the same o
   await expect(page.getByRole("heading", { name: "接机信息已保存" })).toBeVisible();
   await page.getByRole("link", { name: "查看工单", exact: true }).click();
   await expect(page).toHaveURL(/\/app\/repairs\/LOCAL-/);
-  await expect(page.locator("main")).toContainText("iPhone 16");
+  await expect(page.getByRole("main")).toContainText("iPhone 16");
   await page.reload();
-  await expect(page.locator("main")).toContainText("触控选项回归测试");
+  await expect(page.getByRole("main")).toContainText("触控选项回归测试");
   await activate(page, page.getByRole("main").getByRole("button", { name: "添加配件", exact: true }));
   await page.getByLabel("配件名称", { exact: true }).fill("回归测试屏幕");
   const supplier = page.getByRole("combobox", { name: "供应商" });
@@ -133,8 +133,8 @@ test("selected device facts save, reload and supplier choice saves to the same o
   await expect(page.getByRole("combobox", { name: "供应商" })).toHaveCount(0);
   await activate(page, page.getByRole("button", { name: "关闭配件操作" }));
   await page.reload();
-  await expect(page.locator("main")).toContainText("回归测试屏幕");
-  await expect(page.locator("main")).toContainText("MobileParts SRL");
+  await expect(page.getByRole("main")).toContainText("回归测试屏幕");
+  await expect(page.getByRole("main")).toContainText("MobileParts SRL");
 });
 
 test("customer selection fills linked fields and category changes clear dependent models", async ({ page }) => {

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { CheckCircle2, X } from "lucide-react";
 import { retailStatuses, type RetailCommand, type RetailEvent, type RetailUnit } from "@/lib/retail";
-import { useRetail } from "./retail-provider";
+import { useRetail } from "@/components/backend-domain-context";
 import styles from "./retail-detail.module.css";
 
 export type PendingRetailOperation = { command: RetailCommand; event: RetailEvent; version: number; nextStatus: RetailUnit["status"] };

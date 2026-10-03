@@ -1,4 +1,5 @@
 "use client";
+import { useBackendMode } from "@/lib/backend/react";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
@@ -10,7 +11,7 @@ import { RetailDateControl, RetailMoneyControl, RetailNumberControl } from "./re
 import { SelectControl } from "@/components/select-control";
 import { intakeRecordTime } from "@/lib/repair-intake-record";
 import { canEditRetailField, parseRetailMoney, retailCategories, retailFieldLabels, retailMoney, retailWarrantyLabel, validateRetailFieldEdit, type Capacity, type RetailDisk, type RetailEditableField, type RetailFieldValue, type RetailUnit } from "@/lib/retail";
-import { useRetail } from "./retail-provider";
+import { useRetail } from "@/components/backend-domain-context";
 import { RetailWarrantyControl } from "./retail-warranty-control";
 import { RetailCatalogControl, RetailDisksControl, RetailRamControl, RetailStorageControl } from "./retail-spec-controls";
 import { useStaff } from "@/components/staff/use-staff";
@@ -47,6 +48,7 @@ export function RetailFieldButton({ unit, field, onEdit, children, compact = fal
 
 export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { unit: RetailUnit; field: RetailEditableField; onClose: () => void; initialCandidate?: RetailUnit }) {
   const { units, dispatch, ready, error: storageError, feedback } = useRetail();
+  const backend = useBackendMode();
   const [original,setOriginal] = useState(unit);
   const [value, setValue] = useState<RetailFieldValue>(() => structuredClone((initialCandidate ?? unit)[field]));
   const [raw, setRaw] = useState(() => moneyFields.includes(field) ? unit[field] === null ? "" : (Number(unit[field]) / 100).toFixed(2) : String(unit[field] ?? ""));
@@ -77,7 +79,7 @@ export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { 
     try {
       if (conflict) throw new Error("单机已被其他操作更新，请关闭并重新打开编辑。");
       const nextValue = moneyFields.includes(field) ? parseRetailMoney(raw) : value;
-      const updated = validateRetailFieldEdit(original, { field, value: nextValue }, units);
+      const updated = validateRetailFieldEdit(original, { field, value: nextValue }, units, backend);
       if (updated === original) throw new Error("资料没有变化，请修改后再继续。");
       setCandidate(updated); setError(""); setAttempted(false);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "请核对资料。"); }

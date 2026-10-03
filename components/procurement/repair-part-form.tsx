@@ -9,7 +9,7 @@ import type { RepairRequirement } from "@/lib/repair-requirements";
 import { useStoreSettings } from "@/components/settings/settings-store";
 import { useRepairDirectory } from "@/components/repairs/local-intake-store";
 import { useRepairWorkflows } from "@/components/repairs/repair-workflow-store";
-import { useProcurement } from "./procurement-provider";
+import { useProcurement } from "@/components/backend-domain-context";
 import { useStaff } from "@/components/staff/use-staff";
 export function RepairPartForm({ repairId, record, requirement, onSaved, onCancel }: { repairId:string; record?:ProcurementRecord; requirement?:RepairRequirement; onSaved:(id:string)=>void; onCancel:()=>void }) {
   const staff=useStaff();const canEdit=staff.can("repairs.edit");const canCost=staff.can("financial.edit");

@@ -15,6 +15,9 @@ function library(name) {
 let instance = 0;
 async function store(path, ssr = false) {
   let code = compile(path).replace(/import \{[^}]+\} from "react";/g, `let captured; const React = {createElement(type, props) {captured = props; return null;}}; const createContext = () => ({Provider: "provider"}); const useContext = () => null; const useMemo = fn => fn(); const useSyncExternalStore = (subscribe, read, server) => ${ssr ? "server()" : "read()"}; const useReducer = (reducer, initial) => [initial, action => Object.assign(initial, reducer(initial, action))];`);
+  code = code.replace(/import \{ useStaff \} from "@\/components\/staff\/use-staff";/g, `import { readStaffSnapshot, staffServerSnapshot } from "@/lib/staff-client";const useStaff=()=>${ssr?"staffServerSnapshot":"readStaffSnapshot()"};`);
+  code = code.replace(/import \{[^}]+\} from "@\/lib\/backend\/react";/g, "const useBackendState=()=>null;const useBackendMode=()=>false;");
+ code = code.replace(/import \{ (RetailContext|ProcurementContext) \} from "@\/components\/backend-domain-context";/g,(_,name)=>`const ${name}={Provider:"provider"};`);
   code = code.replace(/from "@\/lib\/([^"]+)"/g, (_, dep) => `from "${library(dep)}"`);
   code = code.replace('from "./repair-workflow-store"', `from "${dataUrl("export function useRepairWorkflows() { return {workflows:{}}; }")}"`);
   const tail = path.includes("retail-provider") ? "export function contextUnderTest() { RetailProvider({children:null}); return captured.value; }" : "";

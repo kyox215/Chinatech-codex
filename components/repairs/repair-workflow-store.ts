@@ -1,7 +1,8 @@
 "use client";
+import { useBackendState } from "@/lib/backend/react";
 import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 import { requirePreviewPermission } from "@/lib/staff-client";
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { intakeRecordTime, type RepairDirectoryEntry } from "@/lib/repair-intake-record";
 import type { ProcurementRecord } from "@/lib/procurement";
 import { applyWorkflowCommand, initialRepairWorkflow, validateWorkflowExtensions, type RepairWorkflow, type WorkflowCommand } from "@/lib/repair-workflow";
@@ -30,7 +31,7 @@ function read() {if(isBackendClient()){const current=backendSnapshot();if(curren
   return snapshot;
 }
 function subscribe(listener: () => void) {const stop=subscribeBackend(listener); const storage = (event: StorageEvent) => { if (event.key === key || event.key === null) listener(); }; window.addEventListener("storage", storage); window.addEventListener(change, listener); return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); }; }
-export function useRepairWorkflows() { return useSyncExternalStore(subscribe, read, () => server); }
+export function useRepairWorkflows() { const local=useSyncExternalStore(subscribe, read, () => server);const backend=useBackendState();return useMemo(()=>backend?{workflows:backend.workflows,ready:true,error:""}:local,[backend,local]); }
 export function updateRepairWorkflow(order: RepairDirectoryEntry, command: WorkflowCommand, records: ProcurementRecord[], revision: number) {
   if(isBackendClient()) return backendCommand("repair.workflow",{id:order.id,command,revision});
   requirePreviewPermission("repairs.edit");

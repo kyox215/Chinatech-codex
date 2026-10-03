@@ -5,7 +5,7 @@ import { useState } from "react";
 import { RepairProcurementDialog } from "./repair-procurement-shortcut";
 import { PackageSearch, Plus } from "lucide-react";
 import { arrivedQuantity, procurementStatus, procurementStatuses } from "@/lib/procurement";
-import { useProcurement } from "./procurement-provider";
+import { useProcurement } from "@/components/backend-domain-context";
 import { useRepairDirectory } from "@/components/repairs/local-intake-store";
 import { useRepairWorkflows } from "@/components/repairs/repair-workflow-store";
 import { currentRepairRequirements } from "@/lib/repair-requirements";
