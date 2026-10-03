@@ -4,9 +4,11 @@ import { repairPartsSummary, type ProcurementRecord } from "./procurement";
 import { currentRepairRequirements, validateRepairRequirements, type RepairRequirement, type RequirementSource } from "./repair-requirements";
 
 export type DeviceCustody = "unknown" | "store" | "customer";
-export type RepairActivity = { id: string; time: string; type: "stage" | "custody" | "arrival_notice" | "pickup_notice" | "requirement" | "followup"; label: string; note: string; actorId?: string };
-export type RepairWorkflow = { revision: number; status: RepairStatus; custody: DeviceCustody; notice: { signature: string; outcome: "notified" | "unreachable" } | null; events: RepairActivity[]; updatedAt: string; requirements?: RepairRequirement[]; readyCycle?: string; pickupNotice?: { cycle: string; outcome: "notified" | "unreachable" }; followUp?: { awaitingReply: boolean; collectedUnpaid: boolean }; handedOver?: { time: string; actorId?: string; unpaid: boolean } };
-export type WorkflowCommand = { type: "stage"; status: RepairStatus; note: string } | { type: "custody"; custody: DeviceCustody } | { type: "arrival_notice" | "pickup_notice"; outcome: "notified" | "unreachable"; note: string } | { type: "requirement"; item: RepairRequirement; note: string } | { type: "followup"; flag: "awaitingReply" | "collectedUnpaid"; value: boolean; note: string; delivered?: boolean; unpaid?: boolean };
+export const quoteContactLabels = { contacted: "已沟通报价", unreachable: "报价联系未接通", awaiting_reply: "报价待客户回复" };
+export type QuoteContactOutcome = keyof typeof quoteContactLabels;
+export type RepairActivity = { id: string; time: string; type: "stage" | "custody" | "arrival_notice" | "pickup_notice" | "requirement" | "followup" | "quote_contact"; label: string; note: string; actorId?: string };
+export type RepairWorkflow = { revision: number; status: RepairStatus; custody: DeviceCustody; notice: { signature: string; outcome: "notified" | "unreachable" } | null; events: RepairActivity[]; updatedAt: string; requirements?: RepairRequirement[]; readyCycle?: string; pickupNotice?: { cycle: string; outcome: "notified" | "unreachable" }; quoteContact?: { outcome: QuoteContactOutcome; time: string; note: string; actorId?: string }; followUp?: { awaitingReply: boolean; collectedUnpaid: boolean }; handedOver?: { time: string; actorId?: string; unpaid: boolean } };
+export type WorkflowCommand = { type: "stage"; status: RepairStatus; note: string } | { type: "custody"; custody: DeviceCustody } | { type: "arrival_notice" | "pickup_notice"; outcome: "notified" | "unreachable"; note: string } | { type: "quote_contact"; outcome: QuoteContactOutcome; note: string } | { type: "requirement"; item: RepairRequirement; note: string } | { type: "followup"; flag: "awaitingReply" | "collectedUnpaid"; value: boolean; note: string; delivered?: boolean; unpaid?: boolean };
 export const repairStageTones: Record<RepairStatus, RepairTone> = { diagnosis: "warning", awaiting_quote: "warning", awaiting_parts: "info", repairing: "progress", testing: "info", ready: "success", completed: "success", cancelled: "warning", awaiting_reply: "warning", collected_unpaid: "warning", outsourced: "info", ready_notified: "success" };
 export const custodyLabels = { unknown: "保管待核对", store: "设备已留下", customer: "设备未留下／已交还" };
 // Legacy keys remain parseable so old custom names/order and clients cannot lose settings.
@@ -51,7 +53,7 @@ export function applyWorkflowCommand(workflow: RepairWorkflow, command: Workflow
   if (revision !== workflow.revision) throw new Error("工单已变化，请核对最新状态后重试。");
   if (!activity.id || workflow.events.some(event => event.id === activity.id) || workflow.events.length >= 1000) throw new Error("重复操作或历史已达上限，未保存。");
   if (!activity.time || activity.time < workflow.updatedAt) throw new Error("操作时间不能早于上次更新。");
-  if (!command || !["stage", "custody", "arrival_notice", "pickup_notice", "requirement", "followup"].includes(command.type)) throw new Error("不支持的维修操作。");
+  if (!command || !["stage", "custody", "arrival_notice", "pickup_notice", "requirement", "followup", "quote_contact"].includes(command.type)) throw new Error("不支持的维修操作。");
   const next = { ...workflow }; let label = ""; let note = "";
   const requirements = currentRepairRequirements(order, workflow);
   if (command.type === "requirement") {
@@ -70,6 +72,13 @@ export function applyWorkflowCommand(workflow: RepairWorkflow, command: Workflow
     const saved = { ...item, deviceFingerprint: order.deviceFingerprint, title: source?.title ?? item.title.trim(), request: source?.request ?? item.request.trim(), revision: existing ? existing.revision + (sameScope ? 0 : 1) : 1, ...(source ? { sourceFingerprint: source.sourceFingerprint } : { sourceFingerprint: undefined }) };
     next.requirements = [...requirements.filter(row => row.id !== item.id), saved]; validateRepairRequirements(next.requirements);
     label = `${saved.title}：${saved.mode === "none" ? "无需采购" : saved.confirmed ? "本项目配件已登记" : "待核对／选件"}`;
+  } else if (command.type === "quote_contact") {
+    if (["completed", "cancelled"].includes(workflow.status)) throw new Error("已完成或作废工单只能查看报价沟通记录。");
+    if (!Object.hasOwn(quoteContactLabels, command.outcome)) throw new Error("请选择实际报价沟通结果。");
+    if (typeof command.note !== "string" || !command.note.trim() || command.note.trim().length > 1200) throw new Error("请填写报价沟通说明，最多1200字。");
+    note = command.note.trim();
+    next.quoteContact = { outcome: command.outcome, time: activity.time, note, ...(activity.actorId ? { actorId: activity.actorId } : {}) };
+    label = quoteContactLabels[command.outcome];
   } else if (command.type === "stage") {
     if (!repairStatusOptions.some(option => option.value === command.status)) throw new Error("请选择有效维修阶段。");
     if (typeof command.note !== "string") throw new Error("备注格式无效。"); note = command.note.trim(); if (note.length > 1200) throw new Error("备注最多1200字。");
@@ -120,6 +129,7 @@ export function overlayRepair(order: RepairDirectoryEntry, workflow?: RepairWork
 
 /** Reject malformed optional additions before a local JSON envelope reaches UI selectors. */
 export function validateWorkflowExtensions(value: RepairWorkflow) {
+  if (value.quoteContact !== undefined && (!value.quoteContact || typeof value.quoteContact.outcome !== "string" || !Object.hasOwn(quoteContactLabels, value.quoteContact.outcome) || typeof value.quoteContact.time !== "string" || !value.quoteContact.time || typeof value.quoteContact.note !== "string" || !value.quoteContact.note.trim() || value.quoteContact.note.length > 1200 || (value.quoteContact.actorId !== undefined && (typeof value.quoteContact.actorId !== "string" || !value.quoteContact.actorId || value.quoteContact.actorId.length > 100)))) throw new Error("报价沟通资料无效。");
   if (value.requirements !== undefined) validateRepairRequirements(value.requirements);
   if (value.readyCycle !== undefined && (typeof value.readyCycle !== "string" || !value.readyCycle || value.readyCycle.length > 100)) throw new Error("修好周期资料无效。");
   if (value.pickupNotice !== undefined && (!value.pickupNotice || typeof value.pickupNotice.cycle !== "string" || !value.pickupNotice.cycle || !["notified", "unreachable"].includes(value.pickupNotice.outcome))) throw new Error("取机通知资料无效。");

@@ -39,7 +39,7 @@ export function RepairWorkflowPanel({ repairId, metadata, historyContent }: { re
       </details> : <span className={styles.notice}><Home size={15} />{custodyLabels[workflow.custody]}</span>}
       <span className={styles.notice}><Phone size={14} />{notice}</span>
     </div>
-    <RepairContactControl order={order} />
+    <div className={styles.contactActions}><RepairContactControl order={order} /></div>
     {error || storageError ? <p role="alert" className="form-error">{error || storageError}</p> : null}
     {metadata ? <div className={styles.metadata}>{metadata}</div> : null}
     {workflow.events.length || historyContent ? <details className={styles.history}><summary><History size={16} /><span>状态与操作历史</span>{workflow.events.length ? <small>{workflow.events.length} 次操作</small> : null}<ChevronDown size={14} /></summary>

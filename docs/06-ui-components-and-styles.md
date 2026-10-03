@@ -1,5 +1,8 @@
 # 公共组件与样式复用规范
 
+2026-10-04 后续简化：维修列表保留六列，移除独立配件进度和型号下内部编号，负责人／更新在末列。搜索、筛选、分组视图与排序复用既有控件；分组配置入口只在设置→订单管理，仍复用`RepairGroupEditor`与`settings.edit`。`RepairItemsForm`按当前接单项目排列紧凑行，草稿选供应商提示“保存后加车”，共享保存成功才显示“已加购物车”；成本门控不变。阶段和联系窗口沿原token、Lucide、44px目标与16px输入。详情主栏独立流排故障和采购，右栏独立流排概况／客户／附件，去掉跨行撑高。返回状态由`lib/repair-list-view-state.ts`维护，搜索只在同页签内存，session仅保存不含个人搜索文字的视图参数，身份／门店／成员版本／权限隔离。fixture与LOCAL详情返回复用`PageTitle backScroll={false}`。
+
+
 2026-10-04 维修列表视觉适配：`RepairStageControl`／`RepairContactControl` 的 `variant="list"` 仅调整列表中的短标签、事实分层和44px入口，默认详情外观不变；不得复刻写入和权限逻辑。`RepairScanner` 可透传 `iconOnly` 到已有 `IdentifierScanner`。列表两端共用同一个 `.repair-row-parts` 按钮，保留 `repair-action-<id>` 与可访问名称，关闭窗口返回可见入口；不再在行末放同功能图标。修复手机末条待核对提示隐藏。样式集中在原 `.repair-unified-list` 作用域及其两套断点，原token、系统字体与Lucide复用；方案及验收见[工单列表当前适配](09-repair-table-layout-plan.md)。
 
 本规范用于后续功能的统一开发，强制入口见 [根目录规则](../AGENTS.md)；组件目录另有 [继承规则](../components/AGENTS.md)。它索引当前真实实现，不引入新 UI 框架，也不改变业务范围。

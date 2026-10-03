@@ -1341,7 +1341,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .intake-review--detail .intake-review__body { grid-template-columns: minmax(0,1.7fr) minmax(230px,1fr); grid-template-areas: none; align-items: start; gap: 14px; }
 .intake-review--detail .intake-review__main, .intake-review--detail .intake-review__aside { min-width: 0; display: grid; gap: 14px; }
 .intake-review--detail .intake-review__main, .intake-review--detail .intake-review__related { min-width: 0; grid-column: 1; }
-.intake-review--detail .intake-review__aside { grid-column: 2; grid-row: 1 / span 2; }
+.intake-review--detail .intake-review__aside { grid-column: 2; }
 .intake-review--detail .intake-review__section { grid-area: auto; padding: 12px; }
 .intake-review--detail .intake-review__contact { display: grid; gap: 4px; }
 .intake-review--detail .intake-review__section header { margin-bottom: 6px; }
@@ -1473,7 +1473,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-mobile-filter, .repair-filter-reset { display: none; }
 .repair-unified-list .module-heading__actions { align-items: center; }
 .repair-unified-list .module-heading__actions .icon-button { width: 44px; height: 44px; }
-.repair-unified-list .repair-filterbar { gap: 10px; padding: 12px; }
+.repair-unified-list .repair-filterbar { display: grid; grid-template-columns: minmax(200px,1fr) auto 148px 176px; gap: 8px; padding: 12px; }
+.repair-unified-list .module-search { min-width: 0; }
+.repair-result-count { flex: none; color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
+.repair-filter-trigger { min-height: 44px; padding: 8px 12px; box-shadow: none; }
+.repair-filter-trigger--active { color: var(--primary-600); background: var(--primary-50); border-color: var(--primary-200); }
+.repair-unified-list .repair-filter-options { grid-column: 1 / -1; padding-top: 4px; }
+.repair-unified-list .repair-filter-reset { display: inline-flex; min-height: 44px; padding: 8px 12px; }
 .repair-unified-list .module-search, .repair-unified-list .module-select { min-height: 44px; box-shadow: none; }
 .repair-unified-list .module-search input, .repair-unified-list .module-select select { font-size: 14px; }
 .repair-unified-list .module-table-scroll { padding: 12px; }
@@ -1486,15 +1492,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-unified-list .repair-module-list[hidden] { display: none; }
 .repair-unified-list .repair-module-row { position: relative; min-height: 80px; padding: 12px 16px; background: var(--surface); }
 .repair-unified-list .repair-module-row:hover, .repair-unified-list .repair-module-row:focus-within { background: var(--surface-subtle); }
-.repair-unified-list .repair-module-table__head, .repair-unified-list .repair-module-row { grid-template-columns: minmax(170px,1.25fr) minmax(116px,.8fr) minmax(178px,1.15fr) minmax(170px,1.15fr) 112px 108px 144px; gap: 12px; }
+.repair-unified-list .repair-module-table__head, .repair-unified-list .repair-module-row { grid-template-columns: minmax(170px,1.2fr) minmax(110px,.8fr) minmax(220px,1.6fr) 108px 144px 112px; gap: 12px; }
 .repair-unified-list .repair-module-table__head { padding: 10px 16px; font-size: 12px; }
 .repair-unified-list .repair-module-row strong { font-size: 13px; }
 .repair-unified-list .repair-module-row__device strong { font-size: 14px; }
 .repair-unified-list .device-glyph { border-radius: var(--radius-control); }
-.repair-unified-list .repair-module-row__waiting { gap: 5px; }
-.repair-unified-list .repair-module-row__waiting small { display: block; white-space: normal; margin: 0; }
-.repair-unified-list .repair-parts-counts { gap: 5px 10px; font-variant-numeric: tabular-nums; }
-.repair-unified-list .repair-parts-unknown { color: var(--text-secondary); }
 .repair-unified-list .repair-module-row__quick { min-width: 0; }
 .repair-unified-list .button:hover { transform: none; }
 .repair-row-link::after { content: ""; position: absolute; inset: 0; z-index: 1; cursor: pointer; }
@@ -1516,6 +1518,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-unified-list .repair-stage-button--list:hover .status-pill { border-color: var(--border-strong); }
 .repair-unified-list .repair-contact--list { width: 100%; gap: 8px; }
 .repair-contact--list .repair-contact__facts { display: flex; align-items: flex-start; flex-direction: column; gap: 5px; min-width: 0; }
+.repair-contact--list .repair-contact__facts:empty { display: none; }
+.repair-contact__quote { padding: 3px 6px; border-radius: var(--radius-control); background: var(--primary-50); color: var(--primary-600); font-size: 12px; }
 .repair-contact--list .repair-contact__notice { font-size: 13px; color: var(--text-secondary); }
 .repair-unified-list .repair-contact--list small { white-space: normal; overflow: visible; margin: 0; }
 .repair-contact--list .repair-contact__flag { padding: 2px 6px; border-radius: var(--radius-control); background: var(--warning-soft); color: var(--text); }
@@ -1523,8 +1527,15 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-unified-list .repair-contact--list .button { min-height: 44px; padding: 7px 9px; font-size: 13px; box-shadow: none; }
 .repair-stage-button { min-height: 44px; border: 0; cursor: pointer; justify-content: center; padding: 6px; }
 .repair-stage-button:hover { outline: 1px solid var(--primary-200); }
-.repair-stage-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-top: 18px; }
-.repair-stage-option { display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); cursor: pointer; }
+.repair-stage-dialog { width: min(440px,calc(100% - 24px)); padding: 16px; }
+.repair-stage-dialog h2, .repair-contact-dialog h2, .repair-items-dialog h2 { font-size: 18px; }
+.repair-stage-current { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding: 10px; border-radius: var(--radius-control); background: var(--surface-subtle); font-size: 13px; }
+.repair-stage-current > span { color: var(--text-secondary); }
+.repair-stage-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; margin-top: 12px; }
+.repair-stage-option { display: flex; align-items: center; justify-content: space-between; min-height: 44px; gap: 6px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); cursor: pointer; font-size: 14px; }
+.repair-stage-option > span { display: flex; align-items: center; gap: 8px; }
+.repair-stage-option svg { flex: none; }
+.repair-stage-option:hover:not(:disabled) { border-color: var(--primary-500); }
 .repair-stage-option--selected { border-color: var(--primary-500); background: var(--primary-50); color: var(--primary-600); }
 .repair-stage-note { color: var(--text-secondary); font-size: 12px; margin: 12px 0 0; }
 .repair-stage-dialog footer, .repair-part-form footer { gap: 8px; }
@@ -1533,26 +1544,37 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-part-dialog__toolbar .field { flex: 1; min-width: 0; margin: 0; }
 .repair-part-dialog .repair-parts-dialog__item .button { align-self: flex-start; }
 .repair-part-form .search-combobox { min-width: 0; }
-.repair-items-dialog { width: min(760px,calc(100% - 24px)); }
-.repair-item-editor__cards { display: grid; gap: 14px; margin-top: 18px; }
-.repair-item-card { min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); }
-.repair-item-card__head { display: flex; align-items: center; gap: 10px; }
-.repair-item-card__head > div { flex: 1; min-width: 0; }
-.repair-item-card__head h3 { margin: 0; font-size: 16px; }
-.repair-item-card__head small { display: block; margin-top: 3px; color: var(--text-secondary); }
-.repair-item-card__head .status-pill { max-width: 45%; white-space: normal; text-align: center; }
-.repair-item-card__icon { display: grid; place-items: center; width: 42px; height: 42px; flex: none; color: var(--primary-600); background: var(--primary-50); border-radius: var(--radius-control); }
-.repair-item-card__fields { display: grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr) minmax(0,1fr); gap: 12px; }
+.repair-items-dialog { width: min(700px,calc(100% - 24px)); padding: 16px; }
+.repair-item-editor__cards { display: grid; gap: 8px; margin-top: 12px; }
+.repair-item-card { display: grid; grid-template-columns: 130px minmax(0,1fr); gap: 12px; min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); }
+.repair-item-card__head { display: grid; grid-template-columns: 28px minmax(0,1fr); align-content: center; align-items: center; gap: 6px; }
+.repair-item-card__head > div { min-width: 0; }
+.repair-item-card__head h3 { margin: 0; font-size: 14px; }
+.repair-item-card__head small { display: block; margin-top: 2px; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.repair-item-card__head .status-pill { grid-column: 1 / -1; justify-self: start; max-width: 100%; padding: 3px 6px; white-space: normal; text-align: center; font-size: 12px; }
+.repair-item-card__icon { display: grid; place-items: center; width: 28px; height: 28px; flex: none; color: var(--primary-600); background: var(--primary-50); border-radius: var(--radius-control); }
+.repair-item-card__fields { display: grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr) minmax(0,1fr); gap: 8px; align-items: start; }
 .repair-item-card__fields:has(> :last-child:nth-child(2)) { grid-template-columns: minmax(0,2fr) minmax(0,1fr); }
-.repair-item-card__fields .field { min-width: 0; }
+.repair-item-card__fields .field { min-width: 0; margin: 0; gap: 5px; }
 .repair-item-card__fields .field strong { min-height: 44px; display: flex; align-items: center; overflow-wrap: anywhere; }
 .repair-item-editor footer { gap: 8px; }
 .repair-item-editor .form-error .button { margin: 8px 0 0; }
 .repair-existing-parts { margin-top: 20px; }
+.repair-contact-dialog { padding: 16px; }
+.repair-contact-dialog__context { margin: 12px 0 8px; color: var(--text-secondary); font-size: 13px; }
+.repair-quote-context { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface-subtle); font-size: 13px; }
+.repair-quote-context > span, .repair-quote-context > small { color: var(--text-secondary); }
+.repair-quote-context > small { width: 100%; }
+.repair-quote-actions { display: grid; gap: 8px; margin-top: 14px; }
+.repair-quote-actions h3 { margin: 0; font-size: 13px; }
+.repair-quote-actions > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.repair-quote-actions .button { min-height: 44px; padding: 8px 10px; font-size: 13px; }
+.repair-quote-actions > small { color: var(--text-secondary); font-size: 12px; }
 @media (max-width: 767px) {
-  .repair-items-dialog { padding: 16px; }
-  .repair-item-card { padding: 12px; }
-  .repair-item-card__fields, .repair-item-card__fields:has(> :last-child:nth-child(2)) { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 12px; }
+  .repair-item-card { grid-template-columns: minmax(0,1fr); gap: 10px; }
+  .repair-item-card__head { grid-template-columns: 28px minmax(0,1fr) auto; }
+  .repair-item-card__head .status-pill { grid-column: 3; }
+  .repair-item-card__fields, .repair-item-card__fields:has(> :last-child:nth-child(2)) { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
   .repair-item-card__fields > :first-child { grid-column: 1 / -1; }
   .repair-item-card__fields:has(> :last-child:nth-child(2)) > :last-child { grid-column: 1 / -1; }
 }
@@ -1576,6 +1598,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .settings-timezone { display: flex; flex-direction: column; justify-content: center; gap: 6px; }
 .settings-timezone small { color: var(--text-secondary); }
 .settings-saved { display: flex; align-items: center; gap: 6px; padding: 8px; margin: 0 0 16px; color: var(--success); background: var(--success-soft); border-radius: var(--radius-control); font-size: 13px; }
+.settings-order-groups { display: grid; gap: 12px; }
+.settings-order-group { padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-panel); }
+.settings-order-group__heading { display: flex; align-items: center; gap: 8px; }
+.settings-order-group__heading > svg { color: var(--primary-600); }
+.settings-order-group__heading h4 { margin: 0; flex: 1; font-size: 14px; }
+.settings-order-group__names { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; counter-reset: repair-group; }
+.settings-order-group__names li { counter-increment: repair-group; padding: 5px 8px; border-radius: var(--radius-control); background: var(--surface-subtle); font-size: 13px; }
+.settings-order-group__names li::before { content: counter(repair-group) " · "; color: var(--text-tertiary); }
 .settings-supplier-list { margin-top: 14px; }
 .settings-supplier-list > article, .settings-finance-list > article { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .settings-supplier-list > article > div, .settings-finance-list > article > div { min-width: 0; flex: 1; }
@@ -1593,33 +1623,32 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .settings-finance-totals article:nth-child(2) svg, .settings-finance-icon--expense { color: var(--warning); }
 .settings-finance-filter { max-width: 240px; }
 @media (min-width:768px) {
-  .repair-unified-list .module-table-scroll > .repair-parts-group--expanded { min-width: 1104px; }
+  .repair-unified-list .module-table-scroll > .repair-parts-group--expanded { min-width: 972px; }
 }
 @media (max-width:767px) {
   .repair-unified-list .module-heading__actions { display: grid; grid-template-columns: 44px repeat(3,minmax(0,1fr)); gap: 6px; }
   .repair-unified-list .module-heading__actions .button { min-width: 0; min-height: 44px; padding: 8px 5px; gap: 5px; font-size: 13px; white-space: nowrap; }
   .repair-unified-list .module-heading__actions .button svg { flex-shrink: 0; }
-  .repair-unified-list .repair-filterbar { grid-template-columns: minmax(0,1fr) auto; padding: 10px; gap: 8px; min-height: 60px; }
+  .repair-unified-list .repair-filterbar { grid-template-columns: minmax(0,1fr) minmax(0,1fr); padding: 10px; gap: 8px; min-height: 60px; }
   .repair-unified-list .module-table-scroll { padding: 0 10px 10px; }
   .repair-unified-list .repair-parts-group { border: 0; border-radius: 0; margin: 0; overflow: visible; }
   .repair-unified-list .repair-module-list:not([hidden]) { display: grid; gap: 8px; padding-bottom: 10px; }
   .repair-unified-list .repair-module-table__head { display: none; }
-  .repair-unified-list .module-search { grid-column: 1; min-width: 0; flex-basis: auto; min-height: 44px; }
+  .repair-unified-list .module-search { grid-column: 1 / -1; grid-row: 1; padding-right: 82px; min-width: 0; flex-basis: auto; min-height: 44px; }
   .repair-unified-list .module-search input { font-size: 16px; }
-  .repair-unified-list .repair-mobile-filter { display: flex; grid-column: 2; grid-row: 1; min-height: 44px; padding: 8px; }
+  .repair-unified-list .repair-filter-trigger { grid-column: 2; grid-row: 1; justify-self: end; padding: 8px; margin-right: 1px; border-color: transparent; background: var(--surface-subtle); }
+  .repair-unified-list .repair-view-select { grid-row: 2; min-width: 0; }
   .repair-unified-list .repair-filter-options { display: none; grid-column: 1 / -1; }
   .repair-unified-list .repair-filter-options--open { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
   .repair-unified-list .repair-filter-options .module-select { min-width: 0; min-height: 44px; padding: 7px; }
   .repair-unified-list .repair-filter-options select { font-size: 16px; max-width: 100%; }
   .repair-unified-list .repair-filter-reset { display: flex; grid-column: 1 / -1; min-height: 44px; }
-  .repair-unified-list .repair-group-tools { grid-column: 1 / -1; justify-content: flex-end; gap: 6px; min-height: 44px; margin: 0; }
-  .repair-unified-list .repair-group-tools .filter-count { margin-right: auto; }
   .repair-unified-list .repair-group-toggle { min-height: 48px; padding: 8px 2px; gap: 7px; font-size: 14px; border: 0; }
-  .repair-unified-list .repair-module-row { grid-template-columns: minmax(0,1fr) 110px; grid-template-rows: auto auto auto auto auto; gap: 10px; padding: 12px; min-height: 0; border: 1px solid var(--border); border-radius: var(--radius-panel); }
+  .repair-unified-list .repair-module-row { grid-template-columns: minmax(0,1fr) 110px; grid-template-rows: auto auto auto auto auto; gap: 8px; padding: 12px; min-height: 0; border: 1px solid var(--border); border-radius: var(--radius-panel); }
   .repair-unified-list .repair-module-row:last-child { border-bottom: 1px solid var(--border); }
   .repair-unified-list .repair-module-row__device { grid-column: 1; grid-row: 1; gap: 7px; }
   .repair-unified-list .device-glyph { width: 32px; height: 36px; }
-  .repair-unified-list .repair-module-row__device a { min-height: 22px; }
+  .repair-unified-list .repair-module-row__device a { min-height: 44px; }
   .repair-unified-list .repair-module-row__device strong { font-size: 15px; white-space: normal; overflow-wrap: anywhere; }
   .repair-unified-list .repair-module-row__device small { font-size: 12px; max-width: 100%; margin-top: 2px; }
   .repair-unified-list .repair-stage-button { grid-column: 2; grid-row: 1; align-self: start; justify-self: end; min-height: 44px; }
@@ -1630,19 +1659,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .repair-unified-list .repair-module-row__owner strong { font-size: 12px; }
   .repair-unified-list .repair-module-row__owner small { margin: 0; font-size: 12px; }
   .repair-unified-list .repair-row-parts { display: flex; grid-column: 1 / -1; grid-row: 3; width: 100%; background: var(--surface-subtle); }
-  .repair-unified-list .repair-module-row__waiting { grid-column: 1 / -1; grid-row: 4; align-items: flex-start; text-align: left; }
-  .repair-unified-list .repair-parts-counts { gap: 5px 8px; font-size: 12px; }
-  .repair-unified-list .repair-parts-counts > span { gap: 3px; }
-  .repair-unified-list .repair-parts-counts svg { width: 13px; }
-  .repair-unified-list .repair-module-row__quick { grid-column: 1 / -1; grid-row: 5; }
-  .repair-unified-list .repair-module-row:has(.repair-contact) .repair-module-row__owner { grid-row: 6; }
+  .repair-unified-list .repair-module-row__quick { grid-column: 1 / -1; grid-row: 4; }
+  .repair-unified-list .repair-module-row:not(:has(.repair-contact)) .repair-module-row__owner { grid-row: 4; }
   .repair-unified-list .repair-module-row__quick:empty { display: none; }
   .repair-unified-list .repair-contact--list { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
   .repair-contact--list .repair-contact__facts { flex-direction: row; align-items: center; flex-wrap: wrap; }
   .repair-unified-list .repair-contact--list .button { white-space: nowrap; }
-  .repair-unified-list .repair-module-row__waiting > strong { display: none; }
   .repair-part-dialog { padding: 14px; }
-  .repair-part-dialog h2, .repair-stage-dialog h2 { font-size: 20px; }
+  .repair-part-dialog h2, .repair-stage-dialog h2 { font-size: 18px; }
   .repair-parts-entry .repair-part-summary-button { grid-template-columns: 24px minmax(0,1fr); }
   .repair-parts-entry .repair-part-summary-button > div:last-child { grid-column: 2; align-items: flex-start; text-align: left; }
   .settings-layout { grid-template-columns: 1fr; gap: 10px; }

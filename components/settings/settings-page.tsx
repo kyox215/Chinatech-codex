@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 import { useRef, useState } from "react";
-import { Building2, ContactRound, CircleDollarSign, Printer, Settings, Plus, Pencil, Check, X, Search, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { Building2, ContactRound, CircleDollarSign, ClipboardList, Printer, Settings, Plus, Pencil, Check, X, Search, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { PageTitle } from "@/components/page-title";
 import { SelectControl } from "@/components/select-control";
 import { useRepairDirectory } from "@/components/repairs/local-intake-store";
@@ -13,8 +13,9 @@ import { intakeRecordTime } from "@/lib/repair-intake-record";
 import { formatCost } from "@/lib/procurement";
 import { useStaff } from "@/components/staff/use-staff";
 import { StaffSettings } from "@/components/staff/staff-settings";
+import { OrderManagement } from "./order-management";
 import { UsersRound } from "lucide-react";
-const tabs = [{ id: "general", label: "门店设置", icon: Settings }, { id: "suppliers", label: "供应商", icon: ContactRound }, { id: "finance", label: "经营收支", icon: CircleDollarSign }, { id: "printing", label: "打印", icon: Printer }, { id:"staff",label:"员工设置",icon:UsersRound }];
+const tabs = [{ id: "general", label: "门店设置", icon: Settings }, { id: "orders", label: "订单管理", icon: ClipboardList }, { id: "suppliers", label: "供应商", icon: ContactRound }, { id: "finance", label: "经营收支", icon: CircleDollarSign }, { id: "printing", label: "打印", icon: Printer }, { id:"staff",label:"员工设置",icon:UsersRound }];
 export function SettingsPage({ initialTab }: { initialTab?: string }) {
   const staff=useStaff();
   const allowedTabs=tabs.filter(item=>item.id === "staff" ? staff.can("staff.manage") : item.id === "finance" ? staff.can("financial.read") : staff.can("settings.edit"));
@@ -22,7 +23,7 @@ export function SettingsPage({ initialTab }: { initialTab?: string }) {
   const [tab, setTab] = useState(tabs.some(tab => tab.id === initialTab) ? initialTab! : "general");
   const [message, setMessage] = useState(""); const [error, setError] = useState("");
   const save = async (update: (current: StoreSettings) => StoreSettings, expectedRevision = settings.revision) => { try { await saveStoreSettings(expectedRevision, update); setMessage("已保存"); setError(""); return true; } catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败。"); setMessage(""); return false; } };
-  return <main className="module-page settings-page"><header className="module-heading"><PageTitle title="门店管理" backHref="/app/dashboard" /></header><div className="settings-layout"><nav className="panel settings-nav" aria-label="门店管理分类">{allowedTabs.map(item => <button key={item.id} type="button" aria-pressed={tab === item.id} className={tab === item.id ? "settings-nav--active" : ""} onClick={() => { setTab(item.id); setError(""); setMessage(""); }}><item.icon size={19} /><span>{item.label}</span></button>)}</nav><section className="panel settings-content">{!ready ? <p role="status">正在读取设置…</p> : <>{storageError || error ? <p role="alert" className="form-error">{storageError || error}</p> : null}{message ? <p role="status" className="settings-saved"><Check size={16} />{message}</p> : null}{!allowedTabs.some(item=>item.id === tab) ? <div className="module-empty"><strong>当前账号不能访问这类设置</strong>{allowedTabs[0] ? <button className="button button--secondary" onClick={()=>setTab(allowedTabs[0].id)}>查看{allowedTabs[0].label}</button>:null}</div> : tab === "staff" ? <StaffSettings /> : tab === "suppliers" ? <Suppliers settings={settings} save={save} /> : tab === "finance" ? <Finance settings={settings} save={save} /> : <Preferences key={tab} settings={settings} printing={tab === "printing"} save={save} />}</>}</section></div></main>;
+  return <main className="module-page settings-page"><header className="module-heading"><PageTitle title="门店管理" backHref="/app/dashboard" /></header><div className="settings-layout"><nav className="panel settings-nav" aria-label="门店管理分类">{allowedTabs.map(item => <button key={item.id} type="button" aria-pressed={tab === item.id} className={tab === item.id ? "settings-nav--active" : ""} onClick={() => { setTab(item.id); setError(""); setMessage(""); }}><item.icon size={19} /><span>{item.label}</span></button>)}</nav><section className="panel settings-content">{!ready ? <p role="status">正在读取设置…</p> : <>{storageError || error ? <p role="alert" className="form-error">{storageError || error}</p> : null}{message ? <p role="status" className="settings-saved"><Check size={16} />{message}</p> : null}{!allowedTabs.some(item=>item.id === tab) ? <div className="module-empty"><strong>当前账号不能访问这类设置</strong>{allowedTabs[0] ? <button className="button button--secondary" onClick={()=>setTab(allowedTabs[0].id)}>查看{allowedTabs[0].label}</button>:null}</div> : tab === "staff" ? <StaffSettings /> : tab === "orders" ? <OrderManagement settings={settings} disabled={Boolean(storageError)} /> : tab === "suppliers" ? <Suppliers settings={settings} save={save} /> : tab === "finance" ? <Finance settings={settings} save={save} /> : <Preferences key={tab} settings={settings} printing={tab === "printing"} save={save} />}</>}</section></div></main>;
 }
 type Props = { settings: StoreSettings; save: (update: (current: StoreSettings) => StoreSettings, expectedRevision?: number) => Promise<boolean> };
 function Preferences({ settings, printing, save }: Props & { printing: boolean }) {

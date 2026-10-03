@@ -2,11 +2,23 @@
 
 最后更新：2026-10-04。当前已获真实后台接入与线上替换授权，旧M1仅本地范围不能覆盖最新决定。
 
+## 最新进行：工单简化、报价跟进与返回恢复（2026-10-04）
+
+按用户五处浏览器意见和“主要报价沟通、需要待回复”实施，方案见[docs09](docs/09-repair-table-layout-plan.md)，报价/采购边界见[docs22](docs/22-repair-supplier-batch-notification-plan.md)。列表六列去独立配件进度/型号下ID，负责人更新末列；分组管理只在设置订单管理。Figma紧凑项目行、保存前加车提示与实际cart状态分开，获权进价和报价-only规则保留；详情两栏独立流，采购与故障保持14px间距。fixture/LOCAL返回禁用默认重置，视图按门店/成员版本/权限隔离，搜索仅同页签内存；刷新保留非敏感视图，不存客户查询文字。
+
+接单联系新增quote_contact三结果与说明，列表/详情/历史同源，服务端生成时间/操作者；不改变阶段、保管、到货/取机通知、客户同意或签名/打印。旧workflow兼容，无schema/SDK变化，沿既有repairs.edit、门店、版本、字段白名单、幂等事务。独立只读专项审查无确证新权限/数据问题。
+
+292业务、完整80 Chromium/WebKit、四宽度截图/实际交互、10组真实本地正式后台验收与生产build通过；lint0错误1既有warning，最终TS顺序检查见.local/repair-refine/typecheck-final.log。真实后台覆盖重复请求不重记/版本冲突/坏输入/actor伪造/跨店/撤权/只读/作废拒绝及页面→API→DB→刷新，实验室单次保存168ms（不是线上性能）。返回实测曾丢纵横位置，修复Strict Mode清理和路由滚动冲突后双浏览器4案例及完整回归通过，精确位置断言未放宽。旧测试改为固定组ID逐组操作，不用会变动的nth选择器；移除的UI数量由实际采购到货记录继续核对。
+
+即将基于正式main c71b8cc只发布29个公开文件，其他跟踪文件全部一致；无真实下单/客户消息/生产数据写入或删除。实体iPhone未测，截图为本地合成数据。证据.local/repair-refine/、.local/ui-proof/repair-refine/；上线与CI状态完成后补记。
+
 ## 最新：工单列表 Figma 适配与两端统一（2026-10-04）
 
 重新核验原Figma任务页截图及分组／数据格／短状态／搜索上下文，适配方案见[docs09](docs/09-repair-table-layout-plan.md)。电脑白色独立分组、细线对齐、轻量阶段标签，窄电脑保留全部列内滚；手机同风格分层卡片、四个同排44px操作及按需筛选。每单统一一个配件按钮，Stage／Contact仅列表外观变体，默认详情／扫码使用方不变。未改变后台、采购／报价／通知事实与权限。
 
-同时修复原手机CSS隐藏待核对提示、重复配件入口导致主按钮缺少返回焦点ID、长按钮关闭后因滚动取整贴边：统一ID、preventScroll＋nearest及8px滚动边距。原ratio=1完整可见断言保留，几何证据确认从0.9963恢复1。284业务、26原维修分组／采购／通知双浏览器及4新增长文字／四宽度／键盘焦点／刷新不改事实用例通过；strict TS、lint0错误1既有warning、正式后台build通过。独立静态复核无新明确问题。截图使用本地合成数据，实体iPhone未测。仅10个公开文件准备从main a1f78fc发布；发布／完整CI待核验。证据.local/repair-list-ui/及.local/ui-proof/repair-list-ui/；本轮预览3121已停，数据库保留。
+同时修复原手机CSS隐藏待核对提示、重复配件入口导致主按钮缺少返回焦点ID、长按钮关闭后因滚动取整贴边：统一ID、preventScroll＋nearest及8px滚动边距。原ratio=1完整可见断言保留，几何证据确认从0.9963恢复1。284业务、26原维修分组／采购／通知双浏览器及4新增长文字／四宽度／键盘焦点／刷新不改事实用例通过；strict TS、lint0错误1既有warning、正式后台build通过。独立静态复核无新明确问题。截图使用本地合成数据，实体iPhone未测。
+
+仅10个公开文件基于main a1f78fc发布至 **c71b8cc7fb4afd1f5be35d86a73d83f84e18167d**，冻结验收内容与Git blob逐项一致，随后仅本地补记执行结果。Vercel **dpl_DWwnzxHi4MJav9zAmL2zWgbuZ9UB** READY／production／两域名，/login200且部署ID一致、匿名state401。完整CI **37158292273** completed／success：284业务、64 Chromium／WebKit浏览器、lint／TS／build通过。证据.local/repair-list-ui/release.json、source-verification.json、ci-final.log、production-checks.json及.local/ui-proof/repair-list-ui/；本轮预览3121已停，数据库保留。当前任务完成，无新数据库／生产业务写入。
 
 ## 最新：维修列表按钮与组内简化（2026-10-03）
 

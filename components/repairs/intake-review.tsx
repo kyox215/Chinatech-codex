@@ -36,7 +36,7 @@ export function IntakeReview({ data, photos = [], onEdit, layout = "review", met
       <span className="intake-review__device-status">{statusContent ?? <span className="status-pill status-pill--warning"><ClipboardList size={14} />待检测</span>}<small><Flag size={13} />{data.priority}优先级</small></span>{edit(1,"设备")}
     </section>
     <div className={`intake-review__body${photos.length ? "" : " intake-review__body--no-photos"}`}>
-      {layout === "detail" ? <><div className="intake-review__main">{issueSection}</div><aside className="intake-review__aside">{asideContent}{contactSection}{accessoriesSection}{photoSection}</aside>{relatedContent ? <div className="intake-review__related">{relatedContent}</div> : null}</> : <>{contactSection}{issueSection}{accessoriesSection}{photoSection}</>}
+      {layout === "detail" ? <><div className="intake-review__main">{issueSection}{relatedContent ? <div className="intake-review__related">{relatedContent}</div> : null}</div><aside className="intake-review__aside">{asideContent}{contactSection}{accessoriesSection}{photoSection}</aside></> : <>{contactSection}{issueSection}{accessoriesSection}{photoSection}</>}
     </div>
   </div>;
 }

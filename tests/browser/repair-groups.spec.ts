@@ -28,15 +28,14 @@ test("SeaTable group order, void filter and stable two-field sorting", async ({ 
   await expect(names).toHaveText(groupNames);
   await page.getByLabel("工单分组").selectOption("none");
   const expected = [...repairOrders].sort((a,b)=>a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id)).map(order=>order.id);
-  await expect(page.locator(".repair-module-row__device small")).toHaveText(expected);
-  if (test.info().project.use.isMobile) await page.getByRole("button", {name:"重置筛选"}).click();
-  else await page.getByLabel("维修阶段筛选").selectOption("all");
-  await expect(page.locator(".repair-module-row__device small")).toHaveText(expected.filter(id=>id!==repairOrders[5].id));
+  expect(await page.locator(".repair-module-row").evaluateAll(rows=>rows.map(row=>row.getAttribute("aria-label")!.split(" ")[0]))).toEqual(expected);
+  await page.getByLabel("维修阶段筛选").selectOption("all");
+  expect(await page.locator(".repair-module-row").evaluateAll(rows=>rows.map(row=>row.getAttribute("aria-label")!.split(" ")[0]))).toEqual(expected.filter(id=>id!==repairOrders[5].id));
 });
 
 test("stage save moves to the new group, restores focus, persists and appears in detail", async ({ page }) => {
   await page.goto("/app/repairs");
-  await page.getByRole("button", {name:"展开全部分组"}).click();
+  await expect(page.locator(".repair-group-toggle").first()).toBeVisible(); for (const id of await page.locator(".repair-group-toggle[aria-expanded=false]").evaluateAll(rows => rows.map(row => row.id))) await page.locator(`#${id}`).click();
   const stage = page.getByRole("button",{name:"CT-2026-0929 更改维修阶段",exact:true});
   await stage.click();
   const dialog = page.getByRole("dialog",{name:"更改维修阶段"});
@@ -47,7 +46,7 @@ test("stage save moves to the new group, restores focus, persists and appears in
   await expect(stage).toBeFocused();
   await page.reload();
   await expect(page.locator("#repair-group-ready")).toBeVisible();
-  await page.locator("#repair-group-ready").click();
+  if (await page.locator("#repair-group-ready").getAttribute("aria-expanded") === "false") await page.locator("#repair-group-ready").click();
   await expect(stage).toHaveText("待取机");
   await page.getByRole("link",{name:"打开 CT-2026-0929 iPhone 15 Pro 详情",exact:true}).click();
   await expect(stage).toHaveText("待取机");
@@ -65,7 +64,7 @@ test("ready contact is separate from stage and survives save/reload", async ({ p
   await contact.getByRole("button",{name:"已实际成功通知取机",exact:true}).click();
   await page.goto("/app/repairs");
   await expect(page.locator("#repair-group-ready_notified")).toHaveCount(0);
-  await page.locator("#repair-group-ready").click();
+  if (await page.locator("#repair-group-ready").getAttribute("aria-expanded") === "false") await page.locator("#repair-group-ready").click();
   await expect(page.locator("#repair-group-rows-ready")).toContainText("已通知取机");
   for(const width of [1440,1024,390,375]) {
     await page.setViewportSize({width,height:900});

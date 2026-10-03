@@ -13,6 +13,8 @@
 .notice { display: inline-flex; align-items: center; gap: 5px; color: var(--text-secondary); font-size: 12px; }
 .contactActions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 12px; }
 .contactActions > button { min-height: 44px; }
+.contactActions > :global(.repair-contact) { width: 100%; }
+.contactActions :global(.repair-contact .button) { min-height: 44px; }
 .metadata { padding: 10px 14px 12px; border-top: 1px solid var(--border); }
 .metadata dl { margin: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
 .metadata dl > div { min-width: 0; }

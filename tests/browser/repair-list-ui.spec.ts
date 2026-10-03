@@ -43,8 +43,7 @@ async function seed(page: Page, data: Seed) {
 
 async function showRows(page: Page) {
   await page.getByRole("textbox", { name: "搜索维修工单" }).fill("DEMO-LIST");
-  const expand = page.getByRole("button", { name: "展开全部分组", exact: true });
-  if (await expand.isEnabled()) await expand.click();
+  await expect(page.locator(".repair-group-toggle").first()).toBeVisible(); for (const id of await page.locator(".repair-group-toggle[aria-expanded=false]").evaluateAll(rows => rows.map(row => row.id))) await page.locator(`#${id}`).click();
 }
 
 async function openParts(page: Page, id: string) {
@@ -116,6 +115,7 @@ test("one supplier entry keeps the remaining project visible and restores usable
   await expect(dialog.getByRole("group", { name: "电池", exact: true })).toBeVisible();
   await screen.getByRole("combobox", { name: "供应商（选填）" }).fill("MobileParts SRL");
   await screen.getByRole("option", { name: "MobileParts SRL", exact: true }).click();
+  await expect(screen.getByRole("status")).toHaveText("保存后加车");
   await screen.getByLabel("屏幕报价", { exact: true }).fill("89");
   await dialog.getByRole("button", { name: "保存", exact: true }).press("Enter");
   await expect(dialog).not.toBeVisible();
@@ -125,7 +125,7 @@ test("one supplier entry keeps the remaining project visible and restores usable
   await page.reload();
   await showRows(page);
   const row = page.getByRole("article", { name: `${basicId} ${basicModel}`, exact: true });
-  await expect(row.getByText("1个项目待选／待核对", { exact: true })).toBeVisible();
+  await expect(row.locator(".repair-module-row__waiting")).toHaveCount(0);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("chinatech.m1.procurement.v1")!).records);
   expect(saved).toHaveLength(1);
   expect(saved[0]).toMatchObject({ repairId: basicId, item: "屏幕", supplierId: "demo-mobile" });
@@ -136,23 +136,24 @@ test("one supplier entry keeps the remaining project visible and restores usable
       await page.setViewportSize({ width, height: 1000 });
       await showRows(page);
       await expectPageFits(page);
-      await expect(row.getByText("1个项目待选／待核对", { exact: true })).toBeVisible();
-      await expect(row.getByText("加车 1/1", { exact: true })).toBeVisible();
-      await expect(row.getByText("下单 0/1", { exact: true })).toBeVisible();
-      await expect(row.getByText("到货 0/1", { exact: true })).toBeVisible();
+      await expect(row.locator(".repair-module-row__waiting")).toHaveCount(0);
+      await expect(row.locator(".repair-module-row__device small")).toHaveCount(0);
+      await expect(page.locator(".repair-module-table__head").first().locator("span")).toHaveText(["工单 / 设备", "客户", "供应商 / 配件", "维修阶段", "联系 / 跟进", "负责人 / 更新"]);
       await expect(row.getByRole("button", { name: /供应商与配件操作|配件操作/ })).toHaveCount(1);
       await expect(trigger).toHaveAttribute("id", `repair-action-${basicId}`);
       await expectUsableTarget(trigger);
       await trigger.click();
       await expect(dialog).toBeVisible();
       await expect(screen.getByLabel("屏幕报价", { exact: true })).toHaveValue("89.00");
+      await expect(screen.getByRole("status")).toHaveText("已加购物车");
+      await expect(dialog.getByRole("group", { name: "电池", exact: true }).getByRole("status")).toHaveText("待填写");
       await expect(screen.getByRole("combobox", { name: "供应商（选填）" })).toHaveValue("MobileParts SRL");
       await expect(dialog.getByRole("group", { name: "电池", exact: true }).getByRole("combobox", { name: "供应商（选填）" })).toHaveValue("");
       await expectPageFits(page);
       await dialog.getByRole("button", { name: "取消", exact: true }).press("Enter");
       await expect(dialog).not.toBeVisible();
       await expectReturnedFocus(trigger);
-      await expect(row.getByText("1个项目待选／待核对", { exact: true })).toBeVisible();
+      await expect(row.locator(".repair-module-row__waiting")).toHaveCount(0);
       await expectPageFits(page);
     });
   }
@@ -219,7 +220,7 @@ test("long synthetic models, suppliers and follow-up facts leave list controls r
         const row = page.getByRole("article", { name: `${record.id} ${record.model}`, exact: true });
         const model = row.getByRole("link", { name: `打开 ${record.id} ${record.model} 详情`, exact: true });
         await expect(model).toBeVisible();
-        await expect(row.getByText("1个项目待选／待核对", { exact: true })).toBeVisible();
+        await expect(row.locator(".repair-module-row__waiting")).toHaveCount(0);
         await expect(row.getByText(index === 1 ? "未通知取机" : "已通知取机", { exact: true })).toBeVisible();
         if (index !== 2) await expect(row.getByText("久等未答复", { exact: true })).toBeVisible();
         if (index === 0) await expect(row.getByText("已交还 · 欠款待跟进", { exact: true })).toBeVisible();

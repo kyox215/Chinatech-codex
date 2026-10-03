@@ -6,7 +6,7 @@ export function fields(value:unknown,allowed:readonly string[]) {
 export const intakeFields=["itemQuotes","itemQuoteHistory","revision","policy","faults","issueNote","retailOrigin","custody","id","createdAt","updatedAt","previewAt","customerName","phone","email","category","brand","model","color","serial","issue","accessories","services","priority","photoCount","photos"];
 export const procurementFields=["id","repairId","item","supplier","quantity","unitCostCents","expectedAt","reference","events","required","supplierId","requirementId","requirementRevision","specification"];
 export const workflowCommandFields:Record<string,string[]>={
-  stage:["status","note"],custody:["custody"],arrival_notice:["outcome","note"],pickup_notice:["outcome","note"],
+  stage:["status","note"],custody:["custody"],arrival_notice:["outcome","note"],pickup_notice:["outcome","note"],quote_contact:["outcome","note"],
   requirement:["item","note"],followup:["flag","value","note","delivered","unpaid"],
 };
 export const customerFields=["phone","name","email","note","updatedAt"];

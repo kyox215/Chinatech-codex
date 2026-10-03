@@ -134,9 +134,11 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
       const editablePurchase = canEdit && linked.length <= 1 && (!record || isPreorder(record));
       const Icon = row.title.includes("屏幕") ? Monitor : row.title.includes("电池") ? Battery : row.title.includes("尾插") ? Plug : Wrench;
       const status = record ? procurementStatuses[procurementStatus(record)] : null;
+      const supplierChanged = row.supplier !== row.beforeSupplier && Boolean(row.supplier.trim());
+      const statusLabel = supplierChanged && editablePurchase ? "保存后加车" : record && procurementStatus(record) === "cart" ? "已加购物车" : status?.label ?? (linked.length > 1 ? `${linked.length}条配件记录` : row.beforeQuote ? "已报价" : "待填写");
       return <fieldset className="repair-item-card" key={row.requirementId} aria-label={row.title} disabled={pending}>
         <legend className="visually-hidden">{row.title}</legend>
-        <div className="repair-item-card__head"><span className="repair-item-card__icon"><Icon size={22} aria-hidden="true" /></span><div><h3>{row.title}</h3>{row.request ? <small>{row.request}</small> : null}</div><span className={`status-pill status-pill--${status?.tone ?? "neutral"}`}>{status?.label ?? (linked.length > 1 ? `${linked.length}条配件记录` : row.beforeQuote ? "已报价" : "待填写")}</span></div>
+        <div className="repair-item-card__head"><span className="repair-item-card__icon"><Icon size={18} aria-hidden="true" /></span><div><h3>{row.title}</h3>{row.request ? <small>{row.request}</small> : null}</div><span className={`status-pill status-pill--${supplierChanged ? "info" : status?.tone ?? "neutral"}`} role="status">{statusLabel}</span></div>
         <div className="repair-item-card__fields">
           {editablePurchase ? <SearchCombobox label="供应商（选填）" value={row.supplier} onChange={value => update(row.requirementId, "supplier", value)} options={settings.suppliers.filter(supplier => supplier.active).map(supplier => ({ value: supplier.name, label: supplier.name }))} placeholder="不采购可留空" emptyText="请先在门店设置登记供应商" /> : <div className="field"><span>供应商</span><strong>{linked.length ? linked.map(item => item.supplier).join("、") : "未选择"}</strong></div>}
           <label className="field"><span>报价（€）</span>{canEdit ? <input aria-label={`${row.title}报价`} inputMode="decimal" maxLength={20} value={row.quote} onChange={event => update(row.requirementId, "quote", event.target.value)} placeholder="选填" /> : <strong>{formatCost(parseItemMoney(row.quote))}</strong>}</label>
