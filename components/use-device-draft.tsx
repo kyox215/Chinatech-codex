@@ -1,6 +1,7 @@
 "use client";
+import { useBackendState, useBackendMode } from "@/lib/backend/react";
 import { useEffect, useRef, useState } from "react";
-import { backendSnapshot, isBackendClient } from "@/lib/backend/client";
+import { backendSnapshot } from "@/lib/backend/client";
 import { draftScope, listDeviceDrafts, removeDeviceDraft, saveDeviceDraft, type DeviceDraft } from "@/lib/backend/recovery-store";
 import { SelectControl } from "./select-control";
 
@@ -8,8 +9,9 @@ import { SelectControl } from "./select-control";
 // replays commands or replaces another tab's draft. Account + capabilities scope
 // must match the currently authenticated server snapshot.
 export function useDeviceDraft<T>(form:string,data:T,restore:(data:T)=>void,active=true) {
+  const initialState=useBackendState();const backendMode=useBackendMode();
   const [id]=useState(()=>crypto.randomUUID());
-  const [scope]=useState(()=>{const state=backendSnapshot();return isBackendClient()&&state?draftScope(state):null;});
+  const [scope]=useState(()=>{return backendMode&&initialState?draftScope(initialState):null;});
   const signature=JSON.stringify(data);
   const [initial]=useState(signature);
   const [candidates,setCandidates]=useState<DeviceDraft<T>[]>([]);

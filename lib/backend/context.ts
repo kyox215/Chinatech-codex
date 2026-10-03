@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "../supabase/server";
 import { withDatabase, BackendError, type AuthIdentity } from "./database";
 import type { StaffMember } from "../staff";
 import type { TransactionSql } from "postgres";
+import { cache } from "react";
 
 export async function getAuthIdentity(): Promise<AuthIdentity> {
   const client = await createSupabaseServerClient();
@@ -16,7 +17,8 @@ export async function memberInTransaction(tx: TransactionSql, storeId: string, u
   if (!row) throw new BackendError("当前账号尚未获得此门店授权。", 403);
   return { id: row.id, name: row.display_name || row.email, email: row.email, role: row.role, permissions: row.permissions, revision: row.revision, accountStatus: row.account_status, membershipStatus: row.membership_status };
 }
-export async function getServerAccess() {
+// React cache is scoped to one Server Component request; API reads still revalidate independently.
+export const getServerAccess = cache(async () => {
   const identity = await getAuthIdentity();
   const selected = (await cookies()).get("ct_store")?.value;
   return await withDatabase(identity, null, async tx => {
@@ -26,4 +28,4 @@ export async function getServerAccess() {
     const member = await memberInTransaction(tx, storeId, identity.userId);
     return { identity, storeId, member };
   });
-}
+});

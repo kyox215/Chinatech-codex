@@ -1,4 +1,5 @@
 "use client";
+import { useBackendState, useBackendMode } from "@/lib/backend/react";
 import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 import { currentRetailSale, parseStoredRetailUnits, saleProductUnit, retailCategories } from "@/lib/retail";
 import { retailUnits } from "@/lib/retail-fixtures";
@@ -8,7 +9,7 @@ import { getRepairOrder } from "@/lib/repair-fixtures";
 import { intakeRecordTime } from "@/lib/repair-intake-record";
 import { requirePreviewPermission } from "@/lib/staff-client";
 import type { Permission } from "@/lib/staff";
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { repairOrders } from "@/lib/repair-fixtures";
 import { intakeDirectoryEntry, parseLocalIntakes, validLocalIntake, parseIntakeSignatures, appendIntakeSignature, fixtureIntakeReceipt, type IntakeSignature, type IntakeSignatureDraft, type IntakePolicy, type IntakeReceiptData, type IntakePhotoAttachment } from "@/lib/repair-intake-record";
 import { overlayRepair } from "@/lib/repair-workflow";
@@ -37,11 +38,13 @@ function subscribe(listener: () => void) {const stop=subscribeBackend(listener);
   window.addEventListener("storage", storage); window.addEventListener(change, listener);
   return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); };
 }
-export function useLocalIntakes() { return useSyncExternalStore(subscribe, read, () => server); }
+export function useLocalIntakes() { const local=useSyncExternalStore(subscribe, read, () => server);const backend=useBackendState();return useMemo(()=>backend?{records:backend.intakes,signatures:backend.signatures,ready:true,error:""}:local,[backend,local]); }
 export function useRepairDirectory() {
   const local = useLocalIntakes();
   const { workflows } = useRepairWorkflows();
-  return [...(isBackendClient()?[]:fixtureDirectory), ...local.records.map(intakeDirectoryEntry)].map(order => overlayRepair(order, workflows[order.id]));
+  const backend = useBackendMode();
+  const state=useBackendState();
+  return useMemo(() => (state?.directory ?? [...(backend?[]:fixtureDirectory), ...local.records.map(intakeDirectoryEntry)]).map(order => overlayRepair(order, workflows[order.id])), [backend, state?.directory, local.records, workflows]);
 }
 // Preview saves retain the browser-local envelope; backend saves use the command boundary.
 export function intakePolicyFromSettings():IntakePolicy {

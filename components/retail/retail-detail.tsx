@@ -1,4 +1,6 @@
 "use client";
+import { useBackendMode } from "@/lib/backend/react";
+import { useCustomerCandidates } from "@/components/backend-lookup";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 
 import { useStaff } from "@/components/staff/use-staff";
@@ -11,10 +13,10 @@ import { useStoreSettings } from "@/components/settings/settings-store";
 import { RetailWarrantyTerms } from "./retail-warranty-terms";
 import { SearchCombobox } from "@/components/search-combobox";
 import { useCustomerDirectory } from "@/components/customers/customer-store";
-import { customerCandidates, normalizeCustomerPhone } from "@/lib/customers";
+import { normalizeCustomerPhone } from "@/lib/customers";
 import { intakeRecordTime } from "@/lib/repair-intake-record";
 import { applyRetailCommand, parseRetailMoney, retailMoney, retailWarrantyLabel, retailWarrantyTermsVersion, type Inspection, type RetailCommand, type RetailUnit } from "@/lib/retail";
-import { useRetail } from "./retail-provider";
+import { useRetail } from "@/components/backend-domain-context";
 import { RetailDetailView } from "./retail-detail-view";
 import { RetailOperationConfirmation, type PendingRetailOperation } from "./retail-operation-confirmation";
 import { RetailMoneyControl } from "./retail-input-controls";
@@ -31,6 +33,7 @@ const inspectionItems = [
 
 function RetailSaleForm({ unit, onClose, restoreFocusRef }: { unit: RetailUnit; onClose: () => void; restoreFocusRef: RefObject<HTMLElement | null> }) {
   const { dispatch, ready, error: storageError } = useRetail();
+  const backend = useBackendMode();
   const { customers } = useCustomerDirectory();
   const { settings, ready: settingsReady, error: settingsError } = useStoreSettings();
   const [phone, setPhone] = useState(unit.reservation?.phone||"");
@@ -50,7 +53,8 @@ function RetailSaleForm({ unit, onClose, restoreFocusRef }: { unit: RetailUnit; 
   const titleId = useId();
   const [version,setVersion] = useState(unit.version);
   const deviceDraft=useDeviceDraft(`retail-sale:${unit.id}`,{phone,email,address,buyerNote,name,price,version},value=>{setPhone(value.phone);setEmail(value.email);setAddress(value.address);setBuyerNote(value.buyerNote);setName(value.name);setPrice(value.price);setVersion(value.version);setPending(null);setAccepted(false);setUnreceived(false);});
-  const candidates = customerCandidates(phone, customers);
+  const customerLookup = useCustomerCandidates(phone, customers);
+  const candidates = customerLookup.rows;
   const conflict = unit.version !== version || Boolean(pending && pending.revision !== settings.revision);
   useEffect(() => {
     trigger.current = restoreFocusRef.current ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
@@ -72,7 +76,7 @@ function RetailSaleForm({ unit, onClose, restoreFocusRef }: { unit: RetailUnit; 
         if (priceCents === null || priceCents <= 0) throw new Error("请明确填写本台成交价。");
         if (!saleId.current) saleId.current = `LOCAL-SALE-${crypto.randomUUID()}`;
         const command = { type: "sell" as const, saleId: saleId.current, customerPhone, customerName: name.trim(), customerEmail:email.trim(),customerAddress:address.trim(),customerNote:buyerNote.trim(),paymentUnreceived:true,priceCents, warranty: { months: unit.warrantyMonths, termsVersion: retailWarrantyTermsVersion, shopName: settings.shopName, address: settings.address, phone: settings.phone } };
-        applyRetailCommand(unit, command, { id: saleId.current, title: "登记售出", detail: "核对销售资料", time: intakeRecordTime() }, version);
+        applyRetailCommand(unit, command, { id: saleId.current, title: "登记售出", detail: "核对销售资料", time: intakeRecordTime() }, version, [], backend);
         setPending({ command, revision: settings.revision }); setAccepted(false);
         return;
       }
@@ -95,6 +99,7 @@ function RetailSaleForm({ unit, onClose, restoreFocusRef }: { unit: RetailUnit; 
 
 function RetailActions({ unit }: { unit: RetailUnit }) {
   const { feedback, ready, error } = useRetail();
+  const backend = useBackendMode();
   const staff=useStaff();
   const [saleOpen, setSaleOpen] = useState(false);
   const saleTrigger = useRef<HTMLElement | null>(null);
@@ -111,7 +116,7 @@ function RetailActions({ unit }: { unit: RetailUnit }) {
     try {
       if (!reason.trim()) throw new Error("请填写检测说明或变更原因。");
       const event = { id: crypto.randomUUID(), title, detail: reason.trim(), time: intakeRecordTime() };
-      const updated = applyRetailCommand(unit, command, event, unit.version);
+      const updated = applyRetailCommand(unit, command, event, unit.version, [], backend);
       setPending({ command, event, version: unit.version, nextStatus: updated.status });
     } catch (reason) { setParseError(reason instanceof Error ? reason.message : "请核对资料。"); }
   }

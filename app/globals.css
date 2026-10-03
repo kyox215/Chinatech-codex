@@ -323,6 +323,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .module-title__line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .module-title__content { min-width: 0; }
 .page-menu-button, .page-back-button { width: 44px; height: 44px; flex: 0 0 auto; color: var(--text-secondary); }
+.page-menu-button { display: none; }
+@media (max-width: 767px) { .page-menu-button { display: inline-flex; } }
 .page-back-button:hover { color: var(--primary-600); background: var(--primary-50); }
 .sidebar-account { position: relative; flex: 0 0 auto; margin-top: auto; padding-top: 16px; }
 .sidebar-account summary { display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); cursor: pointer; list-style: none; }
@@ -471,7 +473,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .module-empty { min-height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; color: var(--text-tertiary); }
 .module-empty strong { margin-top: 12px; color: var(--text); }
 .module-empty p { margin: 4px 0 12px; color: var(--text-secondary); font-size: 12px; }
-.module-empty button { min-height: 34px; padding: 6px 10px; color: var(--primary-700); border: 1px solid #cbc8ff; border-radius: 7px; background: var(--primary-50); cursor: pointer; font-size: 12px; font-weight: 700; }
+.module-empty button:not(.button) { min-height: 34px; padding: 6px 10px; color: var(--primary-700); border: 1px solid #cbc8ff; border-radius: 7px; background: var(--primary-50); cursor: pointer; font-size: 12px; font-weight: 700; }
 
 /* Keep full desktop columns; narrow windows scroll the table, not the page. */
 .module-table-scroll { min-width: 0; overflow-x: auto; overscroll-behavior-inline: contain; }
@@ -1124,6 +1126,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .repair-module-row__waiting small, .repair-module-row__arrow { display: none; }
   .repair-module-row .status-pill { grid-column: 2; grid-row: 1; align-self: start; justify-self: end; font-size: 12px; }
   .module-empty { min-height: 220px; }
+  .module-empty button:not(.button) { min-width: 44px; min-height: 44px; }
 
   .intake-layout { grid-template-columns: 1fr; gap: 7px; }
   .intake-stepper { display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; padding: 6px; }
@@ -1619,6 +1622,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .device-draft { padding: 12px 0; }
 .device-draft:empty { display: none; }
 @media (max-width: 767px) { .sync-recovery__actions .button { min-height: 44px; } }
+.query-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; padding: 16px; border-top: 1px solid var(--border); }
 
 /* Repair requirements and supplier batch operations reuse the existing dialog/field tokens. */
 .repair-requirements { display: grid; gap: 12px; margin-block: 16px; }

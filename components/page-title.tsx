@@ -6,7 +6,7 @@ import { ArrowLeft, Menu } from "lucide-react";
 export const AppNavigationContext = createContext<{ isMobile: boolean; expanded: boolean; toggle: () => void } | null>(null);
 export function SidebarToggle() {
   const navigation = useContext(AppNavigationContext);
-  if (!navigation || !navigation.isMobile) return null;
+  if (!navigation) return null;
   return <button type="button" className="icon-button page-menu-button" onClick={navigation.toggle} aria-label="打开菜单" aria-expanded={navigation.expanded} aria-controls="app-sidebar" title="打开菜单"><Menu size={20} /></button>;
 }
 type PageTitleProps = {

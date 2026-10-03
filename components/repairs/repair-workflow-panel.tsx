@@ -5,7 +5,7 @@ import { SelectControl } from "@/components/select-control";
 import { arrivalNotice, custodyLabels, initialRepairWorkflow, type DeviceCustody, type WorkflowCommand } from "@/lib/repair-workflow";
 import { useRepairDirectory } from "./local-intake-store";
 import { useRepairWorkflows, updateRepairWorkflow } from "./repair-workflow-store";
-import { useProcurement } from "@/components/procurement/procurement-provider";
+import { useProcurement } from "@/components/backend-domain-context";
 import { useStaff } from "@/components/staff/use-staff";
 import { RepairContactControl } from "./repair-contact-control";
 import { RepairStageControl } from "./repair-stage-control";

@@ -7,7 +7,7 @@ import { initialRepairWorkflow, type WorkflowCommand } from "@/lib/repair-workfl
 import { currentRepairRequirements, type RepairRequirement } from "@/lib/repair-requirements";
 import type { RepairDirectoryEntry } from "@/lib/repair-intake-record";
 import { procurementStatus } from "@/lib/procurement";
-import { useProcurement } from "./procurement-provider";
+import { useProcurement } from "@/components/backend-domain-context";
 export function RepairRequirementsPanel({order,onChoose}:{order:RepairDirectoryEntry;onChoose:(id:string)=>void}) {
   const canEdit=useStaff().can("repairs.edit");const {workflows}=useRepairWorkflows();const {records,dispatch}=useProcurement();
   const workflow=workflows[order.id]??initialRepairWorkflow(order);const items=currentRepairRequirements(order,workflow);

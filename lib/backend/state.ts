@@ -15,7 +15,7 @@ import { BackendError } from "./database";
 export type StateHeader = { revision: number; settings: StoreSettings; staff: StaffData; stateToken: string };
 
 // Increment this when the serialized projection changes without a business write.
-const projectionVersion = 2;
+const projectionVersion = 3;
 export async function loadStateHeader(tx: TransactionSql, storeId: string, member: StaffMember): Promise<StateHeader> {
   const [store] = await tx`select revision,settings,staff_audit from chinatech_v2_private.store_state where store_id=${storeId}`;
   if (!store) throw new BackendError("门店尚未完成初始化。", 503);

@@ -1,4 +1,6 @@
 "use client";
+import { useBackendMode } from "@/lib/backend/react";
+import { useCustomerCandidates } from "@/components/backend-lookup";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 import { isBackendClient } from "@/lib/backend/client";
 
@@ -10,11 +12,11 @@ import { SingleChoice } from "@/components/single-choice";
 import { SearchCombobox } from "@/components/search-combobox";
 import { useStaff } from "@/components/staff/use-staff";
 import { useCustomerDirectory } from "@/components/customers/customer-store";
-import { customerCandidates, customerId } from "@/lib/customers";
+import { customerId } from "@/lib/customers";
 import { intakeRecordTime } from "@/lib/repair-intake-record";
 import { createRetailAfterSaleRepair } from "@/components/repairs/local-intake-store";
 import { applyRetailCommand, currentRetailSale, parseRetailMoney, retailDueCents, retailMoney, retailPaidCents, retailRefundedCents, retailSaleGrossProfit, retailSaleState, type RetailAfterSale, type RetailCommand, type RetailEvent, type RetailMoneyEntry, type RetailPaymentMethod, type RetailSale, type RetailUnit } from "@/lib/retail";
-import { useRetail } from "./retail-provider";
+import { useRetail } from "@/components/backend-domain-context";
 import { RetailSaleWarranty } from "./retail-warranty";
 import { RetailDateControl, RetailMoneyControl } from "./retail-input-controls";
 import styles from "./retail-commerce.module.css";
@@ -31,6 +33,7 @@ const requestKey = (request: Pending) => [request.operation, request.caseId, req
 
 function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { unit: RetailUnit; sale?: RetailSale; request: Pending; onClose: () => void; restoreFocusRef: RefObject<HTMLElement | null> }) {
   const { dispatch, units, feedback, ready, error: storageError } = useRetail();
+  const backend = useBackendMode();
   const staff = useStaff();
   const { customers } = useCustomerDirectory();
   const currentCase = sale?.afterSales?.find(item => item.id === request.caseId);
@@ -39,6 +42,8 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [phone, setPhone] = useState("");
+  const customerLookup = useCustomerCandidates(phone,customers);
+  const candidates = customerLookup.rows;
   const [name, setName] = useState("");
   const [method, setMethod] = useState<RetailPaymentMethod | "">("");
   const [custody, setCustody] = useState<RetailAfterSale["custody"] | "">("");
@@ -123,7 +128,7 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
       if (!pending) {
         const command = build();
         const nextEvent = { id: identity, title: titles[operation], detail: note.trim() || titles[operation], time: intakeRecordTime() };
-        const reviewedUnit = applyRetailCommand(unit, command, nextEvent, version);
+        const reviewedUnit = applyRetailCommand(unit, command, nextEvent, version, [], backend);
         setPending({ command, event: nextEvent, unit: reviewedUnit });
         return;
       }
@@ -155,7 +160,7 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
           {reviewedSale && ["payment", "refund", "payment_reconcile", "payment_void", "refund_void"].includes(operation) ? <dl className={styles.compare}><div><dt>有效实收</dt><dd>{retailMoney(paid)} → {retailMoney(retailPaidCents(reviewedSale))}</dd></div><div><dt>有效退款</dt><dd>{retailMoney(refunded)} → {retailMoney(retailRefundedCents(reviewedSale))}</dd></div></dl> : null}
           {operation === "return" ? <><p className={styles.confirmedFact}><PackageCheck size={17} aria-hidden="true" />已确认收到本台实物</p><p className={styles.note}>实物退回后暂停销售，待退款 {retailMoney(refundable)}；款项结清及重新检测后再核对可售。</p></> : operation === "after_sale_close" ? <p className={styles.confirmedFact}><PackageCheck size={17} aria-hidden="true" />已确认设备实际交还客户</p> : operation === "release_reservation" ? <p className={styles.note}>解除后本台恢复可售，原预留记录保留在历史。</p> : null}
         </> : <>
-          {operation === "reserve" ? <><SearchCombobox label="预留客户手机号" required value={phone} inputMode="tel" maxLength={40} filterOptions={false} options={customerCandidates(phone, customers).map(customer => ({ value: customer.phone, label: customer.phone, detail: customer.name || "未填写称呼" }))} onChange={value => { setPhone(value); if (selectedName.current && name === selectedName.current) setName(""); selectedName.current = ""; }} onSelect={option => { const candidateName = customers.find(customer => customer.phone === option.value)?.name || ""; setName(candidateName); selectedName.current = candidateName; }} /><label className="field"><span>预留客户称呼（选填）</span><input autoComplete="name" value={name} maxLength={80} onChange={event => { setName(event.target.value); selectedName.current = ""; }} /></label></> : null}
+          {operation === "reserve" ? <><SearchCombobox label="预留客户手机号" required value={phone} inputMode="tel" maxLength={40} filterOptions={false} options={candidates.map(customer => ({ value: customer.phone, label: customer.phone, detail: customer.name || "未填写称呼" }))} onChange={value => { setPhone(value); if (selectedName.current && name === selectedName.current) setName(""); selectedName.current = ""; }} onSelect={option => { const candidateName = candidates.find(customer => customer.phone === option.value)?.name || ""; setName(candidateName); selectedName.current = candidateName; }} /><label className="field"><span>预留客户称呼（选填）</span><input autoComplete="name" value={name} maxLength={80} onChange={event => { setName(event.target.value); selectedName.current = ""; }} /></label></> : null}
           {money ? <RetailMoneyControl label={operation === "payment_reconcile" ? "已核对历史实收" : operation === "refund" ? "本次实际退款" : "本次实际收款"} required value={amount} onChange={setAmount} maxCents={operation === "payment" ? due : operation === "refund" ? refundable : sale?.priceCents} placeholder="明确填写实际金额" /> : null}
           {operation === "payment" || operation === "refund" ? <SingleChoice label="收退款方式 · 请选择" value={method} options={methodOptions} onChange={value => setMethod(value as RetailPaymentMethod)} className={styles.methodChoice} /> : null}
           {dated ? <RetailDateControl label={dateLabel} required value={date} onChange={setDate} min={minDate} max={operation === "reserve" ? undefined : today} /> : null}

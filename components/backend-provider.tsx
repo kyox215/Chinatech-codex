@@ -4,14 +4,14 @@ import Link from "next/link";
 import { configureBackend, clearBackend, refreshBackend, loadRecovery, backendRecovery, subscribeRecovery, recoverOperation } from "@/lib/backend/client";
 import type { BackendSnapshot } from "@/lib/backend/contracts";
 import { startRealtimeUpdates } from "@/lib/backend/realtime-client";
+import { BackendInitialContext } from "@/lib/backend/react";
 
 const ConnectionError=createContext("");
 
 export function BackendProvider({initial,children}:{initial:BackendSnapshot;children:React.ReactNode}) {
-  const [ready,setReady]=useState(false);
   const [error,setError]=useState("");
   useEffect(()=>{
-    configureBackend(initial);queueMicrotask(()=>setReady(true));
+    configureBackend(initial);
     let refreshing=false;let failures=0;let retryAt=0;let active=true;let dirty=false;let lastRead=Date.now();
     const refresh=(force=false)=>{
       if(!active || document.visibilityState==="hidden" || !navigator.onLine || (!force && Date.now()<retryAt))return;
@@ -32,8 +32,7 @@ export function BackendProvider({initial,children}:{initial:BackendSnapshot;chil
     window.addEventListener("beforeunload",leaving);
     return()=>{active=false;updates.stop();clearBackend();window.clearInterval(timer);window.removeEventListener("focus",resume);window.removeEventListener("online",resume);window.removeEventListener("offline",offline);document.removeEventListener("visibilitychange",resume);window.removeEventListener("beforeunload",leaving);};
   },[initial]);
-  if(!ready)return <div className="module-empty" role="status">正在载入门店资料…</div>;
-  return <ConnectionError.Provider value={error}>{children}</ConnectionError.Provider>;
+  return <BackendInitialContext.Provider value={initial}><ConnectionError.Provider value={error}>{children}</ConnectionError.Provider></BackendInitialContext.Provider>;
 }
 
 export function BackendSyncNotice(){

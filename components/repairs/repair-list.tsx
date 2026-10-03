@@ -1,7 +1,9 @@
 "use client";
+import { usePageQuery, QueryNotice, PageControls } from "@/components/backend-query";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
 import {
   ArrowUpDown, ChevronsDownUp, ChevronsUpDown, ChevronRight, CircleHelp,
   ClipboardList, Clock3, Flag, Gamepad2, Laptop, ListFilter, SlidersHorizontal, RotateCcw,
@@ -11,26 +13,22 @@ import {
 import { PageTitle } from "@/components/page-title";
 import { SelectControl } from "@/components/select-control";
 import { useStaff } from "@/components/staff/use-staff";
-import { useProcurement } from "@/components/procurement/procurement-provider";
+import { useProcurement } from "@/components/backend-domain-context";
 import { RepairProcurementDialog, RepairProcurementShortcut } from "@/components/procurement/repair-procurement-shortcut";
-import { repairPartsSummary, type RepairPartsGroup } from "@/lib/procurement";
-import { compareRepairUpdates, repairUpdatedAt } from "@/lib/repair-list-order";
+import { type RepairPartsGroup } from "@/lib/procurement";
+import { buildRepairPartsIndex, buildRepairListRows, selectRepairListGroups, filterRepairContactGroups, type RepairListStatusFilter, type RepairListGroupBy, type RepairListSort } from "@/lib/repair-list-model";
 import { initialRepairWorkflow, workflowGroup } from "@/lib/repair-workflow";
 import { RepairContactControl } from "./repair-contact-control";
 import { SupplierBatchDialog } from "@/components/procurement/supplier-batch-dialog";
-import { currentRepairRequirements } from "@/lib/repair-requirements";
-import { arrivalNotice, pickupNotice, isRepairReady } from "@/lib/repair-workflow";
 import { RepairStageControl } from "./repair-stage-control";
 import { useRepairWorkflows } from "./repair-workflow-store";
-import { repairStatusOptions, type RepairStatus } from "@/lib/repair-fixtures";
+import { repairStatusOptions } from "@/lib/repair-fixtures";
 import { useRepairDirectory } from "./local-intake-store";
 import { RepairScanner } from "./repair-scanner";
 
 import { useStoreSettings } from "@/components/settings/settings-store";
-import { defaultRepairGroups, visibleRepairGroups, type RepairGroupKind } from "@/lib/repair-groups";
+import { defaultRepairGroups, type RepairGroupKind } from "@/lib/repair-groups";
 import { RepairGroupEditor } from "./repair-group-editor";
-
-type StatusFilter = "all" | "including_cancelled" | RepairStatus;
 
 const groupVisuals = {
   draft: { icon: PackageSearch, tone: "warning" },
@@ -51,43 +49,38 @@ export function RepairList() {
   const canEdit = staff.can("repairs.edit");
   const canManageGroups = staff.can("settings.edit");
   const { settings, ready: settingsReady, error: settingsError } = useStoreSettings();
-  const groupSettings = settings.repairGroups ?? defaultRepairGroups();
+  const groupSettings = useMemo(() => settings.repairGroups ?? defaultRepairGroups(), [settings.repairGroups]);
   const [editingGroups, setEditingGroups] = useState<RepairGroupKind | null>(null);
   const [groupFeedback, setGroupFeedback] = useState("");
   function closeGroupEditor() { setEditingGroups(null); requestAnimationFrame(() => document.getElementById("manage-repair-groups")?.focus()); }
   const repairOrders = useRepairDirectory();
   const { workflows, error: workflowError } = useRepairWorkflows();
   const { records, feedback, dispatch, repairUpdates, storageError } = useProcurement();
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("all");
-  const [partsFilter, setPartsFilter] = useState<"all" | RepairPartsGroup>("all");
-  const [groupBy, setGroupBy] = useState("workflow");
-  const [sort, setSort] = useState("updated");
+  const params=useSearchParams();
+  const [query, setQuery] = useState(params.get("q")??"");
+  const [status, setStatus] = useState<RepairListStatusFilter>((params.get("status")??"all") as RepairListStatusFilter);
+  const [partsFilter, setPartsFilter] = useState<"all" | RepairPartsGroup>((params.get("parts")??"all") as "all"|RepairPartsGroup);
+  const [groupBy, setGroupBy] = useState<RepairListGroupBy>((params.get("group")??"workflow") as RepairListGroupBy);
+  const [sort, setSort] = useState<RepairListSort>((params.get("sort")??"updated") as RepairListSort);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [batchAction, setBatchAction] = useState<"ordered" | "arrival" | null>(null);
-  const [contactFilters, setContactFilters] = useState<Record<string,string>>({});
+  const [contactFilters, setContactFilters] = useState<Record<string,string>>(()=>Object.fromEntries([...params].filter(([key])=>key.startsWith("contact_")).map(([key,value])=>[key.slice(8),value])));
   const [activeRepairId, setActiveRepairId] = useState<string | null>(null);
 
-  const summaries = new Map(repairOrders.map((repair) => [repair.id, repairPartsSummary(records, repair.id, currentRepairRequirements(repair, workflows[repair.id]))]));
-  const filteredRepairs = repairOrders.filter((repair) => {
-    const searchable = [repair.id, repair.customer.name, repair.customer.phone, repair.device.brand, repair.device.model, repair.device.serial, repair.issue].join(" ").toLocaleLowerCase();
-    return (status === "including_cancelled" || (status === "all" ? repair.status !== "cancelled" : repair.status === status))
-      && (partsFilter === "all" || summaries.get(repair.id)!.group === partsFilter)
-      && searchable.includes(query.trim().toLocaleLowerCase());
-  }).sort((left, right) => {
-    if (sort === "created") return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
-    if (sort === "priority") {
-      const priorityScore = { 紧急: 0, 优先: 1, 普通: 2 };
-      const priority = priorityScore[left.priority] - priorityScore[right.priority];
-      if (priority) return priority;
-    }
-    return compareRepairUpdates(left, right, repairUpdates);
-  });
-  const groups = groupBy === "parts"
-    ? groupSettings.parts.map(({key, label}) => ({ key, label, rows: filteredRepairs.filter((repair) => summaries.get(repair.id)!.group === key) }))
-    : groupBy === "workflow" ? visibleRepairGroups(groupSettings, "workflow").map(({key, label}) => ({ key, label, rows: filteredRepairs.filter(order => workflowGroup(order, records, workflows[order.id]) === key) }))
-    : [{ key: "all", label: "全部工单", rows: filteredRepairs }];
+  const partsIndex = useMemo(() => buildRepairPartsIndex(records), [records]);
+  const list = useMemo(() => buildRepairListRows(repairOrders, partsIndex, workflows, repairUpdates), [repairOrders, partsIndex, workflows, repairUpdates]);
+  const localResult = useMemo(() => selectRepairListGroups(list.rows, groupSettings, { query, status, partsFilter, groupBy, sort }), [list.rows, groupSettings, query, status, partsFilter, groupBy, sort]);
+  const [pageState,setPageState]=useState<{key:string;pages:Record<string,number>}>(()=>({key:JSON.stringify([query,status,partsFilter,groupBy,sort,contactFilters]),pages:Object.fromEntries([...params].filter(([key])=>key.startsWith("page_")).map(([key,value])=>[key.slice(5),Number(value)]))}));
+  const filterKey=JSON.stringify([query,status,partsFilter,groupBy,sort,contactFilters]);const pages=pageState.key===filterKey?pageState.pages:{};
+  const setPages=(update:(previous:Record<string,number>)=>Record<string,number>)=>setPageState({key:filterKey,pages:update(pages)});
+  const queryParams=new URLSearchParams();if(query)queryParams.set("q",query);if(status!=="all")queryParams.set("status",status);if(partsFilter!=="all")queryParams.set("parts",partsFilter);if(groupBy!=="workflow")queryParams.set("group",groupBy);if(sort!=="updated")queryParams.set("sort",sort);for(const [key,value] of Object.entries(pages))if(value>1)queryParams.set(`page_${key}`,String(value));
+  for(const [key,value] of Object.entries(contactFilters)) if(value!=="all")queryParams.set(`contact_${key}`,value);
+  const serverQuery=usePageQuery(`/app/repairs${queryParams.size?`?${queryParams}`:""}`);
+  const remote=serverQuery.state?.views?.repairs;
+  const localGroups = useMemo(() => filterRepairContactGroups(localResult.groups, workflows, contactFilters), [localResult.groups, workflows, contactFilters]);
+  const groups=remote?.groups ?? localGroups.map(group=>({...group,count:group.rows.length,page:1,pageCount:1}));
+  const total=remote?.total ?? localGroups.reduce((sum,group)=>sum+group.rows.length,0);
   const clearFilters = () => { setQuery(""); setStatus("all"); setPartsFilter("all"); setContactFilters({}); };
   const setAllGroups = (open: boolean) => setOpenGroups(Object.fromEntries(groups.map((group) => [group.key, open])));
 
@@ -95,8 +88,8 @@ export function RepairList() {
     const id = activeRepairId;
     setActiveRepairId(null);
     if (!id) return;
-    const order = repairOrders.find(order => order.id === id);
-    const group = groupBy === "none" ? "all" : groupBy === "workflow" && order ? workflowGroup(order, records, workflows[id]) : summaries.get(id)?.group ?? "all";
+    const row = list.byId.get(id);
+    const group = groupBy === "none" ? "all" : groupBy === "workflow" ? row?.workflowGroup ?? "all" : row?.parts.summary.group ?? "all";
     setOpenGroups((previous) => ({ ...previous, [group]: true }));
     requestAnimationFrame(() => {
       const target = document.getElementById(`repair-action-${id}`) ?? document.getElementById(`repair-group-${group}`) ?? document.getElementById("repair-search");
@@ -110,45 +103,36 @@ export function RepairList() {
       <div className="repair-filterbar">
         <button type="button" className="button button--secondary repair-mobile-filter" aria-expanded={filtersOpen} aria-controls="repair-filter-options" onClick={() => setFiltersOpen(value => !value)}><SlidersHorizontal size={18} /><span>筛选{status !== "all" || partsFilter !== "all" ? " · 已选" : ""}</span></button>
         <label className="module-search"><Search size={18} /><input id="repair-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索工单、客户、设备" aria-label="搜索维修工单" />{query ? <button type="button" onClick={() => setQuery("")}>清除</button> : null}</label>
-        <div id="repair-filter-options" className={`repair-filter-options${filtersOpen ? " repair-filter-options--open" : ""}`}><label className="module-select"><SelectControl aria-label="维修阶段筛选" value={status} onChange={(event) => setStatus(event.target.value as StatusFilter)}><option value="all">全部阶段（不含作废）</option><option value="including_cancelled">全部阶段（含作废）</option>{repairStatusOptions.filter(option => !["ready_notified", "awaiting_reply", "collected_unpaid"].includes(option.value)).map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</SelectControl></label>
+        <div id="repair-filter-options" className={`repair-filter-options${filtersOpen ? " repair-filter-options--open" : ""}`}><label className="module-select"><SelectControl aria-label="维修阶段筛选" value={status} onChange={(event) => setStatus(event.target.value as RepairListStatusFilter)}><option value="all">全部阶段（不含作废）</option><option value="including_cancelled">全部阶段（含作废）</option>{repairStatusOptions.filter(option => !["ready_notified", "awaiting_reply", "collected_unpaid"].includes(option.value)).map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</SelectControl></label>
         <label className="module-select"><SelectControl aria-label="配件状态筛选" value={partsFilter} onChange={(event) => setPartsFilter(event.target.value as "all" | RepairPartsGroup)}><option value="all">全部配件状态</option>{groupSettings.parts.map(({key, label}) => <option value={key} key={key}>{label}</option>)}</SelectControl></label>
-        <label className="module-select"><SelectControl aria-label="工单分组" value={groupBy} onChange={(event) => setGroupBy(event.target.value)}><option value="workflow">按维修状态分组</option><option value="parts">按配件分组</option><option value="none">不分组</option></SelectControl></label>
-        <label className="module-select"><ArrowUpDown size={17} /><SelectControl value={sort} onChange={(event) => setSort(event.target.value)} aria-label="工单排序"><option value="updated">更新 → 建单：旧 → 新</option><option value="created">建单：旧 → 新</option><option value="priority">优先级</option></SelectControl></label>
+        <label className="module-select"><SelectControl aria-label="工单分组" value={groupBy} onChange={(event) => setGroupBy(event.target.value as RepairListGroupBy)}><option value="workflow">按维修状态分组</option><option value="parts">按配件分组</option><option value="none">不分组</option></SelectControl></label>
+        <label className="module-select"><ArrowUpDown size={17} /><SelectControl value={sort} onChange={(event) => setSort(event.target.value as RepairListSort)} aria-label="工单排序"><option value="updated">更新 → 建单：旧 → 新</option><option value="created">建单：旧 → 新</option><option value="priority">优先级</option></SelectControl></label>
         <button className="button button--secondary button--tiny repair-filter-reset" type="button" onClick={clearFilters}><RotateCcw size={15} />重置筛选</button></div>
-        <div className="repair-group-tools"><span className="filter-count"><ListFilter size={15} aria-hidden="true" />{filteredRepairs.length} 单</span>{groupBy !== "none" ? <>{canManageGroups ? <button id="manage-repair-groups" className="button button--secondary button--compact" type="button" disabled={!settingsReady || Boolean(settingsError)} onClick={() => { setGroupFeedback(""); setEditingGroups(groupBy as RepairGroupKind); }}>管理分组</button> : null}<button className="icon-button" type="button" title="展开全部" aria-label="展开全部分组" disabled={!groups.length || groups.every((group) => openGroups[group.key])} onClick={() => setAllGroups(true)}><ChevronsUpDown size={18} /></button><button className="icon-button" type="button" title="收起全部" aria-label="收起全部分组" disabled={!groups.some((group) => openGroups[group.key])} onClick={() => setAllGroups(false)}><ChevronsDownUp size={18} /></button></> : null}</div>
+        <div className="repair-group-tools"><span className="filter-count"><ListFilter size={15} aria-hidden="true" />{total} 单</span>{groupBy !== "none" ? <>{canManageGroups ? <button id="manage-repair-groups" className="button button--secondary button--compact" type="button" disabled={!settingsReady || Boolean(settingsError)} onClick={() => { setGroupFeedback(""); setEditingGroups(groupBy as RepairGroupKind); }}>管理分组</button> : null}<button className="icon-button" type="button" title="展开全部" aria-label="展开全部分组" disabled={!groups.length || groups.every((group) => openGroups[group.key])} onClick={() => setAllGroups(true)}><ChevronsUpDown size={18} /></button><button className="icon-button" type="button" title="收起全部" aria-label="收起全部分组" disabled={!groups.some((group) => openGroups[group.key])} onClick={() => setAllGroups(false)}><ChevronsDownUp size={18} /></button></> : null}</div>
       </div>
-      {storageError || workflowError || settingsError ? <p className="form-error" role="alert">{storageError || workflowError || settingsError}</p> : null}
+      <QueryNotice query={serverQuery}/>{storageError || workflowError || settingsError ? <p className="form-error" role="alert">{storageError || workflowError || settingsError}</p> : null}
       {groupFeedback ? <p role="status" className="section-empty">{groupFeedback}</p> : null}
       <div className="module-table-scroll" role="region" aria-label="工单表格" tabIndex={0}>
         {groups.map((group) => {
           const grouped = group.key !== "all";
           const contactFilter = contactFilters[group.key] ?? "all";
-          const groupRows = group.rows.filter(order => {
-            if (contactFilter === "all") return true;
-            const workflow = workflows[order.id] ?? initialRepairWorkflow(order);
-            if (contactFilter === "awaiting") return Boolean(workflow.followUp?.awaitingReply);
-            if (contactFilter === "debt") return Boolean(workflow.followUp?.collectedUnpaid);
-            const notice = isRepairReady(workflow) ? pickupNotice(workflow) : arrivalNotice(workflow, records, order.id, order);
-            return contactFilter === "notified" ? notice.startsWith("已通知") : notice.startsWith("未通知");
-          });
+          const groupRows = group.rows;
           const visual = grouped && groupBy === "parts" ? groupVisuals[group.key as RepairPartsGroup] : grouped ? { icon: ClipboardList, tone: (["complete", "ready", "ready_notified"].includes(group.key) ? "success" : ["cancelled", "awaiting_reply", "collected_unpaid"].includes(group.key) ? "warning" : "info") } : null;
           const GroupIcon = visual?.icon;
           const expanded = !grouped || Boolean(openGroups[group.key]);
           return <section className={`repair-parts-group${visual ? ` repair-parts-group--${visual.tone}` : ""}${expanded ? " repair-parts-group--expanded" : ""}`} key={group.key} aria-label={group.label}>
-            {grouped ? <h3><button id={`repair-group-${group.key}`} className="repair-group-toggle" type="button" aria-expanded={expanded} aria-controls={`repair-group-rows-${group.key}`} onClick={() => setOpenGroups((previous) => ({ ...previous, [group.key]: !previous[group.key] }))}><ChevronRight className="repair-group-chevron" size={17} aria-hidden="true" />{GroupIcon ? <GroupIcon className="repair-group-icon" size={18} aria-hidden="true" /> : null}<span>{group.label}</span><small>{group.rows.length}</small></button></h3> : null}
+            {grouped ? <h3><button id={`repair-group-${group.key}`} className="repair-group-toggle" type="button" aria-expanded={expanded} aria-controls={`repair-group-rows-${group.key}`} onClick={() => setOpenGroups((previous) => ({ ...previous, [group.key]: !previous[group.key] }))}><ChevronRight className="repair-group-chevron" size={17} aria-hidden="true" />{GroupIcon ? <GroupIcon className="repair-group-icon" size={18} aria-hidden="true" /> : null}<span>{group.label}</span><small>{group.count}</small></button></h3> : null}
             <div id={`repair-group-rows-${group.key}`} className="repair-module-list" hidden={!expanded}>
-              {groupBy === "workflow" && ["arrival", "ready"].includes(group.key) ? <label className="module-select repair-contact-filter"><SelectControl aria-label={`${group.label} 联系筛选`} value={contactFilter} onChange={event => setContactFilters(current => ({ ...current, [group.key]: event.target.value }))}><option value="all">全部联系状态</option><option value="unnotified">待联系／未接通</option><option value="notified">已通知</option>{group.key === "ready" ? <><option value="awaiting">久等未答复</option><option value="debt">欠款已拿走</option></> : null}</SelectControl></label> : null}
+              {expanded ? <>              {groupBy === "workflow" && ["arrival", "ready"].includes(group.key) ? <label className="module-select repair-contact-filter"><SelectControl aria-label={`${group.label} 联系筛选`} value={contactFilter} onChange={event => setContactFilters(current => ({ ...current, [group.key]: event.target.value }))}><option value="all">全部联系状态</option><option value="unnotified">待联系／未接通</option><option value="notified">已通知</option>{group.key === "ready" ? <><option value="awaiting">久等未答复</option><option value="debt">欠款已拿走</option></> : null}</SelectControl></label> : null}
               {groupRows.length ? <TableHead /> : <div className="section-empty">暂无符合条件的工单{group.key === "cancelled" && status === "all" ? <button className="button button--secondary button--tiny" type="button" onClick={() => setStatus("cancelled")}>查看作废工单</button> : null}</div>}
-              {groupRows.map((repair) => {
-                const summary = summaries.get(repair.id)!;
+              {groupRows.map(({ repair, parts: details, updatedAt: updated }) => {
+                const summary = details.summary;
                 const DeviceIcon = deviceIcons[repair.device.category as keyof typeof deviceIcons] ?? CircleHelp;
-                const parts = records.filter(row => row.repairId === repair.id);
-                const suppliers = [...new Set(parts.map(row => row.supplier))].join("、");
-                const updated = repairUpdatedAt(repair, repairUpdates);
+                const parts = details.records;
                 return <article className="repair-module-row" key={repair.id} aria-label={`${repair.id} ${repair.device.model}`}>
                   <div className="repair-module-row__device"><span className="device-glyph" title={repair.device.category}><DeviceIcon size={20} aria-hidden="true" /></span><div><Link className="repair-row-link" href={`/app/repairs/${repair.id}`} aria-label={`打开 ${repair.id} ${repair.device.model} 详情`} title={`${repair.device.model} · ${repair.issue}`}><strong>{repair.device.model}</strong></Link><small>{repair.id}</small></div></div>
                   <div className="repair-module-row__cell repair-module-row__customer"><strong>{repair.customer.name}</strong><small>{repair.customer.phone}</small></div>
-                  <button className="repair-row-parts" type="button" onClick={() => setActiveRepairId(repair.id)} aria-label={`${repair.id} 供应商与配件${canEdit ? "操作" : "详情"}`} title={parts.map(row => `${row.supplier} · ${row.item}`).join("\n") || (canEdit ? "添加配件" : "尚未登记配件")}><strong>{suppliers || (canEdit ? "选择供应商 / 配件" : "尚未登记配件")}</strong><small>{parts.length ? `${parts[0].item}${parts.length > 1 ? ` +${parts.length - 1}` : ""}` : "尚未登记"}</small></button>
+                  <button className="repair-row-parts" type="button" onClick={() => setActiveRepairId(repair.id)} aria-label={`${repair.id} 供应商与配件${canEdit ? "操作" : "详情"}`} title={details.title || (canEdit ? "添加配件" : "尚未登记配件")}><strong>{details.suppliers || (canEdit ? "选择供应商 / 配件" : "尚未登记配件")}</strong><small>{parts.length ? `${parts[0].item}${parts.length > 1 ? ` +${parts.length - 1}` : ""}` : "尚未登记"}</small></button>
                   <div className="repair-module-row__cell repair-module-row__waiting">
                     {groupBy !== "parts" ? <strong>{summary.label}</strong> : null}
                     {summary.total ? <div className="repair-parts-counts"><span title={`已加购物车 ${summary.inCart}/${summary.total} 件，仍未下单`}><ShoppingCart size={15} aria-hidden="true" /><span>加车 {summary.inCart}/{summary.total}</span></span><span title={`实际已下单 ${summary.ordered}/${summary.total} 件`}><Truck size={15} aria-hidden="true" /><span>下单 {summary.ordered}/{summary.total}</span></span><span title={`已登记到货 ${summary.arrived}/${summary.total} 件`}><PackageOpen size={15} aria-hidden="true" /><span>到货 {summary.arrived}/{summary.total}</span></span></div> : <span className="repair-parts-unknown"><CircleHelp size={16} aria-hidden="true" />{summary.allRequiredReady ? "已核对无需采购" : "必需配件待核对"}</span>}{summary.unresolvedRequirements ? <small className="repair-parts-unknown">{summary.unresolvedRequirements}个项目待选／待核对</small> : null}
@@ -156,18 +140,18 @@ export function RepairList() {
                   <div className="repair-module-row__cell repair-module-row__owner"><strong><Flag size={14} className={`repair-priority repair-priority--${repair.priority === "紧急" ? "urgent" : repair.priority === "优先" ? "high" : "normal"}`} aria-label={`${repair.priority}优先级`} role="img" />{repair.technician}</strong><small className="repair-updated"><Clock3 size={13} aria-hidden="true" /><time dateTime={updated.replace(" ", "T")} title={`最后更新 ${updated}（门店时间）`}>{updated.slice(5, 16).replaceAll("-", "/")}</time></small></div>
                   <RepairStageControl order={repair} onSaved={nextStatus => {
                     const next = { ...(workflows[repair.id] ?? initialRepairWorkflow(repair)), status: nextStatus };
-                    const nextGroup = groupBy === "none" ? "all" : groupBy === "workflow" ? workflowGroup(repair, records, next) : summary.group;
+                    const nextGroup = groupBy === "none" ? "all" : groupBy === "workflow" ? workflowGroup(repair, parts, next) : summary.group;
                     setOpenGroups(previous => ({ ...previous, [nextGroup]: true }));
-                    requestAnimationFrame(() => (document.getElementById(`repair-stage-${repair.id}`) ?? document.getElementById("repair-search"))?.focus());
+                    requestAnimationFrame(() => (document.getElementById(`repair-stage-${repair.id}`) ?? document.getElementById(`repair-group-${nextGroup}`) ?? document.getElementById("repair-search"))?.focus());
                   }} />
                   <div className="repair-module-row__quick"><RepairProcurementShortcut repairId={repair.id} onOpen={setActiveRepairId} /><RepairContactControl order={repair} /></div>
                 </article>;
-              })}
+              })}{"pageCount" in group?<PageControls page={group.page} pageCount={group.pageCount} onPage={page=>setPages(previous=>({...previous,[group.key]:page}))}/>:null}</> : null}
             </div>
           </section>;
         })}
       </div>
-      {!filteredRepairs.length ? <div className="module-empty"><Search size={28} /><strong>没有符合条件的工单</strong><button type="button" onClick={clearFilters}>清除筛选</button></div> : null}
+      {!total ? <div className="module-empty"><Search size={28} /><strong>没有符合条件的工单</strong><button type="button" onClick={clearFilters}>清除筛选</button></div> : null}
     </section>
     {editingGroups && canManageGroups ? <RepairGroupEditor key={`${staff.member?.id}:${staff.member?.revision}:${editingGroups}`} settings={settings} kind={editingGroups} onClose={closeGroupEditor} onSaved={() => { setGroupFeedback("分组已保存"); closeGroupEditor(); }} /> : null}
     {batchAction && canEdit ? <SupplierBatchDialog key={`${staff.member?.id}:${staff.member?.revision}:${batchAction}`} action={batchAction} onClose={() => setBatchAction(null)} /> : null}

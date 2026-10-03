@@ -141,7 +141,7 @@ function sameRetailFieldValue(first: unknown, second: unknown): boolean {
     && Object.keys(first).every((key) => Object.hasOwn(second, key) && sameRetailFieldValue(first[key], second[key]));
   return false;
 }
-export function validateRetailFieldEdit(unit: RetailUnit, change: RetailFieldEdit, others: RetailUnit[] = []): RetailUnit {
+export function validateRetailFieldEdit(unit: RetailUnit, change: RetailFieldEdit, others: RetailUnit[] = [], photoReferences = false): RetailUnit {
   if (!storedObject(change) || Object.keys(change).length !== 2 || !Object.hasOwn(change, "field") || !Object.hasOwn(change, "value")
     || typeof change.field !== "string" || !Object.hasOwn(retailFieldLabels, change.field)) throw new Error("该单机字段不可直接编辑。");
   const field = change.field as RetailEditableField;
@@ -155,7 +155,7 @@ export function validateRetailFieldEdit(unit: RetailUnit, change: RetailFieldEdi
       if (!applicableRetailField(candidate.category, key) && !emptyRetailField(candidate[key])) throw new Error(`新商品类型不适用${retailFieldLabels[key]}，请先独立清理该字段再更正类型。`);
     }
   }
-  validateRetailUnit(candidate, others);
+  validateRetailUnit(candidate, others, photoReferences);
   if (unit.status === "available" && (candidate.priceCents === null || candidate.priceCents <= 0)) throw new Error("可售单机须保留有效正售价，未知或零售价不能保存。");
   if (sameRetailFieldValue(unit[field], candidate[field])) return unit;
   if (unit.status === "available" && verificationFields.has(field)) {
@@ -211,10 +211,10 @@ export function identityConflict(unit: RetailUnit, others: RetailUnit[]) {
   return undefined;
 }
 
-export function validateRetailUnit(unit: RetailUnit, others: RetailUnit[] = []) {
+export function validateRetailUnit(unit: RetailUnit, others: RetailUnit[] = [], photoReferences = false) {
   if (!["新机", "翻新机"].includes(unit.condition)) throw new Error("请选择新机或翻新机。");
   validateRetailWarrantyMonths(unit.warrantyMonths);
-  validateRetailPhotos(unit.photos);
+  validateRetailPhotos(unit.photos, photoReferences);
   for (const field of ["ramGb", "controllers", "batteryPercent", "bodyStorage", "disks", "intakeDate", "grade"] as const) checkedRetailFieldValue(field, unit[field]);
   if (!unit.model.trim()) throw new Error("请填写型号或商品名称。");
   if (!unit.storeOwned) throw new Error("请明确确认这是门店自有实物，不能将客户送修设备直接建为商品。");
@@ -360,10 +360,12 @@ function replayConflict(): never { throw new Error("操作标识已用于不同�
 function validateRetailActor(value: Record<string, unknown>): void {
   for (const key of ["actorId", "actorName"]) if (value[key] !== undefined) retailText(value[key], "操作人", 100, true);
 }
-export function validateRetailPhotos(photos: unknown): string[] {
+// Only browser preflight accepts private display references. Stored/server facts require original bytes.
+export function validateRetailPhotos(photos: unknown, photoReferences = false): string[] {
   if (!Array.isArray(photos) || photos.length > 6) throw new Error("实物照片最多 6 张。");
   return photos.map(photo => {
     if (typeof photo !== "string" || photo.length > 350000) throw new Error("每张照片须为不超过 250 KiB 的 JPEG / PNG / WebP 图片。");
+    if (photoReferences && /^\/api\/backend\/retail-photo\?unit=[A-Za-z0-9%-]+&index=[0-5]&hash=[a-f0-9]{64}(?:&sale=[A-Za-z0-9%-]+)?$/.test(photo)) return photo;
     const match = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(photo);
     if (!match || match[2].length % 4 !== 0) throw new Error("照片须为有效的本地 JPEG / PNG / WebP 图片，不能使用外部地址。");
     let bytes: string; try { bytes = atob(match[2]); } catch { throw new Error("照片编码异常。"); }
@@ -372,7 +374,7 @@ export function validateRetailPhotos(photos: unknown): string[] {
     return photo;
   });
 }
-export function applyRetailCommand(unit: RetailUnit, command: RetailCommand, event: RetailEvent, expectedVersion: number, others: RetailUnit[] = []) {
+export function applyRetailCommand(unit: RetailUnit, command: RetailCommand, event: RetailEvent, expectedVersion: number, others: RetailUnit[] = [], photoReferences = false) {
   if (!storedObject(command) || !["edit", "inspect", "price", "approve", "pause", "reinspect", "sell", "reserve", "release_reservation", "payment", "refund", "payment_reconcile", "payment_void", "refund_void", "deliver", "return", "after_sale", "after_sale_assess", "after_sale_link", "after_sale_close", "after_sale_cancel", "photos"].includes(command.type)) throw new Error("未知单机操作。");
   validateRetailEvent(event);
   const target = "saleId" in command ? unit.sales.find(sale => sale.id === retailId(command.saleId)) : undefined;
@@ -439,7 +441,7 @@ export function applyRetailCommand(unit: RetailUnit, command: RetailCommand, eve
   let next = { ...unit };
   const replaceSale = (sale: RetailSale) => { next.sales = unit.sales.map(item => item.id === sale.id ? sale : item); };
   if (command.type === "edit") {
-    next = validateRetailFieldEdit(unit, command.change, others);
+    next = validateRetailFieldEdit(unit, command.change, others, photoReferences);
     if (next === unit) return unit;
     if (command.change.field === "costCents" || command.change.field === "refurbCents") event = { ...event, sensitive: "financial" };
   } else if (command.type === "deliver" && target) {
@@ -551,7 +553,7 @@ export function applyRetailCommand(unit: RetailUnit, command: RetailCommand, eve
     requireReturnsSettled(unit); next.reservation = null; next.status = "available";
   } else if (command.type === "photos") {
     if (!["inspecting", "available", "hold"].includes(unit.status)) throw new Error("预留或已售单机照片已锁定。");
-    next.photos = validateRetailPhotos(command.photos);
+    next.photos = validateRetailPhotos(command.photos, photoReferences);
     if (sameRetailFieldValue(next.photos, unit.photos)) return unit;
   } else if (command.type === "price") {
     if (!["inspecting", "hold"].includes(unit.status)) throw new Error("请先暂停或解除占用，再更正待售资料。");

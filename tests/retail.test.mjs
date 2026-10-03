@@ -938,3 +938,12 @@ test("新建与逐项更正共用实测上限与真实日期，未知与零各�
   const measured=createRetailUnit(unit({batteryPercent:0,controllers:0,intakeDate:"2024-02-29"}),[],event("create-zero"));
   assert.equal(measured.batteryPercent,0); assert.equal(measured.controllers,0); assert.equal(measured.intakeDate,"2024-02-29");
 });
+
+test("正式照片引用仅用于浏览器核对，服务端和持久化仍要求图片原字节",()=>{
+ const photo='/api/backend/retail-photo?unit=synthetic-unit&index=0&hash='+"a".repeat(64);
+ const record=unit({photos:[photo]});
+ assert.throws(()=>validateRetailFieldEdit(record,{field:"model",value:"updated"}),/照片/);
+ assert.equal(validateRetailFieldEdit(record,{field:"model",value:"updated"},[],true).model,"updated");
+ assert.equal(validateRetailFieldEdit(record,{field:"warrantyMonths",value:24},[],true).warrantyMonths,24);
+ for(const invalid of ['https://example.invalid'+photo,photo+'&extra=1',photo.replace('index=0','index=6'),photo.replace('hash=','hash=bad')])assert.throws(()=>validateRetailPhotos([invalid],true));
+});

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Phone, X } from "lucide-react";
 import { useStaff } from "@/components/staff/use-staff";
-import { useProcurement } from "@/components/procurement/procurement-provider";
+import { useProcurement } from "@/components/backend-domain-context";
 import { initialRepairWorkflow, arrivalNotice, pickupNotice, isRepairReady, workflowGroup, type WorkflowCommand } from "@/lib/repair-workflow";
 import type { RepairDirectoryEntry } from "@/lib/repair-intake-record";
 import { useRepairWorkflows, updateRepairWorkflow } from "./repair-workflow-store";

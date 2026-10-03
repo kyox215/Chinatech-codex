@@ -310,3 +310,37 @@ test("回执清理等待期间切换身份，旧结果不能污染新恢复状�
  const h=harness();h.client.configureBackend(mockSnapshot({memberId:ownerId}));let release;h.storage.forgetOperation=()=>new Promise(resolve=>release=resolve);
  const pending=h.client.backendCommand("synthetic.command",{});const rejected=assert.rejects(pending,/身份已变化/);await setImmediate();h.requests[0].resolve(response(200,mockSnapshot({memberId:ownerId,revision:2})));await setImmediate();assert.equal(typeof release,"function");h.client.configureBackend(mockSnapshot({memberId:clerkId,revision:3}));release();await rejected;await setImmediate();assert.equal(h.client.backendRecovery().pending,null);assert.equal(h.client.backendRecovery().receipt,undefined);
 });
+
+test("保存delta遇到旧刷新在途仍补查当前分页，不等待健康轮询",async()=>{
+ const h=harness();const initial=mockSnapshot();initial.scope="/app/customers";initial.stateToken="a".repeat(64);initial.views={customers:{rows:[{phone:"synthetic-phone",name:"old"}]}};h.client.configureBackend(initial);
+ const old=h.client.refreshBackend();const save=h.client.backendCommand("customer.save",{});await setImmediate();
+ const next=mockSnapshot({revision:2});next.delta=true;next.customers=[{phone:"synthetic-phone",name:"new"}];h.requests[1].resolve(response(200,next));await save;
+ h.requests[0].resolve(response(200,{unchanged:true,stateToken:initial.stateToken,storeId,memberId:clerkId,revision:1}));await old;await setImmediate();
+ assert.equal(h.requests.length,3);assert.equal(h.requests[2].url,"/api/backend/state?scope=%2Fapp%2Fcustomers");
+ const fresh=mockSnapshot({revision:2});fresh.scope=initial.scope;fresh.views={customers:{rows:[{phone:"synthetic-phone",name:"new"}]}};h.requests[2].resolve(response(200,fresh));await setImmediate();
+ assert.equal(h.client.backendSnapshot().views.customers.rows[0].name,"new");
+});
+test("查询后发先到不能被旧分页结果覆盖",async()=>{
+ const h=harness();const initial=mockSnapshot();initial.scope="/app/customers";h.client.configureBackend(initial);
+ const a=h.client.requestBackendScope("/app/customers?q=a");const b=h.client.requestBackendScope("/app/customers?q=b");
+ const recent=mockSnapshot();recent.scope="/app/customers?q=b";h.requests[1].resolve(response(200,recent));await b;
+ const stale=mockSnapshot({revision:5});stale.scope="/app/customers?q=a";h.requests[0].resolve(response(200,stale));await a;
+ assert.equal(h.client.backendSnapshot(),recent);
+});
+test("晚到的已提交实体返回给保存调用方，不能回退较新的全局分页",async()=>{
+ const h=harness();const initial=mockSnapshot();initial.scope="/app/repairs";h.client.configureBackend(initial);
+ const save=h.client.backendCommand("intake.save",{});await setImmediate();
+ const query=h.client.refreshBackend();const current=mockSnapshot({revision:3});current.scope=initial.scope;h.requests[1].resolve(response(200,current));await query;
+ const receipt=mockSnapshot({revision:2});receipt.delta=true;receipt.intakes=[{id:"saved-outside-page",model:"saved"}];h.requests[0].resolve(response(200,receipt));const result=await save;
+ assert.equal(result.intakes[0].id,"saved-outside-page");assert.equal(h.client.backendSnapshot(),current);assert.equal(current.intakes.length,0);
+ await setImmediate();h.requests[2].resolve(response(200,current));await setImmediate();
+});
+
+test("撤权后的较新页面不能从晚到的保存delta返回旧权限事实",async()=>{
+ const h=harness();const initial=mockSnapshot();initial.scope="/app/repairs";initial.staff.members[0].permissions=["repairs.view","repairs.edit"];h.client.configureBackend(initial);
+ const save=h.client.backendCommand("intake.save",{});await setImmediate();const query=h.client.refreshBackend();
+ const revoked=mockSnapshot({revision:3,memberRevision:2});revoked.scope=initial.scope;revoked.staff.members[0].permissions=["repairs.edit"];h.requests[1].resolve(response(200,revoked));await query;
+ const old=mockSnapshot({revision:2});old.delta=true;old.staff.members[0].permissions=["repairs.view","repairs.edit"];old.intakes=[{id:"old-visible-fact"}];h.requests[0].resolve(response(200,old));const returned=await save;
+ assert.equal(returned.intakes.length,0);assert.equal(h.client.backendSnapshot().intakes.length,0);assert.ok(returned.operation);
+ await setImmediate();h.requests[2].resolve(response(200,revoked));await setImmediate();
+});

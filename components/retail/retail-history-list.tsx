@@ -1,4 +1,5 @@
 "use client";
+import { usePageQuery, QueryNotice } from "@/components/backend-query";
 
 import Link from "next/link";
 import { useMemo } from "react";
@@ -10,7 +11,7 @@ import { useStaff } from "@/components/staff/use-staff";
 import type { RetailHistoryRecord } from "@/lib/retail-history";
 import type { RetailUnit } from "@/lib/retail";
 import { buildRetailListIndex, queryRetailList, retailViewFromParams, retailViewLabels, type RetailView } from "@/lib/retail-list-model";
-import { useRetail } from "./retail-provider";
+import { useRetail } from "@/components/backend-domain-context";
 import { historyDate, historyDetailHref, historyMoney, historyText } from "./retail-history-shared";
 import styles from "./retail-history.module.css";
 import listStyles from "./retail-list.module.css";
@@ -31,8 +32,10 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
   const requestedPage = Number(params.get("page") || "1");
   // Project only list facts once per authorized dataset, not on every keystroke.
   const index = useMemo(() => buildRetailListIndex(units, records), [units, records]);
-  const result = useMemo(() => queryRetailList(index, {view, condition, query, category, review, sort, status, page:requestedPage}),
+  const localResult = useMemo(() => queryRetailList(index, {view, condition, query, category, review, sort, status, page:requestedPage}),
     [index, view, condition, query, category, review, sort, status, requestedPage]);
+  const serverQuery=usePageQuery(`/app/retail${params.size?`?${params}`:""}`);
+  const result=serverQuery.state?.views?.retail ?? localResult;
   const listParams = new URLSearchParams(params.toString());
   listParams.delete("source");
   if(view === "available") listParams.delete("view"); else listParams.set("view",view);
@@ -52,7 +55,7 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
   return <main className={`module-page ${surface.page}`}>
     <header className="module-heading"><PageTitle title="整机商品" /><div className="module-heading__actions"><Link className="button button--secondary button--compact" href="/app/retail?source=units">单机管理</Link>{staff.can("retail.edit") ? <Link className="button button--primary button--compact" href="/app/retail/new"><Plus size={17} />新建单机</Link> : null}</div></header>
     <nav className={styles.sourceTabs} aria-label="整机销售状态">{(["available","sold","other"] as const).map(value => <Link key={value} href={viewHref(value)} aria-current={view === value ? "page" : undefined}>{retailViewLabels[value]} <span>{result.viewCounts[value]}</span></Link>)}</nav>
-    {error ? <p className="procurement-feedback procurement-feedback--error" role="alert">{error}</p> : null}
+    <QueryNotice query={serverQuery}/>{error ? <p className="procurement-feedback procurement-feedback--error" role="alert">{error}</p> : null}
     <section className={`panel ${styles.list}`} aria-label={retailViewLabels[view]}>
       <div className={`${listStyles.classification} ${styles.classificationBar}`} role="group" aria-label="商品分类筛选">{(["all","新机","翻新机"] as const).map(value => <button key={value} type="button" className={condition === value ? listStyles.classificationActive : ""} aria-pressed={condition === value} onClick={() => update("condition",value)}><span>{value === "all" ? "全部" : value}</span><small>{result.conditionCounts[value]}</small></button>)}</div>
       <div className={styles.toolbar}>

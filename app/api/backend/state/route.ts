@@ -3,6 +3,7 @@ import { getServerAccess, memberInTransaction } from "@/lib/backend/context";
 import { withDatabase, BackendError } from "@/lib/backend/database";
 import { loadState, loadStateHeader, projectState } from "@/lib/backend/state";
 import { isSupabaseMode } from "@/lib/supabase/config";
+import { loadPageState, validatePageScope } from "@/lib/backend/page-state";
 
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
@@ -18,12 +19,13 @@ export async function GET(request: Request) {
   try {
     const access=await getServerAccess();if(!access) throw new BackendError("当前账号尚未获得门店授权。",403);
     accessTime = performance.now() - started;
-    const known = new URL(request.url).searchParams.get("known");
+    const params=new URL(request.url).searchParams;const known = params.get("known");const scope=params.get("scope");if(scope)validatePageScope(scope);
     const readStarted = performance.now();
     const snapshot=await withDatabase(access.identity,access.storeId,async tx=>{
       const fresh=await memberInTransaction(tx,access.storeId,access.identity.userId);
       const header=await loadStateHeader(tx,access.storeId,fresh);
       if(known && /^[a-f0-9]{64}$/.test(known) && known===header.stateToken) return {unchanged:true as const,stateToken:header.stateToken,storeId:access.storeId,memberId:fresh.id,revision:header.revision};
+      if(scope)return loadPageState(tx,access.storeId,fresh,scope);
       return projectState(await loadState(tx,access.storeId,fresh,header),fresh);
     });
     readTime = performance.now() - readStarted;

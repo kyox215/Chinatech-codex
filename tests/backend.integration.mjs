@@ -5,12 +5,18 @@ import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
 import ts from "typescript";
 import sharp from "sharp";
-async function domain(path){let code=ts.transpileModule(readFileSync(path,"utf8"),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;if(path.endsWith("retail.ts")){const customer=await domainCode("lib/customers.ts");code=code.replace('"./customers"',JSON.stringify(customer));}return import("data:text/javascript;base64,"+Buffer.from(code).toString("base64"));}
-async function domainCode(path){const code=ts.transpileModule(readFileSync(path,"utf8"),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;return "data:text/javascript;base64,"+Buffer.from(code).toString("base64");}
+const domainModules=new Map();
+function domainCode(path){
+ if(domainModules.has(path))return domainModules.get(path);
+ const code=ts.transpileModule(readFileSync(path,"utf8"),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText.replace(/from "\.\/([^"]+)"/g,(_,dep)=>`from "${domainCode(path.slice(0,path.lastIndexOf("/")+1)+dep+".ts")}"`);
+ const url="data:text/javascript;base64,"+Buffer.from(code).toString("base64");domainModules.set(path,url);return url;
+}
+async function domain(path){return import(domainCode(path));}
 const retailDomain=await domain("lib/retail.ts");const intakeDomain=await domain("lib/repair-intake-record.ts");
 const config=JSON.parse(readFileSync(".local/backend/connection.private.json","utf8"));
 if(new URL(config.API_URL).port!=="55421" || new URL(config.DB_URL).port!=="55422") throw new Error("This test only accepts the isolated local rebuild stack.");
-const api="http://127.0.0.1:3117";const origin="http://localhost:3117";
+const port=Number(process.env.BACKEND_TEST_PORT || 3117);if(![3117,3151].includes(port))throw new Error("Invalid isolated test port");
+const api=`http://127.0.0.1:${port}`;const origin=`http://localhost:${port}`;
 const sql=postgres(config.DB_URL,{max:1,prepare:false});
 const admin=createClient(config.API_URL,config.SECRET_KEY || config.SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 const suffix=randomBytes(6).toString("hex");const password="Ct"+randomBytes(20).toString("hex");
@@ -118,7 +124,7 @@ try {
  let before=(await state(owner)).retail.find(row=>row.id===unitId);const repairId="LOCAL-"+randomBytes(8).toString("hex").toUpperCase();const linkId=randomUUID();
  const link={unitId,saleId,caseId,repairId,version:before.version};r=await command(owner,stores[0],"retail.aftersale_repair",link,linkId);assert.equal(r.status,200,JSON.stringify(r.data));
  assert.equal(r.data.intakes.find(row=>row.id===repairId).retailOrigin.saleId,saleId);assert.equal(r.data.retail.find(row=>row.id===unitId).sales[0].afterSales[0].repairId,repairId);
- r=await command(owner,stores[0],"retail.aftersale_repair",link,linkId);assert.equal(r.status,200);assert.equal(r.data.intakes.length,2);pass("aftersale repair and sale link commit together and retry once");
+ r=await command(owner,stores[0],"retail.aftersale_repair",link,linkId);assert.equal(r.status,200);assert.equal(r.data.delta,true);assert.equal(r.data.intakes.length,1);assert.equal((await state(owner)).intakes.length,2);pass("aftersale repair and sale link commit together and retry once");
  before=(await state(owner)).retail.find(row=>row.id===unitId);
  assert.equal((await commandApi(before,{type:"after_sale_close",saleId,caseId,date:day,resolution:"Synthetic completion",returned:true})).status,400);pass("aftersale cannot close before the linked repair completion");
  await command(owner,stores[0],"repair.workflow",{id:repairId,command:{type:"stage",status:"completed",note:"Synthetic completed"},revision:0});

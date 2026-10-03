@@ -1,4 +1,5 @@
 "use client";
+import { useBackendState } from "@/lib/backend/react";
 
 import Link from "next/link";
 import { PageTitle } from "@/components/page-title";
@@ -7,12 +8,12 @@ import { DashboardProcurementSummary } from "@/components/procurement/procuremen
 import { RetailDashboardSummary } from "@/components/retail/retail-dashboard-summary";
 import { useRepairDirectory } from "@/components/repairs/local-intake-store";
 import { useRepairWorkflows } from "@/components/repairs/repair-workflow-store";
-import { useProcurement } from "@/components/procurement/procurement-provider";
-import { useRetail } from "@/components/retail/retail-provider";
+import { useProcurement } from "@/components/backend-domain-context";
+import { useRetail } from "@/components/backend-domain-context";
 import { useStaff } from "@/components/staff/use-staff";
 import { useStoreSettings } from "@/components/settings/settings-store";
 import { defaultRepairGroups, visibleRepairGroups } from "@/lib/repair-groups";
-import { isBackendClient } from "@/lib/backend/client";
+import { useBackendMode } from "@/lib/backend/react";
 import { workflowGroup, workflowGroups, type WorkflowGroup } from "@/lib/repair-workflow";
 import { procurementEventLabel } from "@/lib/procurement";
 import {
@@ -48,10 +49,12 @@ function Sparkline({ points, tone }: { points: string; tone: Tone }) {
 }
 
 export function DashboardContent() {
-  return isBackendClient() ? <RealDashboardContent /> : <PreviewDashboardContent />;
+  const backendMode=useBackendMode();
+  return backendMode ? <RealDashboardContent /> : <PreviewDashboardContent />;
 }
 
 function RealDashboardContent() {
+  const remote=useBackendState()?.views?.dashboard;
   const { settings } = useStoreSettings();
   const orders = useRepairDirectory();
   const { records, storageError } = useProcurement();
@@ -61,21 +64,24 @@ function RealDashboardContent() {
   const canRepairs = staff.can("repairs.view");
   const canRetail = staff.can("retail.view");
   const error = storageError || workflowError || retailError || staff.error;
-  const counts = Object.fromEntries(Object.keys(workflowGroups).map(group => [group, 0])) as Record<WorkflowGroup, number>;
-  for (const order of orders) counts[workflowGroup(order, records, workflows[order.id])]++;
+  const localCounts = Object.fromEntries(Object.keys(workflowGroups).map(group => [group, 0])) as Record<WorkflowGroup, number>;
+  for (const order of orders) localCounts[workflowGroup(order, records, workflows[order.id])]++;
+  const counts=(remote?.groups??localCounts) as Record<WorkflowGroup,number>;
   const realStats = [
     { label: "待检测", value: orders.filter(order => order.status === "diagnosis").length, note: "接单阶段", icon: Clock3, tone: "violet" },
     { label: "配件跟进", value: counts.purchase + counts.arrival, note: "下单与到货阶段", icon: PackageSearch, tone: "amber" },
     { label: "维修与测试", value: orders.filter(order => order.status === "repairing" || order.status === "testing").length, note: "当前维修阶段", icon: Wrench, tone: "mint" },
     { label: "待取机", value: counts.ready, note: "等待客户取机", icon: PackageCheck, tone: "rose" },
   ];
+  realStats.forEach((stat,index)=>{if(remote)stat.value=remote.stats[index];});
   const recent = [...orders].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || left.id.localeCompare(right.id)).slice(0, 4);
-  const activity = [
+  const localActivity = [
     ...orders.map(order => ({ id: `intake:${order.id}`, title: `${order.id} · 工单已登记`, time: order.createdAt, href: `/app/repairs/${order.id}`, tone: "violet" })),
     ...orders.flatMap(order => (workflows[order.id]?.events ?? []).map(event => ({ id: `repair:${order.id}:${event.id}`, title: `${order.id} · ${event.label}`, time: event.time, href: `/app/repairs/${order.id}`, tone: "mint" }))),
     ...records.flatMap(record => record.events.map(event => ({ id: `procurement:${record.id}:${event.id}`, title: `${record.item} · ${procurementEventLabel(event)}`, time: event.time, href: `/app/repairs/${record.repairId}`, tone: "amber" }))),
     ...units.flatMap(unit => unit.events.map(event => ({ id: `retail:${unit.id}:${event.id}`, title: `${unit.code} · ${event.title}`, time: event.time, href: `/app/retail/units/${unit.id}`, tone: "violet" }))),
   ].filter(event => event.time).sort((left, right) => right.time.localeCompare(left.time) || left.id.localeCompare(right.id)).slice(0, 5);
+  const activity=remote?.activity??localActivity;
   const heading = <header className="module-heading"><PageTitle title="工作台" /><div className="module-heading__actions">{canRepairs ? <RepairScanner /> : null}{staff.can("repairs.edit") ? <Link className="button button--primary button--compact" href="/app/repairs/new"><Plus size={17} />新建工单</Link> : null}</div></header>;
   if (!workflowReady || !retailReady || !staff.ready) return <div className="dashboard">{heading}<div className="panel module-empty" role="status">正在读取门店概况…</div></div>;
   if (error) return <div className="dashboard">{heading}<div className="panel module-empty" role="alert">{error}</div></div>;
@@ -91,12 +97,12 @@ function RealDashboardContent() {
         {!canRepairs ? <div className="section-empty"><strong>当前账号没有维修查看权限</strong></div> : !recent.length ? <div className="section-empty"><Wrench size={24} /><strong>尚未登记工单</strong></div> : <div className="module-table-scroll" role="region" aria-label="近期工单表格" tabIndex={0}><div className="repair-table__head"><span>设备与故障</span><span>客户 / 工单号</span><span>当前状态</span><span /></div><div className="repair-list">{recent.map(order => <div className="repair-row" key={order.id}><div className="repair-row__device"><span><Smartphone size={18} /></span><div><strong>{order.device.brand} {order.device.model}</strong><small>{order.issue}</small></div></div><div className="repair-row__meta"><strong>{order.customer.name}</strong><small>{order.id}</small></div><span className={`status-pill status-pill--${order.tone}`}>{order.statusLabel}</span><Link className="row-action" href={`/app/repairs/${order.id}`} aria-label={`打开 ${order.id}`}><ChevronRight size={18} /></Link></div>)}</div></div>}
       </article>
       <article className="panel workload-panel">
-        <div className="panel__header"><div><h2>维修阶段分布</h2></div>{canRepairs ? <span className="status-pill status-pill--info">{orders.length} 张</span> : null}</div>
+        <div className="panel__header"><div><h2>维修阶段分布</h2></div>{canRepairs ? <span className="status-pill status-pill--info">{remote?.repairCount??orders.length} 张</span> : null}</div>
         {canRepairs ? <div className="legend-list">{visibleRepairGroups(settings.repairGroups ?? defaultRepairGroups(), "workflow").map(({key: group, label}) => <span key={group}>{label}<strong>{counts[group]}</strong></span>)}</div> : <div className="section-empty"><strong>当前账号没有维修查看权限</strong></div>}
       </article>
     </section>
     <section className="dashboard-grid dashboard-grid--bottom">
-      {canRepairs && records.length ? <DashboardProcurementSummary /> : <article className="panel arrivals-panel"><div className="panel__header"><div><h2>采购与到货</h2></div>{canRepairs ? <Link className="button button--secondary button--tiny" href="/app/repairs">查看工单</Link> : null}</div><div className="section-empty"><strong>{canRepairs ? "尚未登记采购" : "当前账号没有维修查看权限"}</strong></div></article>}
+      {canRepairs && (remote?.procurementCount??records.length) ? <DashboardProcurementSummary /> : <article className="panel arrivals-panel"><div className="panel__header"><div><h2>采购与到货</h2></div>{canRepairs ? <Link className="button button--secondary button--tiny" href="/app/repairs">查看工单</Link> : null}</div><div className="section-empty"><strong>{canRepairs ? "尚未登记采购" : "当前账号没有维修查看权限"}</strong></div></article>}
       {canRetail ? <RetailDashboardSummary /> : <article className="panel retail-panel"><div className="panel__header"><div><h2>整机商品</h2></div></div><div className="section-empty"><strong>当前账号没有整机查看权限</strong></div></article>}
       <article className="panel activity-panel"><div className="panel__header"><div><h2>近期动态</h2></div></div>{activity.length ? <ol className="activity-list">{activity.map(event => <li key={event.id}><span className={`activity-dot activity-dot--${event.tone}`} /><div><Link href={event.href}><strong>{event.title}</strong></Link><small>{event.time}</small></div></li>)}</ol> : <div className="section-empty"><strong>暂无业务动态</strong></div>}</article>
     </section>

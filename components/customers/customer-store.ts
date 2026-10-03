@@ -1,4 +1,5 @@
 "use client";
+import { useBackendState, useBackendMode } from "@/lib/backend/react";
 import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 import { requirePreviewPermission } from "@/lib/staff-client";
 
@@ -6,7 +7,7 @@ import { useSyncExternalStore } from "react";
 import { buildCustomerDirectory, parseCustomerProfiles, updateCustomerProfile, type CustomerProfile } from "@/lib/customers";
 import { intakeCustomers } from "@/lib/repair-intake";
 import { useLocalIntakes, useRepairDirectory } from "@/components/repairs/local-intake-store";
-import { useRetail } from "@/components/retail/retail-provider";
+import { useRetail } from "@/components/backend-domain-context";
 import { useRetailHistory } from "@/components/retail/retail-history-store";
 
 const key = "chinatech.m1.customer-profiles.v1";
@@ -32,13 +33,14 @@ function subscribe(listener: () => void) {const stop=subscribeBackend(listener);
   return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); };
 }
 export function useCustomerDirectory() {
+  const backend=useBackendState();const backendMode=useBackendMode();
   const profiles = useSyncExternalStore(subscribe, read, () => server);
   const repairs = useRepairDirectory();
   const local = useLocalIntakes();
   const retail = useRetail();
   const history = useRetailHistory();
-  const seeds = [...(isBackendClient()?[]:intakeCustomers), ...local.records.map(record => ({ phone: record.phone, name: record.customerName, email: record.email }))];
-  return { customers: buildCustomerDirectory(repairs, retail.units, profiles.profiles, seeds, history.records), ready: profiles.ready && local.ready && retail.ready && history.ready, error: [profiles.error, local.error, retail.error, history.error].filter(Boolean).join(" ") };
+  const seeds = [...(backendMode?[]:intakeCustomers), ...local.records.map(record => ({ phone: record.phone, name: record.customerName, email: record.email }))];
+  return { customers: backend?.views?.customers?.rows ?? buildCustomerDirectory(repairs, retail.units, profiles.profiles, seeds, history.records), ready: backend?true:profiles.ready && local.ready && retail.ready && history.ready, error: backend?"": [profiles.error, local.error, retail.error, history.error].filter(Boolean).join(" ") };
 }
 export function saveCustomerProfile(draft: Omit<CustomerProfile, "version">, expectedVersion: number) {
   if(isBackendClient()) return backendCommand("customer.save",{draft,version:expectedVersion});

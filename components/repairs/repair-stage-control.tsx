@@ -5,7 +5,7 @@ import { ChevronDown, Check, ClipboardList, X } from "lucide-react";
 import { repairStatusOptions, type RepairStatus } from "@/lib/repair-fixtures";
 import { type RepairDirectoryEntry } from "@/lib/repair-intake-record";
 import { repairStageTones, stageChangeNeedsNote, type WorkflowCommand } from "@/lib/repair-workflow";
-import { useProcurement } from "@/components/procurement/procurement-provider";
+import { useProcurement } from "@/components/backend-domain-context";
 import { useStaff } from "@/components/staff/use-staff";
 import { useRepairWorkflows, updateRepairWorkflow } from "./repair-workflow-store";
 export function RepairStageControl(props: { order: RepairDirectoryEntry; onSaved?: (status: RepairStatus) => void }) { const staff = useStaff(); return <ScopedStageControl key={`${staff.member?.id}:${staff.member?.revision}`} {...props} />; }

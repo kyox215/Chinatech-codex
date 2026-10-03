@@ -6,7 +6,7 @@ import { Building2, ContactRound, CircleDollarSign, Printer, Settings, Plus, Pen
 import { PageTitle } from "@/components/page-title";
 import { SelectControl } from "@/components/select-control";
 import { useRepairDirectory } from "@/components/repairs/local-intake-store";
-import { useRetail } from "@/components/retail/retail-provider";
+import { useRetail } from "@/components/backend-domain-context";
 import { useStoreSettings, saveStoreSettings } from "./settings-store";
 import { financeTotals, validateFinanceEntry, type StoreSettings, type SupplierProfile, type PaperFormat } from "@/lib/store-settings";
 import { intakeRecordTime } from "@/lib/repair-intake-record";

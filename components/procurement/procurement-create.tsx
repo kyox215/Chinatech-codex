@@ -1,4 +1,6 @@
 "use client";
+import { useBackendLookup } from "@/components/backend-lookup";
+import { SearchCombobox } from "@/components/search-combobox";
 
 import Link from "next/link";
 import { PageTitle } from "@/components/page-title";
@@ -8,7 +10,7 @@ import { useEffect, useState } from "react";
 import { PackageSearch, Plus } from "lucide-react";
 import { useRepairDirectory } from "@/components/repairs/local-intake-store";
 import { validateProcurementDraft, type ProcurementRecord } from "@/lib/procurement";
-import { useProcurement } from "./procurement-provider";
+import { useProcurement } from "@/components/backend-domain-context";
 import { useStaff } from "@/components/staff/use-staff";
 import { AccessPanel } from "@/components/staff/access-panel";
 
@@ -20,6 +22,7 @@ export function ProcurementCreate({ initialRepairId = "" }: { initialRepairId?: 
   const [pending, setPending] = useState("");
   useEffect(() => { if (canEdit && pending && feedback?.recordId === pending && !feedback.error) router.push(`/app/procurement/${pending}`); }, [canEdit, pending, feedback, router]);
   const [repairId, setRepairId] = useState(initialRepairId);
+  const candidates=useBackendLookup<(typeof repairOrders)[number]>("repairOptions",repairId);
   const [item, setItem] = useState("");
   const [supplier, setSupplier] = useState("");
   const [required, setRequired] = useState(true);
@@ -33,7 +36,7 @@ export function ProcurementCreate({ initialRepairId = "" }: { initialRepairId?: 
     if (!canEdit) return;
     if (pending && !feedback?.error) return;
     try {
-      if (!repairOrders.some((row) => row.id === repairId)) throw new Error("请选择已有的关联工单。");
+      if (candidates.backend?!repairId.trim():!repairOrders.some((row) => row.id === repairId)) throw new Error("请选择已有的关联工单。");
       if (cost.trim() && !/^\d+(\.\d{1,2})?$/.test(cost.trim())) throw new Error("单价须为非负金额，最多两位小数；未知时请留空。");
       const record: ProcurementRecord = { id: `PO-DEMO-${crypto.randomUUID().slice(0, 8).toUpperCase()}`, repairId, required, item: item.trim(), supplier: supplier.trim(), quantity: quantity.trim() ? Number(quantity) : Number.NaN, unitCostCents: canCost && cost.trim() ? Math.round(Number(cost) * 100) : null, expectedAt, reference: "", events: [] };
       validateProcurementDraft(record);
@@ -47,7 +50,7 @@ export function ProcurementCreate({ initialRepairId = "" }: { initialRepairId?: 
   const message = pending && feedback?.recordId === pending && feedback.error ? feedback.message : error;
   if (!canEdit) return <AccessPanel />;
   return <main className="module-page procurement-create"><header className="module-heading"><PageTitle title="新建工单采购" backHref="/app/procurement" backLabel="返回采购列表" /></header><form className="panel procurement-create-form" noValidate onSubmit={submit}><div className="detail-section__head"><div><span><PackageSearch size={18} /></span><div><h3>采购条目</h3></div></div><span className="status-pill status-pill--warning">草稿</span></div>{message ? <div className="procurement-feedback procurement-feedback--error" role="alert">{message}</div> : null}<div className="field-grid">
-      <label className="field field--wide"><span>关联工单 *</span><SelectControl aria-label="关联工单" value={repairOrders.some(row => row.id === repairId) ? repairId : ""} onChange={(event) => setRepairId(event.target.value)}><option value="">请选择工单</option>{repairOrders.map((repair) => <option value={repair.id} key={repair.id}>{repair.id} · {repair.device.model}</option>)}</SelectControl></label>
+      {candidates.backend?<SearchCombobox label="关联工单 *" value={repairId} onChange={setRepairId} filterOptions={false} required options={candidates.rows.map(row=>({value:row.id,label:row.id,detail:row.device.model}))} placeholder="输入工单号或设备型号"/>:<label className="field field--wide"><span>关联工单 *</span><SelectControl aria-label="关联工单" value={repairOrders.some(row => row.id === repairId) ? repairId : ""} onChange={(event) => setRepairId(event.target.value)}><option value="">请选择工单</option>{repairOrders.map((repair) => <option value={repair.id} key={repair.id}>{repair.id} · {repair.device.model}</option>)}</SelectControl></label>}
       <label className="field"><span>配件名称 *</span><input aria-label="配件名称" value={item} maxLength={100} onChange={(event) => setItem(event.target.value)} placeholder="准确的配件名称与适配型号" /></label>
       <label className="field"><span>供应商 *</span><input aria-label="供应商" value={supplier} maxLength={100} onChange={(event) => setSupplier(event.target.value)} placeholder="例如 MobileParts SRL" /></label>
       <label className="field"><span>配件用途</span><SelectControl aria-label="配件用途" value={required ? "required" : "optional"} onChange={(event) => setRequired(event.target.value === "required")}><option value="required">本单必需配件</option><option value="optional">备选配件，不阻塞本单</option></SelectControl></label>
