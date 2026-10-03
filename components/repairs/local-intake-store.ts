@@ -2,6 +2,9 @@
 import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 import { currentRetailSale, parseStoredRetailUnits, saleProductUnit, retailCategories } from "@/lib/retail";
 import { retailUnits } from "@/lib/retail-fixtures";
+import { currentRepairRequirements } from "@/lib/repair-requirements";
+import { previewRepairWorkflow } from "./repair-workflow-store";
+import { updateItemQuotes } from "@/lib/repair-item-pricing";
 import { emptyIntakeServices } from "@/lib/intake-services";
 import { parseStoreSettings } from "@/lib/store-settings";
 import { getRepairOrder } from "@/lib/repair-fixtures";
@@ -73,7 +76,8 @@ function persistIntake(data: IntakeReceiptData, permission: Permission, actorId:
   if(existing?.retailOrigin) throw new Error("售后接机快照不能改写。");
   const policy=existing?.policy ?? intakePolicyFromSettings();
   if(data.policy && JSON.stringify(data.policy)!==JSON.stringify(policy)) throw new Error("门店保修资料已变化，请重新核对。");
-  const saved={...data,policy,revision:expectedRevision+1};
+  const pricing=data.itemQuotes===undefined?{itemQuotes:existing?.itemQuotes,itemQuoteHistory:existing?.itemQuoteHistory}:updateItemQuotes(existing?.itemQuotes,data.itemQuotes,existing?.itemQuoteHistory,{id:crypto.randomUUID(),time:intakeRecordTime(),actorId});
+  const saved={...data,...pricing,policy,revision:expectedRevision+1};
   const next=existing?records.map(item=>item.id===data.id?saved:item):[...records,saved];
   const nextSignatures=signature?appendIntakeSignature(signatures,saved,policy,signature,actorId,expectedSignatureCount):signatures;
   writeEnvelope(next,nextSignatures,permission,actorId); return saved;
@@ -114,4 +118,14 @@ export function createRetailAfterSaleRepair(unitId:string,saleId:string,caseId:s
   const data:IntakeReceiptData={id,createdAt:now,updatedAt:now,previewAt:now,retailOrigin:{unitId,saleId,caseId},custody:request.custody === "left" ? "store" : "customer",customerName:sale.customerName||"",phone:sale.customerPhone,email:sale.customerEmail||"",category:retailCategories[product.category],brand:product.brand,model:product.model,color:product.color,serial:product.imei1||product.serial,issue:request.issue,accessories:[],services:structuredClone(emptyIntakeServices),priority:"普通",photoCount:0};
   const raw=JSON.stringify({version:1,records:[...records,data]});parseLocalIntakes(raw);
   persistIntake(data, "sale.aftersales", actor.id);return id;
+}
+
+export async function saveRepairItemQuote(id:string,item:string,quoteCents:number|null,intakeRevision:number){
+  if(isBackendClient()){await backendCommand("repair.quote",{id,item,quoteCents,intakeRevision});return;}
+  const actor=requirePreviewPermission("repairs.edit");const raw=window.localStorage.getItem(key);const records=parseLocalIntakes(raw);const signatures=parseIntakeSignatures(raw);const intake=records.find(row=>row.id===id);
+  if(!intake)throw new Error("请在新建的工单上保存报价。");if((intake.revision??1)!==intakeRevision)throw new Error("工单或报价已变化，请重新核对。");
+  const order=intakeDirectoryEntry(intake);const requirements=currentRepairRequirements(order,previewRepairWorkflow(order));const quotes=[...(intake.itemQuotes??[])];for(const row of requirements)if(!quotes.some(quote=>quote.item===row.title))quotes.push({item:row.title,amountCents:null});
+  const index=quotes.findIndex(row=>row.item===item);if(index<0)quotes.push({item,amountCents:quoteCents});else quotes[index]={item,amountCents:quoteCents};
+  const time=intakeRecordTime();const pricing=updateItemQuotes(intake.itemQuotes,quotes,intake.itemQuoteHistory,{id:crypto.randomUUID(),time,actorId:actor.id});
+  writeEnvelope(records.map(row=>row.id===id?{...row,...pricing,revision:intakeRevision+1,updatedAt:time}:row),signatures,"repairs.edit",actor.id);
 }

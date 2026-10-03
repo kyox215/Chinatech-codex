@@ -1,3 +1,4 @@
+import { validItemQuotes, validItemQuoteHistory, type ItemQuote, type ItemQuoteChange } from "./repair-item-pricing";
 import { intakeRequirements, type RepairRequirement } from "./repair-requirements";
 import type { IntakeServices } from "./intake-services";
 import type { RepairOrder } from "./repair-fixtures";
@@ -10,6 +11,7 @@ export type IntakeSignatureSnapshot = Pick<IntakeReceiptData,"customerName"|"pho
 export type IntakePhotoReference = { id: string; slot: "front" | "back" | "other" };
 export type IntakePhotoAttachment = IntakePhotoReference & { mime: "image/jpeg"; base64: string };
 export type IntakeReceiptData = {
+  itemQuotes?: ItemQuote[]; itemQuoteHistory?: ItemQuoteChange[];
   revision?: number; policy?: IntakePolicy; faults?: string[]; issueNote?: string;
   retailOrigin?: {unitId:string;saleId:string;caseId:string};
   custody?: "store" | "customer";
@@ -57,6 +59,8 @@ function validServices(value: unknown): value is IntakeServices {
 }
 export function validLocalIntake(value: unknown): value is IntakeReceiptData {
   if (!isObject(value) || typeof value.id !== "string" || !localIntakeId(value.id)) return false;
+  if(value.itemQuotes !== undefined && !validItemQuotes(value.itemQuotes)) return false;
+  if(value.itemQuoteHistory !== undefined && !validItemQuoteHistory(value.itemQuoteHistory)) return false;
   if(value.revision !== undefined && (!Number.isSafeInteger(value.revision) || Number(value.revision)<1)) return false;
   if(value.policy !== undefined && !validIntakePolicy(value.policy)) return false;
   if(value.faults !== undefined && (!Array.isArray(value.faults) || value.faults.length>60 || !value.faults.every(item=>typeof item==="string" && item.length<=100))) return false;

@@ -6,6 +6,7 @@ import { useLocalIntakes, useRepairDirectory } from "./local-intake-store";
 import { useRepairWorkflows } from "./repair-workflow-store";
 import { initialRepairWorkflow } from "@/lib/repair-workflow";
 import { isBackendClient } from "@/lib/backend/client";
+import { itemQuoteTotal } from "@/lib/repair-item-pricing";
 import { getRepairOrder } from "@/lib/repair-fixtures";
 import { useStoreSettings } from "@/components/settings/settings-store";
 import { SelectControl } from "@/components/select-control";
@@ -25,6 +26,7 @@ export function IntakeReceipt({ data, onClose }: { data: IntakeReceiptData; onCl
   const order = directory.find(order => order.id === data.id);
   const { workflows } = useRepairWorkflows();
   const workflow = order ? workflows[data.id] ?? initialRepairWorkflow(order) : null;
+  const quoteTotal=itemQuoteTotal(data.itemQuotes);
   const quote = isBackendClient() ? undefined : getRepairOrder(data.id)?.quote;
   const policy = data.policy ?? { months: settings.repairWarrantyMonths, shopName: settings.shopName, address: settings.address, phone: settings.phone };
   const signature = matchingIntakeSignature(signatures, data, policy);
@@ -57,6 +59,7 @@ export function IntakeReceipt({ data, onClose }: { data: IntakeReceiptData; onCl
   const copies: PrintLabel[] = format === "double" ? ["customerCopy", "shopCopy"] : ["customerCopy"];
   const requests = printServiceRequests(data.services, language);
   const issue = printIssue(data, language);
+  const pricedRequests=data.itemQuotes?.map(row=>{const label=printKnownOrOriginal(row.item,language);const details=requests.filter(request=>request.startsWith(label+" · ")||(row.item==="电池"&&request.startsWith("Apple · "+label)));return {label:details.length?details.join("; "):label,amount:row.amountCents===null?t("define"):printMoney(row.amountCents,language)};});
   const contact = policy.phone ? `${t("contact")}: ${policy.phone}` : "";
   return createPortal(<dialog ref={dialog} className="intake-receipt-dialog" aria-labelledby={title} onCancel={event => { event.preventDefault(); onClose(); }}>
     <style media="print">{"@page { size: " + formats[format] + "; margin: 8mm; }"}</style>
@@ -73,8 +76,8 @@ export function IntakeReceipt({ data, onClose }: { data: IntakeReceiptData; onCl
         <header className="intake-receipt-brand"><strong>{policy.shopName}</strong><p>{[policy.address, contact].filter(Boolean).join(" · ")}</p><h3>{t("repairTitle")}</h3><small>{t("customerDocument")} · {t(copy)}</small></header>
         <dl className="intake-receipt-identity">{fact("orderNumber", data.id)}{fact("date", printDate(data.previewAt, language))}{fact("customer", data.customerName || "—")}{fact("phone", data.phone)}</dl>
         <section className="intake-receipt-block"><h4>{t("device")}</h4><dl>{fact("category", printKnownOrOriginal(data.category, language))}{fact("brand", data.brand)}{fact("model", data.model)}{fact("serial", data.serial || "—")}{fact("color", printKnownOrOriginal(data.color, language, true))}</dl></section>
-        <section className="intake-receipt-block"><h4>{t("requested")}</h4><table><thead><tr><th>{t("description")}</th><th>{t("amount")}</th></tr></thead><tbody>{(requests.length ? requests : [t("evaluate")]).map(request => <tr key={request}><td>{request}</td><td>{t("define")}</td></tr>)}</tbody></table><p><b>{t("reportedFault")}:</b> {issue.faults.join("; ") || "—"}</p>{issue.note ? <p><b>{t("issueNote")}:</b> {issue.note}</p> : null}<p><b>{t("diagnosis")}:</b> {t("incomplete")}</p></section>
-        <section className="intake-receipt-block"><h4>{t("amounts")}</h4><dl>{fact("total", quote && quote.version > 0 ? printMoney(Math.round(quote.total * 100), language) : t("unquoted"))}{fact("deposit", t("unrecorded"))}{fact("balance", t("define"))}</dl></section>
+        <section className="intake-receipt-block"><h4>{t("requested")}</h4><table><thead><tr><th>{t("description")}</th><th>{t("amount")}</th></tr></thead><tbody>{(data.itemQuotes?.length ? pricedRequests! : (requests.length?requests:[t("evaluate")]).map(label=>({label,amount:t("define")}))).map(request=><tr key={request.label}><td>{request.label}</td><td>{request.amount}</td></tr>)}</tbody></table><p><b>{t("reportedFault")}:</b> {issue.faults.join("; ") || "—"}</p>{issue.note ? <p><b>{t("issueNote")}:</b> {issue.note}</p> : null}<p><b>{t("diagnosis")}:</b> {t("incomplete")}</p></section>
+        <section className="intake-receipt-block"><h4>{t("amounts")}</h4><dl>{fact("total", data.itemQuotes?.length ? quoteTotal===null?t("unquoted"):printMoney(quoteTotal,language) : quote && quote.version > 0 ? printMoney(Math.round(quote.total * 100), language) : t("unquoted"))}{fact("deposit", t("unrecorded"))}{fact("balance", t("define"))}</dl></section>
         <section className="intake-receipt-block"><h4>{t("service")}</h4><dl>{fact("technician", order?.technician && order.technician !== "未分配" ? order.technician : t("unassigned"))}{fact("orderType", t("repair"))}{fact("status", printRepairStage(workflow?.status ?? order?.status ?? "diagnosis", language))}{fact("custody", printCustody(workflow?.custody ?? data.custody ?? "unknown", language))}{fact("warrantyDuration", printMonths(policy.months, language))}{fact("accessories", printAccessories(data.accessories, language))}{fact("priority", printKnownOrOriginal(data.priority, language))}</dl></section>
         {!isBackendClient() ? <small className="intake-receipt-local">{t("local")}</small> : null}
       </section>

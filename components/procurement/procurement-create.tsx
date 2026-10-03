@@ -13,7 +13,7 @@ import { useStaff } from "@/components/staff/use-staff";
 import { AccessPanel } from "@/components/staff/access-panel";
 
 export function ProcurementCreate({ initialRepairId = "" }: { initialRepairId?: string }) {
-  const staff=useStaff();const canEdit = staff.can("repairs.edit");const canCost=staff.can("financial.edit");
+  const staff=useStaff();const canEdit = staff.can("repairs.edit");const canCost=staff.can("financial.read")&&staff.can("financial.edit");
   const router = useRouter();
   const repairOrders = useRepairDirectory();
   const { dispatch, feedback } = useProcurement();

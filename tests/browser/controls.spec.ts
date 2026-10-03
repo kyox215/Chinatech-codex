@@ -124,7 +124,7 @@ test("selected device facts save, reload and supplier choice saves to the same o
   await page.reload();
   await expect(page.locator("main")).toContainText("触控选项回归测试");
   await activate(page, page.getByRole("main").getByRole("button", { name: "添加配件", exact: true }));
-  await page.getByLabel("配件名称", { exact: true }).fill("回归测试屏幕");
+  await page.getByRole("combobox", { name: /^维修项/ }).fill("回归测试屏幕");
   const supplier = page.getByRole("combobox", { name: "供应商" });
   await activate(page, supplier);
   await activate(page, page.getByRole("option", { name: "MobileParts SRL", exact: true }));
