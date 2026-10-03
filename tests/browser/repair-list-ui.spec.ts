@@ -73,11 +73,24 @@ async function expectUsableTarget(target: Locator) {
   expect(box!.width).toBeGreaterThanOrEqual(44);
   expect(box!.height).toBeGreaterThanOrEqual(44);
   // Hit-test the control, so text or an adjacent control cannot cover the click area.
-  expect(await target.evaluate(element => {
+  const hitTest = await target.evaluate(element => {
     const box = element.getBoundingClientRect();
     const points = [[box.width / 2, box.height / 2], [5, 5], [box.width - 5, 5], [5, box.height - 5], [box.width - 5, box.height - 5]];
-    return points.every(([x, y]) => element.contains(document.elementFromPoint(box.left + x, box.top + y)));
-  })).toBe(true);
+    const describe = (node: Element | null) => node ? { tag: node.tagName, id: node.id, class: node.getAttribute("class") } : null;
+    const samples = points.map(([x, y]) => {
+      const hit = document.elementFromPoint(box.left + x, box.top + y);
+      return { x: box.left + x, y: box.top + y, inside: element.contains(hit), hit: describe(hit) };
+    });
+    const ancestors = [];
+    for (let node = element.parentElement; node; node = node.parentElement) {
+      const bounds = node.getBoundingClientRect();
+      const style = getComputedStyle(node);
+      ancestors.push({ ...describe(node), bounds: bounds.toJSON(), scrollLeft: node.scrollLeft,
+        scrollTop: node.scrollTop, overflowX: style.overflowX, overflowY: style.overflowY });
+    }
+    return { bounds: box.toJSON(), viewport: { width: innerWidth, height: innerHeight, scrollY }, samples, ancestors };
+  });
+  expect(hitTest.samples.every(sample => sample.inside), JSON.stringify(hitTest)).toBe(true);
 }
 
 async function expectReturnedFocus(trigger: Locator) {
