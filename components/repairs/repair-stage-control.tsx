@@ -8,11 +8,13 @@ import { repairStageTones, stageChangeNeedsNote, type WorkflowCommand } from "@/
 import { useProcurement } from "@/components/procurement/procurement-provider";
 import { useStaff } from "@/components/staff/use-staff";
 import { useRepairWorkflows, updateRepairWorkflow } from "./repair-workflow-store";
-export function RepairStageControl(props: { order: RepairDirectoryEntry; onSaved?: (status: RepairStatus) => void }) { const staff = useStaff(); return <ScopedStageControl key={`${staff.member?.id}:${staff.member?.revision}`} {...props} />; }
-function ScopedStageControl({ order, onSaved }: { order: RepairDirectoryEntry; onSaved?: (status: RepairStatus) => void }) {
+type RepairStageControlProps = { order: RepairDirectoryEntry; variant?: "default" | "list"; onSaved?: (status: RepairStatus) => void };
+export function RepairStageControl(props: RepairStageControlProps) { const staff = useStaff(); return <ScopedStageControl key={`${staff.member?.id}:${staff.member?.revision}`} {...props} />; }
+function ScopedStageControl({ order, onSaved, variant = "default" }: RepairStageControlProps) {
   const canEdit = useStaff().can("repairs.edit");
   const [open, setOpen] = useState(false);
-  return <><button id={`repair-stage-${order.id}`} type="button" className={`status-pill repair-stage-button status-pill--${repairStageTones[order.status]}`} disabled={!canEdit} aria-label={`${order.id} ${canEdit ? "更改维修阶段" : "维修阶段"}`} title={canEdit ? "更改维修阶段" : "当前账号仅可查看维修阶段"} onClick={() => setOpen(true)}><ClipboardList size={14} /><span>{repairStatusOptions.find(option => option.value === order.status)?.label}</span>{canEdit ? <ChevronDown size={13} /> : null}</button>{open && canEdit ? <StageDialog order={order} onSaved={onSaved} onClose={() => setOpen(false)} /> : null}</>;
+  const label = <><ClipboardList size={14} aria-hidden="true" /><span>{repairStatusOptions.find(option => option.value === order.status)?.label}</span>{canEdit ? <ChevronDown size={13} aria-hidden="true" /> : null}</>;
+  return <><button id={`repair-stage-${order.id}`} type="button" className={variant === "list" ? "repair-stage-button repair-stage-button--list" : `status-pill repair-stage-button status-pill--${repairStageTones[order.status]}`} disabled={!canEdit} aria-label={`${order.id} ${canEdit ? "更改维修阶段" : "维修阶段"}`} title={canEdit ? "更改维修阶段" : "当前账号仅可查看维修阶段"} onClick={() => setOpen(true)}>{variant === "list" ? <span className={`status-pill status-pill--${repairStageTones[order.status]}`}>{label}</span> : label}</button>{open && canEdit ? <StageDialog order={order} onSaved={onSaved} onClose={() => setOpen(false)} /> : null}</>;
 }
 function StageDialog({ order, onClose, onSaved }: { order: RepairDirectoryEntry; onClose: () => void; onSaved?: (status: RepairStatus) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);

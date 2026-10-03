@@ -7,14 +7,16 @@ import { useProcurement } from "@/components/procurement/procurement-provider";
 import { initialRepairWorkflow, arrivalNotice, pickupNotice, isRepairReady, workflowGroup, type WorkflowCommand } from "@/lib/repair-workflow";
 import type { RepairDirectoryEntry } from "@/lib/repair-intake-record";
 import { useRepairWorkflows, updateRepairWorkflow } from "./repair-workflow-store";
-export function RepairContactControl(props:{order:RepairDirectoryEntry}) {const staff=useStaff();return <ScopedContactControl key={`${staff.member?.id}:${staff.member?.revision}`} {...props}/>;}
-function ScopedContactControl({order}:{order:RepairDirectoryEntry}) {
+type RepairContactControlProps = { order: RepairDirectoryEntry; variant?: "default" | "list" };
+export function RepairContactControl(props:RepairContactControlProps) {const staff=useStaff();return <ScopedContactControl key={`${staff.member?.id}:${staff.member?.revision}`} {...props}/>;}
+function ScopedContactControl({order,variant="default"}:RepairContactControlProps) {
   const canEdit=useStaff().can("repairs.edit");const {workflows}=useRepairWorkflows();const {records}=useProcurement();const workflow=workflows[order.id]??initialRepairWorkflow(order);
   const [open,setOpen]=useState(false);const ready=isRepairReady(workflow);const group=workflowGroup(order,records,workflow);const legacy=["awaiting_reply","collected_unpaid"].includes(workflow.status)&&!ready;
   const notice=ready?pickupNotice(workflow):arrivalNotice(workflow,records,order.id,order);
   const followUp=Boolean(workflow.followUp?.awaitingReply || workflow.followUp?.collectedUnpaid);
   if(!ready&&group!=="arrival"&&!legacy&&!followUp&&!workflow.handedOver)return null;
-  return <div className="repair-contact"><span>{legacy?"旧跟进记录 · 维修结果待核对":notice}</span>{workflow.followUp?.awaitingReply?<small>久等未答复</small>:null}{workflow.followUp?.collectedUnpaid?<small>已交还 · 欠款待跟进</small>:null}{workflow.handedOver ? <small>有实际交还记录{workflow.handedOver.unpaid ? "（当时未结清）" : ""}</small> : null}{canEdit&&(!legacy||followUp)?<button id={`repair-contact-${order.id}`} className="button button--secondary button--tiny" type="button" aria-label={`${order.id} 联系与跟进`} onClick={()=>setOpen(true)}><Phone size={14}/>联系／跟进</button>:null}{open&&canEdit?<ContactDialog order={order} onClose={()=>{setOpen(false);requestAnimationFrame(()=>document.getElementById(`repair-contact-${order.id}`)?.focus({preventScroll:true}));}}/>:null}</div>;
+  const facts=<><span className="repair-contact__notice">{legacy?"旧跟进记录 · 维修结果待核对":notice}</span>{workflow.followUp?.awaitingReply?<small className="repair-contact__flag">久等未答复</small>:null}{workflow.followUp?.collectedUnpaid?<small className="repair-contact__flag repair-contact__flag--debt">已交还 · 欠款待跟进</small>:null}{workflow.handedOver ? <small className="repair-contact__history">有实际交还记录{workflow.handedOver.unpaid ? "（当时未结清）" : ""}</small> : null}</>;
+  return <div className={`repair-contact${variant==="list"?" repair-contact--list":""}`}>{variant==="list"?<div className="repair-contact__facts">{facts}</div>:facts}{canEdit&&(!legacy||followUp)?<button id={`repair-contact-${order.id}`} className="button button--secondary button--tiny" type="button" aria-label={`${order.id} 联系与跟进`} onClick={()=>setOpen(true)}><Phone size={14} aria-hidden="true"/>联系／跟进</button>:null}{open&&canEdit?<ContactDialog order={order} onClose={()=>{setOpen(false);requestAnimationFrame(()=>document.getElementById(`repair-contact-${order.id}`)?.focus({preventScroll:true}));}}/>:null}</div>;
 }
 function ContactDialog({order,onClose}:{order:RepairDirectoryEntry;onClose:()=>void}) {
   const dialog=useRef<HTMLDialogElement>(null);const {workflows,error:storageError}=useRepairWorkflows();const {records}=useProcurement();const workflow=workflows[order.id]??initialRepairWorkflow(order);

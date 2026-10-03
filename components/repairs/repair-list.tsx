@@ -12,7 +12,7 @@ import { PageTitle } from "@/components/page-title";
 import { SelectControl } from "@/components/select-control";
 import { useStaff } from "@/components/staff/use-staff";
 import { useProcurement } from "@/components/procurement/procurement-provider";
-import { RepairProcurementDialog, RepairProcurementShortcut } from "@/components/procurement/repair-procurement-shortcut";
+import { RepairProcurementDialog } from "@/components/procurement/repair-procurement-shortcut";
 import { repairPartsSummary, type RepairPartsGroup } from "@/lib/procurement";
 import { compareRepairUpdates, repairUpdatedAt } from "@/lib/repair-list-order";
 import { initialRepairWorkflow, workflowGroup } from "@/lib/repair-workflow";
@@ -42,7 +42,7 @@ const groupVisuals = {
 const deviceIcons = { 手机: Smartphone, 电脑: Laptop, 平板: Tablet, 游戏机: Gamepad2 };
 
 function TableHead() {
-  return <div className="repair-module-table__head" aria-hidden="true"><span>工单 / 设备</span><span>客户</span><span>供应商 / 配件</span><span>配件进度</span><span>负责人 / 更新</span><span>维修阶段</span><span>快捷操作</span></div>;
+  return <div className="repair-module-table__head" aria-hidden="true"><span>工单 / 设备</span><span>客户</span><span>供应商 / 配件</span><span>配件进度</span><span>负责人 / 更新</span><span>维修阶段</span><span>通知 / 跟进</span></div>;
 }
 
 export function RepairList() {
@@ -98,12 +98,13 @@ export function RepairList() {
     setOpenGroups((previous) => ({ ...previous, [group]: true }));
     requestAnimationFrame(() => {
       const target = document.getElementById(`repair-action-${id}`) ?? document.getElementById(`repair-group-${group}`) ?? document.getElementById("repair-search");
-      target?.focus();
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
     });
   }
 
   return <main className="module-page repair-page repair-parts-list repair-unified-list">
-    <header className="module-heading"><PageTitle title="维修工单" /><div className="module-heading__actions"><RepairScanner />{canEdit ? <><button className="button button--secondary button--compact" type="button" onClick={() => setBatchAction("ordered")}><ShoppingCart size={17} />采购车</button><button className="button button--secondary button--compact" type="button" onClick={() => setBatchAction("arrival")}><PackageCheck size={17} />批量到货</button></> : null}{canEdit ? <Link className="button button--primary button--compact" href="/app/repairs/new"><Plus size={17} />新建工单</Link> : null}</div></header>
+    <header className="module-heading"><PageTitle title="维修工单" /><div className="module-heading__actions"><RepairScanner iconOnly />{canEdit ? <><button className="button button--secondary button--compact" type="button" onClick={() => setBatchAction("ordered")}><ShoppingCart size={17} />采购车</button><button className="button button--secondary button--compact" type="button" onClick={() => setBatchAction("arrival")}><PackageCheck size={17} />批量到货</button></> : null}{canEdit ? <Link className="button button--primary button--compact" href="/app/repairs/new"><Plus size={17} />新建工单</Link> : null}</div></header>
     <section className="panel repair-module-panel">
       <div className="repair-filterbar">
         <button type="button" className="button button--secondary repair-mobile-filter" aria-expanded={filtersOpen} aria-controls="repair-filter-options" onClick={() => setFiltersOpen(value => !value)}><SlidersHorizontal size={18} /><span>筛选{status !== "all" || partsFilter !== "all" ? " · 已选" : ""}</span></button>
@@ -138,19 +139,19 @@ export function RepairList() {
                 return <article className="repair-module-row" key={repair.id} aria-label={`${repair.id} ${repair.device.model}`}>
                   <div className="repair-module-row__device"><span className="device-glyph" title={repair.device.category}><DeviceIcon size={20} aria-hidden="true" /></span><div><Link className="repair-row-link" href={`/app/repairs/${repair.id}`} aria-label={`打开 ${repair.id} ${repair.device.model} 详情`} title={`${repair.device.model} · ${repair.issue}`}><strong>{repair.device.model}</strong></Link><small>{repair.id}</small></div></div>
                   <div className="repair-module-row__cell repair-module-row__customer"><strong>{repair.customer.name}</strong><small>{repair.customer.phone}</small></div>
-                  <button className="button button--secondary repair-row-parts" type="button" onClick={() => setActiveRepairId(repair.id)} aria-label={`${repair.id} 供应商与配件${canEdit ? "操作" : "详情"}`} title={parts.map(row => `${row.supplier} · ${row.item}`).join("\n") || (canEdit ? "添加配件" : "尚未登记配件")}><span className="repair-row-parts__body"><PackageSearch size={17} aria-hidden="true" /><span><strong>{suppliers || (canEdit ? "选择供应商 / 配件" : "查看供应商 / 配件")}</strong><small>{parts.length ? `${parts[0].item}${parts.length > 1 ? ` +${parts.length - 1}` : ""}` : "尚未登记"}</small></span></span><ChevronRight size={16} aria-hidden="true" /></button>
+                  <button id={`repair-action-${repair.id}`} className="button button--secondary repair-row-parts" type="button" onClick={() => setActiveRepairId(repair.id)} aria-label={`${repair.id} 供应商与配件${canEdit ? "操作" : "详情"}`} title={parts.map(row => `${row.supplier} · ${row.item}`).join("\n") || (canEdit ? "选择供应商与配件" : "查看供应商与配件")}><span className="repair-row-parts__body"><PackageSearch size={17} aria-hidden="true" /><span><strong>{suppliers || (canEdit ? "选择配件" : "查看配件")}</strong><small>{parts.length ? `${parts[0].item}${parts.length > 1 ? ` +${parts.length - 1}` : ""}` : "供应商 · 报价"}</small></span></span><ChevronRight size={16} aria-hidden="true" /></button>
                   <div className="repair-module-row__cell repair-module-row__waiting">
                     {groupBy !== "parts" ? <strong>{summary.label}</strong> : null}
                     {summary.total ? <div className="repair-parts-counts"><span title={`已加购物车 ${summary.inCart}/${summary.total} 件，仍未下单`}><ShoppingCart size={15} aria-hidden="true" /><span>加车 {summary.inCart}/{summary.total}</span></span><span title={`实际已下单 ${summary.ordered}/${summary.total} 件`}><Truck size={15} aria-hidden="true" /><span>下单 {summary.ordered}/{summary.total}</span></span><span title={`已登记到货 ${summary.arrived}/${summary.total} 件`}><PackageOpen size={15} aria-hidden="true" /><span>到货 {summary.arrived}/{summary.total}</span></span></div> : <span className="repair-parts-unknown"><CircleHelp size={16} aria-hidden="true" />{summary.allRequiredReady ? "已核对无需采购" : "必需配件待核对"}</span>}{summary.unresolvedRequirements ? <small className="repair-parts-unknown">{summary.unresolvedRequirements}个项目待选／待核对</small> : null}
                   </div>
                   <div className="repair-module-row__cell repair-module-row__owner"><strong><Flag size={14} className={`repair-priority repair-priority--${repair.priority === "紧急" ? "urgent" : repair.priority === "优先" ? "high" : "normal"}`} aria-label={`${repair.priority}优先级`} role="img" />{repair.technician}</strong><small className="repair-updated"><Clock3 size={13} aria-hidden="true" /><time dateTime={updated.replace(" ", "T")} title={`最后更新 ${updated}（门店时间）`}>{updated.slice(5, 16).replaceAll("-", "/")}</time></small></div>
-                  <RepairStageControl order={repair} onSaved={nextStatus => {
+                  <RepairStageControl variant="list" order={repair} onSaved={nextStatus => {
                     const next = { ...(workflows[repair.id] ?? initialRepairWorkflow(repair)), status: nextStatus };
                     const nextGroup = groupBy === "none" ? "all" : groupBy === "workflow" ? workflowGroup(repair, records, next) : summary.group;
                     setOpenGroups(previous => ({ ...previous, [nextGroup]: true }));
                     requestAnimationFrame(() => (document.getElementById(`repair-stage-${repair.id}`) ?? document.getElementById("repair-search"))?.focus());
                   }} />
-                  <div className="repair-module-row__quick"><RepairProcurementShortcut repairId={repair.id} onOpen={setActiveRepairId} /><RepairContactControl order={repair} /></div>
+                  <div className="repair-module-row__quick"><RepairContactControl variant="list" order={repair} /></div>
                 </article>;
               })}
             </div>

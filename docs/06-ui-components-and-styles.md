@@ -1,5 +1,7 @@
 # 公共组件与样式复用规范
 
+2026-10-04 维修列表视觉适配：`RepairStageControl`／`RepairContactControl` 的 `variant="list"` 仅调整列表中的短标签、事实分层和44px入口，默认详情外观不变；不得复刻写入和权限逻辑。`RepairScanner` 可透传 `iconOnly` 到已有 `IdentifierScanner`。列表两端共用同一个 `.repair-row-parts` 按钮，保留 `repair-action-<id>` 与可访问名称，关闭窗口返回可见入口；不再在行末放同功能图标。修复手机末条待核对提示隐藏。样式集中在原 `.repair-unified-list` 作用域及其两套断点，原token、系统字体与Lucide复用；方案及验收见[工单列表当前适配](09-repair-table-layout-plan.md)。
+
 本规范用于后续功能的统一开发，强制入口见 [根目录规则](../AGENTS.md)；组件目录另有 [继承规则](../components/AGENTS.md)。它索引当前真实实现，不引入新 UI 框架，也不改变业务范围。
 
 ## 开发顺序

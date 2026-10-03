@@ -1,12 +1,18 @@
 # ChinaTech 项目连续记忆
 
-最后更新：2026-10-03。当前已获真实后台接入与线上替换授权，旧M1仅本地范围不能覆盖最新决定。
+最后更新：2026-10-04。当前已获真实后台接入与线上替换授权，旧M1仅本地范围不能覆盖最新决定。
+
+## 最新：工单列表 Figma 适配与两端统一（2026-10-04）
+
+重新核验原Figma任务页截图及分组／数据格／短状态／搜索上下文，适配方案见[docs09](docs/09-repair-table-layout-plan.md)。电脑白色独立分组、细线对齐、轻量阶段标签，窄电脑保留全部列内滚；手机同风格分层卡片、四个同排44px操作及按需筛选。每单统一一个配件按钮，Stage／Contact仅列表外观变体，默认详情／扫码使用方不变。未改变后台、采购／报价／通知事实与权限。
+
+同时修复原手机CSS隐藏待核对提示、重复配件入口导致主按钮缺少返回焦点ID、长按钮关闭后因滚动取整贴边：统一ID、preventScroll＋nearest及8px滚动边距。原ratio=1完整可见断言保留，几何证据确认从0.9963恢复1。284业务、26原维修分组／采购／通知双浏览器及4新增长文字／四宽度／键盘焦点／刷新不改事实用例通过；strict TS、lint0错误1既有warning、正式后台build通过。独立静态复核无新明确问题。截图使用本地合成数据，实体iPhone未测。仅10个公开文件准备从main a1f78fc发布；发布／完整CI待核验。证据.local/repair-list-ui/及.local/ui-proof/repair-list-ui/；本轮预览3121已停，数据库保留。
 
 ## 最新：维修列表按钮与组内简化（2026-10-03）
 
 按用户反馈将列表供应商／配件入口改为常态有边框、配件图标和箭头的按钮，直接打开已选维修项目。移除到货／修好组下方的联系状态筛选与隐藏行逻辑；单条通知、久等／欠款及操作记录继续保留。只改列表与作用域样式，复用现有secondary按钮和手机44px入口，无数据结构／权限／采购或通知写入改变。规格见[docs22](docs/22-repair-supplier-batch-notification-plan.md)。
 
-基于正式main2cce8c7，284业务、26项Chromium／WebKit相关交互、四宽度实际点击／布局、strict TS、lint0错误1既有warning和正式build通过。公开代码差异核对仅2文件，本次发布另含4份项目规格／执行记忆；尚待main发布、CI和生产部署确认。截图／填值仅本地虚构数据，不保存演示修改；实体iPhone未实测。证据.local/repair-button-*及.local/ui-proof/repair-list-button/。
+基于正式main2cce8c7，仅6文件发布至main **a1f78fc68a20450171246140e6c798235448a48e**；6个Git blob与冻结验收内容一致，之后仅本地更新记忆状态。Vercel **dpl_Gn4r4GjVxSjgACgE9kU1urGw2Kt1** READY／production／两域名，/login200且部署ID匹配、匿名state401。284业务、26项Chromium／WebKit相关交互、四宽度实际点击／布局、strict TS、lint0错误1既有warning和正式build通过。完整CI **37154721844** completed／success，284业务、60项双浏览器、lint／TS／build全部通过。截图／填值仅本地虚构数据，不保存演示修改，实体iPhone未实测。本轮3121已停，数据库保留；证据.local/repair-button-release.json、source-verification.json、ci-final.log、production-checks.json及.local/ui-proof/repair-list-button/。
 
 ## 最新：接单项目直填供应商与金额（2026-10-03）
 
