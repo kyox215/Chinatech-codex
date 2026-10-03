@@ -2,11 +2,17 @@
 
 最后更新：2026-10-03。当前已获真实后台接入与线上替换授权，旧M1仅本地范围不能覆盖最新决定。
 
+## 最新：维修列表按钮与组内简化（2026-10-03）
+
+按用户反馈将列表供应商／配件入口改为常态有边框、配件图标和箭头的按钮，直接打开已选维修项目。移除到货／修好组下方的联系状态筛选与隐藏行逻辑；单条通知、久等／欠款及操作记录继续保留。只改列表与作用域样式，复用现有secondary按钮和手机44px入口，无数据结构／权限／采购或通知写入改变。规格见[docs22](docs/22-repair-supplier-batch-notification-plan.md)。
+
+基于正式main2cce8c7，284业务、26项Chromium／WebKit相关交互、四宽度实际点击／布局、strict TS、lint0错误1既有warning和正式build通过。公开代码差异核对仅2文件，本次发布另含4份项目规格／执行记忆；尚待main发布、CI和生产部署确认。截图／填值仅本地虚构数据，不保存演示修改；实体iPhone未实测。证据.local/repair-button-*及.local/ui-proof/repair-list-button/。
+
 ## 最新：接单项目直填供应商与金额（2026-10-03）
 
 用户最新要求已实施：弹窗直接列接单已选项目与要求，逐项目选填供应商／报价，获权进价按需显示；取消重复选项目／逐条按钮，一次保存实际修改项，成功关闭。blank supplier仅报价，不生成采购／无需采购／到齐事实；选supplier保存即加车，维修阶段仍手动。旧采购操作与异常核对按需展开，不猜未关联旧记录、不合并同项旧多采购；已下单只改报价。新建报价、详情／三语打印、旧签名和真实采购事实规则延续。规格[docs22当前方案](docs/22-repair-supplier-batch-notification-plan.md)。
 
-当前基线main44de758，候选仅本轮17文件（无新schema/私有配置），待发布。新增`save-items`共享helper+服务端单事务+一次POST；报价-only不写workflow或procurement，无权null保留真成本／非null403，版本／门店／实时权限／回执保留。独立审查2个P2已修复：旧多采购／已有单条新ID服务端拒绝，并发下单核对后供应商成本锁定但报价可保存（可见说明，保留用户报价输入）。284业务、完整58双浏览器＋新增并发2、四宽度、16真实本地API、3正式页面→API→DB→刷新链路、TS／lint0错误1既有warning／正式build通过。本地两项save1POST／172ms单样本；非线上性能。证据.local/repair-inline-*、repair-item-editor-api-final.log及ui-proof/repair-inline*。全部写入仅本地合成数据，无真实下单／消息／迁移／生产记录删除；实体iPhone键盘未实测。最终生产与CI核对后更新。
+本轮基于main44de758仅发布17个公开文件（无新schema/私有配置）至main **2cce8c7d42785b80c14b2edd6ba0e8e5daddb65e**；17文件与验收源码／Git blob一致，发布前记忆另核对，之后仅本地更新执行状态。Vercel **dpl_27trc9dLoGATzY5d9H4SXmfbcfqL** READY／production／chinatech.in与www；两域名/login200且部署ID一致、匿名state401。新增`save-items`共享helper+服务端单事务+一次POST；报价-only不写workflow或procurement，无权null保留真成本／非null403，版本／门店／实时权限／回执保留。独立审查2个P2已修复：旧多采购／已有单条新ID服务端拒绝，并发下单核对后供应商成本锁定但报价可保存（可见说明，保留用户报价输入）。284业务、完整58双浏览器＋新增并发2、四宽度、16真实本地API、3正式页面→API→DB→刷新链路、TS／lint0错误1既有warning／正式build通过。本地两项save1POST／172ms单样本；非线上性能。证据.local/repair-inline-*、repair-item-editor-api-final.log及ui-proof/repair-inline*。全部写入仅本地合成数据，无真实下单／消息／迁移／生产记录删除；实体iPhone键盘未实测。完整CI **37151427811** 已completed／success，lint／TS／业务／完整浏览器／build全部通过；独立复核确认两个P2已闭环无剩余确证问题。本轮3121／3144均已停，数据库与合成复现历史保留。最终证据.local/repair-inline-release.json、source-verification.json、ci-final.log和production-checks.json。
 
 ## 最新：供应商与报价流程简化（2026-10-03）
 

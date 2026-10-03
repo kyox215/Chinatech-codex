@@ -1478,8 +1478,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-row-link::after { content: ""; position: absolute; inset: 0; z-index: 1; cursor: pointer; }
 .repair-module-row:focus-within { background: var(--primary-50); }
 .repair-row-parts, .repair-stage-button, .repair-module-row__quick { position: relative; z-index: 2; }
-.repair-row-parts { display: flex; flex-direction: column; min-width: 0; min-height: 44px; align-items: flex-start; justify-content: center; border: 0; border-radius: var(--radius-control); padding: 4px 6px; background: transparent; color: var(--text); cursor: pointer; text-align: left; }
-.repair-row-parts > strong, .repair-row-parts > small { max-width: 100%; }
+.repair-row-parts { display: flex; min-width: 0; min-height: 44px; justify-content: space-between; padding: 8px 10px; white-space: normal; text-align: left; }
+.repair-row-parts__body { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.repair-row-parts__body > span { display: grid; min-width: 0; gap: 2px; }
+.repair-row-parts svg { flex-shrink: 0; }
+.repair-row-parts strong, .repair-row-parts small { max-width: 100%; overflow-wrap: anywhere; }
+.repair-row-parts small { color: var(--text-secondary); font-weight: 400; }
 .repair-row-parts:hover { color: var(--primary-600); background: var(--primary-50); }
 .repair-stage-button { min-height: 44px; border: 0; cursor: pointer; justify-content: center; padding: 6px; }
 .repair-stage-button:hover { outline: 1px solid var(--primary-200); }
@@ -1662,7 +1666,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-batch-row .field { max-width: 180px; }
 .repair-fact-check { display: flex; gap: 10px; align-items: center; min-height: 44px; }
 .repair-contact { display: grid; gap: 5px; justify-items: start; font-size: 12px; overflow-wrap: anywhere; }
-.repair-contact-filter { margin: 12px; max-width: 220px; }
 .repair-contact small { color: var(--text-secondary); }
 @media (max-width: 767px) {
   .repair-requirement .button, .repair-batch-toolbar .button, .repair-contact .button { min-height: 44px; }

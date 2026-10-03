@@ -281,3 +281,5 @@ RepairRequirementsPanel、SupplierBatchDialog 和 RepairContactControl 归维修
 RepairPartForm复用SearchCombobox及既有field-grid／button语义，只保留维修项、供应商、报价和获权进价；RepairRequirementsPanel仅作已有项目快捷切换。RepairPartReconfirmation属于采购异常处理，仅要求变化或旧登记未完成时显示，不加入正常流程。IntakeReview和IntakeReceipt共享itemQuotes，报价逻辑归lib/repair-item-pricing.ts；未新增公共主题、控件或CSS。新建工单的项目报价位于原故障选择下方，取消项目同时去掉对应草稿报价，详情与三语打印保留同源金额及规格。详见计划22最新段。
 
 2026-10-03 当前供应商／金额窗口：模块专用 `RepairItemsForm` 复用 `SearchCombobox`、`.field`、按钮、status-pill与语义token；新增 `.repair-item-card` 仅作用于维修项目卡片。取消重复项目选择，电脑横排、手机供应商整行＋金额双列，保存时禁止关闭；成本权限与原子写入归领域及服务端。具体业务规则见docs22当前方案。
+
+2026-10-03 列表可点击性：供应商／配件列复用 `.button.button--secondary`，模块 `.repair-row-parts` 只布局图标、供应商／配件两行和箭头；不靠hover才能识别入口。手机继续使用已有44px配件按钮。到货／修好组内联系筛选移除，单条联系控件保留。
