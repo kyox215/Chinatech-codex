@@ -1,8 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
 
 async function filters(page: Page) {
+  // Preview identity initialization remounts protected content; wait before interacting.
+  await expect(page.locator(".sidebar-account__text strong")).not.toHaveText("预览身份待核对");
   const toggle = page.getByRole("button", { name: /^筛选/ });
   if (await toggle.isVisible() && await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  await expect(page.getByLabel("工单分组", { exact: true })).toBeVisible();
 }
 
 test.beforeEach(async ({ page }) => {
