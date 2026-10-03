@@ -113,6 +113,7 @@ test("a focused option activates once and returns to the closed input", async ({
 test("selected device facts save, reload and supplier choice saves to the same order", async ({ page }) => {
   await choosePhone(page);
   await activate(page, page.getByRole("button", { name: "下一步", exact: true }));
+  await page.getByRole("button", { name: "屏幕", exact: true }).click();
   await page.getByLabel("故障补充 / 自定义故障").fill("触控选项回归测试");
   await activate(page, page.getByRole("button", { name: "下一步", exact: true }));
   await page.getByRole("checkbox", { name: /已与客户核对接机信息/ }).check();
@@ -123,17 +124,15 @@ test("selected device facts save, reload and supplier choice saves to the same o
   await expect(page.locator("main")).toContainText("iPhone 16");
   await page.reload();
   await expect(page.locator("main")).toContainText("触控选项回归测试");
-  await activate(page, page.getByRole("main").getByRole("button", { name: "添加配件", exact: true }));
-  await page.getByRole("combobox", { name: /^维修项/ }).fill("回归测试屏幕");
-  const supplier = page.getByRole("combobox", { name: "供应商" });
+  await activate(page, page.getByRole("main").getByRole("button", { name: "供应商 / 报价", exact: true }));
+  const supplier = page.getByRole("combobox", { name: "供应商（选填）" });
   await activate(page, supplier);
   await activate(page, page.getByRole("option", { name: "MobileParts SRL", exact: true }));
   await expect(supplier).toHaveValue("MobileParts SRL");
-  await activate(page, page.getByRole("dialog", { name: "供应商与配件" }).getByRole("button", { name: "加入采购车", exact: true }));
-  await expect(page.getByRole("combobox", { name: "供应商" })).toHaveCount(0);
-  await activate(page, page.getByRole("button", { name: "关闭配件操作" }));
+  await activate(page, page.getByRole("dialog", { name: "供应商与配件" }).getByRole("button", { name: "保存", exact: true }));
+  await expect(page.getByRole("dialog", { name: "供应商与配件" })).not.toBeVisible();
   await page.reload();
-  await expect(page.locator("main")).toContainText("回归测试屏幕");
+  await expect(page.locator("main")).toContainText("屏幕");
   await expect(page.locator("main")).toContainText("MobileParts SRL");
 });
 

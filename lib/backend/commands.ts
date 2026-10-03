@@ -7,6 +7,7 @@ import { appendIntakeSignature, intakeDirectoryEntry, intakeRecordTime, validLoc
 import { initialRepairWorkflow, applyWorkflowCommand, type WorkflowCommand } from "../repair-workflow";
 import { currentRepairRequirements, validateRepairRequirements } from "../repair-requirements";
 import { updateItemQuotes, validItemQuotes } from "../repair-item-pricing";
+import { prepareRepairItemEdits, validateRepairItemsEdit, RepairItemEditError } from "../repair-item-editor";
 import { appendProcurementEvent, isPreorder, procurementStatus, validateProcurementDraft, type ProcurementRecord, type ProcurementEvent } from "../procurement";
 import { applyProcurementBatch, ProcurementBatchError, resolveSupplierId, type ProcurementBatchItem } from "../procurement-batch";
 import { createRetailUnit, applyRetailCommand, currentRetailSale, saleProductUnit, retailCategories, type RetailUnit, type RetailCommand } from "../retail";
@@ -164,6 +165,25 @@ async function saveRepairItem(tx:TransactionSql,state:BackendSnapshot,member:Sta
   return next?.id??intake.id;
 }
 
+async function saveRepairItems(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,p:Record<string,unknown>,requestId:string,time:string) {
+  exactKeys(p,["type","repairId","intakeRevision","workflowRevision","items"]);
+  const {type:_type,...input}=p;void _type;
+  try {
+    validateRepairItemsEdit(input);
+    const intake=state.intakes.find(row=>row.id===input.repairId);if(!intake) throw new BackendError("关联工单不存在。",404);
+    const next=prepareRepairItemEdits(input,{intake,workflow:state.workflows[intake.id]??initialRepairWorkflow(intakeDirectoryEntry(intake)),records:state.procurement,suppliers:state.settings.suppliers,canEditCost:mayEditProcurementCost(member),activity:{id:requestId,time,actorId:member.id}});
+    // Prepare every row, quote and requirement first. The existing command transaction
+    // owns one receipt and audit entry and rolls back all statements on any failure.
+    if(next.changedRecords.length) await putProcurementRecords(tx,state.storeId,next.changedRecords,time);
+    await putIntake(tx,state,next.intake);
+    if(next.workflow) await tx`update chinatech_v2_private.repair_intakes set workflow=${tx.json(next.workflow)} where store_id=${state.storeId} and id=${intake.id}`;
+    return intake.id;
+  } catch(reason) {
+    if(reason instanceof RepairItemEditError) throw new BackendError(reason.message,reason.status);
+    throw reason;
+  }
+}
+
 async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,kind:string,p:Record<string,unknown>,requestId:string) {
   const time=intakeRecordTime();
   if(kind==="intake.save") {
@@ -220,7 +240,8 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     await tx`update chinatech_v2_private.repair_intakes set workflow=${tx.json(next)} where store_id=${state.storeId} and id=${data.id}`;return data.id;
   }
   if(kind==="procurement") {
-    exactKeys(p,["type","record","id","event","revision","workflowRevision","intakeRevision","requirementId","requirementRevision","note","quoteCents","noProcurement"]);authorize(member,"repairs.edit");
+    exactKeys(p,["type","record","id","event","revision","workflowRevision","intakeRevision","requirementId","requirementRevision","note","quoteCents","noProcurement","repairId","items"]);authorize(member,"repairs.edit");
+    if(p.type==="save-items") return saveRepairItems(tx,state,member,p,requestId,time);
     if(p.type==="save-item") return saveRepairItem(tx,state,member,p,requestId,time);
     let next:ProcurementRecord;
     if(p.type==="create" || p.type==="create-cart") {

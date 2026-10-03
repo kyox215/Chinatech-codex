@@ -28,7 +28,7 @@
 | `UnitIcon` | [unit-icon.tsx](../components/retail/unit-icon.tsx) | 整机模块内按 `RetailCategory` 显示品类图标；不作为客户设备身份或其他业务分类依据。 |
 | `RetailCatalogControl` / `RetailRamControl` / `RetailStorageControl` | [retail-spec-controls.tsx](../components/retail/retail-spec-controls.tsx) | 整机私有规格输入，新建与逐项编辑复用；候选用SearchCombobox，容量用SelectControl，保留未知／自定义。目录、类别适用与实测校验留在整机模块，不复制公共控件。 |
 | `ProcurementPreparation` / `ProcurementFeedback` | [procurement-preparation.tsx](../components/procurement/procurement-preparation.tsx) | 工单列表、详情与采购详情共用一键加车、取消加车及已下单标记，无需订单号或备注；读取采购提供器，业务校验归 `lib/procurement.ts`，不是公共控件或供应商发单组件。 |
-| `RepairProcurementShortcut` / `RepairProcurementDialog` | [repair-procurement-shortcut.tsx](../components/procurement/repair-procurement-shortcut.tsx) | 工单列表短图标入口与稳定快捷弹层；列表集中管理打开的工单，换组不卸载弹层。多配件使用 `SelectControl`，原生 `dialog` 管理模态焦点和 Esc，关闭后定位目标组与工单，仍属于维修与采购关联模块。 |
+| `RepairProcurementShortcut` / `RepairProcurementDialog` | [repair-procurement-shortcut.tsx](../components/procurement/repair-procurement-shortcut.tsx) | 工单列表短图标入口与稳定快捷弹层；列表集中管理打开的工单，换组不卸载弹层。当前项目直接用 `RepairItemsForm` 图形卡片填写选填供应商、报价与获权进价，一次保存；既有采购记录的按需切换复用 `SelectControl`。原生 `dialog` 管理模态焦点和 Esc，关闭后定位目标组与工单，仍属于维修与采购关联模块。 |
 | `RepairProcurementSummary` | [procurement-summary.tsx](../components/procurement/procurement-summary.tsx) | 工单内展示同源采购事实和快捷表单；备选用途独立展示，不从外观或维修阶段推断下单。 |
 | `RepairScanner` | [repair-scanner.tsx](../components/repairs/repair-scanner.tsx) | 工作台与维修列表共用查单；相机、相册、手动输入只返回目录中的 fixture 或当前浏览器本地工单候选。解码通过公共 `IdentifierScanner` 按需加载，匹配规则归 `lib/repair-scan.ts`；工单候选逻辑不作为整机录入或通用业务写入。 |
 | `IntakeReview` | [intake-review.tsx](../components/repairs/intake-review.tsx) | 接机确认和本地工单详情共用图形核对区，显示联系人、设备、报告故障、维修需求与随件；当前照片可选传入，修改入口由接机流程提供。`layout="review"` 保持逐步核对顺序，`layout="detail"` 使用设备摘要＋主辅双栏；`metadata` 放工单元信息，`asideContent` 组合工单概况，`relatedContent` 组合采购摘要。手机按故障→概况及联系人→采购排列，不把工作流或采购规则塞进展示组件。属于维修模块，不作为检测、报价或正式授权组件。 |
@@ -279,3 +279,5 @@ RepairRequirementsPanel、SupplierBatchDialog 和 RepairContactControl 归维修
 ### 2026-10-03 选件与报价简化
 
 RepairPartForm复用SearchCombobox及既有field-grid／button语义，只保留维修项、供应商、报价和获权进价；RepairRequirementsPanel仅作已有项目快捷切换。RepairPartReconfirmation属于采购异常处理，仅要求变化或旧登记未完成时显示，不加入正常流程。IntakeReview和IntakeReceipt共享itemQuotes，报价逻辑归lib/repair-item-pricing.ts；未新增公共主题、控件或CSS。新建工单的项目报价位于原故障选择下方，取消项目同时去掉对应草稿报价，详情与三语打印保留同源金额及规格。详见计划22最新段。
+
+2026-10-03 当前供应商／金额窗口：模块专用 `RepairItemsForm` 复用 `SearchCombobox`、`.field`、按钮、status-pill与语义token；新增 `.repair-item-card` 仅作用于维修项目卡片。取消重复项目选择，电脑横排、手机供应商整行＋金额双列，保存时禁止关闭；成本权限与原子写入归领域及服务端。具体业务规则见docs22当前方案。

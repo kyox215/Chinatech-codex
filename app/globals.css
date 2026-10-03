@@ -1493,6 +1493,29 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-part-dialog__toolbar .field { flex: 1; min-width: 0; margin: 0; }
 .repair-part-dialog .repair-parts-dialog__item .button { align-self: flex-start; }
 .repair-part-form .search-combobox { min-width: 0; }
+.repair-items-dialog { width: min(760px,calc(100% - 24px)); }
+.repair-item-editor__cards { display: grid; gap: 14px; margin-top: 18px; }
+.repair-item-card { min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); }
+.repair-item-card__head { display: flex; align-items: center; gap: 10px; }
+.repair-item-card__head > div { flex: 1; min-width: 0; }
+.repair-item-card__head h3 { margin: 0; font-size: 16px; }
+.repair-item-card__head small { display: block; margin-top: 3px; color: var(--text-secondary); }
+.repair-item-card__head .status-pill { max-width: 45%; white-space: normal; text-align: center; }
+.repair-item-card__icon { display: grid; place-items: center; width: 42px; height: 42px; flex: none; color: var(--primary-600); background: var(--primary-50); border-radius: var(--radius-control); }
+.repair-item-card__fields { display: grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr) minmax(0,1fr); gap: 12px; }
+.repair-item-card__fields:has(> :last-child:nth-child(2)) { grid-template-columns: minmax(0,2fr) minmax(0,1fr); }
+.repair-item-card__fields .field { min-width: 0; }
+.repair-item-card__fields .field strong { min-height: 44px; display: flex; align-items: center; overflow-wrap: anywhere; }
+.repair-item-editor footer { gap: 8px; }
+.repair-item-editor .form-error .button { margin: 8px 0 0; }
+.repair-existing-parts { margin-top: 20px; }
+@media (max-width: 767px) {
+  .repair-items-dialog { padding: 16px; }
+  .repair-item-card { padding: 12px; }
+  .repair-item-card__fields, .repair-item-card__fields:has(> :last-child:nth-child(2)) { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 12px; }
+  .repair-item-card__fields > :first-child { grid-column: 1 / -1; }
+  .repair-item-card__fields:has(> :last-child:nth-child(2)) > :last-child { grid-column: 1 / -1; }
+}
 .procurement-actions--embedded { border: 0; box-shadow: none; }
 .procurement-actions--embedded .detail-section__head { padding: 10px 0; }
 .procurement-actions--embedded .procurement-actions__body { padding: 12px 0; }

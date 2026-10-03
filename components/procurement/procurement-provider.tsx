@@ -10,6 +10,7 @@ import { recordRepairUpdate, type RepairUpdates } from "@/lib/repair-list-order"
 import { parseStoreSettings } from "@/lib/store-settings";
 import { can } from "@/lib/staff";
 import { updateItemQuotes } from "@/lib/repair-item-pricing";
+import { prepareRepairItemEdits, persistRepairItemEnvelopes, type RepairItemEdit } from "@/lib/repair-item-editor";
 import { validateWorkflowExtensions } from "@/lib/repair-workflow";
 import { currentRepairRequirements } from "@/lib/repair-requirements";
 import { parseLocalIntakes, fixtureIntakeReceipt, intakeDirectoryEntry } from "@/lib/repair-intake-record";
@@ -19,8 +20,8 @@ import { previewRepairWorkflow } from "@/components/repairs/repair-workflow-stor
 type Feedback = { recordId: string; error: boolean; message: string } | null;
 export type ProcurementListView = { query: string; filter: "all" | "draft" | "cart" | "open" | "complete"; repairId: string; groupBy: string };
 type State = { storageError?: string; records: ProcurementRecord[]; feedback: Feedback; listView: ProcurementListView; repairUpdates: RepairUpdates };
-export type ProcurementAction = { type:"save-item";record:ProcurementRecord;revision:number;workflowRevision:number;intakeRevision:number;quoteCents:number|null;noProcurement?:boolean } | { type: "create"; record: ProcurementRecord } | { type: "create-cart"; record: ProcurementRecord; workflowRevision: number; intakeRevision: number } | { type: "edit"; record: ProcurementRecord; revision: number } | { type: "append"; id: string; event: ProcurementEvent; revision: number } | { type: "link_requirement"; id: string; revision: number; requirementId: string; requirementRevision: number; note: string } | { type: "batch"; action: "ordered" | "arrival"; supplierId: string; items: ProcurementBatchItem[] } | { type: "list-view"; view: ProcurementListView } | { type: "clear-feedback" };
-const recordIdOf = (action: ProcurementAction) => "record" in action ? action.record.id : "id" in action ? action.id : action.type === "batch" ? "batch" : "";
+export type ProcurementAction = { type:"save-items";repairId:string;intakeRevision:number;workflowRevision:number;items:RepairItemEdit[] } | { type:"save-item";record:ProcurementRecord;revision:number;workflowRevision:number;intakeRevision:number;quoteCents:number|null;noProcurement?:boolean } | { type: "create"; record: ProcurementRecord } | { type: "create-cart"; record: ProcurementRecord; workflowRevision: number; intakeRevision: number } | { type: "edit"; record: ProcurementRecord; revision: number } | { type: "append"; id: string; event: ProcurementEvent; revision: number } | { type: "link_requirement"; id: string; revision: number; requirementId: string; requirementRevision: number; note: string } | { type: "batch"; action: "ordered" | "arrival"; supplierId: string; items: ProcurementBatchItem[] } | { type: "list-view"; view: ProcurementListView } | { type: "clear-feedback" };
+const recordIdOf = (action: ProcurementAction) => "record" in action ? action.record.id : "id" in action ? action.id : action.type === "save-items" ? action.repairId : action.type === "batch" ? "batch" : "";
 const storageKey = "chinatech.m1.procurement.v1";
 const changed = "chinatech-procurement-change";
 const initialState: State = { records: procurementRecords, feedback: null, repairUpdates: {}, listView: { query: "", filter: "all", repairId: "", groupBy: "supplier" } };
@@ -40,7 +41,7 @@ function checkRequirement(record: ProcurementRecord) {
   const item = currentRepairRequirements(order, previewRepairWorkflow(order)).find(row => row.id === record.requirementId);
   if (!item || item.mode !== "parts" || item.revision !== record.requirementRevision) throw new Error("维修项目要求已变化，请重新核对关联。");
 }
-function mutate(state: State, action: Exclude<ProcurementAction, {type:"list-view"}|{type:"clear-feedback"}|{type:"save-item"}>, time: string, actorId: string): State {
+function mutate(state: State, action: Exclude<ProcurementAction, {type:"list-view"}|{type:"clear-feedback"}|{type:"save-item"}|{type:"save-items"}>, time: string, actorId: string): State {
   const id = recordIdOf(action); const suppliers = parseStoreSettings(window.localStorage.getItem("chinatech.m1.store-settings.v1")).suppliers;
   let records = state.records; let message = "配件事实已保存。"; const repairIds = new Set<string>();
   if (action.type === "batch") {
@@ -136,17 +137,45 @@ function savePreviewItem(current:State, action:Extract<ProcurementAction,{type:"
   try{keys.forEach((key,index)=>window.localStorage.setItem(key,values[index]));}catch(reason){keys.forEach((key,index)=>{try{if(before[index]===null)window.localStorage.removeItem(key);else window.localStorage.setItem(key,before[index]!);}catch{}});throw reason;}
   cachedRaw=values[0];store=next;window.dispatchEvent(new Event("chinatech-repair-workflow-change"));window.dispatchEvent(new Event("chinatech-local-intake-change"));
 }
+function savePreviewItems(current:State, action:Extract<ProcurementAction,{type:"save-items"}>, time:string) {
+  const actor=requirePreviewPermission("repairs.edit"),workflowKey="chinatech.m1.repair-workflow.v1",intakeKey="chinatech.m1.local-intakes.v1";
+  const keys=[storageKey,workflowKey,intakeKey],before=keys.map(key=>window.localStorage.getItem(key));
+  const intakes=parseLocalIntakes(before[2]),intake=intakes.find(row=>row.id===action.repairId);
+  if(!intake)throw new Error("演示样例无法保存维修报价，请新建工单。");
+  const {type:_type,...input}=action;void _type;
+  const prepared=prepareRepairItemEdits(input,{intake,workflow:previewRepairWorkflow(intakeDirectoryEntry(intake)),records:current.records,suppliers:parseStoreSettings(window.localStorage.getItem("chinatech.m1.store-settings.v1")).suppliers,canEditCost:can(actor,"financial.read")&&can(actor,"financial.edit"),activity:{id:crypto.randomUUID(),time,actorId:actor.id}});
+  const changedById=new Map(prepared.changedRecords.map(row=>[row.id,row]));
+  const records=[...prepared.changedRecords.filter(row=>!current.records.some(old=>old.id===row.id)),...current.records.map(row=>changedById.get(row.id)??row)];
+  const repairUpdates=prepared.changedRecords.length?recordRepairUpdate(current.repairUpdates,intake.id,time):current.repairUpdates;
+  const intakeEnvelope=JSON.parse(before[2]!);intakeEnvelope.records=intakes.map(row=>row.id===intake.id?prepared.intake:row);
+  const intakeValue=JSON.stringify(intakeEnvelope);parseLocalIntakes(intakeValue);
+  const entries=[{key:intakeKey,before:before[2],value:intakeValue}];
+  let procurementValue:string|undefined;
+  if(prepared.changedRecords.length){
+    procurementValue=JSON.stringify({version:1,records,repairUpdates});parseProcurementState(procurementValue);
+    const envelope=JSON.parse(before[1]??'{"version":1,"workflows":{}}');envelope.workflows[intake.id]=prepared.workflow;
+    const workflowValue=JSON.stringify(envelope);for(const workflow of Object.values(envelope.workflows))validateWorkflowExtensions(workflow as Parameters<typeof validateWorkflowExtensions>[0]);
+    entries.unshift({key:storageKey,before:before[0],value:procurementValue},{key:workflowKey,before:before[1],value:workflowValue});
+  }
+  persistRepairItemEnvelopes(window.localStorage,entries);
+  if(procurementValue!==undefined)cachedRaw=procurementValue;
+  store={...current,records,repairUpdates,feedback:{recordId:intake.id,error:false,message:prepared.changedRecords.length?"报价及供应商已保存 · 未下单。":"报价已保存。"}};
+  // Publish only after every prepared envelope was persisted successfully.
+  if(prepared.workflow)window.dispatchEvent(new Event("chinatech-repair-workflow-change"));
+  window.dispatchEvent(new Event("chinatech-local-intake-change"));
+}
 async function dispatchAction(action: ProcurementAction) {
   const current=read();if(action.type==="list-view"||action.type==="clear-feedback"){store={...current,...(action.type==="list-view"?{listView:action.view}:{feedback:null})};window.dispatchEvent(new Event(changed));return;}
   const recordId=recordIdOf(action);
   try {
     if(isBackendClient()) {
       if(action.type==="batch") {const {type:_type,...payload}=action;void _type;await backendCommand("procurement.batch",payload);} else await backendCommand("procurement",action);
-      read();store={...store,feedback:{recordId,error:false,message:action.type==="create-cart"?"已加购物车 · 未下单。":"配件事实已保存。"}};
+      read();store={...store,feedback:{recordId,error:false,message:action.type==="create-cart"?"已加购物车 · 未下单。":action.type==="save-items"?action.items.some(row=>row.purchase)?"报价及供应商已保存 · 未下单。":"报价已保存。":"配件事实已保存。"}};
     } else {
       const actor=requirePreviewPermission("repairs.edit");if(current.storageError)throw new Error(current.storageError);
       const time=new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Rome",dateStyle:"short",timeStyle:"medium"}).format(new Date());
       if(action.type==="save-item"){savePreviewItem(current,action,time);window.dispatchEvent(new Event(changed));return;}
+      if(action.type==="save-items"){savePreviewItems(current,action,time);window.dispatchEvent(new Event(changed));return;}
       const next=mutate(current,action,time,actor.id);const raw=JSON.stringify({version:1,records:next.records,repairUpdates:next.repairUpdates});parseProcurementState(raw);
       window.localStorage.setItem(storageKey,raw);cachedRaw=raw;store=next;
     }
