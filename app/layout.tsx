@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { LegacyServiceWorkerCleanup } from "@/components/legacy-service-worker-cleanup";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN" data-scroll-behavior="smooth">
-      <body>{children}</body>
+      <body><LegacyServiceWorkerCleanup />{children}</body>
     </html>
   );
 }
