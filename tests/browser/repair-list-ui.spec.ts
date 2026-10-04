@@ -90,6 +90,10 @@ async function expectUsableTarget(target: Locator) {
     }
     return { bounds: box.toJSON(), viewport: { width: innerWidth, height: innerHeight, scrollY }, samples, ancestors };
   });
+  const row = hitTest.ancestors.find(ancestor => ancestor.tag === "ARTICLE");
+  expect(row, "Control must belong to a repair row").toBeDefined();
+  expect(hitTest.bounds.top >= row!.bounds.top && hitTest.bounds.bottom <= row!.bounds.bottom,
+    `Control must stay inside its own row: ${JSON.stringify(hitTest)}`).toBe(true);
   expect(hitTest.samples.every(sample => sample.inside), JSON.stringify(hitTest)).toBe(true);
 }
 
