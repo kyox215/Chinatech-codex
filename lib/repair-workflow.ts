@@ -11,12 +11,19 @@ export type RepairWorkflow = { revision: number; status: RepairStatus; custody: 
 export type WorkflowCommand = { type: "stage"; status: RepairStatus; note: string } | { type: "custody"; custody: DeviceCustody } | { type: "arrival_notice" | "pickup_notice"; outcome: "notified" | "unreachable"; note: string } | { type: "quote_contact"; outcome: QuoteContactOutcome; note: string } | { type: "requirement"; item: RepairRequirement; note: string } | { type: "followup"; flag: "awaitingReply" | "collectedUnpaid"; value: boolean; note: string; delivered?: boolean; unpaid?: boolean };
 export const repairStageTones: Record<RepairStatus, RepairTone> = { diagnosis: "warning", awaiting_quote: "warning", awaiting_parts: "info", repairing: "progress", testing: "info", ready: "success", completed: "success", cancelled: "warning", awaiting_reply: "warning", collected_unpaid: "warning", outsourced: "info", ready_notified: "success" };
 export const custodyLabels = { unknown: "保管待核对", store: "设备已留下", customer: "设备未留下／已交还" };
-// Legacy keys remain parseable so old custom names/order and clients cannot lose settings.
-export const workflowGroups = { awaiting_reply: "久等 未答复", collected_unpaid: "欠款 已拿走", outsourced: "寄修", processing: "IN CORSO", purchase: "下单", arrival: "到货", arrival_notified: "到货已通知", ready: "修好", ready_notified: "修好已通知", complete: "FATTO", cancelled: "作废" };
+export const repairStageGroups = { outsourced: "outsourced", diagnosis: "diagnosis", awaiting_quote: "awaiting_quote", awaiting_parts: "awaiting_parts", repairing: "processing", testing: "testing", ready: "ready", completed: "complete", cancelled: "cancelled" } as const;
+const stageLabel = (status: RepairStatus) => repairStatusOptions.find(option => option.value === status)!.label;
+// Keep old IDs readable; the visible groups use the same labels as their stages.
+export const workflowGroups = { awaiting_reply: "久等 未答复", collected_unpaid: "欠款 已拿走", outsourced: stageLabel("outsourced"), diagnosis: stageLabel("diagnosis"), awaiting_quote: stageLabel("awaiting_quote"), awaiting_parts: stageLabel("awaiting_parts"), processing: stageLabel("repairing"), testing: stageLabel("testing"), purchase: "下单", arrival: "到货", arrival_notified: "到货已通知", ready: stageLabel("ready"), ready_notified: "修好已通知", complete: stageLabel("completed"), cancelled: stageLabel("cancelled") };
 export type WorkflowGroup = keyof typeof workflowGroups;
-export const retiredWorkflowGroups: WorkflowGroup[] = ["arrival_notified", "ready_notified", "awaiting_reply", "collected_unpaid"];
+export const retiredWorkflowGroups: WorkflowGroup[] = ["arrival_notified", "ready_notified", "awaiting_reply", "collected_unpaid", "purchase", "arrival"];
 export function initialRepairWorkflow(order: RepairDirectoryEntry): RepairWorkflow { return { revision: 0, status: order.status, custody: order.custody ?? (order.id.startsWith("LOCAL-") ? "unknown" : "store"), notice: null, events: [], updatedAt: order.updatedAt }; }
 export function isRepairReady(workflow: RepairWorkflow) { return ["ready", "ready_notified"].includes(workflow.status) || (["awaiting_reply", "collected_unpaid"].includes(workflow.status) && Boolean(workflow.readyCycle)); }
+export function repairStageStatus(workflow: Pick<RepairWorkflow, "status" | "readyCycle">): keyof typeof repairStageGroups {
+  if (workflow.status === "ready_notified") return "ready";
+  if (workflow.status === "awaiting_reply" || workflow.status === "collected_unpaid") return workflow.readyCycle ? "ready" : "awaiting_quote";
+  return workflow.status;
+}
 export function pickupNotice(workflow: RepairWorkflow) {
   if (!isRepairReady(workflow)) return "尚未修好";
   if (workflow.pickupNotice?.cycle === (workflow.readyCycle ?? "legacy") && workflow.pickupNotice.outcome === "notified") return "已通知取机";
@@ -37,16 +44,17 @@ export function arrivalNotice(workflow: RepairWorkflow, records: ProcurementReco
   const legacy = records.filter(row => row.repairId === id && row.required !== false).map(row => `${row.id}:${row.quantity}:${row.events.length}`).sort().join("|");
   return workflow.notice?.outcome === "notified" && (workflow.notice.signature === signature || (!requirements.length && workflow.notice.signature === legacy)) ? "已通知送机" : "未通知送机";
 }
-export function workflowGroup(order: RepairDirectoryEntry, records: ProcurementRecord[], workflow?: RepairWorkflow): WorkflowGroup {
+export function workflowGroup(order: RepairDirectoryEntry, _records: ProcurementRecord[], workflow?: RepairWorkflow): WorkflowGroup {
   const current = workflow ?? initialRepairWorkflow(order);
-  if (current.status === "completed") return "complete";
-  if (current.status === "cancelled") return "cancelled";
-  if (current.status === "outsourced") return "outsourced";
-  if (isRepairReady(current)) return "ready";
-  if (["repairing", "testing", "awaiting_quote", "awaiting_reply", "collected_unpaid"].includes(current.status)) return "processing";
+  return repairStageGroups[repairStageStatus(current)];
+}
+/** Actual procurement progress remains independent of the manually selected stage. */
+export function repairPartsFollowup(order: RepairDirectoryEntry, records: ProcurementRecord[], workflow?: RepairWorkflow): "purchase" | "arrival" | null {
+  const current = workflow ?? initialRepairWorkflow(order);
+  if (current.status !== "diagnosis" && current.status !== "awaiting_parts") return null;
   const parts = repairPartsSummary(records, order.id, currentRepairRequirements(order, current));
   if (parts.allRequiredReady && parts.total > 0) return "arrival";
-  return parts.ordered > 0 ? "purchase" : "processing";
+  return parts.ordered > 0 ? "purchase" : null;
 }
 export function stageChangeNeedsNote(previous: RepairStatus, next: RepairStatus) { return ["cancelled", "collected_unpaid"].includes(next) || ["completed", "cancelled", "collected_unpaid"].includes(previous); }
 export function applyWorkflowCommand(workflow: RepairWorkflow, command: WorkflowCommand, activity: Pick<RepairActivity, "id" | "time" | "actorId">, records: ProcurementRecord[], repairId: string, revision: number, order: RequirementSource = {}) {
@@ -125,7 +133,7 @@ export function applyWorkflowCommand(workflow: RepairWorkflow, command: Workflow
   }
   return { ...next, revision: workflow.revision + 1, updatedAt: activity.time, events: [...workflow.events, { ...activity, type: command.type, label, note }] };
 }
-export function overlayRepair(order: RepairDirectoryEntry, workflow?: RepairWorkflow): RepairDirectoryEntry { if (!workflow) return order; return { ...order, status: workflow.status, statusLabel: repairStatusOptions.find(option => option.value === workflow.status)!.label, tone: repairStageTones[workflow.status], updatedAt: workflow.updatedAt > order.updatedAt ? workflow.updatedAt : order.updatedAt }; }
+export function overlayRepair(order: RepairDirectoryEntry, workflow?: RepairWorkflow): RepairDirectoryEntry { const current = workflow ?? initialRepairWorkflow(order); const stage = repairStageStatus(current); return { ...order, status: current.status, statusLabel: stageLabel(stage), tone: repairStageTones[stage], updatedAt: current.updatedAt > order.updatedAt ? current.updatedAt : order.updatedAt }; }
 
 /** Reject malformed optional additions before a local JSON envelope reaches UI selectors. */
 export function validateWorkflowExtensions(value: RepairWorkflow) {

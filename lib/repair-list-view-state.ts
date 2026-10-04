@@ -16,7 +16,7 @@ export type RepairListViewState = {
 export const repairListViewStorageKey = "chinatech.repair-list-view.v1";
 const statuses = ["all", "including_cancelled", "diagnosis", "awaiting_quote", "awaiting_parts", "repairing", "testing", "ready", "awaiting_reply", "collected_unpaid", "outsourced", "ready_notified", "completed", "cancelled"];
 const parts = ["all", "draft", "cart", "mixed", "ordered", "complete", "unrecorded"];
-const groupIds = new Set(["all", "awaiting_reply", "collected_unpaid", "outsourced", "processing", "purchase", "arrival", "arrival_notified", "ready", "ready_notified", "complete", "cancelled", ...parts.slice(1)]);
+const groupIds = new Set(["all", "diagnosis", "awaiting_quote", "awaiting_parts", "testing", "awaiting_reply", "collected_unpaid", "outsourced", "processing", "purchase", "arrival", "arrival_notified", "ready", "ready_notified", "complete", "cancelled", ...parts.slice(1)]);
 type Envelope = { version: 1; scope: string; view: Omit<RepairListViewState, "query"> };
 let memory: { scope: string; view: RepairListViewState } | null = null;
 

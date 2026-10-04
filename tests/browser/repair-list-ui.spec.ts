@@ -117,9 +117,10 @@ async function expectNoOverlap(first: Locator, second: Locator) {
 }
 
 test.beforeEach(async ({ page }) => {
-  expect((await page.request.post("/api/preview-session", {
-    data: { email: "demo@chinatech.local", password: "Preview2026!" },
-  })).status()).toBe(200);
+  await page.goto('/login');
+  await page.getByRole('button', {name:'填入演示账号',exact:true}).click();
+  await page.getByRole('button', {name:'登录工作台',exact:true}).click();
+  await expect(page).toHaveURL(/\/app\/dashboard$/);
 });
 
 test("one supplier entry keeps the remaining project visible and restores usable focus at four widths", async ({ page }) => {
@@ -196,8 +197,8 @@ test("mobile continuous rows keep two-line density, full quote follow-up and act
   await seed(page, { records, workflows, procurement: prepared.changedRecords, settings });
   await page.goto("/app/repairs");
   await page.getByRole("textbox", { name: "搜索维修工单" }).fill("示例客户");
-  await page.locator("#repair-group-processing").click();
-  const rows = page.locator("#repair-group-rows-processing article");
+  await page.locator("#repair-group-diagnosis").click();
+  const rows = page.locator("#repair-group-rows-diagnosis article");
   await expect(rows).toHaveCount(3);
   const unchanged = () => page.evaluate(() => ["chinatech.m1.local-intakes.v1", "chinatech.m1.procurement.v1", "chinatech.m1.repair-workflow.v1"].map(key => localStorage.getItem(key)));
   const before = await unchanged();
@@ -235,7 +236,7 @@ test("mobile continuous rows keep two-line density, full quote follow-up and act
   await expectPageFits(page);
   await page.screenshot({ path: `.local/ui-proof/repair-mobile-implementation/${info.project.name}-1440.png` });
   await page.reload();
-  await expect(page.locator("#repair-group-processing")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator("#repair-group-diagnosis")).toHaveAttribute("aria-expanded", "true");
   expect(await unchanged()).toEqual(before);
 });
 

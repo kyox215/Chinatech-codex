@@ -97,3 +97,10 @@ test("位置恢复等两帧与布局可达，当前scope改变或用户输入立
   current = true; context.exports.restoreRepairListPosition(view, table, () => current, () => { finished++; }); listeners.get("pointerdown")(); frame(); assert.equal(window.scrollY, 0); assert.equal(finished, 3);
   assert.equal(frames.size, 0); assert.equal(listeners.size, 0);
 });
+
+test("新增维修阶段分组的展开状态在刷新后保留", () => {
+  const h = harness();const openGroups={diagnosis:true,awaiting_quote:true,awaiting_parts:false,testing:true};
+  assert.equal(h.writeRepairListView('STAGE-SCOPE',{...view,groupBy:'workflow',openGroups},h.storage),true);
+  const cold=harness();cold.setRaw(h.raw());
+  assert.deepEqual(snapshot(cold.readRepairListView('STAGE-SCOPE',cold.storage).openGroups),openGroups);
+});

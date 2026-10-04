@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import ts from 'typescript';
 const cache = new Map();
 function moduleUrl(name) { if (cache.has(name)) return cache.get(name); let compiled = ts.transpileModule(readFileSync(new URL(`../lib/${name}.ts`, import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText; compiled = compiled.replace(/from "\.\/([^"]+)"/g, (_, dep) => `from "${moduleUrl(dep)}"`); const url = `data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`; cache.set(name, url); return url; }
-const { initialRepairWorkflow, applyWorkflowCommand, arrivalNotice, overlayRepair, workflowGroup, workflowGroups } = await import(moduleUrl('repair-workflow'));
+const { initialRepairWorkflow, applyWorkflowCommand, arrivalNotice, overlayRepair, workflowGroup, repairStageGroups, repairPartsFollowup } = await import(moduleUrl('repair-workflow'));
 const { parseProcurementState } = await import(moduleUrl('procurement-storage'));
 const { defaultStoreSettings, parseStoreSettings, validateFinanceEntry, financeTotals } = await import(moduleUrl('store-settings'));
 const order = { id: 'LOCAL-0000000000000001', status: 'diagnosis', statusLabel: '待检测', tone: 'warning', updatedAt: '2026-10-01 09:00:00' };
@@ -15,7 +15,7 @@ test('维修阶段覆盖共享目录，保留独立采购事实与原始工单',
 test('接单报价沟通独立记录，不冒充客户授权、到货通知或改变阶段', () => {
   const base=initialRepairWorkflow(order), before=structuredClone(base);
   const waiting=apply(base,{type:'quote_contact',outcome:'awaiting_reply',note:'DEMO 客户考虑屏幕报价'},[]);
-  assert.deepEqual(base,before);assert.equal(waiting.status,base.status);assert.equal(waiting.notice,null);assert.equal(waiting.pickupNotice,undefined);assert.equal(waiting.followUp,undefined);assert.equal(workflowGroup(order,[],waiting),'processing');
+  assert.deepEqual(base,before);assert.equal(waiting.status,base.status);assert.equal(waiting.notice,null);assert.equal(waiting.pickupNotice,undefined);assert.equal(waiting.followUp,undefined);assert.equal(workflowGroup(order,[],waiting),'diagnosis');
   assert.deepEqual(waiting.quoteContact,{outcome:'awaiting_reply',time:activity.time,note:'DEMO 客户考虑屏幕报价'});assert.equal(waiting.events[0].type,'quote_contact');
   const contacted=apply(waiting,{type:'quote_contact',outcome:'contacted',note:'DEMO 再次沟通报价'},[],'A2');
   assert.equal(contacted.events.length,2);assert.equal(contacted.quoteContact.outcome,'contacted');assert.equal(contacted.status,'diagnosis');assert.equal(contacted.events[0].note,waiting.events[0].note);
@@ -35,27 +35,34 @@ test('作废和恢复必须原因，原历史不抹除', () => { const base = in
 test('版本冲突、重复操作、倒退时间失败不改变历史', () => { const base = initialRepairWorkflow(order); assert.throws(() => applyWorkflowCommand(base, { type: 'stage', status: 'ready', note: '' }, activity, [], order.id, 1)); const next = apply(base, { type: 'stage', status: 'ready', note: '' }); assert.throws(() => apply(next, { type: 'stage', status: 'testing', note: '' })); assert.throws(() => applyWorkflowCommand(next, { type: 'stage', status: 'testing', note: '' }, { id: 'later', time: order.updatedAt }, [], order.id, 1)); assert.equal(next.events.length, 1); });
 test('已留下无需到货通知；未知保管不能免除核对', () => { const base = initialRepairWorkflow(order); assert.equal(arrivalNotice(base, [part], order.id), '先核对设备保管'); const left = apply(base, { type: 'custody', custody: 'store' }); assert.equal(arrivalNotice(left, [part], order.id), '无需到货通知'); assert.throws(() => apply(left, { type: 'arrival_notice', outcome: 'notified', note: '' }, [part], 'A2')); });
 test('未留设备且到齐才通知，未接通仍是未通知，新需求不沿用旧通知', () => { let flow = apply(initialRepairWorkflow(order), { type: 'custody', custody: 'customer' }); assert.throws(() => apply(flow, { type: 'arrival_notice', outcome: 'notified', note: '' }, [], 'A2')); flow = apply(flow, { type: 'arrival_notice', outcome: 'unreachable', note: '' }, [part], 'A2'); assert.equal(arrivalNotice(flow, [part], order.id), '未通知送机'); flow = apply(flow, { type: 'arrival_notice', outcome: 'notified', note: '' }, [part], 'A3'); assert.equal(arrivalNotice(flow, [part], order.id), '已通知送机'); assert.equal(arrivalNotice(flow, [part, { ...part, id: 'P2', events: [] }], order.id), '配件未到齐'); const after = apply(flow, { type: 'custody', custody: 'store' }, [part], 'A4'); assert.equal(arrivalNotice(after, [part], order.id), '无需到货通知'); assert.equal(after.events.length, 4); });
-test('SeaTable状态分组遵循既有事实，维修中和结束优先于采购', () => {
-  assert.deepEqual(Object.values(workflowGroups), ['久等 未答复','欠款 已拿走','寄修','IN CORSO','下单','到货','到货已通知','修好','修好已通知','FATTO','作废']);
-  assert.equal(workflowGroup(order, []), 'processing');
-  assert.equal(workflowGroup(order, [part]), 'arrival');
-  assert.equal(workflowGroup({ ...order, status: 'awaiting_parts' }, []), 'processing');
-  assert.equal(workflowGroup(order, [{...part,events:part.events.slice(0,1)}]), 'purchase');
-  assert.equal(workflowGroup({...order,status:'repairing'}, [part]), 'processing');
-  assert.equal(workflowGroup({...order,status:'ready'}, [part]), 'ready');
-  assert.equal(workflowGroup({...order,status:'completed'}, [part]), 'complete');
-  assert.equal(workflowGroup({...order,status:'cancelled'}, [part]), 'cancelled');
+test('每个可选维修阶段对应同名分组，采购和沟通事实不改变阶段分组', async () => {
+  const { repairStatusOptions } = await import(moduleUrl('repair-fixtures'));
+  const { visibleRepairGroups, defaultRepairGroups } = await import(moduleUrl('repair-groups'));
+  const groups = visibleRepairGroups(defaultRepairGroups(), 'workflow');
+  assert.equal(groups.length, 9);
+  for (const [status, key] of Object.entries(repairStageGroups)) {
+    const stage = repairStatusOptions.find(row => row.value === status);
+    assert.equal(groups.find(row => row.key === key).label, stage.label);
+    for (const records of [[], [{...part,events:[]}], [{...part,events:part.events.slice(0,1)}], [part]]) {
+      const flow = { ...initialRepairWorkflow(order), status };
+      const before = structuredClone({flow,records});
+      assert.equal(workflowGroup(order, records, flow), key);
+      assert.deepEqual({flow,records},before);
+    }
+  }
 });
-test('到货通知组随已保存沟通与采购签名联动，未接通和新增需求不能沿用', () => {
+test('到货通知仍依实际采购和沟通签名判断，与维修分组分开', () => {
   const customer = {...initialRepairWorkflow(order),custody:'customer'};
   const notified = apply(customer,{type:'arrival_notice',outcome:'notified',note:'DEMO沟通'});
-  assert.equal(workflowGroup(order,[part],notified),'arrival');
-  assert.equal(workflowGroup(order,[part],{...notified,notice:{...notified.notice,outcome:'unreachable'}}),'arrival');
-  assert.equal(workflowGroup(order,[part,{...part,id:'P2',events:[]}],notified),'purchase');
-  assert.equal(workflowGroup(order,[part],{...notified,custody:'store'}),'arrival');
+  assert.equal(workflowGroup(order,[part],notified),'diagnosis');
+  assert.equal(repairPartsFollowup(order,[part],notified),'arrival');
+  assert.equal(arrivalNotice(notified,[part],order.id),'已通知送机');
+  assert.equal(arrivalNotice({...notified,notice:{...notified.notice,outcome:'unreachable'}},[part],order.id),'未通知送机');
+  assert.equal(repairPartsFollowup(order,[part,{...part,id:'P2',events:[]}],notified),'purchase');
+  assert.equal(repairPartsFollowup(order,[part],{...notified,status:'testing'}),null);
 });
 test('旧等待/欠款不推断修好，旧通知兼容，交还通过明确跟进事实记录', () => {
-  for(const status of ['awaiting_reply','collected_unpaid'])assert.equal(workflowGroup({...order,status},[]),'processing');
+  for(const status of ['awaiting_reply','collected_unpaid'])assert.equal(workflowGroup({...order,status},[]),'awaiting_quote');
   assert.equal(workflowGroup({...order,status:'outsourced'},[]),'outsourced');
   assert.throws(()=>apply(initialRepairWorkflow(order),{type:'stage',status:'ready_notified',note:''}),/修好/);
   const ready=apply(initialRepairWorkflow(order),{type:'stage',status:'ready',note:''});
@@ -79,7 +86,7 @@ test('维修分组改名与排序保留业务标识，旧设置兼容，非法�
   assert.equal(reordered[0].key, 'processing');
   const next = {...groups, workflow:reordered.map(row=>row.key==='processing'?{...row,label:'  处理中  '}:row)};
   const parsed = parseRepairGroups(next);
-  assert.equal(parsed.workflow[0].label,'处理中');
+  assert.equal(parsed.workflow[0].label,'维修中');
   assert.equal(groups.workflow[0].key,'awaiting_reply');
   const legacy = parseStoreSettings(JSON.stringify({version:1,settings:defaultStoreSettings}));
   assert.deepEqual(legacy.repairGroups,groups);
@@ -89,4 +96,34 @@ test('维修分组改名与排序保留业务标识，旧设置兼容，非法�
     const bad=structuredClone(groups);edit(bad);assert.throws(()=>parseRepairGroups(bad));
   }
   for (const bad of [null, [], {}, {...groups,extra:[]}]) assert.throws(()=>parseRepairGroups(bad));
+});
+
+test('旧11分组配置统一名称、补齐阶段且保留已有相对顺序，不改输入字节', async () => {
+  const { parseRepairGroups, visibleRepairGroups, defaultRepairGroups } = await import(moduleUrl('repair-groups'));
+  const added = ['diagnosis','awaiting_quote','awaiting_parts','testing'];
+  const legacy = defaultRepairGroups();
+  legacy.workflow = legacy.workflow.filter(row => !added.includes(row.key)).toReversed().map(row => ({...row,label:row.key==='processing'?'维修':row.key==='complete'?'完成':row.label}));
+  const before = JSON.stringify(legacy);
+  const parsed = parseRepairGroups(legacy);
+  assert.equal(JSON.stringify(legacy),before);
+  assert.deepEqual(parsed.workflow.filter(row=>!added.includes(row.key)).map(row=>row.key),legacy.workflow.map(row=>row.key));
+  assert.equal(visibleRepairGroups(legacy,'workflow').length,9);
+  assert.equal(parsed.workflow.find(row=>row.key==='processing').label,'维修中');
+  assert.equal(parsed.workflow.find(row=>row.key==='complete').label,'维修结束');
+  assert.deepEqual(parseRepairGroups(parsed),parsed);
+  for(const bad of [legacy.workflow.slice(1),[...legacy.workflow,{key:'diagnosis',label:'待检测'}]]) assert.throws(()=>parseRepairGroups({...legacy,workflow:bad}));
+});
+
+test('旧通知与跟进只投影确定阶段，未核对维修结果保持待确认且不改原状态', async () => {
+  const {repairStageStatus}=await import(moduleUrl('repair-workflow'));
+  for(const status of ['awaiting_reply','collected_unpaid','ready_notified']) {
+    const flow={...initialRepairWorkflow(order),status};const before=JSON.stringify(flow);
+    const stage=status==='ready_notified'?'ready':'awaiting_quote';
+    assert.equal(repairStageStatus(flow),stage);
+    assert.equal(overlayRepair(order,flow).statusLabel,status==='ready_notified'?'待取机':'待确认');
+    assert.equal(overlayRepair(order,flow).status,status);
+    assert.equal(JSON.stringify(flow),before);
+    assert.equal(repairStageStatus({...flow,readyCycle:'known-ready'}),'ready');
+    assert.equal(workflowGroup(order,[],{...flow,readyCycle:'known-ready'}),'ready');
+  }
 });

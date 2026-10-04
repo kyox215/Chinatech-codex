@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { Phone, X } from "lucide-react";
 import { useStaff } from "@/components/staff/use-staff";
 import { useProcurement } from "@/components/procurement/procurement-provider";
-import { initialRepairWorkflow, arrivalNotice, pickupNotice, isRepairReady, workflowGroup, quoteContactLabels, type QuoteContactOutcome, type WorkflowCommand } from "@/lib/repair-workflow";
+import { initialRepairWorkflow, arrivalNotice, pickupNotice, isRepairReady, repairPartsFollowup, quoteContactLabels, type QuoteContactOutcome, type WorkflowCommand } from "@/lib/repair-workflow";
 import { useLocalIntakes } from "./local-intake-store";
 import { itemQuoteTotal } from "@/lib/repair-item-pricing";
 import type { RepairDirectoryEntry } from "@/lib/repair-intake-record";
@@ -14,11 +14,11 @@ type RepairContactControlProps = { order: RepairDirectoryEntry; variant?: "defau
 export function RepairContactControl(props:RepairContactControlProps) {const staff=useStaff();return <ScopedContactControl key={`${staff.member?.id}:${staff.member?.revision}`} {...props}/>;}
 function ScopedContactControl({order,variant="default"}:RepairContactControlProps) {
   const canEdit=useStaff().can("repairs.edit");const {workflows}=useRepairWorkflows();const {records}=useProcurement();const workflow=workflows[order.id]??initialRepairWorkflow(order);
-  const [open,setOpen]=useState(false);const ready=isRepairReady(workflow);const group=workflowGroup(order,records,workflow);const legacy=["awaiting_reply","collected_unpaid"].includes(workflow.status)&&!ready;
+  const [open,setOpen]=useState(false);const ready=isRepairReady(workflow);const partsFollowup=repairPartsFollowup(order,records,workflow);const legacy=["awaiting_reply","collected_unpaid"].includes(workflow.status)&&!ready;
   const notice=ready?pickupNotice(workflow):arrivalNotice(workflow,records,order.id,order);
   const followUp=Boolean(workflow.followUp?.awaitingReply || workflow.followUp?.collectedUnpaid);
   const quoteActive = !["completed", "cancelled"].includes(workflow.status);
-  const operationalNotice = ready || group === "arrival" || legacy;
+  const operationalNotice = ready || partsFollowup === "arrival" || legacy;
   if(!quoteActive&&!operationalNotice&&!followUp&&!workflow.handedOver&&!workflow.quoteContact)return null;
   const facts=<>{operationalNotice?<span className="repair-contact__notice">{legacy?"旧跟进记录 · 维修结果待核对":notice}</span>:null}{workflow.quoteContact?<span className="repair-contact__quote" title={`上次报价沟通 ${workflow.quoteContact.time}`}>{quoteContactLabels[workflow.quoteContact.outcome]}</span>:null}{workflow.followUp?.awaitingReply?<small className="repair-contact__flag">久等未答复</small>:null}{workflow.followUp?.collectedUnpaid?<small className="repair-contact__flag repair-contact__flag--debt">已交还 · 欠款待跟进</small>:null}{workflow.handedOver ? <small className="repair-contact__history">有实际交还记录{workflow.handedOver.unpaid ? "（当时未结清）" : ""}</small> : null}</>;
   const canContact = canEdit && (!legacy || followUp);
@@ -41,7 +41,7 @@ function ContactDialog({order,onClose}:{order:RepairDirectoryEntry;onClose:()=>v
   const total=itemQuoteTotal(quotes??[]);
   const quoteActive=!["completed","cancelled"].includes(workflow.status);
   const quoteHistory=workflow.events.filter(event=>event.type==="quote_contact");
-  const canNotify=ready||(workflowGroup(order,records,workflow)==="arrival"&&["未通知送机","已通知送机"].includes(notice));
+  const canNotify=ready||(repairPartsFollowup(order,records,workflow)==="arrival"&&["未通知送机","已通知送机"].includes(notice));
   useEffect(()=>{dialog.current?.showModal();},[]);
   async function save(command:WorkflowCommand){if(busy.current)return;busy.current=true;setPending(true);setError("");try{await updateRepairWorkflow(order,command,records,revision);onClose();}catch(reason){setError(reason instanceof Error?reason.message:"保存失败。");}finally{busy.current=false;setPending(false);}}
   return createPortal(<dialog ref={dialog} className="repair-parts-dialog repair-contact-dialog" aria-label="工单联系与跟进" onCancel={event=>{if(busy.current)event.preventDefault();}} onClose={onClose}><header><div><small>{order.id} · {order.device.model}</small><h2>联系与跟进</h2></div><button className="icon-button" type="button" aria-label="关闭联系跟进" disabled={pending} onClick={onClose}><X size={20}/></button></header><p className="repair-contact-dialog__context">{canNotify?notice:quoteActive?"报价沟通":"历史跟进"}</p>{quoteActive?<div className="repair-quote-context"><span>当前报价</span><strong>{quotes?.length?(total===null?"报价待补全":`€${(total/100).toFixed(2)}`):"未填写报价"}</strong>{workflow.quoteContact?<small>上次：{quoteContactLabels[workflow.quoteContact.outcome]} · {workflow.quoteContact.time}</small>:null}</div>:null}<label className="field"><span>沟通／跟进说明</span><InputControl disabled={pending} placeholder="例如：已告知报价，客户稍后回复" onClear={() => setNote("")} clearLabel="清空联系跟进说明" aria-label="联系跟进说明" value={note} maxLength={500} onChange={event=>setNote(event.target.value)}/></label>

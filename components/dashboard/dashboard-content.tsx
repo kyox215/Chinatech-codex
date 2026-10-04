@@ -13,7 +13,7 @@ import { useStaff } from "@/components/staff/use-staff";
 import { useStoreSettings } from "@/components/settings/settings-store";
 import { defaultRepairGroups, visibleRepairGroups } from "@/lib/repair-groups";
 import { isBackendClient } from "@/lib/backend/client";
-import { workflowGroup, workflowGroups, type WorkflowGroup } from "@/lib/repair-workflow";
+import { workflowGroup, workflowGroups, repairPartsFollowup, type WorkflowGroup } from "@/lib/repair-workflow";
 import { procurementEventLabel } from "@/lib/procurement";
 import {
   ArrowRight,
@@ -65,7 +65,7 @@ function RealDashboardContent() {
   for (const order of orders) counts[workflowGroup(order, records, workflows[order.id])]++;
   const realStats = [
     { label: "待检测", value: orders.filter(order => order.status === "diagnosis").length, note: "接单阶段", icon: Clock3, tone: "violet" },
-    { label: "配件跟进", value: counts.purchase + counts.arrival, note: "下单与到货阶段", icon: PackageSearch, tone: "amber" },
+    { label: "配件跟进", value: orders.filter(order => repairPartsFollowup(order, records, workflows[order.id]) !== null).length, note: "下单与到货进度", icon: PackageSearch, tone: "amber" },
     { label: "维修与测试", value: orders.filter(order => order.status === "repairing" || order.status === "testing").length, note: "当前维修阶段", icon: Wrench, tone: "mint" },
     { label: "待取机", value: counts.ready, note: "等待客户取机", icon: PackageCheck, tone: "rose" },
   ];

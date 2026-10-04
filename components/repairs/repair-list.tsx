@@ -16,7 +16,7 @@ import { useProcurement } from "@/components/procurement/procurement-provider";
 import { RepairProcurementDialog } from "@/components/procurement/repair-procurement-shortcut";
 import { repairPartsSummary, type RepairPartsGroup } from "@/lib/procurement";
 import { compareRepairUpdates, repairUpdatedAt } from "@/lib/repair-list-order";
-import { initialRepairWorkflow, workflowGroup } from "@/lib/repair-workflow";
+import { initialRepairWorkflow, workflowGroup, repairStageStatus } from "@/lib/repair-workflow";
 import { RepairContactControl } from "./repair-contact-control";
 import { SupplierBatchDialog } from "@/components/procurement/supplier-batch-dialog";
 import { currentRepairRequirements } from "@/lib/repair-requirements";
@@ -119,8 +119,9 @@ function ScopedRepairList({ scope }: { scope: string }) {
 
   const summaries = new Map(repairOrders.map((repair) => [repair.id, repairPartsSummary(records, repair.id, currentRepairRequirements(repair, workflows[repair.id]))]));
   const filteredRepairs = repairOrders.filter((repair) => {
+    const stage = repairStageStatus(workflows[repair.id] ?? initialRepairWorkflow(repair));
     const searchable = [repair.id, repair.customer.name, repair.customer.phone, repair.device.brand, repair.device.model, repair.device.serial, repair.issue].join(" ").toLocaleLowerCase();
-    return (status === "including_cancelled" || (status === "all" ? repair.status !== "cancelled" : repair.status === status))
+    return (status === "including_cancelled" || (status === "all" ? stage !== "cancelled" : stage === status))
       && (partsFilter === "all" || summaries.get(repair.id)!.group === partsFilter)
       && searchable.includes(query.trim().toLocaleLowerCase());
   }).sort((left, right) => {
@@ -186,6 +187,8 @@ function ScopedRepairList({ scope }: { scope: string }) {
                   <div className="repair-module-row__cell repair-module-row__customer"><strong>{repair.customer.name}</strong><small>{repair.customer.phone}</small></div>
                   <div className="repair-row-parts-cell"><button id={`repair-action-${repair.id}`} className="button button--secondary repair-row-parts" type="button" onClick={() => setActiveRepairId(repair.id)} aria-label={`${repair.id} 供应商与配件${canEdit ? "操作" : "详情"}`} title={parts.map(row => `${row.supplier} · ${row.item}`).join("\n") || (canEdit ? "选择供应商与配件" : "查看供应商与配件")}><span className="repair-row-parts__body"><PackageSearch size={17} aria-hidden="true" /><span><strong>{suppliers || (canEdit ? "选择配件" : "查看配件")}</strong><small>{parts.length ? `${parts[0].item}${parts.length > 1 ? ` +${parts.length - 1}` : ""}` : "供应商 · 报价"}</small></span></span><ChevronRight size={16} aria-hidden="true" /></button></div>
                   <RepairStageControl variant="list" order={repair} onSaved={nextStatus => {
+                    if (status === "all" && nextStatus === "cancelled") setStatus("including_cancelled");
+                    else if (status !== "all" && status !== "including_cancelled" && status !== nextStatus) setStatus(nextStatus);
                     const next = { ...(workflows[repair.id] ?? initialRepairWorkflow(repair)), status: nextStatus };
                     const nextGroup = groupBy === "none" ? "all" : groupBy === "workflow" ? workflowGroup(repair, records, next) : summary.group;
                     setOpenGroups(previous => ({ ...previous, [nextGroup]: true }));

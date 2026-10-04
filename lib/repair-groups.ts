@@ -5,13 +5,14 @@ export type RepairGroupItem<K extends string = string> = { key: K; label: string
 export type RepairGroupSettings = { workflow: RepairGroupItem<WorkflowGroup>[]; parts: RepairGroupItem<RepairPartsGroup>[] };
 export type RepairGroupKind = keyof RepairGroupSettings;
 const partsOrder: RepairPartsGroup[] = ["draft", "cart", "mixed", "ordered", "complete", "unrecorded"];
+const addedStageGroups: WorkflowGroup[] = ["diagnosis", "awaiting_quote", "awaiting_parts", "testing"];
 export function defaultRepairGroups(): RepairGroupSettings {
   return {
     workflow: (Object.entries(workflowGroups) as [WorkflowGroup, string][]).map(([key, label]) => ({ key, label })),
     parts: partsOrder.map(key => ({ key, label: repairPartsGroups[key] })),
   };
 }
-/** IDs retain business meaning; only the displayed names and their order are editable. */
+/** Workflow names follow stages; parts names and group order remain editable. */
 export function parseRepairGroups(value: unknown): RepairGroupSettings {
   const defaults = defaultRepairGroups();
   if (value === undefined) return defaults;
@@ -19,7 +20,8 @@ export function parseRepairGroups(value: unknown): RepairGroupSettings {
   const result = {} as Record<RepairGroupKind, RepairGroupItem[]>;
   for (const kind of ["workflow", "parts"] as const) {
     const rows = (value as Record<string, unknown>)[kind];
-    if (!Array.isArray(rows) || rows.length !== defaults[kind].length) throw new Error("分组必须完整保留，不能新增或删除。");
+    const legacy = kind === "workflow" && Array.isArray(rows) && rows.length === defaults.workflow.length - addedStageGroups.length && rows.every(row => !addedStageGroups.includes(row?.key));
+    if (!Array.isArray(rows) || (!legacy && rows.length !== defaults[kind].length)) throw new Error("分组必须完整保留，不能新增或删除。");
     const ids = new Set<string>(); const names = new Set<string>();
     result[kind] = rows.map(row => {
       if (!row || typeof row !== "object" || Array.isArray(row) || Object.keys(row).sort().join(",") !== "key,label" || !defaults[kind].some(item => item.key === row.key) || ids.has(row.key)) throw new Error("分组标识无效或重复。");
@@ -27,8 +29,13 @@ export function parseRepairGroups(value: unknown): RepairGroupSettings {
       const label = row.label.trim(); const normalized = label.normalize("NFKC").toLocaleLowerCase();
       if (names.has(normalized)) throw new Error("同类分组名称不能重复。");
       ids.add(row.key); names.add(normalized);
-      return { key: row.key, label };
+      return { key: row.key, label: kind === "workflow" ? workflowGroups[row.key as WorkflowGroup] : label };
     });
+    if (legacy) {
+      const processing = result.workflow.findIndex(row => row.key === "processing");
+      result.workflow.splice(processing, 0, ...addedStageGroups.filter(key => key !== "testing").map(key => ({ key, label: workflowGroups[key] })));
+      result.workflow.splice(result.workflow.findIndex(row => row.key === "processing") + 1, 0, { key: "testing", label: workflowGroups.testing });
+    }
   }
   return result as RepairGroupSettings;
 }
@@ -43,8 +50,9 @@ export function moveRepairGroup<T extends RepairGroupItem>(rows: T[], key: strin
 export function visibleRepairGroups(settings: RepairGroupSettings, kind: "workflow"): RepairGroupItem<WorkflowGroup>[];
 export function visibleRepairGroups(settings: RepairGroupSettings, kind: "parts"): RepairGroupItem<RepairPartsGroup>[];
 export function visibleRepairGroups(settings: RepairGroupSettings, kind: RepairGroupKind): RepairGroupItem[];
-export function visibleRepairGroups(settings: RepairGroupSettings, kind: RepairGroupKind): RepairGroupItem[] { return kind === "workflow" ? settings.workflow.filter(row => !retiredWorkflowGroups.includes(row.key)) : settings.parts; }
+export function visibleRepairGroups(settings: RepairGroupSettings, kind: RepairGroupKind): RepairGroupItem[] { const current = parseRepairGroups(settings); return kind === "workflow" ? current.workflow.filter(row => !retiredWorkflowGroups.includes(row.key)) : current.parts; }
 export function mergeVisibleRepairGroups(settings: RepairGroupSettings, kind: RepairGroupKind, rows: RepairGroupItem[]): RepairGroupSettings {
-  let index = 0; const oldVisible = new Set(visibleRepairGroups(settings, kind).map(row => row.key));
-  return parseRepairGroups({ ...settings, [kind]: settings[kind].map(row => oldVisible.has(row.key) ? rows[index++] : row) });
+  const current = parseRepairGroups(settings);
+  let index = 0; const oldVisible = new Set(visibleRepairGroups(current, kind).map(row => row.key));
+  return parseRepairGroups({ ...current, [kind]: current[kind].map(row => oldVisible.has(row.key) ? rows[index++] : row) });
 }
