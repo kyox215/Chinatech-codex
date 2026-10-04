@@ -246,6 +246,7 @@ retail-surface.module.css 的 page 不再额外限定1200px，整机列表、详
 
 - `components/home/product-preview.tsx`：首页和账号侧栏共用的静态产品图形；演示数字明确标注，不读取门店API；样式在 `product-preview.module.css`。
 - `WorkflowTour`：首页维修/采购/整机流程的原生按钮切换，`aria-pressed`/live region反馈，无自动轮播；模块样式 `home.module.css`。
+- `TutorialLibrary`：首页 `#tutorials` 的单播放器与分集列表，静态目录来自 `lib/tutorials.ts`；复用原生视频控制、按钮语义类、既有 token 与 Lucide，样式限于 `tutorial-library.module.css`。`preload="none"` 且仅在用户播放／点击时间点时挂入媒体源；选集与卸载停止旧视频，不自动续播。中文字幕轨、加载／失败重试、可定位文字步骤与实际功能链接属于首页教学，无门店 API 或业务数据。新增原因是原流程图无媒体播放语义；验收覆盖四宽度、键盘、触控、惰性请求、选集停止与失败恢复，实际结果由当前任务交付记录。
 - `AuthFrame`：登录/注册/恢复/邮箱验证/待授权页面共用品牌、内容容器和电脑产品侧栏，手机单栏；复用Brand和既有auth-form/input-shell/button语义类，作用域CSS在 `auth-experience.module.css`，不改后台公共主题。
 - `GoogleSignIn`：登录和注册共用真实POST入口、busy/失败反馈。`VerificationSent`负责注册确认/重发，`VerifyEmailForm`负责独立重发入口，`PasswordRecoveryForm`负责请求与有效重置状态。权限继续由服务端处理，控件不授予成员身份。
 - 沿用既有颜色/边框/阴影token、Lucide图标和按钮语义。仅Google品牌标志使用其标准四彩色；未增加UI框架或图标库。44px主要操作、16px移动输入、键盘与减少动画均有检查。旧公共营销CSS保持以免干扰其他并行任务，当前公开页面使用上述模块样式。
