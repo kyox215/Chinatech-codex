@@ -1502,7 +1502,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-unified-list .button:hover { transform: none; }
 .repair-row-link::after { content: ""; position: absolute; inset: 0; z-index: 1; cursor: pointer; }
 .repair-row-parts, .repair-stage-button, .repair-module-row__quick { position: relative; z-index: 2; }
-.repair-row-parts { display: grid; grid-template-columns: minmax(0,1fr) 16px; min-width: 0; min-height: 44px; padding: 8px 10px; white-space: normal; text-align: left; box-shadow: none; scroll-margin-block: 8px; }
+.repair-row-parts-cell { min-width: 0; }
+.repair-row-parts { display: grid; grid-template-columns: minmax(0,1fr) 16px; width: 100%; min-width: 0; min-height: 44px; padding: 8px 10px; white-space: normal; text-align: left; box-shadow: none; scroll-margin-block: 8px; }
 .repair-row-parts__body { display: grid; grid-template-columns: 17px minmax(0,1fr); align-items: center; gap: 8px; min-width: 0; }
 .repair-row-parts__body > span { display: grid; min-width: 0; gap: 2px; }
 .repair-row-parts svg { flex-shrink: 0; }
@@ -1659,7 +1660,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .repair-unified-list .repair-module-row__owner { grid-column: 1 / -1; grid-row: 5; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
   .repair-unified-list .repair-module-row__owner strong { font-size: 12px; }
   .repair-unified-list .repair-module-row__owner small { margin: 0; font-size: 12px; }
-  .repair-unified-list .repair-row-parts { grid-column: 1 / -1; grid-row: 3; width: 100%; background: var(--surface-subtle); }
+  .repair-unified-list .repair-row-parts-cell { grid-column: 1 / -1; grid-row: 3; }
+  .repair-unified-list .repair-row-parts { background: var(--surface-subtle); }
   .repair-unified-list .repair-module-row__quick { grid-column: 1 / -1; grid-row: 4; }
   .repair-unified-list .repair-module-row:not(:has(.repair-contact)) .repair-module-row__owner { grid-row: 4; }
   .repair-unified-list .repair-module-row__quick:empty { display: none; }
