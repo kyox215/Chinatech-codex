@@ -33,6 +33,15 @@ test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
 });
 
+test.afterEach(async ({ page }, info) => {
+  if (info.status === info.expectedStatus || page.isClosed()) return;
+  const media = await page.locator("#tutorials video").evaluateAll(elements => elements.map(element => {
+    const video = element as HTMLVideoElement;
+    return { src: video.getAttribute("src"), currentSrc: video.currentSrc, networkState: video.networkState, readyState: video.readyState, paused: video.paused, error: video.error?.code ?? null };
+  }));
+  await info.attach("tutorial-media-state", { body: Buffer.from(JSON.stringify(media, null, 2)), contentType: "application/json" });
+});
+
 test("home stays media-idle while selecting all tutorials and exposes matching steps and destinations", async ({ page }) => {
   const mediaRequests: string[] = [];
   page.on("request", request => { if (/\/tutorials\/.*\.mp4(?:\?|$)/.test(request.url())) mediaRequests.push(request.url()); });
@@ -101,6 +110,16 @@ test("real playback and captions work, steps seek, and switching episodes releas
   await expectPlaying(video);
   expect(await video.evaluate(element => (element as HTMLVideoElement).currentSrc)).toContain(tutorials[1].src);
   await oldVideo!.dispose();
+
+  const playingVideo = await video.elementHandle();
+  expect(playingVideo).not.toBeNull();
+  await activate(page.getByRole("navigation", { name: "账户入口" }).getByRole("link", { name: "登录", exact: true }));
+  await expect(page).toHaveURL(/\/login$/);
+  expect(await playingVideo!.evaluate(element => {
+    const media = element as HTMLVideoElement;
+    return media.paused && !media.isConnected && !media.hasAttribute("src");
+  })).toBe(true);
+  await playingVideo!.dispose();
 });
 
 test("loading and media failure leave text steps available, with a working retry", async ({ page }) => {
@@ -114,6 +133,7 @@ test("loading and media failure leave text steps available, with a working retry
   await page.goto("/#tutorials");
   await activate(page.getByRole("button", { name: `播放教程：${tutorials[0].title}`, exact: true }));
   await expect(page.getByRole("status").filter({ hasText: "视频加载中" })).toBeVisible();
+  await expect(page.locator("#tutorials video")).toHaveAttribute("src", tutorials[0].src);
   failRequest();
   await expect(page.locator("#tutorials").getByRole("alert")).toContainText("视频暂时无法播放");
   await expect(page.getByRole("heading", { name: tutorials[0].steps[0].title, exact: true })).toBeVisible();

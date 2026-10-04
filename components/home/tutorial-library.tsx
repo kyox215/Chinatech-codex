@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { AlertCircle, ArrowRight, Captions, Clock3, LoaderCircle, Play, RotateCcw, Volume2 } from "lucide-react";
 import { tutorials } from "@/lib/tutorials";
 import styles from "./tutorial-library.module.css";
@@ -29,10 +29,14 @@ export function TutorialLibrary() {
   const resumeAt = useRef(0);
   const tutorial = tutorials.find(item => item.id === selectedId) ?? tutorials[0];
 
-  useEffect(() => {
-    const video = videoRef.current;
-    return () => releaseVideo(video);
-  }, [selectedId]);
+  // Bind cleanup to this DOM element; delayed mount effects must not cancel a first click.
+  const attachVideo = useCallback((video: HTMLVideoElement | null) => {
+    videoRef.current = video;
+    return () => {
+      if (videoRef.current === video) videoRef.current = null;
+      releaseVideo(video);
+    };
+  }, []);
 
   function applyPendingSeek(video: HTMLVideoElement) {
     if (pendingSeek.current === null) return;
@@ -95,7 +99,7 @@ export function TutorialLibrary() {
         <div className={styles.player} aria-busy={status === "loading"}>
           <video
             key={tutorial.id}
-            ref={videoRef}
+            ref={attachVideo}
             className={styles.video}
             aria-label={`视频教程：${tutorial.title}`}
             controls
