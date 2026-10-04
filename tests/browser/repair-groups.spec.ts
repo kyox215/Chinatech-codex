@@ -5,7 +5,9 @@ import { repairOrders, type RepairStatus } from "../../lib/repair-fixtures";
 
 async function filters(page: Page) {
   const toggle = page.getByRole("button", { name: /^筛选/ });
-  if (await toggle.isVisible() && await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  await expect(toggle).toBeVisible();
+  if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  await expect(page.getByLabel("维修阶段筛选")).toBeVisible();
 }
 
 test.beforeEach(async ({ page }) => {
