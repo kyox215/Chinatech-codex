@@ -20,7 +20,17 @@ function ScopedContactControl({order,variant="default"}:RepairContactControlProp
   const operationalNotice = ready || group === "arrival" || legacy;
   if(!quoteActive&&!operationalNotice&&!followUp&&!workflow.handedOver&&!workflow.quoteContact)return null;
   const facts=<>{operationalNotice?<span className="repair-contact__notice">{legacy?"旧跟进记录 · 维修结果待核对":notice}</span>:null}{workflow.quoteContact?<span className="repair-contact__quote" title={`上次报价沟通 ${workflow.quoteContact.time}`}>{quoteContactLabels[workflow.quoteContact.outcome]}</span>:null}{workflow.followUp?.awaitingReply?<small className="repair-contact__flag">久等未答复</small>:null}{workflow.followUp?.collectedUnpaid?<small className="repair-contact__flag repair-contact__flag--debt">已交还 · 欠款待跟进</small>:null}{workflow.handedOver ? <small className="repair-contact__history">有实际交还记录{workflow.handedOver.unpaid ? "（当时未结清）" : ""}</small> : null}</>;
-  return <div className={`repair-contact${variant==="list"?" repair-contact--list":""}`}>{variant==="list"?<div className="repair-contact__facts">{facts}</div>:facts}{canEdit&&(!legacy||followUp)?<button id={`repair-contact-${order.id}`} className="button button--secondary button--tiny" type="button" aria-label={`${order.id} 联系与跟进`} onClick={()=>setOpen(true)}><Phone size={14} aria-hidden="true"/>联系／跟进</button>:null}{open&&canEdit?<ContactDialog order={order} onClose={()=>{setOpen(false);requestAnimationFrame(()=>document.getElementById(`repair-contact-${order.id}`)?.focus({preventScroll:true}));}}/>:null}</div>;
+  const canContact = canEdit && (!legacy || followUp);
+  return <div className={`repair-contact${variant==="list"?" repair-contact--list":""}`}>
+    {variant === "list" && canContact ? <button id={`repair-contact-${order.id}`} className="button button--secondary repair-contact__button" type="button" aria-label={`${order.id} 联系与跟进`} onClick={()=>setOpen(true)}>
+      <span className="repair-contact__action"><Phone size={14} aria-hidden="true"/><span>跟进</span></span>
+      <span className="repair-contact__facts">{facts}</span>
+    </button> : <>
+      {variant === "list" ? <div className="repair-contact__facts">{facts}</div> : facts}
+      {canContact ? <button id={`repair-contact-${order.id}`} className="button button--secondary button--tiny" type="button" aria-label={`${order.id} 联系与跟进`} onClick={()=>setOpen(true)}><Phone size={14} aria-hidden="true"/>联系／跟进</button> : null}
+    </>}
+    {open&&canEdit?<ContactDialog order={order} onClose={()=>{setOpen(false);requestAnimationFrame(()=>document.getElementById(`repair-contact-${order.id}`)?.focus({preventScroll:true}));}}/>:null}
+  </div>;
 }
 function ContactDialog({order,onClose}:{order:RepairDirectoryEntry;onClose:()=>void}) {
   const dialog=useRef<HTMLDialogElement>(null);const {workflows,error:storageError}=useRepairWorkflows();const {records}=useProcurement();const workflow=workflows[order.id]??initialRepairWorkflow(order);

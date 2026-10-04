@@ -177,6 +177,68 @@ test("one supplier entry keeps the remaining project visible and restores usable
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("chinatech.m1.procurement.v1")!).records)).toEqual(saved);
 });
 
+test("mobile continuous rows keep two-line density, full quote follow-up and actual touch controls", async ({ page }, info) => {
+  test.setTimeout(120000);
+  const records = [intake("LOCAL-E000000000000001", "iPhone 16"), intake("LOCAL-E000000000000002", "Galaxy S24"), intake("LOCAL-E000000000000003", "iPhone 13")];
+  records.forEach((record, index) => { record.customerName = `示例客户 ${String.fromCharCode(65 + index)}`; });
+  const settings = structuredClone(defaultStoreSettings);
+  const order = intakeDirectoryEntry(records[1]);
+  const workflow = initialRepairWorkflow(order);
+  const requirement = order.requirements!.find(row => row.title === "屏幕")!;
+  const prepared = prepareRepairItemEdits({ repairId: order.id, intakeRevision: 1, workflowRevision: workflow.revision,
+    items: [{ requirementId: requirement.id, requirementRevision: requirement.revision, quoteCents: 9900,
+      purchase: { id: "demo-dense-supplier", revision: 0, supplierId: "demo-mobile", unitCostCents: null } }],
+  }, { intake: records[1], workflow, records: [], suppliers: settings.suppliers, canEditCost: true,
+    activity: { id: "demo-dense-purchase", time, actorId: "DEMO-OWNER" } });
+  records[1] = prepared.intake;
+  const workflows = { [order.id]: applyWorkflowCommand(prepared.workflow!, { type: "quote_contact", outcome: "awaiting_reply", note: "本地合成报价：等待客户回复。" },
+    { id: "demo-dense-quote", time, actorId: "DEMO-OWNER" }, prepared.changedRecords, order.id, prepared.workflow!.revision, intakeDirectoryEntry(records[1])) };
+  await seed(page, { records, workflows, procurement: prepared.changedRecords, settings });
+  await page.goto("/app/repairs");
+  await page.getByRole("textbox", { name: "搜索维修工单" }).fill("示例客户");
+  await page.locator("#repair-group-processing").click();
+  const rows = page.locator("#repair-group-rows-processing article");
+  await expect(rows).toHaveCount(3);
+  const unchanged = () => page.evaluate(() => ["chinatech.m1.local-intakes.v1", "chinatech.m1.procurement.v1", "chinatech.m1.repair-workflow.v1"].map(key => localStorage.getItem(key)));
+  const before = await unchanged();
+  for (const width of [375, 390, 414]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expectPageFits(page);
+    expect(await rows.evaluateAll(elements => elements.map(element => element.getBoundingClientRect().height))).toEqual([93, 93, 93]);
+    expect(await rows.first().evaluate(element => getComputedStyle(element).borderRadius)).toBe("0px");
+    const row = rows.first();
+    const parts = row.getByRole("button", { name: `${records[0].id} 供应商与配件操作`, exact: true });
+    const stage = row.getByRole("button", { name: `${records[0].id} 更改维修阶段`, exact: true });
+    const contact = row.getByRole("button", { name: `${records[0].id} 联系与跟进`, exact: true });
+    await expect(row.getByText("示例客户 A", { exact: true })).toBeVisible();
+    await expect(rows.nth(1).getByText("报价待客户回复", { exact: true })).toBeVisible();
+    for (const control of [parts, stage, contact]) await expectUsableTarget(control);
+    await expectNoOverlap(parts, contact);
+    await parts.click();
+    const partsDialog = page.getByRole("dialog", { name: "供应商与配件", exact: true });
+    await expect(partsDialog).toBeVisible();
+    await partsDialog.getByRole("button", { name: "取消", exact: true }).press("Enter");
+    await expectReturnedFocus(parts);
+    await stage.click();
+    const stageDialog = page.getByRole("dialog", { name: "更改维修阶段", exact: true });
+    await expect(stageDialog).toBeVisible();
+    await stageDialog.getByRole("button", { name: "取消", exact: true }).click();
+    await contact.click();
+    const contactDialog = page.getByRole("dialog", { name: "工单联系与跟进", exact: true });
+    await expect(contactDialog).toBeVisible();
+    await contactDialog.getByRole("button", { name: "关闭", exact: true }).click();
+    await expect(contact).toBeFocused();
+    await expect(contact).toBeInViewport({ ratio: 1 });
+    await page.screenshot({ path: `.local/ui-proof/repair-mobile-implementation/${info.project.name}-${width}.png` });
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expectPageFits(page);
+  await page.screenshot({ path: `.local/ui-proof/repair-mobile-implementation/${info.project.name}-1440.png` });
+  await page.reload();
+  await expect(page.locator("#repair-group-processing")).toHaveAttribute("aria-expanded", "true");
+  expect(await unchanged()).toEqual(before);
+});
+
 function longFactsSeed(): Seed {
   const settings = structuredClone(defaultStoreSettings);
   settings.suppliers.push({ id: "demo-list-long", name: longSupplier, phone: "", website: "", active: true });
@@ -214,7 +276,7 @@ function longFactsSeed(): Seed {
   return { records, workflows, procurement, settings };
 }
 
-test("long synthetic models, suppliers and follow-up facts leave list controls readable and clickable", async ({ page }) => {
+test("long synthetic models, suppliers and follow-up facts leave list controls readable and clickable", async ({ page }, info) => {
   test.setTimeout(120000);
   const data = longFactsSeed();
   await seed(page, data);
@@ -233,6 +295,7 @@ test("long synthetic models, suppliers and follow-up facts leave list controls r
         expect(await table.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
         await expectPageFits(page);
       }
+      await page.locator("#repair-group-rows-ready").screenshot({ path: `.local/ui-proof/repair-mobile-implementation/long-${info.project.name}-${width}.png` });
       for (const [index, record] of data.records.entries()) {
         const row = page.getByRole("article", { name: `${record.id} ${record.model}`, exact: true });
         const model = row.getByRole("link", { name: `打开 ${record.id} ${record.model} 详情`, exact: true });
@@ -248,6 +311,8 @@ test("long synthetic models, suppliers and follow-up facts leave list controls r
         const stage = row.getByRole("button", { name: `${record.id} 更改维修阶段`, exact: true });
         const contact = row.getByRole("button", { name: `${record.id} 联系与跟进`, exact: true });
         await expect(parts.getByText(longSupplier, { exact: true })).toBeVisible();
+        if (width < 768) expect(await parts.locator("strong").evaluate(element =>
+          element.scrollWidth > element.clientWidth && getComputedStyle(element).textOverflow === "ellipsis")).toBe(true);
         await expectNoOverlap(model, stage);
         await expectNoOverlap(parts, stage);
         await expectNoOverlap(parts, contact);
