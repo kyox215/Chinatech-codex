@@ -4,11 +4,13 @@ import Link from "next/link";
 import { FormEvent, useRef, useState } from "react";
 import { Check, CheckCircle2, Circle, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, UserRound } from "lucide-react";
 import { InputControl } from "@/components/input-control";
+import { useFormReady } from "@/components/control-feedback";
 import { SocialSignIn } from "./social-sign-in";
 import { VerificationSent } from "./verification-sent";
 import styles from "./auth-experience.module.css";
 
 export function RegisterForm({ supabaseMode = false, previewAvailable = true }: { supabaseMode?: boolean; previewAvailable?: boolean }) {
+  const ready = useFormReady();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [oauthBusy, setOAuthBusy] = useState(false);
@@ -23,7 +25,7 @@ export function RegisterForm({ supabaseMode = false, previewAvailable = true }: 
   const [error, setError] = useState("");
   const passwordInput = useRef<HTMLInputElement>(null);
   const confirmInput = useRef<HTMLInputElement>(null);
-  const busy = isSubmitting || oauthBusy;
+  const busy = !ready || isSubmitting || oauthBusy;
   const unavailable = !supabaseMode && !previewAvailable;
   const passwordRules = [{ text: "至少 10 位", met: password.length >= 10 }, { text: "包含字母与数字", met: /\p{L}/u.test(password) && /\d/.test(password) }];
   const passwordError = passwordChecked && password && !passwordRules.every(rule => rule.met) ? "密码至少 10 位，并同时包含字母与数字。" : "";
@@ -57,7 +59,7 @@ export function RegisterForm({ supabaseMode = false, previewAvailable = true }: 
 
   return <form className="auth-form" onSubmit={handleSubmit} aria-busy={busy}>
     <div className="auth-form__heading"><span className="auth-form__icon" aria-hidden="true"><UserRound size={26} /></span><h1>开始你的门店工作</h1><p>已有账号？ <Link href="/login">立即登录</Link></p></div>
-    {supabaseMode ? <SocialSignIn disabled={isSubmitting} onBusyChange={setOAuthBusy} /> : null}
+    {supabaseMode ? <SocialSignIn disabled={!ready || isSubmitting} onBusyChange={setOAuthBusy} /> : null}
     <ol className={styles.stepper} aria-label="注册流程"><li><span>1</span>创建账号</li><li><span>2</span>验证邮箱</li><li><span>3</span>门店授权</li></ol>
     <div className="form-field"><label htmlFor="display-name">称呼</label><InputControl shell leading={<UserRound size={19} />} id="display-name" name="displayName" required maxLength={80} autoComplete="name" disabled={busy || unavailable} error={nameError} value={displayName} onClear={() => { setDisplayName(""); setNameError(""); setError(""); }} clearLabel="清空称呼" onChange={event => { setDisplayName(event.target.value); if (event.target.value.trim()) setNameError(""); setError(""); }} placeholder="例如：陈女士" /></div>
     <div className="form-field"><label htmlFor="register-email">电子邮件</label><InputControl shell leading={<Mail size={19} />} id="register-email" name="email" type="email" required maxLength={160} autoComplete="email" autoCapitalize="off" value={email} disabled={busy || unavailable} onChange={event => { setEmail(event.target.value); setError(""); }} onClear={() => { setEmail(""); setError(""); }} clearLabel="清空电子邮件" placeholder="name@example.com" /></div>

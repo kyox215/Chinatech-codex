@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect, useId, useState, type SyntheticEvent } from "react";
+import { useEffect, useId, useState, useSyncExternalStore, type SyntheticEvent } from "react";
+
+const subscribeFormReady = () => () => {};
+const clientFormReady = () => true;
+const serverFormReady = () => false;
+
+/** SSR forms unlock only after React can preserve input and handle submission. */
+export function useFormReady() {
+  return useSyncExternalStore(subscribeFormReady, clientFormReady, serverFormReady);
+}
 
 type NativeControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 let pointerTarget: Element | null = null;

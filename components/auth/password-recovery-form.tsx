@@ -4,9 +4,11 @@ import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 import { InputControl } from "@/components/input-control";
+import { useFormReady } from "@/components/control-feedback";
 import styles from "./auth-experience.module.css";
 
 export function PasswordRecoveryForm({ reset = false, supabaseMode }: { reset?: boolean; supabaseMode: boolean }) {
+  const ready = useFormReady();
   const [loading, setLoading] = useState(reset);
   const [checkFailure, setCheckFailure] = useState(false);
   const [checkAttempt, setCheckAttempt] = useState(0);
@@ -25,7 +27,7 @@ export function PasswordRecoveryForm({ reset = false, supabaseMode }: { reset?: 
   const passwordValid = password.length >= 10 && /\p{L}/u.test(password) && /\d/.test(password);
   const passwordError = passwordChecked && password && !passwordValid ? "密码至少 10 位，并同时包含字母与数字。" : "";
   const confirmError = confirmChecked && confirmPassword && password !== confirmPassword ? "两次密码不一致，请重新输入相同的新密码。" : "";
-  const disabled = submitting || !supabaseMode;
+  const disabled = !ready || submitting || !supabaseMode;
   useEffect(() => {
     if (!reset) return;
     const controller = new AbortController();
@@ -34,7 +36,7 @@ export function PasswordRecoveryForm({ reset = false, supabaseMode }: { reset?: 
   }, [reset, checkAttempt]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting || !supabaseMode || !valid) return;
+    if (disabled || !valid) return;
     const form = new FormData(event.currentTarget);
     setError("");
     if (reset) {
@@ -55,7 +57,7 @@ export function PasswordRecoveryForm({ reset = false, supabaseMode }: { reset?: 
   if (reset && checkFailure) return <div className="auth-form"><div className="auth-form__heading"><h1>暂时无法验证链接</h1><p>请检查网络后重试，你的重置链接不会因此被消耗。</p></div><button className="button button--primary" type="button" onClick={() => { setLoading(true); setCheckFailure(false); setCheckAttempt(value => value + 1); }}>重新验证</button><Link className="auth-back-link" href="/login">返回登录</Link></div>;
   if (reset && !valid) return <div className="auth-form"><div className="auth-form__heading"><span className="auth-form__icon"><LockKeyhole size={26} /></span><h1>请重新获取重置链接</h1><p>当前链接可能已过期、已使用，或在另一浏览器打开。</p></div><Link className="button button--primary" href="/forgot-password">获取新的链接</Link><Link className="auth-back-link" href="/login">返回登录</Link></div>;
   if (complete) return <div className="auth-form auth-success" role="status"><span className="auth-form__icon"><CheckCircle2 size={27} /></span><h1>{reset ? "密码已更新" : "请查收重置邮件"}</h1><p>{reset ? "请使用新密码重新登录。此账号原有的登录会话将失效。" : "如果此邮箱关联可恢复的账号，你会收到重置邮件。请在当前浏览器打开邮件链接，再设置新密码。"}</p>{!reset ? <p className={styles.hint}>没有收到？检查邮箱拼写和垃圾邮件，稍后可再试一次。</p> : null}<Link className="button button--primary auth-submit" href="/login">返回登录</Link>{!reset ? <button type="button" className={styles.textButton} onClick={() => setComplete(false)}>修改邮箱或重新发送</button> : null}</div>;
-  return <form className="auth-form" onSubmit={submit} aria-busy={submitting}>
+  return <form className="auth-form" onSubmit={submit} aria-busy={!ready || submitting}>
     <div className="auth-form__heading"><span className="auth-form__icon">{reset ? <LockKeyhole size={27} /> : <Mail size={27} />}</span><h1>{reset ? "设置新密码" : "忘记密码了？"}</h1><p>{reset ? "换一个安全的新密码，重新回到工作台。" : "输入账号邮箱，我们会帮助你找回访问权限。"}</p></div>
     {!supabaseMode ? <div className="auth-notice"><strong>当前为本地预览</strong><span>此环境不会发送重置邮件，请在正式站找回密码。</span></div> : null}
     {reset ? <>

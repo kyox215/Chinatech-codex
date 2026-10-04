@@ -31,6 +31,7 @@ test("登录默认、聚焦、错误、已填与清空在四个宽度保持一�
     await page.goto("/login");
     const email = page.getByRole("textbox", { name: "电子邮件", exact: true });
     const password = page.getByLabel("密码", { exact: true });
+    await expect(email).toBeEditable();
     await expect(email).toHaveValue("");
     await expect(email).not.toHaveAttribute("aria-invalid", "true");
     await expect(page.getByRole("button", { name: "清空电子邮件" })).toBeHidden();
@@ -114,12 +115,41 @@ test("请求中锁定所有登录草稿，失败保留输入且可重试", async
   await expect.poll(() => posts).toBe(2);
 });
 
+test("账号表单在脚本初始化前锁定，准备后保留第一次输入", async ({ page }) => {
+  let release!: () => void;
+  const ready = new Promise<void>(resolve => { release = resolve; });
+  await page.route(url => url.pathname.startsWith("/_next/static/") && url.pathname.endsWith(".js"), async route => {
+    await ready;
+    await route.continue();
+  });
+  try {
+    await page.goto("/register", { waitUntil: "commit" });
+    const form = page.locator("form.auth-form");
+    const password = page.getByLabel("设置密码", { exact: true });
+    await expect(form).toHaveAttribute("aria-busy", "true");
+    await expect(page.getByLabel("称呼", { exact: true })).toBeDisabled();
+    await expect(page.getByLabel("电子邮件", { exact: true })).toBeDisabled();
+    await expect(password).toBeDisabled();
+    await expect(page.getByLabel("确认密码", { exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "显示密码", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "创建账号", exact: true })).toBeDisabled();
+    release();
+    await expect(password).toBeEditable();
+    await expect(form).toHaveAttribute("aria-busy", "false");
+    await password.fill("abcdefghijk");
+    await password.blur();
+    await expect(password).toHaveValue("abcdefghijk");
+    await feedback(password, /包含字母与数字/);
+  } finally { release(); }
+});
+
 test("注册密码规则与确认错误直接关联字段，修正后清除", async ({ page }) => {
   await page.goto("/register");
   const password = page.getByLabel("设置密码", { exact: true });
   const confirm = page.getByLabel("确认密码", { exact: true });
   await password.fill("abcdefghijk");
   await password.blur();
+  await expect(password).toHaveValue("abcdefghijk");
   await feedback(password, /包含字母与数字/);
   await password.fill("Preview2026!");
   await confirm.fill("Preview2027!");

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { AlertCircle, Check, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 import { InputControl } from "@/components/input-control";
+import { useFormReady } from "@/components/control-feedback";
 
 import { SocialSignIn } from "./social-sign-in";
 import styles from "./auth-experience.module.css";
@@ -15,6 +16,7 @@ const demoCredentials = {
 };
 
 export function LoginForm({ supabaseMode = false, previewAvailable = true, notice = "" }: { supabaseMode?: boolean; previewAvailable?: boolean; notice?: string }) {
+  const ready = useFormReady();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +26,7 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [oauthBusy, setOAuthBusy] = useState(false);
-  const busy = isSubmitting || oauthBusy;
+  const busy = !ready || isSubmitting || oauthBusy;
   const unavailable = !supabaseMode && !previewAvailable;
 
   function fillDemoCredentials() {
@@ -87,7 +89,7 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
       </div> : null}
       {!supabaseMode && !previewAvailable ? <p className="form-error" role="alert">登录服务尚未开放，请联系门店。</p> : null}
       {notice ? <p className={styles.successNotice} role="status">{notice}</p> : null}
-      {supabaseMode ? <SocialSignIn disabled={isSubmitting} onBusyChange={setOAuthBusy} /> : null}
+      {supabaseMode ? <SocialSignIn disabled={!ready || isSubmitting} onBusyChange={setOAuthBusy} /> : null}
 
       <div className="form-field">
         <label htmlFor="email">电子邮件</label>
