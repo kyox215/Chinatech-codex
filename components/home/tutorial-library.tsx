@@ -29,12 +29,14 @@ export function TutorialLibrary() {
   const resumeAt = useRef(0);
   const tutorial = tutorials.find(item => item.id === selectedId) ?? tutorials[0];
 
-  // Bind cleanup to this DOM element; delayed mount effects must not cancel a first click.
+  // Strict Mode replays ref cleanup/setup too. Release only if the element was not rebound.
   const attachVideo = useCallback((video: HTMLVideoElement | null) => {
     videoRef.current = video;
     return () => {
       if (videoRef.current === video) videoRef.current = null;
-      releaseVideo(video);
+      queueMicrotask(() => {
+        if (videoRef.current !== video) releaseVideo(video);
+      });
     };
   }, []);
 
