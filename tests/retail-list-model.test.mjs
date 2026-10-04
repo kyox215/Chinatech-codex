@@ -1,7 +1,7 @@
 import {readFileSync} from 'node:fs';
 import test from 'node:test';import assert from 'node:assert/strict';import ts from 'typescript';
 const cache=new Map();function mod(name){if(cache.has(name))return cache.get(name);let code=ts.transpileModule(readFileSync(new URL(`../lib/${name}.ts`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;for(const m of [...code.matchAll(/from "\.\/([^";]+)"/g)])code=code.replace(m[0],`from ${JSON.stringify(mod(m[1]))}`);const url='data:text/javascript;base64,'+Buffer.from(code).toString('base64');cache.set(name,url);return url;}
-const {buildRetailListIndex,queryRetailList,retailViewFromParams}=await import(mod('retail-list-model'));
+const {buildRetailListIndex,queryRetailList,retailViewFromParams,defaultRetailListSort,resolveRetailListSort}=await import(mod('retail-list-model'));
 const {emptyRetailUnit}=await import(mod('retail'));
 const base={id:'synthetic',sourceRow:2,sourceStatus:'在售',condition:'翻新机',model:'测试手机',brand:'Test',category:'手机',color:'黑',memory:'128GB',intakeAt:'2026-09-01',pickupDate:null,askingPriceCents:10000,salePriceCents:null,customerPhone:null,identifier:'TEST-ID',reviewReasons:[],notes:'屏幕划痕'};
 const filters={view:'available',condition:'all',query:'',category:'all',review:false,status:'all',sort:'newest',page:1};
@@ -11,3 +11,23 @@ test('新机与翻新机分类合并展示两种来源，身份相同也不合�
 test('分页只限制渲染，计数与跨页号码/问题搜索不丢失',()=>{const data=Array.from({length:121},(_,i)=>({...base,id:String(i),sourceRow:i+2,identifier:`ID-${i}`,customerPhone:i===120?'TEST-PHONE':null}));const index=buildRetailListIndex([],data);const first=queryRetailList(index,filters);const last=queryRetailList(index,{...filters,page:3});assert.equal(first.items.length,50);assert.equal(last.items.length,21);assert.equal(first.total,121);assert.equal(first.conditionCounts.翻新机,121);assert.equal(queryRetailList(index,{...filters,query:'test-phone',page:9}).items.length,1);assert.equal(queryRetailList(index,{...filters,query:'屏幕划痕'}).total,121);assert.equal(queryRetailList(index,{...filters,page:NaN}).page,1);});
 test('旧历史链接定位已售；旧在售链接和默认入口定位在售',()=>{assert.equal(retailViewFromParams(new URLSearchParams()),'available');assert.equal(retailViewFromParams(new URLSearchParams('source=history')),'sold');assert.equal(retailViewFromParams(new URLSearchParams('source=history&status=在售')),'available');assert.equal(retailViewFromParams(new URLSearchParams('source=history&status=作废')),'other');});
 test('新系统售出/退回/预留按现时状态分组，未知价排序不填零',()=>{const units=[unit({id:'sold',status:'sold',sales:[{id:'s',priceCents:123,customerPhone:'TEST-SALE',deliveryDate:'2026-09-15'}]}),unit({id:'returned',status:'inspecting',sales:[{id:'old',customerPhone:'OLD'}]}),unit({id:'reserved',status:'reserved'}),unit({id:'unknown',priceCents:null}),unit({id:'priced',priceCents:100})];const index=buildRetailListIndex(units,[]);assert.deepEqual(queryRetailList(index,filters).viewCounts,{available:2,sold:1,other:2});const sold=queryRetailList(index,{...filters,view:'sold'});assert.equal(sold.items[0].phone,'TEST-SALE');assert.equal(sold.items[0].salePriceCents,123);assert.equal(index.find(x=>x.id==='returned').phone,null);const sorted=queryRetailList(index,{...filters,sort:'price-asc'}).items;assert.equal(sorted[1].id,'unknown');assert.equal(sorted[1].priceCents,null);});
+test('各视图默认排序及无效旧链接回退，显式入库排序仍保留',()=>{
+ assert.equal(defaultRetailListSort('available'),'name-asc');assert.equal(defaultRetailListSort('sold'),'sold-newest');assert.equal(defaultRetailListSort('other'),'newest');
+ assert.equal(resolveRetailListSort('available',null),'name-asc');assert.equal(resolveRetailListSort('sold','bad'),'sold-newest');assert.equal(resolveRetailListSort('available','sold-newest'),'name-asc');assert.equal(resolveRetailListSort('sold','newest'),'newest');
+});
+test('在售名称 A–Z 不区分大小写，型号数字自然排序，同名独立档案稳定排列',()=>{
+ const records=['ZTE 1','APPLE IPHONE 14','apple iphone 9','APPLE IPHONE 9'].map((model,i)=>({...base,id:String(i),brand:null,model,intakeAt:`2026-09-0${i+1}`}));
+ const index=buildRetailListIndex([unit({id:'a',brand:'Apple',model:'iPhone 9'})],records);const ordered=queryRetailList(index,{...filters,sort:''}).items;
+ assert.deepEqual(ordered.map(item=>item.id),['2','3','a','1','0']);assert.equal(index[0].id,'0');
+});
+test('已售按售出时间倒序，历史按原拿走日期，未知末尾，不用入库/交付日期补造',()=>{
+ const records=[{...base,id:'old',sourceStatus:'以售',pickupDate:'2026-09-20',intakeAt:'2026-09-30'}, {...base,id:'new',sourceStatus:'已售',pickupDate:'2026-09-29'}, {...base,id:'unknown',sourceStatus:'以售',pickupDate:null,intakeAt:'2026-10-04'}];
+ const units=[unit({id:'sold',status:'sold',sales:[{id:'s',time:'2026-09-28 16:00',deliveryDate:'2026-10-03',priceCents:100}]}),unit({id:'sold-unknown',status:'sold',sales:[{id:'s2',deliveryDate:'2026-10-04',priceCents:100}]})];
+ const index=buildRetailListIndex(units,records);const sorted=queryRetailList(index,{...filters,view:'sold',sort:''}).items;
+ assert.deepEqual(sorted.map(item=>item.id),['new','sold','old','unknown','sold-unknown']);assert.equal(sorted[3].saleSortDate,null);assert.equal(sorted[4].saleSortDate,null);assert.equal(records[0].intakeAt,'2026-09-30');
+});
+test('名称排序在分页之前完成，翻页和筛选保留全量计数',()=>{
+ const records=Array.from({length:61},(_,i)=>({...base,id:String(i),brand:'Apple',model:`iPhone ${61-i}`,sourceRow:i+2}));const index=buildRetailListIndex([],records);
+ const first=queryRetailList(index,{...filters,sort:'name-asc'});const second=queryRetailList(index,{...filters,sort:'name-asc',page:2});
+ assert.equal(first.items[0].title,'Apple iPhone 1');assert.equal(first.items.at(-1).title,'Apple iPhone 50');assert.equal(second.items[0].title,'Apple iPhone 51');assert.equal(second.total,61);assert.equal(second.conditionCounts.翻新机,61);
+});

@@ -9,9 +9,9 @@ import { SelectControl } from "@/components/select-control";
 import { useStaff } from "@/components/staff/use-staff";
 import type { RetailHistoryRecord } from "@/lib/retail-history";
 import type { RetailUnit } from "@/lib/retail";
-import { buildRetailListIndex, queryRetailList, retailViewFromParams, retailViewLabels, type RetailView } from "@/lib/retail-list-model";
+import { buildRetailListIndex, defaultRetailListSort, queryRetailList, resolveRetailListSort, retailViewFromParams, retailViewLabels, type RetailView } from "@/lib/retail-list-model";
 import { useRetail } from "./retail-provider";
-import { historyDate, historyDetailHref, historyMoney, historyText } from "./retail-history-shared";
+import { historyDate, historyDetailHref, historyMoney } from "./retail-history-shared";
 import styles from "./retail-history.module.css";
 import listStyles from "./retail-list.module.css";
 import surface from "./retail-surface.module.css";
@@ -26,7 +26,8 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
   const condition = rawCondition === "新机" || rawCondition === "翻新机" ? rawCondition : "all";
   const category = params.get("category") || "all";
   const review = params.get("review") === "pending";
-  const sort = params.get("sort") || "newest";
+  const defaultSort = defaultRetailListSort(view);
+  const sort = resolveRetailListSort(view, params.get("sort"));
   const status = view === "other" ? params.get("status") || "all" : "all";
   const requestedPage = Number(params.get("page") || "1");
   // Project only list facts once per authorized dataset, not on every keystroke.
@@ -39,10 +40,10 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
   if(view !== "other") listParams.delete("status");
   if(result.page > 1) listParams.set("page",String(result.page)); else listParams.delete("page");
   const listUrl = `/app/retail${listParams.size ? `?${listParams}` : ""}`;
-  const hasFilters = Boolean(query) || condition !== "all" || category !== "all" || status !== "all" || review || sort !== "newest";
+  const hasFilters = Boolean(query) || condition !== "all" || category !== "all" || status !== "all" || review || sort !== defaultSort;
   function update(key:string,value:string) {
     const next = new URLSearchParams(listParams);
-    if(!value || value === "all" || key === "sort" && value === "newest") next.delete(key); else next.set(key,value);
+    if(!value || value === "all" || key === "sort" && value === defaultSort) next.delete(key); else next.set(key,value);
     if(key !== "page") next.delete("page");
     window.history.replaceState(null,"",`/app/retail${next.size ? `?${next}` : ""}`);
   }
@@ -61,18 +62,18 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
           <label className="module-select"><SelectControl aria-label="商品类型筛选" value={category} onChange={event => update("category",event.target.value)}><option value="all">全部类型</option>{result.categories.map(value => <option key={value} value={value}>{value}</option>)}</SelectControl></label>
           {view === "other" ? <label className="module-select"><SelectControl aria-label="其他状态筛选" value={status} onChange={event => update("status",event.target.value)}><option value="all">全部其他状态</option>{result.statuses.map(value => <option key={value} value={value}>{value}</option>)}</SelectControl></label> : null}
           <label className="module-select"><SelectControl aria-label="整机核对筛选" value={review ? "pending" : "all"} onChange={event => update("review",event.target.value)}><option value="all">全部核对状态</option><option value="pending">待核对</option></SelectControl></label>
-          <label className="module-select"><SelectControl aria-label="整机排序" value={sort} onChange={event => update("sort",event.target.value)}><option value="newest">最近入库</option><option value="oldest">最早入库</option><option value="price-asc">标价升序</option><option value="price-desc">标价降序</option></SelectControl></label>
+          <label className="module-select"><SelectControl aria-label="整机排序" value={sort} onChange={event => update("sort",event.target.value)}><option value="name-asc">名称 A–Z</option>{view === "sold" ? <option value="sold-newest">最近售出</option> : null}<option value="newest">最近入库</option><option value="oldest">最早入库</option><option value="price-asc">标价升序</option><option value="price-desc">标价降序</option></SelectControl></label>
         </div>
       </div>
       <div className={styles.summary}><span>{retailViewLabels[view]} · {result.total} 条{condition !== "all" ? ` · ${condition}` : ""}</span>{hasFilters ? <button type="button" onClick={clear}><X size={15} />清除筛选</button> : null}</div>
       {!ready ? <div className="module-empty" role="status">正在读取整机商品…</div> : <>
         <div className={`module-table-scroll ${styles.table}`} role="region" aria-label="整机商品表格" tabIndex={0}>
           <div className={styles.tableHead} aria-hidden="true"><span>商品 / 规格</span><span>客户 / 识别码</span><span>入库 / 拿走日期</span><span>标价 / 成交价</span><span>状态</span><span /></div>
-          {result.items.map(item => <Link className={styles.row} href={item.source === "history" ? historyDetailHref(item.id,listUrl) : `/app/retail/units/${encodeURIComponent(item.id)}`} onClick={remember} key={item.key}>
-            <div className={styles.product}><strong>{item.title}</strong><small>{historyText(item.color)} · {historyText(item.specification)}</small><small>{item.condition} · {item.code} · {item.category}</small></div>
-            <div className={styles.identity}><span>{historyText(item.phone)}</span><small>{historyText(item.identifier)}</small></div>
-            <div className={styles.dates}><span><span className={styles.mobileLabel}>入库 </span>{historyDate(item.intakeDate)}</span><small><span className={styles.mobileLabel}>拿走 </span>{historyDate(item.pickupDate)}</small></div>
-            <div className={styles.money}><span><span className={styles.mobileLabel}>标价 </span>{historyMoney(item.priceCents)}</span><small><span className={styles.mobileLabel}>成交 </span>{historyMoney(item.salePriceCents)}</small></div>
+          {result.items.map(item => <Link className={`${styles.row}${!item.phone?.trim() && !item.identifier?.trim() ? ` ${styles.rowWithoutIdentity}` : ""}`} href={item.source === "history" ? historyDetailHref(item.id,listUrl) : `/app/retail/units/${encodeURIComponent(item.id)}`} onClick={remember} key={item.key}>
+            <div className={styles.product}><strong>{item.title}</strong>{item.color?.trim() || item.specification?.trim() ? <small>{[item.color, item.specification].filter(value => value?.trim()).join(" · ")}</small> : null}</div>
+            <div className={styles.identity}>{item.phone?.trim() ? <span>{item.phone}</span> : null}{item.identifier?.trim() ? <small>{item.identifier}</small> : null}</div>
+            <div className={styles.dates}>{item.intakeDate ? <span><span className={styles.mobileLabel}>入库 </span>{historyDate(item.intakeDate)}</span> : null}{item.pickupDate ? <small><span className={styles.mobileLabel}>拿走 </span>{historyDate(item.pickupDate)}</small> : null}</div>
+            <div className={styles.money}>{item.priceCents !== null ? <span><span className={styles.mobileLabel}>标价 </span>{historyMoney(item.priceCents)}</span> : null}{item.salePriceCents !== null ? <small><span className={styles.mobileLabel}>成交 </span>{historyMoney(item.salePriceCents)}</small> : null}</div>
             <div className={styles.states}><span className={`status-pill status-pill--${view === "available" ? "success" : view === "sold" ? "info" : "progress"} ${styles.status}`}>{item.status}</span>{item.reviewCount > 0 ? <span className={styles.review}>待核对 · {item.reviewCount}</span> : null}</div><ChevronRight className={styles.arrow} size={17} />
           </Link>)}
         </div>
