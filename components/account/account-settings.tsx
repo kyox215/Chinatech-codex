@@ -1,5 +1,6 @@
 "use client";
 
+import { InputControl } from "@/components/input-control";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, CircleAlert, Link2, LoaderCircle, Mail, RefreshCw, ShieldCheck, Smartphone } from "lucide-react";
@@ -128,7 +129,7 @@ function AccountForms({ data, refreshing, refresh, onBusyChange }: { data: Accou
         <div className={styles.current}><span className={styles.value}>{account.email || "尚未关联邮箱"}</span><span className={`status-pill status-pill--${account.emailVerified ? "success" : "warning"}`}>{account.emailVerified ? "已验证" : "待验证"}</span></div>
         {account.pendingEmail ? <p className={styles.pending}><Mail size={17} /><span>等待验证：<strong>{account.pendingEmail}</strong><br />完成确认前，当前登录邮箱保持不变。</span></p> : null}
         <form onSubmit={event => { event.preventDefault(); void perform("email", "email", { email }); }} className={styles.form} aria-busy={busy === "email"}>
-          <label className="field"><span>{account.email ? "新邮箱地址" : "关联邮箱地址"}</span><input type="email" name="email" autoComplete="email" required maxLength={160} value={email} onChange={event => setEmail(event.target.value)} disabled={disabled} placeholder="name@example.com" /></label>
+          <label className="field"><span>{account.email ? "新邮箱地址" : "关联邮箱地址"}</span><InputControl onClear={() => setEmail("")} aria-label={account.email ? "新邮箱地址" : "关联邮箱地址"} clearLabel="清空邮箱地址" type="email" name="email" autoComplete="email" required maxLength={160} value={email} onChange={event => setEmail(event.target.value)} disabled={disabled} placeholder="name@example.com" /></label>
           <p className={styles.muted}>请按新、旧邮箱收到的邮件完成确认。已有登录邮箱不会被直接替换。</p>
           <Feedback feedback={feedback} operations={["email"]} />
           <footer className={styles.actions}><Link href="/forgot-password">设置或重置登录密码</Link><button className="button button--primary" type="submit" disabled={disabled || emailCooldown.seconds > 0}>{busy === "email" ? "正在发送…" : emailCooldown.seconds ? `${emailCooldown.seconds} 秒后可重发` : "发送验证邮件"}</button></footer>
@@ -152,14 +153,14 @@ function AccountForms({ data, refreshing, refresh, onBusyChange }: { data: Accou
         <div className={styles.current}><span className={styles.value}>{account.phoneVerified && account.phone ? account.phone : "尚未绑定手机号"}</span><span className={`status-pill status-pill--${account.phoneVerified ? "success" : "warning"}`}>{account.phoneVerified ? "已验证" : "未绑定"}</span></div>
         {!availability.phone ? <p className={styles.pending}><CircleAlert size={17} /><span>短信验证服务尚未开放，暂时无法发送验证码。</span></p> : null}
         <form className={styles.form} onSubmit={event => { event.preventDefault(); void perform("phone", "phone", { countryCode: countryCode === "custom" ? customCode : countryCode, number: phone }); }} aria-busy={busy === "phone"}>
-          <div className={styles.phoneFields}><label className="field"><span>国际区号</span><SelectControl name="countryCode" value={countryCode} disabled={disabled} onChange={event => setCountryCode(event.target.value)}>{COUNTRY_DIAL_CODES.map(country => <option key={country.code} value={country.code}>{country.label} {country.code}</option>)}<option value="custom">其他区号</option></SelectControl></label><label className="field"><span>手机号码</span><input type="tel" autoComplete="tel-national" required maxLength={25} placeholder="请输入手机号码" value={phone} disabled={disabled} onChange={event => setPhone(event.target.value)} /></label></div>
-          {countryCode === "custom" ? <label className="field"><span>自定义国际区号</span><input type="tel" autoComplete="tel-country-code" required pattern="\+[1-9][0-9]{0,2}" maxLength={4} placeholder="例如 +39" value={customCode} disabled={disabled} onChange={event => setCustomCode(event.target.value)} /></label> : null}
+          <div className={styles.phoneFields}><label className="field"><span>国际区号</span><SelectControl name="countryCode" value={countryCode} disabled={disabled} onChange={event => setCountryCode(event.target.value)}>{COUNTRY_DIAL_CODES.map(country => <option key={country.code} value={country.code}>{country.label} {country.code}</option>)}<option value="custom">其他区号</option></SelectControl></label><label className="field"><span>手机号码</span><InputControl aria-label="手机号码" onClear={() => setPhone("")} clearLabel="清空手机号码" type="tel" autoComplete="tel-national" required maxLength={25} placeholder="例如：320 000 1234" value={phone} disabled={disabled} onChange={event => setPhone(event.target.value)} /></label></div>
+          {countryCode === "custom" ? <label className="field"><span>自定义国际区号</span><InputControl aria-label="自定义国际区号" onClear={() => setCustomCode("")} validationMessage="国际区号须以 + 开头，后接 1–3 位数字，例如 +39。" clearLabel="清空自定义国际区号" type="tel" autoComplete="tel-country-code" required pattern="\+[1-9][0-9]{0,2}" maxLength={4} placeholder="例如 +39" value={customCode} disabled={disabled} onChange={event => setCustomCode(event.target.value)} /></label> : null}
           <p className={styles.muted}>号码中无需重复填写区号；请保留号码本身的前导 0。</p>
           <footer className={styles.actions}><button className="button button--secondary" type="submit" disabled={disabled || !availability.phone || phoneCooldown.seconds > 0}>{busy === "phone" ? "正在发送…" : phoneCooldown.seconds ? `${phoneCooldown.seconds} 秒后可重发` : "发送短信验证码"}</button></footer>
         </form>
         {account.pendingPhone ? <form className={styles.verify} onSubmit={event => { event.preventDefault(); void perform("verify", "phone/verify", { phone: account.pendingPhone, token }); }} aria-busy={busy === "verify"}>
           <p className={styles.pending}><Smartphone size={17} /><span>待验证号码：<strong>{account.pendingPhone}</strong></span></p>
-          <label className="field"><span>短信验证码</span><input type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,10}" minLength={6} maxLength={10} required value={token} onChange={event => setToken(event.target.value.replace(/\D/g, ""))} disabled={disabled || !availability.phone} placeholder="输入短信中的验证码" /></label>
+          <label className="field"><span>短信验证码</span><InputControl aria-label="短信验证码" type="text" inputMode="numeric" autoComplete="one-time-code" validationMessage="验证码须为短信中的 6–10 位数字，请核对后重新填写。" pattern="[0-9]{6,10}" minLength={6} maxLength={10} required value={token} onChange={event => setToken(event.target.value.replace(/\D/g, ""))} disabled={disabled || !availability.phone} placeholder="输入短信中的验证码" /></label>
           <button className="button button--primary" type="submit" disabled={disabled || !availability.phone}>{busy === "verify" ? "正在验证…" : "验证并绑定"}</button>
         </form> : null}
         <Feedback feedback={feedback} operations={["phone", "verify"]} />

@@ -23,11 +23,11 @@
 .confirmationButtons { display: flex; flex-wrap: wrap; gap: 8px; }
 .confirmationButtons :global(.button) { min-height: 44px; }
 .inputRow { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.inputRow > input { flex: 1; min-width: 0; min-height: 44px; }
+.inputRow > :global(.input-control) { flex: 1; min-width: 0; min-height: 44px; }
 @media (max-width: 767px) {
   .dialog { padding: 16px; }
   .manual { flex-wrap: wrap; }
   .manual :global(.field) { flex-basis: 100%; }
   .manual > :global(.button) { width: 100%; }
-  .inputRow > input { font-size: 16px; }
+  .inputRow > :global(.input-control) { font-size: 16px; }
 }

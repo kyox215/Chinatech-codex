@@ -74,7 +74,12 @@ test("keyboard selection, IME confirmation, free text and dismissal", async ({ p
   await expect(brand).toHaveAttribute("aria-expanded", "false");
   await brand.focus();
   await brand.press("Tab");
-  await page.keyboard.press("Tab");
+  if (!test.info().project.use.hasTouch) {
+    await expect(page.getByRole("button", { name: "清空品牌", exact: true })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "显示品牌候选" })).toBeFocused();
+    await page.keyboard.press("Tab");
+  }
   await expect(brand).toHaveAttribute("aria-expanded", "false");
 });
 
@@ -141,8 +146,8 @@ test("customer selection fills linked fields and category changes clear dependen
   const phone = page.getByRole("combobox", { name: "联系电话" });
   await phone.fill("1029");
   await activate(page, page.getByRole("option", { name: /1029.*周先生/ }));
-  await expect(page.getByLabel("客户称呼（选填）")).toHaveValue("周先生");
-  await expect(page.getByLabel("电子邮件（选填）")).toHaveValue("zhou@example.com");
+  await expect(page.getByLabel("客户称呼（选填）", { exact: true })).toHaveValue("周先生");
+  await expect(page.getByLabel("电子邮件（选填）", { exact: true })).toHaveValue("zhou@example.com");
   await activate(page, page.getByRole("button", { name: "下一步", exact: true }));
   const brand = page.getByRole("combobox", { name: "品牌" });
   const model = page.getByRole("combobox", { name: /^型号/ });

@@ -1,5 +1,6 @@
 "use client";
 
+import { InputControl, TextareaControl } from "@/components/input-control";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 import { useStoreSettings } from "@/components/settings/settings-store";
 import { useStaff } from "@/components/staff/use-staff";
@@ -23,7 +24,7 @@ import styles from "./retail-form.module.css";
 import surface from "./retail-surface.module.css";
 
 function TextField({ label, value, onChange, placeholder, maxLength = 120 }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; maxLength?: number }) {
-  return <label className="field"><span>{label}</span><input aria-label={label} value={value} maxLength={maxLength} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} /></label>;
+  return <label className="field"><span>{label}</span><InputControl onClear={() => onChange("")} clearLabel={`清空${label}`} aria-label={label} value={value} maxLength={maxLength} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} /></label>;
 }
 
 type RetailFormProps = { copyId?: string; identifier?: string; kind?: string };
@@ -67,6 +68,7 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
     setDraft(value.draft);setStep(value.step);setClassificationSelected(value.classificationSelected);setCost(value.cost);setRefurb(value.refurb);setPrice(value.price);setCreationId(value.creationId);
   });
   function goToStep(next: number) {
+    if (submitting.current) return;
     setStep(next);
     setError("");
     stepsRef.current?.scrollIntoView({ block: "start" });
@@ -99,9 +101,9 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
 
   if(!staff.can("retail.edit")) return <AccessPanel/>;
   return <main className={`module-page retail-create ${surface.page} ${styles.create}`}>
-    <header className="module-heading"><PageTitle title={sourceUnit ? "同型号新建单机" : "新建独立单机"} backHref={returnTo} backLabel="返回商品列表" /></header>
+    <header className="module-heading"><PageTitle title={sourceUnit ? "同型号新建单机" : "新建独立单机"} backHref={saving ? undefined : returnTo} backLabel="返回商品列表" /></header>
     {sourceUnit ? <div className={`inline-notice ${styles.notice}`}><Copy size={17} aria-hidden="true" /><span>从 {sourceUnit.code} 复制型号与候选规格；身份、照片、检测、电池、手柄数量、来源与金额均已清空，请逐项核对实物。</span></div> : copyId ? <div className={`inline-notice ${styles.notice}`} role="status">复制来源不存在，当前为空白新档案。</div> : identifier ? <div className={`inline-notice ${styles.notice}`} role="status">识别文本仅作为待核对字段，不证明机器身份或规格。{kind === "internal" ? "内部码由本系统另行分配，不沿用未知码。" : ""}</div> : null}
-    <form className={`panel ${styles.form}`} noValidate onSubmit={submit}>
+    <form className={`panel ${styles.form}`} aria-busy={saving} onSubmit={submit}><fieldset className="form-fields" disabled={saving}>
       <DeviceDraftNotice draft={deviceDraft}/><nav ref={stepsRef} tabIndex={-1} className={styles.steps} aria-label="单机录入步骤">
         {["基础与规格", "成色与随件", "金额与来源"].map((label, index) => <span className={`${styles.step} ${step === index ? styles.activeStep : ""}`} key={label} aria-current={step === index ? "step" : undefined}><i>{index + 1}</i><span>{label}</span></span>)}
       </nav>
@@ -152,14 +154,14 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
               <div className={`field-grid ${styles.fields}`}>
                 <SingleChoice className={styles.wide} label="外观等级" value={draft.grade} options={["待评估","S","A","B","C"].map(value => ({value,label:value}))} onChange={value => update("grade",value as RetailUnit["grade"])} />
                 {hasBattery(draft.category) ? <div className={styles.wide}><RetailNumberControl key={`battery-${draft.category}`} battery label={draft.category === "console" ? "电池健康（适用时）" : "电池健康"} unit="%" value={draft.batteryPercent} onChange={value => update("batteryPercent", value)} /></div> : null}
-                <label className={`field ${styles.wide}`}><span>已知问题与外观说明</span><textarea aria-label="已知问题与外观说明" value={draft.knownIssues} maxLength={600} onChange={(event) => update("knownIssues", event.target.value)} placeholder="记录本台实物情况；不要录入账号密码" /></label>
+                <label className={`field ${styles.wide}`}><span>已知问题与外观说明</span><TextareaControl aria-label="已知问题与外观说明" value={draft.knownIssues} maxLength={600} onChange={(event) => update("knownIssues", event.target.value)} placeholder="记录本台实物情况；不要录入账号密码" /></label>
               </div>
             </section>
             <section className={styles.section} aria-labelledby="retail-accessories-heading">
               <header className={`detail-section__head ${surface.sectionHead}`}><div><span><ImagePlus size={17} aria-hidden="true" /></span><h3 id="retail-accessories-heading">随件与照片</h3></div></header>
               <div className={`field-grid ${styles.fields} ${styles.singleColumn}`}>
                 {draft.category === "console" ? <RetailNumberControl label="实际随附手柄数量" value={draft.controllers} onChange={(value) => update("controllers", value)} /> : null}
-                <label className="field"><span>实际随附物品</span><textarea aria-label="实际随附物品" value={draft.accessories} onChange={event => update("accessories",event.target.value)} maxLength={600} placeholder="充电器、盒子、线材等" /></label>
+                <label className="field"><span>实际随附物品</span><TextareaControl aria-label="实际随附物品" value={draft.accessories} onChange={event => update("accessories",event.target.value)} maxLength={600} placeholder="充电器、盒子、线材等" /></label>
                 <div className={styles.photoEmpty}><ImagePlus size={22} aria-hidden="true" /><div><strong>本台实物照片</strong><p>建档后在单机档案上传本台照片，不沿用其他单机照片。</p></div></div>
               </div>
             </section>
@@ -177,8 +179,8 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
             <section className={styles.section} aria-labelledby="retail-source-heading">
               <header className={`detail-section__head ${surface.sectionHead}`}><div><span><MapPin size={17} aria-hidden="true" /></span><h3 id="retail-source-heading">来源与存放</h3></div></header>
               <div className={`field-grid ${styles.fields} ${styles.singleColumn}`}>
-                <TextField label="存放位置" value={draft.location} onChange={(value) => update("location", value)} />
-                <label className="field"><span>来源说明</span><textarea aria-label="来源说明" value={draft.source} maxLength={600} onChange={event => update("source",event.target.value)} placeholder="记录本台来源，不收集个人凭据" /></label>
+                <TextField placeholder="例如：展示柜 A-02" label="存放位置" value={draft.location} onChange={(value) => update("location", value)} />
+                <label className="field"><span>来源说明</span><TextareaControl aria-label="来源说明" value={draft.source} maxLength={600} onChange={event => update("source",event.target.value)} placeholder="记录本台来源，不收集个人凭据" /></label>
                 <RetailDateControl label="入库日期" value={draft.intakeDate} onChange={value => update("intakeDate",value)} clearable />
               </div>
             </section>
@@ -196,6 +198,6 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
         {step > 0 ? <button className="button button--secondary" type="button" onClick={() => goToStep(step - 1)}><ArrowLeft size={17} aria-hidden="true" />上一步</button> : <Link className="button button--secondary" href={returnTo}>取消</Link>}
         <button className="button button--primary" type="submit" disabled={saving || !ready || Boolean(storageError) || (step === 0 && !classificationSelected)}>{saving ? "正在保存" : step === 2 ? "创建独立档案" : "下一步"}<ChevronRight size={17} aria-hidden="true" /></button>
       </footer>
-    </form>
+    </fieldset></form>
   </main>;
 }

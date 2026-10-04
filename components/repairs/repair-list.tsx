@@ -1,5 +1,6 @@
 "use client";
 
+import { InputControl } from "@/components/input-control";
 import Link from "next/link";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
@@ -155,7 +156,7 @@ function ScopedRepairList({ scope }: { scope: string }) {
     <header className="module-heading"><PageTitle title="维修工单" /><div className="module-heading__actions"><RepairScanner iconOnly />{canEdit ? <><button className="button button--secondary button--compact" type="button" onClick={() => setBatchAction("ordered")}><ShoppingCart size={17} />采购车</button><button className="button button--secondary button--compact" type="button" onClick={() => setBatchAction("arrival")}><PackageCheck size={17} />批量到货</button></> : null}{canEdit ? <Link className="button button--primary button--compact" href="/app/repairs/new"><Plus size={17} />新建工单</Link> : null}</div></header>
     <section className="panel repair-module-panel">
       <div className="repair-filterbar repair-filterbar--focused">
-        <label className="module-search"><Search size={18} aria-hidden="true" /><input id="repair-search" value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索工单、客户、设备" aria-label="搜索维修工单" />{query ? <button type="button" onClick={() => setQuery("")}>清除</button> : null}<span className="repair-result-count">{filteredRepairs.length} 单</span></label>
+        <label className="module-search"><Search size={18} aria-hidden="true" /><InputControl onClear={() => setQuery("")} clearLabel="清空搜索维修工单" id="repair-search" value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索工单、客户、设备" aria-label="搜索维修工单" />{query ? <button type="button" onClick={() => setQuery("")}>清除</button> : null}<span className="repair-result-count">{filteredRepairs.length} 单</span></label>
         <button type="button" className={`button button--secondary repair-filter-trigger${status !== "all" || partsFilter !== "all" ? " repair-filter-trigger--active" : ""}`} aria-expanded={filtersOpen} aria-controls="repair-filter-options" onClick={() => setFiltersOpen(value => !value)}><SlidersHorizontal size={17} /><span>筛选{status !== "all" || partsFilter !== "all" ? ` · ${Number(status !== "all")+Number(partsFilter !== "all")}` : ""}</span></button>
         <label className="module-select repair-view-select"><Layers size={16} aria-hidden="true" /><SelectControl aria-label="工单分组" value={groupBy} onChange={event => setGroupBy(event.target.value as RepairListViewState["groupBy"])}><option value="workflow">维修分组</option><option value="parts">配件分组</option><option value="none">全部工单</option></SelectControl></label>
         <label className="module-select repair-view-select"><ArrowUpDown size={16} aria-hidden="true" /><SelectControl value={sort} onChange={event => setSort(event.target.value as RepairListViewState["sort"])} aria-label="工单排序"><option value="updated">更新：旧 → 新</option><option value="created">建单：旧 → 新</option><option value="priority">优先级</option></SelectControl></label>

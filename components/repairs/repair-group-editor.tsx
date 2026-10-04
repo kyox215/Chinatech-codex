@@ -1,5 +1,6 @@
 "use client";
 
+import { InputControl } from "@/components/input-control";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { ArrowDown, ArrowUp, Check, GripVertical, X } from "lucide-react";
@@ -102,6 +103,8 @@ export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settin
     return 0;
   }
   async function save() {
+    const invalid = Array.from(dialog.current?.querySelectorAll<HTMLInputElement>("input") ?? []).filter(input => !input.checkValidity());
+    if (invalid.length) { invalid[0].reportValidity(); return; }
     if (busy.current) return;
     busy.current = true; setSaving(true); setError("");
     try {
@@ -130,7 +133,7 @@ export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settin
           const next = event.key === "ArrowUp" ? index - 1 : event.key === "ArrowDown" ? index + 1 : -1;
           if (["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); if (rows[next]) move(row.key, rows[next].key); }
         }}><GripVertical size={20} /></button>
-        <label className={`field ${styles.name}`}><span className={styles.srOnly}>分组名称 {initial[kind].find(item => item.key === row.key)?.label}</span><input value={row.label} maxLength={40} disabled={saving} onChange={event => { const label = event.target.value; setRows(current => current.map(item => item.key === row.key ? { ...item, label } : item)); }} /></label>
+        <label className={`field ${styles.name}`}><span className={styles.srOnly}>分组名称 {initial[kind].find(item => item.key === row.key)?.label}</span><InputControl required validate={value => value.trim() ? "" : "分组名称不能为空，请填写便于识别的名称。"} aria-label={`分组名称 ${initial[kind].find(item => item.key === row.key)?.label ?? row.label}`} placeholder="填写分组名称" onClear={() => { const label = ""; setRows(current => current.map(item => item.key === row.key ? { ...item, label } : item)); }} clearLabel={`清空分组名称 ${row.label}`} value={row.label} maxLength={40} disabled={saving} onChange={event => { const label = event.target.value; setRows(current => current.map(item => item.key === row.key ? { ...item, label } : item)); }} /></label>
         <button className="icon-button" type="button" disabled={saving || index === 0} aria-label={`上移分组 ${row.label}`} onClick={() => move(row.key, rows[index - 1].key)}><ArrowUp size={17} /></button>
         <button className="icon-button" type="button" disabled={saving || index === rows.length - 1} aria-label={`下移分组 ${row.label}`} onClick={() => move(row.key, rows[index + 1].key)}><ArrowDown size={17} /></button>
       </div>)}

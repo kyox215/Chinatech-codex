@@ -1,5 +1,6 @@
 "use client";
 
+import { InputControl } from "@/components/input-control";
 import Link from "next/link";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
@@ -57,7 +58,7 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
     <section className={`panel ${styles.list}`} aria-label={retailViewLabels[view]}>
       <div className={`${listStyles.classification} ${styles.classificationBar}`} role="group" aria-label="商品分类筛选">{(["all","新机","翻新机"] as const).map(value => <button key={value} type="button" className={condition === value ? listStyles.classificationActive : ""} aria-pressed={condition === value} onClick={() => update("condition",value)}><span>{value === "all" ? "全部" : value}</span><small>{result.conditionCounts[value]}</small></button>)}</div>
       <div className={styles.toolbar}>
-        <label className={`module-search ${styles.search}`}><Search size={18} /><input type="search" aria-label="搜索整机商品" value={query} onChange={event => update("q",event.target.value)} placeholder="型号、号码、识别码、颜色、容量、问题或日期" /></label>
+        <label className={`module-search ${styles.search}`}><Search size={18} /><InputControl onClear={() => update("q","")} clearLabel="清空搜索整机商品" type="search" aria-label="搜索整机商品" value={query} onChange={event => update("q",event.target.value)} placeholder="型号、号码、识别码、颜色、容量、问题或日期" /></label>
         <div className={styles.filters}>
           <label className="module-select"><SelectControl aria-label="商品类型筛选" value={category} onChange={event => update("category",event.target.value)}><option value="all">全部类型</option>{result.categories.map(value => <option key={value} value={value}>{value}</option>)}</SelectControl></label>
           {view === "other" ? <label className="module-select"><SelectControl aria-label="其他状态筛选" value={status} onChange={event => update("status",event.target.value)}><option value="all">全部其他状态</option>{result.statuses.map(value => <option key={value} value={value}>{value}</option>)}</SelectControl></label> : null}

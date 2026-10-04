@@ -25,6 +25,7 @@
 | 组件 | 实现 | 复用边界 |
 | --- | --- | --- |
 | `Brand` | [brand.tsx](../components/brand.tsx) | 首页、账号页与后台的品牌标识；支持 `compact`、`inverse`、`href`，不另写 Logo 标记。 |
+| `InputControl` / `TextareaControl` | [input-control.tsx](../components/input-control.tsx) | 普通文本、邮箱、电话、密码、搜索、日期、数字与多行输入的共同状态入口；保留原生表单属性、事件与 ref，领域限制由调用方提供。图标／密码显隐用 `leading`、`trailing` 与 `shell`；清空由调用方显式提供。 |
 | `SelectControl` | [select-control.tsx](../components/select-control.tsx) | 普通下拉选择；沿用原生选项、表单属性和事件，配合 `.field` 或 `.module-select`。 |
 | `SearchCombobox` | [search-combobox.tsx](../components/search-combobox.tsx) | 可编辑搜索候选，支持键盘移动、滚入视区、确认、Esc、手动值与 `maxLength`；候选数据和选中客户的业务关联留在调用方。不是普通下拉的替代品。 |
 | `MultiChoice` | [multi-choice.tsx](../components/multi-choice.tsx) | 原生 checkbox 多选标签，支持图标、选中态与键盘焦点；故障细项、随件复用，互斥和自定义值由模块维护。 |
@@ -55,7 +56,7 @@
 | 主次操作 | `.button`、`.button--primary`、`.button--secondary` | 导航用链接，操作用按钮；表单内非提交按钮明确 `type="button"`。 |
 | 图标操作 | `.icon-button` | 提供可访问名称；手机主要操作仍须达到 44×44px。 |
 | 白色面板 | `.panel`、`.panel__header` | 保持共同边框、圆角和标题层级。 |
-| 表单 | `.field`、`.field-grid`、`.field--wide` | 保留关联标签，使用原生输入语义；下拉框用 `SelectControl`。 |
+| 表单 | `.field`、`.field-grid`、`.field--wide` | 保留关联标签，普通输入用 `InputControl`／`TextareaControl`，下拉框用 `SelectControl`；沿用原生输入语义。 |
 | 图形单选与设备颜色 | `.single-choice`、`.single-choice--colors`、`.color-picker`、`.color-swatch` | 通过 `SingleChoice` / `ColorPicker` 复用原生单选与色板结构；颜色同时保留文字，不能只靠色块识别。 |
 | 页面标题及操作区 | `.module-page`、`.module-heading`、`.module-title`、`.module-title__content`、`.module-title__line`、`.module-heading__actions` | 页面内固定工具栏通过 `PageTitle` 统一图标返回、标题、状态与手机菜单；副说明留在标题主体，窄屏必要操作可换行。 |
 | 仅屏幕阅读器可见 | `.visually-hidden` | 用于保留原生文件输入等语义；不用于隐藏业务错误或关键操作。 |
@@ -246,7 +247,7 @@ retail-surface.module.css 的 page 不再额外限定1200px，整机列表、详
 
 - `components/home/product-preview.tsx`：首页和账号侧栏共用的静态产品图形；演示数字明确标注，不读取门店API；样式在 `product-preview.module.css`。
 - `WorkflowTour`：首页维修/采购/整机流程的原生按钮切换，`aria-pressed`/live region反馈，无自动轮播；模块样式 `home.module.css`。
-- `TutorialLibrary`：首页 `#tutorials` 的单播放器与分集列表，静态目录来自 `lib/tutorials.ts`；复用原生视频控制、按钮语义类、既有 token 与 Lucide，样式限于 `tutorial-library.module.css`。`preload="none"` 且仅在用户播放／点击时间点时挂入媒体源；选集与卸载停止旧视频，不自动续播。中文字幕轨、加载／失败重试、可定位文字步骤与实际功能链接属于首页教学，无门店 API 或业务数据。新增原因是原流程图无媒体播放语义；验收覆盖四宽度、键盘、触控、惰性请求、选集停止与失败恢复，实际结果由当前任务交付记录。
+- `TutorialLibrary`：首页 `#tutorials` 的单播放器与分集列表，静态目录来自 `lib/tutorials.ts`；复用原生视频控制、按钮语义类、既有 token 与 Lucide，样式限于 `tutorial-library.module.css`。`preload="none"` 且仅在用户播放／点击时间点时挂入媒体源；选集与卸载停止旧视频，不自动续播；稳定ref清理在microtask确认元素未重新绑定后释放，避免Strict开发回放误停首次播放。中文字幕轨、加载／失败重试、可定位文字步骤与实际功能链接属于首页教学，无门店 API 或业务数据。新增原因是原流程图无媒体播放语义；验收覆盖四宽度、键盘、触控、惰性请求、选集停止与失败恢复，实际结果由当前任务交付记录。
 - `AuthFrame`：登录/注册/恢复/邮箱验证/待授权页面共用品牌、内容容器和电脑产品侧栏，手机单栏；复用Brand和既有auth-form/input-shell/button语义类，作用域CSS在 `auth-experience.module.css`，不改后台公共主题。
 - `GoogleSignIn`：登录和注册共用真实POST入口、busy/失败反馈。`VerificationSent`负责注册确认/重发，`VerifyEmailForm`负责独立重发入口，`PasswordRecoveryForm`负责请求与有效重置状态。权限继续由服务端处理，控件不授予成员身份。
 - 沿用既有颜色/边框/阴影token、Lucide图标和按钮语义。仅Google品牌标志使用其标准四彩色；未增加UI框架或图标库。44px主要操作、16px移动输入、键盘与减少动画均有检查。旧公共营销CSS保持以免干扰其他并行任务，当前公开页面使用上述模块样式。
@@ -293,3 +294,28 @@ RepairPartForm复用SearchCombobox及既有field-grid／button语义，只保留
 2026-10-03 当前供应商／金额窗口：模块专用 `RepairItemsForm` 复用 `SearchCombobox`、`.field`、按钮、status-pill与语义token；新增 `.repair-item-card` 仅作用于维修项目卡片。取消重复项目选择，电脑横排、手机供应商整行＋金额双列，保存时禁止关闭；成本权限与原子写入归领域及服务端。具体业务规则见docs22当前方案。
 
 2026-10-03 列表可点击性：供应商／配件列复用 `.button.button--secondary`，模块 `.repair-row-parts` 只布局图标、供应商／配件两行和箭头；不靠hover才能识别入口。手机继续使用已有44px配件按钮。到货／修好组内联系筛选移除，单条联系控件保留。
+
+
+## 输入框状态与维护声明（2026-10-04，后续功能必须遵守）
+
+参考用户提供的[输入框四种状态](https://xhslink.cn/o/7eKthPIVwfX)，项目统一采用以下语义；颜色、字号与密度继续遵循本项目 token。
+
+| 状态 | 统一行为 |
+| --- | --- |
+| 默认 | 保留真实字段标签；placeholder 给具体示例或说明未知可留空，不替代标签。必填使用原生 `required`，选填明确标识。初次进入不铺满错误。 |
+| 聚焦 | 紫色边框、可见焦点环与光标；边框不改变尺寸，键盘、触控及输入法确认可用。 |
+| 错误 | 原输入保留，字段下说明原因及修改方法，`aria-invalid` 与 `aria-describedby` 关联；提交／下一步校验并定位第一个错误。已有错误随修正更新，程序填值也重新核对；不以浏览器气泡或仅页顶总错误代替字段反馈。 |
+| 已填 | 完整显示当前值；安全可清空的字段提供有名称的 X 按钮，清空调用原字段更新入口并返回输入焦点。已填不代表保存、核验或业务成功，不添加伪成功标记。 |
+| 禁用／提交中 | 原生 `disabled` 或整段 `fieldset disabled` 锁住待提交草稿及显隐、候选、扫码、取消和重复提交；只读字段可按用途保留复制能力。失败解除锁定并保留草稿、原业务请求及重试边界。 |
+| 只读 | 使用 `readOnly`，文字仍可读取、聚焦、选择和复制；不提供清空、选择或扫码修改入口。只读展示与无权限反馈不得混淆。 |
+
+普通输入复用 `InputControl`；多行输入复用 `TextareaControl`；候选、下拉及识码分别复用 `SearchCombobox`、`SelectControl`、`IdentifierField`／`IdentifierScanner`。金额、规格、日期继续用所属模块的私有控件，它们内部复用公共输入。checkbox、radio、range、file、hidden、color 保持专用原生语义。
+
+- 字段错误使用 `error`，辅助信息使用 `hint`；原生 pattern 需要具体的 `validationMessage`。`validate(value)` 仅调用所属领域的既有校验，公共 `control-feedback` 只呈现结果，不定义价格、数量、身份、权限或写入规则。已有私有反馈须关联同一字段，避免重复朗读。
+- 标签应稳定且独立于错误文案。未知留空与实测 0 分开；金额不静默取整，日期、数量、IMEI 等范围沿用领域规则，不能以统一外观新增限制。搜索无匹配是结果状态，不是格式错误。
+- `onClear` 必须调用与输入变更相同的入口：客户关联信息、依赖型号、报价和查询结果按原规则清理。密码不加清空按钮；多行长文本、金额、日期及规格使用各自明确的清空／“未记录”操作，不一刀切清空。清空不自动提交，不创建业务记录。
+- 失焦或尝试继续时显示适用错误；清空、密码显隐和候选按钮的点击不得因新增错误行移动目标而丢失。网络、权限和版本冲突仍使用操作级反馈；业务写成功后才显示成功，前端反馈不代替服务端检查。
+- 未打开的扫码弹窗输入必须禁用，避免隐藏必填／旧错误挡住父表单；打开、关闭、Esc 和忙碌状态须一起核对。识别后仍先核对再填入，不自动创建或猜测设备。
+- 样式集中在 `app/globals.css` 的 `.input-control`、`.control-feedback`、`.select-control`，沿用 `--primary-600`、`--danger`、文字／边框 token；错误文字使用 `--danger-text`（提取既有 form-error 深红色，保证小字号对比度），边框仍用 `--danger`。模块差异限定在自身作用域，不另建主题或引入 UI 框架。手机输入至少 16px，清空和主要操作至少 44×44px。
+
+自动维护约束：`eslint.config.mjs` 禁止业务页面直接新增文本类原生 input、textarea、select；仅公共实现和专用类型例外。新增输入必须选择以上入口，并按影响运行 `npm run lint`、`npm run typecheck`、业务测试和 `npm run test:controls`。`tests/browser/input-states.spec.ts` 覆盖四态、点击／键盘清空、原请求锁定与失败重试、条件必填、数量／金额／未知与零、隐藏扫码和四个宽度；既有交互回归继续保留。具体本轮证据与未验证范围见 docs/04 和 PROJECT_MEMORY，不能以本声明代替验收。

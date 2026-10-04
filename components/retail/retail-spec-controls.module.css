@@ -5,7 +5,7 @@
 
 .capacity small { grid-column: 1 / -1; }
 .hint, .error { margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
-.error { color: var(--danger); }
+.error { color: var(--danger-text); }
 .disks { display: grid; gap: 10px; min-width: 0; }
 .disk { border: 1px solid var(--border); border-radius: var(--radius-control); padding: 10px; background: var(--surface-subtle); min-width: 0; }
 .disk > header, .disk strong { display: flex; align-items: center; gap: 8px; }

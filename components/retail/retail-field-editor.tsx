@@ -1,4 +1,6 @@
 "use client";
+import { controlError } from "@/components/control-feedback";
+import { InputControl, TextareaControl } from "@/components/input-control";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
@@ -74,6 +76,8 @@ export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { 
   const conflict = current?.version !== original.version;
   const storedFailure = attempted && feedback?.id === original.id && feedback.error ? feedback.message : "";
   function next() {
+    const invalid = Array.from(body.current?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("input,textarea,select") ?? []).filter(control => !control.checkValidity());
+    if (invalid.length) { invalid[0].reportValidity(); return; }
     try {
       if (conflict) throw new Error("单机已被其他操作更新，请关闭并重新打开编辑。");
       const nextValue = moneyFields.includes(field) ? parseRetailMoney(raw) : value;
@@ -89,7 +93,7 @@ export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { 
     const saved = await dispatch({ type: "command", id: original.id, version: original.version, command: { type: "edit", change: { field, value: candidate[field] } }, event: { id: crypto.randomUUID(), title: `更正${label}`, detail, time: intakeRecordTime() } });
     if (saved) {await deviceDraft.clear();onClose();} else { busy.current = false; setSubmitting(false); }
   }
-  const textControl = <label className="field"><span>{label}</span><input aria-label={label} value={String(value ?? "")} maxLength={field === "model" ? 120 : field === "brand" || field === "color" ? 60 : 300} type={field === "intakeDate" ? "date" : "text"} onInput={field === "intakeDate" ? event => setValue(event.currentTarget.value) : undefined} onChange={event => setValue(event.target.value)} /></label>;
+  const textControl = <label className="field"><span>{label}</span><InputControl validate={text => controlError(() => validateRetailFieldEdit(original, { field, value: text }, units))} onClear={() => setValue("")} clearLabel={`清空${label}`} aria-label={label} value={String(value ?? "")} maxLength={field === "model" ? 120 : field === "brand" || field === "color" ? 60 : 300} type={field === "intakeDate" ? "date" : "text"} onInput={field === "intakeDate" ? event => setValue(event.currentTarget.value) : undefined} onChange={event => setValue(event.target.value)} /></label>;
   let control: ReactNode = textControl;
   if (field === "serial" || field === "imei1" || field === "imei2" || field === "productCode") control = <IdentifierField label={label} value={String(value)} onChange={setValue} kind={field === "imei1" || field === "imei2" ? "imei" : "serial"} placeholder={field === "imei1" || field === "imei2" ? "15 位数字；未知请留空" : "未知请留空"} />;
   else if (field === "color") control = <ColorPicker value={String(value)} onChange={setValue} />;
@@ -101,14 +105,14 @@ export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { 
   else if (field === "condition" || field === "grade") control = <SingleChoice label={label} value={String(value)} onChange={setValue} options={(field === "condition" ? [{value:"新机",label:"新机",icon:Package},{value:"翻新机",label:"翻新机",icon:Sparkles}] : ["待评估","S","A","B","C"].map(item => ({value:item,label:item})))} />;
   else if (field === "category") control = <label className="field"><span>{label}</span><SelectControl aria-label={label} value={String(value)} onChange={event => setValue(event.target.value)}>{Object.entries(retailCategories).map(([key,text]) => <option value={key} key={key}>{text}</option>)}</SelectControl></label>;
   else if (moneyFields.includes(field)) control = <RetailMoneyControl label={label} value={raw} onChange={setRaw} />;
-  else if (field === "knownIssues" || field === "accessories" || field === "source") control = <label className="field"><span>{label}</span><textarea aria-label={label} value={String(value)} maxLength={600} onChange={event => setValue(event.target.value)} /></label>;
+  else if (field === "knownIssues" || field === "accessories" || field === "source") control = <label className="field"><span>{label}</span><TextareaControl validate={text => controlError(() => validateRetailFieldEdit(original, { field, value: text }, units))} placeholder="填写本台实物的实际资料" aria-label={label} value={String(value)} maxLength={600} onChange={event => setValue(event.target.value)} /></label>;
   else if (field === "bodyStorage") {
     control = <RetailStorageControl category={original.category} value={value as Capacity | null} onChange={setValue} />;
   } else if (field === "disks") control = <RetailDisksControl value={value as RetailDisk[]} onChange={setValue} category={original.category} />;
-  return <section ref={region} className={styles.editor} aria-label={`编辑${label}`} onKeyDown={event => { if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); onClose(); } }}>
+  return <section ref={region} className={styles.editor} aria-label={`编辑${label}`} onKeyDown={event => { if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); if (!busy.current) onClose(); } }}>
 
-    <header><div><small>{original.code}</small><h4 ref={heading} tabIndex={-1}>{candidate ? "确认修改" : `编辑${label}`}</h4></div><button type="button" className="icon-button" aria-label="关闭资料编辑" onClick={onClose}><X size={18} /></button></header>
-    <DeviceDraftNotice draft={deviceDraft}/>{conflict?<button type="button" className="button button--secondary" onClick={()=>{if(current){setOriginal(current);setCandidate(null);setError("");}}}>保留输入并核对最新版本</button>:null}<div ref={body} className={styles.body}>{candidate ? <><dl className={styles.compare}><div><dt>修改前 · {label}</dt><dd>{retailFieldText(field, original[field])}</dd></div><div><dt>修改后 · {label}</dt><dd>{retailFieldText(field, candidate[field])}</dd></div></dl>{candidate.status !== original.status ? <p className={styles.impact}>本次更正涉及核验资料，保存后转为待检测，三项核验将重新确认。</p> : null}<p className={styles.note}>仅保存本次字段更正，并追加到本台单机历史。</p></> : <>{control}<details className={styles.noteDetails}><summary>更正备注（选填）</summary><label className="field"><span className="visually-hidden">更正备注</span><textarea aria-label="更正备注" maxLength={300} value={note} onChange={event => setNote(event.target.value)} /></label></details></>}{conflict || error || storageError || (candidate && storedFailure) ? <p className="form-error" role="alert">{conflict ? "单机已被其他操作更新，请关闭并重新打开编辑。" : error || storageError || storedFailure}</p> : null}</div>
+    <header><div><small>{original.code}</small><h4 ref={heading} tabIndex={-1}>{candidate ? "确认修改" : `编辑${label}`}</h4></div><button type="button" className="icon-button" aria-label="关闭资料编辑" disabled={submitting} onClick={onClose}><X size={18} /></button></header>
+    <DeviceDraftNotice draft={deviceDraft}/>{conflict?<button type="button" className="button button--secondary" onClick={()=>{if(current){setOriginal(current);setCandidate(null);setError("");}}}>保留输入并核对最新版本</button>:null}<div ref={body} className={styles.body}>{candidate ? <><dl className={styles.compare}><div><dt>修改前 · {label}</dt><dd>{retailFieldText(field, original[field])}</dd></div><div><dt>修改后 · {label}</dt><dd>{retailFieldText(field, candidate[field])}</dd></div></dl>{candidate.status !== original.status ? <p className={styles.impact}>本次更正涉及核验资料，保存后转为待检测，三项核验将重新确认。</p> : null}<p className={styles.note}>仅保存本次字段更正，并追加到本台单机历史。</p></> : <>{control}<details className={styles.noteDetails}><summary>更正备注（选填）</summary><label className="field"><span className="visually-hidden">更正备注</span><TextareaControl aria-label="更正备注" placeholder="例如：核对实物后更正型号" maxLength={300} value={note} onChange={event => setNote(event.target.value)} /></label></details></>}{conflict || error || storageError || (candidate && storedFailure) ? <p className="form-error" role="alert">{conflict ? "单机已被其他操作更新，请关闭并重新打开编辑。" : error || storageError || storedFailure}</p> : null}</div>
     <footer><button type="button" className="button button--secondary" disabled={submitting} onClick={onClose}>取消</button>{candidate ? <><button type="button" className="button button--secondary" disabled={submitting} onClick={() => { setCandidate(null); setError(""); }}>返回修改</button><button type="button" className="button button--primary" disabled={submitting || conflict || !ready || Boolean(storageError)} onClick={save}><Check size={17} />{submitting ? "正在保存" : "确认保存"}</button></> : <button type="button" className="button button--primary" disabled={conflict || !ready || Boolean(storageError)} onClick={next}>继续确认<ChevronRight size={17} /></button>}</footer>
   </section>;
 }

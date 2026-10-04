@@ -1,5 +1,6 @@
 "use client";
 
+import { InputControl } from "@/components/input-control";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Camera, ImagePlus, ScanLine, X } from "lucide-react";
 import type { IScannerControls } from "@zxing/browser";
@@ -45,6 +46,7 @@ export function IdentifierScanner({ title = "识别设备标识", triggerLabel =
   const [result, setResult] = useState<string | null>(null);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [cameraId, setCameraId] = useState("");
+  const [open, setOpen] = useState(false);
 
   function stopOperation() {
     generation.current += 1;
@@ -69,7 +71,7 @@ export function IdentifierScanner({ title = "识别设备标识", triggerLabel =
     stopOperation(); setPhase("idle"); setCode(value); setResult(value); setMessage("");
   }
   function reset() { stopOperation(); setResult(null); setMessage(""); setCode(""); setPhase("idle"); }
-  function close() { stopOperation(); dialog.current?.close(); }
+  function close() { stopOperation(); setOpen(false); dialog.current?.close(); }
 
   async function startCamera(deviceId = cameraId) {
     stopOperation(); const attempt = generation.current;
@@ -129,16 +131,16 @@ export function IdentifierScanner({ title = "识别设备标识", triggerLabel =
 
   const busy = phase === "starting" || phase === "photo";
   const confirmed = result === null ? null : identifierScanValue(result, kind);
-  function submitManual() { if (code.trim() && !busy) acceptCode(code.trim()); }
+  function submitManual() { const input = document.getElementById(inputId) as HTMLInputElement | null; if (!input?.reportValidity()) return; if (code.trim() && !busy) acceptCode(code.trim()); }
 
   return <>
-    <button className={iconOnly ? `icon-button ${styles.scanButton}` : "button button--secondary button--compact"} type="button" aria-label={triggerLabel} title={triggerLabel} disabled={disabled} onClick={() => { reset(); dialog.current?.showModal(); }}><ScanLine size={iconOnly ? 20 : 17} />{iconOnly ? null : triggerLabel}</button>
-    <dialog className={styles.dialog} ref={dialog} aria-labelledby={titleId} onClose={() => { stopOperation(); setPhase("idle"); }} onCancel={() => { stopOperation(); setPhase("idle"); }}>
+    <button className={iconOnly ? `icon-button ${styles.scanButton}` : "button button--secondary button--compact"} type="button" aria-label={triggerLabel} title={triggerLabel} disabled={disabled} onClick={() => { reset(); dialog.current?.showModal(); setOpen(true); }}><ScanLine size={iconOnly ? 20 : 17} />{iconOnly ? null : triggerLabel}</button>
+    <dialog className={styles.dialog} ref={dialog} aria-labelledby={titleId} onClose={() => { stopOperation(); setOpen(false); setPhase("idle"); }} onCancel={() => { stopOperation(); setOpen(false); setPhase("idle"); }}>
       <header className={styles.header}><h2 id={titleId}>{title}</h2><button className={`icon-button ${styles.closeButton}`} type="button" aria-label="关闭扫码" onClick={close}><X size={20} /></button></header>
       <div className={styles.preview} data-active={phase === "scanning" || phase === "starting"}><video ref={video} autoPlay muted playsInline aria-label="相机扫描画面" />{phase !== "scanning" ? <div><ScanLine size={36} /><span>{phase === "starting" ? "正在开启相机…" : phase === "photo" ? "正在识别…" : prompt}</span></div> : <span className={styles.target} aria-hidden="true" />}</div>
       <div className={styles.actions}>{phase === "scanning" || phase === "starting" ? <button className="button button--secondary" type="button" onClick={() => { stopOperation(); setPhase("idle"); }}>停止扫描</button> : <button className="button button--primary" type="button" disabled={busy} onClick={() => void startCamera()}><Camera size={18} />开启相机</button>}<label className={`button button--secondary${busy ? ` ${styles.disabled}` : ""}`}><ImagePlus size={18} />相册识码<input className="visually-hidden" type="file" accept="image/*" aria-label="相册识码" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; void readPhoto(file); }} /></label></div>
       {cameras.length > 1 ? <label className="field"><span>镜头</span><SelectControl aria-label="扫描镜头" value={cameraId} disabled={busy} onChange={(event) => { const value = event.target.value; setCameraId(value); if (phase === "scanning") void startCamera(value); }}>{cameras.map((camera, index) => <option value={camera.deviceId} key={camera.deviceId}>{camera.label || `镜头 ${index + 1}`}</option>)}</SelectControl></label> : null}
-      <div className={styles.manual}><label className="field" htmlFor={inputId}><span>{inputLabel}</span><input id={inputId} inputMode={kind === "imei" ? "numeric" : "text"} value={code} onChange={(event) => { setCode(event.target.value); setResult(null); setMessage(""); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submitManual(); } }} autoCapitalize="off" autoCorrect="off" spellCheck={false} maxLength={512} placeholder={placeholder} /></label><button className="button button--secondary" type="button" disabled={!code.trim() || busy} onClick={submitManual}>{manualAction}</button></div>
+      <div className={styles.manual}><label className="field" htmlFor={inputId}><span>{inputLabel}</span><InputControl required disabled={!open || busy} aria-label={inputLabel} validate={value => !value.trim() ? "请填写识别内容，或使用相机、相册识码。" : !renderResult ? identifierScanValue(value, kind).error ?? "" : ""} onClear={() => { setCode(""); setResult(null); setMessage(""); }} clearLabel={`清空${inputLabel}`} id={inputId} inputMode={kind === "imei" ? "numeric" : "text"} value={code} onChange={(event) => { setCode(event.target.value); setResult(null); setMessage(""); }} onKeyDown={(event) => { if (event.nativeEvent.isComposing || event.keyCode === 229) return; if (event.key === "Enter") { event.preventDefault(); submitManual(); } }} autoCapitalize="off" autoCorrect="off" spellCheck={false} maxLength={512} placeholder={placeholder} /></label><button className="button button--secondary" type="button" disabled={!code.trim() || busy} onClick={submitManual}>{manualAction}</button></div>
       {message ? <p className="procurement-feedback procurement-feedback--error" role="alert">{message}</p> : null}
       {result !== null ? renderResult ? <ScannerResult raw={result} renderResult={renderResult} onClose={close} onReset={reset} /> : <section className={styles.confirmation} aria-live="polite"><strong>识别原文</strong><p className={styles.raw}>{result}</p>{confirmed?.error ? <p className="procurement-feedback procurement-feedback--error" role="alert">{confirmed.error}</p> : null}<div className={styles.confirmationButtons}><button className="button button--primary" type="button" disabled={!confirmed?.value} onClick={() => { if (confirmed?.value) { onConfirm?.(confirmed.value); close(); } }}>确认填入</button><button className="button button--secondary" type="button" onClick={reset}>重新识别</button></div></section> : null}
     </dialog>

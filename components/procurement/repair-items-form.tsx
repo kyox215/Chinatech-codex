@@ -1,5 +1,7 @@
 "use client";
+import { controlError } from "@/components/control-feedback";
 
+import { InputControl } from "@/components/input-control";
 import { useRef, useState } from "react";
 import { Battery, Check, Monitor, Plug, Wrench } from "lucide-react";
 import { SearchCombobox } from "@/components/search-combobox";
@@ -126,7 +128,7 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
     } catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败，输入已保留。"); }
     finally { busy.current = false; setPending(false); onPendingChange(false); }
   }
-  return <form className="repair-item-editor" noValidate onSubmit={submit}>
+  return <form className="repair-item-editor" aria-busy={pending} onSubmit={submit}>
     <DeviceDraftNotice draft={deviceDraft} />
     <div className="repair-item-editor__cards">{draft.rows.map(row => {
       const linked = purchases.filter(record => record.requirementId === row.requirementId);
@@ -140,9 +142,9 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
         <legend className="visually-hidden">{row.title}</legend>
         <div className="repair-item-card__head"><span className="repair-item-card__icon"><Icon size={18} aria-hidden="true" /></span><div><h3>{row.title}</h3>{row.request ? <small>{row.request}</small> : null}</div><span className={`status-pill status-pill--${supplierChanged ? "info" : status?.tone ?? "neutral"}`} role="status">{statusLabel}</span></div>
         <div className="repair-item-card__fields">
-          {editablePurchase ? <SearchCombobox label="供应商（选填）" value={row.supplier} onChange={value => update(row.requirementId, "supplier", value)} options={settings.suppliers.filter(supplier => supplier.active).map(supplier => ({ value: supplier.name, label: supplier.name }))} placeholder="不采购可留空" emptyText="请先在门店设置登记供应商" /> : <div className="field"><span>供应商</span><strong>{linked.length ? linked.map(item => item.supplier).join("、") : "未选择"}</strong></div>}
-          <label className="field"><span>报价（€）</span>{canEdit ? <input aria-label={`${row.title}报价`} inputMode="decimal" maxLength={20} value={row.quote} onChange={event => update(row.requirementId, "quote", event.target.value)} placeholder="选填" /> : <strong>{formatCost(parseItemMoney(row.quote))}</strong>}</label>
-          {canReadCost && (record || row.supplier.trim()) ? <label className="field"><span>进价（€）</span>{canEditCost && editablePurchase ? <input aria-label={`${row.title}进价`} inputMode="decimal" maxLength={20} value={row.cost} onChange={event => update(row.requirementId, "cost", event.target.value)} placeholder="选填" /> : <strong>{record ? formatCost(record.unitCostCents) : "未记录"}</strong>}</label> : null}
+          {editablePurchase ? <SearchCombobox validate={value => { if (value === row.beforeSupplier && row.cost === row.beforeCost) return ""; if (!value.trim()) return record ? "已有采购记录，清空供应商不能取消采购。" : row.cost.trim() ? "填写进价前请选择供应商。" : ""; return settings.suppliers.filter(supplier => supplier.active && supplier.name.trim() === value.trim()).length === 1 ? "" : "请选择已登记的门店供应商，或留空只填报价。"; }} label="供应商（选填）" value={row.supplier} onChange={value => update(row.requirementId, "supplier", value)} options={settings.suppliers.filter(supplier => supplier.active).map(supplier => ({ value: supplier.name, label: supplier.name }))} placeholder="不采购可留空" emptyText="请先在门店设置登记供应商" /> : <div className="field"><span>供应商</span><strong>{linked.length ? linked.map(item => item.supplier).join("、") : "未选择"}</strong></div>}
+          <label className="field"><span>报价（€）</span>{canEdit ? <InputControl validate={value => controlError(() => parseItemMoney(value))} aria-label={`${row.title}报价`} inputMode="decimal" maxLength={20} value={row.quote} onChange={event => update(row.requirementId, "quote", event.target.value)} placeholder="如 49.90，未知留空" /> : <strong>{formatCost(parseItemMoney(row.quote))}</strong>}</label>
+          {canReadCost && (record || row.supplier.trim()) ? <label className="field"><span>进价（€）</span>{canEditCost && editablePurchase ? <InputControl validate={value => controlError(() => parseItemMoney(value))} aria-label={`${row.title}进价`} inputMode="decimal" maxLength={20} value={row.cost} onChange={event => update(row.requirementId, "cost", event.target.value)} placeholder="如 49.90，未知留空" /> : <strong>{record ? formatCost(record.unitCostCents) : "未记录"}</strong>}</label> : null}
         </div>
       </fieldset>;
     })}</div>

@@ -18,6 +18,7 @@
   --warning: #dc9a12;
   --warning-soft: #fff6df;
   --danger: #e25057;
+  --danger-text: #b4232b;
   --danger-soft: #fff0f1;
   --info: #4775dd;
   --info-soft: #edf3ff;
@@ -253,7 +254,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .form-field { display: flex; flex-direction: column; gap: 5px; }
 .form-field label { font-size: 14px; font-weight: 600; }
 .input-shell { min-height: 44px; display: flex; align-items: center; gap: 9px; padding: 8px 11px; color: #4a4e59; border: 1px solid var(--border); border-radius: var(--radius-control); background: white; box-shadow: 0 1px 1px rgba(9,15,13,.08); }
-.input-shell:focus-within { border-color: var(--primary-500); box-shadow: 0 0 0 3px var(--primary-50); }
+.input-shell:focus-within { border-color: var(--primary-600); box-shadow: 0 0 0 3px var(--primary-100); }
 .input-shell input { min-width: 0; flex: 1; padding: 0; color: var(--text); border: 0; outline: 0; background: transparent; font-size: 16px; }
 .input-shell input::placeholder { color: var(--text-tertiary); }
 .input-icon-button { width: 32px; height: 32px; display: grid; place-items: center; flex: 0 0 auto; padding: 0; border: 0; border-radius: 6px; background: transparent; cursor: pointer; }
@@ -263,7 +264,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .checkbox-label { display: inline-flex; align-items: flex-start; gap: 7px; color: var(--text-secondary); font-size: 13px; cursor: pointer; }
 .checkbox-label input { width: 16px; height: 16px; margin: 1px 0 0; accent-color: var(--primary-600); }
 .checkbox-label--terms { line-height: 1.45; }
-.form-error { display: flex; align-items: center; gap: 7px; margin: 0; padding: 9px 10px; color: #b4232b; border-radius: 7px; background: var(--danger-soft); font-size: 13px; }
+.form-error { display: flex; align-items: center; gap: 7px; margin: 0; padding: 9px 10px; color: var(--danger-text); border-radius: 7px; background: var(--danger-soft); font-size: 13px; }
 .auth-submit { width: 100%; margin-top: 3px; }
 .auth-back-link { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: var(--text-secondary); font-size: 13px; }
 .auth-back-link:hover { color: var(--primary-600); }
@@ -449,7 +450,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-module-panel { overflow: visible; }
 .repair-filterbar { min-height: 62px; display: flex; align-items: center; gap: 9px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
 .module-search { min-width: 260px; min-height: 40px; display: flex; align-items: center; flex: 1; gap: 8px; padding: 7px 10px; color: var(--text-tertiary); border: 1px solid var(--border); border-radius: 8px; background: white; }
-.module-search:focus-within { border-color: var(--primary-500); box-shadow: 0 0 0 3px var(--primary-50); }
+.module-search:focus-within { border-color: var(--primary-600); box-shadow: 0 0 0 3px var(--primary-100); }
 .module-search input { min-width: 0; flex: 1; padding: 0; border: 0; outline: 0; color: var(--text); background: transparent; font-size: 13px; }
 .module-search button { min-height: 28px; padding: 3px 7px; color: var(--primary-600); border: 0; border-radius: 5px; background: var(--primary-50); cursor: pointer; font-size: 12px; }
 .module-select { min-height: 40px; display: flex; align-items: center; gap: 6px; padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; background: white; }
@@ -504,10 +505,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .intake-form__body { min-height: 350px; padding: 20px; }
 .field-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,max(220px,calc(50% - 8px))),1fr)); gap: 16px; }
 .field { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.field > span { font-size: 12px; font-weight: 600; }
+.field > span:not(.input-control, .select-control) { font-size: 12px; font-weight: 600; }
 .field input, .field select, .field textarea { width: 100%; min-height: 42px; padding: 9px 10px; color: var(--text); border: 1px solid var(--border); border-radius: 8px; outline: 0; background: white; font-size: 14px; }
 .field textarea { resize: vertical; line-height: 1.5; }
-.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--primary-500); box-shadow: 0 0 0 3px var(--primary-50); }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--primary-600); box-shadow: 0 0 0 3px var(--primary-100); }
 .field--wide { grid-column: 1 / -1; }
 .form-guidance { display: flex; gap: 8px; padding: 10px; color: var(--info); border-radius: 8px; background: var(--info-soft); }
 .form-guidance svg { flex: 0 0 auto; }
@@ -1193,11 +1194,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 /* Editable search and explicit multi-selection share field tokens. */
 .field > label, .intake-field-title { font-size: 12px; font-weight: 600; }
 .search-combobox { position: relative; }
-.search-combobox__input { position: relative; display: flex; align-items: center; }
-.search-combobox__input > svg { position: absolute; left: 10px; pointer-events: none; color: var(--text-tertiary); }
-.search-combobox__input input { padding-left: 34px; padding-right: 44px; }
-.search-combobox__input button { position: absolute; right: 0; top: 0; bottom: 0; width: 44px; display: grid; place-items: center; border: 0; border-radius: var(--radius-control); color: var(--text-secondary); background: transparent; cursor: pointer; }
-.search-combobox__input button:focus-visible { outline: 2px solid var(--primary-600); outline-offset: -3px; }
 .search-combobox__menu { position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 4px); overflow-y: auto; max-height: 240px; padding: 4px; border: 1px solid var(--border); border-radius: var(--radius-control); box-shadow: var(--shadow-md); background: var(--surface); }
 .search-combobox__menu ul { list-style: none; margin: 0; padding: 0; }
 .search-combobox__option { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; border: 0; border-radius: 6px; font: inherit; text-align: left; color: inherit; background: transparent; cursor: pointer; }
@@ -1417,7 +1413,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .intake-receipt-sheets--a5 .intake-receipt-signature { padding-top: 3mm; }
 .intake-receipt-sheets--double .intake-receipt-sheet + .intake-receipt-sheet { margin-top: 16px; }
 @media (max-width: 767px) {
-  .search-combobox__input input { min-height: 44px; font-size: 16px; }
   .search-combobox__menu strong { font-size: 16px; }
   .intake-faults__grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .intake-faults__category button { font-size: 12px; padding: 5px; gap: 4px; }
@@ -1758,3 +1753,47 @@ button, a { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 767px) {
   .repair-page .module-heading__actions, .procurement-page .module-heading__actions { flex: 0 1 auto; max-width: 100%; width: 100%; margin-left: 0; }
 }
+
+/* Shared input states. Domain errors are supplied by each business form. */
+.input-control, .select-control { display: grid; gap: 6px; min-width: 0; width: 100%; flex: 1; font-weight: 400; }
+.input-control__body { position: relative; min-width: 0; }
+.input-control__native { width: 100%; min-width: 0; caret-color: var(--primary-600); color: var(--text); }
+.input-control__body > .input-control__native { min-height: 44px; }
+.input-control__native::placeholder { color: var(--text-tertiary); opacity: 1; }
+.input-control__body:not(.input-shell)[data-actions="1"] > input { padding-right: 44px; }
+.input-control__body:not(.input-shell)[data-actions="2"] > input { padding-right: 88px; }
+.input-control__body:not(.input-shell)[data-leading="true"] > input { padding-left: 34px; }
+.input-control__body:not(.input-shell) > .input-control__leading { position: absolute; left: 10px; top: 0; height: 44px; }
+.input-control__leading { display: flex; align-items: center; flex: 0 0 auto; color: var(--text-secondary); pointer-events: none; }
+.input-control__actions { position: absolute; inset: 0 0 auto auto; height: 44px; display: flex; align-items: center; }
+.input-control__actions > button { flex: 0 0 44px; width: 44px; min-height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--text-secondary); cursor: pointer; }
+.input-control__actions > button[hidden] { display: none; }
+.input-control__actions > button:focus-visible { outline: 2px solid var(--primary-600); outline-offset: -3px; }
+.input-control__actions > button:disabled { cursor: not-allowed; }
+.input-control__body.input-shell > input { flex: 1; width: 0; }
+.input-control__body.input-shell > .input-control__actions { position: static; flex: 0 0 auto; }
+.input-control__body:has(input:disabled) .input-control__clear { display: none; }
+.control-feedback { display: block; color: var(--text-secondary); font-size: 12px; line-height: 1.5; font-weight: 400; overflow-wrap: anywhere; }
+.control-feedback--error { color: var(--danger-text); }
+:is(.field, .input-shell, .module-search) :is(input, textarea)[readonly] { background-color: var(--surface-subtle); color: var(--text-secondary); cursor: text; }
+:is(.field, .input-shell, .module-search) :is(input, textarea):disabled { color: var(--text-secondary); background-color: var(--bg); cursor: not-allowed; opacity: 1; -webkit-text-fill-color: var(--text-secondary); }
+:is(.input-shell, .module-search):has(input:disabled) { background-color: var(--bg); border-color: var(--border); box-shadow: none; }
+:is(.field, .input-shell, .module-search, .module-select) :is(input, textarea, select)[aria-invalid="true"] { border-color: var(--danger); }
+:is(.field, .input-shell, .module-search, .module-select) :is(input, textarea, select)[aria-invalid="true"]:focus { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
+.input-control .input-shell:has(input[aria-invalid="true"]), .module-search:has(input[aria-invalid="true"]) { border-color: var(--danger); }
+.input-control .input-shell:has(input[aria-invalid="true"]):focus-within, .module-search:has(input[aria-invalid="true"]):focus-within { box-shadow: 0 0 0 3px var(--danger-soft); }
+.input-control .input-shell > input:focus { box-shadow: none; }
+.search-combobox:has(input:disabled) .search-combobox__menu { display: none; }
+.form-fields { margin: 0; padding: 0; border: 0; min-width: 0; }
+@media (hover: hover) {
+  .field :is(input, textarea):not(:disabled, [readonly], [aria-invalid="true"]):hover { border-color: var(--border-strong); }
+  .field :is(input, textarea):not(:disabled, [readonly], [aria-invalid="true"]):focus { border-color: var(--primary-600); }
+  .input-control__actions > button:not(:disabled):hover { background: var(--primary-50); color: var(--primary-700); }
+}
+@media (max-width: 767px) {
+  .input-control__native, .module-search .input-control__native { min-height: 44px; font-size: 16px; }
+  .module-search, .module-select { min-height: 44px; }
+}
+
+.input-control__body.input-shell { padding-block: 0; }
+:is(.multi-choice__item, .single-choice label):has(input:disabled) { color: var(--text-secondary); background: var(--bg); cursor: not-allowed; }

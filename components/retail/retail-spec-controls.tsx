@@ -1,5 +1,6 @@
 "use client";
 
+import { InputControl } from "@/components/input-control";
 import { useId, useRef, useState } from "react";
 import { HardDrive, Plus, X } from "lucide-react";
 import { RetailNumberControl } from "./retail-input-controls";
@@ -13,8 +14,8 @@ import styles from "./retail-spec-controls.module.css";
 export function RetailCatalogControl({ field, category, brand, units, value, onChange, label, required = false }: {
   field: RetailCatalogField; category: RetailCategory; brand?: string; units: RetailUnit[]; value: string; onChange: (value: string) => void; label: string; required?: boolean;
 }) {
-  return <SearchCombobox label={label} value={value} onChange={onChange} options={retailCatalogOptions(field, category, brand, units)}
-    required={required} maxLength={field === "brand" ? 60 : field === "model" ? 120 : 300} placeholder="搜索或手动填写" />;
+  return <SearchCombobox validate={text => required && !text.trim() ? "请选择或填写实物型号。" : ""} label={label} value={value} onChange={onChange} options={retailCatalogOptions(field, category, brand, units)}
+    required={required} maxLength={field === "brand" ? 60 : field === "model" ? 120 : 300} placeholder={`搜索或手动填写${label}`} />;
 }
 
 export function RetailStorageControl({ category, value, onChange, label = "机身存储", disk = false }: {
@@ -35,7 +36,7 @@ export function RetailStorageControl({ category, value, onChange, label = "机�
       else if (next === "custom") setRaw(String(value?.capacity ?? ""));
       else { const option = options.find(item => `${item.capacity}-${item.unit}` === next); if (option) { setRaw(String(option.capacity)); onChange({ ...option }); } }
     }}><option value="unknown">未记录</option>{options.map(option => <option key={`${option.capacity}-${option.unit}`} value={`${option.capacity}-${option.unit}`}>{option.capacity} {option.unit}</option>)}<option value="custom">自定义容量</option></SelectControl></label>
-    {custom ? <div className={styles.capacity}><label className="field"><span>自定义容量</span><input aria-label={`自定义${label}`} aria-invalid={invalid} aria-describedby={id} inputMode="decimal" maxLength={12} value={raw} placeholder="未知留空" onChange={event => { setRaw(event.target.value); onChange({ capacity: retailDraftNumber(event.target.value), unit }); }} /></label><label className="field"><span>单位</span><SelectControl aria-label={`${label}单位`} value={unit} onChange={event => onChange({ capacity: retailDraftNumber(raw), unit: event.target.value as Capacity["unit"] })}><option>GB</option><option>TB</option></SelectControl></label><small id={id} className={invalid ? styles.error : styles.hint}>{invalid ? "容量须为有效正数，请核对容量及单位。" : "填写实测容量，空白为未记录"}</small></div> : null}
+    {custom ? <div className={styles.capacity}><label className="field"><span>自定义容量</span><InputControl validate={() => invalid ? "容量须为有效正数，请核对容量及单位。" : ""} aria-label={`自定义${label}`} aria-invalid={invalid} aria-describedby={id} inputMode="decimal" maxLength={12} value={raw} placeholder="未知留空" onChange={event => { setRaw(event.target.value); onChange({ capacity: retailDraftNumber(event.target.value), unit }); }} /></label><label className="field"><span>单位</span><SelectControl aria-label={`${label}单位`} value={unit} onChange={event => onChange({ capacity: retailDraftNumber(raw), unit: event.target.value as Capacity["unit"] })}><option>GB</option><option>TB</option></SelectControl></label><small id={id} className={invalid ? styles.error : styles.hint}>{invalid ? "容量须为有效正数，请核对容量及单位。" : "填写实测容量，空白为未记录"}</small></div> : null}
   </div>;
 }
 

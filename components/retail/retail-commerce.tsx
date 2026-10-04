@@ -1,4 +1,6 @@
 "use client";
+import { controlError } from "@/components/control-feedback";
+import { InputControl, TextareaControl } from "@/components/input-control";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 import { isBackendClient } from "@/lib/backend/client";
 
@@ -10,7 +12,7 @@ import { SingleChoice } from "@/components/single-choice";
 import { SearchCombobox } from "@/components/search-combobox";
 import { useStaff } from "@/components/staff/use-staff";
 import { useCustomerDirectory } from "@/components/customers/customer-store";
-import { customerCandidates, customerId } from "@/lib/customers";
+import { customerCandidates, customerId, normalizeCustomerPhone } from "@/lib/customers";
 import { intakeRecordTime } from "@/lib/repair-intake-record";
 import { createRetailAfterSaleRepair } from "@/components/repairs/local-intake-store";
 import { applyRetailCommand, currentRetailSale, parseRetailMoney, retailDueCents, retailMoney, retailPaidCents, retailRefundedCents, retailSaleGrossProfit, retailSaleState, type RetailAfterSale, type RetailCommand, type RetailEvent, type RetailMoneyEntry, type RetailPaymentMethod, type RetailSale, type RetailUnit } from "@/lib/retail";
@@ -55,6 +57,7 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
   const trigger = useRef<HTMLElement | null>(null);
   const selectedName = useRef("");
   const busy = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
   const [identity,setIdentity] = useState(()=>crypto.randomUUID());
   const titleId = useId();
   const operation = request.operation;
@@ -127,11 +130,11 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
         setPending({ command, event: nextEvent, unit: reviewedUnit });
         return;
       }
-      busy.current = true;
+      busy.current = true; setSubmitting(true);
       setAttempted(true);
       if (await dispatch({ type: "command", id: unit.id, version, command: pending.command, event: { ...pending.event, time: intakeRecordTime() } })) {await deviceDraft.clear();onClose();}
     } catch (reason) { setError(reason instanceof Error ? reason.message : "请核对资料。"); }
-    finally { busy.current = false; }
+    finally { busy.current = false; setSubmitting(false); }
   }
 
   function commandValue(key: string, value: unknown) {
@@ -142,9 +145,9 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
     return String(value);
   }
 
-  return <section className={styles.transaction} ref={section} role="region" aria-labelledby={titleId} onKeyDown={event => { if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); onClose(); } }}>
-    <header className={styles.transactionHead}><h4 id={titleId} ref={heading} tabIndex={-1}>{pending ? "核对后确认 · " : ""}{titles[operation]}</h4><button className="icon-button" type="button" aria-label="关闭业务操作" onClick={onClose}><X size={18} /></button></header>
-    <form onSubmit={submit}><DeviceDraftNotice draft={deviceDraft}/>{conflict?<button type="button" className="button button--secondary" onClick={()=>{setVersion(unit.version);setPending(null);setChecked(false);setError("");}}>保留输入并核对最新版本</button>:null}
+  return <section className={styles.transaction} ref={section} role="region" aria-labelledby={titleId} onKeyDown={event => { if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); if (!busy.current) onClose(); } }}>
+    <header className={styles.transactionHead}><h4 id={titleId} ref={heading} tabIndex={-1}>{pending ? "核对后确认 · " : ""}{titles[operation]}</h4><button className="icon-button" type="button" aria-label="关闭业务操作" disabled={submitting} onClick={onClose}><X size={18} /></button></header>
+    <form aria-busy={submitting} onSubmit={submit}><fieldset className="form-fields" disabled={submitting}><DeviceDraftNotice draft={deviceDraft}/>{conflict?<button type="button" className="button button--secondary" onClick={()=>{setVersion(unit.version);setPending(null);setChecked(false);setError("");}}>保留输入并核对最新版本</button>:null}
       <div className={styles.formBody}>
         <dl className={styles.context}><div><dt>本台单机</dt><dd>{unit.code}</dd></div>{sale ? <div><dt>原销售买家</dt><dd>{sale.customerName || "未填写称呼"} · {sale.customerPhone || "号码待核对"}</dd></div> : null}{currentCase ? <div><dt>原售后问题</dt><dd>{currentCase.date} · {currentCase.issue}</dd></div> : null}{operation === "release_reservation" && unit.reservation ? <div><dt>原预留</dt><dd>{unit.reservation.name || "未填写称呼"} · {unit.reservation.phone || "号码待核对"}<br />截止 {unit.reservation.until}</dd></div> : null}</dl>
         {sale && ["payment", "refund", "payment_reconcile", "payment_void", "refund_void", "deliver", "return"].includes(operation) ? <dl className={styles.amountContext}><div><dt>成交价</dt><dd>{retailMoney(sale.priceCents)}</dd></div><div><dt>有效实收</dt><dd>{retailMoney(paid)}</dd></div><div><dt>{operation === "refund" || operation === "return" || operation === "refund_void" ? "可退款余额" : "待收款"}</dt><dd>{retailMoney(operation === "refund" || operation === "return" || operation === "refund_void" ? refundable : due)}</dd></div></dl> : null}
@@ -155,21 +158,21 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
           {reviewedSale && ["payment", "refund", "payment_reconcile", "payment_void", "refund_void"].includes(operation) ? <dl className={styles.compare}><div><dt>有效实收</dt><dd>{retailMoney(paid)} → {retailMoney(retailPaidCents(reviewedSale))}</dd></div><div><dt>有效退款</dt><dd>{retailMoney(refunded)} → {retailMoney(retailRefundedCents(reviewedSale))}</dd></div></dl> : null}
           {operation === "return" ? <><p className={styles.confirmedFact}><PackageCheck size={17} aria-hidden="true" />已确认收到本台实物</p><p className={styles.note}>实物退回后暂停销售，待退款 {retailMoney(refundable)}；款项结清及重新检测后再核对可售。</p></> : operation === "after_sale_close" ? <p className={styles.confirmedFact}><PackageCheck size={17} aria-hidden="true" />已确认设备实际交还客户</p> : operation === "release_reservation" ? <p className={styles.note}>解除后本台恢复可售，原预留记录保留在历史。</p> : null}
         </> : <>
-          {operation === "reserve" ? <><SearchCombobox label="预留客户手机号" required value={phone} inputMode="tel" maxLength={40} filterOptions={false} options={customerCandidates(phone, customers).map(customer => ({ value: customer.phone, label: customer.phone, detail: customer.name || "未填写称呼" }))} onChange={value => { setPhone(value); if (selectedName.current && name === selectedName.current) setName(""); selectedName.current = ""; }} onSelect={option => { const candidateName = customers.find(customer => customer.phone === option.value)?.name || ""; setName(candidateName); selectedName.current = candidateName; }} /><label className="field"><span>预留客户称呼（选填）</span><input autoComplete="name" value={name} maxLength={80} onChange={event => { setName(event.target.value); selectedName.current = ""; }} /></label></> : null}
+          {operation === "reserve" ? <><SearchCombobox validate={value => controlError(() => normalizeCustomerPhone(value))} placeholder="例如：+39 320 000 1234" label="预留客户手机号" required value={phone} inputMode="tel" maxLength={40} filterOptions={false} options={customerCandidates(phone, customers).map(customer => ({ value: customer.phone, label: customer.phone, detail: customer.name || "未填写称呼" }))} onChange={value => { setPhone(value); if (selectedName.current && name === selectedName.current) setName(""); selectedName.current = ""; }} onSelect={option => { const candidateName = customers.find(customer => customer.phone === option.value)?.name || ""; setName(candidateName); selectedName.current = candidateName; }} /><label className="field"><span>预留客户称呼（选填）</span><InputControl aria-label="预留客户称呼（选填）" onClear={() => { setName(""); selectedName.current = ""; }} clearLabel="清空预留客户称呼（选填）" autoComplete="name" value={name} maxLength={80} onChange={event => { setName(event.target.value); selectedName.current = ""; }} /></label></> : null}
           {money ? <RetailMoneyControl label={operation === "payment_reconcile" ? "已核对历史实收" : operation === "refund" ? "本次实际退款" : "本次实际收款"} required value={amount} onChange={setAmount} maxCents={operation === "payment" ? due : operation === "refund" ? refundable : sale?.priceCents} placeholder="明确填写实际金额" /> : null}
           {operation === "payment" || operation === "refund" ? <SingleChoice label="收退款方式 · 请选择" value={method} options={methodOptions} onChange={value => setMethod(value as RetailPaymentMethod)} className={styles.methodChoice} /> : null}
           {dated ? <RetailDateControl label={dateLabel} required value={date} onChange={setDate} min={minDate} max={operation === "reserve" ? undefined : today} /> : null}
-          {operation === "deliver" && sale && due !== 0 ? <><p className="form-error">{due === null ? "历史款项尚未核对，请先核对实收。" : "款项尚未结清。只有具备欠款放行权限才可交付。"}</p>{due !== null && staff.can("sale.debt") ? <><label className={styles.accept}><input type="checkbox" checked={debt} onChange={event => setDebt(event.target.checked)} />明确登记欠款放行</label>{debt ? <><label className="field"><span>欠款责任人 *</span><input required value={owner} onChange={event => setOwner(event.target.value)} maxLength={80} /></label><RetailDateControl label="跟进日期" required value={followUp} onChange={setFollowUp} min={date} /></> : null}</> : null}</> : null}
+          {operation === "deliver" && sale && due !== 0 ? <><p className="form-error">{due === null ? "历史款项尚未核对，请先核对实收。" : "款项尚未结清。只有具备欠款放行权限才可交付。"}</p>{due !== null && staff.can("sale.debt") ? <><label className={styles.accept}><input type="checkbox" checked={debt} onChange={event => setDebt(event.target.checked)} />明确登记欠款放行</label>{debt ? <><label className="field"><span>欠款责任人 *</span><InputControl aria-label="欠款责任人" onClear={() => setOwner("")} clearLabel="清空欠款责任人" required value={owner} onChange={event => setOwner(event.target.value)} maxLength={80} /></label><RetailDateControl label="跟进日期" required value={followUp} onChange={setFollowUp} min={date} /></> : null}</> : null}</> : null}
           {operation === "after_sale" ? <SingleChoice label="设备保管 · 请选择" value={custody} options={[{ value: "left", label: "设备已留下", icon: Smartphone }, { value: "not_left", label: "设备未留下", icon: ShoppingBag }]} onChange={value => setCustody(value as RetailAfterSale["custody"])} /> : null}
           {operation === "after_sale_assess" ? <label className="field"><span>保障判定 *</span><SelectControl value={coverage} onChange={event => setCoverage(event.target.value as RetailAfterSale["coverage"])}>{Object.entries(coverageLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</SelectControl></label> : null}
-          {needsNote ? <label className="field"><span>{noteLabels[operation] || "原因与核对依据"} *</span><textarea required maxLength={500} aria-label={noteLabels[operation] || "业务原因"} value={note} onChange={event => setNote(event.target.value)} rows={3} /></label> : null}
+          {needsNote ? <label className="field"><span>{noteLabels[operation] || "原因与核对依据"} *</span><TextareaControl validate={value => value.trim() ? "" : "请填写具体原因与核对依据。"} placeholder="填写本次实际情况与核对依据" required maxLength={500} aria-label={noteLabels[operation] || "业务原因"} value={note} onChange={event => setNote(event.target.value)} rows={3} /></label> : null}
           {operation === "return" || operation === "after_sale_close" ? <label className={styles.accept}><input type="checkbox" checked={checked} required onChange={event => setChecked(event.target.checked)} />{operation === "return" ? "已实际收到本台实物；登记后隔离，退款结清及重新检测前不能再次售卖" : "关联维修已结束，设备已实际交还客户"}</label> : null}
           {operation === "payment_reconcile" ? <p className={styles.note}>未知款项不能当作零。按原凭证核对历史实收，另记后续款项。</p> : null}
         </>}
         {error || conflict || storageError || attempted && feedback?.error && feedback.id === unit.id ? <p className="form-error" role="alert">{conflict ? "单机已变化，请取消后重新核对。" : error || storageError || feedback?.message}</p> : null}
       </div>
-      <footer className={styles.transactionActions}><button type="button" className="button button--secondary" onClick={onClose}>取消</button>{pending ? <button type="button" className="button button--secondary" onClick={() => { setPending(null); setError(""); setAttempted(false); }}>返回修改</button> : null}<button type="submit" className="button button--primary" disabled={conflict || !ready || Boolean(storageError)}><Check size={17} />{pending ? "确认保存业务记录" : "继续核对"}</button></footer>
-    </form>
+      <footer className={styles.transactionActions}><button type="button" className="button button--secondary" onClick={onClose}>取消</button>{pending ? <button type="button" className="button button--secondary" onClick={() => { setPending(null); setError(""); setAttempted(false); }}>返回修改</button> : null}<button type="submit" className="button button--primary" disabled={conflict || !ready || Boolean(storageError)}><Check size={17} />{submitting ? "正在保存…" : pending ? "确认保存业务记录" : "继续核对"}</button></footer>
+    </fieldset></form>
   </section>;
 }
 

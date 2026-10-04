@@ -7,7 +7,7 @@
 .control .unitInput input { min-width: 0; width: 100%; min-height: 44px; border: 0; border-radius: 0; box-shadow: none; outline: none; font-variant-numeric: tabular-nums; }
 .hint, .error { font-size: 12px; line-height: 1.5; }
 .hint { color: var(--text-secondary); }
-.error { color: var(--danger); }
+.error { color: var(--danger-text); }
 .counter { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px; gap: 6px; }
 .counter > button { min-height: 44px; min-width: 44px; }
 .counter input { text-align: center; }
@@ -27,3 +27,7 @@
 .battery .range { grid-column: 2; }
 .battery .feedback { grid-column: 1 / -1; }
 @media(max-width:767px) { .battery { grid-template-columns: 64px minmax(0,1fr); gap: 6px; } .battery .batteryPreview svg { width: 48px; } .battery .batteryPreview strong { font-size: 16px; } .battery .unitInput b { padding: 0 6px; } }
+
+.unitInput:has(input[aria-invalid="true"]) { border-color: var(--danger); }
+.unitInput:has(input[aria-invalid="true"]):focus-within { outline-color: var(--danger-soft); }
+.unitInput:has(input:disabled) { background: var(--bg); }
