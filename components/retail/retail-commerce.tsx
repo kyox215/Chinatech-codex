@@ -85,7 +85,7 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
   }, [restoreFocusRef]);
   useEffect(() => {
     heading.current?.focus({ preventScroll: true });
-    section.current?.scrollIntoView({ block: "nearest" });
+    section.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
   }, [pending]);
 
   function build(): RetailCommand {

@@ -66,7 +66,7 @@ export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { 
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    region.current?.scrollIntoView({ block: "nearest" });
+    region.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
     return () => { if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true }); };
   }, []);
   useEffect(() => {

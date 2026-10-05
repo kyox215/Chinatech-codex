@@ -98,6 +98,7 @@ test("实物照片切换放大可用，照片与已售锁定状态保留", async
   await page.addInitScript(({ units, photos }) => localStorage.setItem("chinatech.m1.retail.v1", JSON.stringify({ version: 1, units: units.map(unit => unit.id === "demo-unit-2" ? { ...unit, photos } : unit) })), { units: retailUnits, photos });
   await page.goto("/app/retail/units/demo-unit-2");
   const gallery = page.getByRole("region", { name: "本台实物照片", exact: true });
+  await expect(gallery).toBeVisible();
   const photoToggle = gallery.getByRole("button", { name: "照片 6", exact: true });
   if (await photoToggle.isVisible()) await photoToggle.click();
   await gallery.getByRole("button", { name: "查看实物照片 2", exact: true }).click();
