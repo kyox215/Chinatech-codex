@@ -5,7 +5,7 @@ import ts from "typescript";
 
 const source = readFileSync(new URL("../lib/customers.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
-const { normalizeCustomerPhone, customerId, buildCustomerDirectory, customerCandidates, updateCustomerProfile, parseCustomerProfiles } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`);
+const { normalizeCustomerPhone, customerId, customerSaleHref, buildCustomerDirectory, customerCandidates, updateCustomerProfile, parseCustomerProfiles } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`);
 const repair = (id, phone, extra = {}) => ({ id, customer: { name: "", phone }, device: { brand: "演示", model: "手机", serial: `SN-${id}` }, createdAt: "2026-10-01 10:00", updatedAt: "2026-10-01 10:00", ...extra });
 const retail = (id, phone, extra = {}) => ({ id, code: `UNIT-${id}`, brand: "演示", model: "同型号", sales: [{ id: `SALE-${id}`, customerPhone: phone, customerName: "", priceCents: 10000, paidCents: null, delivered: false, note: "测试事实", time: "2026-10-01 11:00", ...extra }] });
 
@@ -62,4 +62,49 @@ test("新客户与基础资料可持久化，版本冲突/非法邮件失败不�
   assert.equal(next[0].version, 2);
   assert.throws(() => parseCustomerProfiles(JSON.stringify({ version: 1, profiles: [first[0], first[0]] })), /重复/);
   assert.throws(() => parseCustomerProfiles("bad"));
+});
+
+test("销售提供最新已知联系资料，买家备注仅属于原销售且旧快照不回写", () => {
+  const first = retail("U-1", "3200001029", { customerName: "原买家称呼", customerEmail: "first@example.test", customerAddress: "原销售地址", customerNote: "仅此交易备注", delivered: true, deliveryDate: "2026-10-01", product: { code: "ORIGINAL-CODE", brand: "原品牌", model: "原型号" } });
+  const second = retail("U-2", "0039 3200001029", { time: "2026-10-02 12:00", customerName: "较新称呼", customerEmail: "latest@example.test", customerAddress: "较新地址" });
+  const third = retail("U-3", "+393200001029", { time: "2026-10-03 12:00" });
+  const bytes = JSON.stringify([first, second, third]);
+  const customer = buildCustomerDirectory([], [third, first, second])[0];
+  assert.equal(customer.email, "latest@example.test");
+  assert.equal(customer.address, "较新地址");
+  assert.equal(customer.name, "较新称呼");
+  assert.equal(customer.note, "");
+  assert.equal(customer.sales[2].customerName, "原买家称呼");
+  assert.equal(customer.sales[2].customerEmail, "first@example.test");
+  assert.equal(customer.sales[2].customerAddress, "原销售地址");
+  assert.equal(customer.sales[2].customerNote, "仅此交易备注");
+  assert.equal(customer.sales[2].deliveryDate, "2026-10-01");
+  assert.equal(customer.sales[2].unitCode, "ORIGINAL-CODE");
+  assert.equal(customer.sales[2].deviceName, "原品牌 原型号");
+  assert.equal(JSON.stringify([first, second, third]), bytes);
+});
+
+test("已编辑客户资料优先且可明确清空，历史买家联系资料保持原值", () => {
+  const sold = retail("U-1", "3200001029", { customerName: "原称呼", customerEmail: "sale@example.test", customerAddress: "交易地址", customerNote: "交易备注" });
+  const profile = { phone: "+393200001029", name: "当前客户称呼", email: "current@example.test", note: "当前长期备注", version: 2, updatedAt: "2026-10-04 12:00" };
+  const customer = buildCustomerDirectory([], [sold], [profile])[0];
+  assert.equal(customer.name, profile.name);
+  assert.equal(customer.email, profile.email);
+  assert.equal(customer.note, profile.note);
+  assert.equal(customer.address, "交易地址");
+  assert.equal(customer.sales[0].customerEmail, "sale@example.test");
+  const cleared = buildCustomerDirectory([], [sold], [{ ...profile, name: "", email: "", note: "" }])[0];
+  assert.equal(cleared.name, "");
+  assert.equal(cleared.email, "");
+  assert.equal(cleared.note, "");
+  assert.equal(cleared.sales[0].customerName, "原称呼");
+  assert.equal(cleared.sales[0].customerNote, "交易备注");
+});
+
+test("客户销售链接定位具体销售，复售与特殊标识不会丢失原单", () => {
+  assert.equal(customerSaleHref({ unitId: "DEMO-UNIT", id: "DEMO-SALE" }), "/app/retail/units/DEMO-UNIT?sale=DEMO-SALE#sale-DEMO-SALE");
+  const url = new URL(customerSaleHref({ unitId: "unit/1", id: "sale #旧/1" }), "https://example.test");
+  assert.equal(url.pathname, "/app/retail/units/unit%2F1");
+  assert.equal(url.searchParams.get("sale"), "sale #旧/1");
+  assert.equal(decodeURIComponent(url.hash.slice(1)), "sale-sale #旧/1");
 });

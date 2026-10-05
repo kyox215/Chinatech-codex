@@ -1,6 +1,10 @@
 import { can, type Permission, type StaffMember } from "./staff";
 import { currentRetailSale, isRetailDate, type RetailCommand, type RetailEditableField, type RetailUnit } from "./retail";
 import type { IntakeReceiptData } from "./repair-intake-record";
+import type { RepairActivity } from "./repair-workflow";
+
+// Exhaustive against the repair domain: valid contact and follow-up facts do not invalidate completion.
+const repairActivityTypes: Record<RepairActivity["type"], true> = { stage: true, custody: true, arrival_notice: true, pickup_notice: true, requirement: true, followup: true, quote_contact: true };
 export function retailFieldPermission(field: RetailEditableField): Permission {return field === "costCents" || field === "refurbCents" ? "financial.edit" : field === "priceCents" ? "retail.price" : "retail.edit";}
 export function retailCommandPermission(command: RetailCommand): Permission {
   if (command.type === "edit") return command.change.field === "costCents" || command.change.field === "refurbCents" ? "financial.edit" : command.change.field === "priceCents" ? "retail.price" : "retail.edit";
@@ -44,7 +48,7 @@ export function requireRetailAfterSaleRepair(unit: RetailUnit, command: Extract<
     || !Array.isArray(workflow.events) || !workflow.events.length || !Number.isSafeInteger(workflow.revision) || workflow.revision !== workflow.events.length || !time(workflow.updatedAt)
     || workflow.notice !== null && (!workflow.notice || typeof workflow.notice.signature !== "string" || !["notified", "unreachable"].includes(workflow.notice.outcome))) throw new Error("请先在关联工单登记维修结束，再确认售后交还。");
   const events = workflow.events as { id: string; time: string; type: string; label: string; note: string }[];
-  if (events.some((entry, index) => !entry || typeof entry.id !== "string" || !entry.id.trim() || !time(entry.time) || !["stage", "custody", "arrival_notice"].includes(entry.type) || typeof entry.label !== "string" || typeof entry.note !== "string" || entry.time < repair.createdAt || index > 0 && entry.time < events[index - 1].time)
+  if (events.some((entry, index) => !entry || typeof entry.id !== "string" || !entry.id.trim() || !time(entry.time) || typeof entry.type !== "string" || !Object.hasOwn(repairActivityTypes, entry.type) || typeof entry.label !== "string" || typeof entry.note !== "string" || entry.time < repair.createdAt || index > 0 && entry.time < events[index - 1].time)
     || new Set(events.map(entry => entry.id)).size !== events.length || workflow.updatedAt !== events.at(-1)!.time) throw new Error("关联维修完成历史异常，售后未关闭。");
   const completion = events.findLast(entry => entry.type === "stage");
   if (!completion || completion.label !== "维修阶段：维修结束" || command.date < completion.time.slice(0, 10)) throw new Error("须核对实际维修结束日，售后交还日期不能早于维修结束。");

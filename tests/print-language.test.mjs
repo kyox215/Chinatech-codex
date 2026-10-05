@@ -113,7 +113,7 @@ test("整机原有条款保留三语并且旧销售未知承诺、双联标题�
   for (const language of ["it", "en", "zh"]) {
     for (const term of retailWarrantyTerms) assert.ok(term[language]);
     assert.ok(retailStatutoryRights[language]);
-    for (const key of ["warrantyUnknown", "guarantorUnknown", "historicalTerms", "historicalRights", "productMissing", "a4", "a5", "half", "double", "customerCopy", "shopCopy"]) {
+    for (const key of ["warrantyUnknown", "guarantorUnknown", "historicalTerms", "historicalRights", "productMissing", "a4", "a5", "half", "double", "customerCopy", "shopCopy", "buyerNote", "saleRecorded"]) {
       assert.ok(printLabel(key, language)); if (language !== "zh") noChinese(printLabel(key, language));
     }
   }

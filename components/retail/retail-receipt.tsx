@@ -1,7 +1,7 @@
 "use client";
 
 import { isBackendClient } from "@/lib/backend/client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Printer, X } from "lucide-react";
 import { SelectControl } from "@/components/select-control";
@@ -12,7 +12,7 @@ import { printDate, printKnownOrOriginal, printLabel, printLanguages, printMoney
 
 const formats = { a5: "A5 landscape", a4: "A4 landscape", half: "A4 portrait", double: "A4 portrait" } as const;
 
-export function RetailReceipt({ unit, sale, onClose }: { unit: RetailUnit; sale?: RetailSale; onClose: () => void }) {
+export function RetailReceipt({ unit, sale, onClose, restoreFocusRef }: { unit: RetailUnit; sale?: RetailSale; onClose: () => void; restoreFocusRef?: RefObject<HTMLElement | null> }) {
   const { settings, ready, error } = useStoreSettings();
   const [format, setFormat] = useState(settings.paper);
   const [language, setLanguage] = useState<PrintLanguage>("it");
@@ -23,10 +23,10 @@ export function RetailReceipt({ unit, sale, onClose }: { unit: RetailUnit; sale?
   const identity = (label: string, value: string) => <div key={label}><dt>{label}:</dt><dd>{value}</dd></div>;
   const duration = (months: number | null) => months === null ? t("noCommercialWarranty") : printMonths(months, language, true);
   useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previous = restoreFocusRef?.current ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     const current = dialog.current; current?.showModal();
-    return () => { current?.close(); if (previous?.isConnected) previous.focus(); };
-  }, []);
+    return () => { current?.close(); if (previous?.isConnected) previous.focus({ preventScroll: true }); };
+  }, [restoreFocusRef]);
   const product = sale ? saleProductUnit(unit, sale) : unit;
   const warranty = sale?.warranty;
   const unknown = Boolean(sale && !warranty);
@@ -46,7 +46,7 @@ export function RetailReceipt({ unit, sale, onClose }: { unit: RetailUnit; sale?
     <div className={"intake-receipt-sheets intake-receipt-sheets--" + format}>{copies.map(copy => <article className="intake-receipt-sheet" lang={language} key={copy}>
       <section className="intake-receipt-order"><header className="intake-receipt-brand"><strong>{shop.name}</strong>{unknown ? <small>{t("reprintShop")}</small> : null}<p>{shop.address}<br />{shop.phone ? t("contact") + ": " + shop.phone : ""}</p><h3>{t(sale ? "salesTitle" : "productTitle")}</h3><small>{t(copy)} · {t(sale ? "saleRecorded" : "notSale")}</small></header>
         <dl className="intake-receipt-identity">{entry("reference", product?.code || t("historicalProduct"))}{entry("registrationDate", sale ? printDate(sale.time, language) : t("notSold"))}{entry("customer", sale?.customerName || t("unrecorded"))}{entry("phone", sale?.customerPhone || t("unrecorded"))}</dl>
-        <section className="intake-receipt-block"><h4>{t("product")}</h4>{product ? <dl>{entry("brandModel", [product.brand, product.model].filter(Boolean).join(" "))}{entry("productType", printKnownOrOriginal(({ phone: "手机", tablet: "平板", laptop: "笔记本", desktop: "台式电脑", console: "游戏机", other: "其他商品" })[product.category], language))}{entry("condition", printKnownOrOriginal(product.condition, language))}{entry("color", printKnownOrOriginal(product.color, language))}{entry("specs", printRetailSpecs(product, language))}{identity("SN", product.serial || t("unrecorded"))}{product.imei1 ? identity("IMEI 1", product.imei1) : null}{product.imei2 ? identity("IMEI 2", product.imei2) : null}{entry("appearanceGrade", printKnownOrOriginal(product.grade, language))}{entry("batteryHealth", product.batteryPercent === null ? t("unrecorded") : `${product.batteryPercent}%`)}{entry("accessories", printRetailAccessories(product.accessories, language))}{entry("declaredCondition", product.knownIssues || t("unrecorded"))}</dl> : <p>{t("productMissing")}</p>}{sale?.customerEmail || sale?.customerAddress ? <dl>{entry("email", sale.customerEmail || t("unrecorded"))}{entry("address", sale.customerAddress || t("unrecorded"))}</dl> : null}</section>
+        <section className="intake-receipt-block"><h4>{t("product")}</h4>{product ? <dl>{entry("brandModel", [product.brand, product.model].filter(Boolean).join(" "))}{entry("productType", printKnownOrOriginal(({ phone: "手机", tablet: "平板", laptop: "笔记本", desktop: "台式电脑", console: "游戏机", other: "其他商品" })[product.category], language))}{entry("condition", printKnownOrOriginal(product.condition, language))}{entry("color", printKnownOrOriginal(product.color, language))}{entry("specs", printRetailSpecs(product, language))}{identity("SN", product.serial || t("unrecorded"))}{product.imei1 ? identity("IMEI 1", product.imei1) : null}{product.imei2 ? identity("IMEI 2", product.imei2) : null}{entry("appearanceGrade", printKnownOrOriginal(product.grade, language))}{entry("batteryHealth", product.batteryPercent === null ? t("unrecorded") : `${product.batteryPercent}%`)}{entry("accessories", printRetailAccessories(product.accessories, language))}{entry("declaredCondition", product.knownIssues || t("unrecorded"))}</dl> : <p>{t("productMissing")}</p>}{sale?.customerEmail || sale?.customerAddress ? <dl>{entry("email", sale.customerEmail || t("unrecorded"))}{entry("address", sale.customerAddress || t("unrecorded"))}</dl> : null}{sale?.customerNote ? <dl>{entry("buyerNote", sale.customerNote)}</dl> : null}</section>
         <section className="intake-receipt-block"><h4>{t("amounts")}</h4><dl>{entry(sale ? "salePrice" : "indicativePrice", printMoney(sale?.priceCents ?? unit.priceCents, language))}{entry("payment", !sale || retailPaidCents(sale) === null ? t("pending") : printMoney(retailPaidCents(sale), language))}{sale ? entry("refunds", printMoney(retailRefundedCents(sale), language)) : null}{sale?.returned ? entry("returnedProduct", printDate(sale.returned.date, language) + " · " + t("recordedText") + ": " + sale.returned.reason) : null}{entry("delivery", sale?.delivered ? sale.deliveryDate ? printDate(sale.deliveryDate, language) : t("deliveryUndated") : t("pending"))}</dl></section>
         <section className="intake-receipt-block"><h4>{t("commercialWarranty")}</h4><dl>{entry("duration", unknown || months === undefined ? t("warrantyUnknown") : duration(months))}{entry("starts", sale?.deliveryDate ? printDate(sale.deliveryDate, language) : t("actualDelivery"))}{entry("expires", expiry ? printDate(expiry, language) : unknown ? t("unrecorded") : months === null ? t("notApplicable") : t("afterDelivery"))}</dl></section>
         <small className="intake-receipt-local">{!isBackendClient() ? t("local") + " · " : ""}{t("nonFiscal")}</small>

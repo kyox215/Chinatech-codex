@@ -15,8 +15,12 @@ export function customerId(phone: string) { return `PHONE-${normalizeCustomerPho
 export function customerName(raw: string) { return ["未填写姓名", "未填写称呼", "未记录"].includes(raw.trim()) ? "" : raw.trim(); }
 export type CustomerProfile = { phone: string; name: string; email: string; note: string; version: number; updatedAt: string };
 export type CustomerSeed = { phone: string; name: string; email?: string };
-export type CustomerSaleRecord = { id: string; unitId: string; unitCode: string; deviceName: string; time: string; priceCents: number; paidCents: number | null; delivered: boolean; note: string; refundedCents?:number; returned?:boolean; afterSaleCount?:number };
-export type Customer = CustomerProfile & { id: string; repairs: RepairDirectoryEntry[]; sales: CustomerSaleRecord[]; history: RetailHistoryRecord[]; lastActivity: string };
+export type CustomerSaleRecord = { id: string; unitId: string; unitCode: string; deviceName: string; time: string; priceCents: number; paidCents: number | null; delivered: boolean; note: string; customerName: string; customerEmail: string; customerAddress: string; customerNote: string; deliveryDate?: string; refundedCents?:number; returned?:boolean; afterSaleCount?:number };
+export type Customer = CustomerProfile & { id: string; address: string; repairs: RepairDirectoryEntry[]; sales: CustomerSaleRecord[]; history: RetailHistoryRecord[]; lastActivity: string };
+
+export function customerSaleHref(sale: Pick<CustomerSaleRecord, "unitId" | "id">): string {
+  return `/app/retail/units/${encodeURIComponent(sale.unitId)}?sale=${encodeURIComponent(sale.id)}#${encodeURIComponent(`sale-${sale.id}`)}`;
+}
 
 export function buildCustomerDirectory(repairs: readonly RepairDirectoryEntry[], units: readonly RetailUnit[], profiles: readonly CustomerProfile[] = [], seeds: readonly CustomerSeed[] = [], history: readonly RetailHistoryRecord[] = []): Customer[] {
   const directory = new Map<string, Customer>();
@@ -24,7 +28,7 @@ export function buildCustomerDirectory(repairs: readonly RepairDirectoryEntry[],
     let normalized: string;
     try { normalized = normalizeCustomerPhone(phone); } catch { return null; }
     let record = directory.get(normalized);
-    if (!record) { record = { id: customerId(normalized), phone: normalized, name: "", email: "", note: "", version: 0, updatedAt: "", repairs: [], sales: [], history: [], lastActivity: "" }; directory.set(normalized, record); }
+    if (!record) { record = { id: customerId(normalized), phone: normalized, name: "", email: "", note: "", address: "", version: 0, updatedAt: "", repairs: [], sales: [], history: [], lastActivity: "" }; directory.set(normalized, record); }
     return record;
   }
   for (const seed of seeds) { const record = get(seed.phone); if (record) { if (customerName(seed.name)) record.name = customerName(seed.name); if (seed.email) record.email = seed.email; } }
@@ -47,7 +51,9 @@ export function buildCustomerDirectory(repairs: readonly RepairDirectoryEntry[],
     if (!sale.customerPhone) continue; // Earlier fixture history has no customer identity.
     const record = get(sale.customerPhone); if (!record) continue;
     if (customerName(sale.customerName || "")) record.name = customerName(sale.customerName || "");
-    record.sales.push({ id: sale.id, unitId: unit.id, unitCode: sale.product?.code||unit.code, deviceName: sale.product?`${sale.product.brand} ${sale.product.model}`.trim():`${unit.brand} ${unit.model}`.trim(), time: sale.time, priceCents: sale.priceCents, paidCents: sale.paidCents, delivered: sale.delivered, note: sale.note,refundedCents:(sale.refunds||[]).reduce((sum,entry)=>sum+(entry.void?0:entry.amountCents),0),returned:!!sale.returned,afterSaleCount:sale.afterSales?.length||0 });
+    if (sale.customerEmail) record.email = sale.customerEmail;
+    if (sale.customerAddress) record.address = sale.customerAddress;
+    record.sales.push({ id: sale.id, unitId: unit.id, unitCode: sale.product?.code||unit.code, deviceName: sale.product?`${sale.product.brand} ${sale.product.model}`.trim():`${unit.brand} ${unit.model}`.trim(), time: sale.time, priceCents: sale.priceCents, paidCents: sale.paidCents, delivered: sale.delivered, note: sale.note,customerName:sale.customerName||"",customerEmail:sale.customerEmail||"",customerAddress:sale.customerAddress||"",customerNote:sale.customerNote||"",deliveryDate:sale.deliveryDate,refundedCents:(sale.refunds||[]).reduce((sum,entry)=>sum+(entry.void?0:entry.amountCents),0),returned:!!sale.returned,afterSaleCount:sale.afterSales?.length||0 });
     record.lastActivity = [record.lastActivity, sale.time].sort().at(-1)!;
   }
   for (const profile of profiles) { const record = get(profile.phone); if (record) Object.assign(record, profile, { phone: normalizeCustomerPhone(profile.phone) }); }

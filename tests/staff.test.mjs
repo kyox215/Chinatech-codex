@@ -199,6 +199,13 @@ test("售后关闭须工单真实匹配三元组及完成事件，不能伪造st
   const completed = { revision: 1, status: "completed", custody: "store", notice: null, updatedAt: "2026-10-02 11:00:00", events: [{ id: "completed", time: "2026-10-02 11:00:00", type: "stage", label: "维修阶段：维修结束", note: "DEMO" }] };
   const raw = workflow => JSON.stringify({ version: 1, workflows: { [record.id]: workflow } });
   assert.doesNotThrow(() => access.requireRetailAfterSaleRepair(unit, command, [record], raw(completed)));
+  for (const type of ["pickup_notice", "requirement", "followup", "quote_contact"]) {
+    const history = { ...completed, revision: 2, events: [{ id: `valid-${type}`, time: "2026-10-02 10:00:00", type, label: "DEMO已核对事实", note: "DEMO" }, ...completed.events] };
+    assert.doesNotThrow(() => access.requireRetailAfterSaleRepair(unit, command, [record], raw(history)));
+    assert.throws(() => access.requireRetailAfterSaleRepair(unit, command, [record], raw({ ...history, events: [{ ...history.events[0], type: "unknown" }, ...completed.events] })), /历史异常/);
+    assert.throws(() => access.requireRetailAfterSaleRepair(unit, command, [record], raw({ ...history, events: [{ ...history.events[0], id: "completed" }, ...completed.events] })), /历史异常/);
+    assert.throws(() => access.requireRetailAfterSaleRepair(unit, { ...command, date: "2026-10-01" }, [record], raw(history)), /不能早于/);
+  }
   assert.throws(() => access.requireRetailAfterSaleRepair(unit, command, [], raw(completed)), /不存在/);
   for (const field of ["unitId", "saleId", "caseId"]) assert.throws(() => access.requireRetailAfterSaleRepair(unit, command, [{ ...record, retailOrigin: { ...record.retailOrigin, [field]: "different" } }], raw(completed)), /来源不一致/);
   assert.throws(() => access.requireRetailAfterSaleRepair(unit, command, [record, record], raw(completed)), /来源不一致/);

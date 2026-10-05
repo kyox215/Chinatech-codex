@@ -1,8 +1,13 @@
-.sale { padding: 12px; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.sale { padding: 12px; border-top: 1px solid var(--border); overflow-wrap: anywhere; scroll-margin-block: 24px; }
+.sale:target { outline: 2px solid var(--primary-600); outline-offset: -2px; }
 .sale > header, .case > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .sale > header > div { display: grid; gap: 4px; min-width: 0; }
 .sale small { display: block; font-size: 12px; color: var(--text-secondary); }
 .buyer { display: block; margin: 8px 0; color: var(--primary-600); font-size: 14px; }
+.steps { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin: 12px 0; padding: 0; list-style: none; }
+.steps li { display: grid; gap: 4px; min-width: 0; font-size: 13px; line-height: 1.5; }
+.steps span { color: var(--text-secondary); font-size: 12px; }
+.nextStep { margin: 10px 0; color: var(--text); font-size: 14px; line-height: 1.5; }
 .metrics { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin: 12px 0; }
 .metrics > div { padding: 8px; background: var(--surface-subtle); border-radius: var(--radius-control); }
 .metrics dt { font-size: 12px; color: var(--text-secondary); }
