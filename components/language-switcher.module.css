@@ -1,0 +1,4 @@
+.switcher { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; color: var(--text-secondary); }
+.switcher :global(.select-control) { width: 112px; }
+.switcher select { min-height: 44px; width: 100%; font-size: 16px; padding-inline: 10px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); color: var(--text); }
+.switcher select:focus-visible { outline: 2px solid var(--primary-600); outline-offset: 2px; }

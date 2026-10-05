@@ -1,0 +1,59 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:04.042
+Retail devices are physical items owned by your shop.
+
+00:00:04.042 --> 00:00:07.667
+Start by choosing new or refurbished at the top.
+
+00:00:07.667 --> 00:00:12.083
+Never create a retail record for a customer's repair device.
+
+00:00:12.083 --> 00:00:18.375
+Enter the category, brand and model, then copy identifiers from
+the physical device.
+
+00:00:18.375 --> 00:00:22.625
+Two devices of the same model still need separate records.
+
+00:00:22.625 --> 00:00:28.250
+Record memory, built-in storage and individual drives
+separately where applicable.
+
+00:00:28.250 --> 00:00:31.792
+Leave unknown values empty, not zero.
+
+00:00:31.792 --> 00:00:36.292
+Do not infer this device's configuration from its product name.
+
+00:00:36.292 --> 00:00:41.625
+Next, record appearance, battery condition and supplied
+accessories.
+
+00:00:41.625 --> 00:00:45.042
+Known issues must belong to this device.
+
+00:00:45.042 --> 00:00:50.958
+Upload photos after creating the record, and never mark an
+untested check as passed.
+
+00:00:50.958 --> 00:00:54.542
+Enter the asking price and storage location.
+
+00:00:54.542 --> 00:00:57.500
+Cost fields require permission.
+
+00:00:57.500 --> 00:01:02.250
+Confirm shop ownership using the checkbox, then create the
+record.
+
+00:01:02.250 --> 00:01:06.958
+A new device remains awaiting inspection, not ready for sale.
+
+00:01:06.958 --> 00:01:13.875
+Record the actual inspection in the device details, then follow
+the approval process to make it available.
+
+00:01:13.875 --> 00:01:20.000
+Sale, payments, handover and after-sales are recorded
+separately for this same device.

@@ -1,5 +1,5 @@
 .page { min-height: 100dvh; background: var(--bg); }
-.brand { max-width: 1160px; margin: auto; padding: 28px 32px 8px; }
+.brand { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; max-width: 1160px; margin: auto; padding: 28px 32px 8px; }
 .main { max-width: 1160px; margin: auto; padding: 20px 32px 64px; }
 .heading { position: static; margin-bottom: 24px; }
 .layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; align-items: start; }

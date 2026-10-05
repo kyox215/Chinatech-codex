@@ -1634,7 +1634,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 @media (max-width:767px) {
   .repair-unified-list .module-heading__actions { display: grid; grid-template-columns: 44px repeat(3,minmax(0,1fr)); gap: 6px; }
-  .repair-unified-list .module-heading__actions .button { min-width: 0; min-height: 44px; padding: 8px 5px; gap: 5px; font-size: 13px; white-space: nowrap; }
+  .repair-unified-list .module-heading__actions .button { min-width: 0; min-height: 44px; padding: 8px 5px; gap: 5px; font-size: 13px; white-space: normal; flex-wrap: wrap; text-align: center; }
+  .repair-list-scope button, .repair-notice-filters button { min-width: 0; white-space: normal; text-align: center; }
   .repair-unified-list .module-heading__actions .button svg { flex-shrink: 0; }
   .repair-unified-list .repair-filterbar { grid-template-columns: minmax(0,1fr) minmax(0,1fr); padding: 10px; gap: 8px; min-height: 60px; }
   .repair-unified-list .module-table-scroll { padding: 0 0 4px; }

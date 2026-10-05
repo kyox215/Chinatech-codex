@@ -1,0 +1,994 @@
+{
+  "打印接机单": [
+    "Stampa ordine di riparazione",
+    "Print repair intake receipt"
+  ],
+  "销售与保修单": [
+    "Documento di vendita e garanzia",
+    "Sale and warranty receipt"
+  ],
+  "商品保修单预览": [
+    "Anteprima garanzia prodotto",
+    "Product warranty preview"
+  ],
+  "关闭打印预览": [
+    "Chiudi anteprima",
+    "Close print preview"
+  ],
+  "纸张": [
+    "Carta",
+    "Paper"
+  ],
+  "打印语言": [
+    "Lingua di stampa",
+    "Print language"
+  ],
+  "打印": [
+    "Stampa",
+    "Print"
+  ],
+  "A4 横向": [
+    "A4 orizzontale",
+    "A4 landscape"
+  ],
+  "A5 横向": [
+    "A5 orizzontale",
+    "A5 landscape"
+  ],
+  "A4 上半页": [
+    "A4 metà superiore",
+    "A4 upper half"
+  ],
+  "A4 双联": [
+    "A4 doppia copia",
+    "A4 two copies"
+  ],
+  "客户联": [
+    "Copia cliente",
+    "Customer copy"
+  ],
+  "门店联": [
+    "Copia negozio",
+    "Shop copy"
+  ],
+  "维修接机单": [
+    "ORDINE DI RIPARAZIONE",
+    "REPAIR INTAKE RECEIPT"
+  ],
+  "客户凭证": [
+    "Documento per il cliente",
+    "Customer document"
+  ],
+  "工单编号": [
+    "Numero ordine",
+    "Order number"
+  ],
+  "日期": [
+    "Data",
+    "Date"
+  ],
+  "客户": [
+    "Cliente",
+    "Customer"
+  ],
+  "联系电话": [
+    "Telefono",
+    "Phone"
+  ],
+  "电话 / WhatsApp": [
+    "Tel / WhatsApp",
+    "Phone / WhatsApp"
+  ],
+  "设备": [
+    "Dispositivo",
+    "Device"
+  ],
+  "品牌": [
+    "Marca",
+    "Brand"
+  ],
+  "型号": [
+    "Modello",
+    "Model"
+  ],
+  "设备类别": [
+    "Tipo di dispositivo",
+    "Device type"
+  ],
+  "颜色": [
+    "Colore",
+    "Colour"
+  ],
+  "未记录": [
+    "Non registrato",
+    "Not recorded"
+  ],
+  "待确认": [
+    "In attesa di conferma",
+    "Awaiting confirmation"
+  ],
+  "未指定": [
+    "Non specificato",
+    "Not specified"
+  ],
+  "客户原文": [
+    "Testo originale del cliente",
+    "Customer's original text"
+  ],
+  "记录原文": [
+    "Testo originale registrato",
+    "Original recorded text"
+  ],
+  "维修需求": [
+    "Intervento richiesto",
+    "Requested work"
+  ],
+  "说明": [
+    "Descrizione",
+    "Description"
+  ],
+  "金额": [
+    "Importo",
+    "Amount"
+  ],
+  "待评估": [
+    "Da valutare",
+    "To be assessed"
+  ],
+  "待确定": [
+    "Da definire",
+    "To be determined"
+  ],
+  "报告故障": [
+    "Difetto segnalato",
+    "Reported fault"
+  ],
+  "故障补充 · 客户原文": [
+    "Dettagli del difetto · testo originale del cliente",
+    "Fault details · customer's original text"
+  ],
+  "检测": [
+    "Diagnosi",
+    "Diagnosis"
+  ],
+  "待完成": [
+    "Da completare",
+    "Pending"
+  ],
+  "金额 (EUR)": [
+    "Importi (EUR)",
+    "Amounts (EUR)"
+  ],
+  "工单总额": [
+    "Totale ordine",
+    "Order total"
+  ],
+  "未报价": [
+    "Non preventivato",
+    "Not quoted"
+  ],
+  "预付款": [
+    "Acconto",
+    "Deposit"
+  ],
+  "应付余额": [
+    "Saldo dovuto",
+    "Balance due"
+  ],
+  "服务": [
+    "Servizio",
+    "Service"
+  ],
+  "维修员": [
+    "Tecnico",
+    "Technician"
+  ],
+  "未分配": [
+    "Da assegnare",
+    "Unassigned"
+  ],
+  "工单类型": [
+    "Tipo ordine",
+    "Order type"
+  ],
+  "维修": [
+    "Riparazione",
+    "Repair"
+  ],
+  "状态": [
+    "Stato",
+    "Status"
+  ],
+  "设备保管": [
+    "Custodia del dispositivo",
+    "Device custody"
+  ],
+  "商家保修期": [
+    "Durata garanzia commerciale",
+    "Commercial warranty period"
+  ],
+  "随件": [
+    "Accessori consegnati",
+    "Accessories received"
+  ],
+  "优先级": [
+    "Priorità",
+    "Priority"
+  ],
+  "本地预览 · 非税务单据": [
+    "ANTEPRIMA LOCALE · NON FISCALE",
+    "LOCAL PREVIEW · NON-FISCAL"
+  ],
+  "保修与门店资料": [
+    "GARANZIA E INFORMAZIONI NEGOZIO",
+    "WARRANTY AND SHOP DETAILS"
+  ],
+  "维修状态": [
+    "STATO RIPARAZIONE",
+    "REPAIR STATUS"
+  ],
+  "扫码查找工单。": [
+    "Scansiona per trovare l'ordine.",
+    "Scan to find the order."
+  ],
+  "仅此浏览器 · 需获授权访问": [
+    "Solo questo browser · accesso riservato",
+    "This browser only · authorised access"
+  ],
+  "工单二维码": [
+    "Codice QR per l'ordine",
+    "Order QR code"
+  ],
+  "正在生成二维码…": [
+    "Generazione codice QR…",
+    "Generating QR code…"
+  ],
+  "二维码生成失败。": [
+    "Generazione codice QR non riuscita.",
+    "QR code generation failed."
+  ],
+  "重新生成二维码": [
+    "Riprova codice QR",
+    "Retry QR code"
+  ],
+  "资料或设置无法读取，请重新打开预览后打印。": [
+    "Dati o impostazioni non disponibili. Riaprire l'anteprima prima di stampare.",
+    "Receipt data or settings are unavailable. Reopen the preview before printing."
+  ],
+  "商家保修条款": [
+    "Termini della garanzia commerciale",
+    "Commercial warranty terms"
+  ],
+  "消费者权利": [
+    "Diritti del consumatore",
+    "Consumer rights"
+  ],
+  "客户签名 · 接机资料核对": [
+    "Firma cliente · verifica dati di accettazione",
+    "Customer signature · intake details review"
+  ],
+  "签署语言": [
+    "Lingua della firma",
+    "Signing language"
+  ],
+  "签署时间": [
+    "Firmato il",
+    "Signed at"
+  ],
+  "历史签名不覆盖当前资料，需重新签署。": [
+    "La firma precedente riguarda dati storici e non copre questi dati. Occorre una nuova firma.",
+    "The previous signature covers historical details, not the current details. A new signature is required."
+  ],
+  "请保留本单以便办理售后。": [
+    "Conservare questo documento per l'assistenza.",
+    "Keep this document for support."
+  ],
+  "销售单": [
+    "DOCUMENTO DI VENDITA",
+    "SALE RECEIPT"
+  ],
+  "商品资料 · 预览": [
+    "SCHEDA PRODOTTO · ANTEPRIMA",
+    "PRODUCT DETAILS · PREVIEW"
+  ],
+  "销售已本地记录": [
+    "Vendita registrata localmente",
+    "Sale recorded locally"
+  ],
+  "不证明已售出": [
+    "Non attesta una vendita",
+    "Does not confirm a sale"
+  ],
+  "本次重打联系门店": [
+    "Negozio di contatto per questa ristampa",
+    "Contact shop for this reprint"
+  ],
+  "单机编号": [
+    "Riferimento",
+    "Reference"
+  ],
+  "历史商品未记录": [
+    "Prodotto storico non registrato",
+    "Historical product not recorded"
+  ],
+  "登记时间": [
+    "Data registrazione",
+    "Registration date"
+  ],
+  "未售出": [
+    "Non venduto",
+    "Not sold"
+  ],
+  "商品": [
+    "Prodotto",
+    "Product"
+  ],
+  "品牌 / 型号": [
+    "Marca / modello",
+    "Brand / model"
+  ],
+  "商品分类": [
+    "Categoria commerciale",
+    "Sale condition"
+  ],
+  "规格": [
+    "Specifiche",
+    "Specifications"
+  ],
+  "商品类型": [
+    "Tipo prodotto",
+    "Product type"
+  ],
+  "已知问题 · 记录原文": [
+    "Condizioni dichiarate · testo originale",
+    "Declared condition · original text"
+  ],
+  "原销售商品身份和规格未记录，请核对原凭证。": [
+    "Identità e specifiche della vendita originale non registrate. Verificare il documento originale.",
+    "The original sale's product identity and specifications were not recorded. Check the original receipt."
+  ],
+  "电子邮箱": [
+    "Email",
+    "Email"
+  ],
+  "地址": [
+    "Indirizzo",
+    "Address"
+  ],
+  "成交价": [
+    "Prezzo di vendita",
+    "Sale price"
+  ],
+  "参考售价": [
+    "Prezzo indicativo",
+    "Indicative price"
+  ],
+  "已收款": [
+    "Pagamento",
+    "Payment"
+  ],
+  "已记录退款": [
+    "Rimborsi registrati",
+    "Recorded refunds"
+  ],
+  "实物已退回": [
+    "Prodotto restituito",
+    "Product returned"
+  ],
+  "交付": [
+    "Consegna",
+    "Delivery"
+  ],
+  "已记录，日期未知": [
+    "Registrata, data non disponibile",
+    "Recorded, date unavailable"
+  ],
+  "商家保修": [
+    "Garanzia commerciale",
+    "Commercial warranty"
+  ],
+  "期限": [
+    "Durata",
+    "Period"
+  ],
+  "未记录 · 核对原凭证": [
+    "Non registrata · verificare il documento originale",
+    "Not recorded · check the original receipt"
+  ],
+  "起算日": [
+    "Decorrenza",
+    "Starts"
+  ],
+  "从实际交付起 · 日期待确认": [
+    "Dalla consegna effettiva · data da confermare",
+    "From actual delivery · date to be confirmed"
+  ],
+  "到期日": [
+    "Scadenza",
+    "Expires"
+  ],
+  "无额外商家保修": [
+    "Nessuna garanzia commerciale aggiuntiva",
+    "No additional commercial warranty"
+  ],
+  "商家保修不适用": [
+    "Non applicabile alla garanzia commerciale",
+    "Not applicable to commercial warranty"
+  ],
+  "交付后确认": [
+    "Da confermare dopo la consegna",
+    "To be confirmed after delivery"
+  ],
+  "不替代税务收据或发票。": [
+    "Non sostituisce scontrino o fattura.",
+    "Does not replace a fiscal receipt or invoice."
+  ],
+  "保修与售后": [
+    "GARANZIA E ASSISTENZA",
+    "WARRANTY AND SUPPORT"
+  ],
+  "保修门店": [
+    "Garante",
+    "Warranty provider"
+  ],
+  "原销售保修门店未记录 · 核对原凭证": [
+    "Garante della vendita: non registrato · verificare il documento originale",
+    "Original warranty provider: not recorded · check the original receipt"
+  ],
+  "法定符合性免费救济不受影响。本次重打不重建或修改原销售条款。": [
+    "I rimedi gratuiti per i difetti di conformità previsti dalla legge restano salvi. Questa ristampa non ricostruisce né modifica le condizioni della vendita originale.",
+    "Free statutory remedies for lack of conformity remain unaffected. This reprint does not reconstruct or change the original sale terms."
+  ],
+  "原条款未记录，不为此销售追溯添加保修期或除外条款。": [
+    "Condizioni originali non registrate. Nessuna durata o esclusione viene attribuita retroattivamente a questa vendita.",
+    "Original terms were not recorded. No period or exclusion is applied retrospectively to this sale."
+  ],
+  "客户签名 · 已阅": [
+    "Firma cliente · presa visione",
+    "Customer signature · acknowledgement"
+  ],
+  "签名不放弃法定权利。请保留购买证明与本单。": [
+    "La firma non comporta rinuncia ai diritti previsti dalla legge. Conservare la prova d'acquisto e questo documento.",
+    "Signing does not waive statutory rights. Keep the proof of purchase and this document."
+  ],
+  "原条款未记录": [
+    "Condizioni originali non registrate",
+    "Original terms not recorded"
+  ],
+  "当前条款预览": [
+    "Anteprima delle condizioni attuali",
+    "Preview of current terms"
+  ],
+  "机身存储": [
+    "Memoria interna",
+    "Internal storage"
+  ],
+  "键盘布局": [
+    "Layout tastiera",
+    "Keyboard layout"
+  ],
+  "随附手柄": [
+    "Controller inclusi",
+    "Included controllers"
+  ],
+  "电池健康": [
+    "Salute batteria",
+    "Battery health"
+  ],
+  "外观等级": [
+    "Grado estetico",
+    "Appearance grade"
+  ],
+  "意大利语": [
+    "Italiano",
+    "Italian"
+  ],
+  "英语": [
+    "Inglese",
+    "English"
+  ],
+  "中文": [
+    "Cinese",
+    "Chinese"
+  ],
+  "屏幕": [
+    "Display",
+    "Screen"
+  ],
+  "电池": [
+    "Batteria",
+    "Battery"
+  ],
+  "尾插": [
+    "Connettore di ricarica",
+    "Charging port"
+  ],
+  "摄像头": [
+    "Fotocamera",
+    "Camera"
+  ],
+  "进水": [
+    "Liquidi",
+    "Liquid ingress"
+  ],
+  "主板": [
+    "Scheda madre",
+    "Mainboard"
+  ],
+  "系统": [
+    "Sistema",
+    "System"
+  ],
+  "后盖": [
+    "Cover posteriore",
+    "Back cover"
+  ],
+  "面容/指纹": [
+    "Riconoscimento facciale / impronta",
+    "Face / fingerprint recognition"
+  ],
+  "扬声器": [
+    "Altoparlante",
+    "Speaker"
+  ],
+  "麦克风": [
+    "Microfono",
+    "Microphone"
+  ],
+  "按键": [
+    "Tasti",
+    "Buttons"
+  ],
+  "碎裂": [
+    "Rotto",
+    "Cracked"
+  ],
+  "不显示": [
+    "Nessuna immagine",
+    "No display"
+  ],
+  "触摸失灵": [
+    "Touch non funzionante",
+    "Touch not working"
+  ],
+  "显示异常": [
+    "Immagine anomala",
+    "Display abnormality"
+  ],
+  "续航差": [
+    "Autonomia ridotta",
+    "Poor battery life"
+  ],
+  "不充电": [
+    "Non carica",
+    "Not charging"
+  ],
+  "鼓包": [
+    "Batteria gonfia",
+    "Swollen battery"
+  ],
+  "自动关机": [
+    "Spegnimento spontaneo",
+    "Unexpected shutdown"
+  ],
+  "接口松动": [
+    "Connettore allentato",
+    "Loose port"
+  ],
+  "无法充电": [
+    "Impossibile caricare",
+    "Unable to charge"
+  ],
+  "无法传输数据": [
+    "接口松动",
+    "无法充电"
+  ],
+  "无法拍摄": [
+    "Impossibile scattare foto",
+    "Unable to take photos"
+  ],
+  "模糊": [
+    "Immagine sfocata",
+    "Blurred image"
+  ],
+  "镜片破损": [
+    "无法拍摄",
+    "模糊"
+  ],
+  "接触液体": [
+    "Contatto con liquidi",
+    "Contact with liquid"
+  ],
+  "无法开机": [
+    "Non si accende",
+    "Will not power on"
+  ],
+  "需检查腐蚀": [
+    "接触液体",
+    "无法开机"
+  ],
+  "重启": [
+    "Riavvii",
+    "Restarting"
+  ],
+  "发热": [
+    "Surriscaldamento",
+    "Overheating"
+  ],
+  "无信号": [
+    "Nessun segnale",
+    "No signal"
+  ],
+  "卡顿": [
+    "Rallentamenti",
+    "Lagging"
+  ],
+  "无法启动": [
+    "Avvio non riuscito",
+    "Unable to boot"
+  ],
+  "软件异常": [
+    "卡顿",
+    "无法启动"
+  ],
+  "破损": [
+    "Danneggiato",
+    "Damaged"
+  ],
+  "开胶": [
+    "Adesivo staccato",
+    "Adhesive separation"
+  ],
+  "变形": [
+    "破损",
+    "开胶"
+  ],
+  "无法识别": [
+    "Riconoscimento non riuscito",
+    "Recognition not working"
+  ],
+  "无法录入": [
+    "Registrazione non riuscita",
+    "Unable to enrol"
+  ],
+  "无声音": [
+    "Nessun audio",
+    "No sound"
+  ],
+  "杂音": [
+    "Rumore audio",
+    "Audio noise"
+  ],
+  "声音小": [
+    "无声音",
+    "杂音"
+  ],
+  "通话异常": [
+    "无声音",
+    "声音小"
+  ],
+  "电源键": [
+    "Tasto accensione",
+    "Power button"
+  ],
+  "音量键": [
+    "Tasti volume",
+    "Volume buttons"
+  ],
+  "键盘": [
+    "Tastiera",
+    "Keyboard"
+  ],
+  "摇杆": [
+    "Joystick",
+    "Joystick"
+  ],
+  "黑色": [
+    "Nero",
+    "Black"
+  ],
+  "白色": [
+    "Bianco",
+    "White"
+  ],
+  "银色": [
+    "Argento",
+    "Silver"
+  ],
+  "灰色": [
+    "Grigio",
+    "Grey"
+  ],
+  "午夜色": [
+    "Mezzanotte",
+    "Midnight"
+  ],
+  "钛灰": [
+    "Grigio titanio",
+    "Titanium grey"
+  ],
+  "蓝色": [
+    "Blu",
+    "Blue"
+  ],
+  "深蓝色": [
+    "Blu scuro",
+    "Dark blue"
+  ],
+  "绿色": [
+    "Verde",
+    "Green"
+  ],
+  "紫色": [
+    "Viola",
+    "Purple"
+  ],
+  "粉色": [
+    "Rosa",
+    "Pink"
+  ],
+  "红色": [
+    "Rosso",
+    "Red"
+  ],
+  "金色": [
+    "Oro",
+    "Gold"
+  ],
+  "原色钛金属": [
+    "Titanio naturale",
+    "Natural titanium"
+  ],
+  "黑色钛金属": [
+    "Titanio nero",
+    "Black titanium"
+  ],
+  "白色钛金属": [
+    "Titanio bianco",
+    "White titanium"
+  ],
+  "蓝色钛金属": [
+    "Titanio blu",
+    "Blue titanium"
+  ],
+  "普通": [
+    "Normale",
+    "Normal"
+  ],
+  "优先": [
+    "Prioritaria",
+    "Priority"
+  ],
+  "紧急": [
+    "Urgente",
+    "Urgent"
+  ],
+  "SIM 卡": [
+    "Scheda SIM",
+    "SIM card"
+  ],
+  "SIM 卡托": [
+    "Carrellino SIM",
+    "SIM tray"
+  ],
+  "手机壳": [
+    "Custodia",
+    "Phone case"
+  ],
+  "保护膜": [
+    "Pellicola protettiva",
+    "Screen protector"
+  ],
+  "充电器": [
+    "Caricatore",
+    "Charger"
+  ],
+  "数据线": [
+    "Cavo dati",
+    "Data cable"
+  ],
+  "包装盒": [
+    "Scatola",
+    "Box"
+  ],
+  "其他": [
+    "Altro",
+    "Other"
+  ],
+  "原装充电器": [
+    "Caricatore originale",
+    "Original charger"
+  ],
+  "电源线": [
+    "Cavo di alimentazione",
+    "Power cable"
+  ],
+  "不含手柄": [
+    "Controller non incluso",
+    "No controller included"
+  ],
+  "底座": [
+    "Dock",
+    "Dock"
+  ],
+  "电源": [
+    "Alimentatore",
+    "Power adapter"
+  ],
+  "Joy-Con 一对": [
+    "Coppia di Joy-Con",
+    "Pair of Joy-Con"
+  ],
+  "新机": [
+    "Nuovo",
+    "New"
+  ],
+  "翻新机": [
+    "Ricondizionato",
+    "Refurbished"
+  ],
+  "手机": [
+    "Telefono",
+    "Phone"
+  ],
+  "平板": [
+    "Tablet",
+    "Tablet"
+  ],
+  "电脑": [
+    "Computer",
+    "Computer"
+  ],
+  "笔记本": [
+    "Portatile",
+    "Laptop"
+  ],
+  "台式电脑": [
+    "Computer desktop",
+    "Desktop computer"
+  ],
+  "游戏机": [
+    "Console",
+    "Game console"
+  ],
+  "其他商品": [
+    "Altro prodotto",
+    "Other product"
+  ],
+  "数字版": [
+    "Edizione digitale",
+    "Digital edition"
+  ],
+  "光驱版": [
+    "Edizione con lettore",
+    "Disc edition"
+  ],
+  "国行": [
+    "Versione Cina",
+    "China edition"
+  ],
+  "国际版": [
+    "Versione internazionale",
+    "International edition"
+  ],
+  "欧版": [
+    "Versione europea",
+    "European edition"
+  ],
+  "美版": [
+    "Versione USA",
+    "US edition"
+  ],
+  "港版": [
+    "Versione Hong Kong",
+    "Hong Kong edition"
+  ],
+  "日版": [
+    "Versione Giappone",
+    "Japan edition"
+  ],
+  "单 SIM": [
+    "SIM singola",
+    "Single SIM"
+  ],
+  "双 SIM": [
+    "Doppia SIM",
+    "Dual SIM"
+  ],
+  "仅 eSIM": [
+    "Solo eSIM",
+    "eSIM only"
+  ],
+  "标准版": [
+    "Edizione standard",
+    "Standard edition"
+  ],
+  "特别版": [
+    "Edizione speciale",
+    "Special edition"
+  ],
+  "意大利语 IT": [
+    "Italiano IT",
+    "Italian IT"
+  ],
+  "集成显卡": [
+    "Grafica integrata",
+    "Integrated graphics"
+  ],
+  "原装": [
+    "Originale",
+    "Original"
+  ],
+  "组装": [
+    "Compatibile",
+    "Aftermarket"
+  ],
+  "扩容": [
+    "Capacità aumentata",
+    "Capacity upgrade"
+  ],
+  "跑诊断": [
+    "Diagnostica richiesta",
+    "Diagnostics requested"
+  ],
+  "扩容跑诊断": [
+    "Capacità aumentata e diagnostica richiesta",
+    "Capacity upgrade and diagnostics requested"
+  ],
+  "久等 未答复": [
+    "In attesa di risposta",
+    "Awaiting customer reply"
+  ],
+  "欠款 已拿走": [
+    "Ritirato, saldo da pagare",
+    "Collected, balance outstanding"
+  ],
+  "寄修": [
+    "Inviato in assistenza esterna",
+    "Sent for external repair"
+  ],
+  "修好已通知": [
+    "Riparato, cliente avvisato",
+    "Repaired, customer notified"
+  ],
+  "待检测": [
+    "Da diagnosticare",
+    "Awaiting diagnosis"
+  ],
+  "待配件": [
+    "In attesa dei ricambi",
+    "Awaiting parts"
+  ],
+  "维修中": [
+    "In riparazione",
+    "Under repair"
+  ],
+  "待测试": [
+    "Da testare",
+    "Awaiting testing"
+  ],
+  "待取机": [
+    "Pronto per il ritiro",
+    "Ready for collection"
+  ],
+  "维修结束": [
+    "Riparazione conclusa",
+    "Repair finished"
+  ],
+  "作废": [
+    "Annullato",
+    "Cancelled"
+  ],
+  "保管待核对": [
+    "Custodia da verificare",
+    "Custody to be checked"
+  ],
+  "设备已留下": [
+    "Dispositivo in negozio",
+    "Device left at shop"
+  ],
+  "设备未留下": [
+    "Dispositivo presso il cliente",
+    "Device not left at shop"
+  ]
+}

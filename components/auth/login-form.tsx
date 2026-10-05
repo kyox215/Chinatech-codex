@@ -1,5 +1,6 @@
 "use client";
 
+import { useLanguage } from "@/components/language-provider";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
@@ -16,6 +17,7 @@ const demoCredentials = {
 };
 
 export function LoginForm({ supabaseMode = false, previewAvailable = true, notice = "" }: { supabaseMode?: boolean; previewAvailable?: boolean; notice?: string }) {
+  const { t } = useLanguage();
   const ready = useFormReady();
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -79,36 +81,36 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
     <form className="auth-form" onSubmit={handleSubmit} aria-busy={busy}>
       <div className="auth-form__heading">
         <span className="auth-form__icon" aria-hidden="true"><Mail size={30} /></span>
-        <h1>欢迎回来</h1>
-        <p>还没有账号？ <Link href="/register">创建账号</Link></p>
+        <h1>{t("欢迎回来")}</h1>
+        <p>{t("还没有账号？ ")}<Link href="/register">{t("创建账号")}</Link></p>
       </div>
 
       {!supabaseMode && previewAvailable ? <div className="preview-credentials" role="note">
-        <div><span><Check size={14} />本地视觉样板</span><small>不会连接真实账号或数据库</small></div>
-        <button type="button" disabled={busy} onClick={fillDemoCredentials}>填入演示账号</button>
+        <div><span><Check size={14} />{t("本地视觉样板")}</span><small>{t("不会连接真实账号或数据库")}</small></div>
+        <button type="button" disabled={busy} onClick={fillDemoCredentials}>{t("填入演示账号")}</button>
       </div> : null}
-      {!supabaseMode && !previewAvailable ? <p className="form-error" role="alert">登录服务尚未开放，请联系门店。</p> : null}
-      {notice ? <p className={styles.successNotice} role="status">{notice}</p> : null}
+      {!supabaseMode && !previewAvailable ? <p className="form-error" role="alert">{t("登录服务尚未开放，请联系门店。")}</p> : null}
+      {notice ? <p className={styles.successNotice} role="status">{t(notice)}</p> : null}
       {supabaseMode ? <SocialSignIn disabled={!ready || isSubmitting} onBusyChange={setOAuthBusy} /> : null}
 
       <div className="form-field">
-        <label htmlFor="email">电子邮件</label>
-        <InputControl shell leading={<Mail size={20} />} id="email" name="email" type="email" required maxLength={160} autoComplete="email" autoCapitalize="off" value={email} disabled={busy || unavailable} error={fieldErrors.email} onChange={event => { setEmail(event.target.value); setFieldErrors(current => ({ ...current, email: undefined })); setError(""); }} onClear={() => { setEmail(""); setFieldErrors(current => ({ ...current, email: undefined })); setError(""); }} clearLabel="清空电子邮件" placeholder="name@example.com" />
+        <label htmlFor="email">{t("电子邮件")}</label>
+        <InputControl shell leading={<Mail size={20} />} id="email" name="email" type="email" required maxLength={160} autoComplete="email" autoCapitalize="off" value={email} disabled={busy || unavailable} error={fieldErrors.email ? t(fieldErrors.email) : undefined} onChange={event => { setEmail(event.target.value); setFieldErrors(current => ({ ...current, email: undefined })); setError(""); }} onClear={() => { setEmail(""); setFieldErrors(current => ({ ...current, email: undefined })); setError(""); }} clearLabel={t("清空电子邮件")} placeholder="name@example.com" />
       </div>
 
       <div className="form-field">
-        <label htmlFor="password">密码</label>
-        <InputControl shell leading={<LockKeyhole size={20} />} id="password" name="password" type={showPassword ? "text" : "password"} required maxLength={128} autoComplete="current-password" value={password} disabled={busy || unavailable} error={fieldErrors.password} onChange={event => { setPassword(event.target.value); setFieldErrors(current => ({ ...current, password: undefined })); setError(""); }} placeholder="输入此账号的登录密码" trailing={<button className="input-icon-button" type="button" disabled={busy || unavailable} onClick={() => setShowPassword(value => !value)} aria-pressed={showPassword} aria-label={showPassword ? "隐藏密码" : "显示密码"}>{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button>} />
+        <label htmlFor="password">{t("密码")}</label>
+        <InputControl shell leading={<LockKeyhole size={20} />} id="password" name="password" type={showPassword ? "text" : "password"} required maxLength={128} autoComplete="current-password" value={password} disabled={busy || unavailable} error={fieldErrors.password ? t(fieldErrors.password) : undefined} onChange={event => { setPassword(event.target.value); setFieldErrors(current => ({ ...current, password: undefined })); setError(""); }} placeholder={t("输入此账号的登录密码")} trailing={<button className="input-icon-button" type="button" disabled={busy || unavailable} onClick={() => setShowPassword(value => !value)} aria-pressed={showPassword} aria-label={showPassword ? t("隐藏密码") : t("显示密码")}>{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button>} />
       </div>
 
       <div className="form-options">
-        {!supabaseMode ? <><label className="checkbox-label"><input type="checkbox" checked={remember} disabled={busy || unavailable} onChange={(event) => setRemember(event.target.checked)} /><span>保持本次预览登录</span></label><Link href="/forgot-password">忘记密码？</Link></> : <Link href="/forgot-password">忘记密码？</Link>}
+        {!supabaseMode ? <><label className="checkbox-label"><input type="checkbox" checked={remember} disabled={busy || unavailable} onChange={(event) => setRemember(event.target.checked)} /><span>{t("保持本次预览登录")}</span></label><Link href="/forgot-password">{t("忘记密码？")}</Link></> : <Link href="/forgot-password">{t("忘记密码？")}</Link>}
       </div>
 
-      {error ? <p className="form-error" id="login-error" role="alert"><AlertCircle size={17} />{error}</p> : null}
+      {error ? <p className="form-error" id="login-error" role="alert"><AlertCircle size={17} />{t(error)}</p> : null}
 
-      <button className="button button--primary auth-submit" type="submit" disabled={busy || unavailable}>{isSubmitting ? <><LoaderCircle className="spin" size={18} />正在验证</> : "登录工作台"}</button>
-      <p className={styles.hint}>使用已获授权的账号登录。新成员仍需门店授权。{supabaseMode ? <Link href="/verify-email" className={styles.verifyLink}>未收到验证邮件？</Link> : null}</p>
+      <button className="button button--primary auth-submit" type="submit" disabled={busy || unavailable}>{isSubmitting ? <><LoaderCircle className="spin" size={18} />{t("正在验证")}</> : t("登录工作台")}</button>
+      <p className={styles.hint}>{t("使用已获授权的账号登录。新成员仍需门店授权。")}{supabaseMode ? <Link href="/verify-email" className={styles.verifyLink}>{t("未收到验证邮件？")}</Link> : null}</p>
     </form>
   );
 }

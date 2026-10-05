@@ -1,5 +1,6 @@
 "use client";
 
+import { useLanguage } from "@/components/language-provider";
 import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
 import { Camera, ImagePlus, RotateCcw, X } from "lucide-react";
@@ -19,6 +20,7 @@ type PhotoCaptureProps = {
 
 /** Capture produces a pending photo; only explicit confirmation reaches the caller. */
 export function PhotoCapture({ label, onConfirm, triggerLabel = "拍照", triggerClassName = "button button--secondary", disabled = false }: PhotoCaptureProps) {
+  const { t } = useLanguage();
   const dialog = useRef<HTMLDialogElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const media = useRef<MediaStream | null>(null);
@@ -162,14 +164,14 @@ export function PhotoCapture({ label, onConfirm, triggerLabel = "拍照", trigge
 
   const busy = phase === "starting" || phase === "capturing" || phase === "saving";
   return <>
-    <button className={triggerClassName} type="button" aria-label={label} disabled={disabled} onClick={() => { lifecycle.current.session++; setMessage(""); dialog.current?.showModal(); void startCamera(); }}><Camera size={16} />{triggerLabel}</button>
+    <button className={triggerClassName} type="button" aria-label={t(label)} disabled={disabled} onClick={() => { lifecycle.current.session++; setMessage(""); dialog.current?.showModal(); void startCamera(); }}><Camera size={16} />{t(triggerLabel)}</button>
     <dialog className={styles.dialog} ref={dialog} aria-labelledby={titleId} onCancel={() => { lifecycle.current.session++; stopCamera(); clearPhoto(); setPhase("idle"); }} onClose={() => { lifecycle.current.session++; stopCamera(); clearPhoto(); setPhase("idle"); }}>
-      <header className={styles.header}><h2 id={titleId}>{label}</h2><button className="icon-button" type="button" aria-label="关闭拍照" onClick={close}><X size={20} /></button></header>
-      <div className={styles.preview} data-live={phase === "live" || phase === "starting" || phase === "capturing"}><video ref={video} autoPlay muted playsInline aria-label="拍照相机画面" />{photo ? <Image unoptimized width={640} height={480} src={photo.url} alt="待确认的接机照片" onLoad={() => finishPreview(photo.url,true)} onError={() => finishPreview(photo.url,false)} /> : phase !== "live" ? <div className={styles.placeholder}><Camera size={36} /><span>{phase === "starting" ? "正在开启相机…" : phase === "capturing" ? "正在生成照片…" : "相机未开启"}</span></div> : null}</div>
-      {cameras.length > 1 && !photo ? <label className="field"><span>镜头</span><SelectControl aria-label="拍照镜头" value={cameraId} disabled={busy} onChange={event => { const id = event.target.value; setCameraId(id); if (phase === "live") void startCamera(id); }}>{cameras.map((camera,index) => <option key={camera.deviceId} value={camera.deviceId}>{camera.label || `镜头 ${index + 1}`}</option>)}</SelectControl></label> : null}
+      <header className={styles.header}><h2 id={titleId}>{t(label)}</h2><button className="icon-button" type="button" aria-label={t("关闭拍照")} onClick={close}><X size={20} /></button></header>
+      <div className={styles.preview} data-live={phase === "live" || phase === "starting" || phase === "capturing"}><video ref={video} autoPlay muted playsInline aria-label={t("拍照相机画面")} />{photo ? <Image unoptimized width={640} height={480} src={photo.url} alt={t("待确认的接机照片")} onLoad={() => finishPreview(photo.url,true)} onError={() => finishPreview(photo.url,false)} /> : phase !== "live" ? <div className={styles.placeholder}><Camera size={36} /><span>{phase === "starting" ? t("正在开启相机…") : phase === "capturing" ? t("正在生成照片…") : t("相机未开启")}</span></div> : null}</div>
+      {cameras.length > 1 && !photo ? <label className="field"><span>{t("镜头")}</span><SelectControl aria-label={t("拍照镜头")} value={cameraId} disabled={busy} onChange={event => { const id = event.target.value; setCameraId(id); if (phase === "live") void startCamera(id); }}>{cameras.map((camera,index) => <option key={camera.deviceId} value={camera.deviceId}>{camera.label || `镜头 ${index + 1}`}</option>)}</SelectControl></label> : null}
       {message ? <p className={styles.error} role="alert">{message}</p> : null}
-      {photo ? <p className={styles.status} role="status">{phase === "saving" ? "正在读取照片…" : previewReady ? "请核对照片后确认。" : message ? "照片尚未就绪。" : "正在读取照片预览…"}</p> : null}
-      <div className={styles.actions}>{photo ? <><button className="button button--primary" type="button" disabled={!previewReady || busy} onClick={() => void confirmPhoto()}><Camera size={17} />确认照片</button><button className="button button--secondary" type="button" disabled={busy} onClick={() => void startCamera()}><RotateCcw size={17} />重拍</button></> : phase === "live" ? <button className="button button--primary" type="button" onClick={() => void takePhoto()}><Camera size={17} />拍摄</button> : <button className="button button--primary" type="button" disabled={busy} onClick={() => void startCamera()}><Camera size={17} />{phase === "starting" ? "正在开启…" : phase === "capturing" ? "正在拍摄…" : "重新开启相机"}</button>}<label className={`button button--secondary${busy ? ` ${styles.disabled}` : ""}`} onClick={() => { if (!busy) { stopCamera(); if (!photo) setPhase("idle"); } }}><ImagePlus size={17} />上传照片<input className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" aria-label="上传照片作为拍照回退" disabled={busy} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; selectUpload(file); }} /></label></div>
+      {photo ? <p className={styles.status} role="status">{phase === "saving" ? t("正在读取照片…") : previewReady ? t("请核对照片后确认。") : message ? t("照片尚未就绪。") : t("正在读取照片预览…")}</p> : null}
+      <div className={styles.actions}>{photo ? <><button className="button button--primary" type="button" disabled={!previewReady || busy} onClick={() => void confirmPhoto()}><Camera size={17} />{t("确认照片")}</button><button className="button button--secondary" type="button" disabled={busy} onClick={() => void startCamera()}><RotateCcw size={17} />{t("重拍")}</button></> : phase === "live" ? <button className="button button--primary" type="button" onClick={() => void takePhoto()}><Camera size={17} />{t("拍摄")}</button> : <button className="button button--primary" type="button" disabled={busy} onClick={() => void startCamera()}><Camera size={17} />{phase === "starting" ? t("正在开启…") : phase === "capturing" ? t("正在拍摄…") : t("重新开启相机")}</button>}<label className={`button button--secondary${busy ? ` ${styles.disabled}` : ""}`} onClick={() => { if (!busy) { stopCamera(); if (!photo) setPhase("idle"); } }}><ImagePlus size={17} />{t("上传照片")}<input className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" aria-label={t("上传照片作为拍照回退")} disabled={busy} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; selectUpload(file); }} /></label></div>
     </dialog>
   </>;
 }

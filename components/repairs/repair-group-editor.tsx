@@ -1,5 +1,6 @@
 "use client";
 
+import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { createPortal } from "react-dom";
@@ -10,6 +11,7 @@ import type { StoreSettings } from "@/lib/store-settings";
 import styles from "./repair-group-editor.module.css";
 
 export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settings: StoreSettings; kind: RepairGroupKind; onClose: () => void; onSaved: () => void }) {
+  const { t } = useLanguage();
   const dialog = useRef<HTMLDialogElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const [revision] = useState(settings.revision);
@@ -114,13 +116,13 @@ export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settin
     } catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败，请重试。"); }
     finally { busy.current = false; setSaving(false); }
   }
-  return createPortal(<dialog ref={dialog} className={`repair-parts-dialog ${styles.dialog}`} aria-label="管理维修分组" onCancel={event => { event.preventDefault(); if (pointer.current) { settle.current = capturePositions(); stopFrame(); pointer.current = null; setDrag(null); } else if (!busy.current) onClose(); }} onClose={event => { if (!event.currentTarget.open) onClose(); }}>
-    <header><h2>管理{kind === "workflow" ? "维修状态" : "配件"}分组</h2><button className="icon-button" type="button" disabled={saving} aria-label="关闭分组管理" onClick={onClose}><X size={18} /></button></header>
-    <p className={styles.hint}>{kind === "workflow" ? "日常分组名称统一，拖动手柄调整顺序。" : "拖动手柄调整顺序，修改名称后保存。"}更改对全店生效。</p>
+  return createPortal(<dialog ref={dialog} className={`repair-parts-dialog ${styles.dialog}`} aria-label={t("管理维修分组")} onCancel={event => { event.preventDefault(); if (pointer.current) { settle.current = capturePositions(); stopFrame(); pointer.current = null; setDrag(null); } else if (!busy.current) onClose(); }} onClose={event => { if (!event.currentTarget.open) onClose(); }}>
+    <header><h2>{t("管理")}{kind === "workflow" ? t("维修状态") : t("配件")}{t("分组")}</h2><button className="icon-button" type="button" disabled={saving} aria-label={t("关闭分组管理")} onClick={onClose}><X size={18} /></button></header>
+    <p className={styles.hint}>{kind === "workflow" ? t("日常分组名称统一，拖动手柄调整顺序。") : t("拖动手柄调整顺序，修改名称后保存。")}{t("更改对全店生效。")}</p>
     <div className={styles.list} ref={list} data-dragging={Boolean(drag)}>
       {drag ? <div className={styles.placeholder} aria-hidden="true" style={{ top: drag.positions[drag.to].top, height: drag.positions[drag.from].height }} /> : null}
       {rows.map((row, index) => <div className={`${styles.row}${drag?.key === row.key ? ` ${styles.dragging}` : ""}`} style={{ transform: `translateY(${rowOffset(index, row.key)}px)` }} key={row.key} data-repair-group={row.key}>
-        <button className={`icon-button ${styles.handle}`} type="button" disabled={saving} aria-label={`拖动分组 ${row.label}`} title="拖动排序，也可按方向键上下移动" onPointerDown={event => {
+        <button className={`icon-button ${styles.handle}`} type="button" disabled={saving} aria-label={t("拖动分组 {v0}", { v0: row.label })} title={t("拖动排序，也可按方向键上下移动")} onPointerDown={event => {
           if (!event.isPrimary || event.button !== 0 || busy.current || pointer.current || !list.current) return;
           for (const element of list.current.querySelectorAll<HTMLElement>("[data-repair-group]")) element.getAnimations().forEach(animation => animation.cancel());
           const bounds = list.current.getBoundingClientRect();
@@ -133,13 +135,13 @@ export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settin
           const next = event.key === "ArrowUp" ? index - 1 : event.key === "ArrowDown" ? index + 1 : -1;
           if (["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); if (rows[next]) move(row.key, rows[next].key); }
         }}><GripVertical size={20} /></button>
-        <label className={`field ${styles.name}`}><span className={styles.srOnly}>分组名称 {initial[kind].find(item => item.key === row.key)?.label}</span><InputControl readOnly={kind === "workflow"} required validate={value => value.trim() ? "" : "分组名称不能为空，请填写便于识别的名称。"} aria-label={`分组名称 ${initial[kind].find(item => item.key === row.key)?.label ?? row.label}`} placeholder="填写分组名称" onClear={() => { const label = ""; setRows(current => current.map(item => item.key === row.key ? { ...item, label } : item)); }} clearLabel={`清空分组名称 ${row.label}`} value={row.label} maxLength={40} disabled={saving} onChange={event => { const label = event.target.value; setRows(current => current.map(item => item.key === row.key ? { ...item, label } : item)); }} /></label>
-        <button className="icon-button" type="button" disabled={saving || index === 0} aria-label={`上移分组 ${row.label}`} onClick={() => move(row.key, rows[index - 1].key)}><ArrowUp size={17} /></button>
-        <button className="icon-button" type="button" disabled={saving || index === rows.length - 1} aria-label={`下移分组 ${row.label}`} onClick={() => move(row.key, rows[index + 1].key)}><ArrowDown size={17} /></button>
+        <label className={`field ${styles.name}`}><span className={styles.srOnly}>{t("分组名称 ")}{initial[kind].find(item => item.key === row.key)?.label}</span><InputControl readOnly={kind === "workflow"} required validate={value => value.trim() ? "" : "分组名称不能为空，请填写便于识别的名称。"} aria-label={t("分组名称 {v0}", { v0: initial[kind].find(item => item.key === row.key)?.label ?? row.label })} placeholder={t("填写分组名称")} onClear={() => { const label = ""; setRows(current => current.map(item => item.key === row.key ? { ...item, label } : item)); }} clearLabel={t("清空分组名称 {v0}", { v0: row.label })} value={row.label} maxLength={40} disabled={saving} onChange={event => { const label = event.target.value; setRows(current => current.map(item => item.key === row.key ? { ...item, label } : item)); }} /></label>
+        <button className="icon-button" type="button" disabled={saving || index === 0} aria-label={t("上移分组 {v0}", { v0: row.label })} onClick={() => move(row.key, rows[index - 1].key)}><ArrowUp size={17} /></button>
+        <button className="icon-button" type="button" disabled={saving || index === rows.length - 1} aria-label={t("下移分组 {v0}", { v0: row.label })} onClick={() => move(row.key, rows[index + 1].key)}><ArrowDown size={17} /></button>
       </div>)}
     </div>
     <span className={styles.srOnly} role="status">{message}</span>
     {error ? <p className="form-error" role="alert">{error}</p> : null}
-    <footer><button className="button button--secondary" type="button" disabled={saving} onClick={onClose}>取消</button><button className="button button--primary" type="button" disabled={saving || Boolean(drag) || !changed} onClick={save}><Check size={17} />{saving ? "正在保存…" : "保存分组"}</button></footer>
+    <footer><button className="button button--secondary" type="button" disabled={saving} onClick={onClose}>{t("取消")}</button><button className="button button--primary" type="button" disabled={saving || Boolean(drag) || !changed} onClick={save}><Check size={17} />{saving ? t("正在保存…") : t("保存分组")}</button></footer>
   </dialog>, document.body);
 }

@@ -1,11 +1,13 @@
 "use client";
 
+import { useLanguage } from "@/components/language-provider";
 import { useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { ProviderMark } from "./provider-mark";
 import styles from "./auth-experience.module.css";
 
 export function SocialSignIn({ disabled, onBusyChange }: { disabled?: boolean; onBusyChange: (busy: boolean) => void }) {
+  const { t } = useLanguage();
   const [busy, setBusy] = useState<"google" | "apple" | null>(null);
   const [error, setError] = useState("");
   const inFlight = useRef(false);
@@ -24,13 +26,13 @@ export function SocialSignIn({ disabled, onBusyChange }: { disabled?: boolean; o
     }
   }
   return <>
-    <div className={styles.socialOptions} aria-label="其他登录方式">
+    <div className={styles.socialOptions} aria-label={t("其他登录方式")}>
       {(["google", "apple"] as const).map(provider => <button key={provider} type="button" className={styles.socialButton} disabled={disabled || Boolean(busy)} onClick={() => signIn(provider)}>
         {busy === provider ? <LoaderCircle className="spin" size={19} aria-hidden="true" /> : <ProviderMark provider={provider} />}
-        {busy === provider ? "正在前往…" : `使用 ${provider === "google" ? "Google" : "Apple"} 继续`}
+        {busy === provider ? t("正在前往…") : t("使用 {provider} 继续", { provider: provider === "google" ? "Google" : "Apple" })}
       </button>)}
     </div>
-    {error ? <p className="form-error" role="alert">{error}</p> : null}
-    <div className={styles.separator}>或使用邮箱</div>
+    {error ? <p className="form-error" role="alert">{t(error)}</p> : null}
+    <div className={styles.separator}>{t("或使用邮箱")}</div>
   </>;
 }

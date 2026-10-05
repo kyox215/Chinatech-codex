@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState, type ComponentPropsWithRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { useControlFeedback, type ControlFeedbackProps } from "./control-feedback";
+import { useLanguage } from "./language-provider";
 
 type InputProps = ComponentPropsWithRef<"input"> & ControlFeedbackProps & {
   onClear?: () => void;
@@ -14,6 +15,7 @@ type InputProps = ComponentPropsWithRef<"input"> & ControlFeedbackProps & {
 
 /** Text-like inputs only. Checkboxes, radios, ranges and file pickers retain their own controls. */
 export function InputControl({ error, hint, validationMessage, validate, onClear, clearLabel = "清空输入", leading, trailing, shell = false, ref, onBlur, onInvalid, onChange, className, ...props }: InputProps) {
+  const { t } = useLanguage();
   const input = useRef<HTMLInputElement | null>(null);
   const [uncontrolledValue, setUncontrolledValue] = useState(props.defaultValue ?? "");
   const value = props.value ?? uncontrolledValue;
@@ -40,7 +42,7 @@ export function InputControl({ error, hint, validationMessage, validate, onClear
         onInvalid={event => { feedback.invalid(event); onInvalid?.(event); }}
         onChange={event => { event.currentTarget.setCustomValidity(validate?.(event.currentTarget.value) ?? ""); if (props.value === undefined) setUncontrolledValue(event.currentTarget.value); feedback.change(event.currentTarget); onChange?.(event); }} />
       {actions ? <span className="input-control__actions">
-        {clearable ? <button type="button" className="input-control__clear" aria-label={clearLabel} hidden={!filled} onClick={() => {
+        {clearable ? <button type="button" className="input-control__clear" aria-label={t(clearLabel)} hidden={!filled} onClick={() => {
           if (!input.current || input.current.matches(":disabled") || input.current.readOnly) return;
           onClear?.(); feedback.clear(); input.current.focus({ preventScroll: true });
         }}><X size={16} aria-hidden="true" /></button> : null}

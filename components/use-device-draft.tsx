@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "@/components/language-provider";
 import { useEffect, useRef, useState } from "react";
 import { backendSnapshot, isBackendClient } from "@/lib/backend/client";
 import { draftScope, listDeviceDrafts, removeDeviceDraft, saveDeviceDraft, type DeviceDraft } from "@/lib/backend/recovery-store";
@@ -69,13 +70,14 @@ export function useDeviceDraft<T>(form:string,data:T,restore:(data:T)=>void,acti
   return {enabled:!!scope,status,candidates,recover,discard,clear};
 }
 export function DeviceDraftNotice({draft}:{draft:Omit<ReturnType<typeof useDeviceDraft>,"clear">}) {
+  const { t } = useLanguage();
   const [selected,setSelected]=useState("");
   const [error,setError]=useState("");
   if(!draft.enabled)return null;
   const chosen=selected||draft.candidates[0]?.id||"";
-  return <section className="device-draft" aria-label="设备草稿">
+  return <section className="device-draft" aria-label={t("设备草稿")}>
     {draft.status?<p role="status">{draft.status}</p>:null}
-    {draft.candidates.length?<div className="sync-recovery__actions"><label className="field"><span>此账号在本设备的草稿</span><SelectControl aria-label="选择设备草稿" value={chosen} onChange={event=>setSelected(event.target.value)}>{draft.candidates.map(row=><option key={row.id} value={row.id}>{new Date(row.updatedAt).toLocaleString()} · {row.id.slice(0,6)}</option>)}</SelectControl></label><button type="button" className="button button--secondary" onClick={()=>draft.recover(chosen)}>恢复草稿</button><button type="button" className="button button--secondary" onClick={()=>{void draft.discard(chosen).then(()=>setSelected("")).catch(()=>setError("草稿删除失败，原资料仍保留。"));}}>删除所选草稿</button></div>:null}
-    {error?<p className="form-error" role="alert">{error}</p>:null}
+    {draft.candidates.length?<div className="sync-recovery__actions"><label className="field"><span>{t("此账号在本设备的草稿")}</span><SelectControl aria-label={t("选择设备草稿")} value={chosen} onChange={event=>setSelected(event.target.value)}>{draft.candidates.map(row=><option key={row.id} value={row.id}>{new Date(row.updatedAt).toLocaleString()} · {row.id.slice(0,6)}</option>)}</SelectControl></label><button type="button" className="button button--secondary" onClick={()=>draft.recover(chosen)}>{t("恢复草稿")}</button><button type="button" className="button button--secondary" onClick={()=>{void draft.discard(chosen).then(()=>setSelected("")).catch(()=>setError("草稿删除失败，原资料仍保留。"));}}>{t("删除所选草稿")}</button></div>:null}
+    {error?<p className="form-error" role="alert">{t(error)}</p>:null}
   </section>;
 }

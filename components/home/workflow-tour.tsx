@@ -1,5 +1,6 @@
 "use client";
 
+import { useLanguage } from "@/components/language-provider";
 import { useState } from "react";
 import { ArrowRight, Check, ClipboardList, Laptop, PackageCheck, Search, ShieldCheck, Wrench } from "lucide-react";
 import styles from "./home.module.css";
@@ -11,13 +12,14 @@ const tours = [
 ];
 
 export function WorkflowTour() {
+  const { t } = useLanguage();
   const [selected, setSelected] = useState(0);
   const tour = tours[selected];
   return <div className={styles.tour}>
-    <div className={styles.tourTabs} aria-label="选择查看的业务流程">{tours.map((item, index) => <button type="button" key={item.label} aria-pressed={selected === index} aria-controls="workflow-content" onClick={() => setSelected(index)}><item.icon size={18} />{item.label}</button>)}</div>
+    <div className={styles.tourTabs} aria-label={t("选择查看的业务流程")}>{tours.map((item, index) => <button type="button" key={t(item.label)} aria-pressed={selected === index} aria-controls="workflow-content" onClick={() => setSelected(index)}><item.icon size={18} />{t(item.label)}</button>)}</div>
     <div id="workflow-content" className={styles.tourContent} key={selected} aria-live="polite">
-      <div className={styles.tourIntro}><h3>{tour.title}</h3><p>{tour.body}</p></div>
-      <ol className={styles.steps}>{tour.steps.map((step, index) => <li key={step.title}><span className={styles.stepIcon}><step.icon size={23} /></span><small>0{index + 1}</small><h4>{step.title}</h4><p>{step.text}</p>{index < 3 ? <ArrowRight className={styles.stepArrow} size={19} aria-hidden="true" /> : null}</li>)}</ol>
+      <div className={styles.tourIntro}><h3>{t(tour.title)}</h3><p>{t(tour.body)}</p></div>
+      <ol className={styles.steps}>{tour.steps.map((step, index) => <li key={t(step.title)}><span className={styles.stepIcon}><step.icon size={23} /></span><small>0{index + 1}</small><h4>{t(step.title)}</h4><p>{t(step.text)}</p>{index < 3 ? <ArrowRight className={styles.stepArrow} size={19} aria-hidden="true" /> : null}</li>)}</ol>
     </div>
   </div>;
 }

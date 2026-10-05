@@ -1,5 +1,6 @@
 "use client";
 
+import { useLanguage } from "@/components/language-provider";
 import Link from "next/link";
 import { PageTitle } from "@/components/page-title";
 import { RepairScanner } from "@/components/repairs/repair-scanner";
@@ -44,7 +45,8 @@ const repairs = [
 ];
 
 function Sparkline({ points, tone }: { points: string; tone: Tone }) {
-  return <svg className={`sparkline sparkline--${tone}`} viewBox="0 0 108 42" role="img" aria-label="近期变化趋势"><polyline points={points} fill="none" vectorEffect="non-scaling-stroke" /></svg>;
+  const { t } = useLanguage();
+  return <svg className={`sparkline sparkline--${tone}`} viewBox="0 0 108 42" role="img" aria-label={t("近期变化趋势")}><polyline points={points} fill="none" vectorEffect="non-scaling-stroke" /></svg>;
 }
 
 export function DashboardContent() {
@@ -52,6 +54,7 @@ export function DashboardContent() {
 }
 
 function RealDashboardContent() {
+  const { t } = useLanguage();
   const { settings } = useStoreSettings();
   const orders = useRepairDirectory();
   const { records, storageError } = useProcurement();
@@ -77,63 +80,64 @@ function RealDashboardContent() {
     ...records.flatMap(record => record.events.map(event => ({ id: `procurement:${record.id}:${event.id}`, title: `${record.item} · ${procurementEventLabel(event)}`, time: event.time, href: `/app/repairs/${record.repairId}`, tone: "amber" }))),
     ...units.flatMap(unit => unit.events.map(event => ({ id: `retail:${unit.id}:${event.id}`, title: `${unit.code} · ${event.title}`, time: event.time, href: `/app/retail/units/${unit.id}`, tone: "violet" }))),
   ].filter(event => event.time).sort((left, right) => right.time.localeCompare(left.time) || left.id.localeCompare(right.id)).slice(0, 5);
-  const heading = <header className="module-heading"><PageTitle title="工作台" /><div className="module-heading__actions">{canRepairs ? <RepairScanner /> : null}{staff.can("repairs.edit") ? <Link className="button button--primary button--compact" href="/app/repairs/new"><Plus size={17} />新建工单</Link> : null}</div></header>;
-  if (!workflowReady || !retailReady || !staff.ready) return <div className="dashboard">{heading}<div className="panel module-empty" role="status">正在读取门店概况…</div></div>;
-  if (error) return <div className="dashboard">{heading}<div className="panel module-empty" role="alert">{error}</div></div>;
+  const heading = <header className="module-heading"><PageTitle title={t("工作台")} /><div className="module-heading__actions">{canRepairs ? <RepairScanner /> : null}{staff.can("repairs.edit") ? <Link className="button button--primary button--compact" href="/app/repairs/new"><Plus size={17} />{t("新建工单")}</Link> : null}</div></header>;
+  if (!workflowReady || !retailReady || !staff.ready) return <div className="dashboard">{heading}<div className="panel module-empty" role="status">{t("正在读取门店概况…")}</div></div>;
+  if (error) return <div className="dashboard">{heading}<div className="panel module-empty" role="alert">{t(error)}</div></div>;
 
   return <div className="dashboard">
     {heading}
-    <section className="stat-grid" aria-label="门店待办统计">
-      {realStats.map(stat => <article className="stat-card" key={stat.label}><div className="stat-card__head"><span>{stat.label}</span></div><div className="stat-card__body"><div><span className={`stat-icon stat-icon--${stat.tone}`}><stat.icon size={18} /></span><strong>{canRepairs ? stat.value : "—"}</strong><small>{canRepairs ? stat.note : "无维修查看权限"}</small></div></div></article>)}
+    <section className="stat-grid" aria-label={t("门店待办统计")}>
+      {realStats.map(stat => <article className="stat-card" key={stat.label}><div className="stat-card__head"><span>{t(stat.label)}</span></div><div className="stat-card__body"><div><span className={`stat-icon stat-icon--${stat.tone}`}><stat.icon size={18} /></span><strong>{canRepairs ? stat.value : "—"}</strong><small>{canRepairs ? t(stat.note) : t("无维修查看权限")}</small></div></div></article>)}
     </section>
-    {canRepairs && debtCount > 0 ? <p className="repair-stage-note"><Link href="/app/repairs?view=history&status=handover">已取机待收尾 · {debtCount}单</Link></p> : null}
+    {canRepairs && debtCount > 0 ? <p className="repair-stage-note"><Link href="/app/repairs?view=history&status=handover">{t("已取机待收尾 · ")}{debtCount}{t("单")}</Link></p> : null}
     <section className="dashboard-grid dashboard-grid--main">
       <article className="panel repair-panel">
-        <div className="panel__header"><div><h2>近期工单</h2></div>{canRepairs ? <Link className="button button--secondary button--tiny" href="/app/repairs">查看全部 <ArrowRight size={15} /></Link> : null}</div>
-        {!canRepairs ? <div className="section-empty"><strong>当前账号没有维修查看权限</strong></div> : !recent.length ? <div className="section-empty"><Wrench size={24} /><strong>尚未登记工单</strong></div> : <div className="module-table-scroll" role="region" aria-label="近期工单表格" tabIndex={0}><div className="repair-table__head"><span>设备与故障</span><span>客户 / 工单号</span><span>当前状态</span><span /></div><div className="repair-list">{recent.map(order => <div className="repair-row" key={order.id}><div className="repair-row__device"><span><Smartphone size={18} /></span><div><strong>{order.device.brand} {order.device.model}</strong><small>{order.issue}</small></div></div><div className="repair-row__meta"><strong>{order.customer.name}</strong><small>{order.id}</small></div><span className={`status-pill status-pill--${repairProgress(order, records, workflows[order.id]).tone}`}>{repairProgress(order, records, workflows[order.id]).label}</span><Link className="row-action" href={`/app/repairs/${order.id}`} aria-label={`打开 ${order.id}`}><ChevronRight size={18} /></Link></div>)}</div></div>}
+        <div className="panel__header"><div><h2>{t("近期工单")}</h2></div>{canRepairs ? <Link className="button button--secondary button--tiny" href="/app/repairs">{t("查看全部 ")}<ArrowRight size={15} /></Link> : null}</div>
+        {!canRepairs ? <div className="section-empty"><strong>{t("当前账号没有维修查看权限")}</strong></div> : !recent.length ? <div className="section-empty"><Wrench size={24} /><strong>{t("尚未登记工单")}</strong></div> : <div className="module-table-scroll" role="region" aria-label={t("近期工单表格")} tabIndex={0}><div className="repair-table__head"><span>{t("设备与故障")}</span><span>{t("客户 / 工单号")}</span><span>{t("当前状态")}</span><span /></div><div className="repair-list">{recent.map(order => <div className="repair-row" key={order.id}><div className="repair-row__device"><span><Smartphone size={18} /></span><div><strong>{order.device.brand} {order.device.model}</strong><small>{order.issue}</small></div></div><div className="repair-row__meta"><strong>{order.customer.name}</strong><small>{order.id}</small></div><span className={`status-pill status-pill--${repairProgress(order, records, workflows[order.id]).tone}`}>{t(repairProgress(order, records, workflows[order.id]).label)}</span><Link className="row-action" href={`/app/repairs/${order.id}`} aria-label={t("打开 {v0}", { v0: order.id })}><ChevronRight size={18} /></Link></div>)}</div></div>}
       </article>
       <article className="panel workload-panel">
-        <div className="panel__header"><div><h2>日常维修分组</h2></div>{canRepairs ? <span className="status-pill status-pill--info">{counts.rework + counts.processing + counts.purchase + counts.ready} 张</span> : null}</div>
-        {canRepairs ? <div className="legend-list">{visibleRepairGroups(settings.repairGroups ?? defaultRepairGroups(), "workflow").map(({key: group, label}) => <span key={group}>{label}<strong>{counts[group]}</strong></span>)}</div> : <div className="section-empty"><strong>当前账号没有维修查看权限</strong></div>}
+        <div className="panel__header"><div><h2>{t("日常维修分组")}</h2></div>{canRepairs ? <span className="status-pill status-pill--info">{counts.rework + counts.processing + counts.purchase + counts.ready} {t(" 张")}</span> : null}</div>
+        {canRepairs ? <div className="legend-list">{visibleRepairGroups(settings.repairGroups ?? defaultRepairGroups(), "workflow").map(({key: group, label}) => <span key={group}>{t(label)}<strong>{counts[group]}</strong></span>)}</div> : <div className="section-empty"><strong>{t("当前账号没有维修查看权限")}</strong></div>}
       </article>
     </section>
     <section className="dashboard-grid dashboard-grid--bottom">
-      {canRepairs && records.length ? <DashboardProcurementSummary /> : <article className="panel arrivals-panel"><div className="panel__header"><div><h2>采购与到货</h2></div>{canRepairs ? <Link className="button button--secondary button--tiny" href="/app/repairs">查看工单</Link> : null}</div><div className="section-empty"><strong>{canRepairs ? "尚未登记采购" : "当前账号没有维修查看权限"}</strong></div></article>}
-      {canRetail ? <RetailDashboardSummary /> : <article className="panel retail-panel"><div className="panel__header"><div><h2>整机商品</h2></div></div><div className="section-empty"><strong>当前账号没有整机查看权限</strong></div></article>}
-      <article className="panel activity-panel"><div className="panel__header"><div><h2>近期动态</h2></div></div>{activity.length ? <ol className="activity-list">{activity.map(event => <li key={event.id}><span className={`activity-dot activity-dot--${event.tone}`} /><div><Link href={event.href}><strong>{event.title}</strong></Link><small>{event.time}</small></div></li>)}</ol> : <div className="section-empty"><strong>暂无业务动态</strong></div>}</article>
+      {canRepairs && records.length ? <DashboardProcurementSummary /> : <article className="panel arrivals-panel"><div className="panel__header"><div><h2>{t("采购与到货")}</h2></div>{canRepairs ? <Link className="button button--secondary button--tiny" href="/app/repairs">{t("查看工单")}</Link> : null}</div><div className="section-empty"><strong>{canRepairs ? t("尚未登记采购") : t("当前账号没有维修查看权限")}</strong></div></article>}
+      {canRetail ? <RetailDashboardSummary /> : <article className="panel retail-panel"><div className="panel__header"><div><h2>{t("整机商品")}</h2></div></div><div className="section-empty"><strong>{t("当前账号没有整机查看权限")}</strong></div></article>}
+      <article className="panel activity-panel"><div className="panel__header"><div><h2>{t("近期动态")}</h2></div></div>{activity.length ? <ol className="activity-list">{activity.map(event => <li key={event.id}><span className={`activity-dot activity-dot--${event.tone}`} /><div><Link href={event.href}><strong>{t(event.title)}</strong></Link><small>{event.time}</small></div></li>)}</ol> : <div className="section-empty"><strong>{t("暂无业务动态")}</strong></div>}</article>
     </section>
   </div>;
 }
 
 function PreviewDashboardContent() {
+  const { t } = useLanguage();
   return (
     <div className="dashboard">
       <header className="module-heading">
-        <PageTitle title="工作台" />
-        <div className="module-heading__actions"><RepairScanner /><Link className="button button--primary button--compact" href="/app/repairs/new"><Plus size={17} />新建工单</Link></div>
+        <PageTitle title={t("工作台")} />
+        <div className="module-heading__actions"><RepairScanner /><Link className="button button--primary button--compact" href="/app/repairs/new"><Plus size={17} />{t("新建工单")}</Link></div>
       </header>
 
-      <section className="stat-grid" aria-label="门店待办统计">
+      <section className="stat-grid" aria-label={t("门店待办统计")}>
         {stats.map((stat) => (
           <article className="stat-card" key={stat.label}>
-            <div className="stat-card__head"><span>{stat.label}</span><button type="button" aria-label={`查看更多${stat.label}`}><MoreVertical size={16} /></button></div>
-            <div className="stat-card__body"><div><span className={`stat-icon stat-icon--${stat.tone}`}><stat.icon size={18} /></span><strong>{stat.value}</strong><small>{stat.note}</small></div><Sparkline points={stat.points} tone={stat.tone} /></div>
+            <div className="stat-card__head"><span>{t(stat.label)}</span><button type="button" aria-label={t("查看更多{v0}", { v0: stat.label })}><MoreVertical size={16} /></button></div>
+            <div className="stat-card__body"><div><span className={`stat-icon stat-icon--${stat.tone}`}><stat.icon size={18} /></span><strong>{stat.value}</strong><small>{t(stat.note)}</small></div><Sparkline points={stat.points} tone={stat.tone} /></div>
           </article>
         ))}
       </section>
 
       <section className="dashboard-grid dashboard-grid--main">
         <article className="panel repair-panel">
-          <div className="panel__header"><div><h2>优先处理工单</h2></div><Link className="button button--secondary button--tiny" href="/app/repairs">查看全部 <ArrowRight size={15} /></Link></div>
-          <div className="module-table-scroll" role="region" aria-label="优先工单表格" tabIndex={0}>
-          <div className="repair-table__head"><span>设备与故障</span><span>客户 / 工单号</span><span>当前状态</span><span /></div>
+          <div className="panel__header"><div><h2>{t("优先处理工单")}</h2></div><Link className="button button--secondary button--tiny" href="/app/repairs">{t("查看全部 ")}<ArrowRight size={15} /></Link></div>
+          <div className="module-table-scroll" role="region" aria-label={t("优先工单表格")} tabIndex={0}>
+          <div className="repair-table__head"><span>{t("设备与故障")}</span><span>{t("客户 / 工单号")}</span><span>{t("当前状态")}</span><span /></div>
           <div className="repair-list">
             {repairs.map((repair) => (
               <div className="repair-row" key={repair.id}>
                 <div className="repair-row__device"><span><Smartphone size={18} /></span><div><strong>{repair.device}</strong><small>{repair.issue}</small></div></div>
                 <div className="repair-row__meta"><strong>{repair.customer}</strong><small>{repair.id}</small></div>
-                <span className={`status-pill status-pill--${repair.tone}`}>{repair.state}</span>
-                <Link className="row-action" href={`/app/repairs/${repair.id}`} aria-label={`打开 ${repair.id}`}><ChevronRight size={18} /></Link>
+                <span className={`status-pill status-pill--${repair.tone}`}>{t(repair.state)}</span>
+                <Link className="row-action" href={`/app/repairs/${repair.id}`} aria-label={t("打开 {v0}", { v0: repair.id })}><ChevronRight size={18} /></Link>
               </div>
             ))}
           </div>
@@ -141,9 +145,9 @@ function PreviewDashboardContent() {
         </article>
 
         <article className="panel workload-panel">
-          <div className="panel__header"><div><h2>日常维修分组</h2></div><button className="panel-menu" type="button" aria-label="更多"><MoreVertical size={17} /></button></div>
-          <div className="donut"><div className="donut__center"><strong>31</strong><span>处理中</span></div></div>
-          <div className="legend-list"><span><i className="legend-dot legend-dot--violet" />返修 <strong>8</strong></span><span><i className="legend-dot legend-dot--amber" />等配件 <strong>5</strong></span><span><i className="legend-dot legend-dot--mint" />处理中 <strong>12</strong></span><span><i className="legend-dot legend-dot--rose" />等取机 <strong>6</strong></span></div>
+          <div className="panel__header"><div><h2>{t("日常维修分组")}</h2></div><button className="panel-menu" type="button" aria-label={t("更多")}><MoreVertical size={17} /></button></div>
+          <div className="donut"><div className="donut__center"><strong>31</strong><span>{t("处理中 ")}</span></div></div>
+          <div className="legend-list"><span><i className="legend-dot legend-dot--violet" />{t("返修 ")}<strong>8</strong></span><span><i className="legend-dot legend-dot--amber" />{t("等配件 ")}<strong>5</strong></span><span><i className="legend-dot legend-dot--mint" />{t("处理中 ")}<strong>12</strong></span><span><i className="legend-dot legend-dot--rose" />{t("等取机 ")}<strong>6</strong></span></div>
         </article>
       </section>
 
@@ -153,8 +157,8 @@ function PreviewDashboardContent() {
         <RetailDashboardSummary />
 
         <article className="panel activity-panel">
-          <div className="panel__header"><div><h2>今日动态</h2></div><button className="panel-menu" type="button" aria-label="更多"><MoreVertical size={17} /></button></div>
-          <ol className="activity-list"><li><span className="activity-dot activity-dot--mint" /><div><strong>CT-2026-0921 已完成测试</strong><small>09:18 · 技术员 Luca</small></div></li><li><span className="activity-dot activity-dot--amber" /><div><strong>采购行记录部分到货</strong><small>08:52 · MobileParts SRL</small></div></li><li><span className="activity-dot activity-dot--violet" /><div><strong>整机 U-1042 设为可售</strong><small>08:30 · 检测已通过</small></div></li></ol>
+          <div className="panel__header"><div><h2>{t("今日动态")}</h2></div><button className="panel-menu" type="button" aria-label={t("更多")}><MoreVertical size={17} /></button></div>
+          <ol className="activity-list"><li><span className="activity-dot activity-dot--mint" /><div><strong>{t("CT-2026-0921 已完成测试")}</strong><small>{t("09:18 · 技术员 Luca")}</small></div></li><li><span className="activity-dot activity-dot--amber" /><div><strong>{t("采购行记录部分到货")}</strong><small>08:52 · MobileParts SRL</small></div></li><li><span className="activity-dot activity-dot--violet" /><div><strong>{t("整机 U-1042 设为可售")}</strong><small>{t("08:30 · 检测已通过")}</small></div></li></ol>
         </article>
       </section>
 

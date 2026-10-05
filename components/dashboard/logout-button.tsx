@@ -1,11 +1,13 @@
 "use client";
 
+import { useLanguage } from "@/components/language-provider";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { useState } from "react";
 import { clearBackend } from "@/lib/backend/client";
 
 export function LogoutButton({ compact = false, supabaseMode = false }: { compact?: boolean; supabaseMode?: boolean }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState("");
@@ -23,8 +25,8 @@ export function LogoutButton({ compact = false, supabaseMode = false }: { compac
   }
 
   return (
-    <><button className={compact ? "icon-button" : "profile-menu__logout"} type="button" onClick={logout} disabled={isPending} aria-label={supabaseMode ? "退出登录" : "退出本地预览"}>
-      <LogOut size={18} />{compact ? null : <span>{isPending ? "正在退出" : supabaseMode ? "退出登录" : "退出预览"}</span>}
-    </button>{error ? <small className="form-error" role="alert">{error}</small> : null}</>
+    <><button className={compact ? "icon-button" : "profile-menu__logout"} type="button" onClick={logout} disabled={isPending} aria-label={supabaseMode ? t("退出登录") : t("退出本地预览")}>
+      <LogOut size={18} />{compact ? null : <span>{isPending ? t("正在退出") : supabaseMode ? t("退出登录") : t("退出预览")}</span>}
+    </button>{error ? <small className="form-error" role="alert">{t(error)}</small> : null}</>
   );
 }

@@ -1,3 +1,6 @@
+"use client";
+
+import { useLanguage } from "@/components/language-provider";
 import { retailHistoryStatus, type RetailHistoryRecord } from "@/lib/retail-history";
 import styles from "./retail-history.module.css";
 
@@ -19,7 +22,8 @@ export function historyReturnHref(value: string | null) {
   return "/app/retail?view=sold";
 }
 export function RetailHistoryStatus({ record }: { record: RetailHistoryRecord }) {
+  const { t } = useLanguage();
   const status = retailHistoryStatus(record);
   const tone = status === "在售" ? "success" : status === "已售" ? "info" : status === "作废" ? "warning" : "progress";
-  return <span className={`status-pill status-pill--${tone} ${styles.status}`}>{status}</span>;
+  return <span className={`status-pill status-pill--${tone} ${styles.status}`}>{t(status)}</span>;
 }

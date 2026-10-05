@@ -1,0 +1,57 @@
+[
+  {
+    "id": "start", "number": "01", "title": "Register, sign in and access your shop", "description": "Set up your account, then enter your shop workspace.", "href": "/login", "actionLabel": "Go to sign in",
+    "steps": [
+      { "title": "Open the website", "body": "Open ChinaTech in your phone or computer browser. The sign in and register links are at the top left. There is no app to download.", "frame": "start-home" },
+      { "title": "Create your account", "body": "Choose Register and enter your name, email and password twice. Your password needs at least ten characters, including letters and numbers.", "frame": "start-register" },
+      { "title": "Verify your email and await access", "body": "Open the verification email in the same browser used to register. After verification, the shop owner still needs to grant access to shop records.", "frame": "start-register" },
+      { "title": "Sign in with an approved account", "body": "On the sign in page, enter your email and password, or use the Google button. Signing in with Google does not automatically grant shop permissions.", "frame": "start-login" },
+      { "title": "Find your daily work in the sidebar", "body": "Use the left sidebar to open repair orders, retail devices or customers. The records shown in this demonstration are fictional; your shop has its own records.", "frame": "start-dashboard" },
+      { "title": "Use the menu on your phone", "body": "On a phone, tap the menu beside the page title. Your account and sign out option are at the bottom of the sidebar. Sign out when using a shared device.", "frame": "start-mobile" }
+    ]
+  },
+  {
+    "id": "intake", "number": "02", "title": "Receive a device and create a repair", "description": "Record the customer, device and reported problem, then review and save.", "href": "/app/repairs/new", "actionLabel": "Start device intake",
+    "steps": [
+      { "title": "Open a new repair order", "body": "In the repair list, click the purple button at the top right to create an order. The form guides you through the details one step at a time.", "frame": "intake-list" },
+      { "title": "Start with the phone number", "body": "Enter the customer's phone number in the first field, then check their name. Select an existing customer from the suggestions when appropriate. These are fictional demo details.", "frame": "intake-customer" },
+      { "title": "Identify this physical device", "body": "Choose the device category, brand and model. Enter the serial number or I M E I from the device. Always check scanned text; a model name does not confirm its specifications.", "frame": "intake-device" },
+      { "title": "Record the problem and quote", "body": "Select the reported problem and enter any repair items and quote. These fields record the customer's request. They do not replace inspection or the customer's approval to repair.", "frame": "intake-faults" },
+      { "title": "Review; the signature is optional", "body": "Review the customer, device, problem, accessories and quote. You may skip the signature button. A signature does not mean payment was received or the device was returned.", "frame": "intake-review" },
+      { "title": "Save, then view the order", "body": "Tick the confirmation box and use the save and preview button below. After saving, open the order or print the intake receipt. Continue tracking this repair in the same order.", "frame": "intake-saved" }
+    ]
+  },
+  {
+    "id": "follow-up", "number": "03", "title": "Find repairs and record follow-ups", "description": "Find the right order, update its stage and record actual contact.", "href": "/app/repairs", "actionLabel": "Open repair orders",
+    "steps": [
+      { "title": "Find a repair in the four groups", "body": "Daily repairs are grouped as return repairs, in progress, waiting for parts and waiting for collection. Use the search field to find a customer, device or order, then check the device.", "frame": "follow-list" },
+      { "title": "Choose the actual repair stage", "body": "Click the stage badge in the order row. In the window, choose the actual progress, such as awaiting diagnosis, being repaired, or repaired and waiting for collection.", "frame": "follow-stage" },
+      { "title": "Review and save the stage", "body": "Check the stage, add a reason when required, then click the save button below. A stage change does not confirm parts arrival, payment or the return of the device.", "frame": "follow-stage-selected" },
+      { "title": "Open contact and follow-up", "body": "Click the follow-up button in the order row. After contacting the customer about the quote, choose the actual result: quote discussed, no answer, or awaiting a reply about the quote.", "frame": "follow-contact" },
+      { "title": "Record what actually happened", "body": "Enter a contact note in the field, then click the matching result button below. This saves a record; it does not send a message or prove the customer approved the repair.", "frame": "follow-contact-filled" },
+      { "title": "Review the history in the order", "body": "Open the order details to see the device, parts and follow-up history. Device custody and return are separate facts. Go back to the list to continue with the next order.", "frame": "follow-detail" }
+    ]
+  },
+  {
+    "id": "procurement", "number": "04", "title": "Purchase parts and record arrivals", "description": "Choose suppliers, confirm actual orders and record each delivery.", "href": "/app/procurement", "actionLabel": "Open purchases and arrivals",
+    "steps": [
+      { "title": "Open parts from the repair row", "body": "Click the parts button in the repair list. The window already contains the repair items chosen at intake. Fill in each item without creating the same item again.", "frame": "proc-parts" },
+      { "title": "Choose a supplier and quote", "body": "Use the supplier field for items you need to buy. A quote is optional. Purchase cost is editable only with financial permission. A quote without a supplier does not create a purchase.", "frame": "proc-filled" },
+      { "title": "Save to the cart", "body": "Check the entries and save. Items with a supplier enter the purchase cart. The cart is only preparation; the website does not place an order with the supplier.", "frame": "proc-cart" },
+      { "title": "Record the order after placing it", "body": "After actually ordering from the supplier, open the cart and select that supplier and the items. Use the review button below, check the list, then confirm the recorded facts.", "frame": "proc-ordered-review" },
+      { "title": "Record only what arrived", "body": "Open batch arrivals, choose the supplier and items, then enter the quantities received in this delivery. Review and save. Record separate deliveries separately.", "frame": "proc-arrival" },
+      { "title": "Keep arrivals and repair stages separate", "body": "The purchase page shows received quantities and linked repairs. When parts arrive, still update the repair and contact the customer as appropriate. These records are not parts inventory.", "frame": "proc-result" }
+    ]
+  },
+  {
+    "id": "retail", "number": "05", "title": "One record for each retail device", "description": "Create a record for a shop-owned device, then inspect it.", "href": "/app/retail/new", "actionLabel": "Create a device record",
+    "steps": [
+      { "title": "Choose new or refurbished", "body": "Retail devices are physical items owned by your shop. Start by choosing new or refurbished at the top. Never create a retail record for a customer's repair device.", "frame": "retail-classify" },
+      { "title": "Give every device its own record", "body": "Enter the category, brand and model, then copy identifiers from the physical device. Two devices of the same model still need separate records.", "frame": "retail-identity" },
+      { "title": "Enter measured specifications", "body": "Record memory, built-in storage and individual drives separately where applicable. Leave unknown values empty, not zero. Do not infer this device's configuration from its product name.", "frame": "retail-specs" },
+      { "title": "Record condition and accessories", "body": "Next, record appearance, battery condition and supplied accessories. Known issues must belong to this device. Upload photos after creating the record, and never mark an untested check as passed.", "frame": "retail-details" },
+      { "title": "Check price, source and ownership", "body": "Enter the asking price and storage location. Cost fields require permission. Confirm shop ownership using the checkbox, then create the record. A new device remains awaiting inspection, not ready for sale.", "frame": "retail-review" },
+      { "title": "Inspect before making it available", "body": "Record the actual inspection in the device details, then follow the approval process to make it available. Sale, payments, handover and after-sales are recorded separately for this same device.", "frame": "retail-saved" }
+    ]
+  }
+]

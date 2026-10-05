@@ -1,0 +1,659 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-05T20:27:01.572Z",
+  "format": "H.264 / AAC, 1280x960, 24fps",
+  "totalBytes": 36238246,
+  "episodes": [
+    {
+      "locale": "zh-CN",
+      "id": "start",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "rate": "+5%",
+      "seconds": 63.125,
+      "bytes": 2071242,
+      "assets": [
+        {
+          "path": "/tutorials/start.mp4",
+          "extension": "mp4",
+          "bytes": 2071242,
+          "sha256": "0dff7be16976b8bf612869d72c4a256377d0440f6835f9048a71eb49d7a372bb"
+        },
+        {
+          "path": "/tutorials/start.webp",
+          "extension": "webp",
+          "bytes": 36790,
+          "sha256": "2982aa21b85a95c9c3d83fb320ff430389ac3f2a2a23a9af4dfa2c2bd9ec04ad"
+        },
+        {
+          "path": "/tutorials/start.vtt",
+          "extension": "vtt",
+          "bytes": 1228,
+          "sha256": "12f7308bdeeddd4ebdee762eb7a108902d7c5a89080f6792750a853b46285a67"
+        }
+      ],
+      "sha256": "0dff7be16976b8bf612869d72c4a256377d0440f6835f9048a71eb49d7a372bb",
+      "decoded": true,
+      "meanDb": -16.6,
+      "peakDb": -1.4,
+      "faststart": true,
+      "captions": 13,
+      "chapters": [
+        0,
+        9.875,
+        20.208,
+        30.708,
+        41.5,
+        52.792
+      ],
+      "verifiedMovingSteps": 6
+    },
+    {
+      "locale": "zh-CN",
+      "id": "intake",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "rate": "+5%",
+      "seconds": 66.5,
+      "bytes": 2135409,
+      "assets": [
+        {
+          "path": "/tutorials/intake.mp4",
+          "extension": "mp4",
+          "bytes": 2135409,
+          "sha256": "ab8fe867e1366241640f5dfe70ac8ad8baba26a5d5a240d8e91e99224f46710e"
+        },
+        {
+          "path": "/tutorials/intake.webp",
+          "extension": "webp",
+          "bytes": 34698,
+          "sha256": "22a734de799c92f89d4b44b2c9e81b071f9101554f844c02f6bbd49a53123e8f"
+        },
+        {
+          "path": "/tutorials/intake.vtt",
+          "extension": "vtt",
+          "bytes": 1261,
+          "sha256": "8480f738ac24a75a4e0001247c753068b172cc8ee4133fc6f58ffd7ccbd94397"
+        }
+      ],
+      "sha256": "ab8fe867e1366241640f5dfe70ac8ad8baba26a5d5a240d8e91e99224f46710e",
+      "decoded": true,
+      "meanDb": -16.6,
+      "peakDb": -1.3,
+      "faststart": true,
+      "captions": 12,
+      "chapters": [
+        0,
+        10.5,
+        21.333,
+        33.333,
+        44.417,
+        55.292
+      ],
+      "verifiedMovingSteps": 6
+    },
+    {
+      "locale": "zh-CN",
+      "id": "follow-up",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "rate": "+5%",
+      "seconds": 64.166667,
+      "bytes": 1989224,
+      "assets": [
+        {
+          "path": "/tutorials/follow-up.mp4",
+          "extension": "mp4",
+          "bytes": 1989224,
+          "sha256": "d7cb1401e397347291580f828ead94c046496df071893650bb9e5b41e2a60e77"
+        },
+        {
+          "path": "/tutorials/follow-up.webp",
+          "extension": "webp",
+          "bytes": 31240,
+          "sha256": "79aef69e37f05aac7a90d42bdcbb7be4cd91639658e75b88e20cadfe0a9970e6"
+        },
+        {
+          "path": "/tutorials/follow-up.vtt",
+          "extension": "vtt",
+          "bytes": 1216,
+          "sha256": "3750f8ee5a6948ba732da71b4cb5ac6891b4f6df4e731282efef232897cc1ceb"
+        }
+      ],
+      "sha256": "d7cb1401e397347291580f828ead94c046496df071893650bb9e5b41e2a60e77",
+      "decoded": true,
+      "meanDb": -16.7,
+      "peakDb": -1.5,
+      "faststart": true,
+      "captions": 12,
+      "chapters": [
+        0,
+        10.75,
+        20.792,
+        32.5,
+        43.667,
+        54.958
+      ],
+      "verifiedMovingSteps": 6
+    },
+    {
+      "locale": "zh-CN",
+      "id": "procurement",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "rate": "+5%",
+      "seconds": 65.916667,
+      "bytes": 1936538,
+      "assets": [
+        {
+          "path": "/tutorials/procurement.mp4",
+          "extension": "mp4",
+          "bytes": 1936538,
+          "sha256": "fb90d7825e009f520d1011541a3b07e66b8d9cdec85f60dbdacfa53fdc7ca70a"
+        },
+        {
+          "path": "/tutorials/procurement.webp",
+          "extension": "webp",
+          "bytes": 26710,
+          "sha256": "659de29c6e5786d558ef235e446ffb332d876de1b925271be05218ccfa832772"
+        },
+        {
+          "path": "/tutorials/procurement.vtt",
+          "extension": "vtt",
+          "bytes": 1243,
+          "sha256": "7c9bd60a6c15ca9fa65fbba03ede77470c972c037a75ba97dbb348ad131997a2"
+        }
+      ],
+      "sha256": "fb90d7825e009f520d1011541a3b07e66b8d9cdec85f60dbdacfa53fdc7ca70a",
+      "decoded": true,
+      "meanDb": -16.6,
+      "peakDb": -1.4,
+      "faststart": true,
+      "captions": 12,
+      "chapters": [
+        0,
+        10.833,
+        22.542,
+        32.5,
+        43.125,
+        54.375
+      ],
+      "verifiedMovingSteps": 6
+    },
+    {
+      "locale": "zh-CN",
+      "id": "retail",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "rate": "+5%",
+      "seconds": 69.625,
+      "bytes": 2675395,
+      "assets": [
+        {
+          "path": "/tutorials/retail.mp4",
+          "extension": "mp4",
+          "bytes": 2675395,
+          "sha256": "c78c775adcdb396a6b3d67c029e030435989af22dec0cd86b69de8a9ef36da63"
+        },
+        {
+          "path": "/tutorials/retail.webp",
+          "extension": "webp",
+          "bytes": 18324,
+          "sha256": "2dac144da705dd0465176b44288582dc920382b9b1e3a9b26b9fdb729dab145e"
+        },
+        {
+          "path": "/tutorials/retail.vtt",
+          "extension": "vtt",
+          "bytes": 1318,
+          "sha256": "d2109fbe7bf51fc18e8ff78bf45119f9ec317f660eef9caaa1cfc6d5868dfa3b"
+        }
+      ],
+      "sha256": "c78c775adcdb396a6b3d67c029e030435989af22dec0cd86b69de8a9ef36da63",
+      "decoded": true,
+      "meanDb": -16.6,
+      "peakDb": -1.3,
+      "faststart": true,
+      "captions": 13,
+      "chapters": [
+        0,
+        11.417,
+        21.417,
+        32.917,
+        44.667,
+        58.292
+      ],
+      "verifiedMovingSteps": 6
+    },
+    {
+      "locale": "it",
+      "id": "start",
+      "voice": "it-IT-ElsaNeural",
+      "rate": "+3%",
+      "seconds": 62.583333,
+      "bytes": 2262272,
+      "assets": [
+        {
+          "path": "/tutorials/it/start.mp4",
+          "extension": "mp4",
+          "bytes": 2262272,
+          "sha256": "acf4e83efbeeace1b690c3c66644b7cdcacd22519f02266ac964873019608db3"
+        },
+        {
+          "path": "/tutorials/it/start.webp",
+          "extension": "webp",
+          "bytes": 41162,
+          "sha256": "6befd3f3f01fe76fc9820008f8ba7e6a8ee012018145d6b7f6211ee8ead1379d"
+        },
+        {
+          "path": "/tutorials/it/start.vtt",
+          "extension": "vtt",
+          "bytes": 1366,
+          "sha256": "fedca9e414f7204895bd397c3ecdee7ca5413a082c1cf596c19b764112ae8fb7"
+        }
+      ],
+      "sha256": "acf4e83efbeeace1b690c3c66644b7cdcacd22519f02266ac964873019608db3",
+      "decoded": true,
+      "meanDb": -16.9,
+      "peakDb": -1.4,
+      "faststart": true,
+      "captions": 14,
+      "chapters": [
+        0,
+        10.208,
+        19.5,
+        29.833,
+        40.083,
+        51.458
+      ],
+      "verifiedMovingSteps": 6
+    },
+    {
+      "locale": "it",
+      "id": "intake",
+      "voice": "it-IT-ElsaNeural",
+      "rate": "+3%",
+      "seconds": 69.375,
+      "bytes": 2359189,
+      "assets": [
+        {
+          "path": "/tutorials/it/intake.mp4",
+          "extension": "mp4",
+          "bytes": 2359189,
+          "sha256": "e78024d4841339a2fc18022f72faaa81aa35bbca2415a2e69c5dac60a8ad5bf3"
+        },
+        {
+          "path": "/tutorials/it/intake.webp",
+          "extension": "webp",
+          "bytes": 40912,
+          "sha256": "f69e093d6183cea78813b5dc63e194b263adaeb26d85708fe4ecb9394dfec767"
+        },
+        {
+          "path": "/tutorials/it/intake.vtt",
+          "extension": "vtt",
+          "bytes": 1489,
+          "sha256": "c8c9700b2d51c3f0c3f98517cfc43d54a230b0d214301f1b731ece9388aed7fa"
+        }
+      ],
+      "sha256": "e78024d4841339a2fc18022f72faaa81aa35bbca2415a2e69c5dac60a8ad5bf3",
+      "decoded": true,
+      "meanDb": -17,
+      "peakDb": -1.4,
+      "faststart": true,
+      "captions": 15,
+      "chapters": [
+        0,
+        9.417,
+        21.625,
+        34.875,
+        45.708,
+        59
+      ],
+      "verifiedMovingSteps": 6
+    },
+    {
+      "locale": "it",
+      "id": "follow-up",
+      "voice": "it-IT-ElsaNeural",
+      "rate": "+3%",
+      "seconds": 73.083333,
+      "bytes": 2538702,
+      "assets": [
+        {
+          "path": "/tutorials/it/follow-up.mp4",
+          "extension": "mp4",
+          "bytes": 2538702,
+          "sha256": "e008cf711639f19530437d7b0a2d055c1dfcc2758275414f28c486ac30716095"
+        },
+        {
+          "path": "/tutorials/it/follow-up.webp",
+          "extension": "webp",
+          "bytes": 40298,
+          "sha256": "c9247cc9ba18f391ca5aa825023b1a3498db9137d60fdeb24177df5a2280b254"
+        },
+        {
+          "path": "/tutorials/it/follow-up.vtt",
+          "extension": "vtt",
+          "bytes": 1526,
+          "sha256": "b1cd95ec105e9fcfd66492d3183e93aa62d8a3e05ac9ba6a4b11130fdf04860a"
+        }
+      ],
+      "sha256": "e008cf711639f19530437d7b0a2d055c1dfcc2758275414f28c486ac30716095",
+      "decoded": true,
+      "meanDb": -16.9,
+      "peakDb": -1.4,
+      "faststart": true,
+      "captions": 14,
+      "chapters": [
+        0,
+        13.167,
+        24.167,
+        36.208,
+        48.708,
+        61
+      ],
+      "verifiedMovingSteps": 6
+    },
+    {
+      "locale": "it",
+      "id": "procurement",
+      "voice": "it-IT-ElsaNeural",
+      "rate": "+3%",
+      "seconds": 71.166667,
+      "bytes": 2235023,
+      "assets": [
+        {
+          "path": "/tutorials/it/procurement.mp4",
+          "extension": "mp4",
+          "bytes": 2235023,
+          "sha256": "8fe1f1e015bbcb189ec18dfdc368d2c36a057274dd77e0ac95a7b9e6c00b59d1"
+        },
+        {
+          "path": "/tutorials/it/procurement.webp",
+          "extension": "webp",
+          "bytes": 32462,
+          "sha256": "4307097033d00d7ab6516e6b43fca82a28bfafdde4c10f0371ca47582e4425ef"
+        },
+        {
+          "path": "/tutorials/it/procurement.vtt",
+          "extension": "vtt",
+          "bytes": 1570,
+          "sha256": "b95f60cf30174bfa6d438eaab321d7c5e5e7e422e0387ff933f7826bf233bb0e"
+        }
+      ],
+      "sha256": "8fe1f1e015bbcb189ec18dfdc368d2c36a057274dd77e0ac95a7b9e6c00b59d1",
+      "decoded": true,
+      "meanDb": -16.8,
+      "peakDb": -1.4,
+      "faststart": true,
+      "captions": 17,
+      "chapters": [
+        0,
+        11.208,
+        23.792,
+        35.042,
+        46.375,
+        58.083
+      ],
+      "verifiedMovingSteps": 6
+    },
+    {
+      "locale": "it",
+      "id": "retail",
+      "voice": "it-IT-ElsaNeural",
+      "rate": "+3%",
+      "seconds": 75.916667,
+      "bytes": 3248138,
+      "assets": [
+        {
+          "path": "/tutorials/it/retail.mp4",
+          "extension": "mp4",
+          "bytes": 3248138,
+          "sha256": "327f8b51e59ea85bd9639b889649419cac61c198fa42d671998b99dc3d7718f5"
+        },
+        {
+          "path": "/tutorials/it/retail.webp",
+          "extension": "webp",
+          "bytes": 24086,
+          "sha256": "c104b81be9293e06834b0d7d7039b819d758bcdf11a6851af87b656aa83a42ca"
+        },
+        {
+          "path": "/tutorials/it/retail.vtt",
+          "extension": "vtt",
+          "bytes": 1638,
+          "sha256": "16c74efd54ae8763209c4cbe28408af3397568c38c6932f8f491d16ef0c3c327"
+        }
+      ],
+      "sha256": "327f8b51e59ea85bd9639b889649419cac61c198fa42d671998b99dc3d7718f5",
+      "decoded": true,
+      "meanDb": -17,
+      "peakDb": -1.3,
+      "faststart": true,
+      "captions": 17,
+      "chapters": [
+        0,
+        12.042,
+        22.042,
+        35.583,
+        48.958,
+        62.542
+      ],
+      "verifiedMovingSteps": 6
+    },
+    {
+      "locale": "en",
+      "id": "start",
+      "voice": "en-US-JennyNeural",
+      "rate": "+2%",
+      "seconds": 63.708333,
+      "bytes": 2194942,
+      "assets": [
+        {
+          "path": "/tutorials/en/start.mp4",
+          "extension": "mp4",
+          "bytes": 2194942,
+          "sha256": "5b3f09df43d953aa4ab9f559c591274141c7548058a7888d6968df797730b0dc"
+        },
+        {
+          "path": "/tutorials/en/start.webp",
+          "extension": "webp",
+          "bytes": 41744,
+          "sha256": "8eea205f5d918d085c0cb26429c5f1642c7d72e574590106c180409865be2de9"
+        },
+        {
+          "path": "/tutorials/en/start.vtt",
+          "extension": "vtt",
+          "bytes": 1316,
+          "sha256": "4583ad2b30dd36d6631b7f10337233ceb6b95104d0ba398bba61d8d16358a199"
+        }
+      ],
+      "sha256": "5b3f09df43d953aa4ab9f559c591274141c7548058a7888d6968df797730b0dc",
+      "decoded": true,
+      "meanDb": -17.7,
+      "peakDb": -1.4,
+      "faststart": true,
+      "captions": 14,
+      "chapters": [
+        0,
+        10.333,
+        20.458,
+        30.917,
+        41.125,
+        52.417
+      ],
+      "verifiedMovingSteps": 6
+    },
+    {
+      "locale": "en",
+      "id": "intake",
+      "voice": "en-US-JennyNeural",
+      "rate": "+2%",
+      "seconds": 73.291667,
+      "bytes": 2312487,
+      "assets": [
+        {
+          "path": "/tutorials/en/intake.mp4",
+          "extension": "mp4",
+          "bytes": 2312487,
+          "sha256": "5cfe4c0d6f4f440f418776788f353bb55c5e0cb21d5c3f67c709f53952a0d3a8"
+        },
+        {
+          "path": "/tutorials/en/intake.webp",
+          "extension": "webp",
+          "bytes": 37942,
+          "sha256": "c5bd53cb07eefbea13dbf70813b10409195044a9d734b891be372b1529baacd0"
+        },
+        {
+          "path": "/tutorials/en/intake.vtt",
+          "extension": "vtt",
+          "bytes": 1553,
+          "sha256": "345521d5972ee27c0bfbe1486ffac2719cdceb497d5aa049b6bee2ebc13c22a3"
+        }
+      ],
+      "sha256": "5cfe4c0d6f4f440f418776788f353bb55c5e0cb21d5c3f67c709f53952a0d3a8",
+      "decoded": true,
+      "meanDb": -17.9,
+      "peakDb": -1.2,
+      "faststart": true,
+      "captions": 17,
+      "chapters": [
+        0,
+        9.25,
+        21.667,
+        35.167,
+        47.958,
+        60.833
+      ],
+      "verifiedMovingSteps": 6
+    },
+    {
+      "locale": "en",
+      "id": "follow-up",
+      "voice": "en-US-JennyNeural",
+      "rate": "+2%",
+      "seconds": 70.75,
+      "bytes": 2376794,
+      "assets": [
+        {
+          "path": "/tutorials/en/follow-up.mp4",
+          "extension": "mp4",
+          "bytes": 2376794,
+          "sha256": "f2bce028ff601ce569aefa52ed6431d7f9e4cd0b83e421a5c1f1ce7cd1d37fc8"
+        },
+        {
+          "path": "/tutorials/en/follow-up.webp",
+          "extension": "webp",
+          "bytes": 38702,
+          "sha256": "f4a4c56d3d39fee2363ab623717d13346904836bc4c7bc8d4cc13f32e053b2d8"
+        },
+        {
+          "path": "/tutorials/en/follow-up.vtt",
+          "extension": "vtt",
+          "bytes": 1449,
+          "sha256": "7f2e4f6e75b3044d9e31e578a962ec7c8798f0bb47eb17c8658d098aa614e6cf"
+        }
+      ],
+      "sha256": "f2bce028ff601ce569aefa52ed6431d7f9e4cd0b83e421a5c1f1ce7cd1d37fc8",
+      "decoded": true,
+      "meanDb": -17.5,
+      "peakDb": -1.4,
+      "faststart": true,
+      "captions": 13,
+      "chapters": [
+        0,
+        12.667,
+        24.042,
+        35.292,
+        47.25,
+        58.25
+      ],
+      "verifiedMovingSteps": 6
+    },
+    {
+      "locale": "en",
+      "id": "procurement",
+      "voice": "en-US-JennyNeural",
+      "rate": "+2%",
+      "seconds": 75.083333,
+      "bytes": 2172344,
+      "assets": [
+        {
+          "path": "/tutorials/en/procurement.mp4",
+          "extension": "mp4",
+          "bytes": 2172344,
+          "sha256": "ef05945392f273e96d47f0aae6e49af67d80b6a884c9b44c28c7c6d4a80309c3"
+        },
+        {
+          "path": "/tutorials/en/procurement.webp",
+          "extension": "webp",
+          "bytes": 31862,
+          "sha256": "e572dd3b71c85fce9b41de6c2ac81abbce9226357dd22f15ed32da6a08f9b1e9"
+        },
+        {
+          "path": "/tutorials/en/procurement.vtt",
+          "extension": "vtt",
+          "bytes": 1594,
+          "sha256": "0657e965f5eda92f820ae3931b74772fe1814986d71a2398c78a326caff9121f"
+        }
+      ],
+      "sha256": "ef05945392f273e96d47f0aae6e49af67d80b6a884c9b44c28c7c6d4a80309c3",
+      "decoded": true,
+      "meanDb": -18.1,
+      "peakDb": -1.3,
+      "faststart": true,
+      "captions": 18,
+      "chapters": [
+        0,
+        11.792,
+        26.042,
+        37.875,
+        49.917,
+        61.958
+      ],
+      "verifiedMovingSteps": 6
+    },
+    {
+      "locale": "en",
+      "id": "retail",
+      "voice": "en-US-JennyNeural",
+      "rate": "+2%",
+      "seconds": 80,
+      "bytes": 3209872,
+      "assets": [
+        {
+          "path": "/tutorials/en/retail.mp4",
+          "extension": "mp4",
+          "bytes": 3209872,
+          "sha256": "fc9bff5f96ed9e5f645d7bd912d350203a5bd8a4d1b85a38859acc56b245c717"
+        },
+        {
+          "path": "/tutorials/en/retail.webp",
+          "extension": "webp",
+          "bytes": 22354,
+          "sha256": "5d5200f37571121bf03a2eda563374a0c356924fbf09ec92efb7e3ecf0b4140a"
+        },
+        {
+          "path": "/tutorials/en/retail.vtt",
+          "extension": "vtt",
+          "bytes": 1622,
+          "sha256": "50f753ea65af7dc7b4ed8c06de066f68c5787443c539ab1ce083fdf8ddf7a2a0"
+        }
+      ],
+      "sha256": "fc9bff5f96ed9e5f645d7bd912d350203a5bd8a4d1b85a38859acc56b245c717",
+      "decoded": true,
+      "meanDb": -17.6,
+      "peakDb": -1.1,
+      "faststart": true,
+      "captions": 17,
+      "chapters": [
+        0,
+        12.083,
+        22.625,
+        36.292,
+        50.958,
+        66.958
+      ],
+      "verifiedMovingSteps": 6
+    }
+  ],
+  "captionNormalization": {
+    "verifiedAt": "2026-10-05T20:37:17.779Z",
+    "normalizedFiles": 15,
+    "contentAndTimingsUnchanged": true,
+    "videoAndPosterHashesUnchanged": true
+  }
+}

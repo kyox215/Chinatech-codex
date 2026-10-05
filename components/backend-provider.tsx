@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "@/components/language-provider";
 import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { configureBackend, clearBackend, refreshBackend, loadRecovery, backendRecovery, subscribeRecovery, recoverOperation } from "@/lib/backend/client";
@@ -8,6 +9,7 @@ import { startRealtimeUpdates } from "@/lib/backend/realtime-client";
 const ConnectionError=createContext("");
 
 export function BackendProvider({initial,children}:{initial:BackendSnapshot;children:React.ReactNode}) {
+  const { t } = useLanguage();
   const [ready,setReady]=useState(false);
   const [error,setError]=useState("");
   useEffect(()=>{
@@ -32,17 +34,18 @@ export function BackendProvider({initial,children}:{initial:BackendSnapshot;chil
     window.addEventListener("beforeunload",leaving);
     return()=>{active=false;updates.stop();clearBackend();window.clearInterval(timer);window.removeEventListener("focus",resume);window.removeEventListener("online",resume);window.removeEventListener("offline",offline);document.removeEventListener("visibilitychange",resume);window.removeEventListener("beforeunload",leaving);};
   },[initial]);
-  if(!ready)return <div className="module-empty" role="status">正在载入门店资料…</div>;
+  if(!ready)return <div className="module-empty" role="status">{t("正在载入门店资料…")}</div>;
   return <ConnectionError.Provider value={error}>{children}</ConnectionError.Provider>;
 }
 
 export function BackendSyncNotice(){
+  const { t } = useLanguage();
   const error=useContext(ConnectionError);
   const recovery=useSyncExternalStore(subscribeRecovery,backendRecovery,backendRecovery);
   const receipt=recovery.receipt;
   const resultHref=receipt?.kind.startsWith("intake.")||receipt?.kind==="retail.aftersale_repair"?`/app/repairs/${encodeURIComponent(receipt.entityId)}`:receipt?.kind==="retail"?`/app/retail/units/${encodeURIComponent(receipt.entityId)}`:null;
-  return <>{error?<p className="form-error" role="status">{error}</p>:null}
-    {recovery.pending || recovery.message?<section className="panel sync-recovery" aria-label="提交恢复"><p role="status">{recovery.message || "此设备有尚待核对的提交，请先处理原提交。"}</p>
-      {recovery.pending?<div className="sync-recovery__actions"><button className="button button--secondary" disabled={recovery.busy} onClick={()=>void recoverOperation("check")}>核对提交结果</button><button className="button button--primary" disabled={recovery.busy} onClick={()=>void recoverOperation("retry")}>重试原提交</button><button className="button button--secondary" disabled={recovery.busy} onClick={()=>void recoverOperation("cancel")}>撤销未完成提交</button></div>:resultHref?<Link className="button button--secondary" href={resultHref}>查看已保存记录</Link>:null}
+  return <>{error?<p className="form-error" role="status">{t(error)}</p>:null}
+    {recovery.pending || recovery.message?<section className="panel sync-recovery" aria-label={t("提交恢复")}><p role="status">{recovery.message || t("此设备有尚待核对的提交，请先处理原提交。")}</p>
+      {recovery.pending?<div className="sync-recovery__actions"><button className="button button--secondary" disabled={recovery.busy} onClick={()=>void recoverOperation("check")}>{t("核对提交结果")}</button><button className="button button--primary" disabled={recovery.busy} onClick={()=>void recoverOperation("retry")}>{t("重试原提交")}</button><button className="button button--secondary" disabled={recovery.busy} onClick={()=>void recoverOperation("cancel")}>{t("撤销未完成提交")}</button></div>:resultHref?<Link className="button button--secondary" href={resultHref}>{t("查看已保存记录")}</Link>:null}
     </section>:null}</>;
 }

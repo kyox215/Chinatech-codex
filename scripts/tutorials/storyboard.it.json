@@ -1,0 +1,57 @@
+[
+  {
+    "id": "start", "number": "01", "title": "Registrazione e accesso al negozio", "description": "Prepara il tuo account e accedi allo spazio di lavoro del negozio.", "href": "/login", "actionLabel": "Vai all'accesso",
+    "steps": [
+      { "title": "Apri il sito", "body": "Apri ChinaTech nel browser del telefono o del computer. In alto a sinistra trovi accesso e registrazione. Non serve scaricare un'applicazione.", "frame": "start-home" },
+      { "title": "Crea il tuo account", "body": "Scegli Registrati e inserisci nome, email e due volte la password. La password deve avere almeno dieci caratteri, con lettere e numeri.", "frame": "start-register" },
+      { "title": "Verifica l'email e attendi l'accesso", "body": "Apri l'email di verifica nello stesso browser usato per registrarti. Dopo la verifica, il titolare deve ancora autorizzarti ad accedere ai dati del negozio.", "frame": "start-register" },
+      { "title": "Accedi con un account autorizzato", "body": "Nella pagina di accesso inserisci email e password, oppure usa il pulsante Google. L'accesso con Google non assegna automaticamente i permessi del negozio.", "frame": "start-login" },
+      { "title": "Trova il lavoro quotidiano", "body": "Dal menu a sinistra apri le riparazioni, i dispositivi in vendita o i clienti. I dati di questa dimostrazione sono fittizi: nel tuo negozio troverai i suoi dati reali.", "frame": "start-dashboard" },
+      { "title": "Usa il menu dal telefono", "body": "Sul telefono tocca il menu accanto al titolo della pagina. Account e uscita sono in fondo al menu laterale. Ricordati di uscire quando usi un dispositivo condiviso.", "frame": "start-mobile" }
+    ]
+  },
+  {
+    "id": "intake", "number": "02", "title": "Accettazione e nuova riparazione", "description": "Registra cliente, dispositivo e problema, poi controlla e salva.", "href": "/app/repairs/new", "actionLabel": "Inizia l'accettazione",
+    "steps": [
+      { "title": "Crea una nuova riparazione", "body": "Nell'elenco delle riparazioni, premi il pulsante viola in alto a destra per creare una nuova scheda. Il modulo ti guida un passaggio alla volta.", "frame": "intake-list" },
+      { "title": "Inizia dal numero di telefono", "body": "Inserisci il numero del cliente nel primo campo e verifica il nome. Se il cliente esiste già, selezionalo dai suggerimenti. Qui usiamo soltanto dati dimostrativi fittizi.", "frame": "intake-customer" },
+      { "title": "Identifica questo dispositivo", "body": "Scegli categoria, marca e modello. Copia il numero di serie o l'IMEI dal dispositivo. Verifica sempre il testo scansionato: il modello non conferma le caratteristiche di quell'esemplare.", "frame": "intake-device" },
+      { "title": "Registra problema e preventivo", "body": "Seleziona il problema segnalato e compila gli interventi e l'eventuale preventivo. Sono richieste del cliente: non sostituiscono la diagnosi né il consenso alla riparazione.", "frame": "intake-faults" },
+      { "title": "Controlla i dati; la firma è facoltativa", "body": "Controlla cliente, dispositivo, problema, accessori e preventivo. Puoi saltare la firma. Una firma non significa che il pagamento sia stato ricevuto o il dispositivo riconsegnato.", "frame": "intake-review" },
+      { "title": "Salva e apri la scheda", "body": "Spunta la conferma e premi il pulsante di salvataggio e anteprima in basso. Dopo il salvataggio puoi aprire la scheda o stampare la ricevuta di accettazione.", "frame": "intake-saved" }
+    ]
+  },
+  {
+    "id": "follow-up", "number": "03", "title": "Ricerca e aggiornamento delle riparazioni", "description": "Trova la scheda, aggiorna la fase e registra i contatti effettivi.", "href": "/app/repairs", "actionLabel": "Apri le riparazioni",
+    "steps": [
+      { "title": "Cerca nei quattro gruppi quotidiani", "body": "Le riparazioni sono divise in rientri in riparazione, in lavorazione, attesa ricambi e attesa ritiro. Cerca cliente, dispositivo o numero della scheda, poi verifica il dispositivo corretto.", "frame": "follow-list" },
+      { "title": "Scegli la fase reale", "body": "Premi l'etichetta della fase nella riga. Nella finestra scegli la situazione reale, per esempio da diagnosticare, in riparazione, oppure riparato e in attesa di ritiro.", "frame": "follow-stage" },
+      { "title": "Controlla e salva la fase", "body": "Verifica la nuova fase e scrivi il motivo, se richiesto. Poi salva dal pulsante in basso. La fase non conferma arrivo dei ricambi, pagamento o riconsegna del dispositivo.", "frame": "follow-stage-selected" },
+      { "title": "Apri contatti e aggiornamenti", "body": "Premi il pulsante di contatto nella riga. Dopo aver contattato il cliente per il preventivo, registra l'esito reale: preventivo comunicato, nessuna risposta o attesa di risposta sul preventivo.", "frame": "follow-contact" },
+      { "title": "Registra ciò che è successo", "body": "Scrivi una nota nel campo, poi premi sotto il pulsante dell'esito corretto. Il sito salva una registrazione: non invia messaggi e non dimostra il consenso del cliente alla riparazione.", "frame": "follow-contact-filled" },
+      { "title": "Consulta la cronologia della scheda", "body": "Apri i dettagli per vedere dispositivo, ricambi e cronologia dei contatti. Custodia e riconsegna sono fatti separati. Torna all'elenco per continuare con la scheda successiva.", "frame": "follow-detail" }
+    ]
+  },
+  {
+    "id": "procurement", "number": "04", "title": "Acquisto ricambi e arrivi parziali", "description": "Scegli il fornitore e registra ordini reali e singole consegne.", "href": "/app/procurement", "actionLabel": "Apri acquisti e arrivi",
+    "steps": [
+      { "title": "Apri i ricambi dalla riparazione", "body": "Premi il pulsante dei ricambi nell'elenco delle riparazioni. La finestra contiene già gli interventi scelti all'accettazione. Compila ogni voce senza crearla di nuovo.", "frame": "proc-parts" },
+      { "title": "Scegli fornitore e preventivo", "body": "Seleziona il fornitore per i ricambi da acquistare. Il preventivo è facoltativo; il costo richiede permessi finanziari. Il solo preventivo, senza fornitore, non crea un acquisto.", "frame": "proc-filled" },
+      { "title": "Salva nel carrello", "body": "Controlla e salva. Le voci con un fornitore entrano nel carrello acquisti. Il carrello è solo una preparazione: il sito non invia ordini al fornitore.", "frame": "proc-cart" },
+      { "title": "Registra l'ordine già effettuato", "body": "Dopo aver ordinato realmente al fornitore, apri il carrello e seleziona fornitore e voci. Premi il controllo della lista in basso, verifica e conferma i fatti registrati.", "frame": "proc-ordered-review" },
+      { "title": "Registra quanto è arrivato", "body": "Apri gli arrivi multipli, scegli fornitore e voci e inserisci le quantità ricevute in questa consegna. Controlla e salva. Ogni consegna va registrata separatamente.", "frame": "proc-arrival" },
+      { "title": "Separa arrivi e fase di riparazione", "body": "La pagina acquisti mostra quantità arrivate e riparazioni collegate. Dopo l'arrivo, continua a seguire la riparazione e il cliente secondo i fatti reali. Questi dati non sono un magazzino ricambi.", "frame": "proc-result" }
+    ]
+  },
+  {
+    "id": "retail", "number": "05", "title": "Una scheda per ogni dispositivo in vendita", "description": "Registra l'esemplare di proprietà del negozio e poi esegui i controlli.", "href": "/app/retail/new", "actionLabel": "Crea una scheda dispositivo",
+    "steps": [
+      { "title": "Scegli nuovo o ricondizionato", "body": "I dispositivi in vendita sono esemplari di proprietà del negozio. In alto scegli nuovo o ricondizionato. Non inserire qui i dispositivi consegnati dai clienti per riparazione.", "frame": "retail-classify" },
+      { "title": "Una scheda per ogni esemplare", "body": "Inserisci categoria, marca e modello, poi copia i codici dall'esemplare reale. Due dispositivi dello stesso modello devono avere schede distinte.", "frame": "retail-identity" },
+      { "title": "Compila solo le specifiche verificate", "body": "Registra separatamente memoria, spazio interno e singoli dischi, quando previsti. Lascia vuoti i valori sconosciuti, senza scrivere zero. Non dedurre la configurazione dal nome del prodotto.", "frame": "retail-specs" },
+      { "title": "Registra condizioni e accessori", "body": "Prosegui con aspetto, batteria e accessori inclusi. I problemi noti devono riferirsi a questo esemplare. Carica le foto dopo aver creato la scheda e non segnare come superati controlli mai eseguiti.", "frame": "retail-details" },
+      { "title": "Verifica prezzo, provenienza e proprietà", "body": "Inserisci prezzo e posizione. I costi richiedono l'autorizzazione. Spunta la proprietà del negozio e crea la scheda. Il nuovo esemplare resta da controllare, non diventa subito vendibile.", "frame": "retail-review" },
+      { "title": "Controlla prima di mettere in vendita", "body": "Nei dettagli registra i controlli effettivi, poi segui la conferma per rendere il dispositivo vendibile. Vendita, pagamenti, consegna e assistenza restano registrazioni separate dello stesso esemplare.", "frame": "retail-saved" }
+    ]
+  }
+]

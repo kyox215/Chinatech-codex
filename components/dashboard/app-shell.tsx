@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "@/components/language-provider";
 import { isBackendClient } from "@/lib/backend/client";
 
 import Link from "next/link";
@@ -13,6 +14,7 @@ import { AccessPanel } from "@/components/staff/access-panel";
 import { selectPreviewMember } from "@/lib/staff-client";
 import { isActiveMember, staffRoles, type Permission } from "@/lib/staff";
 import { SelectControl } from "@/components/select-control";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { LogoutButton } from "./logout-button";
 
 type NavItemConfig = { label: string; icon: LucideIcon; href?: string };
@@ -29,11 +31,13 @@ function subscribeMobile(callback: () => void) {
 }
 const mobileSnapshot = () => window.matchMedia("(max-width: 767px)").matches;
 function NavItem({ item, active, onNavigate }: { item: NavItemConfig; active: boolean; onNavigate: () => void }) {
-  const content = <><item.icon size={19} /><span>{item.label}</span></>;
-  return item.href ? <Link className={`app-nav__item${active ? " app-nav__item--active" : ""}`} href={item.href} title={item.label} aria-label={item.label} aria-current={active ? "page" : undefined} onClick={onNavigate}>{content}</Link>
-    : <span className="app-nav__item app-nav__item--disabled" aria-disabled="true" title={`${item.label} · 规划中`}><item.icon size={19} /><span>{item.label}</span></span>;
+  const { t } = useLanguage();
+  const content = <><item.icon size={19} /><span>{t(item.label)}</span></>;
+  return item.href ? <Link className={`app-nav__item${active ? " app-nav__item--active" : ""}`} href={item.href} title={t(item.label)} aria-label={t(item.label)} aria-current={active ? "page" : undefined} onClick={onNavigate}>{content}</Link>
+    : <span className="app-nav__item app-nav__item--disabled" aria-disabled="true" title={t("{v0} · 规划中", { v0: t(item.label) })}><item.icon size={19} /><span>{t(item.label)}</span></span>;
 }
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const { t } = useLanguage();
   const staff = useStaff();
   const [identityError,setIdentityError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -78,24 +82,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const closeMenu = () => { setMenuOpen(false); if (account.current) account.current.open = false; };
   return <AppNavigationContext.Provider value={{ isMobile, expanded: isMobile ? menuOpen : !collapsed, toggle: () => isMobile ? setMenuOpen((value) => !value) : setCollapsed((value) => !value) }}>
     <div className={`app-shell${collapsed ? " app-shell--collapsed" : ""}`}>
-      <aside id="app-sidebar" ref={sidebar} className={`app-sidebar${menuOpen ? " app-sidebar--open" : ""}`} inert={isMobile && !menuOpen} role={isMobile && menuOpen ? "dialog" : undefined} aria-modal={isMobile && menuOpen ? true : undefined} aria-label="主菜单">
-        <div className="app-sidebar__brand-row"><Brand compact /><button className="app-sidebar__collapse" type="button" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "展开侧栏" : "收起侧栏"} aria-expanded={!collapsed} aria-controls="app-sidebar" title={collapsed ? "展开侧栏" : "收起侧栏"}>{collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}</button><button className="app-sidebar__close" type="button" onClick={closeMenu} aria-label="关闭菜单"><X size={20} /></button></div>
-        <Link className="app-search" href="/app/repairs" aria-label="搜索工单" title="搜索工单" onClick={closeMenu}><Search size={19} /><span>搜索工单</span></Link>
-        <nav className="app-nav" aria-label="内部系统主导航"><small className="app-nav__label">主菜单</small>{primaryNav.filter(item => !item.href || !routePermission(item.href) || staff.can(routePermission(item.href)!)).map((item) => <NavItem item={item} active={isActive(item.href)} key={item.label} onNavigate={closeMenu} />)}</nav>
+      <aside id="app-sidebar" ref={sidebar} className={`app-sidebar${menuOpen ? " app-sidebar--open" : ""}`} inert={isMobile && !menuOpen} role={isMobile && menuOpen ? "dialog" : undefined} aria-modal={isMobile && menuOpen ? true : undefined} aria-label={t("主菜单")}>
+        <div className="app-sidebar__brand-row"><Brand compact /><button className="app-sidebar__collapse" type="button" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? t("展开侧栏") : t("收起侧栏")} aria-expanded={!collapsed} aria-controls="app-sidebar" title={collapsed ? t("展开侧栏") : t("收起侧栏")}>{collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}</button><button className="app-sidebar__close" type="button" onClick={closeMenu} aria-label={t("关闭菜单")}><X size={20} /></button></div>
+        <Link className="app-search" href="/app/repairs" aria-label={t("搜索工单")} title={t("搜索工单")} onClick={closeMenu}><Search size={19} /><span>{t("搜索工单")}</span></Link>
+        <nav className="app-nav" aria-label={t("内部系统主导航")}><small className="app-nav__label">{t("主菜单")}</small>{primaryNav.filter(item => !item.href || !routePermission(item.href) || staff.can(routePermission(item.href)!)).map((item) => <NavItem item={item} active={isActive(item.href)} key={item.label} onNavigate={closeMenu} />)}</nav>
         <details ref={account} className="sidebar-account" onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); event.preventDefault(); if (account.current) { account.current.open = false; account.current.querySelector("summary")?.focus(); } } }}>
-          <summary aria-label="账号菜单" title="账号菜单"><span className="profile-menu__avatar"><UserRound size={20} /></span><span className="sidebar-account__text"><strong>{staff.member?.name || "预览身份待核对"}</strong><small>{isBackendClient()?"门店账号":"本地预览"} · {staff.member ? staffRoles[staff.member.role] : "访问不可用"}</small></span><ChevronUp size={16} /></summary>
+          <summary aria-label={t("账号菜单")} title={t("账号菜单")}><span className="profile-menu__avatar"><UserRound size={20} /></span><span className="sidebar-account__text"><strong>{staff.member?.name || t("预览身份待核对")}</strong><small>{isBackendClient()?t("门店账号"):t("本地预览")} · {staff.member ? t(staffRoles[staff.member.role]) : t("访问不可用")}</small></span><ChevronUp size={16} /></summary>
           <div className="sidebar-account__actions">
-            {isBackendClient() ? <Link className="sidebar-account__action" href="/account/settings" onClick={closeMenu}><UserRound size={18} /><span>账号设置</span></Link> : null}
-            {staff.can("settings.edit") || staff.can("financial.read") || staff.can("staff.manage") ? <Link className="sidebar-account__action" href="/app/settings" onClick={closeMenu}><Settings size={18} /><span>门店设置</span></Link> : null}
-            {!isBackendClient() ? <label className="field sidebar-preview-identity"><span>预览身份</span><SelectControl aria-label="预览身份" value={staff.data.currentId} onChange={event => {try {selectPreviewMember(event.target.value);setIdentityError("");closeMenu();}catch(reason){setIdentityError(reason instanceof Error ? reason.message : "切换失败");}}}>{staff.data.members.filter(isActiveMember).map(member=><option key={member.id} value={member.id}>{member.name} · {staffRoles[member.role]}</option>)}</SelectControl>{identityError ? <small role="alert">{identityError}</small> : null}</label> : null}
-            <button type="button" className="sidebar-account__action" onClick={() => { if (account.current) { account.current.open = false; account.current.querySelector("summary")?.focus(); } notifications.current?.showModal(); }} aria-label="通知" title="通知"><Bell size={18} /><span>通知</span></button>
+            <LanguageSwitcher />
+            {isBackendClient() ? <Link className="sidebar-account__action" href="/account/settings" onClick={closeMenu}><UserRound size={18} /><span>{t("账号设置")}</span></Link> : null}
+            {staff.can("settings.edit") || staff.can("financial.read") || staff.can("staff.manage") ? <Link className="sidebar-account__action" href="/app/settings" onClick={closeMenu}><Settings size={18} /><span>{t("门店设置")}</span></Link> : null}
+            {!isBackendClient() ? <label className="field sidebar-preview-identity"><span>{t("预览身份")}</span><SelectControl aria-label={t("预览身份")} value={staff.data.currentId} onChange={event => {try {selectPreviewMember(event.target.value);setIdentityError("");closeMenu();}catch(reason){setIdentityError(reason instanceof Error ? reason.message : "切换失败");}}}>{staff.data.members.filter(isActiveMember).map(member=><option key={member.id} value={member.id}>{member.name} · {t(staffRoles[member.role])}</option>)}</SelectControl>{identityError ? <small role="alert">{t(identityError)}</small> : null}</label> : null}
+            <button type="button" className="sidebar-account__action" onClick={() => { if (account.current) { account.current.open = false; account.current.querySelector("summary")?.focus(); } notifications.current?.showModal(); }} aria-label={t("通知")} title={t("通知")}><Bell size={18} /><span>{t("通知")}</span></button>
             <LogoutButton supabaseMode={isBackendClient()} />
           </div>
         </details>
       </aside>
-      {isMobile && menuOpen ? <button className="sidebar-scrim" type="button" aria-label="关闭菜单遮罩" onClick={closeMenu} tabIndex={-1} /> : null}
+      {isMobile && menuOpen ? <button className="sidebar-scrim" type="button" aria-label={t("关闭菜单遮罩")} onClick={closeMenu} tabIndex={-1} /> : null}
       <div className="app-main" inert={isMobile && menuOpen}><div className="app-content" key={staff.member?.id + ":" + staff.member?.revision}>{allowed ? children : <AccessPanel />}</div></div>
-      <dialog ref={notifications} className="repair-parts-dialog" aria-label="通知"><header><h2>通知</h2><button className="icon-button" type="button" onClick={() => notifications.current?.close()} aria-label="关闭通知"><X size={20} /></button></header><div className="module-empty"><Bell size={28} /><strong>暂无通知</strong></div></dialog>
+      <dialog ref={notifications} className="repair-parts-dialog" aria-label={t("通知")}><header><h2>{t("通知")}</h2><button className="icon-button" type="button" onClick={() => notifications.current?.close()} aria-label={t("关闭通知")}><X size={20} /></button></header><div className="module-empty"><Bell size={28} /><strong>{t("暂无通知")}</strong></div></dialog>
     </div>
   </AppNavigationContext.Provider>;
 }

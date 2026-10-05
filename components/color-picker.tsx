@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { ChevronDown, Palette } from "lucide-react";
@@ -20,6 +21,7 @@ export function ColorSwatch({ value }: { value: string }) {
   return color ? <span className="color-swatch" style={{ "--swatch": color.hex } as CSSProperties} aria-hidden="true" /> : <Palette size={17} aria-hidden="true" />;
 }
 export function ColorPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const { t } = useLanguage();
   const disclosure = useRef<HTMLDetailsElement>(null);
   const palette = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -49,8 +51,8 @@ export function ColorPicker({ value, onChange }: { value: string; onChange: (val
     close();
   }
   const options = (metal: boolean) => deviceColors.filter(item => item.value.includes("钛金属") === metal).map(item => ({ value: item.value, label: item.value, graphic: <ColorSwatch value={item.value} /> }));
-  return <div className="field color-picker"><span>颜色</span><details ref={disclosure} onToggle={event => setOpen(event.currentTarget.open)} onKeyDown={event => { if (event.key === "Escape" && disclosure.current?.open) { event.preventDefault(); event.stopPropagation(); disclosure.current.open = false; disclosure.current.querySelector("summary")?.focus(); } }}>
-    <summary aria-label="选择设备颜色"><ColorSwatch value={value} /><span>{value || (custom ? "其他颜色" : "未记录")}</span><ChevronDown size={16} /></summary>
-    <div ref={palette} className="color-picker__palette" style={position}><SingleChoice label="常规颜色" className="single-choice--colors" value={custom ? "custom" : value} options={options(false)} onChange={select} onRepeatSelect={close} /><SingleChoice label="钛金属" className="single-choice--colors" value={custom ? "custom" : value} options={options(true)} onChange={select} onRepeatSelect={close} /><SingleChoice label="其他" className="single-choice--color-actions" value={custom ? "custom" : value} options={[{value:"",label:"未记录",icon:Palette},{value:"custom",label:"其他颜色",icon:Palette}]} onChange={select} onRepeatSelect={close} /></div>
-  </details>{custom ? <InputControl onClear={() => onChange("")} clearLabel="清空其他颜色" aria-label="其他颜色" value={value} onChange={event => onChange(event.target.value)} placeholder="填写颜色" maxLength={60} /> : null}</div>;
+  return <div className="field color-picker"><span>{t("颜色")}</span><details ref={disclosure} onToggle={event => setOpen(event.currentTarget.open)} onKeyDown={event => { if (event.key === "Escape" && disclosure.current?.open) { event.preventDefault(); event.stopPropagation(); disclosure.current.open = false; disclosure.current.querySelector("summary")?.focus(); } }}>
+    <summary aria-label={t("选择设备颜色")}><ColorSwatch value={value} /><span>{custom ? value || t("其他颜色") : t(value || "未记录")}</span><ChevronDown size={16} /></summary>
+    <div ref={palette} className="color-picker__palette" style={position}><SingleChoice label={t("常规颜色")} className="single-choice--colors" value={custom ? "custom" : value} options={options(false)} onChange={select} onRepeatSelect={close} /><SingleChoice label={t("钛金属")} className="single-choice--colors" value={custom ? "custom" : value} options={options(true)} onChange={select} onRepeatSelect={close} /><SingleChoice label={t("其他")} className="single-choice--color-actions" value={custom ? "custom" : value} options={[{value:"",label:"未记录",icon:Palette},{value:"custom",label:"其他颜色",icon:Palette}]} onChange={select} onRepeatSelect={close} /></div>
+  </details>{custom ? <InputControl onClear={() => onChange("")} clearLabel={t("清空其他颜色")} aria-label={t("其他颜色")} value={value} onChange={event => onChange(event.target.value)} placeholder={t("填写颜色")} maxLength={60} /> : null}</div>;
 }

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Brand } from "@/components/brand";
-import { PageTitle } from "@/components/page-title";
+import { AccountBrand, AccountHeading } from "@/components/account/account-heading";
 import { AccountSettings } from "@/components/account/account-settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isSupabaseMode } from "@/lib/supabase/config";
@@ -17,9 +16,9 @@ export default async function AccountSettingsPage({ searchParams }: { searchPara
   if (error || !data.user?.email_confirmed_at) redirect("/login");
   const { notice } = await searchParams;
   return <div className={styles.page}>
-    <header className={styles.brand}><Brand href="/account/pending" /></header>
+    <AccountBrand />
     <main className={styles.main}>
-      <header className={`module-heading ${styles.heading}`}><PageTitle title="账号设置" backHref="/account/pending" backLabel="工作台" subtitle="管理登录邮箱、手机号与第三方账号" /></header>
+      <AccountHeading />
       <AccountSettings notice={notice ?? ""} />
     </main>
   </div>;

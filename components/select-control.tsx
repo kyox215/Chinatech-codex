@@ -2,9 +2,11 @@
 
 import { useLayoutEffect, useRef, type ComponentPropsWithoutRef } from "react";
 import { useControlFeedback, type ControlFeedbackProps } from "./control-feedback";
+import { useLanguage } from "./language-provider";
 
 /** Keep native selection, form events and keyboard behavior in every browser. */
 export function SelectControl({ children, multiple, size, error, hint, validationMessage, validate, onBlur, onInvalid, onChange, ...props }: ComponentPropsWithoutRef<"select"> & ControlFeedbackProps) {
+  const { locale } = useLanguage();
   const selectRef = useRef<HTMLSelectElement>(null);
   const feedback = useControlFeedback({ error, hint, validationMessage });
 
@@ -29,7 +31,7 @@ export function SelectControl({ children, multiple, size, error, hint, validatio
     select.prepend(button);
 
     return () => button.remove();
-  }, [multiple, size]);
+  }, [multiple, size, locale]);
 
   return (
     <span className="select-control">
