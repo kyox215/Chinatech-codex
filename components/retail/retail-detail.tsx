@@ -63,7 +63,7 @@ function RetailSaleForm({ unit, onClose, restoreFocusRef }: { unit: RetailUnit; 
   }, [restoreFocusRef]);
   useEffect(() => {
     heading.current?.focus({ preventScroll: true });
-    form.current?.scrollIntoView({ block: "nearest" });
+    form.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
   }, [pending]);
   async function submit(event: React.FormEvent) {
     event.preventDefault(); if (busy.current) return;
