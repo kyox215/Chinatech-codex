@@ -34,7 +34,13 @@ async function savedUnit(page: Page): Promise<RetailUnit> {
 
 async function openGroup(page: Page, groupId: string) {
   const toggle = page.locator(`[data-retail-group="${groupId}"] > button[aria-controls]`);
-  if (await toggle.isVisible() && await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  const group = page.locator(`[data-retail-group="${groupId}"]`);
+  await expect(group).toBeVisible();
+  if (await toggle.isVisible()) {
+    if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  }
+  await expect(group.locator(":scope > div[id]")).toBeVisible();
 }
 
 async function payment(page: Page, saleId: string, amount: string) {

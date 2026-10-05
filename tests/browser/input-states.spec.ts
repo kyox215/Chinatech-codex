@@ -313,6 +313,13 @@ test("预留日期遵循既有下限，错误关联日期且修正可继续", as
   await preview(page);
   const unit = retailUnits.find(unit => unit.status === "available")!;
   await page.goto(`/app/retail/units/${unit.id}`);
+  const actions = page.locator('[data-retail-group="actions"]');
+  await expect(actions).toBeVisible();
+  const toggle = actions.locator(":scope > button[aria-controls]");
+  if (await toggle.isVisible() && await toggle.getAttribute("aria-expanded") === "false") {
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  }
   await page.getByRole("button", { name: "预留商品", exact: true }).click();
   const date = page.getByLabel("预留截止日期", { exact: true });
   await date.fill("2000-01-01");

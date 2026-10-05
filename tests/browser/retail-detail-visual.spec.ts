@@ -3,7 +3,13 @@ import { retailUnits } from "../../lib/retail-fixtures";
 
 async function openGroup(page: Page, id: string) {
   const toggle = page.locator(`[data-retail-group="${id}"] > button`);
-  if (await toggle.isVisible() && await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  const group = page.locator(`[data-retail-group="${id}"]`);
+  await expect(group).toBeVisible();
+  if (await toggle.isVisible()) {
+    if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  }
+  await expect(group.locator(":scope > div[id]")).toBeVisible();
 }
 
 // All writes and screenshots use the browser preview and fictional units.
