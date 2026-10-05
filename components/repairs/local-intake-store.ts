@@ -9,6 +9,8 @@ import { emptyIntakeServices } from "@/lib/intake-services";
 import { parseStoreSettings } from "@/lib/store-settings";
 import { getRepairOrder } from "@/lib/repair-fixtures";
 import { intakeRecordTime } from "@/lib/repair-intake-record";
+import { buildRepairRework, repairOriginForSave, validateRepairReworkInput, type CreateRepairReworkInput } from "@/lib/repair-rework";
+export type { CreateRepairReworkInput } from "@/lib/repair-rework";
 import { requirePreviewPermission } from "@/lib/staff-client";
 import type { Permission } from "@/lib/staff";
 import { useSyncExternalStore } from "react";
@@ -58,8 +60,23 @@ export function saveLocalIntake(data: IntakeReceiptData, expectedRevision=0, sig
   if(data.retailOrigin) throw new Error("销售售后来源只能通过单机档案建立。");
   return persistIntake(data, "repairs.edit", actor.id,expectedRevision,signature,expectedSignatureCount);
 }
-function writeEnvelope(records:IntakeReceiptData[],signatures:IntakeSignature[],permission:Permission,actorId:string) {
-  const raw = JSON.stringify({ version: 1, records, signatures }); parseLocalIntakes(raw);
+type PreviewReworkRequest = { input: CreateRepairReworkInput; actorId: string };
+function previewReworkRequests(raw: string | null): PreviewReworkRequest[] {
+  if(raw === null) return [];
+  const requests:unknown=JSON.parse(raw).reworkRequests;
+  if(requests === undefined) return [];
+  if(!Array.isArray(requests) || requests.length>100) throw new Error("本地返修提交记录格式异常，现有记录未被覆盖。");
+  const ids=new Set<string>();
+  for(const request of requests) {
+    if(!request || typeof request!=="object" || typeof request.actorId!=="string" || !request.actorId || request.actorId.length>100) throw new Error("本地返修提交记录无效。");
+    validateRepairReworkInput(request.input);
+    if(ids.has(request.input.repairId)) throw new Error("本地返修提交编号重复。");
+    ids.add(request.input.repairId);
+  }
+  return requests;
+}
+function writeEnvelope(records:IntakeReceiptData[],signatures:IntakeSignature[],permission:Permission,actorId:string,reworkRequests=previewReworkRequests(window.localStorage.getItem(key))) {
+  const raw = JSON.stringify({ version: 1, records, signatures, ...(reworkRequests.length ? {reworkRequests} : {}) }); parseLocalIntakes(raw);
   if (requirePreviewPermission(permission).id !== actorId) throw new Error("预览身份已变化，请重新核对接机来源。");
   try { window.localStorage.setItem(key, raw); }
   catch { throw new Error("本地保存失败，请检查浏览器存储空间后重试。"); }
@@ -74,13 +91,40 @@ function persistIntake(data: IntakeReceiptData, permission: Permission, actorId:
   if((existing?.revision ?? (existing?1:0))!==expectedRevision) throw new Error("接机资料已变化，请重新打开最新工单核对。");
   if (!existing && records.length >= 100) throw new Error("本地预览已达到 100 张工单，请联系管理员处理。");
   if(existing?.retailOrigin) throw new Error("售后接机快照不能改写。");
+  const repairOrigin=repairOriginForSave(data,existing);
   const policy=existing?.policy ?? intakePolicyFromSettings();
   if(data.policy && JSON.stringify(data.policy)!==JSON.stringify(policy)) throw new Error("门店保修资料已变化，请重新核对。");
   const pricing=data.itemQuotes===undefined?{itemQuotes:existing?.itemQuotes,itemQuoteHistory:existing?.itemQuoteHistory}:updateItemQuotes(existing?.itemQuotes,data.itemQuotes,existing?.itemQuoteHistory,{id:crypto.randomUUID(),time:intakeRecordTime(),actorId});
-  const saved={...data,...pricing,policy,revision:expectedRevision+1};
+  const saved={...data,...pricing,repairOrigin,policy,revision:expectedRevision+1};
   const next=existing?records.map(item=>item.id===data.id?saved:item):[...records,saved];
   const nextSignatures=signature?appendIntakeSignature(signatures,saved,policy,signature,actorId,expectedSignatureCount):signatures;
   writeEnvelope(next,nextSignatures,permission,actorId); return saved;
+}
+export async function createRepairRework(input:CreateRepairReworkInput):Promise<string> {
+  validateRepairReworkInput(input);
+  const submitted={...input,reason:input.reason.trim()};
+  if(isBackendClient()) {
+    const state=await backendCommand("repair.rework",submitted);
+    const saved=state.intakes.find(row=>row.id===submitted.repairId);
+    if(!saved || saved.repairOrigin?.repairId!==submitted.sourceId || saved.repairOrigin.reason!==submitted.reason) throw new Error("返修保存结果暂不可用，请重新读取并核对提交回执。");
+    return saved.id;
+  }
+  const actor=requirePreviewPermission("repairs.edit");
+  const raw=window.localStorage.getItem(key),records=parseLocalIntakes(raw),signatures=parseIntakeSignatures(raw),requests=previewReworkRequests(raw);
+  const existing=records.find(row=>row.id===submitted.repairId),repeated=requests.find(row=>row.input.repairId===submitted.repairId);
+  if(repeated) {
+    if(repeated.actorId!==actor.id || JSON.stringify(repeated.input)!==JSON.stringify(submitted)) throw new Error("同一返修提交编号不能用于不同来源或内容。");
+    if(!existing || existing.repairOrigin?.repairId!==submitted.sourceId || existing.repairOrigin.reason!==submitted.reason) throw new Error("返修提交结果与来源不一致，请重新核对。");
+    return existing.id;
+  }
+  if(existing) throw new Error("返修编号已被使用，请核对原提交结果。");
+  const stored=records.find(row=>row.id===submitted.sourceId),fixture=getRepairOrder(submitted.sourceId);
+  const source=stored ?? (fixture?fixtureIntakeReceipt(fixture):undefined);
+  if(!source) throw new Error("原工单不存在，请重新核对。");
+  const current=previewRepairWorkflow(stored?intakeDirectoryEntry(stored):fixtureDirectory.find(row=>row.id===submitted.sourceId)??intakeDirectoryEntry(source));
+  const data=buildRepairRework(submitted,source,current,intakePolicyFromSettings(),intakeRecordTime());
+  writeEnvelope([...records,data],signatures,"repairs.edit",actor.id,[...requests,{input:submitted,actorId:actor.id}]);
+  return data.id;
 }
 export function saveIntakeSignature(data:IntakeReceiptData,policy:IntakePolicy,signature:IntakeSignatureDraft,expectedCount:number) {
   if(isBackendClient()) return backendCommand("intake.signature",{id:data.id,revision:data.revision??1,policy,signature,count:expectedCount});

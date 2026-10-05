@@ -2,6 +2,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { History, PackageSearch, Pencil, X } from "lucide-react";
+import { RepairProjectControls } from "./repair-project-controls";
 import { RepairItemsForm } from "./repair-items-form";
 import { useRepairDirectory } from "@/components/repairs/local-intake-store";
 import { reconfirmRepairParts, useRepairWorkflows } from "@/components/repairs/repair-workflow-store";
@@ -36,7 +37,8 @@ export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "
   return createPortal(<dialog className="repair-parts-dialog repair-part-dialog repair-items-dialog" ref={dialog} aria-labelledby={titleId} onClose={onClose} onCancel={event => { if (pending) event.preventDefault(); }}>
     <header><div><small>{repairId}</small><h2 id={titleId}>供应商与配件</h2></div><button className="icon-button" type="button" disabled={pending} onClick={close} aria-label="关闭配件操作"><X size={20} /></button></header>
     {storageError ? <p className="form-error" role="alert">{storageError}</p> : null}
-    <RepairItemsForm repairId={repairId} onSaved={onClose} onCancel={close} onPendingChange={setPending} />
+    {order ? <RepairProjectControls order={order} records={records} onPendingChange={setPending}/> : null}
+    <RepairItemsForm key={order ? currentRepairRequirements(order, workflows[order.id]).map(row => row.id).join("|") : repairId} repairId={repairId} onSaved={onClose} onCancel={close} onPendingChange={setPending} />
     {selected ? <details className="repair-workflow-history repair-existing-parts" open={initialRecordId ? true : undefined}>
       <summary><PackageSearch size={16} />配件记录 <small>{rows.length}</small></summary>
       {rows.length > 1 ? <label className="field"><span>查看配件记录</span><SelectControl aria-label="本次操作的配件" value={selected.id} onChange={event => { setSelectedId(event.target.value); setLegacyEdit(false); }}>{rows.map(row => <option key={row.id} value={row.id}>{row.item} · {row.supplier}{row.required === false ? " · 备选" : ""}</option>)}</SelectControl></label> : null}

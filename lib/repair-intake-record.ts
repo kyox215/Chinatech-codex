@@ -10,10 +10,12 @@ export type IntakeSignature = IntakeSignatureDraft & { orderId:string; actorId:s
 export type IntakeSignatureSnapshot = Pick<IntakeReceiptData,"customerName"|"phone"|"email"|"category"|"brand"|"model"|"color"|"serial"|"issue"|"accessories"|"services"|"priority"|"faults"|"issueNote"> & { policy:IntakePolicy };
 export type IntakePhotoReference = { id: string; slot: "front" | "back" | "other" };
 export type IntakePhotoAttachment = IntakePhotoReference & { mime: "image/jpeg"; base64: string };
+export type RepairOrigin = { repairId: string; reason: string };
 export type IntakeReceiptData = {
   itemQuotes?: ItemQuote[]; itemQuoteHistory?: ItemQuoteChange[];
   revision?: number; policy?: IntakePolicy; faults?: string[]; issueNote?: string;
   retailOrigin?: {unitId:string;saleId:string;caseId:string};
+  repairOrigin?: RepairOrigin;
   custody?: "store" | "customer";
   id: string; createdAt: string; updatedAt: string; previewAt: string;
   customerName: string; phone: string; email: string;
@@ -21,7 +23,7 @@ export type IntakeReceiptData = {
   issue: string; accessories: string[]; services: IntakeServices;
   priority: "普通" | "优先" | "紧急"; photoCount: number; photos?: IntakePhotoReference[];
 };
-export type RepairDirectoryEntry = Pick<RepairOrder, "id" | "status" | "statusLabel" | "tone" | "priority" | "customer" | "device" | "issue" | "accessories" | "createdAt" | "updatedAt" | "technician" | "waitingFor"> & { custody?: "store" | "customer"; requirements?: RepairRequirement[]; intakeRevision?: number; deviceFingerprint?: string };
+export type RepairDirectoryEntry = Pick<RepairOrder, "id" | "status" | "statusLabel" | "tone" | "priority" | "customer" | "device" | "issue" | "accessories" | "createdAt" | "updatedAt" | "technician" | "waitingFor"> & { repairOrigin?: RepairOrigin; custody?: "store" | "customer"; requirements?: RepairRequirement[]; intakeRevision?: number; deviceFingerprint?: string };
 export const localIntakeId = (id: string) => /^LOCAL-[A-F0-9]{16}$/.test(id);
 export function intakeRecordTime(date = new Date()): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome", dateStyle: "short", timeStyle: "medium", hour12: false }).format(date);
@@ -31,9 +33,14 @@ export function intakeDirectoryEntry(data: IntakeReceiptData): RepairDirectoryEn
     customer: { name: data.customerName || "未填写姓名", phone: data.phone },
     device: { category: data.category, brand: data.brand, model: data.model, color: data.color, serial: data.serial },
     issue: data.issue, accessories: data.accessories, createdAt: data.createdAt, updatedAt: data.updatedAt,
-    technician: "未分配", waitingFor: "接机检测", ...(data.custody ? {custody:data.custody} : {}) };
+    technician: "未分配", waitingFor: "接机检测", ...(data.custody ? {custody:data.custody} : {}), ...(data.repairOrigin ? {repairOrigin:structuredClone(data.repairOrigin)} : {}) };
 }
 function isObject(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
+export function validRepairOrigin(value: unknown): value is RepairOrigin {
+  return isObject(value) && Object.keys(value).every(key => ["repairId", "reason"].includes(key))
+    && typeof value.repairId === "string" && Boolean(value.repairId.trim()) && value.repairId.length <= 100
+    && typeof value.reason === "string" && Boolean(value.reason.trim()) && value.reason.length <= 2000;
+}
 export function validIntakePhotos(value: unknown): value is IntakePhotoReference[] {
   if (!Array.isArray(value) || value.length > 6) return false;
   const ids = new Set<string>();
@@ -70,6 +77,7 @@ export function validLocalIntake(value: unknown): value is IntakeReceiptData {
   const limits = { customerName: 80, phone: 40, email: 160, category: 60, brand: 100, model: 160, color: 60, serial: 150, issue: 3000, previewAt: 30 };
   for (const [key, max] of Object.entries(limits)) if (typeof value[key] !== "string" || value[key].length > max) return false;
   if(value.retailOrigin !== undefined && (!isObject(value.retailOrigin) || ![value.retailOrigin.unitId,value.retailOrigin.saleId,value.retailOrigin.caseId].every(item=>typeof item === "string" && item.length > 0 && item.length <= 150))) return false;
+  if(value.repairOrigin !== undefined && (!validRepairOrigin(value.repairOrigin) || value.repairOrigin.repairId === value.id || value.retailOrigin !== undefined)) return false;
   if(value.custody !== undefined && !["store", "customer"].includes(String(value.custody))) return false;
   return Boolean(String(value.phone).trim() && String(value.brand).trim() && String(value.model).trim() && String(value.issue).trim())
     && [value.createdAt, value.updatedAt].every(time => typeof time === "string" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(time))

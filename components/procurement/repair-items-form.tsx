@@ -11,6 +11,7 @@ import { useStoreSettings } from "@/components/settings/settings-store";
 import { useLocalIntakes, useRepairDirectory } from "@/components/repairs/local-intake-store";
 import { useRepairWorkflows } from "@/components/repairs/repair-workflow-store";
 import { currentRepairRequirements } from "@/lib/repair-requirements";
+import { initialRepairWorkflow, isRepairHistory, isRepairReady } from "@/lib/repair-workflow";
 import { parseItemMoney } from "@/lib/repair-item-pricing";
 import type { RepairItemEdit } from "@/lib/repair-item-editor";
 import { formatCost, isPreorder, procurementStatus, procurementStatuses } from "@/lib/procurement";
@@ -38,6 +39,8 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
   const intake = useLocalIntakes().records.find(row => row.id === repairId);
   const { workflows } = useRepairWorkflows();
   const requirements = order ? currentRepairRequirements(order, workflows[repairId]) : [];
+  const workflow = order ? workflows[repairId] ?? initialRepairWorkflow(order) : undefined;
+  const purchaseOpen = Boolean(order && workflow && !isRepairHistory(order, workflow) && !isRepairReady(workflow));
   const purchases = records.filter(row => row.repairId === repairId);
   function currentDraft(): ItemsDraft {
     return {
@@ -87,7 +90,7 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
     setDraft({ ...latest, rows: latest.rows.map(row => {
       const previous = draft.rows.find(item => item.requirementId === row.requirementId);
       const linked = purchases.filter(record => record.requirementId === row.requirementId);
-      const locked = linked.length > 1 || linked.some(record => !isPreorder(record));
+      const locked = !purchaseOpen || linked.length > 1 || linked.some(record => !isPreorder(record));
       if (locked && previous && (previous.supplier !== previous.beforeSupplier || previous.cost !== previous.beforeCost)) purchaseLocked = true;
       return previous ? {
         ...row,
@@ -133,7 +136,7 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
     <div className="repair-item-editor__cards">{draft.rows.map(row => {
       const linked = purchases.filter(record => record.requirementId === row.requirementId);
       const record = linked.length === 1 ? linked[0] : undefined;
-      const editablePurchase = canEdit && linked.length <= 1 && (!record || isPreorder(record));
+      const editablePurchase = canEdit && purchaseOpen && linked.length <= 1 && (!record || isPreorder(record));
       const Icon = row.title.includes("屏幕") ? Monitor : row.title.includes("电池") ? Battery : row.title.includes("尾插") ? Plug : Wrench;
       const status = record ? procurementStatuses[procurementStatus(record)] : null;
       const supplierChanged = row.supplier !== row.beforeSupplier && Boolean(row.supplier.trim());

@@ -12,7 +12,7 @@ export function defaultRepairGroups(): RepairGroupSettings {
     parts: partsOrder.map(key => ({ key, label: repairPartsGroups[key] })),
   };
 }
-/** Workflow names follow stages; parts names and group order remain editable. */
+/** Four daily group names are fixed; old complete ID sets remain readable without writes. */
 export function parseRepairGroups(value: unknown): RepairGroupSettings {
   const defaults = defaultRepairGroups();
   if (value === undefined) return defaults;
@@ -20,8 +20,9 @@ export function parseRepairGroups(value: unknown): RepairGroupSettings {
   const result = {} as Record<RepairGroupKind, RepairGroupItem[]>;
   for (const kind of ["workflow", "parts"] as const) {
     const rows = (value as Record<string, unknown>)[kind];
-    const legacy = kind === "workflow" && Array.isArray(rows) && rows.length === defaults.workflow.length - addedStageGroups.length && rows.every(row => !addedStageGroups.includes(row?.key));
-    if (!Array.isArray(rows) || (!legacy && rows.length !== defaults[kind].length)) throw new Error("分组必须完整保留，不能新增或删除。");
+    const legacy = kind === "workflow" && Array.isArray(rows) && rows.length === 11 && rows.every(row => row?.key !== "rework" && !addedStageGroups.includes(row?.key));
+    const stageGroups = kind === "workflow" && Array.isArray(rows) && rows.length === 15 && rows.every(row => row?.key !== "rework");
+    if (!Array.isArray(rows) || (!legacy && !stageGroups && rows.length !== defaults[kind].length)) throw new Error("分组必须完整保留，不能新增或删除。");
     const ids = new Set<string>(); const names = new Set<string>();
     result[kind] = rows.map(row => {
       if (!row || typeof row !== "object" || Array.isArray(row) || Object.keys(row).sort().join(",") !== "key,label" || !defaults[kind].some(item => item.key === row.key) || ids.has(row.key)) throw new Error("分组标识无效或重复。");
@@ -35,6 +36,10 @@ export function parseRepairGroups(value: unknown): RepairGroupSettings {
       const processing = result.workflow.findIndex(row => row.key === "processing");
       result.workflow.splice(processing, 0, ...addedStageGroups.filter(key => key !== "testing").map(key => ({ key, label: workflowGroups[key] })));
       result.workflow.splice(result.workflow.findIndex(row => row.key === "processing") + 1, 0, { key: "testing", label: workflowGroups.testing });
+    }
+    if (kind === "workflow" && (legacy || stageGroups)) {
+      const daily: WorkflowGroup[] = ["rework", "processing", "purchase", "ready"];
+      result.workflow = [...daily.map(key => ({ key, label: workflowGroups[key] })), ...result.workflow.filter(row => !daily.includes(row.key as WorkflowGroup))];
     }
   }
   return result as RepairGroupSettings;

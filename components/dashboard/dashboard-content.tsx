@@ -13,7 +13,7 @@ import { useStaff } from "@/components/staff/use-staff";
 import { useStoreSettings } from "@/components/settings/settings-store";
 import { defaultRepairGroups, visibleRepairGroups } from "@/lib/repair-groups";
 import { isBackendClient } from "@/lib/backend/client";
-import { workflowGroup, workflowGroups, repairPartsFollowup, type WorkflowGroup } from "@/lib/repair-workflow";
+import { workflowGroup, workflowGroups, repairProgress, hasCurrentRepairHandover, initialRepairWorkflow, type WorkflowGroup } from "@/lib/repair-workflow";
 import { procurementEventLabel } from "@/lib/procurement";
 import {
   ArrowRight,
@@ -30,10 +30,10 @@ import {
 type Tone = "violet" | "amber" | "mint" | "rose";
 
 const stats: Array<{ label: string; value: string; note: string; icon: typeof Clock3; tone: Tone; points: string }> = [
-  { label: "待报价", value: "8", note: "其中 3 单超过 24 小时", icon: Clock3, tone: "violet", points: "0,35 12,31 24,34 36,20 48,24 60,14 72,18 84,7 96,12 108,5" },
-  { label: "待采购", value: "5", note: "2 单等待确认供应商", icon: PackageSearch, tone: "amber", points: "0,14 12,20 24,12 36,31 48,27 60,36 72,24 84,29 96,18 108,22" },
-  { label: "维修中", value: "12", note: "今日计划完成 6 台", icon: Wrench, tone: "mint", points: "0,8 12,13 24,12 36,21 48,17 60,29 72,31 84,25 96,17 108,12" },
-  { label: "待取机", value: "6", note: "最早完成于 3 天前", icon: PackageCheck, tone: "rose", points: "0,30 12,22 24,18 36,10 48,16 60,9 72,25 84,28 96,17 108,21" },
+  { label: "返修", value: "8", note: "其中 3 单超过 24 小时", icon: Clock3, tone: "violet", points: "0,35 12,31 24,34 36,20 48,24 60,14 72,18 84,7 96,12 108,5" },
+  { label: "等配件", value: "5", note: "2 单等待确认供应商", icon: PackageSearch, tone: "amber", points: "0,14 12,20 24,12 36,31 48,27 60,36 72,24 84,29 96,18 108,22" },
+  { label: "处理中", value: "12", note: "今日计划完成 6 台", icon: Wrench, tone: "mint", points: "0,8 12,13 24,12 36,21 48,17 60,29 72,31 84,25 96,17 108,12" },
+  { label: "等取机", value: "6", note: "最早完成于 3 天前", icon: PackageCheck, tone: "rose", points: "0,30 12,22 24,18 36,10 48,16 60,9 72,25 84,28 96,17 108,21" },
 ];
 
 const repairs = [
@@ -64,11 +64,12 @@ function RealDashboardContent() {
   const counts = Object.fromEntries(Object.keys(workflowGroups).map(group => [group, 0])) as Record<WorkflowGroup, number>;
   for (const order of orders) counts[workflowGroup(order, records, workflows[order.id])]++;
   const realStats = [
-    { label: "待检测", value: orders.filter(order => order.status === "diagnosis").length, note: "接单阶段", icon: Clock3, tone: "violet" },
-    { label: "配件跟进", value: orders.filter(order => repairPartsFollowup(order, records, workflows[order.id]) !== null).length, note: "下单与到货进度", icon: PackageSearch, tone: "amber" },
-    { label: "维修与测试", value: orders.filter(order => order.status === "repairing" || order.status === "testing").length, note: "当前维修阶段", icon: Wrench, tone: "mint" },
-    { label: "待取机", value: counts.ready, note: "等待客户取机", icon: PackageCheck, tone: "rose" },
+    { label: "返修", value: counts.rework, note: "再次送回，待处理", icon: Clock3, tone: "violet" },
+    { label: "处理中", value: counts.processing, note: "检测、报价、维修与测试", icon: Wrench, tone: "mint" },
+    { label: "等配件", value: counts.purchase, note: "实际下单，尚未到齐", icon: PackageSearch, tone: "amber" },
+    { label: "等取机", value: counts.ready, note: "未通知与已通知", icon: PackageCheck, tone: "rose" },
   ];
+  const debtCount = orders.filter(order => { const current = workflows[order.id] ?? initialRepairWorkflow(order); return hasCurrentRepairHandover(current) && current.followUp?.collectedUnpaid; }).length;
   const recent = [...orders].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || left.id.localeCompare(right.id)).slice(0, 4);
   const activity = [
     ...orders.map(order => ({ id: `intake:${order.id}`, title: `${order.id} · 工单已登记`, time: order.createdAt, href: `/app/repairs/${order.id}`, tone: "violet" })),
@@ -85,13 +86,14 @@ function RealDashboardContent() {
     <section className="stat-grid" aria-label="门店待办统计">
       {realStats.map(stat => <article className="stat-card" key={stat.label}><div className="stat-card__head"><span>{stat.label}</span></div><div className="stat-card__body"><div><span className={`stat-icon stat-icon--${stat.tone}`}><stat.icon size={18} /></span><strong>{canRepairs ? stat.value : "—"}</strong><small>{canRepairs ? stat.note : "无维修查看权限"}</small></div></div></article>)}
     </section>
+    {canRepairs && debtCount > 0 ? <p className="repair-stage-note"><Link href="/app/repairs?view=history&status=handover">已取机待收尾 · {debtCount}单</Link></p> : null}
     <section className="dashboard-grid dashboard-grid--main">
       <article className="panel repair-panel">
         <div className="panel__header"><div><h2>近期工单</h2></div>{canRepairs ? <Link className="button button--secondary button--tiny" href="/app/repairs">查看全部 <ArrowRight size={15} /></Link> : null}</div>
-        {!canRepairs ? <div className="section-empty"><strong>当前账号没有维修查看权限</strong></div> : !recent.length ? <div className="section-empty"><Wrench size={24} /><strong>尚未登记工单</strong></div> : <div className="module-table-scroll" role="region" aria-label="近期工单表格" tabIndex={0}><div className="repair-table__head"><span>设备与故障</span><span>客户 / 工单号</span><span>当前状态</span><span /></div><div className="repair-list">{recent.map(order => <div className="repair-row" key={order.id}><div className="repair-row__device"><span><Smartphone size={18} /></span><div><strong>{order.device.brand} {order.device.model}</strong><small>{order.issue}</small></div></div><div className="repair-row__meta"><strong>{order.customer.name}</strong><small>{order.id}</small></div><span className={`status-pill status-pill--${order.tone}`}>{order.statusLabel}</span><Link className="row-action" href={`/app/repairs/${order.id}`} aria-label={`打开 ${order.id}`}><ChevronRight size={18} /></Link></div>)}</div></div>}
+        {!canRepairs ? <div className="section-empty"><strong>当前账号没有维修查看权限</strong></div> : !recent.length ? <div className="section-empty"><Wrench size={24} /><strong>尚未登记工单</strong></div> : <div className="module-table-scroll" role="region" aria-label="近期工单表格" tabIndex={0}><div className="repair-table__head"><span>设备与故障</span><span>客户 / 工单号</span><span>当前状态</span><span /></div><div className="repair-list">{recent.map(order => <div className="repair-row" key={order.id}><div className="repair-row__device"><span><Smartphone size={18} /></span><div><strong>{order.device.brand} {order.device.model}</strong><small>{order.issue}</small></div></div><div className="repair-row__meta"><strong>{order.customer.name}</strong><small>{order.id}</small></div><span className={`status-pill status-pill--${repairProgress(order, records, workflows[order.id]).tone}`}>{repairProgress(order, records, workflows[order.id]).label}</span><Link className="row-action" href={`/app/repairs/${order.id}`} aria-label={`打开 ${order.id}`}><ChevronRight size={18} /></Link></div>)}</div></div>}
       </article>
       <article className="panel workload-panel">
-        <div className="panel__header"><div><h2>维修阶段分布</h2></div>{canRepairs ? <span className="status-pill status-pill--info">{orders.length} 张</span> : null}</div>
+        <div className="panel__header"><div><h2>日常维修分组</h2></div>{canRepairs ? <span className="status-pill status-pill--info">{counts.rework + counts.processing + counts.purchase + counts.ready} 张</span> : null}</div>
         {canRepairs ? <div className="legend-list">{visibleRepairGroups(settings.repairGroups ?? defaultRepairGroups(), "workflow").map(({key: group, label}) => <span key={group}>{label}<strong>{counts[group]}</strong></span>)}</div> : <div className="section-empty"><strong>当前账号没有维修查看权限</strong></div>}
       </article>
     </section>
@@ -139,9 +141,9 @@ function PreviewDashboardContent() {
         </article>
 
         <article className="panel workload-panel">
-          <div className="panel__header"><div><h2>维修阶段分布</h2></div><button className="panel-menu" type="button" aria-label="更多"><MoreVertical size={17} /></button></div>
+          <div className="panel__header"><div><h2>日常维修分组</h2></div><button className="panel-menu" type="button" aria-label="更多"><MoreVertical size={17} /></button></div>
           <div className="donut"><div className="donut__center"><strong>31</strong><span>处理中</span></div></div>
-          <div className="legend-list"><span><i className="legend-dot legend-dot--violet" />待确认 <strong>8</strong></span><span><i className="legend-dot legend-dot--amber" />采购中 <strong>5</strong></span><span><i className="legend-dot legend-dot--mint" />维修中 <strong>12</strong></span><span><i className="legend-dot legend-dot--rose" />待取机 <strong>6</strong></span></div>
+          <div className="legend-list"><span><i className="legend-dot legend-dot--violet" />返修 <strong>8</strong></span><span><i className="legend-dot legend-dot--amber" />等配件 <strong>5</strong></span><span><i className="legend-dot legend-dot--mint" />处理中 <strong>12</strong></span><span><i className="legend-dot legend-dot--rose" />等取机 <strong>6</strong></span></div>
         </article>
       </section>
 

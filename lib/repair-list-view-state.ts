@@ -4,7 +4,7 @@ import type { StaffMember } from "./staff";
 
 export type RepairListViewState = {
   query: string;
-  status: "all" | "including_cancelled" | RepairStatus;
+  status: "all" | "including_cancelled" | "handover" | RepairStatus;
   partsFilter: "all" | RepairPartsGroup;
   groupBy: "workflow" | "parts" | "none";
   sort: "updated" | "created" | "priority";
@@ -12,11 +12,13 @@ export type RepairListViewState = {
   openGroups: Record<string, boolean>;
   scrollY: number;
   scrollLeft: number;
+  view?: "active" | "history" | "all";
+  noticeFilter?: "all" | "unnotified" | "notified";
 };
 export const repairListViewStorageKey = "chinatech.repair-list-view.v1";
-const statuses = ["all", "including_cancelled", "diagnosis", "awaiting_quote", "awaiting_parts", "repairing", "testing", "ready", "awaiting_reply", "collected_unpaid", "outsourced", "ready_notified", "completed", "cancelled"];
+const statuses = ["all", "including_cancelled", "handover", "diagnosis", "awaiting_quote", "awaiting_parts", "repairing", "testing", "ready", "awaiting_reply", "collected_unpaid", "outsourced", "ready_notified", "completed", "cancelled"];
 const parts = ["all", "draft", "cart", "mixed", "ordered", "complete", "unrecorded"];
-const groupIds = new Set(["all", "diagnosis", "awaiting_quote", "awaiting_parts", "testing", "awaiting_reply", "collected_unpaid", "outsourced", "processing", "purchase", "arrival", "arrival_notified", "ready", "ready_notified", "complete", "cancelled", ...parts.slice(1)]);
+const groupIds = new Set(["all", "history", "rework", "diagnosis", "awaiting_quote", "awaiting_parts", "testing", "awaiting_reply", "collected_unpaid", "outsourced", "processing", "purchase", "arrival", "arrival_notified", "ready", "ready_notified", "complete", "cancelled", ...parts.slice(1)]);
 type Envelope = { version: 1; scope: string; view: Omit<RepairListViewState, "query"> };
 let memory: { scope: string; view: RepairListViewState } | null = null;
 
@@ -42,13 +44,17 @@ function validView(value: unknown, query = ""): RepairListViewState | null {
   if (!statuses.includes(row.status as string) || !parts.includes(row.partsFilter as string)
     || !["workflow", "parts", "none"].includes(row.groupBy as string) || !["updated", "created", "priority"].includes(row.sort as string)
     || typeof row.filtersOpen !== "boolean" || !row.openGroups || typeof row.openGroups !== "object" || Array.isArray(row.openGroups)
+    || row.view !== undefined && !["active", "history", "all"].includes(row.view as string)
+    || row.noticeFilter !== undefined && !["all", "unnotified", "notified"].includes(row.noticeFilter as string)
     || ![row.scrollY, row.scrollLeft].every(number => typeof number === "number" && Number.isFinite(number) && number >= 0 && number <= 10_000_000)
     || typeof query !== "string" || query.length > 1000) return null;
   const entries = Object.entries(row.openGroups);
   if (entries.length > groupIds.size || entries.some(([id, open]) => !groupIds.has(id) || typeof open !== "boolean")) return null;
   return { query, status: row.status as RepairListViewState["status"], partsFilter: row.partsFilter as RepairListViewState["partsFilter"],
     groupBy: row.groupBy as RepairListViewState["groupBy"], sort: row.sort as RepairListViewState["sort"], filtersOpen: row.filtersOpen,
-    openGroups: Object.fromEntries(entries) as Record<string, boolean>, scrollY: row.scrollY as number, scrollLeft: row.scrollLeft as number };
+    openGroups: Object.fromEntries(entries) as Record<string, boolean>, scrollY: row.scrollY as number, scrollLeft: row.scrollLeft as number,
+    ...(row.view === undefined ? {} : { view: row.view as RepairListViewState["view"] }),
+    ...(row.noticeFilter === undefined ? {} : { noticeFilter: row.noticeFilter as RepairListViewState["noticeFilter"] }) };
 }
 
 export function clearRepairListView(storage?: Pick<Storage, "getItem" | "setItem" | "removeItem"> | null) {

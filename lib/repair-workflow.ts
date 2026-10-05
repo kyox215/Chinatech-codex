@@ -1,6 +1,6 @@
 import { repairStatusOptions, type RepairStatus, type RepairTone } from "./repair-fixtures";
 import type { RepairDirectoryEntry } from "./repair-intake-record";
-import { repairPartsSummary, type ProcurementRecord } from "./procurement";
+import { repairPartsSummary, procurementStatus, arrivedQuantity, type ProcurementRecord } from "./procurement";
 import { currentRepairRequirements, validateRepairRequirements, type RepairRequirement, type RequirementSource } from "./repair-requirements";
 
 export type DeviceCustody = "unknown" | "store" | "customer";
@@ -13,10 +13,10 @@ export const repairStageTones: Record<RepairStatus, RepairTone> = { diagnosis: "
 export const custodyLabels = { unknown: "保管待核对", store: "设备已留下", customer: "设备未留下／已交还" };
 export const repairStageGroups = { outsourced: "outsourced", diagnosis: "diagnosis", awaiting_quote: "awaiting_quote", awaiting_parts: "awaiting_parts", repairing: "processing", testing: "testing", ready: "ready", completed: "complete", cancelled: "cancelled" } as const;
 const stageLabel = (status: RepairStatus) => repairStatusOptions.find(option => option.value === status)!.label;
-// Keep old IDs readable; the visible groups use the same labels as their stages.
-export const workflowGroups = { awaiting_reply: "久等 未答复", collected_unpaid: "欠款 已拿走", outsourced: stageLabel("outsourced"), diagnosis: stageLabel("diagnosis"), awaiting_quote: stageLabel("awaiting_quote"), awaiting_parts: stageLabel("awaiting_parts"), processing: stageLabel("repairing"), testing: stageLabel("testing"), purchase: "下单", arrival: "到货", arrival_notified: "到货已通知", ready: stageLabel("ready"), ready_notified: "修好已通知", complete: stageLabel("completed"), cancelled: stageLabel("cancelled") };
+// Legacy IDs remain readable; daily groups summarize the saved business facts.
+export const workflowGroups = { rework: "返修", processing: "处理中", purchase: "等配件", ready: "等取机", awaiting_reply: "久等 未答复", collected_unpaid: "欠款 已拿走", outsourced: stageLabel("outsourced"), diagnosis: stageLabel("diagnosis"), awaiting_quote: stageLabel("awaiting_quote"), awaiting_parts: stageLabel("awaiting_parts"), testing: stageLabel("testing"), arrival: "到货", arrival_notified: "到货已通知", ready_notified: "修好已通知", complete: stageLabel("completed"), cancelled: stageLabel("cancelled") };
 export type WorkflowGroup = keyof typeof workflowGroups;
-export const retiredWorkflowGroups: WorkflowGroup[] = ["arrival_notified", "ready_notified", "awaiting_reply", "collected_unpaid", "purchase", "arrival"];
+export const retiredWorkflowGroups: WorkflowGroup[] = ["arrival_notified", "ready_notified", "awaiting_reply", "collected_unpaid", "arrival", "outsourced", "diagnosis", "awaiting_quote", "awaiting_parts", "testing", "complete", "cancelled"];
 export function initialRepairWorkflow(order: RepairDirectoryEntry): RepairWorkflow { return { revision: 0, status: order.status, custody: order.custody ?? (order.id.startsWith("LOCAL-") ? "unknown" : "store"), notice: null, events: [], updatedAt: order.updatedAt }; }
 export function isRepairReady(workflow: RepairWorkflow) { return ["ready", "ready_notified"].includes(workflow.status) || (["awaiting_reply", "collected_unpaid"].includes(workflow.status) && Boolean(workflow.readyCycle)); }
 export function repairStageStatus(workflow: Pick<RepairWorkflow, "status" | "readyCycle">): keyof typeof repairStageGroups {
@@ -44,17 +44,62 @@ export function arrivalNotice(workflow: RepairWorkflow, records: ProcurementReco
   const legacy = records.filter(row => row.repairId === id && row.required !== false).map(row => `${row.id}:${row.quantity}:${row.events.length}`).sort().join("|");
   return workflow.notice?.outcome === "notified" && (workflow.notice.signature === signature || (!requirements.length && workflow.notice.signature === legacy)) ? "已通知送机" : "未通知送机";
 }
-export function workflowGroup(order: RepairDirectoryEntry, _records: ProcurementRecord[], workflow?: RepairWorkflow): WorkflowGroup {
+const activeRepairStages: RepairStatus[] = ["diagnosis", "awaiting_quote", "awaiting_parts", "repairing", "testing", "outsourced"];
+const recoveryStageLabels = new Set(activeRepairStages.map(status => `维修阶段：${stageLabel(status)}`));
+/** Only an explicit recovery into active handling opens a new cycle after handover. */
+export function hasCurrentRepairHandover(workflow: RepairWorkflow): boolean {
+  if (!workflow.handedOver) return false;
+  const handoverIndex = workflow.events.findLastIndex(event => event.type === "followup" && event.time === workflow.handedOver!.time && event.label === "欠款已拿走：已记录");
+  const stageIndex = workflow.events.findLastIndex(event => event.type === "stage" && recoveryStageLabels.has(event.label));
+  if (handoverIndex >= 0) return stageIndex <= handoverIndex;
+  return !workflow.events.some(event => event.type === "stage" && recoveryStageLabels.has(event.label) && event.time > workflow.handedOver!.time);
+}
+export function isRepairHistory(order: RepairDirectoryEntry, workflow?: RepairWorkflow): boolean {
   const current = workflow ?? initialRepairWorkflow(order);
-  return repairStageGroups[repairStageStatus(current)];
+  return ["completed", "cancelled"].includes(repairStageStatus(current)) || hasCurrentRepairHandover(current);
+}
+export function repairPendingParts(records: ProcurementRecord[], id: string): ProcurementRecord[] {
+  return records.filter(row => row.repairId === id && row.required !== false && ["ordered", "partial"].includes(procurementStatus(row)));
+}
+export function workflowGroup(order: RepairDirectoryEntry, records: ProcurementRecord[], workflow?: RepairWorkflow): WorkflowGroup {
+  const current = workflow ?? initialRepairWorkflow(order);
+  if (repairStageStatus(current) === "cancelled") return "cancelled";
+  if (isRepairHistory(order, current)) return "complete";
+  if (isRepairReady(current)) return "ready";
+  if (repairPendingParts(records, order.id).length) return "purchase";
+  return order.repairOrigin ? "rework" : "processing";
+}
+export type RepairProgress = { label: string; tone: RepairTone; note: string };
+export function repairProgress(order: RepairDirectoryEntry, records: ProcurementRecord[], workflow?: RepairWorkflow): RepairProgress {
+  const current = workflow ?? initialRepairWorkflow(order);
+  const stage = repairStageStatus(current);
+  const group = workflowGroup(order, records, current);
+  const requirements = currentRepairRequirements(order, current);
+  const parts = repairPartsSummary(records, order.id, requirements);
+  if (group === "cancelled") return { label: "作废", tone: "warning", note: current.custody === "store" ? "设备待交还" : "" };
+  if (group === "complete") return { label: stage === "completed" ? "维修结束" : "已取机 · 待收尾", tone: "success", note: current.followUp?.collectedUnpaid ? "欠款待收尾" : !hasCurrentRepairHandover(current) && current.custody !== "customer" ? "交还待核对" : "" };
+  if (group === "ready") return { label: pickupNotice(current).startsWith("已通知") ? "已通知" : "未通知", tone: "success", note: parts.unresolvedRequirements || parts.total > 0 && !parts.allRequiredReady ? "配件待核对" : "" };
+  if (group === "purchase") {
+    const arrived = records.some(row => row.repairId === order.id && row.required !== false && arrivedQuantity(row) > 0);
+    return { label: arrived ? "部分到货" : "已下单", tone: "info", note: parts.unresolvedRequirements ? "需求待核对" : parts.ordered < parts.total ? "其余待下单" : "" };
+  }
+  if (["awaiting_quote", "repairing", "testing", "outsourced"].includes(stage)) return { label: stageLabel(stage), tone: repairStageTones[stage], note: parts.unresolvedRequirements && records.some(row => row.repairId === order.id) ? "需求待核对" : "" };
+  if (parts.allRequiredReady && parts.total > 0) return { label: current.custody === "customer" ? "待送机" : "已到货", tone: "info", note: current.custody === "unknown" ? "保管待核对" : "" };
+  if (parts.inCart > 0) return { label: "已加车", tone: "info", note: parts.unresolvedRequirements ? "需求待核对" : "" };
+  return { label: stage === "awaiting_parts" ? "待选配件" : "待检测", tone: repairStageTones[stage], note: parts.ordered > 0 || parts.arrived > 0 ? "其余配件待核对" : "" };
+}
+/** A new purchase requires an explicitly active repair; arrival/correction facts stay appendable. */
+export function assertRepairProcurementOpen(order: RepairDirectoryEntry, workflow?: RepairWorkflow): void {
+  const current = workflow ?? initialRepairWorkflow(order);
+  if (isRepairHistory(order, current) || isRepairReady(current)) throw new Error("请先明确恢复维修，再新增配件或下单。");
 }
 /** Actual procurement progress remains independent of the manually selected stage. */
 export function repairPartsFollowup(order: RepairDirectoryEntry, records: ProcurementRecord[], workflow?: RepairWorkflow): "purchase" | "arrival" | null {
   const current = workflow ?? initialRepairWorkflow(order);
-  if (current.status !== "diagnosis" && current.status !== "awaiting_parts") return null;
+  if (isRepairHistory(order, current) || isRepairReady(current)) return null;
   const parts = repairPartsSummary(records, order.id, currentRepairRequirements(order, current));
   if (parts.allRequiredReady && parts.total > 0) return "arrival";
-  return parts.ordered > 0 ? "purchase" : null;
+  return repairPendingParts(records, order.id).length ? "purchase" : null;
 }
 export function stageChangeNeedsNote(previous: RepairStatus, next: RepairStatus) { return ["cancelled", "collected_unpaid"].includes(next) || ["completed", "cancelled", "collected_unpaid"].includes(previous); }
 export function applyWorkflowCommand(workflow: RepairWorkflow, command: WorkflowCommand, activity: Pick<RepairActivity, "id" | "time" | "actorId">, records: ProcurementRecord[], repairId: string, revision: number, order: RequirementSource = {}) {
@@ -65,6 +110,7 @@ export function applyWorkflowCommand(workflow: RepairWorkflow, command: Workflow
   const next = { ...workflow }; let label = ""; let note = "";
   const requirements = currentRepairRequirements(order, workflow);
   if (command.type === "requirement") {
+    if (isRepairReady(workflow) || hasCurrentRepairHandover(workflow) || ["completed", "cancelled"].includes(repairStageStatus(workflow))) throw new Error("请先明确恢复维修，再新增或更改维修项目。 ");
     validateRepairRequirements([command.item]); if (typeof command.note !== "string") throw new Error("备注格式无效。"); note = command.note.trim(); if (note.length > 1200) throw new Error("备注最多1200字。");
     const item = command.item; const existing = requirements.find(row => row.id === item.id); const source = order.requirements?.find(row => row.id === item.id);
     if (order.deviceFingerprint && item.deviceFingerprint !== order.deviceFingerprint) throw new Error("设备型号已变化，请重新核对项目。 ");
@@ -81,7 +127,7 @@ export function applyWorkflowCommand(workflow: RepairWorkflow, command: Workflow
     next.requirements = [...requirements.filter(row => row.id !== item.id), saved]; validateRepairRequirements(next.requirements);
     label = `${saved.title}：${saved.mode === "none" ? "无需采购" : saved.confirmed ? "本项目配件已登记" : "待核对／选件"}`;
   } else if (command.type === "quote_contact") {
-    if (["completed", "cancelled"].includes(workflow.status)) throw new Error("已完成或作废工单只能查看报价沟通记录。");
+    if (["completed", "cancelled"].includes(repairStageStatus(workflow)) || hasCurrentRepairHandover(workflow)) throw new Error("历史工单只能查看报价沟通记录，请先明确恢复维修。");
     if (!Object.hasOwn(quoteContactLabels, command.outcome)) throw new Error("请选择实际报价沟通结果。");
     if (typeof command.note !== "string" || !command.note.trim() || command.note.trim().length > 1200) throw new Error("请填写报价沟通说明，最多1200字。");
     note = command.note.trim();
@@ -91,6 +137,13 @@ export function applyWorkflowCommand(workflow: RepairWorkflow, command: Workflow
     if (!repairStatusOptions.some(option => option.value === command.status)) throw new Error("请选择有效维修阶段。");
     if (typeof command.note !== "string") throw new Error("备注格式无效。"); note = command.note.trim(); if (note.length > 1200) throw new Error("备注最多1200字。");
     if (command.status === workflow.status) throw new Error("维修阶段没有变化。");
+    const handedOver = hasCurrentRepairHandover(workflow);
+    if (handedOver && ["ready", "ready_notified", "awaiting_reply"].includes(command.status)) throw new Error("设备已取走，请先明确恢复维修，再核对修好及取机通知。");
+    if (handedOver && activeRepairStages.includes(command.status) && !note) throw new Error("恢复维修需要填写原因。");
+    if (command.status === "ready" && !isRepairReady(workflow)) {
+      const parts = repairPartsSummary(records, repairId, requirements);
+      if (parts.unresolvedRequirements || parts.total > 0 && !parts.allRequiredReady) throw new Error("必需配件未到齐或维修项目待核对，请先核对再设为等取机。");
+    }
     if (stageChangeNeedsNote(workflow.status, command.status) && !note) throw new Error("作废、欠款取走或恢复工单需要填写原因。");
     if (command.status === "collected_unpaid") throw new Error("请在修好跟进中核对实际交还及欠款，不用阶段标记代替交还事实。");
     if (command.status === "ready_notified") {
@@ -111,6 +164,7 @@ export function applyWorkflowCommand(workflow: RepairWorkflow, command: Workflow
     next.custody = command.custody; label = custodyLabels[command.custody];
   } else if (command.type === "followup") {
     if (!isRepairReady(workflow) && !(command.value === false && workflow.followUp?.[command.flag])) throw new Error("请先核对工单已修好；旧跟进状态不能推断修好。");
+    if (command.value && hasCurrentRepairHandover(workflow)) throw new Error("设备已取走，只能结束既有跟进或明确恢复维修。");
     if (!["awaitingReply", "collectedUnpaid"].includes(command.flag) || typeof command.value !== "boolean") throw new Error("跟进状态无效。");
     if (typeof command.note !== "string") throw new Error("备注格式无效。"); note = command.note.trim(); if (note.length > 1200) throw new Error("备注最多1200字。"); if (!note) throw new Error("请填写跟进说明。");
     if (command.flag === "collectedUnpaid" && command.value) {
@@ -122,6 +176,7 @@ export function applyWorkflowCommand(workflow: RepairWorkflow, command: Workflow
   } else {
     if (!["notified", "unreachable"].includes(command.outcome)) throw new Error("请选择实际沟通结果。");
     if (typeof command.note !== "string") throw new Error("备注格式无效。"); note = command.note.trim(); if (note.length > 1200) throw new Error("备注最多1200字。");
+    if (hasCurrentRepairHandover(workflow) || ["completed", "cancelled"].includes(repairStageStatus(workflow))) throw new Error("历史工单不能新增到货或取机通知，请先明确恢复维修。");
     if (command.type === "arrival_notice") {
       const signature = partsSignature(records, repairId, requirements);
       if (workflow.custody !== "customer" || !signature) throw new Error("仅设备未留下且需求已核对、必需配件到齐时记录到货通知。");

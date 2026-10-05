@@ -116,7 +116,7 @@ export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settin
   }
   return createPortal(<dialog ref={dialog} className={`repair-parts-dialog ${styles.dialog}`} aria-label="管理维修分组" onCancel={event => { event.preventDefault(); if (pointer.current) { settle.current = capturePositions(); stopFrame(); pointer.current = null; setDrag(null); } else if (!busy.current) onClose(); }} onClose={event => { if (!event.currentTarget.open) onClose(); }}>
     <header><h2>管理{kind === "workflow" ? "维修状态" : "配件"}分组</h2><button className="icon-button" type="button" disabled={saving} aria-label="关闭分组管理" onClick={onClose}><X size={18} /></button></header>
-    <p className={styles.hint}>{kind === "workflow" ? "名称与维修阶段一致，拖动手柄调整顺序。" : "拖动手柄调整顺序，修改名称后保存。"}更改对全店生效。</p>
+    <p className={styles.hint}>{kind === "workflow" ? "日常分组名称统一，拖动手柄调整顺序。" : "拖动手柄调整顺序，修改名称后保存。"}更改对全店生效。</p>
     <div className={styles.list} ref={list} data-dragging={Boolean(drag)}>
       {drag ? <div className={styles.placeholder} aria-hidden="true" style={{ top: drag.positions[drag.to].top, height: drag.positions[drag.from].height }} /> : null}
       {rows.map((row, index) => <div className={`${styles.row}${drag?.key === row.key ? ` ${styles.dragging}` : ""}`} style={{ transform: `translateY(${rowOffset(index, row.key)}px)` }} key={row.key} data-repair-group={row.key}>

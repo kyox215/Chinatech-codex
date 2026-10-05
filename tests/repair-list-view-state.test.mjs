@@ -104,3 +104,9 @@ test("新增维修阶段分组的展开状态在刷新后保留", () => {
   const cold=harness();cold.setRaw(h.raw());
   assert.deepEqual(snapshot(cold.readRepairListView('STAGE-SCOPE',cold.storage).openGroups),openGroups);
 });
+
+
+test("日常/历史/全部及取机通知筛选持久恢复，非法范围拒绝",()=>{
+ for(const scope of ['active','history','all']) {const h=harness();const value={...view,view:scope,noticeFilter:'notified',status:'handover',openGroups:{rework:true,history:false}};assert.equal(h.writeRepairListView('NEW',value,h.storage),true);const cold=harness();cold.setRaw(h.raw());assert.deepEqual(snapshot(cold.readRepairListView('NEW',cold.storage)),{...value,query:''});}
+ for(const change of [{view:'invented'},{noticeFilter:'unreachable'}]){const h=harness();h.setRaw(JSON.stringify({version:1,scope:'S',view:{...view,...change}}));assert.equal(h.readRepairListView('S',h.storage),null);}
+});

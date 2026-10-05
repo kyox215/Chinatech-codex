@@ -31,6 +31,7 @@ async function seed(page: Page, count = 24, readyForPickup = false) {
   for (const record of records) {
     const order = intakeDirectoryEntry(record);
     let workflow = initialRepairWorkflow(order);
+    if (readyForPickup) for(const item of order.requirements ?? []) workflow=applyWorkflowCommand(workflow,{type:"requirement",item:{...item,mode:"none",confirmed:true},note:"DEMO仅人工处理，不需采购"},{id:`demo-none-${record.id}-${item.id}`,time:"2026-10-01 09:00:30",actorId:"DEMO-OWNER"},[],record.id,workflow.revision,order);
     workflow = applyWorkflowCommand(workflow, { type: "stage", status: readyForPickup ? "ready" : "awaiting_quote", note: "" },
       { id: `demo-stage-${record.id}`, time: "2026-10-01 09:01:00", actorId: "DEMO-OWNER" }, [], record.id, workflow.revision, order);
     if (readyForPickup) {
@@ -99,7 +100,7 @@ async function showSyntheticRows(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
-  expect((await page.request.post("/api/preview-session", { data: { email: "demo@chinatech.local", password: "Preview2026!" } })).status()).toBe(200);
+  await page.goto("/login");await page.getByRole("button",{name:"填入演示账号",exact:true}).click();await page.getByRole("button",{name:"登录工作台",exact:true}).click();await expect(page).toHaveURL(/\/app\/dashboard$/);
 });
 
 for (const method of ["page return", "browser back"] as const) {
@@ -170,7 +171,7 @@ test("changing identity or member version applies defaults and cannot revive the
   await expect(page.getByLabel("工单分组", { exact: true })).toHaveValue("workflow");
   await expect(page.getByLabel("工单排序", { exact: true })).toHaveValue("updated");
   await expect(page.getByRole("button", { name: /^筛选/ })).toHaveAttribute("aria-expanded", "false");
-  await expect(page.locator('.repair-group-toggle[aria-expanded="true"]')).toHaveCount(0);
+  await expect(page.locator('.repair-group-toggle[aria-expanded="false"]')).toHaveCount(0);
   await expect.poll(() => page.evaluate(key => JSON.parse(sessionStorage.getItem(key)!).scope, repairListViewStorageKey)).not.toBe(oldScope);
   await page.evaluate(key => {
     const raw = JSON.parse(localStorage.getItem(key)!);
@@ -207,7 +208,7 @@ test("quote contact appends real local history and remains shared by list, detai
     await expect(dialog).not.toBeVisible();
     await expect(row.locator(".repair-contact__quote")).toHaveText(outcome.label);
     await expect(row).toContainText("已通知取机");
-    await expect(row.getByRole("button", { name: `${firstId} 更改维修阶段`, exact: true })).toHaveText("待取机");
+    await expect(row.getByRole("button", { name: `${firstId} 更改维修阶段`, exact: true })).toHaveText("已通知");
     const saved = await quoteWorkflow(page);
     expect(saved.quoteContact).toEqual(expect.objectContaining({ outcome: outcome.outcome, note: `DEMO 报价沟通事实 ${index + 1}`, actorId: "DEMO-OWNER" }));
     expect(saved.revision).toBe(original.revision + index + 1);

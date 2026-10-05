@@ -11,13 +11,22 @@ import { useRepairDirectory } from "@/components/repairs/local-intake-store";
 import { arrivedQuantity, procurementStatus } from "@/lib/procurement";
 import { resolveSupplierId } from "@/lib/procurement-batch";
 import { useProcurement } from "./procurement-provider";
-export function SupplierBatchDialog({action,onClose}:{action:"ordered"|"arrival";onClose:()=>void}) {
+import { isRepairHistory, isRepairReady, initialRepairWorkflow } from "@/lib/repair-workflow";
+import { useRepairWorkflows } from "@/components/repairs/repair-workflow-store";
+export function SupplierBatchDialog({action,onClose,repairId,onSaved}:{action:"ordered"|"arrival";onClose:()=>void;repairId?:string;onSaved?:(repairIds:string[])=>void}) {
   const staff=useStaff();const canEdit=staff.can("repairs.edit");const {records,dispatch}=useProcurement();const {settings}=useStoreSettings();const orders=useRepairDirectory();
+  const {workflows}=useRepairWorkflows();
   const [supplierId,setSupplierId]=useState("");const [selected,setSelected]=useState<Record<string,{revision:number;quantity:string}>>({});
   const [confirming,setConfirming]=useState(false);const [error,setError]=useState("");const [pending,setPending]=useState(false);const [success,setSuccess]=useState("");const busy=useRef(false);
   const dialog=useRef<HTMLDialogElement>(null);const titleId=useId();
   useEffect(()=>{dialog.current?.showModal();},[]);
-  const eligible=records.filter(row=>action==="ordered"?procurementStatus(row)==="cart":!['draft','cart','complete'].includes(procurementStatus(row)));
+  const eligible=records.filter(row=>{
+    if(repairId && row.repairId!==repairId)return false;
+    if(action!=="ordered")return !['draft','cart','complete'].includes(procurementStatus(row));
+    const order=orders.find(order=>order.id===row.repairId);if(!order)return false;
+    const flow=workflows[order.id]??initialRepairWorkflow(order);
+    return procurementStatus(row)==="cart" && !isRepairHistory(order,flow) && !isRepairReady(flow);
+  });
   const unresolved=eligible.filter(row=>!resolveSupplierId(row,settings.suppliers));
   const suppliers=settings.suppliers.filter(supplier=>eligible.some(row=>resolveSupplierId(row,settings.suppliers)===supplier.id));
   const rows=eligible.filter(row=>resolveSupplierId(row,settings.suppliers)===supplierId);
@@ -27,6 +36,7 @@ export function SupplierBatchDialog({action,onClose}:{action:"ordered"|"arrival"
   async function save(){if(busy.current||!canEdit)return;busy.current=true;setPending(true);setError("");try{
     if(changed)throw new Error("采购条目已变化，请重新核对整批。");
     await dispatch({type:"batch",action,supplierId,items:chosen.map(row=>({id:row.id,revision:selected[row.id].revision,...(action==="arrival"?{quantity:Number(selected[row.id].quantity)}:{})}))});
+    onSaved?.([...new Set(chosen.map(row=>row.repairId))]);
     setSelected({});setConfirming(false);setSuccess(action==="ordered"?"本供应商所选条目已记录实际下单。":"本批实际到货已保存。");
   }catch(reason){setError(reason instanceof Error?reason.message:"保存失败，清单已保留。");}finally{busy.current=false;setPending(false);}}
   const total=chosen.reduce((sum,row)=>sum+(action==="ordered"?row.quantity:Number(selected[row.id].quantity)||0),0);

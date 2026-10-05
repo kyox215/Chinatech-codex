@@ -197,8 +197,8 @@ test("mobile continuous rows keep two-line density, full quote follow-up and act
   await seed(page, { records, workflows, procurement: prepared.changedRecords, settings });
   await page.goto("/app/repairs");
   await page.getByRole("textbox", { name: "搜索维修工单" }).fill("示例客户");
-  await page.locator("#repair-group-diagnosis").click();
-  const rows = page.locator("#repair-group-rows-diagnosis article");
+  if(await page.locator("#repair-group-processing").getAttribute("aria-expanded")==="false")await page.locator("#repair-group-processing").click();
+  const rows = page.locator("#repair-group-rows-processing article");
   await expect(rows).toHaveCount(3);
   const unchanged = () => page.evaluate(() => ["chinatech.m1.local-intakes.v1", "chinatech.m1.procurement.v1", "chinatech.m1.repair-workflow.v1"].map(key => localStorage.getItem(key)));
   const before = await unchanged();
@@ -236,7 +236,7 @@ test("mobile continuous rows keep two-line density, full quote follow-up and act
   await expectPageFits(page);
   await page.screenshot({ path: `.local/ui-proof/repair-mobile-implementation/${info.project.name}-1440.png` });
   await page.reload();
-  await expect(page.locator("#repair-group-diagnosis")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator("#repair-group-processing")).toHaveAttribute("aria-expanded", "true");
   expect(await unchanged()).toEqual(before);
 });
 
@@ -250,19 +250,14 @@ function longFactsSeed(): Seed {
     const record = intake(`LOCAL-C00000000000000${index + 1}`, `${longModel} · ${index + 1}`);
     const order = intakeDirectoryEntry(record);
     let workflow = initialRepairWorkflow(order);
+    const battery=order.requirements!.find(row=>row.title==="电池")!;
+    workflow=applyWorkflowCommand(workflow,{type:"requirement",item:{...battery,mode:"none",confirmed:true},note:"DEMO电池仅人工处理"},{id:`demo-no-battery-${index}`,time,actorId:"DEMO-OWNER"},[],record.id,workflow.revision,order);
     let sequence = 0;
     const apply = (command: WorkflowCommand) => {
       workflow = applyWorkflowCommand(workflow, command, {
         id: `demo-list-${index}-${++sequence}`, time, actorId: "DEMO-OWNER",
       }, [], record.id, workflow.revision, order);
     };
-    apply({ type: "stage", status: "ready", note: "DEMO 已在本地核对维修完成" });
-    if (index !== 1) apply({ type: "pickup_notice", outcome: "notified", note: "DEMO 本地合成通知事实" });
-    if (index !== 2) apply({ type: "followup", flag: "awaitingReply", value: true, note: "DEMO 本地合成久等事实" });
-    if (index !== 1) {
-      apply({ type: "followup", flag: "collectedUnpaid", value: true, delivered: true, unpaid: true, note: "DEMO 已核对合成交还与欠款" });
-      if (index === 2) apply({ type: "followup", flag: "collectedUnpaid", value: false, note: "DEMO 合成欠款跟进已结束" });
-    }
     const screen = order.requirements!.find(requirement => requirement.title === "屏幕")!;
     const prepared = prepareRepairItemEdits({
       repairId: record.id, intakeRevision: 1, workflowRevision: workflow.revision,
@@ -270,9 +265,18 @@ function longFactsSeed(): Seed {
         purchase: { id: `demo-list-purchase-${index}`, revision: 0, supplierId: "demo-list-long", unitCostCents: null } }],
     }, { intake: record, workflow, records: [], suppliers: settings.suppliers, canEditCost: true,
       activity: { id: `demo-list-parts-${index}`, time, actorId: "DEMO-OWNER" } });
+    const arrived=prepared.changedRecords.map(row=>({...row,events:[...row.events,{id:`demo-order-${index}`,type:"ordered" as const,time,quantity:0,note:"DEMO已下单"},{id:`demo-arrival-${index}`,type:"arrival" as const,time,quantity:row.quantity,note:"DEMO已到齐"}]}));
+    workflow=prepared.workflow!;
+    workflow=applyWorkflowCommand(workflow,{type:"stage",status:"ready",note:"DEMO本地维修完成"},{id:`demo-ready-${index}`,time,actorId:"DEMO-OWNER"},arrived,record.id,workflow.revision,intakeDirectoryEntry(prepared.intake));
+    if (index !== 1) apply({ type: "pickup_notice", outcome: "notified", note: "DEMO 本地合成通知事实" });
+    if (index !== 2) apply({ type: "followup", flag: "awaitingReply", value: true, note: "DEMO 本地合成久等事实" });
+    if (index !== 1) {
+      apply({ type: "followup", flag: "collectedUnpaid", value: true, delivered: true, unpaid: true, note: "DEMO 已核对合成交还与欠款" });
+      if (index === 2) apply({ type: "followup", flag: "collectedUnpaid", value: false, note: "DEMO 合成欠款跟进已结束" });
+    }
     records.push(prepared.intake);
-    workflows[record.id] = prepared.workflow!;
-    procurement.push(...prepared.changedRecords);
+    workflows[record.id] = workflow;
+    procurement.push(...arrived);
   }
   return { records, workflows, procurement, settings };
 }
@@ -282,12 +286,15 @@ test("long synthetic models, suppliers and follow-up facts leave list controls r
   const data = longFactsSeed();
   await seed(page, data);
   await page.goto("/app/repairs");
+  await page.getByRole("button",{name:/^全部工单/}).click();
   await showRows(page);
 
   for (const width of [375, 1440, 1024]) {
     await test.step(`${width}px: facts remain visible and each dialog can actually open`, async () => {
       await page.setViewportSize({ width, height: 1000 });
-      await showRows(page);
+      await page.getByRole("textbox",{name:"搜索维修工单"}).fill("DEMO-LIST");
+      const filters=page.getByRole("button",{name:/^筛选/});if(await filters.getAttribute("aria-expanded")==="false")await filters.click();
+      await page.getByLabel("工单分组").selectOption("none");
       await expectPageFits(page);
       const table = page.getByRole("region", { name: "工单表格", exact: true });
       if (width === 1024) {
@@ -296,13 +303,13 @@ test("long synthetic models, suppliers and follow-up facts leave list controls r
         expect(await table.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
         await expectPageFits(page);
       }
-      await page.locator("#repair-group-rows-ready").screenshot({ path: `.local/ui-proof/repair-mobile-implementation/long-${info.project.name}-${width}.png` });
+      await page.locator("#repair-group-rows-all").screenshot({ path: `.local/ui-proof/repair-mobile-implementation/long-${info.project.name}-${width}.png` });
       for (const [index, record] of data.records.entries()) {
         const row = page.getByRole("article", { name: `${record.id} ${record.model}`, exact: true });
         const model = row.getByRole("link", { name: `打开 ${record.id} ${record.model} 详情`, exact: true });
         await expect(model).toBeVisible();
         await expect(row.locator(".repair-module-row__waiting")).toHaveCount(0);
-        await expect(row.getByText(index === 1 ? "未通知取机" : "已通知取机", { exact: true })).toBeVisible();
+        if(index === 1) await expect(row.getByText("未通知取机", { exact: true })).toBeVisible(); else await expect(row.locator(".repair-stage-button")).toHaveText("已取机 · 待收尾");
         if (index !== 2) await expect(row.getByText("久等未答复", { exact: true })).toBeVisible();
         if (index === 0) await expect(row.getByText("已交还 · 欠款待跟进", { exact: true })).toBeVisible();
         if (index !== 1) await expect(row.getByText("有实际交还记录（当时未结清）", { exact: true })).toBeVisible();
@@ -327,7 +334,8 @@ test("long synthetic models, suppliers and follow-up facts leave list controls r
         await parts.click();
         const partsDialog = page.getByRole("dialog", { name: "供应商与配件", exact: true });
         await expect(partsDialog).toBeVisible();
-        await expect(partsDialog.getByRole("group", { name: "屏幕", exact: true }).getByRole("combobox", { name: "供应商（选填）" })).toHaveValue(longSupplier);
+        await expect(partsDialog.getByRole("group", { name: "屏幕", exact: true })).toContainText(longSupplier);
+        await expect(partsDialog.getByRole("combobox", { name: "供应商（选填）" })).toHaveCount(0);
         await partsDialog.getByRole("button", { name: "取消", exact: true }).press("Enter");
         await expect(partsDialog).not.toBeVisible();
         await expectReturnedFocus(parts);
@@ -336,7 +344,7 @@ test("long synthetic models, suppliers and follow-up facts leave list controls r
         await stage.click();
         const stageDialog = page.getByRole("dialog", { name: "更改维修阶段", exact: true });
         await expect(stageDialog).toBeVisible();
-        await expect(stageDialog.getByRole("button", { name: "待取机", exact: true })).toHaveAttribute("aria-pressed", "true");
+        await expect(stageDialog.getByRole("button", { name: "修好，等取机", exact: true })).toHaveAttribute("aria-pressed", "true");
         await stageDialog.getByRole("button", { name: "取消", exact: true }).click();
         await expect(stageDialog).not.toBeVisible();
 
@@ -344,7 +352,7 @@ test("long synthetic models, suppliers and follow-up facts leave list controls r
         await contact.click();
         const contactDialog = page.getByRole("dialog", { name: "工单联系与跟进", exact: true });
         await expect(contactDialog).toBeVisible();
-        await expect(contactDialog.getByRole("button", { name: "已实际成功通知取机", exact: true })).toBeEnabled();
+        if(index===1) await expect(contactDialog.getByRole("button", { name: "已实际成功通知取机", exact: true })).toBeEnabled(); else await expect(contactDialog.getByRole("button", { name: "已实际成功通知取机", exact: true })).toHaveCount(0);
         await contactDialog.getByRole("button", { name: "关闭", exact: true }).click();
         await expect(contactDialog).not.toBeVisible();
         await expect(contact).toBeFocused();

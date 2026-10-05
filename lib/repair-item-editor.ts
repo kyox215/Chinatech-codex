@@ -1,7 +1,7 @@
 import { intakeDirectoryEntry, validLocalIntake, type IntakeReceiptData } from "./repair-intake-record";
 import { updateItemQuotes, validItemQuotes } from "./repair-item-pricing";
 import { currentRepairRequirements, validateRepairRequirements } from "./repair-requirements";
-import { validateWorkflowExtensions, type RepairWorkflow } from "./repair-workflow";
+import { validateWorkflowExtensions, assertRepairProcurementOpen, type RepairWorkflow } from "./repair-workflow";
 import { appendProcurementEvent, isPreorder, procurementStatus, validateProcurementDraft, type ProcurementRecord } from "./procurement";
 import type { StoreSettings } from "./store-settings";
 
@@ -94,6 +94,7 @@ export function prepareRepairItemEdits(input: RepairItemsEdit, context: {
   if (!validLocalIntake(nextIntake)) throw new RepairItemEditError("接机报价资料无效。");
   let nextWorkflow: RepairWorkflow | undefined;
   if (changedRecords.length) {
+    assertRepairProcurementOpen(order,workflow);
     if (workflow.events.length >= 1000 || workflow.events.some(event => event.id === activity.id) || activity.time < workflow.updatedAt) throw new RepairItemEditError("维修历史重复、已达上限或时间无效。");
     const nextRequirements = requirements.map(row => purchasedRequirements.has(row.id) ? {
       ...row, sourceFingerprint: order.requirements?.find(source => source.id === row.id)?.sourceFingerprint,

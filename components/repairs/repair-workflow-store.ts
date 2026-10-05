@@ -48,6 +48,7 @@ export function updateRepairWorkflow(order: RepairDirectoryEntry, command: Workf
 }
 
 export function previewRepairWorkflow(order: RepairDirectoryEntry) { return parse(window.localStorage.getItem(key))[order.id] ?? initialRepairWorkflow(order); }
+export function currentRepairWorkflow(order: RepairDirectoryEntry) { return isBackendClient() ? backendSnapshot()?.workflows[order.id] ?? initialRepairWorkflow(order) : previewRepairWorkflow(order); }
 
 export async function reconfirmRepairParts(order:RepairDirectoryEntry,requirementId:string,items:{id:string;revision:number}[],workflowRevision:number,intakeRevision:number){
   if(isBackendClient()){await backendCommand("procurement.reconfirm",{repairId:order.id,requirementId,items,workflowRevision,intakeRevision});return;}

@@ -1,15 +1,16 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { Banknote, CalendarClock, CheckCircle2, ClipboardCheck, FileClock, Flag, Gamepad2, Laptop, Link2, Package, Phone, Printer, ScanLine, Smartphone, Tablet, UserRound, Wrench, ChevronDown } from "lucide-react";
+import { Banknote, CalendarClock, CheckCircle2, ClipboardCheck, FileClock, Flag, Gamepad2, Laptop, Package, Phone, Printer, ScanLine, Smartphone, Tablet, UserRound, Wrench, ChevronDown } from "lucide-react";
 import { IntakeReceipt } from "./intake-receipt";
 import { fixtureIntakeReceipt } from "@/lib/repair-intake-record";
 import { IntakeSignatureSection } from "./intake-signature";
 import { customerId } from "@/lib/customers";
+import { RepairReworkControl } from "./repair-rework-control";
 import { PageTitle } from "@/components/page-title";
 import { ColorSwatch } from "@/components/color-picker";
 import type { RepairOrder } from "@/lib/repair-fixtures";
-import { useRepairDirectory } from "./local-intake-store";
+import { useRepairDirectory, useLocalIntakes } from "./local-intake-store";
 import { RepairWorkflowPanel } from "./repair-workflow-panel";
 import { RepairProcurementSummary } from "@/components/procurement/procurement-summary";
 import styles from "./repair-detail.module.css";
@@ -19,19 +20,22 @@ const deviceIcons = { 手机: Smartphone, 电脑: Laptop, 平板: Tablet, 游戏
 export function RepairDetail({ initialOrder }: { initialOrder: RepairOrder }) {
   const [printOpen, setPrintOpen] = useState(false);
   const directory = useRepairDirectory();
+  const reworks = useLocalIntakes().records.filter(row => row.repairOrigin?.repairId === initialOrder.id);
   const repair = { ...initialOrder, ...directory.find(order => order.id === initialOrder.id) };
   const receiptData=fixtureIntakeReceipt(initialOrder);
   const hasQuote = repair.quote.version > 0;
   const DeviceIcon = deviceIcons[repair.device.category as keyof typeof deviceIcons] ?? Wrench;
 
+  const order = directory.find(row => row.id === repair.id);
   return <main className="module-page repair-detail">
     <div className="module-heading repair-detail__toolbar">
       <PageTitle title={repair.id} backHref="/app/repairs" backLabel="工单列表" backScroll={false} />
       <div className="module-heading__actions">
         <button className="button button--secondary button--compact page-toolbar-action" type="button" onClick={() => setPrintOpen(true)} aria-label="打印接机单" title="打印接机单"><Printer size={16} /><span>打印接机单</span></button>
-        <Link className="button button--primary button--compact page-toolbar-action" href="/app/repairs/new" aria-label="关联售后工单" title="关联售后工单"><Link2 size={17} /><span>关联售后工单</span></Link>
+        {order ? <RepairReworkControl order={order}/> : null}
       </div>
     </div>
+    {reworks.length ? <div className="local-intake-meta">{reworks.map(row => <Link key={row.id} href={`/app/repairs/${row.id}`}>返修单 {row.id}</Link>)}</div> : null}
     <div className={styles.columns}>
         <section className={`panel ${styles.device}`} aria-label="设备与故障">
           <header className={styles.deviceHeader}>

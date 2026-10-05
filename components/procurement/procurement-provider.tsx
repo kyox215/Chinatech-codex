@@ -11,7 +11,7 @@ import { parseStoreSettings } from "@/lib/store-settings";
 import { can } from "@/lib/staff";
 import { updateItemQuotes } from "@/lib/repair-item-pricing";
 import { prepareRepairItemEdits, persistRepairItemEnvelopes, type RepairItemEdit } from "@/lib/repair-item-editor";
-import { validateWorkflowExtensions } from "@/lib/repair-workflow";
+import { validateWorkflowExtensions, assertRepairProcurementOpen } from "@/lib/repair-workflow";
 import { currentRepairRequirements } from "@/lib/repair-requirements";
 import { parseLocalIntakes, fixtureIntakeReceipt, intakeDirectoryEntry } from "@/lib/repair-intake-record";
 import { getRepairOrder } from "@/lib/repair-fixtures";
@@ -45,13 +45,14 @@ function mutate(state: State, action: Exclude<ProcurementAction, {type:"list-vie
   const id = recordIdOf(action); const suppliers = parseStoreSettings(window.localStorage.getItem("chinatech.m1.store-settings.v1")).suppliers;
   let records = state.records; let message = "配件事实已保存。"; const repairIds = new Set<string>();
   if (action.type === "batch") {
-    if (action.action === "ordered") for (const item of action.items) { const row = records.find(row => row.id === item.id); if (row) checkRequirement(row); }
+    if (action.action === "ordered") for (const item of action.items) { const row = records.find(row => row.id === item.id); if (row) { checkRequirement(row); const order=previewOrder(row.repairId); assertRepairProcurementOpen(order,previewRepairWorkflow(order)); } }
     records = applyProcurementBatch(records, action.action, action.supplierId, action.items, suppliers, { id: crypto.randomUUID(), time, actorId });
     action.items.forEach(item => { const row = records.find(row => row.id === item.id); if (row) repairIds.add(row.repairId); });
     message = action.action === "ordered" ? "所选供应商条目已记录实际下单。" : "本批实际到货已保存。";
   } else if (action.type === "create" || action.type === "create-cart") {
     validateProcurementDraft(action.record); if (records.some(row => row.id === id)) throw new Error("采购编号已存在。");
     const nextDraft = action.record; let next = nextDraft; const order = previewOrder(next.repairId);
+    assertRepairProcurementOpen(order,previewRepairWorkflow(order));
     if (next.supplierId && !suppliers.some(row => row.id === next.supplierId && row.active)) throw new Error("供应商已变化，请重新选择。");
     checkRequirement(next);
     if (action.type === "create-cart") {
@@ -65,6 +66,7 @@ function mutate(state: State, action: Exclude<ProcurementAction, {type:"list-vie
     if (current.events.length !== action.revision) throw new Error("记录已变化，请重新核对。");
     let next: ProcurementRecord;
     if (action.type === "edit") {
+      const order=previewOrder(current.repairId);assertRepairProcurementOpen(order,previewRepairWorkflow(order));
       if (!isPreorder(current)) throw new Error("已下单配件不能改写，请追加新条目。");
       if (current.repairId !== action.record.repairId) throw new Error("不能改变关联工单。");
       const draft = { ...current, ...action.record, events: [] }; validateProcurementDraft(draft); checkRequirement(draft);
@@ -78,7 +80,7 @@ function mutate(state: State, action: Exclude<ProcurementAction, {type:"list-vie
       if (!action.note.trim()) throw new Error("请填写关联核对说明。");
       next = appendProcurementEvent(next, { id:crypto.randomUUID(), type:"requirement_linked", quantity:0, time, actorId, note:`${current.requirementId ?? "未关联"}@${current.requirementRevision ?? "未知"} → ${action.requirementId}@${action.requirementRevision}；${action.note}` });
     } else {
-      if (["ordered", "cart_added"].includes(action.event.type)) checkRequirement(current);
+      if (["ordered", "cart_added"].includes(action.event.type)) { checkRequirement(current); const order=previewOrder(current.repairId); assertRepairProcurementOpen(order,previewRepairWorkflow(order)); }
       next = appendProcurementEvent(current, { ...action.event, actorId }, action.revision);
     }
     records = records.map(row => row.id === id ? next : row); repairIds.add(current.repairId);
@@ -91,12 +93,14 @@ function read() {
   try {const raw=window.localStorage.getItem(storageKey);if(raw!==cachedRaw||store.storageError){const saved=parseProcurementState(raw);cachedRaw=raw;store={...store,records:saved?.records??procurementRecords,repairUpdates:saved?.repairUpdates??{},storageError:""};}}
   catch {if(!store.storageError)store={...store,storageError:"本地配件记录无法读取，现有记录未被覆盖。"};}return store;
 }
+export function currentProcurementRecords() { return read().records; }
 function subscribe(listener:()=>void){const stop=subscribeBackend(listener);const storage=(event:StorageEvent)=>{if(event.key===storageKey||event.key===null)listener();};window.addEventListener("storage",storage);window.addEventListener(changed,listener);return()=>{stop();window.removeEventListener("storage",storage);window.removeEventListener(changed,listener);};}
 function savePreviewItem(current:State, action:Extract<ProcurementAction,{type:"save-item"}>, time:string) {
   const actor=requirePreviewPermission("repairs.edit");const id=action.record.repairId;
   const keys=[storageKey,"chinatech.m1.repair-workflow.v1","chinatech.m1.local-intakes.v1"];
   const before=keys.map(key=>window.localStorage.getItem(key));
   const local=parseLocalIntakes(before[2]);const intake=local.find(row=>row.id===id);const order=previewOrder(id);const workflow=previewRepairWorkflow(order);
+  assertRepairProcurementOpen(order,workflow);
   if((order.intakeRevision??1)!==action.intakeRevision||workflow.revision!==action.workflowRevision)throw new Error("工单或维修项目已变化，请重新核对。");
   const existing=current.records.find(row=>row.id===action.record.id);
   if((existing?.events.length??0)!==action.revision)throw new Error("配件已变化，请重新核对。");

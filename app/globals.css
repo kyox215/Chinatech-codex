@@ -718,8 +718,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-parts-summary .button { min-height: 44px; }
 .repair-parts-summary__all { padding: 0 13px; }
 .procurement-row__progress .status-pill { max-width: 100%; white-space: normal; }
-.repair-parts-notification { position: fixed; right: 18px; bottom: 18px; z-index: 30; display: flex; align-items: center; gap: 12px; max-width: min(480px,calc(100% - 36px)); padding: 8px 10px 8px 16px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); font-size: 13px; line-height: 1.6; }
-.repair-parts-notification .icon-button { width: 44px; height: 44px; flex: 0 0 auto; }
+.repair-parts-notification { position: fixed; right: 18px; bottom: 18px; z-index: 30; display: flex; align-items: center; gap: 12px; max-width: min(480px,calc(100% - 36px)); padding: 8px 10px 8px 16px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); font-size: 13px; line-height: 1.6; pointer-events: none; }
+.repair-parts-notification .icon-button { width: 44px; height: 44px; flex: 0 0 auto; pointer-events: auto; }
 
 @media (max-width:767px) {
   .repair-detail__toolbar { flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
@@ -1481,6 +1481,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-unified-list .module-table-scroll { padding: 12px; }
 .repair-unified-list .repair-parts-group { margin-bottom: 12px; border: 1px solid var(--border); border-radius: var(--radius-panel); overflow: hidden; }
 .repair-unified-list .repair-parts-group:last-child { margin-bottom: 0; }
+/* Repair scope and pickup notice filters share the existing segmented control. */
+.repair-list-scope { align-self: flex-start; margin-bottom: 12px; max-width: 100%; }
+.repair-list-scope button[aria-pressed="true"], .repair-notice-filters button[aria-pressed="true"] { color: var(--primary-600); background: var(--surface); box-shadow: var(--shadow-sm); }
+.repair-list-scope button, .repair-notice-filters button { min-height: 44px; white-space: nowrap; }
+.repair-notice-filters { margin: 8px 14px; width: fit-content; max-width: calc(100% - 28px); }
+.repair-rework-tag { display: inline-flex; align-items: center; padding: 2px 5px; margin-left: 5px; border-radius: 4px; color: var(--primary-600); background: var(--primary-50); font-size: 12px; font-weight: 600; }
 .repair-unified-list .repair-group-toggle { background: var(--surface); min-height: 48px; }
 .repair-unified-list .repair-group-toggle:hover { background: var(--surface-subtle); }
 .repair-unified-list .repair-group-toggle small { border: 0; background: var(--bg); }

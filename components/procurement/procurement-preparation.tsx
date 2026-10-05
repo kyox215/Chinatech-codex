@@ -5,6 +5,9 @@ import { useRef, useState } from "react";
 import { CheckCircle2, ShoppingCart, Truck } from "lucide-react";
 import { isPreorder, procurementStatus, type ProcurementRecord } from "@/lib/procurement";
 import { useProcurement } from "./procurement-provider";
+import { useRepairDirectory } from "@/components/repairs/local-intake-store";
+import { useRepairWorkflows } from "@/components/repairs/repair-workflow-store";
+import { initialRepairWorkflow, isRepairHistory, isRepairReady } from "@/lib/repair-workflow";
 import { useStaff } from "@/components/staff/use-staff";
 
 export function ProcurementFeedback({ recordId }: { recordId: string }) {
@@ -17,12 +20,16 @@ export function ProcurementFeedback({ recordId }: { recordId: string }) {
 export function ProcurementPreparation({ record }: { record: ProcurementRecord }) {
   const canEdit = useStaff().can("repairs.edit");
   const { dispatch } = useProcurement();
+  const order = useRepairDirectory().find(row => row.id === record.repairId);
+  const { workflows } = useRepairWorkflows();
+  const workflow = order ? workflows[order.id] ?? initialRepairWorkflow(order) : undefined;
+  const purchaseOpen = Boolean(order && workflow && !isRepairHistory(order, workflow) && !isRepairReady(workflow));
   const status = procurementStatus(record);
   const busy = useRef(false);
   const [submitting, setSubmitting] = useState(false);
 
   async function append(type: "cart_added" | "cart_removed" | "ordered") {
-    if (!canEdit || busy.current) return;
+    if (!canEdit || busy.current || (type !== "cart_removed" && !purchaseOpen)) return;
     busy.current = true;
     setSubmitting(true);
     const notes = { cart_added: "标记已加购物车，尚未下单。", cart_removed: "取消加车标记。", ordered: "标记实际已下单。" };
@@ -34,6 +41,7 @@ export function ProcurementPreparation({ record }: { record: ProcurementRecord }
   }
 
   if (!isPreorder(record)) return <div className="procurement-preparation"><ProcurementFeedback recordId={record.id} /><Link className="button button--secondary" href={`/app/procurement/${record.id}`}>{canEdit ? "查看采购与登记到货" : "查看采购详情"}</Link></div>;
+  if (canEdit && !purchaseOpen) return <div className="procurement-preparation"><p className="procurement-action-hint">请先恢复维修，再新增配件或下单。</p><Link className="button button--secondary" href={`/app/repairs/${record.repairId}`}>打开工单</Link></div>;
   if (!canEdit) return <div className="procurement-preparation"><p className="procurement-action-hint"><ShoppingCart size={16} />{status === "cart" ? "已加购物车 · 未下单" : "未加购物车 · 未下单"}</p></div>;
 
   return <div className="procurement-preparation" aria-busy={submitting}>
