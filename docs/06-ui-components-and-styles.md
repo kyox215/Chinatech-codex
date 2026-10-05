@@ -2,7 +2,7 @@
 
 ## 2026-10-05 共享语言显示
 
-新增 `LanguageProvider`／`useLanguage` 维护三语显示状态与静态 `lib/i18n` 字典，`LanguageSwitcher` 复用 `SelectControl`、Lucide Globe和既有语义token。根布局统一提供状态；页内文字和固定选项在渲染时翻译，禁止将显示译文用作保存值、搜索事实、权限或签署快照。未知自由原文保持原样；含变量消息显式保留原值，领域金额／数量／并发规则不放宽。
+新增 `LanguageProvider`／`useLanguage` 维护三语显示状态与静态 `lib/i18n` 字典，`LanguageSwitcher` 复用 `SelectControl`、`.module-select`、Lucide Globe和既有语义token，沿用公共下拉框的原生回退／增强菜单、焦点与44px高度，模块仅设容器宽度与16px字号。根布局统一提供状态；页内文字和固定选项在渲染时翻译，禁止将显示译文用作保存值、搜索事实、权限或签署快照。未知自由原文保持原样；含变量消息显式保留原值，领域金额／数量／并发规则不放宽。
 
 公共输入、候选、识码、SingleChoice／MultiChoice继续保留原控件、字段关联、值、onChange、焦点与校验。错误在显示层翻译，原 `setCustomValidity` 和领域异常未改写；SelectControl只在语言改变时刷新增强显示，原生option必须显式保存原value。表单不按语言加key；教程内容可按语言重建，以停止旧声轨并等待下一次用户播放。
 
