@@ -68,7 +68,7 @@ test("图形档案四宽度完整展示，未知成本保留待确认，字段�
   expect(errors).toEqual([]);
 });
 
-test("检测草稿不冒充已保存进度，核对记录与可售仍分开", async ({ page }) => {
+test("检测草稿不冒充已保存进度，部分检测不自动可售，完整检测可以合并保存", async ({ page }) => {
   await page.goto(`/app/retail/units/${retailUnits[1].id}`);
   const summary = page.getByRole("region", { name: "单机摘要", exact: true });
   await expect(summary).toContainText("已保存 1/3");
@@ -77,14 +77,13 @@ test("检测草稿不冒充已保存进度，核对记录与可售仍分开", as
   await expect(summary).toContainText("已保存 1/3");
   await page.getByRole("textbox", { name: "检测说明 / 变更原因", exact: true }).fill("本地演示检测验收");
   await page.getByRole("button", { name: "记录检测", exact: true }).click();
-  await page.getByRole("button", { name: "确认操作", exact: true }).click();
   await expect(summary).toContainText("已保存 2/3");
   await expect(page.locator(".module-heading")).toContainText("待检测");
   await page.reload();
   await openGroup(page, "actions");
   await expect(summary).toContainText("已保存 2/3");
   await page.getByRole("textbox", { name: "检测说明 / 变更原因", exact: true }).fill("本地演示检查可售门控");
-  await page.getByRole("button", { name: "设为可售", exact: true }).click();
+  await page.getByRole("button", { name: "保存检测并设为可售", exact: true }).click();
   await expect(page.locator(".retail-actions").getByRole("alert")).toContainText("三项");
   await expect(page.locator(".module-heading")).toContainText("待检测");
 });

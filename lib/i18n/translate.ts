@@ -27,10 +27,11 @@ const systemFields = new Set([
   "检测说明或状态变更原因", "操作时间", "销售时间", "销售备注", "故障诉求", "判断原因", "撤销原因",
   "收款", "退款", "成交价", "核对累计实收", "标价", "款项", "核对实收", "交付", "退回", "售后接收", "售后关闭", "销售事实",
 ]);
-type SystemSlot = "original" | "field" | "number" | "money" | "requirement" | "kind" | "provider";
+type SystemSlot = "original" | "field" | "number" | "money" | "requirement" | "kind" | "provider" | "check";
 // Only complete, reviewed system sentences are recognized by the explicit system
 // outlet. Short/generic presentation templates remain excluded.
 const systemTemplateSlots: Record<string, Readonly<Record<string, SystemSlot>>> = {
+  "功能检测：{v0}；所有权及账号锁核验：{v1}；数据处理核验：{v2}。": { v0: "check", v1: "check", v2: "check" },
   "{name}已有采购事实，供应商及进价不能在此改写；报价可独立保存。": { name: "original" },
   "{name}已有采购记录，清空供应商不能取消采购。": { name: "original" },
   "{name}：请选择已登记的门店供应商，或留空只填报价。": { name: "original" },
@@ -100,6 +101,7 @@ export function translateSystemMessage(text: string, locale: Locale, values?: Re
       else if (policy === "money" && /^€?[\d.,\s]+(?:\s?€)?$/u.test(value) && /\d/u.test(value)) captures[name] = value;
       else if (policy === "kind" && ["整数", "数字"].includes(value)) captures[name] = translate(value, locale);
       else if (policy === "requirement" && ["非空", "有效"].includes(value)) captures[name] = translate(value === "有效" ? "有效（校验）" : value, locale);
+      else if (policy === "check" && ["已核对", "未完成"].includes(value)) captures[name] = translate(value, locale);
       else if (policy === "provider" && ["Google", "Apple"].includes(value)) captures[name] = value;
       else { valid = false; break; }
     }

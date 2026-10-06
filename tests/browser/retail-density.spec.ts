@@ -39,7 +39,7 @@ test("日常商品资料与主要操作落在电脑首屏，手机保持单组�
     await page.setViewportSize({ width: 1440, height: 900 }); await page.goto(`/app/retail/units/${id}`); await expect(page.getByRole("heading", { name: "商品档案", exact: true })).toBeVisible(); await fits(page);
     expect((await page.getByRole("region", { name: "单机摘要", exact: true }).boundingBox())!.height).toBeLessThanOrEqual(190);
     for (const group of ["identity", "physical", "finance"]) { const box = (await page.locator(`[data-retail-group="${group}"]`).boundingBox())!; expect(box.y + box.height).toBeLessThanOrEqual(900); }
-    const primary = page.getByRole("button", { name: id === original.id ? "继续核对" : "设为可售", exact: true }); const box = (await primary.boundingBox())!; expect(box.y + box.height).toBeLessThanOrEqual(900); expect(box.height).toBeGreaterThanOrEqual(44);
+    const primary = page.getByRole("button", { name: id === original.id ? "继续核对" : "保存检测并设为可售", exact: true }); const box = (await primary.boundingBox())!; expect(box.y + box.height).toBeLessThanOrEqual(900); expect(box.height).toBeGreaterThanOrEqual(44);
     if (id !== original.id) { const warranty = (await page.getByRole("region", { name: "商家保修", exact: true }).boundingBox())!; expect(warranty.y + warranty.height).toBeLessThanOrEqual(900); }
     await page.screenshot({ path: `.local/ui-proof/retail-density/${info.project.name}-${id === original.id ? "source" : "managed"}-1440.png`, fullPage: true, animations: "disabled" });
     await page.setViewportSize({ width: 1024, height: 768 }); await fits(page); expect((await page.getByRole("region", { name: "单机摘要", exact: true }).boundingBox())!.height).toBeLessThanOrEqual(245);

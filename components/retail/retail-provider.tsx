@@ -5,7 +5,8 @@ import { createContext, useContext, useReducer, useSyncExternalStore } from "rea
 import { retailUnits } from "@/lib/retail-fixtures";
 import { parseStoreSettings } from "@/lib/store-settings";
 import { parsePreviewRetailHistory, prepareRetailRecord, previewRetailHistoryKey, type RetailRecordPreparation } from "@/lib/retail-record";
-import { applyRetailCommand, createRetailUnit, parseStoredRetailUnits, type RetailCommand, type RetailEvent, type RetailUnit } from "@/lib/retail";
+import { applyRetailWorkflow, retailWorkflowPermissions, type RetailWorkflow } from "@/lib/retail-workflow";
+import { applyRetailCommand, createRetailUnit, validateRetailPhotos, parseStoredRetailUnits, type RetailCommand, type RetailEvent, type RetailUnit } from "@/lib/retail";
 
 import { readStaffSnapshot, staffServerSnapshot, subscribeStaff, requirePreviewPermission } from "@/lib/staff-client";
 import { parseLocalIntakes } from "@/lib/repair-intake-record";
@@ -35,7 +36,7 @@ function subscribe(listener: () => void) {const stop=subscribeBackend(listener);
 }
 type Feedback = { id: string; error: boolean; message: string } | null;
 type State = { units: RetailUnit[]; ready: boolean; error: string; returnTo: string; returnScroll: number; feedback: Feedback };
-type Action = { type: "create"; unit: RetailUnit; event: RetailEvent } | { type: "prepare"; id: string; sourceSnapshot: string; settingsRevision: number; draft: RetailRecordPreparation; event: RetailEvent } | { type: "command"; id: string; command: RetailCommand; event: RetailEvent; version: number } | { type: "remember"; url: string; scroll: number };
+type Action = { type: "workflow"; workflow: RetailWorkflow; event: RetailEvent } | { type: "create"; unit: RetailUnit; photos?: string[]; event: RetailEvent } | { type: "prepare"; id: string; sourceSnapshot: string; settingsRevision: number; draft: RetailRecordPreparation; event: RetailEvent } | { type: "command"; id: string; command: RetailCommand; event: RetailEvent; version: number } | { type: "remember"; url: string; scroll: number };
 type UiState = Pick<State, "returnTo" | "returnScroll" | "feedback">;
 type UiAction = { type: "remember"; url: string; scroll: number } | { type: "feedback"; feedback: Feedback };
 function uiReducer(state: UiState, action: UiAction): UiState { return action.type === "remember" ? { ...state, returnTo: action.url, returnScroll: action.scroll } : { ...state, feedback: action.feedback }; }
@@ -47,10 +48,16 @@ export function RetailProvider({ children }: { children: React.ReactNode }) {
   const [ui, uiDispatch] = useReducer(uiReducer, { returnTo: "/app/retail", returnScroll: 0, feedback: null });
   function dispatch(action: Action) {
     if (action.type === "remember") { uiDispatch(action); return true; }
-    if(isBackendClient()){const id=action.type==="create"?action.unit.id:action.id;const payload=action.type==="prepare"?{id:action.id,sourceSnapshot:action.sourceSnapshot,settingsRevision:action.settingsRevision,draft:action.draft}:action.type==="create"?{type:action.type,unit:action.unit}:{type:action.type,id:action.id,command:action.command,version:action.version};return backendCommand(action.type==="prepare"?"retail.prepare":"retail",payload).then(()=>{uiDispatch({type:"feedback",feedback:{id,error:false,message:"已保存并追加到历史。"}});return true;}).catch(reason=>{uiDispatch({type:"feedback",feedback:{id,error:true,message:reason instanceof Error?reason.message:"保存失败。"}});return false;});}
-    const id = action.type === "create" ? action.unit.id : action.id;
+    const id = action.type === "workflow" ? (action.workflow.type === "create_ready" ? action.workflow.unit.id : action.workflow.id) : action.type === "create" ? action.unit.id : action.id;
+    if (isBackendClient()) {
+      const command = action.type === "command" && ["inspect", "approve", "pause", "reinspect"].includes(action.command.type) ? { ...action.command, note: "note" in action.command && action.command.note !== undefined ? action.command.note : action.event.detail } : action.type === "command" ? action.command : undefined;
+      const payload = action.type === "workflow" ? action.workflow : action.type === "prepare" ? { id: action.id, sourceSnapshot: action.sourceSnapshot, settingsRevision: action.settingsRevision, draft: action.draft } : action.type === "create" ? { type: action.type, unit: action.unit, ...(action.photos !== undefined ? { photos: action.photos } : {}) } : { type: action.type, id: action.id, command, version: action.version };
+      return backendCommand(action.type === "workflow" ? "retail.workflow" : action.type === "prepare" ? "retail.prepare" : "retail", payload).then(() => { uiDispatch({ type: "feedback", feedback: { id, error: false, message: "已保存并追加到历史。" } }); return true; }).catch(reason => { uiDispatch({ type: "feedback", feedback: { id, error: true, message: reason instanceof Error ? reason.message : "保存失败。" } }); return false; });
+    }
     try {
       const authorize = () => {
+        if (action.type === "workflow") { const actor = requirePreviewPermission("retail.view"); for (const permission of retailWorkflowPermissions(action.workflow)) requirePreviewPermission(permission); return actor; }
+        requirePreviewPermission("retail.view");
         const actor = requirePreviewPermission(action.type === "create" || action.type === "prepare" ? "retail.edit" : retailCommandPermission(action.command));
         if (action.type === "prepare") { requirePreviewPermission("retail.view"); if (Object.values(action.draft.checks).some(Boolean)) requirePreviewPermission("retail.inspect"); }
         if (action.type === "create") { if (action.unit.costCents !== null || action.unit.refurbCents !== null) requirePreviewPermission("financial.edit"); if (action.unit.priceCents !== null) requirePreviewPermission("retail.price"); }
@@ -62,10 +69,18 @@ export function RetailProvider({ children }: { children: React.ReactNode }) {
       let units: RetailUnit[];
       try { units = parseStoredRetailUnits(window.localStorage.getItem(storageKey), retailUnits); }
       catch { throw new Error("本地单机资料无法读取，现有资料未被覆盖。请检查浏览器存储权限。"); }
-      if (action.type === "create") {
+      if (action.type === "workflow") {
+        if (action.workflow.type === "create_ready" && units.length >= 500) throw new Error("本地预览已达到 500 件单机。");
+        if (action.workflow.type === "create_ready" && parsePreviewRetailHistory(window.localStorage.getItem(previewRetailHistoryKey)).some(record => record.id === id)) throw new Error("已有商品须在原档案核对保存。");
+        const settings = parseStoreSettings(window.localStorage.getItem("chinatech.m1.store-settings.v1"));
+        const updated = applyRetailWorkflow(action.workflow, units, event, settings);
+        units = units.some(unit => unit.id === id) ? units.map(unit => unit.id === id ? updated : unit) : [updated, ...units];
+      } else if (action.type === "create") {
         if (units.length >= 500) throw new Error("本地预览已达到 500 件单机。");
         if (action.unit.historyOrigin || parsePreviewRetailHistory(window.localStorage.getItem(previewRetailHistoryKey)).some(record => record.id === action.unit.id)) throw new Error("已有商品须在原档案核对保存。");
-        units = [createRetailUnit(action.unit, units, event), ...units];
+        let created = createRetailUnit(action.unit, units, event);
+        if (action.photos !== undefined) created = applyRetailCommand(created, { type: "photos", photos: validateRetailPhotos(action.photos) }, { ...event, id: event.id + ":photos", title: "实物照片已保存" }, created.version, units);
+        units = [created, ...units];
       } else if (action.type === "prepare") {
         if (units.length >= 500) throw new Error("本地预览已达到 500 件单机。");
         const record = parsePreviewRetailHistory(window.localStorage.getItem(previewRetailHistoryKey)).find(record => record.id === id);

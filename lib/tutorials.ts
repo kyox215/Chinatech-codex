@@ -188,7 +188,7 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
       "description": "给门店自有实物建档，记录规格并继续检测。",
       "href": "/app/retail/new",
       "actionLabel": "新建整机档案",
-      "duration": "1:10",
+      "duration": "1:09",
       "src": "/tutorials/retail.mp4",
       "poster": "/tutorials/retail.webp",
       "captions": "/tutorials/retail.vtt",
@@ -209,19 +209,19 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
           "at": 21.417
         },
         {
-          "title": "记录外观、电池与随件",
-          "body": "下一步记录外观、电池和随附物品。已知问题要对应这台实物，照片在建档后上传；没有检测过的项目不要填写通过。",
+          "title": "记录外观、电池与照片",
+          "body": "在同一页面核对外观、电池和随附物品。照片可随建档一起保存，未检测的项目不要勾选完成。",
           "at": 32.917
         },
         {
-          "title": "核对金额、来源与所有权",
-          "body": "填写标价和存放位置，成本只向获授权成员开放。确认是门店自有实物，再创建独立档案。新档案保持待检测，不会自动可售。",
-          "at": 44.667
+          "title": "核验完成，一次建档可售",
+          "body": "默认仅建档，稍后检测。实物已完成三项检查时，填写有效售价，明确选择建档并设为可售，再一次保存。",
+          "at": 43.042
         },
         {
-          "title": "建档后继续真实检测",
-          "body": "在单机详情记录实际检测，再按流程确认可售。以后销售、收款、交付和售后分别记录，始终跟随这一台设备。",
-          "at": 58.292
+          "title": "实际成交与打印闭环",
+          "body": "打开商品详情的登记售出，在同一表单填写买家、实际收款和交付。核对保修后一次确认成交，成功后可打印，后续收款及售后仍跟随原销售。",
+          "at": 54.375
         }
       ]
     }
@@ -410,7 +410,7 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
       "description": "Registra l'esemplare di proprietà del negozio e poi esegui i controlli.",
       "href": "/app/retail/new",
       "actionLabel": "Crea una scheda dispositivo",
-      "duration": "1:16",
+      "duration": "1:19",
       "src": "/tutorials/it/retail.mp4",
       "poster": "/tutorials/it/retail.webp",
       "captions": "/tutorials/it/retail.vtt",
@@ -431,19 +431,19 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
           "at": 22.042
         },
         {
-          "title": "Registra condizioni e accessori",
-          "body": "Prosegui con aspetto, batteria e accessori inclusi. I problemi noti devono riferirsi a questo esemplare. Carica le foto dopo aver creato la scheda e non segnare come superati controlli mai eseguiti.",
+          "title": "Condizioni, batteria e foto",
+          "body": "Verifica condizioni, batteria e accessori nella stessa pagina. Le foto possono essere salvate insieme alla scheda. Non selezionare verifiche mai eseguite.",
           "at": 35.583
         },
         {
-          "title": "Verifica prezzo, provenienza e proprietà",
-          "body": "Inserisci prezzo e posizione. I costi richiedono l'autorizzazione. Spunta la proprietà del negozio e crea la scheda. Il nuovo esemplare resta da controllare, non diventa subito vendibile.",
-          "at": 48.958
+          "title": "Crea e rendi vendibile insieme",
+          "body": "La modalità predefinita crea solo la scheda, da verificare in seguito. Se tutte e tre le verifiche sono complete, indica un prezzo valido e scegli esplicitamente di creare e rendere vendibile con un solo salvataggio.",
+          "at": 46.417
         },
         {
-          "title": "Controlla prima di mettere in vendita",
-          "body": "Nei dettagli registra i controlli effettivi, poi segui la conferma per rendere il dispositivo vendibile. Vendita, pagamenti, consegna e assistenza restano registrazioni separate dello stesso esemplare.",
-          "at": 62.542
+          "title": "Vendita effettiva e stampa",
+          "body": "Dalla scheda apri la registrazione della vendita. Inserisci acquirente, pagamenti ricevuti e consegna nello stesso modulo. Verifica la garanzia e conferma una volta. Dopo il salvataggio puoi stampare; pagamenti successivi e assistenza restano collegati alla vendita originale.",
+          "at": 60.125
         }
       ]
     }
@@ -632,7 +632,7 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
       "description": "Create a record for a shop-owned device, then inspect it.",
       "href": "/app/retail/new",
       "actionLabel": "Create a device record",
-      "duration": "1:20",
+      "duration": "1:18",
       "src": "/tutorials/en/retail.mp4",
       "poster": "/tutorials/en/retail.webp",
       "captions": "/tutorials/en/retail.vtt",
@@ -653,19 +653,19 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
           "at": 22.625
         },
         {
-          "title": "Record condition and accessories",
-          "body": "Next, record appearance, battery condition and supplied accessories. Known issues must belong to this device. Upload photos after creating the record, and never mark an untested check as passed.",
+          "title": "Condition, battery and photos",
+          "body": "Check condition, battery and accessories on the same page. Photos can be saved with the new record. Never mark checks complete unless they were performed.",
           "at": 36.292
         },
         {
-          "title": "Check price, source and ownership",
-          "body": "Enter the asking price and storage location. Cost fields require permission. Confirm shop ownership using the checkbox, then create the record. A new device remains awaiting inspection, not ready for sale.",
-          "at": 50.958
+          "title": "Create and make available together",
+          "body": "The default only creates a record for later inspection. If all three checks are complete, enter a valid asking price and explicitly choose to create and make available in one save.",
+          "at": 47.833
         },
         {
-          "title": "Inspect before making it available",
-          "body": "Record the actual inspection in the device details, then follow the approval process to make it available. Sale, payments, handover and after-sales are recorded separately for this same device.",
-          "at": 66.958
+          "title": "Actual sale and printing",
+          "body": "Open the sale form from product details. Enter the buyer, actual payments and delivery in the same form. Check the warranty and confirm the sale once. Print after saving; later payments and after-sales cases remain linked to the original sale.",
+          "at": 59.875
         }
       ]
     }

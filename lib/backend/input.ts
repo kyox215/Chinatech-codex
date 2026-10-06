@@ -14,7 +14,7 @@ export const settingsFields=["repairGroups","revision","shopName","address","pho
 export const memberFields=["id","name","email","role","accountStatus","membershipStatus","permissions","revision"];
 export const retailFields=["id","code","category","brand","model","serial","imei1","imei2","productCode","color","ramGb","bodyStorage","disks","cpu","gpu","keyboard","edition","controllers","condition","warrantyMonths","grade","batteryPercent","accessories","knownIssues","photos","costCents","refurbCents","priceCents","source","location","intakeDate","storeOwned","status","version","inspection","reservation","sales","events","currentSaleId"];
 export const commandFields:Record<string,string[]>={
-  edit:["change"],inspect:["checks"],price:["priceCents"],approve:[],pause:[],reinspect:[],
+  edit:["change"],inspect:["checks","note"],price:["priceCents"],approve:["note"],pause:["note"],reinspect:["note"],
   sell:["saleId","customerPhone","customerName","customerEmail","customerAddress","customerNote","priceCents","warranty","paymentUnreceived"],
   reserve:["name","phone","until","note"],release_reservation:[],
   payment:["saleId","entryId","amountCents","date","method","note"],refund:["saleId","entryId","amountCents","date","method","note"],

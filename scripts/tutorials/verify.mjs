@@ -7,6 +7,7 @@ import sharp from "sharp";
 import { root, work, output, locales, fps, storiesFor, json, ffmpeg, probe } from "./authoring.mjs";
 
 const requested = process.argv[2] ?? "all";
+const selectedStory = process.argv[3];
 assert([...locales, "all"].includes(requested), "Use verify.mjs [zh-CN|it|en|all]");
 const { getTutorials } = await import(pathToFileURL(path.join(root, "lib/tutorials.ts")));
 function atoms(buffer) {
@@ -25,7 +26,7 @@ function seconds(value) { const [h, m, s] = value.split(":").map(Number); return
 const report = { format: "H.264 / AAC, 1280x960, 24fps", generatedAt: new Date().toISOString(), items: [] };
 for (const locale of locales.filter(value => requested === "all" || value === requested)) {
   const catalog = getTutorials(locale), directory = path.join(output, locale === "zh-CN" ? "" : locale);
-  for (const story of await storiesFor(locale)) {
+  for (const story of (await storiesFor(locale)).filter(story => !selectedStory || story.id === selectedStory)) {
     const name = `${locale}-${story.id}`, video = path.join(directory, `${story.id}.mp4`);
     const measured = await json(path.join(work, `audio/${name}.json`));
     const details = await probe(video), v = details.streams.find(stream => stream.codec_type === "video"), a = details.streams.find(stream => stream.codec_type === "audio");
@@ -98,10 +99,32 @@ for (const locale of locales.filter(value => requested === "all" || value === re
   }
 }
 report.totalBytes = report.items.reduce((sum, item) => sum + item.assets.reduce((sum, asset) => sum + asset.bytes, 0), 0);
-await fs.writeFile(path.join(work, `evidence/verification${requested === "all" ? "" : `-${requested}`}.json`), JSON.stringify(report, null, 2));
-if (requested === "all") {
+await fs.writeFile(path.join(work, `evidence/verification${requested === "all" ? "" : `-${requested}`}${selectedStory ? `-${selectedStory}` : ""}.json`), JSON.stringify(report, null, 2));
+if (requested === "all" && !selectedStory) {
   assert.equal(report.items.length, 15);
   const manifest = { version: 1, generatedAt: report.generatedAt, format: report.format, totalBytes: report.totalBytes, episodes: report.items.map(({ motion, ...item }) => ({ ...item, verifiedMovingSteps: motion.length })) };
   await fs.writeFile(path.join(root, "scripts/tutorials/assets-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 }
 console.log(`Verified ${report.items.length} videos, ${(report.totalBytes / 1048576).toFixed(2)} MiB including posters and subtitles.`);
+
+if (requested === "all" && selectedStory) {
+  assert.equal(report.items.length, 3);
+  const manifestPath = path.join(root, "scripts/tutorials/assets-manifest.json");
+  const previous = await json(manifestPath);
+  const preserved = previous.episodes.filter(item => item.id !== selectedStory);
+  for (const item of preserved) {
+    for (const asset of item.assets) {
+      const data = await fs.readFile(path.join(root, "public", asset.path.replace(/^\//, "")));
+      assert.equal(data.length, asset.bytes);
+      assert.equal(createHash("sha256").update(data).digest("hex"), asset.sha256, `Unchanged tutorial differs: ${asset.path}`);
+    }
+    const video = item.assets.find(asset => asset.extension === "mp4");
+    await ffmpeg(["-i", path.join(root, "public", video.path.replace(/^\//, "")), "-f", "null", "-"]);
+  }
+  const changed = report.items.map(({ motion, ...item }) => ({...item, verifiedMovingSteps:motion.length}));
+  const episodes = previous.episodes.map(item => changed.find(next => next.id === item.id && next.locale === item.locale) ?? item);
+  assert.equal(episodes.length, 15);
+  const totalBytes = episodes.reduce((sum,item)=>sum+item.assets.reduce((n,asset)=>n+asset.bytes,0),0);
+  await fs.writeFile(manifestPath, JSON.stringify({...previous,generatedAt:report.generatedAt,totalBytes,episodes},null,2)+"\n");
+  console.log(`Verified ${changed.length} updated tutorials; ${preserved.length} unchanged tutorials hash-matched and fully decoded.`);
+}

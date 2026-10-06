@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-06T09:45:47.668Z",
+  "generatedAt": "2026-10-06T22:03:28.046Z",
   "format": "H.264 / AAC, 1280x960, 24fps",
-  "totalBytes": 36938054,
+  "totalBytes": 36725964,
   "episodes": [
     {
       "locale": "zh-CN",
@@ -181,41 +181,41 @@
       "id": "retail",
       "voice": "zh-CN-XiaoxiaoNeural",
       "rate": "+5%",
-      "seconds": 69.625,
-      "bytes": 2868385,
+      "seconds": 68.625,
+      "bytes": 2755904,
       "assets": [
         {
           "path": "/tutorials/retail.mp4",
           "extension": "mp4",
-          "bytes": 2868385,
-          "sha256": "21c077d66a6793bdebfbe2bddc543f9fa5ff3367cdf5460601cea48ae3edade6"
+          "bytes": 2755904,
+          "sha256": "e9d3212cc1f1d1bf2caefeb14f100d00b79141e067cabd65e1636fde430f3587"
         },
         {
           "path": "/tutorials/retail.webp",
           "extension": "webp",
-          "bytes": 18192,
-          "sha256": "85c294a44118853ffe1377846dc7832acea4b4d57c4ef47d004a51d2f928b2cb"
+          "bytes": 16984,
+          "sha256": "610b4ca556f3a71fb4eeebff287d48b19a99ae7b749afb1cc1b2871404630d57"
         },
         {
           "path": "/tutorials/retail.vtt",
           "extension": "vtt",
-          "bytes": 1318,
-          "sha256": "d2109fbe7bf51fc18e8ff78bf45119f9ec317f660eef9caaa1cfc6d5868dfa3b"
+          "bytes": 1271,
+          "sha256": "aa771aea0f35ee9e53ca10312890697b56b1c3dff8c466847d5dad9c2c176715"
         }
       ],
-      "sha256": "21c077d66a6793bdebfbe2bddc543f9fa5ff3367cdf5460601cea48ae3edade6",
+      "sha256": "e9d3212cc1f1d1bf2caefeb14f100d00b79141e067cabd65e1636fde430f3587",
       "decoded": true,
       "meanDb": -16.6,
       "peakDb": -1.3,
       "faststart": true,
-      "captions": 13,
+      "captions": 12,
       "chapters": [
         0,
         11.417,
         21.417,
         32.917,
-        44.667,
-        58.292
+        43.042,
+        54.375
       ],
       "verifiedMovingSteps": 6
     },
@@ -396,31 +396,31 @@
       "id": "retail",
       "voice": "it-IT-ElsaNeural",
       "rate": "+3%",
-      "seconds": 75.916667,
-      "bytes": 3472597,
+      "seconds": 78.708333,
+      "bytes": 3490465,
       "assets": [
         {
           "path": "/tutorials/it/retail.mp4",
           "extension": "mp4",
-          "bytes": 3472597,
-          "sha256": "5921658912baf80d29df12aa51eeca22317cb4571f6aa3d332fd8d60247abe4e"
+          "bytes": 3490465,
+          "sha256": "04f91f7b1d23d46c030c38ef61c5813e999de399ba13c256cb8c7692e7d8064c"
         },
         {
           "path": "/tutorials/it/retail.webp",
           "extension": "webp",
-          "bytes": 23552,
-          "sha256": "8b8fe6b636820c6ad961c9efaf0fc58927a2a4cf84f6cd29d9698a5b3ffaa616"
+          "bytes": 21556,
+          "sha256": "782a4e84733e43903bd6071f6690b7ecde41d37e5457168990e0d3a6646e230e"
         },
         {
           "path": "/tutorials/it/retail.vtt",
           "extension": "vtt",
-          "bytes": 1638,
-          "sha256": "16c74efd54ae8763209c4cbe28408af3397568c38c6932f8f491d16ef0c3c327"
+          "bytes": 1698,
+          "sha256": "55de1207d410a6d0347d37a939915268bfa4b5c1fe81ee08e6cd3865395a4c4c"
         }
       ],
-      "sha256": "5921658912baf80d29df12aa51eeca22317cb4571f6aa3d332fd8d60247abe4e",
+      "sha256": "04f91f7b1d23d46c030c38ef61c5813e999de399ba13c256cb8c7692e7d8064c",
       "decoded": true,
-      "meanDb": -17,
+      "meanDb": -16.9,
       "peakDb": -1.3,
       "faststart": true,
       "captions": 17,
@@ -429,8 +429,8 @@
         12.042,
         22.042,
         35.583,
-        48.958,
-        62.542
+        46.417,
+        60.125
       ],
       "verifiedMovingSteps": 6
     },
@@ -611,31 +611,31 @@
       "id": "retail",
       "voice": "en-US-JennyNeural",
       "rate": "+2%",
-      "seconds": 80,
-      "bytes": 3435377,
+      "seconds": 77.875,
+      "bytes": 3323208,
       "assets": [
         {
           "path": "/tutorials/en/retail.mp4",
           "extension": "mp4",
-          "bytes": 3435377,
-          "sha256": "34be244f2e6488820399c1b835e1bd65fb2747da8e4e93a4bfa3920e12aa9b68"
+          "bytes": 3323208,
+          "sha256": "09204dcbd3be19e3749ae7d8bfa3003c2bc1538eee67d1a81b58ba7c61365592"
         },
         {
           "path": "/tutorials/en/retail.webp",
           "extension": "webp",
-          "bytes": 21756,
-          "sha256": "26cbf14ae8ade7ebfebe1c3e315ad8b8a21c5dcac3c5d50f20c7ef2e5d27ffe9"
+          "bytes": 19654,
+          "sha256": "5840aa00a2c73760dff2f4173b39a24615978f194d36f2523c9a85a2491d8ac9"
         },
         {
           "path": "/tutorials/en/retail.vtt",
           "extension": "vtt",
-          "bytes": 1622,
-          "sha256": "50f753ea65af7dc7b4ed8c06de066f68c5787443c539ab1ce083fdf8ddf7a2a0"
+          "bytes": 1607,
+          "sha256": "54fd155d9a2c9501b990a604c53dd4e1927dc459af1409439fb44c9ea77a16c7"
         }
       ],
-      "sha256": "34be244f2e6488820399c1b835e1bd65fb2747da8e4e93a4bfa3920e12aa9b68",
+      "sha256": "09204dcbd3be19e3749ae7d8bfa3003c2bc1538eee67d1a81b58ba7c61365592",
       "decoded": true,
-      "meanDb": -17.6,
+      "meanDb": -17.7,
       "peakDb": -1.1,
       "faststart": true,
       "captions": 17,
@@ -644,8 +644,8 @@
         12.083,
         22.625,
         36.292,
-        50.958,
-        66.958
+        47.833,
+        59.875
       ],
       "verifiedMovingSteps": 6
     }

@@ -1,6 +1,6 @@
 import type { RetailUnit } from "../retail";
 import type { Locale } from "./locale";
-import { translate } from "./translate";
+import { translate, translateSystemMessage } from "./translate";
 
 /** Format known specification labels for display; keep stored and searchable facts original. */
 export function retailDisplaySpec(unit: RetailUnit, locale: Locale) {
@@ -23,11 +23,12 @@ export function retailEventTitle(title: string, locale: Locale): string {
   const operation = title.startsWith(prefix) ? title.slice(prefix.length) : "";
   return Object.hasOwn(operationLabels, operation)
     ? translate(prefix, locale) + translate(operationLabels[operation], locale)
-    : translate(title, locale);
+    : operation ? title : translate(title, locale);
 }
 /** Historic free text and frozen sale facts stay original. */
 export function retailEventDetail(detail: string, locale: Locale): string {
-  return ["成本资料更正。", "已核对并保存。", "门店自有实物，待检测。"].includes(detail) ? translate(detail, locale) : detail;
+  const known = ["成本资料更正。", "已核对并保存。", "门店自有实物，待检测。", "本次实物照片已保存。", "本次有效售价已核对。", "本台三项检查完成，已明确设为可售。", "本次买家与成交约定已核对；交付另据实际事实登记。", "本次实际收款逐笔登记；交付另据实际事实确认。", "本次实际收款已登记。", "本次实际交付已登记。"];
+  return known.includes(detail) || /^功能检测：(已核对|未完成)；所有权及账号锁核验：(已核对|未完成)；数据处理核验：(已核对|未完成)。$/u.test(detail) ? translateSystemMessage(detail, locale) : detail;
 }
 
 /** Add only displayed categorical labels to search; names and original notes stay untouched. */

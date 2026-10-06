@@ -18,3 +18,5 @@ export type BackendSnapshot = {
 export type UnchangedState = { unchanged: true; stateToken: string; storeId: string; memberId: string; revision: number };
 export type OperationReceipt = { requestId: string; entityId: string; kind: string; committedAt: string; replayed: boolean };
 export type BackendCommand = { requestId: string; storeId: string; memberId: string; kind: string; payload: unknown };
+
+export type { RetailWorkflow, RetailCreateReadyWorkflow, RetailInspectApproveWorkflow, RetailCheckoutWorkflow, RetailWorkflowSale, RetailWorkflowPayment, RetailWorkflowDelivery } from "../retail-workflow";

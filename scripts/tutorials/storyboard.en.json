@@ -49,9 +49,9 @@
       { "title": "Choose new or refurbished", "body": "Retail devices are physical items owned by your shop. Start by choosing new or refurbished at the top. Never create a retail record for a customer's repair device.", "frame": "retail-classify" },
       { "title": "Give every device its own record", "body": "Enter the category, brand and model, then copy identifiers from the physical device. Two devices of the same model still need separate records.", "frame": "retail-identity" },
       { "title": "Enter measured specifications", "body": "Record memory, built-in storage and individual drives separately where applicable. Leave unknown values empty, not zero. Do not infer this device's configuration from its product name.", "frame": "retail-specs" },
-      { "title": "Record condition and accessories", "body": "Next, record appearance, battery condition and supplied accessories. Known issues must belong to this device. Upload photos after creating the record, and never mark an untested check as passed.", "frame": "retail-details" },
-      { "title": "Check price, source and ownership", "body": "Enter the asking price and storage location. Cost fields require permission. Confirm shop ownership using the checkbox, then create the record. A new device remains awaiting inspection, not ready for sale.", "frame": "retail-review" },
-      { "title": "Inspect before making it available", "body": "Record the actual inspection in the device details, then follow the approval process to make it available. Sale, payments, handover and after-sales are recorded separately for this same device.", "frame": "retail-saved" }
+      { "title": "Condition, battery and photos", "body": "Check condition, battery and accessories on the same page. Photos can be saved with the new record. Never mark checks complete unless they were performed.", "frame": "retail-details" },
+      { "title": "Create and make available together", "body": "The default only creates a record for later inspection. If all three checks are complete, enter a valid asking price and explicitly choose to create and make available in one save.", "frame": "retail-review" },
+      { "title": "Actual sale and printing", "body": "Open the sale form from product details. Enter the buyer, actual payments and delivery in the same form. Check the warranty and confirm the sale once. Print after saving; later payments and after-sales cases remain linked to the original sale.", "frame": "retail-saved" }
     ]
   }
 ]

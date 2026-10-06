@@ -339,3 +339,7 @@ RepairPartForm复用SearchCombobox及既有field-grid／button语义，只保留
 - 样式集中在 `app/globals.css` 的 `.input-control`、`.control-feedback`、`.select-control`，沿用 `--primary-600`、`--danger`、文字／边框 token；错误文字使用 `--danger-text`（提取既有 form-error 深红色，保证小字号对比度），边框仍用 `--danger`。模块差异限定在自身作用域，不另建主题或引入 UI 框架。手机输入至少 16px，清空和主要操作至少 44×44px。
 
 自动维护约束：`eslint.config.mjs` 禁止业务页面直接新增文本类原生 input、textarea、select；仅公共实现和专用类型例外。新增输入必须选择以上入口，并按影响运行 `npm run lint`、`npm run typecheck`、业务测试和 `npm run test:controls`。`tests/browser/input-states.spec.ts` 覆盖四态、点击／键盘清空、原请求锁定与失败重试、条件必填、数量／金额／未知与零、隐藏扫码和四个宽度；既有交互回归继续保留。具体本轮证据与未验证范围见 docs/04 和 PROJECT_MEMORY，不能以本声明代替验收。
+
+## 2026-10-06 商品流程扩展
+
+新建沿用公共输入／规格／识码／选择／保修控件与CSS语义token，宽屏三组并排、中宽两列、手机单列；仅新建手机标题取消吸顶，仍16px输入和44px目标。Gallery新增显式onDraftChange/onBusyChange用于未建档照片，原档案照片确认不变。Checkout复用sale样式和公共输入，选填客户与付款备注展开；普通检测与收款备注选填。业务权限、金额、状态留在retail-workflow及后台，公共控件不承担业务判断。详见docs/30。

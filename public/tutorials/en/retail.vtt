@@ -26,34 +26,31 @@ Leave unknown values empty, not zero.
 00:00:31.792 --> 00:00:36.292
 Do not infer this device's configuration from its product name.
 
-00:00:36.292 --> 00:00:41.625
-Next, record appearance, battery condition and supplied
-accessories.
+00:00:36.292 --> 00:00:40.875
+Check condition, battery and accessories on the same page.
 
-00:00:41.625 --> 00:00:45.042
-Known issues must belong to this device.
+00:00:40.875 --> 00:00:43.958
+Photos can be saved with the new record.
 
-00:00:45.042 --> 00:00:50.958
-Upload photos after creating the record, and never mark an
-untested check as passed.
+00:00:43.958 --> 00:00:47.833
+Never mark checks complete unless they were performed.
 
-00:00:50.958 --> 00:00:54.542
-Enter the asking price and storage location.
+00:00:47.833 --> 00:00:51.917
+The default only creates a record for later inspection.
 
-00:00:54.542 --> 00:00:57.500
-Cost fields require permission.
+00:00:51.917 --> 00:00:59.875
+If all three checks are complete, enter a valid asking price
+and explicitly choose to create and make available in one save.
 
-00:00:57.500 --> 00:01:02.250
-Confirm shop ownership using the checkbox, then create the
-record.
+00:00:59.875 --> 00:01:03.292
+Open the sale form from product details.
 
-00:01:02.250 --> 00:01:06.958
-A new device remains awaiting inspection, not ready for sale.
+00:01:03.292 --> 00:01:08.083
+Enter the buyer, actual payments and delivery in the same form.
 
-00:01:06.958 --> 00:01:13.875
-Record the actual inspection in the device details, then follow
-the approval process to make it available.
+00:01:08.083 --> 00:01:11.667
+Check the warranty and confirm the sale once.
 
-00:01:13.875 --> 00:01:20.000
-Sale, payments, handover and after-sales are recorded
-separately for this same device.
+00:01:11.667 --> 00:01:17.875
+Print after saving; later payments and after-sales cases remain
+linked to the original sale.

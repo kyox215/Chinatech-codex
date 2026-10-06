@@ -11,7 +11,8 @@ import { updateItemQuotes, validItemQuotes } from "../repair-item-pricing";
 import { prepareRepairItemEdits, validateRepairItemsEdit, RepairItemEditError } from "../repair-item-editor";
 import { appendProcurementEvent, isPreorder, procurementStatus, validateProcurementDraft, type ProcurementRecord, type ProcurementEvent } from "../procurement";
 import { applyProcurementBatch, ProcurementBatchError, resolveSupplierId, type ProcurementBatchItem } from "../procurement-batch";
-import { createRetailUnit, applyRetailCommand, currentRetailSale, saleProductUnit, retailCategories, type RetailUnit, type RetailCommand } from "../retail";
+import { createRetailUnit, applyRetailCommand, currentRetailSale, saleProductUnit, retailCategories, validateRetailPhotos, type RetailUnit, type RetailCommand } from "../retail";
+import { applyRetailWorkflow, retailWorkflowPermissions, retailInspectionDetail, type RetailWorkflow } from "../retail-workflow";
 import { emptyIntakeServices } from "../intake-services";
 import { prepareRetailRecord, type RetailRecordPreparation } from "../retail-record";
 import { projectState, loadState } from "./state";
@@ -376,15 +377,36 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     }
     await putProcurementRecords(tx,state.storeId,updated,time);return requestId;
   }
+  if(kind === "retail.workflow") {
+    const workflow = p as unknown as RetailWorkflow;
+    for (const permission of retailWorkflowPermissions(workflow)) authorize(member,permission);
+    if (workflow.type === "create_ready") {
+      fields(workflow.unit,retailFields);
+      if (!uuid.test(identifier(workflow.unit.id))) throw new BackendError("单机身份标识无效。");
+      if (state.retailHistory?.some(record => record.id === workflow.unit.id)) throw new BackendError("已有商品须在原档案核对保存。",409);
+    } else {
+      const current = state.retail.find(unit => unit.id === identifier(workflow.id));
+      if (!current) throw new BackendError("单机不存在。",404);
+      if (current.version !== integer(workflow.version)) throw new BackendError("单机已变化，请重新核对。",409);
+      if (workflow.type === "checkout") {
+        const expectedWarranty = {months:current.warrantyMonths,termsVersion:"retail-2026-10-v1",shopName:state.settings.shopName,address:state.settings.address,phone:state.settings.phone};
+        if (JSON.stringify(workflow.sale.warranty) !== JSON.stringify(expectedWarranty)) throw new BackendError("销售保修约定已变化，请重新核对。",409);
+      }
+    }
+    if (workflow.type !== "inspect_approve" && state.settings.revision !== integer(workflow.settingsRevision)) throw new BackendError("销售保修约定已变化，请重新核对。",409);
+    const next = applyRetailWorkflow(workflow,state.retail,{id:requestId,time,title:"单机操作",detail:"本次事实已核对。",actorId:member.id,actorName:member.name},state.settings);
+    await putRetail(tx,state.storeId,next);return next.id;
+  }
   if(kind==="retail") {
-    exactKeys(p,["type","unit","id","command","version"]);
+    exactKeys(p,["type","unit","id","command","version","photos"]);
     if(p.type==="create") {
       authorize(member,"retail.view");authorize(member,"retail.edit");const draft=p.unit as RetailUnit;fields(draft,retailFields);if(!uuid.test(identifier(draft.id))) throw new BackendError("单机身份标识无效。");
       if (state.retailHistory?.some(record => record.id === draft.id)) throw new BackendError("已有商品须在原档案核对保存。",409);
       if(draft.costCents!==null || draft.refurbCents!==null) authorize(member,"financial.edit");if(draft.priceCents!==null) authorize(member,"retail.price");
-      const next=createRetailUnit(draft,state.retail,{id:requestId,time,title:"独立单机档案已建立",detail:"门店自有实物，待检测。",actorId:member.id,actorName:member.name});await putRetail(tx,state.storeId,next);return next.id;
+      let next:RetailUnit=createRetailUnit(draft,state.retail,{id:requestId,time,title:"独立单机档案已建立",detail:"门店自有实物，待检测。",actorId:member.id,actorName:member.name});if (p.photos !== undefined) next=applyRetailCommand(next,{type:"photos",photos:validateRetailPhotos(p.photos)},{id:requestId+":photos",time,title:"单机照片已保存",detail:"本次实物照片已保存。",actorId:member.id,actorName:member.name},next.version,state.retail);await putRetail(tx,state.storeId,next);return next.id;
     }
     if(p.type!=="command") throw new BackendError("未知整机操作。");
+    if(Object.hasOwn(p,"photos")) throw new BackendError("请求包含无效或不支持的字段。");
     const unit=state.retail.find(row=>row.id===identifier(p.id));if(!unit) throw new BackendError("单机不存在。",404);
     let command=p.command as RetailCommand;object(command);if(!Object.hasOwn(commandFields,command.type)) throw new BackendError("未知单机操作。");fields(command,["type",...commandFields[command.type]]);authorize(member,retailCommandPermission(command));
     if(unit.version!==integer(p.version)) throw new BackendError("单机已变化，请重新核对。",409);
@@ -395,8 +417,17 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
       if(JSON.stringify(proposed)!==JSON.stringify(command.warranty)) throw new BackendError("销售保修约定已变化，请重新核对。",409);
     }
     if(command.type==="after_sale_link" || command.type==="after_sale_close") requireRetailAfterSaleRepair(unit,command,state.intakes,command.type==="after_sale_close"?JSON.stringify({version:1,workflows:state.workflows}):null);
+    let detail = "已核对并保存。";
+    if (command.type === "inspect") detail = retailInspectionDetail(command.checks,command.note);
+    else if (command.type === "pause" || command.type === "reinspect") {
+      if (typeof command.note !== "string" || !command.note.trim() || command.note.length > 5000) throw new BackendError("检测说明或状态变更原因无效。");
+      detail = command.note;
+    } else if (command.type === "approve" && command.note !== undefined) {
+      if (typeof command.note !== "string" || command.note.length > 5000) throw new BackendError("检测说明或状态变更原因无效。");
+      if (command.note.trim()) detail = command.note;
+    }
     const financial=command.type==="edit" && ["costCents","refurbCents"].includes(command.change.field);
-    const next=applyRetailCommand(unit,command,{id:requestId,time,title:"单机操作："+command.type,detail:financial?"成本资料更正。":"已核对并保存。",actorId:member.id,actorName:member.name,...(financial?{sensitive:"financial" as const}:{})},integer(p.version),state.retail);
+    const next=applyRetailCommand(unit,command,{id:requestId,time,title:"单机操作："+command.type,detail:financial?"成本资料更正。":detail,actorId:member.id,actorName:member.name,...(financial?{sensitive:"financial" as const}:{})},integer(p.version),state.retail);
     await putRetail(tx,state.storeId,next);return next.id;
   }
   if (kind === "retail.prepare") {

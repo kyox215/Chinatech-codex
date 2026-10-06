@@ -68,6 +68,7 @@ const verificationFields = new Set<RetailEditableField>([
   "bodyStorage", "disks", "cpu", "gpu", "keyboard", "edition", "controllers", "condition", "grade",
   "batteryPercent", "knownIssues",
 ]);
+export function isRetailVerificationField(field: string): boolean { return verificationFields.has(field as RetailEditableField); }
 function applicableRetailField(category: RetailCategory, field: RetailEditableField) {
   switch (field) {
     case "imei1": case "imei2": return category === "phone" || category === "tablet";
@@ -159,7 +160,7 @@ export function validateRetailFieldEdit(unit: RetailUnit, change: RetailFieldEdi
   validateRetailUnit(candidate, others);
   if (unit.status === "available" && (candidate.priceCents === null || candidate.priceCents <= 0)) throw new Error("可售单机须保留有效正售价，未知或零售价不能保存。");
   if (sameRetailFieldValue(unit[field], candidate[field])) return unit;
-  if (unit.status === "available" && verificationFields.has(field)) {
+  if (unit.status === "available" && isRetailVerificationField(field)) {
     candidate.status = "inspecting";
     candidate.inspection = { functional: false, ownership: false, data: false };
   }
@@ -236,7 +237,7 @@ export function validateRetailUnit(unit: RetailUnit, others: RetailUnit[] = []) 
   return unit;
 }
 
-export function createRetailUnit(draft: RetailUnit, existing: RetailUnit[], event: RetailEvent) {
+export function createRetailUnit(draft: RetailUnit, existing: RetailUnit[], event: RetailEvent): RetailUnit {
   if (draft.historyOrigin !== undefined) throw new Error("已有商品须在原档案核对保存。");
   validateRetailEvent(event);
   if (!draft.id || existing.some((unit) => unit.id === draft.id)) throw new Error("单机编号无效或已存在。");
@@ -267,11 +268,11 @@ export function changeRetailDraftCategory(draft: RetailUnit, category: RetailCat
 }
 
 export type RetailCommand =
-  | { type: "edit"; change: RetailFieldEdit } | { type: "inspect"; checks: Inspection }
-  | { type: "price"; priceCents: number | null } | { type: "approve" } | { type: "pause" } | { type: "reinspect" }
+  | { type: "edit"; change: RetailFieldEdit } | { type: "inspect"; checks: Inspection; note?: string }
+  | { type: "price"; priceCents: number | null } | { type: "approve"; note?: string } | { type: "pause"; note?: string } | { type: "reinspect"; note?: string }
   | { type: "sell"; saleId: string; customerPhone: string; customerName: string; customerEmail?: string; customerAddress?: string; customerNote?: string; priceCents: number; warranty: RetailWarrantySnapshot; paymentUnreceived?: boolean }
   | { type: "reserve"; name: string; phone: string; until: string; note: string } | { type: "release_reservation" }
-  | { type: "payment" | "refund"; saleId: string; entryId: string; amountCents: number; date: string; method: RetailPaymentMethod; note: string }
+  | { type: "payment" | "refund"; saleId: string; entryId: string; amountCents: number; date: string; method: RetailPaymentMethod; note?: string }
   | { type: "payment_reconcile"; saleId: string; paidCents: number; reason: string }
   | { type: "payment_void" | "refund_void"; saleId: string; entryId: string; reason: string }
   | { type: "deliver"; saleId: string; deliveryDate: string; debt?: RetailDebtDelivery }
@@ -354,7 +355,7 @@ function moneyRequest(command: Extract<RetailCommand, { type: "payment" | "refun
   const id = retailId(command.entryId); const amountCents = retailAmount(command.amountCents, command.type === "payment" ? "收款" : "退款");
   saleDate(sale, command.date, event, command.type === "payment" ? "收款" : "退款");
   if (!["cash", "card", "transfer", "other"].includes(command.method)) throw new Error("请核对收退款方式。");
-  return { id, amountCents, date: command.date, method: command.method, note: retailText(command.note, "款项备注"), eventId: event.id, ...actor(event) };
+  return { id, amountCents, date: command.date, method: command.method, note: retailText(command.note ?? "", "款项备注", 5000, command.type === "refund"), eventId: event.id, ...actor(event) };
 }
 function sameMoney(first: RetailMoneyEntry, second: RetailMoneyEntry): boolean {
   return first.id === second.id && first.amountCents === second.amountCents && first.date === second.date && first.method === second.method && first.note === second.note;
@@ -377,6 +378,11 @@ export function validateRetailPhotos(photos: unknown): string[] {
 }
 export function applyRetailCommand(unit: RetailUnit, command: RetailCommand, event: RetailEvent, expectedVersion: number, others: RetailUnit[] = []) {
   if (!storedObject(command) || !["edit", "inspect", "price", "approve", "pause", "reinspect", "sell", "reserve", "release_reservation", "payment", "refund", "payment_reconcile", "payment_void", "refund_void", "deliver", "return", "after_sale", "after_sale_assess", "after_sale_link", "after_sale_close", "after_sale_cancel", "photos"].includes(command.type)) throw new Error("未知单机操作。");
+  if (["inspect", "approve", "pause", "reinspect"].includes(command.type) && "note" in command && command.note !== undefined) {
+    const required = command.type === "pause" || command.type === "reinspect";
+    const note = retailText(command.note, "检测说明或状态变更原因", 5000, required);
+    if (note) event = { ...event, detail: command.note };
+  }
   validateRetailEvent(event);
   const target = "saleId" in command ? unit.sales.find(sale => sale.id === retailId(command.saleId)) : undefined;
   if (command.type !== "sell" && "saleId" in command && !target) throw new Error("请核对销售记录。");
