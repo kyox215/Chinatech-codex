@@ -11,20 +11,20 @@ import styles from "./retail-input-controls.module.css";
 export function RetailMoneyControl({ label, value, onChange, required = false, placeholder = "未知请留空", maxCents }: {
   label: string; value: string; onChange: (value: string) => void; required?: boolean; placeholder?: string; maxCents?: number | null;
 }) {
-  const { t } = useLanguage();
+  const { t , systemText } = useLanguage();
   let preview = "未记录"; let error = "";
   try {
     const cents = parseRetailMoney(value); preview = cents === null ? required ? "请输入实际金额" : "未记录" : retailMoney(cents);
     if (cents !== null && maxCents != null && cents > maxCents) error = `金额不能超过 ${retailMoney(maxCents)}。`;
   } catch (reason) { error = reason instanceof Error ? reason.message : "请核对金额。"; }
-  return <div className={styles.control}><label className="field"><span>{t(label)}{required ? " *" : ""}</span><InputControl shell leading={<b>€</b>} error={t(error)} hint={t("{v0} · 最多两位小数", { v0: t(preview) })} validate={() => error} aria-label={t(label)} required={required} inputMode="decimal" maxLength={16} value={value} onChange={event => onChange(event.target.value)} onClear={!required ? () => onChange("") : undefined} clearLabel={t("清空{v0}", { v0: t(label) })} placeholder={t(placeholder)} /></label></div>;
+  return <div className={styles.control}><label className="field"><span>{t(label)}{required ? " *" : ""}</span><InputControl shell leading={<b>€</b>} error={systemText(error)} hint={t("{v0} · 最多两位小数", { v0: t(preview) })} validate={() => error} aria-label={t(label)} required={required} inputMode="decimal" maxLength={16} value={value} onChange={event => onChange(event.target.value)} onClear={!required ? () => onChange("") : undefined} clearLabel={t("清空{v0}", { v0: t(label) })} placeholder={t(placeholder)} /></label></div>;
 }
 
 /** Integer drafts remain exact; steppers and battery slider are explicit user actions. */
 export function RetailNumberControl({ label, value, onChange, min = 0, max = 100, unit = "个", battery = false, disabled = false, optional = true }: {
   label: string; value: number | null; onChange: (value: number | null) => void; min?: number; max?: number; unit?: string; battery?: boolean; disabled?: boolean; optional?: boolean;
 }) {
-  const { t } = useLanguage();
+  const { t , systemText } = useLanguage();
   const [raw, setRaw] = useState(() => value === null || !Number.isFinite(value) ? "" : String(value));
   const id = useId(); const error = retailNumberError(raw, min, max, true);
   const numeric = retailDraftNumber(raw, true); const valid = numeric !== null && !error;
@@ -38,7 +38,7 @@ export function RetailNumberControl({ label, value, onChange, min = 0, max = 100
       <button className="icon-button" type="button" aria-label={t("增加{v0}", { v0: t(label) })} disabled={disabled || !!error || numeric !== null && numeric >= max} onClick={() => step(1)}><Plus size={16} /></button>
     </span></label>
     {battery ? <label className={styles.range}><span className="visually-hidden">{t("拖动调整电池健康")}</span><span aria-hidden="true">0%</span><input aria-label={t("拖动调整电池健康")} type="range" min="0" max="100" step="1" value={valid ? numeric : 0} aria-valuetext={valid ? numeric + "%" : t("未记录")} disabled={disabled || !!error} onChange={event => change(event.target.value)} /><span aria-hidden="true">100%</span></label> : null}
-    <div className={styles.feedback}><small id={id} className={error ? styles.error : styles.hint}>{t(error) || (battery ? t("实测整数百分比，0%与未记录分别保存") : `${min}–${max}${t(unit)}${optional ? t("，空白为未记录") : ""}`)}</small>{optional ? <button type="button" className="button button--secondary button--compact" disabled={disabled || raw === ""} onClick={() => change("")}><X size={14} />{t("未记录")}</button> : null}</div>
+    <div className={styles.feedback}><small id={id} className={error ? styles.error : styles.hint}>{systemText(error) || (battery ? t("实测整数百分比，0%与未记录分别保存") : `${min}–${max}${t(unit)}${optional ? t("，空白为未记录") : ""}`)}</small>{optional ? <button type="button" className="button button--secondary button--compact" disabled={disabled || raw === ""} onClick={() => change("")}><X size={14} />{t("未记录")}</button> : null}</div>
   </div>;
 }
 

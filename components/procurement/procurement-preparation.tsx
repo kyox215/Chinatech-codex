@@ -12,10 +12,10 @@ import { initialRepairWorkflow, isRepairHistory, isRepairReady } from "@/lib/rep
 import { useStaff } from "@/components/staff/use-staff";
 
 export function ProcurementFeedback({ recordId }: { recordId: string }) {
-  const { t } = useLanguage();
+  const { systemText } = useLanguage();
   const { feedback } = useProcurement();
   if (feedback?.recordId !== recordId) return null;
-  return <div className={`procurement-feedback${feedback.error ? " procurement-feedback--error" : ""}`} role={feedback.error ? "alert" : "status"}>{feedback.error ? null : <CheckCircle2 size={16} />}{t(feedback.message)}</div>;
+  return <div className={`procurement-feedback${feedback.error ? " procurement-feedback--error" : ""}`} role={feedback.error ? "alert" : "status"}>{feedback.error ? null : <CheckCircle2 size={16} />}{systemText(feedback.message)}</div>;
 }
 
 // Shared one-click markers for work orders and procurement detail.

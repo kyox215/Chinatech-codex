@@ -17,7 +17,7 @@ const demoCredentials = {
 };
 
 export function LoginForm({ supabaseMode = false, previewAvailable = true, notice = "" }: { supabaseMode?: boolean; previewAvailable?: boolean; notice?: string }) {
-  const { t } = useLanguage();
+  const { t , systemText } = useLanguage();
   const ready = useFormReady();
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -90,7 +90,7 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
         <button type="button" disabled={busy} onClick={fillDemoCredentials}>{t("填入演示账号")}</button>
       </div> : null}
       {!supabaseMode && !previewAvailable ? <p className="form-error" role="alert">{t("登录服务尚未开放，请联系门店。")}</p> : null}
-      {notice ? <p className={styles.successNotice} role="status">{t(notice)}</p> : null}
+      {notice ? <p className={styles.successNotice} role="status">{systemText(notice)}</p> : null}
       {supabaseMode ? <SocialSignIn disabled={!ready || isSubmitting} onBusyChange={setOAuthBusy} /> : null}
 
       <div className="form-field">
@@ -107,7 +107,7 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
         {!supabaseMode ? <><label className="checkbox-label"><input type="checkbox" checked={remember} disabled={busy || unavailable} onChange={(event) => setRemember(event.target.checked)} /><span>{t("保持本次预览登录")}</span></label><Link href="/forgot-password">{t("忘记密码？")}</Link></> : <Link href="/forgot-password">{t("忘记密码？")}</Link>}
       </div>
 
-      {error ? <p className="form-error" id="login-error" role="alert"><AlertCircle size={17} />{t(error)}</p> : null}
+      {error ? <p className="form-error" id="login-error" role="alert"><AlertCircle size={17} />{systemText(error)}</p> : null}
 
       <button className="button button--primary auth-submit" type="submit" disabled={busy || unavailable}>{isSubmitting ? <><LoaderCircle className="spin" size={18} />{t("正在验证")}</> : t("登录工作台")}</button>
       <p className={styles.hint}>{t("使用已获授权的账号登录。新成员仍需门店授权。")}{supabaseMode ? <Link href="/verify-email" className={styles.verifyLink}>{t("未收到验证邮件？")}</Link> : null}</p>

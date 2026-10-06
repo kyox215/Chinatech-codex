@@ -7,7 +7,7 @@ import { ProviderMark } from "./provider-mark";
 import styles from "./auth-experience.module.css";
 
 export function SocialSignIn({ disabled, onBusyChange }: { disabled?: boolean; onBusyChange: (busy: boolean) => void }) {
-  const { t } = useLanguage();
+  const { t , systemText } = useLanguage();
   const [busy, setBusy] = useState<"google" | "apple" | null>(null);
   const [error, setError] = useState("");
   const inFlight = useRef(false);
@@ -32,7 +32,7 @@ export function SocialSignIn({ disabled, onBusyChange }: { disabled?: boolean; o
         {busy === provider ? t("正在前往…") : t("使用 {provider} 继续", { provider: provider === "google" ? "Google" : "Apple" })}
       </button>)}
     </div>
-    {error ? <p className="form-error" role="alert">{t(error)}</p> : null}
+    {error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}
     <div className={styles.separator}>{t("或使用邮箱")}</div>
   </>;
 }

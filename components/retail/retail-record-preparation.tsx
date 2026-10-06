@@ -22,7 +22,7 @@ import recordStyles from "./retail-record.module.css";
 
 const checks = [{ key: "functional", label: "功能检测已完成" }, { key: "ownership", label: "所有权及账号锁已核验" }, { key: "data", label: "数据处理已核验" }] as const;
 export function RetailRecordPreparation({ record }: { record: RetailHistoryRecord }) {
-  const { t } = useLanguage(); const staff = useStaff(); const store = useStoreSettings();
+  const { t, systemText , locale } = useLanguage(); const staff = useStaff(); const store = useStoreSettings();
   const { units, dispatch, ready, error: storageError, feedback } = useRetail();
   const [draft, setDraft] = useState(() => initialRecordPreparation(record));
   const [pending, setPending] = useState<RetailRecordPreparation | null>(null);
@@ -52,14 +52,14 @@ export function RetailRecordPreparation({ record }: { record: RetailHistoryRecor
   return <form className="panel detail-section" aria-label={t("核对商品资料")} onSubmit={submit}><div className={`detail-section__head ${surface.sectionHead}`}><div><span><FileCheck size={18} /></span><h3>{t("核对商品资料")}</h3></div></div><div className={recordStyles.body}>{conflict ? <div className="procurement-feedback procurement-feedback--error" role="alert"><p>{t("商品来源或门店约定已变化，请重新核对。")}</p><button type="button" className="button button--secondary" disabled={submitting || !store.ready || !!store.error} onClick={() => { setRevision(store.settings.revision); setPending(null); setError(""); }}>{t("重新核对")}</button></div> : null}<fieldset className="form-fields" disabled={submitting || conflict || !ready || !store.ready || !!storageError || !!store.error}>
     <DeviceDraftNotice draft={deviceDraft} />
     <p>{t("核对当前实物，原商品编号和资料继续保留。")}</p>
-    {error || feedback?.id === record.id && feedback.error ? <p className="form-error" role="alert">{t(error || feedback?.message || "")}</p> : null}
+    {error || feedback?.id === record.id && feedback.error ? <p className="form-error" role="alert">{systemText(error || feedback?.message || "")}</p> : null}
     {pending ? <><div className="device-facts"><span><small>{t("商品类型")}</small><strong>{t(retailCategories[pending.category as RetailCategory])}</strong></span><span><small>{t("型号 / 商品名称")}</small><strong>{pending.brand} {pending.model}</strong></span><span className="device-facts__wide"><small>{t("识别码")}</small><strong>{pending.identifier || t("未记录")}</strong></span><span className="device-facts__wide"><small>{t("本次核验")}</small><strong>{Object.values(pending.checks).filter(Boolean).length}/3</strong></span></div><p>{t("已勾选的检测将保存；保存后在本页明确设为可售。")}</p><div className="module-heading__actions"><button type="button" className="button button--secondary" onClick={() => setPending(null)}>{t("返回修改")}</button><button type="submit" className="button button--primary"><CheckCircle2 size={17} />{submitting ? t("正在保存") : t("确认保存商品资料")}</button></div></> : <>
       <div className="field-grid">
         <label className="field"><span>{t("商品类型")}</span><SelectControl required aria-label={t("商品类型")} value={draft.category} onChange={event => change("category", event.target.value as RetailCategory)}><option value="">{t("请选择商品类型")}</option>{Object.entries(retailCategories).map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</SelectControl></label>
         <label className="field"><span>{t("品牌")}</span><InputControl value={draft.brand} onChange={event => change("brand", event.target.value)} maxLength={100} /></label>
         <label className="field field--wide"><span>{t("型号 / 商品名称")}</span><InputControl required value={draft.model} onChange={event => change("model", event.target.value)} maxLength={200} /></label>
         <label className="field"><span>{t("识别码类型")}</span><SelectControl aria-label={t("识别码类型")} value={draft.identifierKind} onChange={event => change("identifierKind", event.target.value as RetailRecordPreparation["identifierKind"])}><option value="unconfirmed">{t("待核对，保留原文")}</option><option value="imei">IMEI</option><option value="serial">SN</option></SelectControl></label>
-        {draft.identifierKind === "unconfirmed" ? <div className="field"><span>{t("原识别码")}</span><strong>{historyText(record.identifier)}</strong></div> : <IdentifierField required label={draft.identifierKind === "imei" ? "IMEI" : "SN"} value={draft.identifier} onChange={value => change("identifier", value)} kind={draft.identifierKind === "imei" ? "imei" : "serial"} />}
+        {draft.identifierKind === "unconfirmed" ? <div className="field"><span>{t("原识别码")}</span><strong>{historyText(record.identifier, locale)}</strong></div> : <IdentifierField required label={draft.identifierKind === "imei" ? "IMEI" : "SN"} value={draft.identifier} onChange={value => change("identifier", value)} kind={draft.identifierKind === "imei" ? "imei" : "serial"} />}
       </div>
       <label className="retail-check"><input type="checkbox" checked={draft.storeOwned} onChange={event => change("storeOwned", event.target.checked)} /><span>{t("确认这是门店自有且当前在店的实物")}</span></label>
       <div className="retail-inspection-checks">{checks.map(({ key, label }) => <label className="retail-check" key={key}><input type="checkbox" aria-label={t(label)} disabled={!staff.can("retail.inspect")} checked={draft.checks[key]} onChange={event => change("checks", { ...draft.checks, [key]: event.target.checked })} /><span>{t(label)}</span></label>)}</div>
@@ -69,27 +69,27 @@ export function RetailRecordPreparation({ record }: { record: RetailHistoryRecor
 }
 
 export function RetailRecordSourceFacts({ record }: { record: RetailHistoryRecord }) {
-  const { t } = useLanguage(); const staff = useStaff();
+  const { t , locale } = useLanguage(); const staff = useStaff();
   const fact = (label: string, value: string | null) => <div key={label}><dt>{t(label)}</dt><dd>{value?.trim() || t("未记录")}</dd></div>;
   return <><dl className={styles.facts}>
     {fact("原状态", record.sourceStatus)}{fact("商品类别", record.category)}
     {fact("品牌", record.brand)}{fact("型号 / 商品名称", record.model)}{fact("颜色", record.color)}
-    {fact("原标价", t(historyMoney(record.askingPriceCents)))}{staff.can("financial.read") ? fact("原成本", t(historyMoney(record.costCents))) : null}
-    {fact("入库日期", t(historyDate(record.intakeAt, true)))}
+    {fact("原标价", t(historyMoney(record.askingPriceCents, locale)))}{staff.can("financial.read") ? fact("原成本", t(historyMoney(record.costCents, locale))) : null}
+    {fact("入库日期", t(historyDate(record.intakeAt, true, locale)))}
     {fact("内存 / 容量原文", record.memory)}{fact("IMEI / 序列号原文", record.identifier)}
     {fact("来源", "SeaTable")}{fact("源表行号", String(record.sourceRow))}
-    {fact("导入时间", historyDate(record.importedAt, true))}
-  </dl>{(record.customerPhone || record.customerName || record.depositCents !== null || record.salePriceCents !== null || record.pickupDate || record.paymentMethod) ? <RetailRecordOriginalSale record={record} embedded /> : null}{staff.can("financial.read") && record.notes ? <p className={styles.notes}>{record.notes}</p> : null}{record.reviewReasons.length ? <ul>{record.reviewReasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul> : null}</>;
+    {fact("导入时间", historyDate(record.importedAt, true, locale))}
+  </dl>{(record.customerPhone || record.customerName || record.depositCents !== null || record.salePriceCents !== null || record.pickupDate || record.paymentMethod) ? <RetailRecordOriginalSale record={record} embedded /> : null}{staff.can("financial.read") && record.notes ? <p className={styles.notes}>{record.notes}</p> : null}{record.reviewReasons.length ? <ul>{record.reviewReasons.map((reason, index) => <li key={index}>{t(reason)}</li>)}</ul> : null}</>;
 }
 export function RetailRecordOriginalSale({ record, embedded = false }: { record: RetailHistoryRecord; embedded?: boolean }) {
-  const { t } = useLanguage(); let href: string | null = null;
+  const { t , locale } = useLanguage(); let href: string | null = null;
   if (record.customerPhone) { try { href = `/app/customers/${customerId(record.customerPhone)}?records=history`; } catch { /* Keep original invalid phone text. */ } }
   return <section className={embedded ? undefined : "panel detail-section"}>{!embedded ? <div className={`detail-section__head ${surface.sectionHead}`}><div><span><FileCheck size={18} /></span><h3>{t("原销售记录")}</h3></div></div> : null}<div className={recordStyles.body}><div className="device-facts">
     <span><small>{t("客户称呼")}</small><strong>{record.customerName || t("未记录")}</strong></span>
     <span><small>{t("客户号码")}</small><strong>{href ? <Link href={href}>{record.customerPhone}</Link> : record.customerPhone || t("未记录")}</strong></span>
-    <span><small>{t("最终成交价")}</small><strong>{t(historyMoney(record.salePriceCents))}</strong></span>
-    <span><small>{t("已付定金")}</small><strong>{t(historyMoney(record.depositCents))}</strong></span>
+    <span><small>{t("最终成交价")}</small><strong>{t(historyMoney(record.salePriceCents, locale))}</strong></span>
+    <span><small>{t("已付定金")}</small><strong>{t(historyMoney(record.depositCents, locale))}</strong></span>
     <span><small>{t("支付方式原文")}</small><strong>{record.paymentMethod || t("未记录")}</strong></span>
-    <span><small>{t("实际拿走日期")}</small><strong>{t(historyDate(record.pickupDate))}</strong></span>
+    <span><small>{t("实际拿走日期")}</small><strong>{t(historyDate(record.pickupDate, false, locale))}</strong></span>
   </div><p>{t("定金不代表全部实收。")}</p></div></section>;
 }

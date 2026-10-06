@@ -13,7 +13,7 @@ import { saveCustomerProfile, useCustomerDirectory } from "./customer-store";
 import styles from "./customers.module.css";
 
 export function CustomerProfileForm({ customer, onSaved, onCancel }: { customer?: Customer; onSaved: (phone: string) => void; onCancel: () => void }) {
-  const { t } = useLanguage();
+  const { t , systemText } = useLanguage();
   const { customers } = useCustomerDirectory();
   const [phone, setPhone] = useState(customer?.phone ?? "");
   const [name, setName] = useState(customer?.name ?? "");
@@ -43,6 +43,6 @@ export function CustomerProfileForm({ customer, onSaved, onCancel }: { customer?
       <label className="field"><span>{t("客户称呼（选填）")}</span><InputControl disabled={submitting} onClear={() => setName("")} clearLabel={t("清空客户称呼（选填）")} placeholder={t("例如：陈女士")} aria-label={t("客户称呼（选填）")} value={name} maxLength={80} onChange={event => setName(event.target.value)} /></label>
       <label className="field"><span>{t("电子邮件（选填）")}</span><InputControl disabled={submitting} onClear={() => setEmail("")} clearLabel={t("清空电子邮件（选填）")} placeholder="customer@example.com" aria-label={t("电子邮件（选填）")} type="email" value={email} maxLength={160} inputMode="email" onChange={event => setEmail(event.target.value)} /></label>
       <label className="field field--wide"><span>{t("客户备注（选填）")}</span><TextareaControl disabled={submitting} aria-label={t("客户备注（选填）")} placeholder={t("例如：优先使用电话联系")} value={note} maxLength={500} rows={3} onChange={event => setNote(event.target.value)} /></label>
-    </div>{error ? <p className="form-error" role="alert">{t(error)}</p> : null}<div className={styles.formActions}><button className="button button--secondary" type="button" disabled={submitting} onClick={onCancel}>{t("取消")}</button><button className="button button--primary" type="submit" disabled={submitting}><Check size={17} />{submitting ? t("正在保存") : t("保存客户资料")}</button></div></div>
+    </div>{error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}<div className={styles.formActions}><button className="button button--secondary" type="button" disabled={submitting} onClick={onCancel}>{t("取消")}</button><button className="button button--primary" type="submit" disabled={submitting}><Check size={17} />{submitting ? t("正在保存") : t("保存客户资料")}</button></div></div>
   </form>;
 }

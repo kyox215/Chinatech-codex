@@ -13,7 +13,7 @@ import { useStaff } from "./use-staff";
 import styles from "./staff-settings.module.css";
 const statusLabels={pending:"待核对",active:"有效",disabled:"停用"};
 export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending: boolean) => void } = {}) {
-  const { t } = useLanguage();
+  const { t , systemText } = useLanguage();
   const staff = useStaff();
   const [editing, setEditing] = useState<StaffMember | null>(null);
   const [openedRevision, setOpenedRevision] = useState(0);
@@ -74,7 +74,7 @@ export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending:
         </div>
         <fieldset className={styles.permissions}><legend>{t("允许的操作")}</legend>{Object.entries(permissionLabels).map(([permission, label]) => <label key={permission}><input type="checkbox" aria-label={t(label)} checked={editing.permissions.includes(permission as keyof typeof permissionLabels)} disabled={editing.id === staff.member?.id || editing.role === "owner" || !staff.can(permission as keyof typeof permissionLabels)} onChange={event => { const next = event.target.checked ? [...editing.permissions, permission as keyof typeof permissionLabels] : editing.permissions.filter(value => value !== permission); setEditing({ ...editing, permissions: next }); }}/><span>{t(label)}</span></label>)}</fieldset>
       </>}
-      {error || openedRevision !== staff.data.revision ? <p className="form-error" role="alert">{openedRevision !== staff.data.revision ? t("员工资料或预览身份已变化，请取消后重新核对。") : t(error)}</p> : null}
+      {error || openedRevision !== staff.data.revision ? <p className="form-error" role="alert">{openedRevision !== staff.data.revision ? t("员工资料或预览身份已变化，请取消后重新核对。") : systemText(error)}</p> : null}
       <footer className={styles.footer}><button className="button button--secondary" type="button" onClick={close}>{t("取消")}</button>{review ? <button className="button button--secondary" type="button" onClick={() => { if (!busy.current) setReview(false); }}>{t("返回修改")}</button> : null}<button className="button button--primary" type="submit" disabled={openedRevision !== staff.data.revision}><Check size={17}/>{submitting ? t("正在保存…") : review ? t("确认保存员工") : t("继续核对权限")}</button></footer>
     </fieldset></form> : null}
     <div className={styles.rows}>{staff.data.members.map(member => <article key={member.id}><span className={styles.avatar}>{member.name.slice(0, 1)}</span><div><strong>{member.name}</strong><small>{member.email}</small><span>{t(staffRoles[member.role])} {t(" · 账号")}{t(statusLabels[member.accountStatus])} {t(" · 成员")}{t(statusLabels[member.membershipStatus])}</span></div><button className="button button--secondary button--compact" type="button" onClick={() => open(member)} disabled={submitting || member.role === "owner" && staff.member?.role !== "owner"}>{t("编辑")}</button></article>)}</div>

@@ -104,8 +104,8 @@
     "Not recorded"
   ],
   "待确认": [
-    "In attesa di conferma",
-    "Awaiting confirmation"
+    "Da confermare",
+    "To be confirmed"
   ],
   "未指定": [
     "Non specificato",
@@ -328,8 +328,8 @@
     "Brand / model"
   ],
   "商品分类": [
-    "Categoria commerciale",
-    "Sale condition"
+    "Condizione del prodotto",
+    "Product condition"
   ],
   "规格": [
     "Specifiche",
@@ -364,8 +364,8 @@
     "Indicative price"
   ],
   "已收款": [
-    "Pagamento",
-    "Payment"
+    "Importo incassato",
+    "Amount received"
   ],
   "已记录退款": [
     "Rimborsi registrati",
@@ -409,7 +409,7 @@
   ],
   "无额外商家保修": [
     "Nessuna garanzia commerciale aggiuntiva",
-    "No additional commercial warranty"
+    "No additional store warranty"
   ],
   "商家保修不适用": [
     "Non applicabile alla garanzia commerciale",
@@ -477,7 +477,7 @@
   ],
   "外观等级": [
     "Grado estetico",
-    "Appearance grade"
+    "Cosmetic grade"
   ],
   "意大利语": [
     "Italiano",
@@ -580,8 +580,8 @@
     "Unable to charge"
   ],
   "无法传输数据": [
-    "接口松动",
-    "无法充电"
+    "Trasferimento dati non funzionante",
+    "Data transfer not working"
   ],
   "无法拍摄": [
     "Impossibile scattare foto",
@@ -592,8 +592,8 @@
     "Blurred image"
   ],
   "镜片破损": [
-    "无法拍摄",
-    "模糊"
+    "Lente danneggiata",
+    "Damaged lens"
   ],
   "接触液体": [
     "Contatto con liquidi",
@@ -604,8 +604,8 @@
     "Will not power on"
   ],
   "需检查腐蚀": [
-    "接触液体",
-    "无法开机"
+    "Verificare corrosione",
+    "Corrosion check requested"
   ],
   "重启": [
     "Riavvii",
@@ -628,8 +628,8 @@
     "Unable to boot"
   ],
   "软件异常": [
-    "卡顿",
-    "无法启动"
+    "Problema software",
+    "Software issue"
   ],
   "破损": [
     "Danneggiato",
@@ -640,8 +640,8 @@
     "Adhesive separation"
   ],
   "变形": [
-    "破损",
-    "开胶"
+    "Deformato",
+    "Deformed"
   ],
   "无法识别": [
     "Riconoscimento non riuscito",
@@ -660,12 +660,12 @@
     "Audio noise"
   ],
   "声音小": [
-    "无声音",
-    "杂音"
+    "Volume basso",
+    "Low volume"
   ],
   "通话异常": [
-    "无声音",
-    "声音小"
+    "Problema nelle chiamate",
+    "Call issue"
   ],
   "电源键": [
     "Tasto accensione",
@@ -968,8 +968,8 @@
     "Awaiting testing"
   ],
   "待取机": [
-    "Pronto per il ritiro",
-    "Ready for collection"
+    "In attesa di ritiro",
+    "Awaiting collection"
   ],
   "维修结束": [
     "Riparazione conclusa",

@@ -7,7 +7,7 @@ import { Check, LoaderCircle, Mail } from "lucide-react";
 import styles from "./auth-experience.module.css";
 
 export function VerificationSent({ email, onEdit }: { email: string; onEdit: () => void }) {
-  const { t } = useLanguage();
+  const { t , systemText } = useLanguage();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -22,5 +22,5 @@ export function VerificationSent({ email, onEdit }: { email: string; onEdit: () 
     } catch (reason) { setError(reason instanceof Error ? reason.message : "网络连接失败，请稍后重试。"); }
     finally { setBusy(false); }
   }
-  return <div className="auth-form auth-success"><span className="auth-form__icon"><Mail size={27} /></span><h1>{t("下一步，验证邮箱")}</h1><p>{t("如果 ")}<strong>{email}</strong> {t(" 可以注册，请查收验证邮件。在当前浏览器打开邮件里的链接，完成验证后继续登录。")}</p><div className="pending-steps"><span className="pending-step pending-step--done"><i><Check size={14} /></i>{t("账号申请已提交")}</span><span className="pending-step"><i>2</i>{t("打开邮件，验证邮箱")}</span><span className="pending-step"><i>3</i>{t("等待门店老板授权")}</span></div><p className={styles.hint}>{t("没有收到？请检查垃圾邮件，或稍后重新发送。已有账号可以直接登录。")}</p>{message ? <p className={styles.successNotice} role="status">{t(message)}</p> : null}{error ? <p className="form-error" role="alert">{t(error)}</p> : null}<div className={styles.resend}><Link className="button button--primary" href="/login">{t("前往登录")}</Link><button className="button button--secondary" type="button" disabled={busy} onClick={resend}>{busy ? <><LoaderCircle className="spin" size={17} />{t("正在提交")}</> : t("重新发送验证邮件")}</button><button className={styles.textButton} type="button" disabled={busy} onClick={onEdit}>{t("邮箱填写有误？返回修改")}</button></div></div>;
+  return <div className="auth-form auth-success"><span className="auth-form__icon"><Mail size={27} /></span><h1>{t("下一步，验证邮箱")}</h1><p>{t("如果 ")}<strong>{email}</strong> {t(" 可以注册，请查收验证邮件。在当前浏览器打开邮件里的链接，完成验证后继续登录。")}</p><div className="pending-steps"><span className="pending-step pending-step--done"><i><Check size={14} /></i>{t("账号申请已提交")}</span><span className="pending-step"><i>2</i>{t("打开邮件，验证邮箱")}</span><span className="pending-step"><i>3</i>{t("等待门店老板授权")}</span></div><p className={styles.hint}>{t("没有收到？请检查垃圾邮件，或稍后重新发送。已有账号可以直接登录。")}</p>{message ? <p className={styles.successNotice} role="status">{systemText(message)}</p> : null}{error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}<div className={styles.resend}><Link className="button button--primary" href="/login">{t("前往登录")}</Link><button className="button button--secondary" type="button" disabled={busy} onClick={resend}>{busy ? <><LoaderCircle className="spin" size={17} />{t("正在提交")}</> : t("重新发送验证邮件")}</button><button className={styles.textButton} type="button" disabled={busy} onClick={onEdit}>{t("邮箱填写有误？返回修改")}</button></div></div>;
 }

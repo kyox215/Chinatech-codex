@@ -26,23 +26,23 @@ import surface from "./retail-surface.module.css";
 
 function TextField({ label, value, onChange, placeholder, maxLength = 120 }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; maxLength?: number }) {
   const { t } = useLanguage();
-  return <label className="field"><span>{t(label)}</span><InputControl onClear={() => onChange("")} clearLabel={t("清空{v0}", { v0: label })} aria-label={t(label)} value={value} maxLength={maxLength} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} /></label>;
+  return <label className="field"><span>{t(label)}</span><InputControl onClear={() => onChange("")} clearLabel={t("清空{v0}", { v0: t(label) })} aria-label={t(label)} value={value} maxLength={maxLength} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} /></label>;
 }
 
 type RetailFormProps = { copyId?: string; identifier?: string; kind?: string };
 export function RetailForm(props: RetailFormProps) {
-  const { t } = useLanguage();
+  const { t, systemText } = useLanguage();
   const staff = useStaff();
   const { ready, error, returnTo } = useRetail();
   const store = useStoreSettings();
   if (!staff.ready || !ready || !store.ready) return <main className={`module-page ${surface.page}`}><header className="module-heading"><PageTitle title={props.copyId ? t("同型号新建商品") : t("新建商品")} backHref={returnTo} backLabel={t("返回商品列表")} /></header><section className="panel module-empty" role="status">{t("正在读取单机资料…")}</section></main>;
   if (!staff.can("retail.edit")) return <AccessPanel />;
-  if (error || store.error) return <main className={`module-page ${surface.page}`}><header className="module-heading"><PageTitle title={t("新建商品")} backHref={returnTo} backLabel={t("返回商品列表")} /></header><section className="panel module-empty" role="alert">{t(error) || store.error}</section></main>;
+  if (error || store.error) return <main className={`module-page ${surface.page}`}><header className="module-heading"><PageTitle title={t("新建商品")} backHref={returnTo} backLabel={t("返回商品列表")} /></header><section className="panel module-empty" role="alert">{systemText(error || store.error)}</section></main>;
   return <RetailFormContent {...props} />;
 }
 
 function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
-  const { t } = useLanguage();
+  const { t, systemText } = useLanguage();
   const staff=useStaff();
   const { units, returnTo, dispatch, ready, error: storageError } = useRetail();
   const router = useRouter();
@@ -111,7 +111,7 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
       <DeviceDraftNotice draft={deviceDraft}/><nav ref={stepsRef} tabIndex={-1} className={styles.steps} aria-label={t("单机录入步骤")}>
         {["基础与规格", "成色与随件", "金额与来源"].map((label, index) => <span className={`${styles.step} ${step === index ? styles.activeStep : ""}`} key={label} aria-current={step === index ? "step" : undefined}><i>{index + 1}</i><span>{t(label)}</span></span>)}
       </nav>
-      {error || storageError ? <div className="procurement-feedback procurement-feedback--error" role="alert">{t(error || storageError)}</div> : null}
+      {error || storageError ? <div className="procurement-feedback procurement-feedback--error" role="alert">{systemText(error || storageError)}</div> : null}
       <div className={styles.body}>
         <div className={styles.layout}>
           {step === 0 ? <>

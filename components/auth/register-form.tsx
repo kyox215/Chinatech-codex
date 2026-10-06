@@ -11,7 +11,7 @@ import { VerificationSent } from "./verification-sent";
 import styles from "./auth-experience.module.css";
 
 export function RegisterForm({ supabaseMode = false, previewAvailable = true }: { supabaseMode?: boolean; previewAvailable?: boolean }) {
-  const { t } = useLanguage();
+  const { t , systemText } = useLanguage();
   const ready = useFormReady();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,7 +69,7 @@ export function RegisterForm({ supabaseMode = false, previewAvailable = true }: 
     <div className="form-field"><label htmlFor="confirm-password">{t("确认密码")}</label><InputControl shell leading={<LockKeyhole size={19} />} ref={confirmInput} id="confirm-password" name="confirmPassword" type={showPassword ? "text" : "password"} required minLength={10} maxLength={128} autoComplete="new-password" value={confirmPassword} disabled={busy || unavailable} error={t(confirmError)} onChange={event => { setConfirmPassword(event.target.value); setError(""); }} onBlur={() => setConfirmChecked(true)} placeholder={t("再次输入上方设置的密码")} /></div>
     {!supabaseMode ? <label className="checkbox-label checkbox-label--terms"><input type="checkbox" required disabled={busy || unavailable} /><span>{t("我了解当前提交仅为界面样板，不会创建真实账号。")}</span></label> : null}
     {!supabaseMode && !previewAvailable ? <p className="form-error" role="alert">{t("注册服务尚未开放，请联系门店。")}</p> : null}
-    {error ? <p className="form-error" role="alert">{t(error)}</p> : null}
+    {error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}
     <button className="button button--primary auth-submit" type="submit" disabled={busy || unavailable}>{isSubmitting ? <><LoaderCircle className="spin" size={18} />{t("正在创建账号")}</> : t("创建账号")}</button>
     <p className={styles.hint}>{t("完成验证后，由门店老板授予访问权限。注册不会自动加入门店或获得管理员身份。")}</p>
   </form>;

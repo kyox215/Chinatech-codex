@@ -22,7 +22,7 @@ async function moduleUrl(file) {
   return url;
 }
 const load = async name => import(await moduleUrl(resolve(root, name)));
-const { translate } = await load("lib/i18n/translate.ts");
+const { translate, translateSystemMessage } = await load("lib/i18n/translate.ts");
 const { interfaceMessages } = await load("lib/i18n/interface.ts");
 const { errorMessages } = await load("lib/i18n/errors.ts");
 const { publicMessages } = await load("lib/i18n/public.ts");
@@ -60,6 +60,35 @@ test("translated errors retain numeric limits and explicit failed-operation boun
   assert.equal(translate("工单已变化，请核对最新状态后重试。", "en"), "The repair order has changed. Check its latest status before retrying.");
   assert.match(translate("员工预览资料格式异常，现有资料未被覆盖。", "it"), /non sono stati sovrascritti/);
   assert.equal(translate("请先明确恢复维修，再新增或更改维修项目。 ", "en"), "Explicitly resume the repair before adding or changing repair items. ");
+});
+
+test("reviewed system sentences localize fields and preserve original names and limits", () => {
+  assert.equal(translateSystemMessage("电池健康须为整数，未知请留空。", "en"), "Battery health must be an integer; leave blank if unknown.");
+  assert.equal(translateSystemMessage("请输入 0–100 的整数。", "it"), "Inserisci un numero intero compreso tra 0 e 100.");
+  assert.equal(translateSystemMessage("客户邮箱须为有效文字，最多 160 字。", "en"), "Customer email must be valid text, up to 160 characters.");
+  assert.equal(translateSystemMessage("有效", "en"), "Active");
+  const original = "客户  自选屏幕";
+  const message = `${original}已有采购记录，清空供应商不能取消采购。`;
+  assert.equal(translateSystemMessage(message, "en"), `${original} already has a purchase record. Clearing the supplier does not cancel the purchase.`);
+  assert.equal(translate(message, "en"), message);
+  assert.equal(translateSystemMessage(message, "zh-CN"), message);
+  assert.equal(translateSystemMessage("{name}：填写进价前请选择供应商。", "en", {name: original}), `${original}: choose a supplier before entering the purchase cost.`);
+});
+
+test("system translation rejects unknown slots and broad partial-message matches", () => {
+  for (const text of ["客户中文原文须为整数，未知请留空。", "Unregistered field须为整数，未知请留空。", "报价客户中文自由补充", "报价Custom note", "请输入 猜测–100 的整数。", "未知供应商 登录暂不可用，请稍后重试。"])
+    assert.equal(translateSystemMessage(text, "en"), text);
+  assert.equal(translateSystemMessage("采购条目 {id} 已变化，请重新核对整批。", "en", {}), "Purchase item {id} has changed. Review the entire batch again.");
+  assert.equal(translate("客户邮箱须为有效文字，最多 160 字。", "en"), "客户邮箱须为有效文字，最多 160 字。");
+});
+
+test("professional labels distinguish product condition, cosmetic grade and commercial warranty", () => {
+  assert.equal(translate("商品分类", "en"), "Product condition");
+  assert.equal(translate("外观等级", "it"), "Grado estetico");
+  assert.equal(translate("无额外商家保修", "en"), "No additional store warranty");
+  assert.equal(translate("待取机", "en"), "Awaiting collection");
+  for (const key of ["无法传输数据", "镜片破损", "需检查腐蚀", "软件异常", "变形", "声音小", "通话异常"])
+    for (const locale of ["it", "en"]) assert.doesNotMatch(translate(key, locale), /[\u3400-\u9fff]/u, key);
 });
 
 test("localized specification display keeps unknown capacity, zero and free edition separate", () => {

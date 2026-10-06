@@ -28,7 +28,7 @@ async function readResponse(response: Response) {
 }
 
 export function AccountSettings({ notice = "" }: { notice?: string }) {
-  const { t } = useLanguage();
+  const { t , systemText } = useLanguage();
   const [data, setData] = useState<AccountOverview | null>(null);
   const [error, setError] = useState("");
   const [unauthorized, setUnauthorized] = useState(false);
@@ -61,8 +61,8 @@ export function AccountSettings({ notice = "" }: { notice?: string }) {
   }, [load]);
 
   return <>
-    {notices[notice] ? <p className={notice === "account-failed" ? "form-error" : styles.notice} role={notice === "account-failed" ? "alert" : "status"}>{notices[notice]}</p> : null}
-    {error ? <div className={`panel ${styles.state}`} role="alert"><CircleAlert size={26} /><p>{t(error)}</p>{unauthorized ? <Link className="button button--primary" href="/login">{t("重新登录")}</Link> : <button className="button button--secondary" onClick={() => void load()}>{t("重新读取")}</button>}</div> : null}
+    {notices[notice] ? <p className={notice === "account-failed" ? "form-error" : styles.notice} role={notice === "account-failed" ? "alert" : "status"}>{t(notices[notice])}</p> : null}
+    {error ? <div className={`panel ${styles.state}`} role="alert"><CircleAlert size={26} /><p>{systemText(error)}</p>{unauthorized ? <Link className="button button--primary" href="/login">{t("重新登录")}</Link> : <button className="button button--secondary" onClick={() => void load()}>{t("重新读取")}</button>}</div> : null}
     {!data && !error ? <div className={`panel ${styles.state}`} role="status"><LoaderCircle className="spin" size={25} />{t("正在读取账号…")}</div> : null}
     {data ? <AccountForms key={data.account.id} data={data} refreshing={loading || Boolean(error)} refresh={() => { setLoading(true); return load(); }} onBusyChange={value => { mutating.current = value; }} /> : null}
   </>;
@@ -81,9 +81,9 @@ function useCooldown() {
 type Operation = "email" | "phone" | "verify" | "google" | "apple";
 type FeedbackState = { operation: Operation; message: string; error: boolean };
 function Feedback({ feedback, operations }: { feedback: FeedbackState | null; operations: Operation[] }) {
-  const { t } = useLanguage();
+  const { systemText } = useLanguage();
   if (!feedback || !operations.includes(feedback.operation)) return null;
-  return <p className={feedback.error ? "form-error" : styles.notice} role={feedback.error ? "alert" : "status"}>{t(feedback.message)}</p>;
+  return <p className={feedback.error ? "form-error" : styles.notice} role={feedback.error ? "alert" : "status"}>{systemText(feedback.message)}</p>;
 }
 function AccountForms({ data, refreshing, refresh, onBusyChange }: { data: AccountOverview; refreshing: boolean; refresh: () => Promise<AccountOverview | undefined>; onBusyChange: (value: boolean) => void }) {
   const { t } = useLanguage();
@@ -157,7 +157,7 @@ function AccountForms({ data, refreshing, refresh, onBusyChange }: { data: Accou
         <div className={styles.current}><span className={styles.value}>{account.phoneVerified && account.phone ? account.phone : t("尚未绑定手机号")}</span><span className={`status-pill status-pill--${account.phoneVerified ? "success" : "warning"}`}>{account.phoneVerified ? t("已验证") : t("未绑定")}</span></div>
         {!availability.phone ? <p className={styles.pending}><CircleAlert size={17} /><span>{t("短信验证服务尚未开放，暂时无法发送验证码。")}</span></p> : null}
         <form className={styles.form} onSubmit={event => { event.preventDefault(); void perform("phone", "phone", { countryCode: countryCode === "custom" ? customCode : countryCode, number: phone }); }} aria-busy={busy === "phone"}>
-          <div className={styles.phoneFields}><label className="field"><span>{t("国际区号")}</span><SelectControl name="countryCode" value={countryCode} disabled={disabled} onChange={event => setCountryCode(event.target.value)}>{COUNTRY_DIAL_CODES.map(country => <option key={country.code} value={country.code}>{country.label} {country.code}</option>)}<option value="custom">{t("其他区号")}</option></SelectControl></label><label className="field"><span>{t("手机号码")}</span><InputControl aria-label={t("手机号码")} onClear={() => setPhone("")} clearLabel={t("清空手机号码")} type="tel" autoComplete="tel-national" required maxLength={25} placeholder={t("例如：320 000 1234")} value={phone} disabled={disabled} onChange={event => setPhone(event.target.value)} /></label></div>
+          <div className={styles.phoneFields}><label className="field"><span>{t("国际区号")}</span><SelectControl name="countryCode" value={countryCode} disabled={disabled} onChange={event => setCountryCode(event.target.value)}>{COUNTRY_DIAL_CODES.map(country => <option key={country.code} value={country.code}>{t(country.label)} {country.code}</option>)}<option value="custom">{t("其他区号")}</option></SelectControl></label><label className="field"><span>{t("手机号码")}</span><InputControl aria-label={t("手机号码")} onClear={() => setPhone("")} clearLabel={t("清空手机号码")} type="tel" autoComplete="tel-national" required maxLength={25} placeholder={t("例如：320 000 1234")} value={phone} disabled={disabled} onChange={event => setPhone(event.target.value)} /></label></div>
           {countryCode === "custom" ? <label className="field"><span>{t("自定义国际区号")}</span><InputControl aria-label={t("自定义国际区号")} onClear={() => setCustomCode("")} validationMessage={t("国际区号须以 + 开头，后接 1–3 位数字，例如 +39。")} clearLabel={t("清空自定义国际区号")} type="tel" autoComplete="tel-country-code" required pattern="\+[1-9][0-9]{0,2}" maxLength={4} placeholder={t("例如 +39")} value={customCode} disabled={disabled} onChange={event => setCustomCode(event.target.value)} /></label> : null}
           <p className={styles.muted}>{t("号码中无需重复填写区号；请保留号码本身的前导 0。")}</p>
           <footer className={styles.actions}><button className="button button--secondary" type="submit" disabled={disabled || !availability.phone || phoneCooldown.seconds > 0}>{busy === "phone" ? t("正在发送…") : phoneCooldown.seconds ? t("{v0} 秒后可重发", { v0: phoneCooldown.seconds }) : t("发送短信验证码")}</button></footer>

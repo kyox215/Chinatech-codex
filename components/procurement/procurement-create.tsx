@@ -15,7 +15,7 @@ import { useStaff } from "@/components/staff/use-staff";
 import { AccessPanel } from "@/components/staff/access-panel";
 
 export function ProcurementCreate({ initialRepairId = "" }: { initialRepairId?: string }) {
-  const { t } = useLanguage();
+  const { t, systemText } = useLanguage();
   const staff=useStaff();const canEdit = staff.can("repairs.edit");const canCost=staff.can("financial.read")&&staff.can("financial.edit");
   const router = useRouter();
   const repairOrders = useRepairDirectory();
@@ -50,7 +50,7 @@ export function ProcurementCreate({ initialRepairId = "" }: { initialRepairId?: 
 
   const message = pending && feedback?.recordId === pending && feedback.error ? feedback.message : error;
   if (!canEdit) return <AccessPanel />;
-  return <main className="module-page procurement-create"><header className="module-heading"><PageTitle title={t("新建工单采购")} backHref={submitting ? undefined : "/app/procurement"} backLabel={t("返回采购列表")} /></header><form className="panel procurement-create-form" aria-busy={submitting} onSubmit={submit}><fieldset className="form-fields" disabled={submitting}><div className="detail-section__head"><div><span><PackageSearch size={18} /></span><div><h3>{t("采购条目")}</h3></div></div><span className="status-pill status-pill--warning">{t("草稿")}</span></div>{message ? <div className="procurement-feedback procurement-feedback--error" role="alert">{message}</div> : null}<div className="field-grid">
+  return <main className="module-page procurement-create"><header className="module-heading"><PageTitle title={t("新建工单采购")} backHref={submitting ? undefined : "/app/procurement"} backLabel={t("返回采购列表")} /></header><form className="panel procurement-create-form" aria-busy={submitting} onSubmit={submit}><fieldset className="form-fields" disabled={submitting}><div className="detail-section__head"><div><span><PackageSearch size={18} /></span><div><h3>{t("采购条目")}</h3></div></div><span className="status-pill status-pill--warning">{t("草稿")}</span></div>{message ? <div className="procurement-feedback procurement-feedback--error" role="alert">{systemText(message)}</div> : null}<div className="field-grid">
       <label className="field field--wide"><span>{t("关联工单 *")}</span><SelectControl required aria-label={t("关联工单")} value={repairOrders.some(row => row.id === repairId) ? repairId : ""} onChange={(event) => setRepairId(event.target.value)}><option value="">{t("请选择工单")}</option>{repairOrders.map((repair) => <option value={repair.id} key={repair.id}>{repair.id} · {repair.device.model}</option>)}</SelectControl></label>
       <label className="field"><span>{t("配件名称 *")}</span><InputControl onClear={() => setItem("")} clearLabel={t("清空配件名称")} required validate={value => value.trim() ? "" : "请填写具体配件名称。"} aria-label={t("配件名称")} value={item} maxLength={100} onChange={(event) => setItem(event.target.value)} placeholder={t("准确的配件名称与适配型号")} /></label>
       <label className="field"><span>{t("供应商 *")}</span><InputControl onClear={() => setSupplier("")} clearLabel={t("清空供应商")} required validate={value => value.trim() ? "" : "请填写供应商名称。"} aria-label={t("供应商")} value={supplier} maxLength={100} onChange={(event) => setSupplier(event.target.value)} placeholder={t("例如 MobileParts SRL")} /></label>

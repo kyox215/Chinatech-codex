@@ -9,7 +9,7 @@ import { useFormReady } from "@/components/control-feedback";
 import styles from "./auth-experience.module.css";
 
 export function PasswordRecoveryForm({ reset = false, supabaseMode }: { reset?: boolean; supabaseMode: boolean }) {
-  const { t } = useLanguage();
+  const { t , systemText } = useLanguage();
   const ready = useFormReady();
   const [loading, setLoading] = useState(reset);
   const [checkFailure, setCheckFailure] = useState(false);
@@ -67,7 +67,7 @@ export function PasswordRecoveryForm({ reset = false, supabaseMode }: { reset?: 
       <div className="form-field"><label htmlFor="confirm-new-password">{t("确认新密码")}</label><InputControl shell leading={<LockKeyhole size={19} />} ref={confirmInput} id="confirm-new-password" name="confirmPassword" type={showPassword ? "text" : "password"} required minLength={10} maxLength={128} autoComplete="new-password" value={confirmPassword} disabled={disabled} error={t(confirmError)} onChange={event => { setConfirmPassword(event.target.value); setError(""); }} onBlur={() => setConfirmChecked(true)} placeholder={t("再次输入上方设置的新密码")} /></div>
       <p className={styles.hint}>{t("更新后，此账号原有登录会话将失效，使用同一账号的设备需要重新登录。")}</p>
     </> : <div className="form-field"><label htmlFor="reset-email">{t("电子邮件")}</label><InputControl shell leading={<Mail size={19} />} id="reset-email" name="email" type="email" required maxLength={160} autoComplete="email" autoCapitalize="off" disabled={disabled} value={email} onChange={event => { setEmail(event.target.value); setError(""); }} onClear={() => { setEmail(""); setError(""); }} clearLabel={t("清空电子邮件")} placeholder="name@example.com" /></div>}
-    {error ? <p className="form-error" role="alert">{t(error)}</p> : null}
+    {error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}
     <button className="button button--primary auth-submit" type="submit" disabled={disabled}>{submitting ? <><LoaderCircle className="spin" size={18} />{t("正在提交")}</> : reset ? t("保存新密码") : t("发送重置链接")}</button>
     <Link className="auth-back-link" href="/login"><ArrowLeft size={15} />{t("返回登录")}</Link>
   </form>;

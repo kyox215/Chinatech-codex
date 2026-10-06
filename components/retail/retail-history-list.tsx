@@ -16,13 +16,13 @@ import { buildRetailListIndex, defaultRetailListSort, queryRetailList, resolveRe
 import { retailRecordHref } from "@/lib/retail-record";
 import { RetailRecordScanner } from "./retail-record-scanner";
 import { useRetail } from "./retail-provider";
-import { historyDate, historyMoney } from "./retail-history-shared";
+import { historyDate, historyMoney, historyTitle } from "./retail-history-shared";
 import styles from "./retail-history.module.css";
 import listStyles from "./retail-list.module.css";
 import surface from "./retail-surface.module.css";
 
 export function RetailHistoryList({ records, units, ready, error }: { records: RetailHistoryRecord[]; units: RetailUnit[]; ready: boolean; error: string }) {
-  const { t, locale } = useLanguage();
+  const { t, locale, systemText } = useLanguage();
   const staff = useStaff();
   const { dispatch, returnTo, returnScroll } = useRetail();
   const [scanOpen, setScanOpen] = useState(false);
@@ -41,6 +41,7 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
   const requestedPage = Number(params.get("page") || "1");
   // Project only list facts once per authorized dataset, not on every keystroke.
   const index = useMemo(() => buildRetailListIndex(units, records), [units, records]);
+  const historyById = useMemo(() => new Map(records.map(record => [record.id, record])), [records]);
   const unitsById = useMemo(() => new Map(units.map(unit => [unit.id, unit])), [units]);
   const displaySpec = (item: { source: string; id: string; specification: string | null }) => {
     const unit = item.source === "unit" ? unitsById.get(item.id) : undefined;
@@ -71,7 +72,7 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
     <header className="module-heading"><PageTitle title={t("整机商品")} /><div className="module-heading__actions"><button className="button button--secondary button--compact page-toolbar-action" type="button" aria-label={t("识码查找")} title={t("识码查找")} aria-expanded={scanOpen} onClick={() => setScanOpen(!scanOpen)}><ScanLine size={17} /><span>{t("识码查找")}</span></button>{staff.can("retail.edit") ? <Link className="button button--primary button--compact" href="/app/retail/new"><Plus size={17} />{t("新建商品")}</Link> : null}</div></header>
     {scanOpen ? <RetailRecordScanner units={units} records={records} onClose={() => setScanOpen(false)} onNavigate={remember} /> : null}
     <nav className={styles.sourceTabs} aria-label={t("整机销售状态")}>{(["available","sold","other"] as const).map(value => <Link key={value} href={viewHref(value)} aria-current={view === value ? "page" : undefined}>{t(retailViewLabels[value])} <span>{result.viewCounts[value]}</span></Link>)}</nav>
-    {error ? <p className="procurement-feedback procurement-feedback--error" role="alert">{t(error)}</p> : null}
+    {error ? <p className="procurement-feedback procurement-feedback--error" role="alert">{systemText(error)}</p> : null}
     <section className={`panel ${styles.list}`} aria-label={t(retailViewLabels[view])}>
       <div className={`${listStyles.classification} ${styles.classificationBar}`} role="group" aria-label={t("商品分类筛选")}>{(["all","新机","翻新机"] as const).map(value => <button key={value} type="button" className={condition === value ? listStyles.classificationActive : ""} aria-pressed={condition === value} onClick={() => update("condition",value)}><span>{value === "all" ? t("全部") : t(value)}</span><small>{result.conditionCounts[value]}</small></button>)}</div>
       <div className={styles.toolbar}>
@@ -88,10 +89,10 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
         <div className={`module-table-scroll ${styles.table}`} role="region" aria-label={t("整机商品表格")} tabIndex={0}>
           <div className={styles.tableHead} aria-hidden="true"><span>{t("商品 / 规格")}</span><span>{t("客户 / 识别码")}</span><span>{t("入库 / 拿走日期")}</span><span>{t("标价 / 成交价")}</span><span>{t("状态")}</span><span /></div>
           {result.items.map(item => <Link className={`${styles.row}${!item.phone?.trim() && !item.identifier?.trim() ? ` ${styles.rowWithoutIdentity}` : ""}`} href={retailRecordHref(item.id,listUrl)} onClick={remember} key={item.key}>
-            <div className={styles.product}><strong>{item.title}</strong>{item.color?.trim() || item.specification?.trim() ? <small>{[item.color ? t(item.color) : "", displaySpec(item)].filter(value => value?.trim()).join(" · ")}</small> : null}</div>
+            <div className={styles.product}><strong>{item.source === "history" && historyById.has(item.id) ? historyTitle(historyById.get(item.id)!, locale) : item.title}</strong>{item.color?.trim() || item.specification?.trim() ? <small>{[item.color ? t(item.color) : "", displaySpec(item)].filter(value => value?.trim()).join(" · ")}</small> : null}</div>
             <div className={styles.identity}>{item.phone?.trim() ? <span>{item.phone}</span> : null}{item.identifier?.trim() ? <small>{item.identifier}</small> : null}</div>
-            <div className={styles.dates}>{item.intakeDate ? <span><span className={styles.mobileLabel}>{t("入库 ")}</span>{historyDate(item.intakeDate)}</span> : null}{item.pickupDate ? <small><span className={styles.mobileLabel}>{t("拿走 ")}</span>{historyDate(item.pickupDate)}</small> : null}</div>
-            <div className={styles.money}>{item.priceCents !== null ? <span><span className={styles.mobileLabel}>{t("标价 ")}</span>{historyMoney(item.priceCents)}</span> : null}{item.salePriceCents !== null ? <small><span className={styles.mobileLabel}>{t("成交 ")}</span>{historyMoney(item.salePriceCents)}</small> : null}</div>
+            <div className={styles.dates}>{item.intakeDate ? <span><span className={styles.mobileLabel}>{t("入库 ")}</span>{historyDate(item.intakeDate, false, locale)}</span> : null}{item.pickupDate ? <small><span className={styles.mobileLabel}>{t("拿走 ")}</span>{historyDate(item.pickupDate, false, locale)}</small> : null}</div>
+            <div className={styles.money}>{item.priceCents !== null ? <span><span className={styles.mobileLabel}>{t("标价 ")}</span>{historyMoney(item.priceCents, locale)}</span> : null}{item.salePriceCents !== null ? <small><span className={styles.mobileLabel}>{t("成交 ")}</span>{historyMoney(item.salePriceCents, locale)}</small> : null}</div>
             <div className={styles.states}><span className={`status-pill status-pill--${view === "available" ? "success" : view === "sold" ? "info" : "progress"} ${styles.status}`}>{t(item.status)}</span>{item.reviewCount > 0 ? <span className={styles.review}>{t("待核对 · ")}{item.reviewCount}</span> : null}</div><ChevronRight className={styles.arrow} size={17} />
           </Link>)}
         </div>

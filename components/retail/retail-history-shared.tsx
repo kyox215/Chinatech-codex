@@ -1,19 +1,21 @@
 "use client";
 
 import { retailRecordHref } from "@/lib/retail-record";
+import type { Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/translate";
 import { useLanguage } from "@/components/language-provider";
 import { retailHistoryStatus, type RetailHistoryRecord } from "@/lib/retail-history";
 import styles from "./retail-history.module.css";
 
-export function historyText(value: string | null | undefined) { return value?.trim() || "未记录"; }
-export function historyDate(value: string | null | undefined, includeTime = false) {
-  return value ? value.slice(0, includeTime ? 19 : 10).replace("T", " ") : "未记录";
+export function historyText(value: string | null | undefined, locale: Locale = "zh-CN") { return value?.trim() || translate("未记录", locale); }
+export function historyDate(value: string | null | undefined, includeTime = false, locale: Locale = "zh-CN") {
+  return value ? value.slice(0, includeTime ? 19 : 10).replace("T", " ") : translate("未记录", locale);
 }
-export function historyMoney(value: number | null) {
-  return value === null ? "未记录" : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(value / 100);
+export function historyMoney(value: number | null, locale: Locale = "zh-CN") {
+  return value === null ? translate("未记录", locale) : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(value / 100);
 }
-export function historyTitle(record: RetailHistoryRecord) {
-  return [record.brand, record.model].filter(Boolean).join(" ") || "商品名称未记录";
+export function historyTitle(record: RetailHistoryRecord, locale: Locale = "zh-CN") {
+  return [record.brand, record.model].filter(Boolean).join(" ") || translate("商品名称未记录", locale);
 }
 export function historyDetailHref(id: string, returnTo = "/app/retail?view=sold") {
   return retailRecordHref(id, returnTo) + "&original=1";

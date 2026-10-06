@@ -11,11 +11,12 @@ type Props = {
   options: readonly ComboboxOption[]; onSelect?: (option: ComboboxOption) => void;
   placeholder?: string; inputMode?: "text" | "tel"; emptyText?: string;
   filterOptions?: boolean; required?: boolean; autoFocus?: boolean; maxLength?: number;
+  displaySelectedLabel?: boolean;
   disabled?: boolean; readOnly?: boolean; error?: string; hint?: string; validate?: (value: string) => string;
 };
 
 /** Editable search: custom text remains valid; choosing a candidate is always explicit. */
-export function SearchCombobox({ label, value, onChange, options, onSelect, placeholder, inputMode = "text", emptyText = "没有匹配，可保留手动输入", filterOptions = true, required, autoFocus, maxLength, disabled, readOnly, error, hint, validate }: Props) {
+export function SearchCombobox({ label, value, onChange, options, onSelect, placeholder, inputMode = "text", emptyText = "没有匹配，可保留手动输入", filterOptions = true, displaySelectedLabel = false, required, autoFocus, maxLength, disabled, readOnly, error, hint, validate }: Props) {
   const { t } = useLanguage();
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
@@ -24,7 +25,8 @@ export function SearchCombobox({ label, value, onChange, options, onSelect, plac
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const expanded = open && !disabled && !readOnly;
-  const matches = (filterOptions ? options.filter(option => `${option.label} ${option.detail ?? ""}`.toLowerCase().includes(value.trim().toLowerCase())) : options).slice(0, 12);
+  const displayedValue = displaySelectedLabel ? options.find(option => option.value === value)?.label ?? value : value;
+  const matches = (filterOptions ? options.filter(option => `${option.value} ${option.label} ${option.detail ?? ""}`.toLowerCase().includes(value.trim().toLowerCase())) : options).slice(0, 12);
   useEffect(() => { if (open && active >= 0) list.current?.children[active]?.scrollIntoView({ block: "nearest" }); }, [active,open]);
   useEffect(() => {
     if (!open) return;
@@ -37,7 +39,7 @@ export function SearchCombobox({ label, value, onChange, options, onSelect, plac
   const select = (option: ComboboxOption) => { if (disabled || readOnly || input.current?.matches(":disabled")) return; onChange(option.value); onSelect?.(option); input.current?.focus({ preventScroll: true }); setOpen(false); setActive(-1); };
   return <div ref={root} className="field search-combobox" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setOpen(false); setActive(-1); } }}>
     <label htmlFor={id}>{label}{required ? " *" : ""}</label>
-    <InputControl validate={validate} leading={<Search size={16} aria-hidden="true" />} error={error} hint={hint} disabled={disabled} readOnly={readOnly} clearLabel={t("清空{v0}", { v0: t(label) })} onClear={() => { onChange(""); setActive(-1); setOpen(true); }} trailing={<button type="button" disabled={disabled || readOnly} aria-label={t("显示{v0}候选", { v0: t(label) })} aria-expanded={expanded} onClick={() => { input.current?.focus({ preventScroll: true }); setOpen(!expanded); }}><ChevronDown size={17} aria-hidden="true" /></button>} id={id} ref={input} role="combobox" aria-autocomplete="list" aria-expanded={expanded} aria-controls={expanded ? `${id}-list` : undefined} aria-activedescendant={expanded && active >= 0 && active < matches.length ? `${id}-option-${active}` : undefined} value={value} required={required} aria-required={required || undefined} maxLength={maxLength} autoFocus={autoFocus} inputMode={inputMode} autoComplete="off" placeholder={placeholder ? t(placeholder) : undefined} onFocus={() => { if (!readOnly) setOpen(true); }} onClick={() => { if (!readOnly) setOpen(true); }} onChange={event => { onChange(event.target.value); setOpen(true); setActive(-1); }} onKeyDown={event => {
+    <InputControl validate={displaySelectedLabel && validate ? () => validate(value) : validate} leading={<Search size={16} aria-hidden="true" />} error={error} hint={hint} disabled={disabled} readOnly={readOnly} clearLabel={t("清空{v0}", { v0: t(label) })} onClear={() => { onChange(""); setActive(-1); setOpen(true); }} trailing={<button type="button" disabled={disabled || readOnly} aria-label={t("显示{v0}候选", { v0: t(label) })} aria-expanded={expanded} onClick={() => { input.current?.focus({ preventScroll: true }); setOpen(!expanded); }}><ChevronDown size={17} aria-hidden="true" /></button>} id={id} ref={input} role="combobox" aria-autocomplete="list" aria-expanded={expanded} aria-controls={expanded ? `${id}-list` : undefined} aria-activedescendant={expanded && active >= 0 && active < matches.length ? `${id}-option-${active}` : undefined} value={displayedValue} required={required} aria-required={required || undefined} maxLength={maxLength} autoFocus={autoFocus} inputMode={inputMode} autoComplete="off" placeholder={placeholder ? t(placeholder) : undefined} onFocus={() => { if (!readOnly) setOpen(true); }} onClick={() => { if (!readOnly) setOpen(true); }} onChange={event => { onChange(event.target.value); setOpen(true); setActive(-1); }} onKeyDown={event => {
       if (disabled || readOnly || event.currentTarget.matches(":disabled")) return;
       if (event.nativeEvent.isComposing || event.keyCode === 229) return;
       if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); setOpen(true); setActive(current => matches.length ? event.key === "ArrowDown" ? (current + 1) % matches.length : current <= 0 ? matches.length - 1 : current - 1 : -1); }

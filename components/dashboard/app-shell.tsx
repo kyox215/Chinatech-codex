@@ -22,7 +22,7 @@ const primaryNav: NavItemConfig[] = [
   { label: "工作台", icon: LayoutDashboard, href: "/app/dashboard" },
   { label: "维修工单", icon: ClipboardList, href: "/app/repairs" },
   { label: "整机商品", icon: Boxes, href: "/app/retail" },
-  { label: "客户", icon: UsersRound, href: "/app/customers" }, { label: "客户设备", icon: Wrench, href: "/app/customer-devices" },
+  { label: "客户管理", icon: UsersRound, href: "/app/customers" }, { label: "客户设备", icon: Wrench, href: "/app/customer-devices" },
 ];
 function subscribeMobile(callback: () => void) {
   const media = window.matchMedia("(max-width: 767px)");

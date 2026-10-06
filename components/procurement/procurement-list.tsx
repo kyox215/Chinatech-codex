@@ -1,6 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/components/language-provider";
+import { repairItemText } from "@/lib/i18n/repair-display";
 import { InputControl } from "@/components/input-control";
 import Link from "next/link";
 import { PageTitle } from "@/components/page-title";
@@ -18,7 +19,7 @@ const filters: { value: Filter; label: string }[] = [{ value: "all", label: "全
 const matchesStatus = (record: ProcurementRecord, filter: Filter) => filter === "all" || (filter === "open" ? ["ordered", "partial"].includes(procurementStatus(record)) : procurementStatus(record) === filter);
 
 export function ProcurementList({ initialRepairId = "" }: { initialRepairId?: string }) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [batchAction, setBatchAction] = useState<"ordered"|"arrival"|null>(null);
   const staff = useStaff(); const canEdit = staff.can("repairs.edit");
   const { records, listView, dispatch } = useProcurement();
@@ -32,7 +33,7 @@ export function ProcurementList({ initialRepairId = "" }: { initialRepairId?: st
   const filtered = records.filter((record) => matchesStatus(record, filter) && (!repairId || record.repairId === repairId) && [record.id, record.item, record.supplier, record.repairId, getRepairOrder(record.repairId)?.device.model].join(" ").toLowerCase().includes(query.trim().toLowerCase()));
   const groups = new Map<string, ProcurementRecord[]>();
   filtered.forEach((record) => {
-    const group = groupBy === "status" ? procurementStatuses[procurementStatus(record)].label : groupBy === "supplier" ? record.supplier : groupBy === "repair" ? `${record.repairId} · ${getRepairOrder(record.repairId)?.device.model ?? "关联工单"}` : "全部条目";
+    const group = groupBy === "status" ? t(procurementStatuses[procurementStatus(record)].label) : groupBy === "supplier" ? record.supplier : groupBy === "repair" ? `${record.repairId} · ${getRepairOrder(record.repairId)?.device.model ?? t("关联工单")}` : t("全部条目");
     groups.set(group, [...(groups.get(group) ?? []), record]);
   });
   const clearFilters = () => { setQuery(""); setFilter("all"); setRepairId(""); };
@@ -47,7 +48,7 @@ export function ProcurementList({ initialRepairId = "" }: { initialRepairId?: st
       {Array.from(groups, ([group, rows]) => <section key={group} className="procurement-group"><h3>{group}<small>{rows.length} {t(" 条")}</small></h3><div className="module-table-scroll" role="region" aria-label={t("{v0}采购表格", { v0: group })} tabIndex={0}><div className="procurement-table-head" aria-hidden="true"><span>{t("配件 / 采购编号")}</span><span>{t("关联工单")}</span><span>{t("到货进度")}</span><span>{t("预计到货")}</span><span /></div>{rows.map((record) => {
         const arrived = arrivedQuantity(record);
         const status = procurementStatuses[procurementStatus(record)];
-        return <Link className="procurement-row" onClick={rememberView} href={`/app/procurement/${record.id}`} key={record.id}><div className="procurement-row__item"><span className="procurement-icon"><PackageSearch size={18} /></span><div><strong>{record.item}</strong><small>{record.id}</small></div></div><div className="procurement-row__repair"><strong>{getRepairOrder(record.repairId)?.device.model}</strong><small>{record.repairId}</small></div><div className="procurement-row__progress"><span className={`status-pill status-pill--${status.tone}`}>{t(status.label)}</span><small>{arrived} / {record.quantity} {t(" 件")}</small></div><div className="procurement-row__date"><strong>{record.expectedAt || t("待确认")}</strong><small>{t("预计到货")}</small></div><ChevronRight size={17} /></Link>;
+        return <Link className="procurement-row" onClick={rememberView} href={`/app/procurement/${record.id}`} key={record.id}><div className="procurement-row__item"><span className="procurement-icon"><PackageSearch size={18} /></span><div><strong>{repairItemText(record.item, locale)}</strong><small>{record.id}</small></div></div><div className="procurement-row__repair"><strong>{getRepairOrder(record.repairId)?.device.model}</strong><small>{record.repairId}</small></div><div className="procurement-row__progress"><span className={`status-pill status-pill--${status.tone}`}>{t(status.label)}</span><small>{arrived} / {record.quantity} {t(" 件")}</small></div><div className="procurement-row__date"><strong>{record.expectedAt || t("待确认")}</strong><small>{t("预计到货")}</small></div><ChevronRight size={17} /></Link>;
       })}</div></section>)}
       {!filtered.length ? <div className="module-empty"><PackageSearch size={28} /><strong>{t("没有符合条件的采购")}</strong><p>{t("调整搜索或筛选条件，或者建立关联工单的采购草稿。")}</p><button type="button" onClick={clearFilters}>{t("清除筛选")}</button></div> : null}
     </section>

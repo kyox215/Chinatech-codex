@@ -48,7 +48,7 @@ function validationError(control: NativeControl, patternMessage?: string) {
 
 /** Presentation only: native constraints stay native; domain and server rules stay with callers. */
 export function useControlFeedback({ error, hint, validationMessage }: ControlFeedbackProps) {
-  const { t } = useLanguage();
+  const { t , systemText } = useLanguage();
   useEffect(() => {
     if (observers++ === 0) {
       document.addEventListener("pointerdown", observePointer, true);
@@ -92,7 +92,7 @@ export function useControlFeedback({ error, hint, validationMessage }: ControlFe
     revalidate: (control: NativeControl) => { if (nativeError) validate(control); },
     clear: () => setNativeError(""),
     describedBy: (existing?: string) => [existing, message || hint ? feedbackId : undefined].filter(Boolean).join(" ") || undefined,
-    feedback: message || hint ? <span id={feedbackId} className={`control-feedback${message ? " control-feedback--error" : ""}`} aria-live="polite">{t(message || hint || "")}</span> : null,
+    feedback: message || hint ? <span id={feedbackId} className={`control-feedback${message ? " control-feedback--error" : ""}`} aria-live="polite">{message ? systemText(message) : t(hint || "")}</span> : null,
   };
 }
 

@@ -23,16 +23,16 @@ export type IntakeReceiptData = {
   issue: string; accessories: string[]; services: IntakeServices;
   priority: "普通" | "优先" | "紧急"; photoCount: number; photos?: IntakePhotoReference[];
 };
-export type RepairDirectoryEntry = Pick<RepairOrder, "id" | "status" | "statusLabel" | "tone" | "priority" | "customer" | "device" | "issue" | "accessories" | "createdAt" | "updatedAt" | "technician" | "waitingFor"> & { repairOrigin?: RepairOrigin; custody?: "store" | "customer"; requirements?: RepairRequirement[]; intakeRevision?: number; deviceFingerprint?: string };
+export type RepairDirectoryEntry = Pick<RepairOrder, "id" | "status" | "statusLabel" | "tone" | "priority" | "customer" | "device" | "issue" | "accessories" | "createdAt" | "updatedAt" | "technician" | "waitingFor"> & { customerNameMissing?: boolean; faults?: string[]; issueNote?: string; repairOrigin?: RepairOrigin; custody?: "store" | "customer"; requirements?: RepairRequirement[]; intakeRevision?: number; deviceFingerprint?: string };
 export const localIntakeId = (id: string) => /^LOCAL-[A-F0-9]{16}$/.test(id);
 export function intakeRecordTime(date = new Date()): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome", dateStyle: "short", timeStyle: "medium", hour12: false }).format(date);
 }
 export function intakeDirectoryEntry(data: IntakeReceiptData): RepairDirectoryEntry {
   return { requirements: intakeRequirements(data), deviceFingerprint: JSON.stringify([data.category, data.brand, data.model]), intakeRevision: data.revision ?? 1, id: data.id, status: "diagnosis", statusLabel: "待检测", tone: "warning", priority: data.priority,
-    customer: { name: data.customerName || "未填写姓名", phone: data.phone },
+    customer: { name: data.customerName || "未填写姓名", phone: data.phone }, customerNameMissing: !data.customerName.trim(),
     device: { category: data.category, brand: data.brand, model: data.model, color: data.color, serial: data.serial },
-    issue: data.issue, accessories: data.accessories, createdAt: data.createdAt, updatedAt: data.updatedAt,
+    issue: data.issue, ...(data.faults !== undefined ? { faults: [...data.faults] } : {}), ...(data.issueNote !== undefined ? { issueNote: data.issueNote } : {}), accessories: data.accessories, createdAt: data.createdAt, updatedAt: data.updatedAt,
     technician: "未分配", waitingFor: "接机检测", ...(data.custody ? {custody:data.custody} : {}), ...(data.repairOrigin ? {repairOrigin:structuredClone(data.repairOrigin)} : {}) };
 }
 function isObject(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }

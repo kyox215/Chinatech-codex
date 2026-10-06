@@ -126,10 +126,10 @@ export function useIntakePhotos() {
   return { photos, error, pending, add, remove, clear, encode, draftPhotos, restore };
 }
 export function IntakePhotos({ photos, add, remove, error, pending }: Pick<ReturnType<typeof useIntakePhotos>, "photos" | "add" | "remove" | "error" | "pending">) {
-  const { t } = useLanguage();
+  const { t , systemText } = useLanguage();
   return <section className="intake-photos" aria-label={t("接机照片")}><strong className="intake-field-title">{t("接机照片")}</strong><div className="intake-photos__grid">{slots.map(slot => { const selected = photos.filter(photo => photo.slot === slot.value); return <div className="intake-photo-slot" key={slot.value} aria-busy={pending.includes(slot.value)}>
     <label className="intake-photo-slot__upload">{selected.length ? <><span className="intake-photo-slot__images">{selected.map(photo => <span key={photo.id}><Image unoptimized width={240} height={160} src={photo.url} alt={t("{v0}照片 {v1}", { v0: t(slot.label), v1: photo.name })} onError={event => { event.currentTarget.alt = "此格式无法预览，请改用 JPG / PNG"; }} /></span>)}</span><span>{t(slot.label)} · {pending.includes(slot.value) ? t("读取中…") : t("{v0} 张", { v0: selected.length })}</span></> : <><ImagePlus size={27} /><span>{t(slot.label)}{pending.includes(slot.value) ? t(" · 读取中…") : ""}</span></>}<input type="file" className="visually-hidden" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple={slot.value === "other"} disabled={pending.includes(slot.value)} aria-label={t("上传{v0}照片", { v0: t(slot.label) })} onChange={event => { void add(slot.value,Array.from(event.target.files ?? [])); event.target.value = ""; }} /></label>
     <PhotoCapture label={t("拍摄{v0}照片", { v0: t(slot.label) })} triggerClassName="intake-photo-slot__camera" disabled={pending.includes(slot.value)} onConfirm={file => add(slot.value,[file])} />
     {selected.map(photo => <button className="intake-photo-slot__remove" type="button" key={photo.id} aria-label={t("删除{v0}照片 {v1}", { v0: t(slot.label), v1: photo.name })} onClick={() => remove(photo)}><X size={15} /><span>{photo.name}</span></button>)}
-  </div>; })}</div>{error ? <p className="form-error" role="alert">{t(error)}</p> : null}</section>;
+  </div>; })}</div>{error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}</section>;
 }

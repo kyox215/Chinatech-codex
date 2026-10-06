@@ -39,13 +39,13 @@ export function BackendProvider({initial,children}:{initial:BackendSnapshot;chil
 }
 
 export function BackendSyncNotice(){
-  const { t } = useLanguage();
+  const { t , systemText } = useLanguage();
   const error=useContext(ConnectionError);
   const recovery=useSyncExternalStore(subscribeRecovery,backendRecovery,backendRecovery);
   const receipt=recovery.receipt;
   const resultHref=receipt?.kind.startsWith("intake.")||receipt?.kind==="retail.aftersale_repair"?`/app/repairs/${encodeURIComponent(receipt.entityId)}`:receipt?.kind==="retail"?`/app/retail/units/${encodeURIComponent(receipt.entityId)}`:null;
-  return <>{error?<p className="form-error" role="status">{t(error)}</p>:null}
-    {recovery.pending || recovery.message?<section className="panel sync-recovery" aria-label={t("提交恢复")}><p role="status">{recovery.message || t("此设备有尚待核对的提交，请先处理原提交。")}</p>
+  return <>{error?<p className="form-error" role="status">{systemText(error)}</p>:null}
+    {recovery.pending || recovery.message?<section className="panel sync-recovery" aria-label={t("提交恢复")}><p role="status">{systemText(recovery.message) || t("此设备有尚待核对的提交，请先处理原提交。")}</p>
       {recovery.pending?<div className="sync-recovery__actions"><button className="button button--secondary" disabled={recovery.busy} onClick={()=>void recoverOperation("check")}>{t("核对提交结果")}</button><button className="button button--primary" disabled={recovery.busy} onClick={()=>void recoverOperation("retry")}>{t("重试原提交")}</button><button className="button button--secondary" disabled={recovery.busy} onClick={()=>void recoverOperation("cancel")}>{t("撤销未完成提交")}</button></div>:resultHref?<Link className="button button--secondary" href={resultHref}>{t("查看已保存记录")}</Link>:null}
     </section>:null}</>;
 }

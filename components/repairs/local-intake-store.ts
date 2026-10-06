@@ -19,7 +19,7 @@ import { intakeDirectoryEntry, parseLocalIntakes, validLocalIntake, parseIntakeS
 import { overlayRepair } from "@/lib/repair-workflow";
 import { useRepairWorkflows } from "./repair-workflow-store";
 
-const fixtureDirectory = repairOrders.map(order => { const source = intakeDirectoryEntry(fixtureIntakeReceipt(order)); return { ...order, requirements: source.requirements, deviceFingerprint: source.deviceFingerprint, intakeRevision: source.intakeRevision }; });
+const fixtureDirectory = repairOrders.map(order => { const source = intakeDirectoryEntry(fixtureIntakeReceipt(order)); return { ...order, customerNameMissing: source.customerNameMissing, faults: source.faults, issueNote: source.issueNote, requirements: source.requirements, deviceFingerprint: source.deviceFingerprint, intakeRevision: source.intakeRevision }; });
 const key = "chinatech.m1.local-intakes.v1";
 const change = "chinatech-local-intake-change";
 const server = { records: [] as IntakeReceiptData[], signatures: [] as IntakeSignature[], ready: false, error: "" };

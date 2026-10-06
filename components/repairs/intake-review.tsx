@@ -1,6 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/components/language-provider";
+import { repairKnownText } from "@/lib/i18n/repair-display";
 import { printIssue } from "@/lib/print-language";
 import { itemQuoteTotal, type ItemQuote, type ItemQuoteChange } from "@/lib/repair-item-pricing";
 import type { ReactNode } from "react";
@@ -39,7 +40,7 @@ export function IntakeReview({ data, photos = [], onEdit, layout = "review", met
   return <div className={`intake-review intake-review--${layout}`}>
     <section className="intake-review__device">
       <span className="intake-review__device-icon"><DeviceIcon size={32} /></span>
-      <div><small>{t(data.category)}</small><h4>{data.brand} {data.model}</h4><div className="intake-review__device-meta"><span><ColorSwatch value={data.color} />{data.color || t("颜色未记录")}</span><span>SN / IMEI：{data.serial || t("未记录")}</span></div>{metadata}</div>
+      <div><small>{t(data.category)}</small><h4>{data.brand} {data.model}</h4><div className="intake-review__device-meta"><span><ColorSwatch value={data.color} />{data.color ? repairKnownText(data.color, locale) : t("颜色未记录")}</span><span>SN / IMEI：{data.serial || t("未记录")}</span></div>{metadata}</div>
       <span className="intake-review__device-status">{statusContent ?? <span className="status-pill status-pill--warning"><ClipboardList size={14} />{t("待检测")}</span>}<small><Flag size={13} />{t(data.priority)}{t("优先级")}</small></span>{edit(1,"设备")}
     </section>
     <div className={`intake-review__body${photos.length ? "" : " intake-review__body--no-photos"}`}>

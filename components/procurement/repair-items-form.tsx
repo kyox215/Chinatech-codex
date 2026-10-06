@@ -1,5 +1,6 @@
 "use client";
 import { useLanguage } from "@/components/language-provider";
+import { repairItemText } from "@/lib/i18n/repair-display";
 import { controlError } from "@/components/control-feedback";
 
 import { InputControl } from "@/components/input-control";
@@ -32,7 +33,7 @@ const moneyInput = (value: number | null | undefined) => value == null ? "" : (v
 export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }: {
   repairId: string; onSaved: () => void; onCancel: () => void; onPendingChange: (pending: boolean) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, locale, systemText } = useLanguage();
   const staff = useStaff();
   const canEdit = staff.can("repairs.edit"), canReadCost = staff.can("financial.read"), canEditCost = canReadCost && staff.can("financial.edit");
   const { records, dispatch } = useProcurement();
@@ -136,6 +137,7 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
   return <form className="repair-item-editor" aria-busy={pending} onSubmit={submit}>
     <DeviceDraftNotice draft={deviceDraft} />
     <div className="repair-item-editor__cards">{draft.rows.map(row => {
+      const itemTitle = repairItemText(row.title, locale);
       const linked = purchases.filter(record => record.requirementId === row.requirementId);
       const record = linked.length === 1 ? linked[0] : undefined;
       const editablePurchase = canEdit && purchaseOpen && linked.length <= 1 && (!record || isPreorder(record));
@@ -143,19 +145,19 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
       const status = record ? procurementStatuses[procurementStatus(record)] : null;
       const supplierChanged = row.supplier !== row.beforeSupplier && Boolean(row.supplier.trim());
       const statusLabel = supplierChanged && editablePurchase ? "保存后加车" : record && procurementStatus(record) === "cart" ? "已加购物车" : status?.label ?? (linked.length > 1 ? `${linked.length}条配件记录` : row.beforeQuote ? "已报价" : "待填写");
-      return <fieldset className="repair-item-card" key={row.requirementId} aria-label={row.title} disabled={pending}>
-        <legend className="visually-hidden">{row.title}</legend>
-        <div className="repair-item-card__head"><span className="repair-item-card__icon"><Icon size={18} aria-hidden="true" /></span><div><h3>{row.title}</h3>{row.request ? <small>{row.request}</small> : null}</div><span className={`status-pill status-pill--${supplierChanged ? "info" : status?.tone ?? "neutral"}`} role="status">{t(statusLabel)}</span></div>
+      return <fieldset className="repair-item-card" key={row.requirementId} aria-label={itemTitle} disabled={pending}>
+        <legend className="visually-hidden">{itemTitle}</legend>
+        <div className="repair-item-card__head"><span className="repair-item-card__icon"><Icon size={18} aria-hidden="true" /></span><div><h3>{itemTitle}</h3>{row.request ? <small>{row.request}</small> : null}</div><span className={`status-pill status-pill--${supplierChanged ? "info" : status?.tone ?? "neutral"}`} role="status">{t(statusLabel)}</span></div>
         <div className="repair-item-card__fields">
           {editablePurchase ? <SearchCombobox validate={value => { if (value === row.beforeSupplier && row.cost === row.beforeCost) return ""; if (!value.trim()) return record ? "已有采购记录，清空供应商不能取消采购。" : row.cost.trim() ? "填写进价前请选择供应商。" : ""; return settings.suppliers.filter(supplier => supplier.active && supplier.name.trim() === value.trim()).length === 1 ? "" : "请选择已登记的门店供应商，或留空只填报价。"; }} label={t("供应商（选填）")} value={row.supplier} onChange={value => update(row.requirementId, "supplier", value)} options={settings.suppliers.filter(supplier => supplier.active).map(supplier => ({ value: supplier.name, label: supplier.name }))} placeholder={t("不采购可留空")} emptyText="请先在门店设置登记供应商" /> : <div className="field"><span>{t("供应商")}</span><strong>{linked.length ? linked.map(item => item.supplier).join("、") : t("未选择")}</strong></div>}
-          <label className="field"><span>{t("报价（€）")}</span>{canEdit ? <InputControl validate={value => controlError(() => parseItemMoney(value))} aria-label={t("{v0}报价", { v0: row.title })} inputMode="decimal" maxLength={20} value={row.quote} onChange={event => update(row.requirementId, "quote", event.target.value)} placeholder={t("如 49.90，未知留空")} /> : <strong>{formatCost(parseItemMoney(row.quote))}</strong>}</label>
-          {canReadCost && (record || row.supplier.trim()) ? <label className="field"><span>{t("进价（€）")}</span>{canEditCost && editablePurchase ? <InputControl validate={value => controlError(() => parseItemMoney(value))} aria-label={t("{v0}进价", { v0: row.title })} inputMode="decimal" maxLength={20} value={row.cost} onChange={event => update(row.requirementId, "cost", event.target.value)} placeholder={t("如 49.90，未知留空")} /> : <strong>{record ? formatCost(record.unitCostCents) : t("未记录")}</strong>}</label> : null}
+          <label className="field"><span>{t("报价（€）")}</span>{canEdit ? <InputControl validate={value => controlError(() => parseItemMoney(value))} aria-label={t("{v0}报价", { v0: itemTitle })} inputMode="decimal" maxLength={20} value={row.quote} onChange={event => update(row.requirementId, "quote", event.target.value)} placeholder={t("如 49.90，未知留空")} /> : <strong>{t(formatCost(parseItemMoney(row.quote)))}</strong>}</label>
+          {canReadCost && (record || row.supplier.trim()) ? <label className="field"><span>{t("进价（€）")}</span>{canEditCost && editablePurchase ? <InputControl validate={value => controlError(() => parseItemMoney(value))} aria-label={t("{v0}进价", { v0: itemTitle })} inputMode="decimal" maxLength={20} value={row.cost} onChange={event => update(row.requirementId, "cost", event.target.value)} placeholder={t("如 49.90，未知留空")} /> : <strong>{record ? t(formatCost(record.unitCostCents)) : t("未记录")}</strong>}</label> : null}
         </div>
       </fieldset>;
     })}</div>
     {!draft.rows.length ? <div className="section-empty"><Wrench size={24} /><strong>{t("工单尚未填写维修项目")}</strong></div> : null}
     {changed ? <p role="alert" className="form-error">{t("工单或配件已变化，输入已保留。")}<button type="button" className="button button--secondary" disabled={pending} onClick={reviewLatest}>{t("核对最新资料后重试")}</button></p> : null}
-    {error ? <p role="alert" className="form-error">{t(error)}</p> : null}
+    {error ? <p role="alert" className="form-error">{systemText(error)}</p> : null}
     {canEdit && draft.rows.length ? <footer><button className="button button--secondary" type="button" disabled={pending} onClick={onCancel}>{t("取消")}</button><button className="button button--primary" type="submit" disabled={pending || changed || !dirty}><Check size={17} aria-hidden="true" />{pending ? t("正在保存…") : t("保存")}</button></footer> : null}
   </form>;
 }
