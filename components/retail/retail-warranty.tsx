@@ -12,7 +12,7 @@ import { RetailWarrantyTerms } from "./retail-warranty-terms";
 import surface from "./retail-surface.module.css";
 import styles from "./retail-warranty.module.css";
 
-export function RetailWarrantyPanel({ unit, onReview, editor, blocked = false }: { unit: RetailUnit; onReview: (candidate: RetailUnit) => void; editor?: ReactNode; blocked?: boolean }) {
+export function RetailWarrantyPanel({ unit, onReview, editor, blocked = false, compact = false }: { unit: RetailUnit; onReview: (candidate: RetailUnit) => void; editor?: ReactNode; blocked?: boolean; compact?: boolean }) {
   const { t , systemText } = useLanguage();
   const [printing, setPrinting] = useState(false);
   const printTrigger = useRef<HTMLButtonElement>(null);
@@ -27,7 +27,8 @@ export function RetailWarrantyPanel({ unit, onReview, editor, blocked = false }:
     try { const candidate = validateRetailFieldEdit(unit, { field: "warrantyMonths", value: months }, units); if (candidate === unit) return; setError(""); onReview(candidate); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "请核对保修期限。"); }
   }
-  return <section className="panel" aria-label={t("商家保修")}><div className={"detail-section__head " + surface.sectionHead}><div><span><ShieldCheck size={18} /></span><h3>{t("商家保修")}</h3></div></div><div className={styles.body}>
+  const compactSaved = compact && !editor && !changed && (months === null || [6, 12, 24].includes(months));
+  return <section className={"panel " + styles.panel} aria-label={t("商家保修")}><div className={"detail-section__head " + surface.sectionHead}><div><span><ShieldCheck size={18} /></span><h3>{t("商家保修")}</h3></div></div><div className={styles.body + (compactSaved ? " " + styles.compactSaved : "")}>
     {editor ? null : <RetailWarrantyControl key={reset} value={months} onChange={value => { setMonths(value); setError(""); }} disabled={!editable} />}
     {!editor && changed ? <div className={styles.draftActions}><small>{t("已保存：")}{t(retailWarrantyLabel(unit.warrantyMonths))}</small><button type="button" className="button button--primary button--compact" disabled={!editable} onClick={review}><Check size={16} />{t("核对修改")}</button><button type="button" className="button button--secondary button--compact" onClick={() => { setMonths(unit.warrantyMonths); setError(""); setReset(value => value + 1); }}>{t("取消修改")}</button></div> : null}
     {!editor && error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}{editor}<button type="button" className="button button--secondary button--compact" ref={printTrigger} onClick={() => setPrinting(true)}><Printer size={16} />{t("保修单预览")}</button><RetailWarrantyTerms enabled={unit.warrantyMonths !== null} /></div>{printing ? <RetailReceipt unit={unit} restoreFocusRef={printTrigger} onClose={() => setPrinting(false)} /> : null}</section>;

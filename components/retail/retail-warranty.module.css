@@ -1,4 +1,5 @@
 .body { padding: 10px 12px; }
+.panel { container-type: inline-size; }
 .body > button { margin-top: 8px; min-height: 44px; }
 .draftActions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-block: 8px; }
 .draftActions > small { width: 100%; color: var(--text-secondary); font-size: 12px; }
@@ -18,3 +19,15 @@
 .delivery input { min-height: 44px; }
 .confirm { padding: 10px; background: var(--primary-50); border-radius: var(--radius-control); font-size: 14px; }
 @media (max-width: 767px) { .delivery input { font-size: 16px; } }
+@media (min-width: 768px) {
+  .compactSaved:has([data-retail-warranty-control][data-custom="false"]) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: end; }
+  .compactSaved:has([data-retail-warranty-control][data-custom="false"]) > :global([data-retail-warranty-control]) { display: contents; }
+  .compactSaved:has([data-retail-warranty-control][data-custom="false"]) :global([data-retail-warranty-control]) > :global(.field) { grid-column: 1; grid-row: 1; }
+  .compactSaved:has([data-retail-warranty-control][data-custom="false"]) :global([data-retail-warranty-control]) > p { grid-column: 1 / -1; grid-row: 2; margin: 0; }
+  .compactSaved:has([data-retail-warranty-control][data-custom="false"]) > button { grid-column: 2; grid-row: 1; margin: 0; }
+  .compactSaved:has([data-retail-warranty-control][data-custom="false"]) > .terms { grid-column: 1 / -1; grid-row: 3; margin: 0; }
+  @container (min-width: 480px) {
+    .compactSaved:has([data-retail-warranty-control][data-custom="false"]) { grid-template-columns: minmax(0, 1fr) auto auto; }
+    .compactSaved:has([data-retail-warranty-control][data-custom="false"]) > .terms:not([open]) { grid-column: 3; grid-row: 1; border-top: 0; }
+  }
+}

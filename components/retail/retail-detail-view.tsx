@@ -80,7 +80,7 @@ export function RetailDetailView({ unit, returnTo, children, storageError, selec
     {storageError ? <p className="form-error" role="alert">{systemText(storageError)}</p> : null}
     <section className={"panel " + styles.summary} aria-label={t("单机摘要")}>
       <div className={styles.hero}>
-        <RetailGallery unit={unit} readOnly={sourcePreview} />
+        <RetailGallery unit={unit} readOnly={sourcePreview} compact />
         <div className={styles.heroContent}>
           <div className={styles.heroHeading}>
             <div className={styles.deviceSummary}><h2 aria-label={[unit.brand, unit.model].filter(Boolean).join(" ")}><RetailFieldButton unit={unit} field="brand" compact className={styles.titleField} onEdit={edit}>{unit.brand || t("品牌未记录")}</RetailFieldButton><RetailFieldButton unit={unit} field="model" compact className={styles.titleField} onEdit={edit} /></h2></div>
@@ -117,6 +117,7 @@ export function RetailDetailView({ unit, returnTo, children, storageError, selec
         {editor("accessories", "knownIssues")}
         {specs.length ? <div className={styles.specs}><h4><Cpu size={17} />{t("其他规格")}</h4><div className={styles.fieldGrid}>{specs.map(key => field(key))}</div>{editor(...specs)}</div> : null}
       </RetailDetailGroup>
+      {unit.status !== "sold" && !sourcePreview ? <RetailDetailGroup id="warranty" title={t("保修与打印")} icon={<BadgeCheck size={18} />} embedded><RetailWarrantyPanel compact key={unit.id + ":" + unit.version + (editing?.field === "warrantyMonths" ? ":review" : ":saved")} unit={unit} blocked={!!editing && editing.field !== "warrantyMonths"} editor={editor("warrantyMonths")} onReview={candidate => setEditing({ field: "warrantyMonths", unit, candidate })} /></RetailDetailGroup> : null}
       {original ? <RetailDetailGroup id="source" title={t("原商品资料")} icon={<FileClock size={18} />}><details className={styles.sourceDetails} open={openGroup === "source"}><summary>{t("查看原商品资料")}</summary><RetailRecordSourceFacts record={original} /></details></RetailDetailGroup> : null}
       <RetailDetailGroup id="history" title={t("操作历史")} icon={<FileClock size={18} />} meta={t("{count} 条", { count: unit.events.length })}><details className={styles.timeline} open={openGroup === "history"}><summary>{t("查看操作历史 · ")}{unit.events.length} {t(" 条")}</summary><ol className="detail-timeline">{unit.events.toReversed().map(event => <li key={event.id}><i className="timeline-dot timeline-dot--progress" /><div><strong>{retailEventTitle(event.title, locale)}</strong><p>{retailEventDetail(event.detail, locale)}</p><small>{event.time} · {event.actorName || t("原记录")}</small></div></li>)}</ol></details></RetailDetailGroup>
     </div><aside className={styles.column} aria-label={t("金额与操作")}>
@@ -127,7 +128,6 @@ export function RetailDetailView({ unit, returnTo, children, storageError, selec
         {unit.status !== "sold" ? <div className={`${styles.financeTile} ${styles.profit}`}><span className={styles.financeIcon}><TrendingUp size={23} /></span><div><small>{t("预计毛利")}</small><strong className={profit === null ? styles.unknownProfit : profit < 0 ? styles.lossValue : styles.profitValue}>{t(retailMoney(profit))}</strong></div></div> : null}
       </div>{editor("costCents", "refurbCents")}{unit.status !== "sold" ? <p className={styles.financeNote}>{t("售价 − 入库成本 − 整备成本；未知成本时毛利待确认")}</p> : null}</RetailDetailGroup> : null}
       {unit.status !== "sold" || sourcePreview ? <RetailDetailGroup id="actions" title={t(sourcePreview ? unit.status === "sold" ? "原销售记录" : "核对商品资料" : "检测与销售")} icon={<BadgeCheck size={18} />} meta={t("已保存 {count}/3", { count: progress })} embedded>{children}</RetailDetailGroup> : null}
-      {unit.status !== "sold" && !sourcePreview ? <RetailDetailGroup id="warranty" title={t("保修与打印")} icon={<BadgeCheck size={18} />} embedded><RetailWarrantyPanel key={unit.id + ":" + unit.version + (editing?.field === "warrantyMonths" ? ":review" : ":saved")} unit={unit} blocked={!!editing && editing.field !== "warrantyMonths"} editor={editor("warrantyMonths")} onReview={candidate => setEditing({ field: "warrantyMonths", unit, candidate })} /></RetailDetailGroup> : null}
       {unit.sales.length ? <RetailDetailGroup id="sales" title={t("销售结算与售后")} icon={<ShoppingBag size={18} />} meta={t("{count} 单", { count: unit.sales.length })}>{unit.sales.toReversed().map(sale => currentRetailSale(unit)?.id === sale.id ? <RetailSaleCard key={sale.id} unit={unit} sale={sale} /> : <details className={styles.saleHistory} key={sale.id} open={selectedSale === sale.id}><summary>{t("历史销售 · ")}{sale.time} · {retailMoney(sale.priceCents)}{retailSaleState(sale) === "returned" ? t(" · 已退回结算") : ""}</summary><RetailSaleCard unit={unit} sale={sale} /></details>)}</RetailDetailGroup> : null}
     </aside></div>
   </main></RetailEditScope></RetailGroups.Provider>;

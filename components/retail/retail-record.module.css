@@ -1,4 +1,20 @@
-.body { padding: 16px; min-width: 0; }
+.body { padding: 16px; min-width: 0; container-type: inline-size; }
 .body :global(.field-grid) { margin-block: 12px; }
 .body :global(.retail-check) { margin-block: 8px; }
 .body p:last-child { margin-bottom: 0; }
+.body :global(.field) > strong { overflow-wrap: anywhere; }
+@media (min-width: 768px) {
+  .body { padding: 8px 12px; }
+  .body p { margin: 0 0 8px; }
+  .body :global(.field-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-block: 8px; }
+  .body :global(.retail-check) { margin-block: 2px; }
+  .body :global(.retail-inspection-checks) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 8px; }
+  .body :global(.retail-inspection-checks) > :last-child { grid-column: 1 / -1; }
+  @container (min-width: 420px) {
+    .body :global(.field-grid) { grid-template-columns: minmax(0, .7fr) minmax(0, .7fr) minmax(0, 1fr); }
+    .body :global(.field--wide) { grid-column: auto; }
+    .body :global(.field-grid) > :nth-child(4) { grid-column: 1 / 3; }
+    .body :global(.retail-inspection-checks) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .body :global(.retail-inspection-checks) > :last-child { grid-column: auto; }
+  }
+}

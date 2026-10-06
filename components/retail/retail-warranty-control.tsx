@@ -25,7 +25,7 @@ export function RetailWarrantyControl({ value, onChange, disabled = false }: { v
     }
   }
 
-  return <div className={styles.control}>
+  return <div className={styles.control} data-retail-warranty-control data-custom={custom}>
     <label className="field"><span>{t("商家保修期限")}</span><SelectControl aria-label={t("商家保修期限")} disabled={disabled} aria-describedby={descriptionId} value={selected} onChange={event => selectWarranty(event.target.value)}><option value="6">{t("6 个月")}</option><option value="12">{t("1 年")}</option><option value="24">{t("2 年")}</option><option value="custom">{t("自定义月数")}</option><option value="none">{t("不提供额外商家保修")}</option></SelectControl></label>
     {custom ? <RetailNumberControl label={t("自定义商家保修月数")} value={value} onChange={next => onChange(next === null ? Number.NaN : next)} min={1} max={120} unit="个月" disabled={disabled} optional={false} /> : null}
     <p id={descriptionId} className={styles.note}>{value === null ? t("不提供额外商家保修，法定权利不受影响。") : t("商家保修从实际交付日起计算。")}</p>

@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-06T01:20:47.596Z",
+  "generatedAt": "2026-10-06T09:45:47.668Z",
   "format": "H.264 / AAC, 1280x960, 24fps",
-  "totalBytes": 36208637,
+  "totalBytes": 36938054,
   "episodes": [
     {
       "locale": "zh-CN",
@@ -182,13 +182,13 @@
       "voice": "zh-CN-XiaoxiaoNeural",
       "rate": "+5%",
       "seconds": 69.625,
-      "bytes": 2653668,
+      "bytes": 2868385,
       "assets": [
         {
           "path": "/tutorials/retail.mp4",
           "extension": "mp4",
-          "bytes": 2653668,
-          "sha256": "fecefcf7f766fee477b092e303867fa6083914c8c2a418f8fa6b2c12e96b1eed"
+          "bytes": 2868385,
+          "sha256": "21c077d66a6793bdebfbe2bddc543f9fa5ff3367cdf5460601cea48ae3edade6"
         },
         {
           "path": "/tutorials/retail.webp",
@@ -203,7 +203,7 @@
           "sha256": "d2109fbe7bf51fc18e8ff78bf45119f9ec317f660eef9caaa1cfc6d5868dfa3b"
         }
       ],
-      "sha256": "fecefcf7f766fee477b092e303867fa6083914c8c2a418f8fa6b2c12e96b1eed",
+      "sha256": "21c077d66a6793bdebfbe2bddc543f9fa5ff3367cdf5460601cea48ae3edade6",
       "decoded": true,
       "meanDb": -16.6,
       "peakDb": -1.3,
@@ -397,13 +397,13 @@
       "voice": "it-IT-ElsaNeural",
       "rate": "+3%",
       "seconds": 75.916667,
-      "bytes": 3218007,
+      "bytes": 3472597,
       "assets": [
         {
           "path": "/tutorials/it/retail.mp4",
           "extension": "mp4",
-          "bytes": 3218007,
-          "sha256": "4a4ae8cc3ce4f83201afb734b4e4e6c1ea308675dcaceb4dc4813fad00082a29"
+          "bytes": 3472597,
+          "sha256": "5921658912baf80d29df12aa51eeca22317cb4571f6aa3d332fd8d60247abe4e"
         },
         {
           "path": "/tutorials/it/retail.webp",
@@ -418,7 +418,7 @@
           "sha256": "16c74efd54ae8763209c4cbe28408af3397568c38c6932f8f491d16ef0c3c327"
         }
       ],
-      "sha256": "4a4ae8cc3ce4f83201afb734b4e4e6c1ea308675dcaceb4dc4813fad00082a29",
+      "sha256": "5921658912baf80d29df12aa51eeca22317cb4571f6aa3d332fd8d60247abe4e",
       "decoded": true,
       "meanDb": -17,
       "peakDb": -1.3,
@@ -612,13 +612,13 @@
       "voice": "en-US-JennyNeural",
       "rate": "+2%",
       "seconds": 80,
-      "bytes": 3175267,
+      "bytes": 3435377,
       "assets": [
         {
           "path": "/tutorials/en/retail.mp4",
           "extension": "mp4",
-          "bytes": 3175267,
-          "sha256": "0662ebc1584021fdd71eda1a914faa86e0836206030181dc1b1a083849899283"
+          "bytes": 3435377,
+          "sha256": "34be244f2e6488820399c1b835e1bd65fb2747da8e4e93a4bfa3920e12aa9b68"
         },
         {
           "path": "/tutorials/en/retail.webp",
@@ -633,7 +633,7 @@
           "sha256": "50f753ea65af7dc7b4ed8c06de066f68c5787443c539ab1ce083fdf8ddf7a2a0"
         }
       ],
-      "sha256": "0662ebc1584021fdd71eda1a914faa86e0836206030181dc1b1a083849899283",
+      "sha256": "34be244f2e6488820399c1b835e1bd65fb2747da8e4e93a4bfa3920e12aa9b68",
       "decoded": true,
       "meanDb": -17.6,
       "peakDb": -1.1,
