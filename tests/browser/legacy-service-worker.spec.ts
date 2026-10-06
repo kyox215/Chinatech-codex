@@ -6,6 +6,33 @@ import path from "node:path";
 
 const oldWorker = readFileSync(path.join(process.cwd(), "tests/browser/fixtures/legacy-repairdesk-sw.js"), "utf8");
 const oldOffline = readFileSync(path.join(process.cwd(), "tests/browser/fixtures/legacy-repairdesk-offline.html"), "utf8");
+
+// The cutover fixture controls network availability and navigation delay.
+// Prepare the real dev routes separately so compilation is not another outage.
+// This API context cannot install a browser worker or alter fixture storage.
+test.beforeAll(async ({ playwright, baseURL }) => {
+  if (!baseURL) throw new Error("Upstream baseURL is required.");
+  const context = await playwright.request.newContext({ baseURL });
+  try {
+    for (const [route, status] of [
+      ["/login", 200], ["/orders", 307],
+      ["/recovery-probe.txt", 200], ["/sw.js", 200],
+    ] as const) {
+      const response = await context.get(route, { maxRedirects: 0 });
+      const body = (await response.body()).toString("utf8");
+      expect(response.status()).toBe(status);
+      if (route === "/login") expect(body).toContain("欢迎回来");
+      else if (route === "/orders") {
+        const destination = new URL(response.headers().location, baseURL);
+        expect(`${destination.pathname}${destination.search}${destination.hash}`).toBe("/login");
+      } else if (route === "/recovery-probe.txt") expect(body.trim()).toBe("repairdesk-recovery-v1");
+      else {
+        expect(response.headers()["content-type"]).toContain("application/javascript");
+        expect(body).toContain("chinatech-legacy-worker-retired-v1");
+      }
+    }
+  } finally { await context.dispose(); }
+});
 const seedPage = `<!doctype html><html><body><h1>Archived legacy shell fixture</h1><script>
 navigator.serviceWorker.register('/sw.js').catch(() => {});
 </script></body></html>`;
