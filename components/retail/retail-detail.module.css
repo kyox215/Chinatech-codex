@@ -22,6 +22,7 @@
 .detail .metricButton { min-height: 72px; padding: 0; border-radius: var(--radius-control); }
 .metric > span:last-child, .metricButton > span > span > span:last-child { display: grid; gap: 5px; min-width: 0; }
 .overview strong { font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; }
+.metricButton strong, .metric:last-child strong { overflow-wrap: normal; word-break: normal; }
 .overview small { color: var(--text-secondary); font-size: 12px; }
 .metricIcon { display: grid; place-items: center; width: 64px; height: 64px; flex-shrink: 0; border-radius: 50%; background: var(--primary-50); color: var(--primary-600); }
 .meter { position: relative; display: grid; place-items: center; width: 64px; height: 64px; flex-shrink: 0; }
@@ -133,7 +134,6 @@
   .overview { padding: 0 0 0 12px; border-top: 0; border-left: 1px solid var(--border); gap: 8px; }
   .metric, .detail .metricButton > span > span { gap: 6px; }
   .detail .metricButton { min-height: 44px; }
-  .metricButton strong, .metric:last-child strong { overflow-wrap: normal; word-break: normal; }
   .meter { width: 56px; height: 56px; }
   .meter > b { white-space: nowrap; }
   .metricIcon { width: 44px; height: 44px; }
