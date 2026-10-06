@@ -1,6 +1,6 @@
 .page { background: var(--bg); min-height: 100vh; }
 .main { width: min(1120px, calc(100% - 64px)); margin: auto; padding: 48px 0 36px; }
-.hero { position: relative; display: grid; grid-template-columns: 1.2fr 1fr; align-items: center; gap: 32px; padding: 50px 56px; border: 1px solid var(--primary-100); border-radius: var(--radius-panel); background: radial-gradient(ellipse at 85% 45%, var(--primary-100), transparent 60%), var(--surface); }
+.hero { position: relative; display: grid; grid-template-columns: 1.2fr 1fr; align-items: center; gap: 32px; padding: 50px 56px; border: 1px solid var(--primary-100); border-radius: var(--radius-panel); background: linear-gradient(120deg, var(--surface) 45%, var(--primary-50)); }
 .heroCopy { position: relative; z-index: 1; }
 .publicBadge { display: inline-flex; align-items: center; gap: 8px; color: var(--primary-700); font-size: 13px; font-weight: 600; }
 .hero h1 { margin: 18px 0 12px; font-size: 56px; font-weight: 700; line-height: 1.18; text-wrap: balance; }
