@@ -27,6 +27,11 @@ export function historyRetailView(status: string | null): RetailView {
 export function retailViewFromParams(params: Pick<URLSearchParams, "get">): RetailView {
   const view = params.get("view");
   if (view === "available" || view === "sold" || view === "other") return view;
+  if (params.get("source") === "units" && params.get("status")) {
+    const status = params.get("status");
+    if (status === "sold") return "sold";
+    if (["reserved", "processing", "inspecting", "hold"].includes(status || "")) return "other";
+  }
   // Preserve old detail return links and bookmarks without keeping the mixed default.
   if (params.get("source") === "history") {
     const status = params.get("status");
@@ -35,7 +40,8 @@ export function retailViewFromParams(params: Pick<URLSearchParams, "get">): Reta
   return "available";
 }
 export function buildRetailListIndex(units: readonly RetailUnit[], history: readonly RetailHistoryRecord[]): RetailListItem[] {
-  const items: RetailListItem[] = history.map(record => {
+  const managed = new Set(units.flatMap(unit => unit.historyOrigin ? [unit.historyOrigin.recordId] : []));
+  const items: RetailListItem[] = history.filter(record => !managed.has(record.id)).map(record => {
     const code = retailHistoryCode(record);
     const title = [record.brand, record.model].filter(Boolean).join(" ") || "商品名称未记录";
     return { key: `history:${record.id}`, id: record.id, source: "history", view: historyRetailView(record.sourceStatus),
@@ -47,18 +53,20 @@ export function buildRetailListIndex(units: readonly RetailUnit[], history: read
       search: normalize([code,title,record.sourceStatus,retailHistoryStatus(record),record.condition,record.customerName,record.customerPhone,
         record.category,record.color,record.memory,record.identifier,record.notes,record.intakeAt,record.pickupDate].join(" ")) };
   });
+  const sourceById = new Map(history.map(record => [record.id, record]));
   for (const unit of units) {
+    const original = unit.historyOrigin ? sourceById.get(unit.historyOrigin.recordId) : undefined;
     const sale = unit.status === "sold" ? currentRetailSale(unit) : undefined;
-    const specification = retailSpec(unit);
+    const specification = retailSpec(unit) === "规格待确认" && original?.memory ? original.memory : retailSpec(unit);
     const title = [unit.brand, unit.model].filter(Boolean).join(" ") || "商品名称未记录";
     items.push({ key:`unit:${unit.id}`, id:unit.id, source:"unit", view:unit.status === "available" ? "available" : unit.status === "sold" ? "sold" : "other",
       code:unit.code, title, condition:unit.condition, category:retailCategories[unit.category], color:unit.color, specification,
-      identifier:unit.imei1 || unit.serial || unit.productCode || null, phone:sale?.customerPhone || unit.reservation?.phone || null,
+      identifier:unit.imei1 || unit.serial || unit.productCode || original?.identifier || null, phone:sale?.customerPhone || unit.reservation?.phone || null,
       intakeDate:unit.intakeDate, pickupDate:sale?.deliveryDate || null, priceCents:unit.priceCents, salePriceCents:sale?.priceCents ?? null,
       saleSortDate:sale?.time || null,
-      status:retailStatuses[unit.status].label, reviewCount:0,
+      status:retailStatuses[unit.status].label, reviewCount:original?.reviewReasons.length ?? 0,
       search:normalize([unit.code,title,unit.condition,retailCategories[unit.category],unit.color,specification,unit.imei1,unit.imei2,unit.serial,unit.productCode,
-        unit.knownIssues,unit.location,unit.intakeDate,sale?.customerName,sale?.customerPhone,sale?.deliveryDate,unit.reservation?.name,unit.reservation?.phone].join(" ")) });
+        unit.knownIssues,unit.location,unit.intakeDate,original?.memory,original?.identifier,original?.customerName,original?.customerPhone,original?.notes,sale?.customerName,sale?.customerPhone,sale?.deliveryDate,unit.reservation?.name,unit.reservation?.phone].join(" ")) });
   }
   return items;
 }

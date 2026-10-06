@@ -4,17 +4,19 @@ import { retailDisplaySpec } from "@/lib/i18n/retail-display";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Archive, ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, Plus, ScanLine, Search, X } from "lucide-react";
 import { PageTitle } from "@/components/page-title";
 import { SelectControl } from "@/components/select-control";
 import { useStaff } from "@/components/staff/use-staff";
 import type { RetailHistoryRecord } from "@/lib/retail-history";
-import type { RetailUnit } from "@/lib/retail";
+import { retailCategories, retailStatuses, type RetailUnit } from "@/lib/retail";
 import { buildRetailListIndex, defaultRetailListSort, queryRetailList, resolveRetailListSort, retailViewFromParams, retailViewLabels, type RetailView } from "@/lib/retail-list-model";
+import { retailRecordHref } from "@/lib/retail-record";
+import { RetailRecordScanner } from "./retail-record-scanner";
 import { useRetail } from "./retail-provider";
-import { historyDate, historyDetailHref, historyMoney } from "./retail-history-shared";
+import { historyDate, historyMoney } from "./retail-history-shared";
 import styles from "./retail-history.module.css";
 import listStyles from "./retail-list.module.css";
 import surface from "./retail-surface.module.css";
@@ -22,33 +24,39 @@ import surface from "./retail-surface.module.css";
 export function RetailHistoryList({ records, units, ready, error }: { records: RetailHistoryRecord[]; units: RetailUnit[]; ready: boolean; error: string }) {
   const { t, locale } = useLanguage();
   const staff = useStaff();
-  const { dispatch } = useRetail();
+  const { dispatch, returnTo, returnScroll } = useRetail();
+  const [scanOpen, setScanOpen] = useState(false);
   const params = useSearchParams();
   const view = retailViewFromParams(params);
   const query = params.get("q") || "";
   const rawCondition = params.get("condition");
   const condition = rawCondition === "新机" || rawCondition === "翻新机" ? rawCondition : "all";
-  const category = params.get("category") || "all";
+  const rawCategory = params.get("category") || "all";
+  const category = params.get("source") === "units" && Object.hasOwn(retailCategories, rawCategory) ? retailCategories[rawCategory as keyof typeof retailCategories] : rawCategory;
   const review = params.get("review") === "pending";
   const defaultSort = defaultRetailListSort(view);
   const sort = resolveRetailListSort(view, params.get("sort"));
-  const status = view === "other" ? params.get("status") || "all" : "all";
+  const rawStatus = view === "other" ? params.get("status") || "all" : "all";
+  const status = params.get("source") === "units" && Object.hasOwn(retailStatuses, rawStatus) ? retailStatuses[rawStatus as keyof typeof retailStatuses].label : rawStatus === "processing" ? "all" : rawStatus;
   const requestedPage = Number(params.get("page") || "1");
   // Project only list facts once per authorized dataset, not on every keystroke.
   const index = useMemo(() => buildRetailListIndex(units, records), [units, records]);
   const unitsById = useMemo(() => new Map(units.map(unit => [unit.id, unit])), [units]);
   const displaySpec = (item: { source: string; id: string; specification: string | null }) => {
     const unit = item.source === "unit" ? unitsById.get(item.id) : undefined;
-    return unit ? retailDisplaySpec(unit, locale) : item.specification;
+    return unit && (unit.ramGb !== null || unit.bodyStorage || unit.disks.length || unit.edition) ? retailDisplaySpec(unit, locale) : item.specification;
   };
   const result = useMemo(() => queryRetailList(index, {view, condition, query, category, review, sort, status, page:requestedPage}),
     [index, view, condition, query, category, review, sort, status, requestedPage]);
   const listParams = new URLSearchParams(params.toString());
   listParams.delete("source");
+  if (category !== "all") listParams.set("category", category);
+  if (status !== "all") listParams.set("status", status);
   if(view === "available") listParams.delete("view"); else listParams.set("view",view);
   if(view !== "other") listParams.delete("status");
   if(result.page > 1) listParams.set("page",String(result.page)); else listParams.delete("page");
   const listUrl = `/app/retail${listParams.size ? `?${listParams}` : ""}`;
+  useEffect(() => { if (listUrl === returnTo) window.scrollTo({ top: returnScroll, behavior: "instant" }); }, [listUrl, returnTo, returnScroll]);
   const hasFilters = Boolean(query) || condition !== "all" || category !== "all" || status !== "all" || review || sort !== defaultSort;
   function update(key:string,value:string) {
     const next = new URLSearchParams(listParams);
@@ -60,7 +68,8 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
   const clear = () => window.history.replaceState(null,"",viewHref(view));
   const remember = () => dispatch({type:"remember",url:listUrl,scroll:window.scrollY});
   return <main className={`module-page ${surface.page}`}>
-    <header className="module-heading"><PageTitle title={t("整机商品")} /><div className="module-heading__actions"><Link className="button button--secondary button--compact" href="/app/retail?source=units">{t("单机管理")}</Link>{staff.can("retail.edit") ? <Link className="button button--primary button--compact" href="/app/retail/new"><Plus size={17} />{t("新建单机")}</Link> : null}</div></header>
+    <header className="module-heading"><PageTitle title={t("整机商品")} /><div className="module-heading__actions"><button className="button button--secondary button--compact page-toolbar-action" type="button" aria-label={t("识码查找")} title={t("识码查找")} aria-expanded={scanOpen} onClick={() => setScanOpen(!scanOpen)}><ScanLine size={17} /><span>{t("识码查找")}</span></button>{staff.can("retail.edit") ? <Link className="button button--primary button--compact" href="/app/retail/new"><Plus size={17} />{t("新建商品")}</Link> : null}</div></header>
+    {scanOpen ? <RetailRecordScanner units={units} records={records} onClose={() => setScanOpen(false)} onNavigate={remember} /> : null}
     <nav className={styles.sourceTabs} aria-label={t("整机销售状态")}>{(["available","sold","other"] as const).map(value => <Link key={value} href={viewHref(value)} aria-current={view === value ? "page" : undefined}>{t(retailViewLabels[value])} <span>{result.viewCounts[value]}</span></Link>)}</nav>
     {error ? <p className="procurement-feedback procurement-feedback--error" role="alert">{t(error)}</p> : null}
     <section className={`panel ${styles.list}`} aria-label={t(retailViewLabels[view])}>
@@ -78,7 +87,7 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
       {!ready ? <div className="module-empty" role="status">{t("正在读取整机商品…")}</div> : <>
         <div className={`module-table-scroll ${styles.table}`} role="region" aria-label={t("整机商品表格")} tabIndex={0}>
           <div className={styles.tableHead} aria-hidden="true"><span>{t("商品 / 规格")}</span><span>{t("客户 / 识别码")}</span><span>{t("入库 / 拿走日期")}</span><span>{t("标价 / 成交价")}</span><span>{t("状态")}</span><span /></div>
-          {result.items.map(item => <Link className={`${styles.row}${!item.phone?.trim() && !item.identifier?.trim() ? ` ${styles.rowWithoutIdentity}` : ""}`} href={item.source === "history" ? historyDetailHref(item.id,listUrl) : `/app/retail/units/${encodeURIComponent(item.id)}`} onClick={remember} key={item.key}>
+          {result.items.map(item => <Link className={`${styles.row}${!item.phone?.trim() && !item.identifier?.trim() ? ` ${styles.rowWithoutIdentity}` : ""}`} href={retailRecordHref(item.id,listUrl)} onClick={remember} key={item.key}>
             <div className={styles.product}><strong>{item.title}</strong>{item.color?.trim() || item.specification?.trim() ? <small>{[item.color ? t(item.color) : "", displaySpec(item)].filter(value => value?.trim()).join(" · ")}</small> : null}</div>
             <div className={styles.identity}>{item.phone?.trim() ? <span>{item.phone}</span> : null}{item.identifier?.trim() ? <small>{item.identifier}</small> : null}</div>
             <div className={styles.dates}>{item.intakeDate ? <span><span className={styles.mobileLabel}>{t("入库 ")}</span>{historyDate(item.intakeDate)}</span> : null}{item.pickupDate ? <small><span className={styles.mobileLabel}>{t("拿走 ")}</span>{historyDate(item.pickupDate)}</small> : null}</div>

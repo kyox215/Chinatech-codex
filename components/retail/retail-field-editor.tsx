@@ -22,7 +22,8 @@ import styles from "./retail-field-editor.module.css";
 
 const moneyFields = ["costCents", "refurbCents", "priceCents"];
 const activeEdit = createContext<RetailEditableField | null>(null);
-export function RetailEditScope({ field, children }: { field: RetailEditableField | null; children: ReactNode }) { return <activeEdit.Provider value={field}>{children}</activeEdit.Provider>; }
+const readOnlyRecord = createContext(false);
+export function RetailEditScope({ field, readOnly = false, children }: { field: RetailEditableField | null; readOnly?: boolean; children: ReactNode }) { return <readOnlyRecord.Provider value={readOnly}><activeEdit.Provider value={field}>{children}</activeEdit.Provider></readOnlyRecord.Provider>; }
 export function retailFieldText(field: RetailEditableField, value: RetailFieldValue, display: (text: string) => string = text => text): string {
   if (moneyFields.includes(field)) return display(retailMoney(value as number | null));
   if (field === "warrantyMonths") return display(value === null ? "无额外商家保修" : retailWarrantyLabel(value as number));
@@ -41,8 +42,9 @@ export function RetailFieldButton({ unit, field, onEdit, children, compact = fal
   const { ready, error } = useRetail();
   const staff = useStaff();
   const active = useContext(activeEdit);
+  const readOnly = useContext(readOnlyRecord);
   const blocked = active !== null && active !== field;
-  const editable = canEditRetailField(unit, field) && staff.can(retailFieldPermission(field));
+  const editable = !readOnly && canEditRetailField(unit, field) && staff.can(retailFieldPermission(field));
   if (field === "code") return <div className={`${styles.fieldButton} ${className}`} title={t("创建时自动生成，保留原编号")}><span className={styles.valueGroup}><small>{t(retailFieldLabels[field])}</small><span className={styles.value}>{unit.code}</span></span></div>;
   return <button type="button" className={`${styles.fieldButton}${compact ? ` ${styles.compact}` : ""} ${className}`} aria-label={t("编辑{v0}", { v0: t(retailFieldLabels[field]) })} aria-expanded={active === field} title={blocked ? t("先保存或取消当前编辑") : !staff.can(retailFieldPermission(field)) ? t("当前账号无此编辑权限") : editable ? t("编辑{v0}", { v0: t(retailFieldLabels[field]) }) : t("当前状态保留已有资料")} disabled={blocked || !editable || !ready || Boolean(error)} onClick={() => onEdit(field)}>
     <span className={styles.valueGroup}>{compact ? null : <small>{t(retailFieldLabels[field])}</small>}<span className={styles.value}>{children ?? retailFieldText(field, unit[field], t)}</span></span>{editable ? <Pencil size={13} aria-hidden="true" /> : null}

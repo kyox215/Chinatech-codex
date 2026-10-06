@@ -17,6 +17,10 @@ import { useCustomerDirectory } from "@/components/customers/customer-store";
 import { customerCandidates, normalizeCustomerPhone } from "@/lib/customers";
 import { intakeRecordTime } from "@/lib/repair-intake-record";
 import { applyRetailCommand, parseRetailMoney, retailMoney, retailWarrantyLabel, retailWarrantyTermsVersion, type Inspection, type RetailCommand, type RetailUnit } from "@/lib/retail";
+import { useRetailHistory } from "./retail-history-store";
+import { historyDisplayUnit, isSoldSource } from "@/lib/retail-record";
+import { historyReturnHref } from "./retail-history-shared";
+import { RetailRecordPreparation, RetailRecordOriginalSale } from "./retail-record-preparation";
 import { useRetail } from "./retail-provider";
 import { RetailDetailView } from "./retail-detail-view";
 import { RetailOperationConfirmation, type PendingRetailOperation } from "./retail-operation-confirmation";
@@ -135,10 +139,15 @@ function RetailActions({ unit }: { unit: RetailUnit }) {
   </div>{pending ? <RetailOperationConfirmation unit={unit} pending={pending} restoreFocusRef={operationTrigger} onClose={() => setPending(null)} /> : null}</section>;
 }
 
-export function RetailDetail({ id, selectedSale }: { id: string; selectedSale?: string }) {
-  const { t } = useLanguage();
-  const { units, returnTo, ready, error } = useRetail();
-  const unit = units.find((unit) => unit.id === id);
-  if (!unit) return <main className="module-page"><header className="module-heading"><PageTitle title={t("单机档案")} backHref="/app/retail" backLabel={t("返回商品列表")} /></header><div className="panel module-empty"><Boxes size={28} /><strong>{ready ? t("没有找到单机档案") : t("正在读取本地档案…")}</strong>{error ? <p role="alert">{t(error)}</p> : null}<Link className="button button--primary" href="/app/retail">{t("返回商品列表")}</Link></div></main>;
-  return <RetailDetailView key={unit.id} unit={unit} returnTo={returnTo} selectedSale={selectedSale} storageError={error}><RetailActions key={unit.id + ":" + unit.status} unit={unit} /></RetailDetailView>;
+export function RetailDetail({ id, selectedSale, returnTo: requestedReturn, showOriginal }: { id: string; selectedSale?: string; returnTo?: string; showOriginal?: boolean }) {
+  const { t } = useLanguage(); const staff = useStaff();
+  const { units, returnTo, ready, error } = useRetail(); const history = useRetailHistory();
+  const saved = units.find(unit => unit.id === id);
+  const original = history.records.find(record => record.id === id && (!saved?.historyOrigin || saved.historyOrigin.sourceSnapshot === record.sourceSnapshot));
+  const unit = saved ?? (original ? historyDisplayUnit(original) : undefined);
+  const fallback = original && isSoldSource(original) ? "/app/retail?view=sold" : "/app/retail";
+  const backHref = historyReturnHref(requestedReturn || (returnTo !== "/app/retail" ? returnTo : fallback));
+  const loading = !ready || !history.ready;
+  if (loading || !unit || !staff.can("retail.view")) return <main className="module-page"><header className="module-heading"><PageTitle title={t("商品档案")} backHref={backHref} backLabel={t("返回商品列表")} /></header><div className="panel module-empty"><Boxes size={28} /><strong>{loading ? t("正在读取整机记录…") : !staff.can("retail.view") ? t("当前账号无权查看整机记录") : t("没有找到商品档案")}</strong>{error || history.error ? <p role="alert">{t(error || history.error)}</p> : null}<Link className="button button--primary" href={backHref}>{t("返回商品列表")}</Link></div></main>;
+  return <RetailDetailView key={unit.id + ":" + staff.member?.id + ":" + staff.member?.revision} unit={unit} returnTo={backHref} original={original} showOriginal={showOriginal} sourcePreview={!saved} selectedSale={selectedSale} storageError={error || history.error}>{saved ? <RetailActions key={unit.id + ":" + unit.status} unit={unit} /> : original && (isSoldSource(original) ? <RetailRecordOriginalSale record={original} /> : <RetailRecordPreparation key={original.id + ":" + original.sourceSnapshot} record={original} />)}</RetailDetailView>;
 }

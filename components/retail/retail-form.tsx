@@ -35,9 +35,9 @@ export function RetailForm(props: RetailFormProps) {
   const staff = useStaff();
   const { ready, error, returnTo } = useRetail();
   const store = useStoreSettings();
-  if (!staff.ready || !ready || !store.ready) return <main className={`module-page ${surface.page}`}><header className="module-heading"><PageTitle title={props.copyId ? t("同型号新建单机") : t("新建独立单机")} backHref={returnTo} backLabel={t("返回商品列表")} /></header><section className="panel module-empty" role="status">{t("正在读取单机资料…")}</section></main>;
+  if (!staff.ready || !ready || !store.ready) return <main className={`module-page ${surface.page}`}><header className="module-heading"><PageTitle title={props.copyId ? t("同型号新建商品") : t("新建商品")} backHref={returnTo} backLabel={t("返回商品列表")} /></header><section className="panel module-empty" role="status">{t("正在读取单机资料…")}</section></main>;
   if (!staff.can("retail.edit")) return <AccessPanel />;
-  if (error || store.error) return <main className={`module-page ${surface.page}`}><header className="module-heading"><PageTitle title={t("新建独立单机")} backHref={returnTo} backLabel={t("返回商品列表")} /></header><section className="panel module-empty" role="alert">{t(error) || store.error}</section></main>;
+  if (error || store.error) return <main className={`module-page ${surface.page}`}><header className="module-heading"><PageTitle title={t("新建商品")} backHref={returnTo} backLabel={t("返回商品列表")} /></header><section className="panel module-empty" role="alert">{t(error) || store.error}</section></main>;
   return <RetailFormContent {...props} />;
 }
 
@@ -105,7 +105,7 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
 
   if(!staff.can("retail.edit")) return <AccessPanel/>;
   return <main className={`module-page retail-create ${surface.page} ${styles.create}`}>
-    <header className="module-heading"><PageTitle title={sourceUnit ? t("同型号新建单机") : t("新建独立单机")} backHref={saving ? undefined : returnTo} backLabel={t("返回商品列表")} /></header>
+    <header className="module-heading"><PageTitle title={sourceUnit ? t("同型号新建商品") : t("新建商品")} backHref={saving ? undefined : returnTo} backLabel={t("返回商品列表")} /></header>
     {sourceUnit ? <div className={`inline-notice ${styles.notice}`}><Copy size={17} aria-hidden="true" /><span>{t("从 ")}{sourceUnit.code} {t(" 复制型号与候选规格；身份、照片、检测、电池、手柄数量、来源与金额均已清空，请逐项核对实物。")}</span></div> : copyId ? <div className={`inline-notice ${styles.notice}`} role="status">{t("复制来源不存在，当前为空白新档案。")}</div> : identifier ? <div className={`inline-notice ${styles.notice}`} role="status">{t("识别文本仅作为待核对字段，不证明机器身份或规格。")}{kind === "internal" ? t("内部码由本系统另行分配，不沿用未知码。") : ""}</div> : null}
     <form className={`panel ${styles.form}`} aria-busy={saving} onSubmit={submit}><fieldset className="form-fields" disabled={saving}>
       <DeviceDraftNotice draft={deviceDraft}/><nav ref={stepsRef} tabIndex={-1} className={styles.steps} aria-label={t("单机录入步骤")}>

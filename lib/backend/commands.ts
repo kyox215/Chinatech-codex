@@ -13,6 +13,7 @@ import { appendProcurementEvent, isPreorder, procurementStatus, validateProcurem
 import { applyProcurementBatch, ProcurementBatchError, resolveSupplierId, type ProcurementBatchItem } from "../procurement-batch";
 import { createRetailUnit, applyRetailCommand, currentRetailSale, saleProductUnit, retailCategories, type RetailUnit, type RetailCommand } from "../retail";
 import { emptyIntakeServices } from "../intake-services";
+import { prepareRetailRecord, type RetailRecordPreparation } from "../retail-record";
 import { projectState, loadState } from "./state";
 import { memberInTransaction } from "./context";
 import { retailCommandPermission, requireRetailAfterSaleRepair } from "../retail-access";
@@ -378,7 +379,8 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
   if(kind==="retail") {
     exactKeys(p,["type","unit","id","command","version"]);
     if(p.type==="create") {
-      authorize(member,"retail.edit");const draft=p.unit as RetailUnit;fields(draft,retailFields);if(!uuid.test(identifier(draft.id))) throw new BackendError("单机身份标识无效。");
+      authorize(member,"retail.view");authorize(member,"retail.edit");const draft=p.unit as RetailUnit;fields(draft,retailFields);if(!uuid.test(identifier(draft.id))) throw new BackendError("单机身份标识无效。");
+      if (state.retailHistory?.some(record => record.id === draft.id)) throw new BackendError("已有商品须在原档案核对保存。",409);
       if(draft.costCents!==null || draft.refurbCents!==null) authorize(member,"financial.edit");if(draft.priceCents!==null) authorize(member,"retail.price");
       const next=createRetailUnit(draft,state.retail,{id:requestId,time,title:"独立单机档案已建立",detail:"门店自有实物，待检测。",actorId:member.id,actorName:member.name});await putRetail(tx,state.storeId,next);return next.id;
     }
@@ -395,6 +397,18 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     if(command.type==="after_sale_link" || command.type==="after_sale_close") requireRetailAfterSaleRepair(unit,command,state.intakes,command.type==="after_sale_close"?JSON.stringify({version:1,workflows:state.workflows}):null);
     const financial=command.type==="edit" && ["costCents","refurbCents"].includes(command.change.field);
     const next=applyRetailCommand(unit,command,{id:requestId,time,title:"单机操作："+command.type,detail:financial?"成本资料更正。":"已核对并保存。",actorId:member.id,actorName:member.name,...(financial?{sensitive:"financial" as const}:{})},integer(p.version),state.retail);
+    await putRetail(tx,state.storeId,next);return next.id;
+  }
+  if (kind === "retail.prepare") {
+    exactKeys(p, ["id", "sourceSnapshot", "settingsRevision", "draft"]);
+    authorize(member, "retail.view"); authorize(member, "retail.edit");
+    const record = state.retailHistory?.find(row => row.id === identifier(p.id));
+    if (!record) throw new BackendError("没有找到原商品记录。",404);
+    if (record.sourceSnapshot !== p.sourceSnapshot || state.settings.revision !== integer(p.settingsRevision)) throw new BackendError("商品来源或门店约定已变化，请重新核对。",409);
+    if (state.retail.some(unit => unit.id === record.id || unit.historyOrigin?.recordId === record.id)) throw new BackendError("商品资料已保存，请刷新并核对当前档案。",409);
+    const draft = object(p.draft) as unknown as RetailRecordPreparation;
+    if (Object.values(object(draft.checks)).some(Boolean)) authorize(member,"retail.inspect");
+    const next = prepareRetailRecord(record,draft,state.settings.retailWarrantyMonths,{id:requestId,time,title:"商品资料已核对",detail:"原商品记录保留，实物资料已确认。",actorId:member.id,actorName:member.name},state.retail);
     await putRetail(tx,state.storeId,next);return next.id;
   }
   if(kind==="retail.aftersale_repair") {

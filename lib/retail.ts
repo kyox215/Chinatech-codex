@@ -35,6 +35,7 @@ export type RetailSale = {
   debtDelivery?: RetailDebtDelivery; afterSales?: RetailAfterSale[];
 };
 export type RetailUnit = {
+  historyOrigin?: { recordId: string; sourceSnapshot: string };
   id: string; code: string; category: RetailCategory; brand: string; model: string;
   serial: string; imei1: string; imei2: string; productCode: string; color: string;
   ramGb: number | null; bodyStorage: Capacity | null; disks: RetailDisk[];
@@ -212,13 +213,14 @@ export function identityConflict(unit: RetailUnit, others: RetailUnit[]) {
 }
 
 export function validateRetailUnit(unit: RetailUnit, others: RetailUnit[] = []) {
+  if (unit.historyOrigin !== undefined && (!storedObject(unit.historyOrigin) || Object.keys(unit.historyOrigin).sort().join(",") !== "recordId,sourceSnapshot" || typeof unit.historyOrigin.recordId !== "string" || typeof unit.historyOrigin.sourceSnapshot !== "string" || unit.historyOrigin.recordId !== unit.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(unit.historyOrigin.recordId) || !/^[0-9a-f]{64}$/.test(unit.historyOrigin.sourceSnapshot))) throw new Error("商品原记录关联无效。");
   if (!["新机", "翻新机"].includes(unit.condition)) throw new Error("请选择新机或翻新机。");
   validateRetailWarrantyMonths(unit.warrantyMonths);
   validateRetailPhotos(unit.photos);
   for (const field of ["ramGb", "controllers", "batteryPercent", "bodyStorage", "disks", "intakeDate", "grade"] as const) checkedRetailFieldValue(field, unit[field]);
   if (!unit.model.trim()) throw new Error("请填写型号或商品名称。");
   if (!unit.storeOwned) throw new Error("请明确确认这是门店自有实物，不能将客户送修设备直接建为商品。");
-  if (!Object.hasOwn(retailCategories, unit.category)) throw new Error("请选择有效商品类型。");
+  if (typeof unit.category !== "string" || !Object.hasOwn(retailCategories, unit.category)) throw new Error("请选择有效商品类型。");
   if (unit.serial.trim() && !unit.brand.trim()) throw new Error("登记 SN 时请填写品牌，以便按制造商范围查重。");
   for (const imei of [unit.imei1, unit.imei2]) if (imei.trim() && !/^\d{15}$/.test(normalizeImei(imei))) throw new Error("IMEI 必须为 15 位数字；格式有效不表示已核实真伪或所有权。");
   if (unit.ramGb !== null && (!Number.isSafeInteger(unit.ramGb) || unit.ramGb <= 0)) throw new Error("RAM 须为正整数，未知请留空。");
@@ -235,6 +237,7 @@ export function validateRetailUnit(unit: RetailUnit, others: RetailUnit[] = []) 
 }
 
 export function createRetailUnit(draft: RetailUnit, existing: RetailUnit[], event: RetailEvent) {
+  if (draft.historyOrigin !== undefined) throw new Error("已有商品须在原档案核对保存。");
   validateRetailEvent(event);
   if (!draft.id || existing.some((unit) => unit.id === draft.id)) throw new Error("单机编号无效或已存在。");
   const code = nextRetailCode(existing, event.time.slice(0, 10));

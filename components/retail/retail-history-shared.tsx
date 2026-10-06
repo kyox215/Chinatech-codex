@@ -1,5 +1,6 @@
 "use client";
 
+import { retailRecordHref } from "@/lib/retail-record";
 import { useLanguage } from "@/components/language-provider";
 import { retailHistoryStatus, type RetailHistoryRecord } from "@/lib/retail-history";
 import styles from "./retail-history.module.css";
@@ -15,7 +16,7 @@ export function historyTitle(record: RetailHistoryRecord) {
   return [record.brand, record.model].filter(Boolean).join(" ") || "商品名称未记录";
 }
 export function historyDetailHref(id: string, returnTo = "/app/retail?view=sold") {
-  return `/app/retail/history/${encodeURIComponent(id)}?${new URLSearchParams({ returnTo }).toString()}`;
+  return retailRecordHref(id, returnTo) + "&original=1";
 }
 export function historyReturnHref(value: string | null) {
   if (value && (/^\/app\/retail(?:\?|$)/.test(value) || /^\/app\/customers\/PHONE-\d+(?:\?|$)/.test(value))) return value;

@@ -3,6 +3,8 @@ import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } fr
 
 import { createContext, useContext, useReducer, useSyncExternalStore } from "react";
 import { retailUnits } from "@/lib/retail-fixtures";
+import { parseStoreSettings } from "@/lib/store-settings";
+import { parsePreviewRetailHistory, prepareRetailRecord, previewRetailHistoryKey, type RetailRecordPreparation } from "@/lib/retail-record";
 import { applyRetailCommand, createRetailUnit, parseStoredRetailUnits, type RetailCommand, type RetailEvent, type RetailUnit } from "@/lib/retail";
 
 import { readStaffSnapshot, staffServerSnapshot, subscribeStaff, requirePreviewPermission } from "@/lib/staff-client";
@@ -33,7 +35,7 @@ function subscribe(listener: () => void) {const stop=subscribeBackend(listener);
 }
 type Feedback = { id: string; error: boolean; message: string } | null;
 type State = { units: RetailUnit[]; ready: boolean; error: string; returnTo: string; returnScroll: number; feedback: Feedback };
-type Action = { type: "create"; unit: RetailUnit; event: RetailEvent } | { type: "command"; id: string; command: RetailCommand; event: RetailEvent; version: number } | { type: "remember"; url: string; scroll: number };
+type Action = { type: "create"; unit: RetailUnit; event: RetailEvent } | { type: "prepare"; id: string; sourceSnapshot: string; settingsRevision: number; draft: RetailRecordPreparation; event: RetailEvent } | { type: "command"; id: string; command: RetailCommand; event: RetailEvent; version: number } | { type: "remember"; url: string; scroll: number };
 type UiState = Pick<State, "returnTo" | "returnScroll" | "feedback">;
 type UiAction = { type: "remember"; url: string; scroll: number } | { type: "feedback"; feedback: Feedback };
 function uiReducer(state: UiState, action: UiAction): UiState { return action.type === "remember" ? { ...state, returnTo: action.url, returnScroll: action.scroll } : { ...state, feedback: action.feedback }; }
@@ -45,11 +47,12 @@ export function RetailProvider({ children }: { children: React.ReactNode }) {
   const [ui, uiDispatch] = useReducer(uiReducer, { returnTo: "/app/retail", returnScroll: 0, feedback: null });
   function dispatch(action: Action) {
     if (action.type === "remember") { uiDispatch(action); return true; }
-    if(isBackendClient()){const id=action.type==="create"?action.unit.id:action.id;const payload=action.type==="create"?{type:action.type,unit:action.unit}:{type:action.type,id:action.id,command:action.command,version:action.version};return backendCommand("retail",payload).then(()=>{uiDispatch({type:"feedback",feedback:{id,error:false,message:"已保存并追加到历史。"}});return true;}).catch(reason=>{uiDispatch({type:"feedback",feedback:{id,error:true,message:reason instanceof Error?reason.message:"保存失败。"}});return false;});}
+    if(isBackendClient()){const id=action.type==="create"?action.unit.id:action.id;const payload=action.type==="prepare"?{id:action.id,sourceSnapshot:action.sourceSnapshot,settingsRevision:action.settingsRevision,draft:action.draft}:action.type==="create"?{type:action.type,unit:action.unit}:{type:action.type,id:action.id,command:action.command,version:action.version};return backendCommand(action.type==="prepare"?"retail.prepare":"retail",payload).then(()=>{uiDispatch({type:"feedback",feedback:{id,error:false,message:"已保存并追加到历史。"}});return true;}).catch(reason=>{uiDispatch({type:"feedback",feedback:{id,error:true,message:reason instanceof Error?reason.message:"保存失败。"}});return false;});}
     const id = action.type === "create" ? action.unit.id : action.id;
     try {
       const authorize = () => {
-        const actor = requirePreviewPermission(action.type === "create" ? "retail.edit" : retailCommandPermission(action.command));
+        const actor = requirePreviewPermission(action.type === "create" || action.type === "prepare" ? "retail.edit" : retailCommandPermission(action.command));
+        if (action.type === "prepare") { requirePreviewPermission("retail.view"); if (Object.values(action.draft.checks).some(Boolean)) requirePreviewPermission("retail.inspect"); }
         if (action.type === "create") { if (action.unit.costCents !== null || action.unit.refurbCents !== null) requirePreviewPermission("financial.edit"); if (action.unit.priceCents !== null) requirePreviewPermission("retail.price"); }
         if (action.type === "command" && action.command.type === "deliver" && action.command.debt) requirePreviewPermission("sale.debt");
         return actor;
@@ -61,7 +64,14 @@ export function RetailProvider({ children }: { children: React.ReactNode }) {
       catch { throw new Error("本地单机资料无法读取，现有资料未被覆盖。请检查浏览器存储权限。"); }
       if (action.type === "create") {
         if (units.length >= 500) throw new Error("本地预览已达到 500 件单机。");
+        if (action.unit.historyOrigin || parsePreviewRetailHistory(window.localStorage.getItem(previewRetailHistoryKey)).some(record => record.id === action.unit.id)) throw new Error("已有商品须在原档案核对保存。");
         units = [createRetailUnit(action.unit, units, event), ...units];
+      } else if (action.type === "prepare") {
+        if (units.length >= 500) throw new Error("本地预览已达到 500 件单机。");
+        const record = parsePreviewRetailHistory(window.localStorage.getItem(previewRetailHistoryKey)).find(record => record.id === id);
+        const settings = parseStoreSettings(window.localStorage.getItem("chinatech.m1.store-settings.v1"));
+        if (!record || record.sourceSnapshot !== action.sourceSnapshot || settings.revision !== action.settingsRevision) throw new Error("商品来源或门店约定已变化，请重新核对。");
+        units = [prepareRetailRecord(record, action.draft, settings.retailWarrantyMonths, event, units), ...units];
       } else {
         const unit = units.find(unit => unit.id === id);
         if (!unit) throw new Error("单机档案不存在。");
@@ -84,7 +94,7 @@ export function RetailProvider({ children }: { children: React.ReactNode }) {
       cachedRaw = raw;
       snapshot = { units, ready: true, error: "" };
       window.dispatchEvent(new Event(changeEvent));
-      uiDispatch({ type: "feedback", feedback: { id, error: false, message: action.type === "create" ? "独立单机档案已保存到当前浏览器，状态为待检测。" : action.command.type === "sell" ? "售出记录已保存到当前浏览器，并关联客户档案。收款及交付仍待确认。" : "本次操作已保存并追加到单机历史。" } });
+      uiDispatch({ type: "feedback", feedback: { id, error: false, message: action.type === "create" ? "独立单机档案已保存到当前浏览器，状态为待检测。" : action.type === "command" && action.command.type === "sell" ? "售出记录已保存到当前浏览器，并关联客户档案。收款及交付仍待确认。" : "本次操作已保存并追加到单机历史。" } });
       return true;
     } catch (error) { uiDispatch({ type: "feedback", feedback: { id, error: true, message: error instanceof Error ? error.message : "请核对单机资料。" } }); return false; }
   }

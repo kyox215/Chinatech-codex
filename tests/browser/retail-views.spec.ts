@@ -22,14 +22,14 @@ test("整机首页先显示在售，新机翻新机独立切换并在刷新后�
   await expect(page.getByRole("link",{name:`在售商品 ${available.length}`,exact:true})).toHaveAttribute("aria-current","page");
   await page.getByRole("button",{name:"新机 1",exact:true}).click();
   await expect(table.getByRole("link")).toHaveCount(1);
-  await expect(table.getByRole("link")).toHaveAttribute("href", `/app/retail/units/${fixtures[0].id}`);
+  await expect(table.getByRole("link")).toHaveAttribute("href", new RegExp(`^/app/retail/units/${fixtures[0].id}\\?returnTo=`));
   await page.reload();
   await expect(page.getByRole("button",{name:"新机 1",exact:true})).toHaveAttribute("aria-pressed","true");
   await page.getByRole("button",{name:`翻新机 ${available.length-1}`,exact:true}).click();
   await expect(table.getByRole("link")).toHaveCount(available.length-1);
-  await expect(table.locator(`a[href="/app/retail/units/${fixtures[0].id}"]`)).toHaveCount(0);
+  await expect(table.locator(`a[href^="/app/retail/units/${fixtures[0].id}"]`)).toHaveCount(0);
 });
-test("已售独立历史，其他状态仍可查，单机管理入口保留",async({page})=>{
+test("已售和其他状态仍在同一商品入口，识码查找不再跳转",async({page})=>{
   await seedUnits(page);
   await page.goto("/app/retail?view=sold");
   const table=page.getByRole("region",{name:"整机商品表格",exact:true});
@@ -38,9 +38,11 @@ test("已售独立历史，其他状态仍可查，单机管理入口保留",asy
   await page.getByRole("link",{name:/^其他状态 \d+$/}).click();
   await expect(table.getByRole("link")).toHaveCount(fixtures.filter(u=>u.status!=="available"&&u.status!=="sold").length);
   await expect(page.getByRole("combobox",{name:"其他状态筛选",exact:true})).toBeVisible();
-  await page.getByRole("link",{name:"单机管理",exact:true}).click();
-  await expect(page.getByRole("button",{name:"识码查找",exact:true})).toBeVisible();
-  await page.getByRole("link",{name:"返回在售商品",exact:true}).click();
+  await expect(page.getByRole("link",{name:"单机管理",exact:true})).toHaveCount(0);
+  await page.getByRole("button",{name:"识码查找",exact:true}).click();
+  await expect(page.getByRole("region",{name:"识码查找",exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"收起识码查找",exact:true}).click();
+  await page.getByRole("link",{name:/^在售商品 \d+$/}).click();
   await expect(page.getByRole("link",{name:/^在售商品 \d+$/})).toHaveAttribute("aria-current","page");
 });
 

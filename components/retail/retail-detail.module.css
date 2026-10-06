@@ -185,3 +185,6 @@
   .detail .actions button { min-height: 44px; }
   .savedCheck { font-size: 12px; }
 }
+
+.sourceDetails > summary { padding: 12px 16px; cursor: pointer; color: var(--text-secondary); min-height: 44px; }
+@media (max-width: 767px) { .sourceDetails > summary { display: none; } }
