@@ -1,6 +1,6 @@
 "use client";
 
-import { retailDisplaySpec } from "@/lib/i18n/retail-display";
+import { retailDisplaySpec, retailSearchLabels } from "@/lib/i18n/retail-display";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
 import Link from "next/link";
@@ -40,7 +40,7 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
   const status = params.get("source") === "units" && Object.hasOwn(retailStatuses, rawStatus) ? retailStatuses[rawStatus as keyof typeof retailStatuses].label : rawStatus === "processing" ? "all" : rawStatus;
   const requestedPage = Number(params.get("page") || "1");
   // Project only list facts once per authorized dataset, not on every keystroke.
-  const index = useMemo(() => buildRetailListIndex(units, records), [units, records]);
+  const index = useMemo(() => buildRetailListIndex(units, records).map(item => ({ ...item, search: `${item.search} ${retailSearchLabels(item)}`.normalize("NFKC").toLowerCase() })), [units, records]);
   const historyById = useMemo(() => new Map(records.map(record => [record.id, record])), [records]);
   const unitsById = useMemo(() => new Map(units.map(unit => [unit.id, unit])), [units]);
   const displaySpec = (item: { source: string; id: string; specification: string | null }) => {

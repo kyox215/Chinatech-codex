@@ -60,7 +60,7 @@
 .specs h4 svg { color: var(--primary-600); }
 .fieldGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 8px; }
 .fieldGrid > * { min-width: 0; border-radius: var(--radius-control); }
-.financeGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 14px; }
+.financeGrid { container-type: inline-size; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 14px; }
 .financeTile { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 12px 8px; border: 1px solid var(--border); border-radius: var(--radius-control); }
 .financeIcon { display: grid; place-items: center; width: 42px; height: 46px; flex-shrink: 0; border-radius: var(--radius-control); background: var(--primary-50); color: var(--primary-600); }
 .financeTile > div { display: grid; gap: 6px; min-width: 0; }
@@ -188,3 +188,12 @@
 
 .sourceDetails > summary { padding: 12px 16px; cursor: pointer; color: var(--text-secondary); min-height: 44px; }
 @media (max-width: 767px) { .sourceDetails > summary { display: none; } }
+
+/* Financial values keep whole translated words without reducing their type size. */
+@container (max-width: 520px) {
+  .financeTile { flex-direction: column; align-items: stretch; }
+  .financeIcon { align-self: flex-start; }
+}
+@container (max-width: 350px) {
+  .financeTile { grid-column: 1 / -1; flex-direction: row; align-items: center; }
+}

@@ -54,3 +54,20 @@ test("formal retail event codes display locally while unknown history and frozen
   assert.equal(retailEventDetail("普通 · 客户手写原文","en"),"普通 · 客户手写原文");
   assert.match(retailEventDetail(event.detail,"en"),/saved/i);assert.deepEqual(event,before);
 });
+
+const { retailSearchLabels } = await load("lib/i18n/retail-display.ts");
+test("localized categorical search aliases preserve original facts and exclude customer free text",()=>{
+ const item={category:"手机",condition:"翻新机",color:"黑色",status:"可售",customerName:"客户原名",note:"客户备注",model:"原始型号"};const before=structuredClone(item);const aliases=retailSearchLabels(item);
+ for(const term of ["手机","Phone","Telefono","Black","Nero"])assert.ok(aliases.toLowerCase().includes(term.toLowerCase()));
+ assert.equal(aliases.includes(item.note),false);assert.equal(aliases.includes(item.customerName),false);assert.deepEqual(item,before);
+});
+
+const { repairServiceTexts } = await load("lib/i18n/repair-display.ts");
+const { intakeServiceLabels } = await load("lib/intake-services.ts");
+test("every finite part specification displays fully in Italian and English without changing canonical requests",()=>{
+ for(const screen of ["","original","assembled"])for(const technology of ["","incell","tft","oled"])for(const battery of ["","original","assembled"])for(const appleService of ["","capacity","diagnostics","both"])for(const port of ["","original","assembled"]){
+  const services={screen:{quality:screen,technology},battery:{quality:battery,appleService},port:{quality:port}},before=structuredClone(services);
+  for(const locale of ["it","en"]){const labels=repairServiceTexts(services,locale);assert.equal(labels.length,intakeServiceLabels(services).length);assert.equal(/[\u3400-\u9fff]/u.test(labels.join(" ")),false);}
+  assert.deepEqual(services,before);
+ }
+});

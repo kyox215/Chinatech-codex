@@ -147,12 +147,21 @@ test("changing the backend language keeps drafts and saves canonical facts with 
   await expect(page.getByRole("textbox", { name: "SN / IMEI", exact: true })).toHaveValue("DEMO-LANGUAGE-001");
   await activate(page.getByRole("button", { name: translate("下一步", "it"), exact: true }));
   await activate(page.getByRole("button", { name: translate("屏幕", "it"), exact: true }));
+  await activate(page.getByRole("button", { name: translate("展开{v0}细分故障", "it", { v0: translate("屏幕", "it") }), exact: true }));
+  const screenOptions = page.getByRole("dialog");
+  await activate(screenOptions.getByRole("radio", { name: translate("原装", "it"), exact: true }).locator(".."));
+  await activate(screenOptions.getByRole("button", { name: translate("完成", "it"), exact: true }));
   await page.getByLabel(translate("故障补充 / 自定义故障", "it"), { exact: true }).fill("客户补充原文 · 请保留");
   await changeLanguage(page, "en");
   await expect(page.getByLabel("Fault notes / custom fault", { exact: true })).toHaveValue("客户补充原文 · 请保留");
   await activate(page.getByRole("button", { name: "Next", exact: true }));
   await expect(page.locator(".intake-review__issue")).toContainText("Screen");
   await expect(page.locator(".intake-review__issue")).toContainText("客户补充原文 · 请保留");
+  const serviceTags = page.locator(".intake-review__tags:not(.intake-review__tags--neutral)");
+  await expect(serviceTags).toContainText("Screen · Original");
+  await changeLanguage(page, "it");
+  await expect(serviceTags).toContainText("Display · Originale");
+  await changeLanguage(page, "en");
   // The customer's reading language remains independently selected even while the operator uses English.
   await activate(page.getByRole("button", { name: translate("客户签字", "en"), exact: true }));
   await page.getByLabel("Signing language", { exact: true }).selectOption("zh");
@@ -172,6 +181,7 @@ test("changing the backend language keeps drafts and saves canonical facts with 
   expect(saved.category).toBe("手机");
   expect(saved.priority).toBe("普通");
   expect(saved.faults).toContain("屏幕");
+  expect(saved.services.screen.quality).toBe("original");
   expect(saved.serial).toBe("DEMO-LANGUAGE-001");
   await expectFits(page);
 });

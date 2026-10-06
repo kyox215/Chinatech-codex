@@ -1,5 +1,6 @@
-import { printFault, printIssue, printKnown } from "../print-language";
+import { printFault, printIssue, printKnown, printServiceRequests } from "../print-language";
 import { translate } from "./translate";
+import type { IntakeServices } from "../intake-services";
 import type { Locale } from "./locale";
 
 type RepairText = { issue: string; faults?: string[]; issueNote?: string };
@@ -42,4 +43,9 @@ export function repairActivityLabel(event: { type: string; label: string }, loca
     }
   }
   return translate(event.label, locale);
+}
+
+/** Structured specifications share the independently translated printing vocabulary. */
+export function repairServiceTexts(services: IntakeServices, locale: Locale): string[] {
+  return printServiceRequests(services, locale === "zh-CN" ? "zh" : locale);
 }

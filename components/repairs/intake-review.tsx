@@ -1,14 +1,14 @@
 "use client";
 
 import { useLanguage } from "@/components/language-provider";
-import { repairKnownText } from "@/lib/i18n/repair-display";
+import { repairKnownText, repairServiceTexts } from "@/lib/i18n/repair-display";
 import { printIssue } from "@/lib/print-language";
 import { itemQuoteTotal, type ItemQuote, type ItemQuoteChange } from "@/lib/repair-item-pricing";
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { UserRound, Phone, Mail, Smartphone, Laptop, Tablet, Gamepad2, Wrench, Package, ImagePlus, Flag, Pencil, ClipboardList, Monitor, Battery, Cable } from "lucide-react";
 import { ColorSwatch } from "@/components/color-picker";
-import { intakeServiceLabels, type IntakeServices } from "@/lib/intake-services";
+import type { IntakeServices } from "@/lib/intake-services";
 import type { IntakePhoto } from "./intake-photos";
 
 type ReviewData = { itemQuotes?:ItemQuote[]; itemQuoteHistory?:ItemQuoteChange[]; customerName: string; phone: string; email: string; brand: string; model: string; category: string; color: string; serial: string; issue: string; faults?: string[]; issueNote?: string; accessories: string[]; priority: string; services: IntakeServices };
@@ -21,7 +21,7 @@ export function IntakeReview({ data, photos = [], onEdit, layout = "review", met
   const DeviceIcon = deviceIcons[data.category as keyof typeof deviceIcons] ?? Wrench;
   const issue = printIssue(data, locale === "zh-CN" ? "zh" : locale);
   const issueText = locale === "zh-CN" ? data.issue : [...issue.faults, issue.note].filter(Boolean).join("; ");
-  const serviceLabels = intakeServiceLabels(data.services);
+  const serviceLabels = repairServiceTexts(data.services, locale);
   const services = [
     { label: "屏幕", icon: Monitor, quality: data.services.screen.quality, detail: data.services.screen.technology === "incell" ? "Incell" : data.services.screen.technology.toUpperCase() },
     { label: "电池", icon: Battery, quality: data.services.battery.quality, detail: data.services.battery.appleService ? appleLabels[data.services.battery.appleService] : "" },

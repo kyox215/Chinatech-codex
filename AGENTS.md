@@ -1,3 +1,7 @@
+# ChinaTech 项目维护要求
+
+先读取 PROJECT_MEMORY.md，再按受影响流程读取 docs/06-ui-components-and-styles.md、docs/16-change-consistency-contract.md 和 docs/28-i18n-maintenance.md。
+
 ## 三语与关联闭环（后续改动强制）
 
 - 任何新增或修改的用户可见内容必须同步中文、意大利语、英语，包括页面、字段、选项、状态、校验、错误、加载／空态、动态系统消息、标题、可访问名称及适用的打印和教程；不能只检查直接t调用。

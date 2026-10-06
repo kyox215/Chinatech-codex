@@ -1,12 +1,118 @@
 # ChinaTech 项目连续记忆
 
-最后更新：2026-10-04。当前已获真实后台接入与线上替换授权，旧M1仅本地范围不能覆盖最新决定。
+最后更新：2026-10-06。当前已获真实后台接入与线上替换授权，旧M1仅本地范围不能覆盖最新决定。
+
+## 已完成并上线：在售商品与可视化详情合并（2026-10-06）
+
+按用户纠正取消独立单机管理；原商品与新商品共用唯一列表及图形详情，本页核对→明确可售→销售／实际收款交付／客户回链／三语打印。原资料不可改写，原容量／识别码保持原文，未知事实不补造，旧客户定位原资料，列表和工作台仅按明确来源去重。严格门店／权限／版本／幂等事务retail.prepare，无schema／RLS迁移；必要独立专项审查完成。
+
+最终main **2cc6c2a8f3ae1a514594162734c91d0991353a34**，基于85fce8b，28源码／测试Git blob一致、360其他blob保留；Vercel **dpl_3SRUauWSPZgG8RELSXhqTW46grC1** READY／production／main及chinatech.in、www别名一致。两域login200且HTML部署标识一致，匿名backend/state401。同SHA发布前CI **37394528634** completed／success：335业务、完整168 Linux Chromium／WebKit（12.5m）、strict TS、lint0错误1既有warning及正式build通过。main自动重复CI37395917038仍in_progress／未出结论，源码／配置与已成功同SHA一致，复用成功门禁，不声称重复运行成功。
+
+12组隔离本地API及正式网页实际保存回读覆盖权限／跨店／伪造／冲突／并发／幂等／回滚／撤权／明确核对和可售；原JSON未变。相关双浏览器、最终原容量与旧客户回链、四宽度及截图已验收；新增容量断言首次误用region，纠正定位器保留业务断言，最终完整CI全过。正式Chrome只读核对唯一入口、81在售／48其他、直接图形详情及同页操作，1440／1024／390／375无横溢，手机实际点击只展开操作组。未提交任何生产业务写入；实体手机／弱网／物理打印机未测。
+
+规格docs05／11，复用06／联动16及进度04同步。证据.local/retail-unified/published-verification.json、source-manifest、ci-final.json／log、production-http-verification、api-verification及.local/ui-proof/retail-unified。3121预览与3117正式本地服务已停，Chrome临时viewport已恢复；全站三语线程的根文档／修改保留。本轮完成。
+
+## 当前实施：全站三语、排版与翻译闭环（2026-10-06）
+
+已保留并合入最新商品main2cc6c2a；候选8ff7e69，随后补金融长词自适应和当前教程画面。3159键、静态门禁／动态系统出口、结构化故障／缺值来源、共享展示及三语强制AGENTS／06／16已实施，维护规则docs28。只改显示，canonical、客户原文与冻结快照不回写；最新统一商品业务与权限／事务不变。
+
+353业务／翻译、TS、lint0错误1既有warning、完整174双浏览器、正式23路径×3语×4宽度552布局，以及金融断词2项五宽度、三语搜索显示词2项、接机规格保存刷新2项通过；432规格组合保留canonical。隔离localhost正式门店的保存／刷新／失败重试、回链／三语打印及角色页已操作，11组正式本地闭环通过，合成门店／账号已精确清理。教程87场景重拍、15集当前画面重渲，复用三语配音；45媒体资产／218原音频／90鼠标步骤校验、最终18播放回归及正式build通过；发布核对同SHA完整CI／main／正式域名，实际回执见.local/i18n-audit/published-verification.json。证据.local/i18n-audit/及scripts/tutorials/.work/evidence/。没有生产业务写入，实体手机／物理打印／弱网未验。根其他已完成记录与改动保留。
+
+## 已完成并上线：首页鼠标动画教程与整站三语（2026-10-06）
+
+官网教程增加鼠标移动、目标轮廓、点击脉冲与局部放大；中文／意大利语／英语共享切换并记住偏好，教程画面、自然女声与字幕联动。15段视频／45资产共36,238,246字节，保留六章定位、VTT、失败重试与旧媒体释放，初始不请求MP4。canonical业务值、客户原文及签署／政策／销售快照保持；客户签署和打印语言独立选择，无API／schema／权限或生产业务写入。
+
+最终main `85fce8b423b928c539402862dea2f897bbb2ed06`，基于商品正式649f0fa，冻结165文件／Git blob一致，根162源码／资产匹配，3份根规范保留其他修改。Vercel `dpl_2nirDHk43E1UX51RokTdwn3DvycT` READY／production／main及chinatech.in、www别名一致。同SHA发布门禁CI `37384789427` completed／success：327业务／翻译、完整162 Linux Chromium／WebKit（11.6m）、strict TS、lint0错误1既有warning及正式后台build通过。Mac完整162（ac266f1）及c2最终16项为此前验收。main自动重复CI37386423678当前in_progress／未出结论，与已完成候选同SHA、配置和测试环境，按规范复用成功结果，未冒称该重复运行成功。
+
+最新生产6项双浏览器通过（35.8s）：三语四宽度、账号草稿／显隐／验证、全部15段实际播放与字幕、语言切换清理旧媒体。两域login200且HTML部署一致，匿名backend/state401；45资产全部SHA／字节一致，MP4 Range206。此前同首页源码c2的匿名Mac单样本DOMContentLoaded771ms、切换7–12ms、初始MP4请求0，无JS错误；不是性能保证。375 WebKit与1440 Chromium可见教程海报／鼠标目标截图已查看。
+
+首次发布c2的候选CI327／162通过，main重复37381489687为159／162。独立trace核对：来源继续确认点击期间滚动28px；照片在身份加载时isVisible false跳过展开；现金选择点击期间滚动46px而未选中，后续正确拒绝缺收款方式。只把来源编辑与收退款表单自动定位改instant，照片测试等待gallery可见；此前售出表单instant及Safari语言选择器.module-select44px保留。原click与全部业务断言保留，Linux原3流程各重复5次／15项、双浏览器事件6项及现金专项1项通过；19组mouse down-up滚动／目标位移均0。最终完整CI及最新生产检查均通过，失败日志和合成trace保留。
+
+证据 `.local/tutorials/release/.local/tutorials-v2/published-verification.json`、main-fix-source-manifest、ci-main-fix-final-result／log、production-final-deployment、production-final-http／browser.log、production-browser-result、main-ci-review、main-gesture-evidence、root-sync-main-fix与proof/；创作与合成帧scripts/tutorials/。实体手机／弱网／真实云保存未测，0生产业务写入。本轮3123预览已停，临时Linux容器自动移除，诊断测试移出测试目录保存；其他服务／修改保留。本轮完成。
+
+## 最新完成并上线：商品档案、手机折叠与销售打印闭环（2026-10-05）
+
+照片／售价／检测图形摘要、电脑双栏，手机单组折叠与草稿保留；已有客户明确带入联系方式，销售冻结本笔买家／实物／保修。登记→分次收款→实际交付→三语双联打印，客户按原saleId回链，复售仍打印原快照。买家备注可印，长期备注与成本利润不印，触摸关闭返回实际打印按钮。售后活动类型与RepairActivity穷尽对齐，保留来源／完成／日期／唯一性，独立审查通过。复用公共控件与原命令，无schema／API／权限变化。规格docs05／11，复用06、联动16及进度04同步。
+
+最终main `649f0fafd0dfb0ba68a8ec394a2715aa98efc510`，基于维修版 `0fa8c86`。累计20代码／测试与冻结Git blob一致，其他308跟踪文件保留。Vercel `dpl_44nVqqT3tFPQb9RRZRM4k7ezCoDQ` READY／production／双域名及SHA一致；两域名login200、HTML部署ID一致，匿名backend/state401。
+
+官方Playwright1.63.0 Linux arm64／Node24.20.0／1CPU独立完整检查通过：322业务、152 Chromium／WebKit（11.9m）、strict TS、lint0错误1既有warning、默认Turbopack正式后台build；另24项定向复核通过（2.3m）。本轮源代码与Linux被测20文件一致。
+
+云端首轮CI `37361865766` 148／152，4项WebKit测试缺少加载等待／折叠操作；修正3测试文件，保留原业务断言，运行时未改。最终CI `37364428122` attempt1没有分配到hosted runner、0步骤，被取消；公开注释已保存。一次重试attempt2已完成并为success；2026-10-05本轮读取确认，不以旧in_progress记录替代当前证据。
+
+正式Chrome只读验证单机全部记录0台、新建入口375宽正常无横溢；现有导入商品仍为原历史页面。详情、实际销售／收款／交付与打印业务以合成测试验收，0生产业务写入；实体手机、弱网和物理打印机未测。本地375单次预热内容872px／进入119ms／检测打开43ms，不作为线上性能保证。
+
+证据 `.local/retail-mobile-closure/published-verification.json`、published-source-manifest.json、linux-full.log、linux-targeted.log、ci-first-failure.log、ci-runner-error.json、production-ui-verification.json／production-http-verification.json及相关合成截图。3121预览已停，Linux容器自动移除；候选依赖与构建缓存已清理。
+
+## 已完成并上线：四个日常分组（2026-10-05）
+
+按用户授权实现返修／处理中／等配件／等取机；实际下单／分次到货驱动移组，通知子筛选／历史与待收尾、独立返修新单及不可变来源、双向追溯／原实物关联、锁定历史新采购／项目与显式恢复均完成。旧设置只读规范，不造业务历史，客户／工作台同源；规格docs22／10／09、复用06、联动16及进度04同步。38个获授权代码／测试已发布，保护本地商品及随后新增的客户销售改动（customer-detail保留本轮维修投影）。
+
+319业务、20组真实隔离本地API、68相关双浏览器／四宽度、strict TS、lint0错误1既有warning、正式后台build通过；关键来源／事务／采购门控独立审查完成。手机提示挡后续按钮已修复并回归。正式Chrome只读确认四组设置、3现有工单（处理2／取机1）、通知子计数／筛选、历史及阶段下单入口；四宽度1440／1024／390／375无整页横溢、主要按钮44px、菜单状态正常。login200部署标识匹配／匿名state401。0生产业务写入；实体iPhone／弱网／生产实际保存未测。
+
+最终main **0fa8c86fe3b30df0d41e7e95c549ca39cacd1090**，38代码／测试与冻结Git blob一致，其他288跟踪路径保留。Vercel **dpl_J9S19zouZYJocjRYVcHntoU5YtN1** READY／production／两域名及SHA一致。完整CI **37326963799** attempt2 completed／success：319业务、138 Linux Chromium／WebKit（9.4m）、strict TS、lint及默认Turbopack正式build全部通过。首轮137／138，未改动的旧站纯fallback快跳转一次出现net::ERR_ABORTED；原断言与运行时均未调整，官方Playwright1.63 Linux arm64／1CPU重复6项通过后，同SHA完整复跑通过，不把首次失败当成功。
+
+证据.local/repair-four-groups/source-manifest.json、local-verification.json、published-verification.json、production-ui-verification.json／production-http-verification.json、ci-first-failure.log／ci-first-artifact.zip与ci-final.log；截图及局部日志在release/.local/。本轮预览及正式本地服务已结束、临时Linux容器自动移除，其他root3121服务与原隔离后台连接保留；候选依赖／构建缓存清理后保留源码及合成验证证据。本轮任务完成。
+
+
+## 已完成：维修阶段与分组统一（2026-10-05）
+
+每个可选阶段对应同名九分组，保存成功后移组／展开／焦点、筛选跟随及作废可见、刷新和详情同步。旧11项配置补齐四阶段、保留已有相对顺序，维修分组名称随阶段固定／排序可调，配件名称／排序独立。旧跟进无已知修好周期归待确认、有周期或旧已通知归待取机，原状态／通知／交还不改写。到货通知和工作台配件跟进继续读取实际采购，不以分组推断；无schema／阶段写命令／权限／事务改动。规格docs10／09／22、复用06、联动16和进度04已同步，仅本地文档。
+
+304业务、50相关Chromium／WebKit、四宽度1440／1024／390／375的实际交互和截图、strict TS、lint0错误1既有warning、默认Turbopack正式build通过；首轮6设置测试引用错误配件名称，定向修正后50通过，不放宽权限／版本／重复名称断言。截图和业务写入均本地合成，实体iPhone未测。
+
+最终main **d9323c448fe1a69cf2e2ea2cd0228cef1c0a6438**，15代码／测试与冻结Git blob一致、其他305跟踪路径保留。Vercel **dpl_3ixPDRBCW7RE9ozTALHLFrC7cXmP** READY／production／两域名及SHA一致，login200／匿名backend state401。正式Chrome只读核对九名称与3现有工单阶段／分组一致，0生产业务写入或客户资料落盘。完整CI **37239545214** completed／success：304业务、134 Linux Chromium／WebKit（9.3m）、strict TS、lint0错误1既有warning、默认Turbopack正式build均通过。
+
+首轮CI37238259463为133／134，仅新移组用例在Linux WebKit控件出现前跳过筛选；失败快照确认筛选仍关闭。补await可见并保留原断言，官方Playwright1.63.0／Node24.20.0／1CPU Linux 10项通过（58秒）后，仅测试文件补丁进入最终main，运行时代码保持。证据.local/repair-stage-groups/source-manifest.json、local-verification.json、published-verification.json、ci-final-result.json／ci-final-log.txt及release/.local/ui-proof/。3121与临时Linux容器已停，本轮候选依赖／构建缓存清理，源码和证据保留。当前任务完成。
+
+
+## 已完成：旧站退役与云遗留清理（2026-10-04）
+
+用户要求清理并上线干净版本。从最新main595c958隔离发布17文件、保留其他同期实现；正式main6c0c7ae831d9e431eedcca3e4669474772d06bf2／Vercel dpl_CQn6wg4yQ6gTiWw89m1zoVF1FyEG READY，远程main／冻结blob及两个别名一致。sw先claim后仅清repairdesk-shell／注销，新设备不注册，503失败保留壳／联网重试；两源sw／probe直接200/no-store，apex应用普通页308，旧3入口转login／其他旧资产404。当前新页面无强制reload/navigate，草稿／cookie／IDB／其他缓存与worker保留。
+
+CI37234361775 completed/success：301 Node、130完整Linux Chromium/WebKit（8.2m）、strict TS、lint0错误1既有warning及默认Turbopack正式build全部通过。另本地130完整双浏览器／10正式构建清退／18Host路由／webpack build通过；57线上HTTP与10线上资源双浏览器清退成功，两端生产截图已查看。真实归档SW3秒回退／probe404→200纯旧页自动恢复、精确导航update并发、503online重试和活输入保持通过。初期端口／启动锁及本地依赖链接越根失败保留日志、已定向修正，不放宽断言；Vercel／CI原生默认构建均成功。实体手机／真实登录未测；仅2旧公共文件在测试fixture有意原样复用，不属于运行时旧站。
+
+独立审查后精确删除78旧别名、566旧时期部署（515有旧源码＋51最晚9/20无完整源码证明）、88环境项／87未用名称。CLI两次限时先分页核实再续删；官方DELETE按200限额/reset暂停后完成。最终分页零目标遗漏，41新部署／6当前别名保留，原39新部署ID及18所需配置完整元数据不变。旧public133表／189函数、4私桶5对象／Auth trigger／所有本地备份保留；无业务删除或写入、无Secret值落盘／跨项目访问。
+
+docs06/16/04/25和15源码本地同步保护其他修改；docs25按既有ignore保留私有报告。本轮3130/3131/3132均停止；证据.local/legacy-cleanup-20261004/的release-manifest／cleanup-verification／production-http-verification／ci-result.json及ci-job.log，线上浏览器结果在release/.local/ui-proof/legacy-cleanup/。本轮完成。
+
+## 已上线：输入框全站状态统一（2026-10-04）
+
+已统一默认／聚焦／错误／已填及清空、只读、禁用、提交锁定；InputControl／TextareaControl／control-feedback作为共同入口，42个使用文件、146处引用，保留业务校验、客户／型号联动、金额／规格与null／0语义。隐藏扫码和Safari显隐目标移动已修复。根／组件AGENTS、docs06／16维护声明和ESLint绕过限制同步，详细证据见docs04最新输入节。
+
+用户明确“推送上线”后，从最新教程main5d362eba隔离发布46个源码／测试／规范文件，其他262跟踪路径保留。首批2381809；首轮CI117/118发现注册页初始化前填值在blur时被空草稿覆盖，4类公开账号表单复用useFormReady锁住初始化窗口，保留密码错误断言并新增延迟脚本反例，补验44双浏览器／TS／lint／正式build通过。
+
+最终main **595c95846a24726ecb9ce3d207a3586e9ded68e2**，冻结内容、远程Git树／blob一致；CI **37232434099** completed／success，296业务、120完整Linux Chromium／WebKit、strict TS、lint0错误1既有warning及正式构建全部通过。Vercel **dpl_4mTt1Hz6mpMUuH3CXhKgZTqy7KWf** READY／production／两域名；官网8组双浏览器四宽度四态／清空／显隐与注册共享控件、8组公开账号页延迟加载／首次输入保留通过，login200／匿名state401／主域308，截图已查看。0生产业务写入；实体iPhone／第三方输入法和线上性能指标未测。证据.local/input-states/published-verification.json、release-manifest.json、ci-final.log、production-checks.json与production-proof/。本轮3121随测试停止，候选副本保留；本轮完成。
+
+## 已完成：首页有声视频教程（2026-10-04）
+
+用户选择中文配音＋中文字幕并要求小红书那种语音。已上线5集自然中文女声教程：注册登录、接机建单、工单跟进、采购分次到货、整机一机一档；采用真实正式界面与明确标记的虚构资料。首页#tutorials／首屏／页脚进入，分集、六章节、对应功能链接、画面字幕和VTT、加载／失败重试。点击才加载MP4，选集／离开释放旧媒体；复用按钮／token／Lucide／原生video，无运行时语音API、业务事实或权限改动。讲稿与复现scripts/tutorials/，规格docs01／复用docs06／进度docs04。
+
+最终Node24的296业务、严格TS、lint0错误1既有warning、正式后台构建及完整96 Linux Chromium／WebKit CI通过；CI **37211665169** completed／success，构建与原断言保留。本地四宽度1440／1024／390／375、Mac8及Linux24；最后保护在限1CPU Linux12项与线上4项播放／字幕／章节／503重试／实际离开清理通过。5集64–71秒、MP4合计5,996,833字节，完整解码、AAC音轨、前置索引、字幕时长一致；线上15资产哈希／5集双浏览器播放／初始零MP4请求验证，媒体在后续清理补丁中不变。实体iPhone未测；无真实客户资料或生产业务写入。
+
+首批26文件e63ddf6，随后保留同期retail排序main74eeeb5，只改媒体清理及测试。前两轮CI91/92、94/96：真实诊断src=null／networkState0／paused，Strict开发回放误清首播；稳定ref单独不足，最终microtask确认旧元素未被重新绑定才释放，源保持／播放／重试／离开断言不放宽。最新正式main **5d362eba5d86d58cc0b7ea3ce6187ea12247d04d**，最终单文件保护保留其他304跟踪文件；冻结源码与Git blob一致，未夹带根目录其他未发布更改。Vercel **dpl_FYuBc1sTs2eRY3rKLPYjJdUqhaJW** READY／production／两域名，官网HTML部署ID一致、匿名state401。证据.local/tutorials/published-verification.json、release-manifest.json、ci-success.log、production-rebind-guard.log及原失败trace；截图.local/ui-proof/home-tutorials/。本轮3121／3123与临时Linux容器均已停止，隔离副本／合成证据保留；本轮完成。
+
+## 已完成：商品排序与简化标注（2026-10-04）
+
+在售默认名称A–Z，已售按售卖时间倒序；新系统用销售登记时间，旧历史用已有拿走日期，未知末尾。列表移除重复分类／内部编号／类型及空“未记录”，真实值、待核对、编号搜索与详情保留。规格[docs21](docs/21-seatable-retail-history.md#2026-10-04-商品排序与列表精简)。
+
+独立候选296业务、8 Chromium/WebKit、1440／1024／390／375及排序／筛选／刷新／搜索／详情返回、strict TS、lint零错误1既有warning／正式build通过，截图已查看。排除既有本地InputControl改动，保留首页教程最新main e63ddf62；合入后正式build再通过。测试改用页面演示登录，改动的测试文件不含认证字面值；5源码／测试发布，文档与记忆仅本地更新。
+
+main **74eeeb572457869fac0a83eed1904e6d4609896a**，5文件与验收Git blob一致、其他300路径保留；CI **37208912406** completed/success，全部门禁通过。Vercel **dpl_8GLPfPAgt5357B8zzcqVEJVFaiVw** READY/production/两域名，login200部署一致、匿名state401；正式Chrome只读确认81在售／1264已售／48其他、各首页50条名称／日期顺序及空标注正确。无生产业务写入、无实体iPhone测试或客户号码／识别码落盘。证据`.local/retail-sort-simplify/`与`.local/ui-proof/retail-sort-simplify/`；本轮3126已自动停止，原3121未停止。本轮完成。
+
+## 已完成：GitHub 新旧文件隔离与旧分支清理（2026-10-04）
+
+用户要求区分旧站与10月2/3日新网站文件并准备清理。实时main仍f944d3e3，282文件；旧正式67858660共5326文件，其中5314路径已离开当前main，12同名配置全部替换，当前所有blob与旧版无完全相同文件。315b84e切换树精确等于188文件候选，旧历史保留不代表旧文件仍部署。按Europe/Rome，切换后main为10月2日10提交、3日9、4日7。
+
+81远程分支已逐个根结构分类：main＋新站初始／性能2分支保留，78旧站分支单列。旧bundle重新verify及SHA256通过，78旧分支当前SHA全部与备份同名heads一致；PR26仍为唯一开放PR。详情[隔离清单24](docs/24-github-old-new-file-isolation.md)，逐文件／提交／分支证据.local/github-file-isolation-20261004/。用户随后明确确认删除78旧站分支，独立复核通过后以atomic＋逐ref精确SHA lease一次删除，exit0／78回执。删除后GitHub仅3保留分支且SHA均未变，main仍f944d3e3／tree3770583c，PR26仍open。证据deletion-receipt.json及post-delete-verification.json；未改当前源码／业务数据／提交历史／备份，未生成main新提交。本轮已完成。
 
 ## 当前实施：手机连续两行及按钮美化（2026-10-04）
 
 用户接受两行推荐并授权实施／美化。正式源码改手机无独立卡片的连续行，标准93px；上行设备／客户／阶段，下行配件／跟进／负责人时间。配件浅紫、跟进浅灰、阶段原状态色；真实短文案及适用事实在同一个跟进按钮中排版，多状态／长型号自然增高，只读事实与默认详情保留。普通parts-cell及100%按钮保留防跨行误点，手机供应商省略、真实窗口完整读取；原业务／成本门控／写入／返回规则不改。规格docs09、复用docs06。
 
-22定向及完整84双浏览器通过，375／390／414标准93px、44px／五点命中／所属行边界／窗口开闭焦点、长内容／多状态、1440／1024及返回恢复通过；292业务、strict TS、lint0错误（1既有warning）和正式后台build通过。实际截图已查看；读写与权限回归保留，合成数据，无生产业务写入。尚未发布本轮源码；截图与日志.local/ui-proof/repair-mobile-implementation/、.local/repair-mobile-implementation/，实体iPhone未测。发布前main01f78b796b0110e1b5e452784b705c58525ba0d2。
+22定向及完整84双浏览器通过，375／390／414标准93px、44px／五点命中／所属行边界／窗口开闭焦点、长内容／多状态、1440／1024及返回恢复通过；292业务、strict TS、lint0错误（1既有warning）和正式后台build通过。实际截图已查看；读写与权限回归保留，合成数据，无生产业务写入，实体iPhone未测。
+
+只发布7个获授权代码／测试／文档文件，其他275跟踪文件保留；冻结源码与Git blob一致。基于01f78b79发布main **f944d3e38e1e4104cf13f3183c80bd9da6db2ad0**，CI **37187326614** completed／success（292业务、完整84 Linux Chromium／WebKit、lint／TS／正式build），仅失败时上传产物步骤按配置跳过。Vercel **dpl_7aB8eqW5daVeZ7P3uxGTuQ11B96D** READY／production／两域名；/login200部署ID一致、匿名state401、线上CSS已含93px紧凑行／跟进按钮及原parts-cell与100%宽度。截图.local/ui-proof/repair-mobile-implementation/，源码／CI／生产只读证据.local/repair-mobile-implementation/。本轮3121预览已停，未改生产业务记录或后台schema；发布后仅本地补记执行结果。当前任务完成。
 
 ## 历史设计预览：手机工单紧凑行（2026-10-04，实施前）
 

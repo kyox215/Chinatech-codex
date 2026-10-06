@@ -35,4 +35,10 @@ node scripts/tutorials/verify.mjs all
 5. `render.mjs [all|zh-CN|it|en] [可选分集ID]` 输出 H.264/AAC、1280×960、24 fps、AAC 96 kb/s 与前置 MP4 索引。视频段落只编码画面，最后一次合并编码音轨；字幕、步骤跳转和目录时长使用同一份实测结果。截图和生成参数变化会使该段缓存失效。
 6. `verify.mjs` 验证全部视频完整解码、编码格式、声轨、尺寸、帧率、faststart、逐句 PCM 时长、字幕文字和时码、六个章节时码及封面尺寸。每集每步从成片提取两个鼠标运动帧，对不含字幕的画面区域比较；同时生成首步四帧联系图，供人工核对鼠标落点与字幕。
 
+仅更新界面画面时，先核对 `.work/audio/{locale}-{id}.json` 中的六步标题、讲稿与当前故事文件一致，并确认每条 `cues[].file` 的 PCM 文件存在；完整缓存可直接执行三次顺序采集、`render.mjs all` 和 `verify.mjs all`，跳过 `prepare-audio.mjs`。本轮界面刷新沿用全部 218 段缓存配音，未请求语音服务。私有 `audio-preservation-before.json` 与 `evidence/refresh-source-verification.json` 可核对缓存哈希和捕获来源。
+
+已有其他本机 Next 开发服务时，不共用其构建目录或进程。可在 `.work/preview-app` 复制当前已合并的应用源码与配置，复用本项目依赖和只读公共资产，确保该副本的构建文件全部落在私有目录；不要复制 `.env*`。启动前检查 3123 端口，明确设置 `BACKEND_MODE=preview LOCAL_PREVIEW=true`，将正式数据库、Supabase 及其他认证凭据留空。记录采集源码版本，完成后仅停止本轮创建的 3123 进程。
+
+渲染器先在 `.work/evidence` 完成单集 MP4、WebP、VTT，再逐文件原子替换公开路径，避免本地播放器读到半截视频。全量资产稳定后再执行最终校验和播放器回归；期间不要把旧媒体的播放结果当作新媒体验证。
+
 `scripts/tutorials/.work/` 保存私有截图、音频、合成中间帧、测量和验证证据，已被忽略。验证汇总是 `.work/evidence/verification.json`，各集运动联系图为 `*-motion-sheet.png`；这些文件不能作为网页依赖或一起发布。全量验证通过时另生成可提交的 `assets-manifest.json`，记录 45 个公共文件的路径、字节数、SHA-256，以及 15 集的时长、语音、章节和验证结果，便于鉴别产物版本。网站播放只使用 `public/tutorials` 下的 MP4、WebP、VTT，以及生成的 `lib/tutorials.ts`。完成后仍需运行播放器和语言切换的浏览器回归；媒体解码检查不替代页面交互测试。

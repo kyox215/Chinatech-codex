@@ -95,15 +95,22 @@ for (const locale of locales.filter(locale => requestedLocale === "all" || reque
     const list = path.join(work, `segments/${locale}-${story.id}-video.txt`), audioList = path.join(work, `segments/${locale}-${story.id}-audio.txt`), quote = file => `file '${file.replaceAll("'", "'\\''")}'`;
     await fs.writeFile(list, motion.map(item => quote(item.segment)).join("\n"));
     await fs.writeFile(audioList, audio.steps.flatMap(step => step.cues.map(cue => quote(cue.file))).join("\n"));
-    const video = path.join(directory, `${story.id}.mp4`);
+    // Complete every asset privately, then replace each public file atomically.
+    // A running local player must never observe a partly encoded MP4.
+    const video = path.join(work, `evidence/${locale}-${story.id}-pending.mp4`);
     await ffmpeg(["-f", "concat", "-safe", "0", "-i", list, "-f", "concat", "-safe", "0", "-i", audioList, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "96k", "-ar", "48000", "-shortest", "-movflags", "+faststart", video]);
     let vtt = "WEBVTT\n\n";
     for (const step of audio.steps) for (const cue of step.cues) vtt += `${time(cue.start)} --> ${time(cue.start + cue.duration)}\n${wrap(cue.text, 34).join("\n")}\n\n`;
-    await fs.writeFile(path.join(directory, `${story.id}.vtt`), `${vtt.trimEnd()}\n`);
+    const captions = path.join(work, `evidence/${locale}-${story.id}-pending.vtt`);
+    await fs.writeFile(captions, `${vtt.trimEnd()}\n`);
     const poster = path.join(work, `evidence/${locale}-${story.id}-poster.png`);
-    await ffmpeg(["-ss", "2.2", "-i", video, "-frames:v", "1", poster]); await sharp(poster).resize(960, 720).webp({ quality: 87 }).toFile(path.join(directory, `${story.id}.webp`));
+    const webp = path.join(work, `evidence/${locale}-${story.id}-pending.webp`);
+    await ffmpeg(["-ss", "2.2", "-i", video, "-frames:v", "1", poster]); await sharp(poster).resize(960, 720).webp({ quality: 87 }).toFile(webp);
     const details = await probe(video);
     const report = { locale, id: story.id, voice: audio.voice, seconds: Number(details.format.duration), expectedSeconds: audio.seconds, bytes: Number(details.format.size), streams: details.streams.map(({ codec_name, codec_type, width, height, sample_rate, avg_frame_rate }) => ({ codec_name, codec_type, width, height, sample_rate, avg_frame_rate })), motion };
+    await fs.rename(video, path.join(directory, `${story.id}.mp4`));
+    await fs.rename(webp, path.join(directory, `${story.id}.webp`));
+    await fs.rename(captions, path.join(directory, `${story.id}.vtt`));
     await fs.writeFile(path.join(work, `evidence/${locale}-${story.id}.json`), JSON.stringify(report, null, 2)); console.log(`Done ${locale}/${story.id}: ${report.seconds}s, ${(report.bytes / 1048576).toFixed(2)} MiB`);
   }
 }

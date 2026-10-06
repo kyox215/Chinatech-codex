@@ -29,3 +29,9 @@ export function retailEventTitle(title: string, locale: Locale): string {
 export function retailEventDetail(detail: string, locale: Locale): string {
   return ["成本资料更正。", "已核对并保存。", "门店自有实物，待检测。"].includes(detail) ? translate(detail, locale) : detail;
 }
+
+/** Add only displayed categorical labels to search; names and original notes stay untouched. */
+export function retailSearchLabels(item: { category: string; condition: string; color: string | null; status: string }): string {
+  return [item.category, item.condition, item.color, item.status].filter((value): value is string => Boolean(value))
+    .flatMap(value => (["zh-CN", "it", "en"] as const).map(locale => translate(value, locale))).join(" ");
+}
