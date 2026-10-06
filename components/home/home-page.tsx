@@ -7,7 +7,7 @@ import { Brand } from "@/components/brand";
 import { ProductPreview } from "@/components/home/product-preview";
 import { WorkflowTour } from "@/components/home/workflow-tour";
 import { TutorialLibrary } from "@/components/home/tutorial-library";
-import { LanguageSwitcher } from "@/components/language-switcher";
+import { PublicHeader } from "@/components/home/public-header";
 import styles from "./home.module.css";
 
 const faqs = [
@@ -21,11 +21,7 @@ export default function HomePageContent() {
   const { t } = useLanguage();
   return <main className={styles.page}>
     <a className={styles.skipLink} href="#main-content">{t("跳到主要内容")}</a>
-    <header className={styles.header}><div className={styles.headerInner}>
-      <div className={styles.headerLeft}><nav className={styles.authNav} aria-label={t("账户入口")}><Link href="/login">{t("登录")}</Link><Link className="button button--primary" href="/register">{t("注册")}</Link></nav><span className={styles.divider} /><Brand compact /></div>
-      <nav className={styles.navigation} aria-label={t("主页导航")}><a href="#features">{t("功能亮点")}</a><a href="#tutorials">{t("视频教程")}</a><a href="#workflow">{t("业务流程")}</a><a href="#questions">{t("常见问题")}</a></nav>
-      <LanguageSwitcher /><Link className={styles.workspaceLink} href="/app/dashboard">{t("进入工作台")}<ArrowUpRightIcon /></Link>
-    </div></header>
+    <PublicHeader />
 
     <section className={styles.hero} id="main-content"><div className={styles.heroInner}>
       <div className={styles.heroCopy}><span className={styles.pill}><span />{t("为维修门店的每一天")}</span><h1>{t("让繁忙有序，")}<br />{t("让维修")}<span>{t("更简单。")}</span></h1><p>{t("从接机、配件到货，到整机销售。")}<br className={styles.desktopBreak} />{t("把门店的日常，整理在一个清晰的工作台。")}</p><div className={styles.heroActions}><Link className="button button--primary" href="/login">{t("开始使用")}<ArrowRight size={18} /></Link><a className="button button--secondary" href="#tutorials">{t("观看使用教程")}<ArrowDown size={16} /></a></div><div className={styles.heroFoot}><span><Check size={15} />{t("电脑与手机皆可用")}</span><span><ShieldCheck size={15} />{t("按门店授权访问")}</span></div></div>
@@ -47,7 +43,6 @@ export default function HomePageContent() {
 
     <section className={`${styles.section} ${styles.faqSection}`} id="questions"><div><span className={styles.sectionLabel}>{t("开始之前")}</span><h2>{t("你可能想了解")}</h2><p>{t("关于账号、设备与日常使用。")}</p></div><div className={styles.faqList}>{faqs.map(([question, answer]) => <details key={question}><summary>{t(question)}<ChevronDown size={18} /></summary><p>{t(answer)}</p></details>)}</div></section>
     <section className={styles.finalCta}><span className={styles.ctaIcon}><Wrench size={28} /></span><h2>{t("下一步，从这里开始。")}</h2><p>{t("登录 ChinaTech，继续门店今天的工作。")}</p><div><Link className="button button--primary" href="/login">{t("登录工作台")}<ArrowRight size={17} /></Link><Link className="button button--secondary" href="/register">{t("创建账号")}</Link></div></section>
-    <footer className={styles.footer}><Brand /><p>{t("© 2026 ChinaTech · 让门店日常井井有条")}</p><div><a href="#tutorials">{t("使用帮助")}</a><Link href="/login">{t("登录")}</Link><Link href="/register">{t("注册")}</Link></div></footer>
+    <footer className={styles.footer}><Brand /><p>{t("© 2026 ChinaTech · 让门店日常井井有条")}</p><div><Link href="/toolbox">{t("工具箱")}</Link><a href="#tutorials">{t("使用帮助")}</a><Link href="/login">{t("登录")}</Link><Link href="/register">{t("注册")}</Link></div></footer>
   </main>;
 }
-function ArrowUpRightIcon() { return <ArrowRight size={16} aria-hidden="true" />; }
