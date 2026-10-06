@@ -3,7 +3,8 @@
 .skipLink { position: fixed; top: -60px; left: 16px; z-index: 100; padding: 12px; background: var(--surface); }.skipLink:focus { top: 12px; }
 .header { position: sticky; top: 0; z-index: 30; background: color-mix(in srgb,var(--surface) 94%,transparent); border-bottom: 1px solid var(--border); backdrop-filter: blur(18px); }
 .headerInner { width: min(1280px,calc(100% - 64px)); margin: auto; min-height: 80px; display: flex; align-items: center; justify-content: space-between; gap: 25px; }
-.headerLeft,.authNav,.navigation,.workspaceLink { display: flex; align-items: center; }.headerLeft { gap: 22px; }.authNav { gap: 16px; }.authNav > a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; font-size: 14px; font-weight: 650; }.authNav > a:first-child { padding-inline: 7px; }.divider { width: 1px; height: 26px; background: var(--border); }.navigation { gap: 29px; color: var(--text-secondary); font-size: 14px; }.navigation a { display: grid; align-items: center; min-height: 44px; }.navigation a:hover,.workspaceLink:hover { color: var(--primary-600); }.workspaceLink { gap: 8px; font-size: 14px; font-weight: 600; min-height: 44px; }
+.header :global(.brand) { min-height: 44px; }
+.headerLeft,.authNav,.navigation,.workspaceLink { display: flex; align-items: center; }.headerLeft { gap: 22px; }.authNav { gap: 16px; }.authNav > a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; font-size: 14px; font-weight: 650; }.authNav > a:first-child { padding-inline: 7px; }.divider { width: 1px; height: 26px; background: var(--border); }.navigation { gap: 29px; color: var(--text-secondary); font-size: 14px; }.navigation a { display: grid; align-items: center; min-height: 44px; }.navigation a:hover,.workspaceLink:hover { color: var(--primary-600); }.workspaceLink { gap: 8px; font-size: 14px; font-weight: 600; min-height: 44px; }
 .hero { position: relative; background: radial-gradient(ellipse at 83% 40%,var(--primary-50),transparent 62%),linear-gradient(180deg,var(--surface),var(--surface-subtle)); }
 .heroInner { position: relative; width: min(1220px,calc(100% - 64px)); margin: auto; min-height: 670px; display: grid; grid-template-columns: .94fr 1.06fr; align-items: center; gap: 60px; padding-block: 65px 75px; }
 .heroCopy { position: relative; z-index: 2; animation: enter .6s both; }.pill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; color: var(--primary-700); border: 1px solid var(--primary-100); border-radius: 30px; background: var(--surface); font-size: 12px; font-weight: 600; }.pill > span { width: 6px; height: 6px; border-radius: 50%; background: var(--primary-600); }
@@ -30,8 +31,10 @@
 @media(prefers-reduced-motion:reduce) { .heroCopy,.heroVisual,.tourContent { animation: none; }.feature,.faqList summary svg { transition: none; }.feature:hover { transform: none; } }
 
 /* The public header keeps account links first and a language control visible on phones. */
-.headerInner { flex-wrap: wrap; column-gap: 20px; row-gap: 4px; }
-.navigation { flex-wrap: wrap; justify-content: center; }
+.headerInner { flex-wrap: wrap; column-gap: 16px; row-gap: 4px; }
+.navigation { flex-wrap: wrap; justify-content: center; gap: 18px; }
+.publicLink { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding-inline: 12px; border-radius: var(--radius-control); background: var(--primary-50); color: var(--primary-700); font-size: 14px; font-weight: 600; }
+.publicLink:hover { background: var(--primary-100); }
 @media (max-width: 1100px) and (min-width: 768px) { .headerInner { column-gap: 15px; }.navigation { gap: 12px; }.headerLeft { gap: 12px; } }
-@media (max-width: 767px) { .headerInner { display: grid; grid-template-columns: 1fr auto; padding-block: 4px; }.headerLeft { display: contents; }.authNav { grid-column: 1 / -1; }.header :global(.brand) { grid-column: 1; grid-row: 2; }.headerInner > label { grid-column: 2; grid-row: 2; }.page section[id] { scroll-margin-top: 110px; }.heroActions { flex-wrap: wrap; } }
+@media (max-width: 767px) { .headerInner { display: grid; grid-template-columns: 1fr auto; padding-block: 4px; }.headerLeft { display: contents; }.authNav { grid-column: 1; grid-row: 1; }.publicLink { grid-column: 2; grid-row: 1; }.header :global(.brand) { grid-column: 1; grid-row: 2; }.headerInner > label { grid-column: 2; grid-row: 2; }.page section[id] { scroll-margin-top: 110px; }.heroActions { flex-wrap: wrap; } }
 .heroCopy:lang(en) h1, .heroCopy:lang(it) h1 { letter-spacing: -.035em; }
