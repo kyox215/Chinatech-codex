@@ -249,17 +249,17 @@ test("整机建档数字、未知与零、日期及金额继续使用领域规�
   await page.getByRole("radio", { name: "翻新机", exact: true }).locator("..").click();
   await page.getByRole("combobox", { name: /^品牌/ }).fill("Apple");
   await page.getByRole("combobox", { name: /^型号 \/ 商品名称/ }).fill("DEMO Input States");
-  await page.getByRole("button", { name: "下一步", exact: true }).click();
+  await page.getByRole("heading", { name: "新建商品", exact: true }).click();
   const battery = page.getByRole("textbox", { name: "电池健康", exact: true });
   await battery.fill("101");
   await feedback(battery, /100/);
-  await page.getByRole("button", { name: "下一步", exact: true }).click();
+  await page.getByRole("button", { name: "创建独立档案", exact: true }).click();
   await expect(battery).toBeVisible();
   await battery.fill("0");
   await expect(battery).not.toHaveAttribute("aria-invalid", "true");
   await battery.fill("");
   await expect(battery).toHaveValue("");
-  await page.getByRole("button", { name: "下一步", exact: true }).click();
+  await page.getByText("成本（选填）", { exact: true }).click();
   const cost = page.getByRole("textbox", { name: "购入 / 回收成本", exact: true });
   await cost.fill("19.001");
   await feedback(cost, /两位小数/);
@@ -267,6 +267,7 @@ test("整机建档数字、未知与零、日期及金额继续使用领域规�
   await expect(cost).not.toHaveAttribute("aria-invalid", "true");
   await page.getByRole("button", { name: "清空购入 / 回收成本", exact: true }).click();
   await expect(cost).toHaveValue("");
+  await page.getByText("来源与存放（选填）", { exact: true }).click();
   const date = page.getByLabel("入库日期", { exact: true });
   await date.fill("");
   await expect(date).not.toHaveAttribute("required");
