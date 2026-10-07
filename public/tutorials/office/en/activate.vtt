@@ -1,0 +1,58 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:03.583
+Open the Office page and choose Activate only.
+
+00:00:03.583 --> 00:00:08.667
+This command targets the volume licensed edition described on the page.
+
+00:00:08.667 --> 00:00:12.042
+It does not apply to every Office edition.
+
+00:00:12.042 --> 00:00:16.250
+Make sure you already have a valid Office volume license.
+
+00:00:16.250 --> 00:00:22.042
+A generic key is not a purchased license and cannot activate a personal retail copy.
+
+00:00:22.042 --> 00:00:26.750
+This step contacts the third-party service identified on the page.
+
+00:00:26.750 --> 00:00:32.042
+Choose PowerShell or CMD to match the administrator terminal you will open.
+
+00:00:32.042 --> 00:00:35.167
+You are selecting a command format.
+
+00:00:35.167 --> 00:00:38.500
+The website does not perform activation.
+
+00:00:38.500 --> 00:00:42.625
+Click Copy full command and check the website feedback.
+
+00:00:42.625 --> 00:00:46.250
+If copying fails, download the text.
+
+00:00:46.250 --> 00:00:52.000
+Keep the complete command, including its key, verification and error checks.
+
+00:00:52.000 --> 00:00:55.375
+Paste into the matching administrator terminal.
+
+00:00:55.375 --> 00:00:59.583
+Read and check the content before deciding whether to run it.
+
+00:00:59.583 --> 00:01:05.083
+This is only an illustration and neither shows nor promises successful activation.
+
+00:01:05.083 --> 00:01:09.042
+Check the actual license status of the target edition.
+
+00:01:09.042 --> 00:01:12.917
+Another licensed edition does not prove success.
+
+00:01:12.917 --> 00:01:18.500
+Stop and investigate errors, an unlicensed status or an unreachable service.
+
+00:01:18.500 --> 00:01:22.208
+Starting a command is not proof of activation.

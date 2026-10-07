@@ -3,11 +3,16 @@
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
 import { AlertCircle, ArrowRight, Captions, Clock3, LoaderCircle, Play, RotateCcw, Volume2 } from "lucide-react";
-import { getTutorials } from "@/lib/tutorials";
+import { getTutorials, type Tutorial } from "@/lib/tutorials";
 import { useLanguage } from "@/components/language-provider";
 import styles from "./tutorial-library.module.css";
 
 type PlaybackStatus = "idle" | "loading" | "ready" | "error";
+type TutorialLibraryProps = {
+  tutorials?: readonly Tutorial[];
+  aspectRatio?: "4:3" | "16:9";
+  onAction?: (tutorial: Tutorial) => void;
+};
 
 function timestamp(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
@@ -20,15 +25,16 @@ function releaseVideo(video: HTMLVideoElement | null) {
   video.load();
 }
 
-export function TutorialLibrary() {
+export function TutorialLibrary({ tutorials: providedTutorials, aspectRatio = "4:3", onAction }: TutorialLibraryProps = {}) {
   const { locale } = useLanguage();
-  const [selectedId, setSelectedId] = useState(getTutorials(locale)[0].id);
-  return <TutorialLibraryContent key={locale} selectedId={selectedId} setSelectedId={setSelectedId} />;
+  const tutorials = providedTutorials ?? getTutorials(locale);
+  const [selectedId, setSelectedId] = useState(tutorials[0]?.id ?? "");
+  if (tutorials.length === 0) return null;
+  return <TutorialLibraryContent key={locale} tutorials={tutorials} aspectRatio={aspectRatio} onAction={onAction} selectedId={selectedId} setSelectedId={setSelectedId} />;
 }
 
-function TutorialLibraryContent({ selectedId, setSelectedId }: { selectedId: string; setSelectedId: (id: string) => void }) {
+function TutorialLibraryContent({ tutorials, aspectRatio, onAction, selectedId, setSelectedId }: Required<Pick<TutorialLibraryProps, "tutorials" | "aspectRatio">> & Pick<TutorialLibraryProps, "onAction"> & { selectedId: string; setSelectedId: (id: string) => void }) {
   const { locale, t } = useLanguage();
-  const tutorials = getTutorials(locale);
   const [status, setStatus] = useState<PlaybackStatus>("idle");
   const [hasStarted, setHasStarted] = useState(false);
   const [playbackHint, setPlaybackHint] = useState("");
@@ -64,7 +70,7 @@ function TutorialLibraryContent({ selectedId, setSelectedId }: { selectedId: str
     pendingSeek.current = Math.max(0, at);
     const needsSource = !video.hasAttribute("src");
 
-    // A source is attached only in this user action, keeping the homepage media idle.
+    // A source is attached only in this user action, keeping the library media idle.
     if (needsSource) video.src = tutorial.src;
     if (needsSource || reload || status === "error") video.load();
     else if (video.readyState >= 1) applyPendingSeek(video);
@@ -106,7 +112,7 @@ function TutorialLibraryContent({ selectedId, setSelectedId }: { selectedId: str
   return <div className={styles.tutorials}>
     <div className={styles.library}>
       <div className={styles.watchColumn}>
-        <div className={styles.player} aria-busy={status === "loading"}>
+        <div className={`${styles.player}${aspectRatio === "16:9" ? ` ${styles.widescreen}` : ""}`} aria-busy={status === "loading"}>
           <video
             key={tutorial.id}
             ref={attachVideo}
@@ -117,7 +123,7 @@ function TutorialLibraryContent({ selectedId, setSelectedId }: { selectedId: str
             preload="none"
             poster={tutorial.poster}
             width={1280}
-            height={960}
+            height={aspectRatio === "16:9" ? 720 : 960}
             tabIndex={0}
             onLoadStart={event => { if (event.currentTarget === videoRef.current && event.currentTarget.hasAttribute("src")) setStatus("loading"); }}
             onLoadedMetadata={event => { if (event.currentTarget === videoRef.current) applyPendingSeek(event.currentTarget); }}
@@ -145,7 +151,7 @@ function TutorialLibraryContent({ selectedId, setSelectedId }: { selectedId: str
           <div className={styles.metadata}><span>{t("第 {number} 集", { number: tutorial.number })}</span><span><Clock3 size={14} aria-hidden="true" />{tutorial.duration}</span><span><Volume2 size={14} aria-hidden="true" />{t("中文配音")}</span><span><Captions size={15} aria-hidden="true" />{t("中文字幕")}</span></div>
           <div className={styles.descriptionRow}>
             <div><h3 id="current-tutorial-title">{tutorial.title}</h3><p>{tutorial.description}</p></div>
-            <Link className={`button button--secondary ${styles.actionLink}`} href={tutorial.href} prefetch={false}>{tutorial.actionLabel}<ArrowRight size={16} aria-hidden="true" /></Link>
+            <Link className={`button button--secondary ${styles.actionLink}`} href={tutorial.href} prefetch={false} onClick={event => { if (onAction && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) { event.preventDefault(); onAction(tutorial); } }}>{tutorial.actionLabel}<ArrowRight size={16} aria-hidden="true" /></Link>
           </div>
           {playbackHint && <p className={styles.playbackHint} role="status">{t(playbackHint)}</p>}
         </div>

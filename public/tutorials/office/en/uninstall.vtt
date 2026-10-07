@@ -1,0 +1,51 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:04.125
+Open the Office toolbox page and choose Uninstall only.
+
+00:00:04.125 --> 00:00:07.042
+This is separate from installation.
+
+00:00:07.042 --> 00:00:11.917
+First confirm that you intend to remove the existing Office installation.
+
+00:00:11.917 --> 00:00:16.333
+Save every open document and back up settings you need to keep.
+
+00:00:16.333 --> 00:00:24.458
+The removal described on the page removes Office and clears its related configuration, licensing, services and
+caches.
+
+00:00:24.458 --> 00:00:29.583
+Choose PowerShell or CMD to match the actual administrator terminal.
+
+00:00:29.583 --> 00:00:34.042
+Read the removal notice carefully before moving on to copying.
+
+00:00:34.042 --> 00:00:37.875
+Click Copy full command or download its text.
+
+00:00:37.875 --> 00:00:45.042
+Do not run it on a computer whose purpose you are unsure of, and do not confuse this command with the
+installation command.
+
+00:00:45.042 --> 00:00:48.750
+After pasting, check the removal scope again.
+
+00:00:48.750 --> 00:00:52.958
+This is only an illustration: no uninstall is run.
+
+00:00:52.958 --> 00:00:58.667
+Before pressing Enter, confirm that your documents are saved and your settings backed up.
+
+00:00:58.667 --> 00:01:03.000
+If uninstalling reports an error, keep the message and stop.
+
+00:01:03.000 --> 00:01:07.750
+The script does not continue deep cleanup after an uninstall failure.
+
+00:01:07.750 --> 00:01:11.583
+A started command is not a completed uninstall.
+
+00:01:11.583 --> 00:01:14.167
+Check the actual output.

@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Check, Clipboard, Download, ExternalLink, FileText, Terminal } from "lucide-react";
+import { AlertTriangle, Check, Clipboard, Download, ExternalLink, FileText, Play, Terminal } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { PublicHeader } from "@/components/home/public-header";
+import { TutorialLibrary } from "@/components/home/tutorial-library";
 import { useLanguage } from "@/components/language-provider";
+import { getOfficeTutorials } from "@/lib/office-tutorials";
+import type { Tutorial } from "@/lib/tutorials";
 import { officeCommands, type OfficeAction, type OfficeTerminal } from "@/lib/toolbox/office-commands";
 import homeStyles from "@/components/home/home.module.css";
 import toolboxStyles from "./toolbox.module.css";
@@ -12,19 +15,58 @@ import styles from "./office-tools.module.css";
 
 type CopyState = "idle" | "copying" | "copied" | "failed";
 
+function actionFromHash(hash: string): OfficeAction | undefined {
+  return officeCommands.find(item => hash === `#command-${item.id}`)?.id;
+}
+
 export function OfficeToolsPage() {
-  const { t } = useLanguage();
+  const { locale, t } = useLanguage();
   const [action, setAction] = useState<OfficeAction>("install");
   const [terminal, setTerminal] = useState<OfficeTerminal>("powershell");
   const [copyState, setCopyState] = useState<CopyState>("idle");
   const copyAttempt = useRef(0);
+  const commandPanel = useRef<HTMLElement>(null);
   const current = officeCommands.find(item => item.id === action)!;
   const command = current.commands[terminal];
   const terminalLabel = terminal === "cmd" ? "CMD" : "PowerShell";
 
   useEffect(() => () => { copyAttempt.current += 1; }, []);
 
-  function chooseAction(value: OfficeAction) { copyAttempt.current += 1; setAction(value); setCopyState("idle"); }
+  useEffect(() => {
+    let pendingScroll = 0;
+    function restoreCommandHash() {
+      const value = actionFromHash(window.location.hash);
+      if (!value) return;
+      copyAttempt.current += 1;
+      setAction(value);
+      setCopyState("idle");
+      cancelAnimationFrame(pendingScroll);
+      pendingScroll = requestAnimationFrame(() => commandPanel.current?.scrollIntoView({ block: "start", behavior: "instant" }));
+    }
+    restoreCommandHash();
+    window.addEventListener("hashchange", restoreCommandHash);
+    window.addEventListener("popstate", restoreCommandHash);
+    return () => {
+      cancelAnimationFrame(pendingScroll);
+      window.removeEventListener("hashchange", restoreCommandHash);
+      window.removeEventListener("popstate", restoreCommandHash);
+    };
+  }, []);
+
+  function chooseAction(value: OfficeAction, syncExistingHash = true) {
+    copyAttempt.current += 1;
+    setAction(value);
+    setCopyState("idle");
+    if (syncExistingHash && actionFromHash(window.location.hash)) window.history.replaceState(window.history.state, "", `#command-${value}`);
+  }
+  function openTutorialCommand(tutorial: Tutorial) {
+    const value = actionFromHash(tutorial.href);
+    if (!value) return;
+    chooseAction(value, false);
+    if (window.location.hash !== tutorial.href) window.history.pushState(null, "", tutorial.href);
+    commandPanel.current?.focus({ preventScroll: true });
+    commandPanel.current?.scrollIntoView({ block: "start", behavior: "instant" });
+  }
   function chooseTerminal(value: OfficeTerminal) { copyAttempt.current += 1; setTerminal(value); setCopyState("idle"); }
   async function copyCommand() {
     const attempt = ++copyAttempt.current;
@@ -45,14 +87,14 @@ export function OfficeToolsPage() {
       <div className={styles.heading}><span className={styles.headingIcon}><FileText size={26} aria-hidden="true" /></span><div>
         <h1>{t("Office 安装与激活")}</h1>
         <p>{t("Windows 管理员终端 · Office LTSC 专业增强版 2024")}</p>
-      </div></div>
+      </div><a className={`button button--secondary ${styles.tutorialEntry}`} href="#office-tutorials"><Play size={17} aria-hidden="true" />{t("观看 Office 视频教程")}</a></div>
       <div className={styles.layout}>
         <aside className={styles.actions} aria-label={t("选择 Office 操作")}>
           {officeCommands.map(item => <button type="button" key={item.id} className={styles.action} aria-pressed={action === item.id} onClick={() => chooseAction(item.id)}>
             <span>{t(item.title)}</span><small>{t(item.destructive ? "移除现有 Office" : item.id === "install" ? "安装所选组件" : "核对批量激活")}</small>
           </button>)}
         </aside>
-        <section className={styles.commandPanel} aria-labelledby="operation-title">
+        <section className={styles.commandPanel} id={`command-${action}`} ref={commandPanel} tabIndex={-1} aria-labelledby="operation-title">
           <div className={styles.operationHeading}><h2 id="operation-title">{t(current.title)}</h2><span>{t("命令参考")}</span></div>
           <p className={styles.operationDescription}>{t(current.description)}</p>
           <div className={styles.notice} data-destructive={current.destructive}><AlertTriangle size={18} aria-hidden="true" /><p>{t(current.notice)}</p></div>
@@ -83,6 +125,10 @@ export function OfficeToolsPage() {
         <p>{t("命令使用已整理的第三方部署脚本，均校验固定版本；完整重装另校验安装配置。来源变化或下载失败时停止，尚未完成 Windows 真机安装验证。")}</p>
         <p>{t("KMS 通用密钥用于批量授权，不能替代有效的 Office 许可证；激活步骤连接第三方服务 s1.kms.cx。")}</p>
         <div><a href="https://ks.302.pub/b/all.ps1" target="_blank" rel="noopener noreferrer">{t("上游脚本")}<ExternalLink size={14} aria-hidden="true" /></a><a href="https://learn.microsoft.com/en-us/office/volume-license-activation/gvlks" target="_blank" rel="noopener noreferrer">{t("微软批量激活说明")}<ExternalLink size={14} aria-hidden="true" /></a></div>
+      </section>
+      <section className={styles.tutorials} id="office-tutorials" aria-labelledby="office-tutorials-title">
+        <div className={styles.tutorialHeading}><h2 id="office-tutorials-title">{t("Office 视频教程")}</h2><p>{t("选择安装、激活、卸载或完整重装，按章节查看操作方法。")}</p></div>
+        <TutorialLibrary tutorials={getOfficeTutorials(locale)} aspectRatio="16:9" onAction={openTutorialCommand} />
       </section>
     </main>
     <footer className={toolboxStyles.footer}><Brand compact /><p>{t("© 2026 ChinaTech · 让门店日常井井有条")}</p></footer>

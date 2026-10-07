@@ -1,5 +1,9 @@
 # 公共组件与样式复用规范
 
+## 2026-10-07 Office视频复用
+
+TutorialLibrary增加可选readonly教程目录、4:3／16:9及操作回调，默认首页目录／4:3与Strict ref微任务清理保留；Office通过独立三语目录复用播放器，不复制媒体处理或新UI框架。教程→对应命令使用有限OfficeAction hash，同页明确选项及焦点／刷新／前后返回保持一致；手动改选时已有command hash同步。共用PublicHeader、语言／按钮／token，私有Office锚点避开sticky header。目录语言只改显示，原命令及源码字节不译写、不执行。媒体／章节／封面／字幕按同一实测配音生成；图示必须标示，不能把动画当Windows实际执行成功。
+
 ## 2026-10-07 Office 命令工具
 
 `/toolbox/office` 复用 PublicHeader 的 `page="office"` 返回工具箱、Brand、LanguageSwitcher、button、segmented-control 及已有颜色／圆角／边框 token；四种操作及终端选择、长命令与复制反馈使用工具箱私有组件和 CSS Module，无新公共控件、主题或依赖。选中终端复用 `segmented-control__active`，手机操作至少44px。Office 分类新增实际命令入口，其他待添加分类保持原展示。
