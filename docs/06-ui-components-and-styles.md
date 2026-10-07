@@ -1,5 +1,7 @@
 # 公共组件与样式复用规范
 
+LanguageSwitcher复用useFormReady：服务端/初始化期间禁用选择，准备后保留第一笔语言选择及刷新偏好；防止未接事件时原生下拉值被保存偏好覆盖。所有现有使用方共用，无新样式/主题。
+
 ## 2026-10-07 Office 联网控制
 
 OfficeToolboxControl 是全站工具管理专用组件，复用账号设置card/cardHead/form/muted/nav及原button/语义token；通过AccountOverview可选capabilities.canManageOffice接入原账号设置列与锚点。显示能力来自服务端，写权限由独立管理API/私有表再次检查。公开Office页仅异步生成受控启动器，Blob下载当前命令、网关源码链接，生成/停用/错误/复制/迟到响应独立反馈，44px与三语保留。仅复用组件，无新主题/依赖/普通输入框。控制语义与验证范围见[整体开关31](31-office-command-control.md)。

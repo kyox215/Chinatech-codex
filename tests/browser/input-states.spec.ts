@@ -110,9 +110,14 @@ test("请求中锁定所有登录草稿，失败保留输入且可重试", async
   await expect(page.locator("#login-error")).toContainText("测试服务暂时不可用");
   await expect(page.getByLabel("密码", { exact: true })).toHaveValue("Preview2026!");
   await expect(page.getByRole("textbox", { name: "电子邮件", exact: true })).toBeEnabled();
-  await page.getByRole("button", { name: "登录工作台" }).click();
-  await expect(page.locator("#login-error")).toBeVisible();
+  await expect(page.locator("form")).toHaveAttribute("aria-busy", "false");
+  const retrySubmit = page.getByRole("button", { name: "登录工作台" });
+  await expect(retrySubmit).toBeEnabled();
+  await retrySubmit.evaluate(element => element.scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await retrySubmit.click();
   await expect.poll(() => posts).toBe(2);
+  await expect(page.locator("#login-error")).toBeVisible();
 });
 
 test("账号表单在脚本初始化前锁定，准备后保留第一次输入", async ({ page }) => {
