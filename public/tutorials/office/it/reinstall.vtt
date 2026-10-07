@@ -1,0 +1,42 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:03.917
+Apri la pagina Office e scegli Reinstallazione completa.
+
+00:00:03.917 --> 00:00:11.167
+È diversa dalla sola installazione: rimuove prima Office esistente e poi lo reinstalla secondo la
+configurazione.
+
+00:00:11.167 --> 00:00:16.792
+Salva i documenti, fai una copia delle impostazioni da conservare e leggi l’avviso.
+
+00:00:16.792 --> 00:00:22.750
+Non è un semplice pulsante di riparazione: devi accettare la rimozione di Office esistente.
+
+00:00:22.750 --> 00:00:27.542
+Scegli PowerShell o CMD in accordo con il terminale amministratore.
+
+00:00:27.542 --> 00:00:33.333
+Il sito fornisce solo il comando: selezionare la reinstallazione non avvia la rimozione.
+
+00:00:33.333 --> 00:00:37.583
+Premi Copia comando completo oppure scarica e copia il testo.
+
+00:00:37.583 --> 00:00:44.375
+Mantieni l’intero contenuto: comprende i controlli preliminari sul download e sulla configurazione.
+
+00:00:44.375 --> 00:00:48.458
+Incolla e controlla il comando, poi decidi se eseguirlo.
+
+00:00:48.458 --> 00:00:55.333
+La scena è un’illustrazione: non rimuove né installa programmi e non mostra un risultato riuscito inventato.
+
+00:00:55.333 --> 00:01:03.375
+Se la configurazione non si scarica, ritorna 403 o non supera la verifica, lo script si ferma prima della
+rimozione.
+
+00:01:03.375 --> 00:01:05.500
+Non saltare i controlli.
+
+00:01:05.500 --> 00:01:10.042
+Verifica separatamente reinstallazione e licenza nell’output reale.

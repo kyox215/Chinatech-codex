@@ -1,0 +1,50 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:03.583
+Open the Office page and choose Full reinstall.
+
+00:00:03.583 --> 00:00:11.417
+Unlike installation alone, it first removes existing Office and then deploys it again using the installation
+configuration.
+
+00:00:11.417 --> 00:00:16.292
+Save your documents, back up settings you need to keep and read the notice.
+
+00:00:16.292 --> 00:00:19.917
+Full reinstall is not a simple repair button.
+
+00:00:19.917 --> 00:00:24.417
+Confirm that you accept removing the existing Office installation.
+
+00:00:24.417 --> 00:00:29.042
+Choose PowerShell or CMD to match your administrator terminal.
+
+00:00:29.042 --> 00:00:32.167
+The website only provides a command.
+
+00:00:32.167 --> 00:00:36.167
+Selecting Full reinstall does not start uninstalling.
+
+00:00:36.167 --> 00:00:40.500
+Click Copy full command or download and copy the text.
+
+00:00:40.500 --> 00:00:47.083
+Keep every part, because it includes configuration download and verification checks before removal.
+
+00:00:47.083 --> 00:00:51.667
+Paste and review the command, then decide whether to execute it.
+
+00:00:51.667 --> 00:00:54.417
+This scene is an illustration.
+
+00:00:54.417 --> 00:00:59.875
+It does not uninstall or install software and does not invent a successful result.
+
+00:00:59.875 --> 00:01:08.167
+If configuration cannot download, returns 403 or fails verification, the script stops before uninstalling.
+
+00:01:08.167 --> 00:01:11.042
+Do not skip preflight checks.
+
+00:01:11.042 --> 00:01:16.125
+Check reinstall results and licensing separately using the actual output.

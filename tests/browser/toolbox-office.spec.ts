@@ -44,7 +44,7 @@ test("Office commands preserve all terminal bytes, sources and downloads", async
         expect(source).toContain("54eee267d8bf4d52bd2db19b55a503917efaa9d4951e949f2ae22c088b621723");
       }
       await activate(page.getByRole("button", { name: "复制完整命令", exact: true }));
-      await expect(page.getByRole("status")).toHaveText("命令已复制，请在所选管理员终端中粘贴。");
+      await expect(page.locator('[id^="command-"]').getByRole("status")).toHaveText("命令已复制，请在所选管理员终端中粘贴。");
       expect(await page.evaluate(() => (window as unknown as { officeCopied: string }).officeCopied)).toBe(command);
     }
   }
@@ -72,14 +72,14 @@ test("Clipboard rejection and missing API show failure and preserve retry", asyn
   await expect(page.getByRole("button", { name: "已复制完整命令", exact: true })).toHaveCount(0);
   await page.evaluate(() => { (window as unknown as { officeClipboard: { reject: boolean } }).officeClipboard.reject = false; });
   await activate(copy);
-  await expect(page.getByRole("status")).toContainText("命令已复制");
+  await expect(page.locator('[id^="command-"]').getByRole("status")).toContainText("命令已复制");
   expect(sha(await page.evaluate(() => (window as unknown as { officeClipboard: { writes: string[] } }).officeClipboard.writes[0]))).toBe(digests.install.powershell);
   await activate(page.getByRole("button", { name: "CMD", exact: true }));
   await page.evaluate(() => { Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined }); });
   await activate(page.getByRole("button", { name: "复制完整命令", exact: true }));
   await expect(page.locator("main").getByRole("alert")).toContainText("复制失败");
   await expect(page.getByRole("link", { name: "下载命令文本", exact: true })).toHaveAttribute("href", "/toolbox/office/install-cmd.txt");
-  await expect(page.getByRole("status")).toHaveCount(0);
+  await expect(page.locator('[id^="command-"]').getByRole("status")).toHaveCount(0);
 });
 
 test("Late clipboard result cannot claim success for a newly selected operation", async ({ page }) => {
@@ -92,7 +92,7 @@ test("Late clipboard result cannot claim success for a newly selected operation"
   await activate(page.getByRole("button", { name: /^仅卸载/ }));
   await activate(page.getByRole("button", { name: "CMD", exact: true }));
   await page.evaluate(() => (window as unknown as { officeResolveCopy: () => void }).officeResolveCopy());
-  await expect(page.getByRole("status")).toHaveCount(0);
+  await expect(page.locator('[id^="command-"]').getByRole("status")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "复制完整命令", exact: true })).toBeEnabled();
   expect(sha((await page.locator("pre code").textContent())!)).toBe(digests.uninstall.cmd);
 });

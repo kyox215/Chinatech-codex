@@ -1,0 +1,43 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:04.500
+Apri la pagina degli strumenti Office e scegli Solo disinstallazione.
+
+00:00:04.500 --> 00:00:10.292
+È un’operazione distinta dall’installazione: verifica di voler rimuovere Office esistente.
+
+00:00:10.292 --> 00:00:15.208
+Salva tutti i documenti e fai una copia delle impostazioni da conservare.
+
+00:00:15.208 --> 00:00:22.417
+La rimozione descritta elimina Office e pulisce configurazioni, licenze, servizi e cache correlati.
+
+00:00:22.417 --> 00:00:27.458
+Scegli PowerShell o CMD, in accordo con il terminale amministratore.
+
+00:00:27.458 --> 00:00:31.542
+Leggi attentamente l’avviso di disinstallazione prima di copiare.
+
+00:00:31.542 --> 00:00:35.458
+Premi Copia comando completo oppure scarica il testo.
+
+00:00:35.458 --> 00:00:42.167
+Non eseguirlo su un computer di cui non conosci l’utilizzo e non confonderlo con il comando di installazione.
+
+00:00:42.167 --> 00:00:46.208
+Dopo aver incollato, verifica ancora cosa verrà rimosso.
+
+00:00:46.208 --> 00:00:50.708
+È un’illustrazione: non viene eseguita alcuna disinstallazione.
+
+00:00:50.708 --> 00:00:54.875
+Prima di Invio, assicurati di aver salvato e fatto il backup.
+
+00:00:54.875 --> 00:00:58.292
+Con un errore, conserva il messaggio e fermati.
+
+00:00:58.292 --> 00:01:03.750
+Lo script non continua la pulizia approfondita se la disinstallazione fallisce.
+
+00:01:03.750 --> 00:01:09.375
+Un comando avviato non equivale a un’operazione completata: controlla l’output reale.

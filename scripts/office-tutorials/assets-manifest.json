@@ -1,0 +1,2335 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-07T12:22:08.157Z",
+  "format": "H.264 / AAC, 24fps, website1920x1080/promo1080x1920",
+  "episodes": [
+    {
+      "locale": "zh-CN",
+      "id": "install",
+      "promo": false,
+      "seconds": 78.208333,
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "motion": [
+        {
+          "duration": 11.541667,
+          "target": {
+            "x": 160,
+            "y": 226.1875,
+            "width": 220,
+            "height": 82
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 0,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 665,
+              "y": 644.2803697183099
+            },
+            "end": {
+              "x": 498.24,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 11,
+          "target": {
+            "x": 433,
+            "y": 343.375,
+            "width": 818,
+            "height": 50.09375
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 84,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1370.4666666666667,
+              "y": 665.5199163732394
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 12.041667,
+          "target": {
+            "x": 1093.984375,
+            "y": 408.46875,
+            "width": 94.4375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1739.4838541666668,
+              "y": 665.5776848591549
+            },
+            "end": {
+              "x": 1376.2993333333336,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 12.958333,
+          "target": {
+            "x": 433,
+            "y": 407.5625,
+            "width": 145,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 955.45,
+              "y": 664.4608274647887
+            },
+            "end": {
+              "x": 870.0160000000001,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 15.625,
+          "target": {
+            "x": 505,
+            "y": 510,
+            "width": 850,
+            "height": 62
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 257,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": true,
+          "source": "local authored terminal illustration; no command execution",
+          "mouse": {
+            "start": {
+              "x": 1479,
+              "y": 665
+            },
+            "end": {
+              "x": 1042.88,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 15.041667,
+          "target": {
+            "x": 160,
+            "y": 297.5625,
+            "width": 1120,
+            "height": 264.5625
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1220,
+              "y": 664.8074383802816
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        }
+      ],
+      "assets": [
+        {
+          "path": "public/tutorials/office/zh-CN/install.mp4",
+          "bytes": 3626911,
+          "sha256": "431c4214f933f93fe956093549c20a8eff82eb610e0de1d3e5c354418d2eff06"
+        },
+        {
+          "path": "public/tutorials/office/zh-CN/install.webp",
+          "bytes": 27932,
+          "sha256": "0de2d0ebe71aefb5b82fff6af2f1171dfc8e0674cac37ba049c60d3154cb22ce"
+        },
+        {
+          "path": "public/tutorials/office/zh-CN/install.vtt",
+          "bytes": 1494,
+          "sha256": "d647a2220aa3be356f138672e007ee8ad7fe51c24c0c8a0fdda2d2599ac72579"
+        }
+      ]
+    },
+    {
+      "locale": "zh-CN",
+      "id": "activate",
+      "promo": false,
+      "seconds": 74.25,
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "motion": [
+        {
+          "duration": 10.875,
+          "target": {
+            "x": 160,
+            "y": 318.1875,
+            "width": 220,
+            "height": 82
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 75,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 665,
+              "y": 665.231073943662
+            },
+            "end": {
+              "x": 498.24,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 12.833333,
+          "target": {
+            "x": 433,
+            "y": 343.375,
+            "width": 818,
+            "height": 50.09375
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 84,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1370.4666666666667,
+              "y": 665.5199163732394
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 10.083333,
+          "target": {
+            "x": 1093.984375,
+            "y": 408.46875,
+            "width": 94.4375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1739.4838541666668,
+              "y": 665.5776848591549
+            },
+            "end": {
+              "x": 1376.2993333333336,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 12.958333,
+          "target": {
+            "x": 433,
+            "y": 407.5625,
+            "width": 145,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 955.45,
+              "y": 664.4608274647887
+            },
+            "end": {
+              "x": 870.0160000000001,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 11.791667,
+          "target": {
+            "x": 505,
+            "y": 510,
+            "width": 850,
+            "height": 62
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 257,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": true,
+          "source": "local authored terminal illustration; no command execution",
+          "mouse": {
+            "start": {
+              "x": 1479,
+              "y": 665
+            },
+            "end": {
+              "x": 1042.88,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 15.708333,
+          "target": {
+            "x": 160,
+            "y": 297.5625,
+            "width": 1120,
+            "height": 264.5625
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1220,
+              "y": 664.8074383802816
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        }
+      ],
+      "assets": [
+        {
+          "path": "public/tutorials/office/zh-CN/activate.mp4",
+          "bytes": 3701542,
+          "sha256": "b88e77d890d5cbbdf22807fb91bbd735bc5c74e8367d82e2c02e0760924520a8"
+        },
+        {
+          "path": "public/tutorials/office/zh-CN/activate.webp",
+          "bytes": 30092,
+          "sha256": "05b7891d72a433828bfe608b66348adeb3ea476af7a192f48e2cd5eed57667a9"
+        },
+        {
+          "path": "public/tutorials/office/zh-CN/activate.vtt",
+          "bytes": 1381,
+          "sha256": "c0d4c8f3eafac038891d046959e2eb764d5b4e6a6432a261a848d76ab3ee2455"
+        }
+      ]
+    },
+    {
+      "locale": "zh-CN",
+      "id": "uninstall",
+      "promo": false,
+      "seconds": 68.166667,
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "motion": [
+        {
+          "duration": 10.041667,
+          "target": {
+            "x": 160,
+            "y": 389.1875,
+            "width": 220,
+            "height": 82
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 665,
+              "y": 665.231073943662
+            },
+            "end": {
+              "x": 498.24,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 11.791667,
+          "target": {
+            "x": 433,
+            "y": 343.375,
+            "width": 818,
+            "height": 50.09375
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 84,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1370.4666666666667,
+              "y": 665.5199163732394
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 9.166667,
+          "target": {
+            "x": 1093.984375,
+            "y": 408.46875,
+            "width": 94.4375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1739.4838541666668,
+              "y": 665.5776848591549
+            },
+            "end": {
+              "x": 1376.2993333333336,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 11.083333,
+          "target": {
+            "x": 433,
+            "y": 407.5625,
+            "width": 145,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 955.45,
+              "y": 664.4608274647887
+            },
+            "end": {
+              "x": 870.0160000000001,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 12.333333,
+          "target": {
+            "x": 505,
+            "y": 510,
+            "width": 850,
+            "height": 62
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 257,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": true,
+          "source": "local authored terminal illustration; no command execution",
+          "mouse": {
+            "start": {
+              "x": 1479,
+              "y": 665
+            },
+            "end": {
+              "x": 1042.88,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 13.75,
+          "target": {
+            "x": 160,
+            "y": 297.5625,
+            "width": 1120,
+            "height": 264.5625
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1220,
+              "y": 664.8074383802816
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        }
+      ],
+      "assets": [
+        {
+          "path": "public/tutorials/office/zh-CN/uninstall.mp4",
+          "bytes": 3586158,
+          "sha256": "2ccbac434321d1a0c383bdaca7622f8796d0f936faa3809c17a426a62063f0f8"
+        },
+        {
+          "path": "public/tutorials/office/zh-CN/uninstall.webp",
+          "bytes": 38698,
+          "sha256": "e25c6d8599559899b17adbd0f8c0b0d4bf97e6eea771bce19fbcb40d7bc66280"
+        },
+        {
+          "path": "public/tutorials/office/zh-CN/uninstall.vtt",
+          "bytes": 1281,
+          "sha256": "7afdd6b8c43e269e6184036efeae744ecceb161b65abe7e9fae1fb0a51806676"
+        }
+      ]
+    },
+    {
+      "locale": "zh-CN",
+      "id": "reinstall",
+      "promo": false,
+      "seconds": 67.291667,
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "motion": [
+        {
+          "duration": 10.125,
+          "target": {
+            "x": 160,
+            "y": 389.1875,
+            "width": 220,
+            "height": 82
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 665,
+              "y": 665.231073943662
+            },
+            "end": {
+              "x": 498.24,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 11.458333,
+          "target": {
+            "x": 433,
+            "y": 343.375,
+            "width": 818,
+            "height": 50.09375
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 84,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1370.4666666666667,
+              "y": 665.5199163732394
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 10.75,
+          "target": {
+            "x": 1093.984375,
+            "y": 408.46875,
+            "width": 94.4375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1739.4838541666668,
+              "y": 665.5776848591549
+            },
+            "end": {
+              "x": 1376.2993333333336,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 9.958333,
+          "target": {
+            "x": 433,
+            "y": 407.5625,
+            "width": 145,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 955.45,
+              "y": 664.4608274647887
+            },
+            "end": {
+              "x": 870.0160000000001,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 11.916667,
+          "target": {
+            "x": 505,
+            "y": 510,
+            "width": 850,
+            "height": 62
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 257,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": true,
+          "source": "local authored terminal illustration; no command execution",
+          "mouse": {
+            "start": {
+              "x": 1479,
+              "y": 665
+            },
+            "end": {
+              "x": 1042.88,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 13.083333,
+          "target": {
+            "x": 160,
+            "y": 297.5625,
+            "width": 1120,
+            "height": 264.5625
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1220,
+              "y": 664.8074383802816
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        }
+      ],
+      "assets": [
+        {
+          "path": "public/tutorials/office/zh-CN/reinstall.mp4",
+          "bytes": 3688796,
+          "sha256": "cf62a4d8c732550df1300f0450ae3379276cd9feaf9be4514fb6dea37929902f"
+        },
+        {
+          "path": "public/tutorials/office/zh-CN/reinstall.webp",
+          "bytes": 44268,
+          "sha256": "63514b2f6e47ba9fc567aec4c101c1e496c1d6e47e401819c4b95968e132c7a7"
+        },
+        {
+          "path": "public/tutorials/office/zh-CN/reinstall.vtt",
+          "bytes": 1270,
+          "sha256": "3d67a69e5629cd7a77efb29720e9556835db7f5dbbe6c0148b6ec902d0bf0577"
+        }
+      ]
+    },
+    {
+      "locale": "it",
+      "id": "install",
+      "promo": false,
+      "seconds": 76.583333,
+      "voice": "it-IT-ElsaNeural",
+      "motion": [
+        {
+          "duration": 11.791667,
+          "target": {
+            "x": 160,
+            "y": 226.1875,
+            "width": 220,
+            "height": 82
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 0,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 665,
+              "y": 644.2803697183099
+            },
+            "end": {
+              "x": 498.24,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 11.75,
+          "target": {
+            "x": 433,
+            "y": 343.375,
+            "width": 818,
+            "height": 50.09375
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 84,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1370.4666666666667,
+              "y": 665.5199163732394
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 11.291667,
+          "target": {
+            "x": 1093.984375,
+            "y": 408.46875,
+            "width": 94.4375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1739.4838541666668,
+              "y": 665.5776848591549
+            },
+            "end": {
+              "x": 1376.2993333333336,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 12.291667,
+          "target": {
+            "x": 433,
+            "y": 407.5625,
+            "width": 243.8125,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1016.384375,
+              "y": 664.4608274647887
+            },
+            "end": {
+              "x": 948.012,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 15.083333,
+          "target": {
+            "x": 505,
+            "y": 510,
+            "width": 850,
+            "height": 62
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 257,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": true,
+          "source": "local authored terminal illustration; no command execution",
+          "mouse": {
+            "start": {
+              "x": 1479,
+              "y": 665
+            },
+            "end": {
+              "x": 1042.88,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 14.375,
+          "target": {
+            "x": 160,
+            "y": 285.5625,
+            "width": 1120,
+            "height": 287.953125
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1220,
+              "y": 664.431943221831
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        }
+      ],
+      "assets": [
+        {
+          "path": "public/tutorials/office/it/install.mp4",
+          "bytes": 3983043,
+          "sha256": "0281a8d029731000d3246c7d82611f9d325c62a5df67ff636051f455f970f7ec"
+        },
+        {
+          "path": "public/tutorials/office/it/install.webp",
+          "bytes": 36586,
+          "sha256": "9d17e9e9e7071ae3c66e3b13e164ae09ecbbb5beab96b73764457411e8bfd6c5"
+        },
+        {
+          "path": "public/tutorials/office/it/install.vtt",
+          "bytes": 1671,
+          "sha256": "f21868a3f02ae43cdef0a5d0918b4e2ea2c559e89e6f2edc3fd9ecf56fcf6a23"
+        }
+      ]
+    },
+    {
+      "locale": "it",
+      "id": "activate",
+      "promo": false,
+      "seconds": 73.375,
+      "voice": "it-IT-ElsaNeural",
+      "motion": [
+        {
+          "duration": 9.791667,
+          "target": {
+            "x": 160,
+            "y": 318.1875,
+            "width": 220,
+            "height": 82
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 75,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 665,
+              "y": 665.231073943662
+            },
+            "end": {
+              "x": 498.24,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 14.625,
+          "target": {
+            "x": 433,
+            "y": 343.375,
+            "width": 818,
+            "height": 50.09375
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 84,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1370.4666666666667,
+              "y": 665.5199163732394
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 9.791667,
+          "target": {
+            "x": 1093.984375,
+            "y": 408.46875,
+            "width": 94.4375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1739.4838541666668,
+              "y": 665.5776848591549
+            },
+            "end": {
+              "x": 1376.2993333333336,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 11.625,
+          "target": {
+            "x": 433,
+            "y": 407.5625,
+            "width": 243.8125,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1016.384375,
+              "y": 664.4608274647887
+            },
+            "end": {
+              "x": 948.012,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 12.375,
+          "target": {
+            "x": 505,
+            "y": 510,
+            "width": 850,
+            "height": 62
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 257,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": true,
+          "source": "local authored terminal illustration; no command execution",
+          "mouse": {
+            "start": {
+              "x": 1479,
+              "y": 665
+            },
+            "end": {
+              "x": 1042.88,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 15.166667,
+          "target": {
+            "x": 160,
+            "y": 285.5625,
+            "width": 1120,
+            "height": 287.953125
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1220,
+              "y": 664.431943221831
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        }
+      ],
+      "assets": [
+        {
+          "path": "public/tutorials/office/it/activate.mp4",
+          "bytes": 3873825,
+          "sha256": "d072376d91cdb4c424165ad93a5f031c26d7f7f524e14e420a89afbefb1a3a26"
+        },
+        {
+          "path": "public/tutorials/office/it/activate.webp",
+          "bytes": 38498,
+          "sha256": "b053a4c4d47c6a156f39b3783f1d5b7d42816d70847907b6820552e62f7bb0e2"
+        },
+        {
+          "path": "public/tutorials/office/it/activate.vtt",
+          "bytes": 1575,
+          "sha256": "e26ea27cefca36511b00f780d8d8cc59e75ace15be9a0db938ee5bc32197df2c"
+        }
+      ]
+    },
+    {
+      "locale": "it",
+      "id": "uninstall",
+      "promo": false,
+      "seconds": 69.375,
+      "voice": "it-IT-ElsaNeural",
+      "motion": [
+        {
+          "duration": 10.291667,
+          "target": {
+            "x": 160,
+            "y": 389.1875,
+            "width": 220,
+            "height": 82
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 665,
+              "y": 665.231073943662
+            },
+            "end": {
+              "x": 498.24,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 12.125,
+          "target": {
+            "x": 433,
+            "y": 343.375,
+            "width": 818,
+            "height": 50.09375
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 84,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1370.4666666666667,
+              "y": 665.5199163732394
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 9.125,
+          "target": {
+            "x": 1093.984375,
+            "y": 408.46875,
+            "width": 94.4375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1739.4838541666668,
+              "y": 665.5776848591549
+            },
+            "end": {
+              "x": 1376.2993333333336,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 10.625,
+          "target": {
+            "x": 433,
+            "y": 407.5625,
+            "width": 243.8125,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1016.384375,
+              "y": 664.4608274647887
+            },
+            "end": {
+              "x": 948.012,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 12.708333,
+          "target": {
+            "x": 505,
+            "y": 510,
+            "width": 850,
+            "height": 62
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 257,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": true,
+          "source": "local authored terminal illustration; no command execution",
+          "mouse": {
+            "start": {
+              "x": 1479,
+              "y": 665
+            },
+            "end": {
+              "x": 1042.88,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 14.5,
+          "target": {
+            "x": 160,
+            "y": 285.5625,
+            "width": 1120,
+            "height": 287.953125
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1220,
+              "y": 664.431943221831
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        }
+      ],
+      "assets": [
+        {
+          "path": "public/tutorials/office/it/uninstall.mp4",
+          "bytes": 4026304,
+          "sha256": "8f3058abb8d46bdce5ae18b890854a42f712b60421cfe0214ad9310d23ecc177"
+        },
+        {
+          "path": "public/tutorials/office/it/uninstall.webp",
+          "bytes": 46458,
+          "sha256": "0a56d8bed8c7dc42be2d55886d27818685568ee897f8eb2f2c1529947a6de218"
+        },
+        {
+          "path": "public/tutorials/office/it/uninstall.vtt",
+          "bytes": 1489,
+          "sha256": "aabf0be150f2025ac80fabd60dee7064cfabbfaba659b0b549f2768c204f1678"
+        }
+      ]
+    },
+    {
+      "locale": "it",
+      "id": "reinstall",
+      "promo": false,
+      "seconds": 70.041667,
+      "voice": "it-IT-ElsaNeural",
+      "motion": [
+        {
+          "duration": 11.166667,
+          "target": {
+            "x": 160,
+            "y": 377.1875,
+            "width": 220,
+            "height": 106
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 665,
+              "y": 665.231073943662
+            },
+            "end": {
+              "x": 498.24,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 11.583333,
+          "target": {
+            "x": 433,
+            "y": 368.5625,
+            "width": 818,
+            "height": 72.1875
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 121,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1370.4666666666667,
+              "y": 664.5763644366198
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 10.583333,
+          "target": {
+            "x": 1093.984375,
+            "y": 407.75,
+            "width": 94.4375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1739.4838541666668,
+              "y": 664.6919014084507
+            },
+            "end": {
+              "x": 1376.2993333333336,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 11.041667,
+          "target": {
+            "x": 433,
+            "y": 407.84375,
+            "width": 243.8125,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1016.384375,
+              "y": 664.8074383802816
+            },
+            "end": {
+              "x": 948.012,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 10.958333,
+          "target": {
+            "x": 505,
+            "y": 510,
+            "width": 850,
+            "height": 62
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 257,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": true,
+          "source": "local authored terminal illustration; no command execution",
+          "mouse": {
+            "start": {
+              "x": 1479,
+              "y": 665
+            },
+            "end": {
+              "x": 1042.88,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 14.708333,
+          "target": {
+            "x": 160,
+            "y": 285.84375,
+            "width": 1120,
+            "height": 287.953125
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1220,
+              "y": 664.7785541373239
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        }
+      ],
+      "assets": [
+        {
+          "path": "public/tutorials/office/it/reinstall.mp4",
+          "bytes": 4156118,
+          "sha256": "3e71aeee439bc100623a4a7e6b6fe20ea23332d99b9997664c9a157538a760e8"
+        },
+        {
+          "path": "public/tutorials/office/it/reinstall.webp",
+          "bytes": 50380,
+          "sha256": "c380cfc651696f4f6193ffbd1467436e6819f95067b6c413e30667289256c167"
+        },
+        {
+          "path": "public/tutorials/office/it/reinstall.vtt",
+          "bytes": 1464,
+          "sha256": "96127b399b3baa0fe39477dbeb6896b57da6833e02fe92521fd664bf557b8f68"
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "id": "install",
+      "promo": false,
+      "seconds": 84,
+      "voice": "en-US-JennyNeural",
+      "motion": [
+        {
+          "duration": 12.666667,
+          "target": {
+            "x": 160,
+            "y": 226.1875,
+            "width": 220,
+            "height": 82
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 0,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 665,
+              "y": 644.2803697183099
+            },
+            "end": {
+              "x": 498.24,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 12.666667,
+          "target": {
+            "x": 433,
+            "y": 343.375,
+            "width": 818,
+            "height": 50.09375
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 84,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1370.4666666666667,
+              "y": 665.5199163732394
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 13.083333,
+          "target": {
+            "x": 1093.984375,
+            "y": 408.46875,
+            "width": 94.4375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1739.4838541666668,
+              "y": 665.5776848591549
+            },
+            "end": {
+              "x": 1376.2993333333336,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 13.583333,
+          "target": {
+            "x": 433,
+            "y": 407.5625,
+            "width": 191.09375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 983.8744791666667,
+              "y": 664.4608274647887
+            },
+            "end": {
+              "x": 906.3993333333334,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 15.708333,
+          "target": {
+            "x": 505,
+            "y": 510,
+            "width": 850,
+            "height": 62
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 257,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": true,
+          "source": "local authored terminal illustration; no command execution",
+          "mouse": {
+            "start": {
+              "x": 1479,
+              "y": 665
+            },
+            "end": {
+              "x": 1042.88,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 16.291667,
+          "target": {
+            "x": 160,
+            "y": 285.5625,
+            "width": 1120,
+            "height": 287.953125
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1220,
+              "y": 664.431943221831
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        }
+      ],
+      "assets": [
+        {
+          "path": "public/tutorials/office/en/install.mp4",
+          "bytes": 3973414,
+          "sha256": "393bfe58d6ebc2bad5f7fcff08c938fa27f7b0fe8f7c5f8a64385bf438af8836"
+        },
+        {
+          "path": "public/tutorials/office/en/install.webp",
+          "bytes": 34462,
+          "sha256": "8aa0b16e31e4f3786140ec6ab3a2c0574d837f7719eef32a4bbf6806e1a3efbc"
+        },
+        {
+          "path": "public/tutorials/office/en/install.vtt",
+          "bytes": 1716,
+          "sha256": "5b92b324e5b055a51076028ff5aa0ace0ab408b133a6f72349264d014eab79f9"
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "id": "activate",
+      "promo": false,
+      "seconds": 82.208333,
+      "voice": "en-US-JennyNeural",
+      "motion": [
+        {
+          "duration": 12.041667,
+          "target": {
+            "x": 160,
+            "y": 318.1875,
+            "width": 220,
+            "height": 82
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 75,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 665,
+              "y": 665.231073943662
+            },
+            "end": {
+              "x": 498.24,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 14.708333,
+          "target": {
+            "x": 433,
+            "y": 343.375,
+            "width": 818,
+            "height": 50.09375
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 84,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1370.4666666666667,
+              "y": 665.5199163732394
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 11.75,
+          "target": {
+            "x": 1093.984375,
+            "y": 408.46875,
+            "width": 94.4375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1739.4838541666668,
+              "y": 665.5776848591549
+            },
+            "end": {
+              "x": 1376.2993333333336,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 13.5,
+          "target": {
+            "x": 433,
+            "y": 407.5625,
+            "width": 191.09375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 983.8744791666667,
+              "y": 664.4608274647887
+            },
+            "end": {
+              "x": 906.3993333333334,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 13.083333,
+          "target": {
+            "x": 505,
+            "y": 510,
+            "width": 850,
+            "height": 62
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 257,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": true,
+          "source": "local authored terminal illustration; no command execution",
+          "mouse": {
+            "start": {
+              "x": 1479,
+              "y": 665
+            },
+            "end": {
+              "x": 1042.88,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 17.125,
+          "target": {
+            "x": 160,
+            "y": 285.5625,
+            "width": 1120,
+            "height": 287.953125
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1220,
+              "y": 664.431943221831
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        }
+      ],
+      "assets": [
+        {
+          "path": "public/tutorials/office/en/activate.mp4",
+          "bytes": 3981747,
+          "sha256": "78a7e1476032179eddf84d57077e95fbe3a49e3c435332d2f548b9f7977f52c1"
+        },
+        {
+          "path": "public/tutorials/office/en/activate.webp",
+          "bytes": 36830,
+          "sha256": "9bef006d9c11aa9e4f6fac926153073640a151a5ce7b1d1887698735b8bd30c9"
+        },
+        {
+          "path": "public/tutorials/office/en/activate.vtt",
+          "bytes": 1712,
+          "sha256": "5846ebf01fc95361deda7d3d0f86930f37eb663f58453a03dd285cedae5a5992"
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "id": "uninstall",
+      "promo": false,
+      "seconds": 74.166667,
+      "voice": "en-US-JennyNeural",
+      "motion": [
+        {
+          "duration": 11.916667,
+          "target": {
+            "x": 160,
+            "y": 389.1875,
+            "width": 220,
+            "height": 82
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 665,
+              "y": 665.231073943662
+            },
+            "end": {
+              "x": 498.24,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 12.541667,
+          "target": {
+            "x": 433,
+            "y": 343.375,
+            "width": 818,
+            "height": 50.09375
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 84,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1370.4666666666667,
+              "y": 665.5199163732394
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 9.583333,
+          "target": {
+            "x": 1093.984375,
+            "y": 408.46875,
+            "width": 94.4375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1739.4838541666668,
+              "y": 665.5776848591549
+            },
+            "end": {
+              "x": 1376.2993333333336,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 11,
+          "target": {
+            "x": 433,
+            "y": 407.5625,
+            "width": 191.09375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 983.8744791666667,
+              "y": 664.4608274647887
+            },
+            "end": {
+              "x": 906.3993333333334,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 13.625,
+          "target": {
+            "x": 505,
+            "y": 510,
+            "width": 850,
+            "height": 62
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 257,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": true,
+          "source": "local authored terminal illustration; no command execution",
+          "mouse": {
+            "start": {
+              "x": 1479,
+              "y": 665
+            },
+            "end": {
+              "x": 1042.88,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 15.5,
+          "target": {
+            "x": 160,
+            "y": 285.5625,
+            "width": 1120,
+            "height": 287.953125
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1220,
+              "y": 664.431943221831
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        }
+      ],
+      "assets": [
+        {
+          "path": "public/tutorials/office/en/uninstall.mp4",
+          "bytes": 4062854,
+          "sha256": "e06bcbc5ac151793d7c7f16ca47dc18b297696b4493513a2729d5e92186d0bfc"
+        },
+        {
+          "path": "public/tutorials/office/en/uninstall.webp",
+          "bytes": 44026,
+          "sha256": "56ebf5222fd9cc3afaa17271b3e66609910681f8ae97b985b4d9e6cd0b4ffb3e"
+        },
+        {
+          "path": "public/tutorials/office/en/uninstall.vtt",
+          "bytes": 1545,
+          "sha256": "5a2fa08379c6befe2e4033b752ffa2396d8f974dd0d79be6a20385d96e3195d2"
+        }
+      ]
+    },
+    {
+      "locale": "en",
+      "id": "reinstall",
+      "promo": false,
+      "seconds": 76.125,
+      "voice": "en-US-JennyNeural",
+      "motion": [
+        {
+          "duration": 11.416667,
+          "target": {
+            "x": 160,
+            "y": 389.1875,
+            "width": 220,
+            "height": 82
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 665,
+              "y": 665.231073943662
+            },
+            "end": {
+              "x": 498.24,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 13,
+          "target": {
+            "x": 433,
+            "y": 368.5625,
+            "width": 818,
+            "height": 72.1875
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 121,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1370.4666666666667,
+              "y": 664.5763644366198
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 11.75,
+          "target": {
+            "x": 1093.984375,
+            "y": 407.75,
+            "width": 94.4375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1739.4838541666668,
+              "y": 664.6919014084507
+            },
+            "end": {
+              "x": 1376.2993333333336,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 10.916667,
+          "target": {
+            "x": 433,
+            "y": 407.84375,
+            "width": 191.09375,
+            "height": 44
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 983.8744791666667,
+              "y": 664.8074383802816
+            },
+            "end": {
+              "x": 906.3993333333334,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 12.791667,
+          "target": {
+            "x": 505,
+            "y": 510,
+            "width": 850,
+            "height": 62
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 257,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": true,
+          "source": "local authored terminal illustration; no command execution",
+          "mouse": {
+            "start": {
+              "x": 1479,
+              "y": 665
+            },
+            "end": {
+              "x": 1042.88,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        },
+        {
+          "duration": 16.25,
+          "target": {
+            "x": 160,
+            "y": 285.84375,
+            "width": 1120,
+            "height": 287.953125
+          },
+          "sourceCrop": {
+            "x": 0,
+            "y": 146,
+            "width": 1440,
+            "height": 568
+          },
+          "illustration": false,
+          "source": "http://127.0.0.1:3147/toolbox/office",
+          "mouse": {
+            "start": {
+              "x": 1220,
+              "y": 664.7785541373239
+            },
+            "end": {
+              "x": 960,
+              "y": 535
+            },
+            "clickAt": 2.6
+          }
+        }
+      ],
+      "assets": [
+        {
+          "path": "public/tutorials/office/en/reinstall.mp4",
+          "bytes": 4101651,
+          "sha256": "1cd063701f4ac843a51b8b798097716e7318f4b79687d3ee2a372c1fead9b571"
+        },
+        {
+          "path": "public/tutorials/office/en/reinstall.webp",
+          "bytes": 48186,
+          "sha256": "54074d48de3c08cd35bbaec03d1b44ebf262cf6619e2b3f79d6d80c721c18def"
+        },
+        {
+          "path": "public/tutorials/office/en/reinstall.vtt",
+          "bytes": 1563,
+          "sha256": "936d8d0db76e325d8cd6e9d18ae09a1be90ba850fc09b25c2cd279a7868771f1"
+        }
+      ]
+    }
+  ]
+}
