@@ -72,9 +72,9 @@ function Get-CTPinnedEntryLoader([string]$PackageDirectory,[string]$ExpectedEntr
     $values = @{
         PACKAGE = $PackageDirectory; HASH = $ExpectedEntryHash; LANGUAGE = $Language
         RESUME = $ResumePath; OWNER = $OwnerSid; ERROR = (Get-Message 'integrity')
-        BOOTSTRAP = (Get-Message 'bootstrap'); PRESSENTER = (Get-Message 'pressEnter')
+        BOOTSTRAP = (Get-Message 'bootstrap'); PRESSENTER = (Get-Message 'pressEnter'); PACKAGEERROR = (Get-Message 'packageMissing')
     }
-    foreach ($name in @('PACKAGE','HASH','LANGUAGE','RESUME','OWNER','ERROR','BOOTSTRAP','PRESSENTER')) {
+    foreach ($name in @('PACKAGE','HASH','LANGUAGE','RESUME','OWNER','ERROR','BOOTSTRAP','PRESSENTER','PACKAGEERROR')) {
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes([string]$values[$name]))
         $loader = $loader.Replace(('__' + $name + '_B64__'),$encoded)
     }

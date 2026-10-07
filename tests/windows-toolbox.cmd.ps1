@@ -56,7 +56,7 @@ try {
         Invoke-CmdCheck $locale 437 1 $messages.integrity[$index]
         [IO.File]::WriteAllBytes($release,$releaseBytes)
         [IO.File]::Delete($entry)
-        Invoke-CmdCheck $locale 936 2 $messages.integrity[$index]
+        Invoke-CmdCheck $locale 936 2 $messages.packageMissing[$index]
         [IO.File]::WriteAllBytes($entry,$entryBytes)
         Invoke-CmdCheck $locale 936 2 $messages.missingPowerShell[$index] -MissingHost
     }

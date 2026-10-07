@@ -448,5 +448,10 @@
     "启动环境检查未通过（{0}）。请使用当前 Windows 登录用户运行完整包。",
     "Verifica dell’ambiente di avvio fallita ({0}). Esegui il pacchetto completo con l’utente Windows attualmente connesso.",
     "Startup environment check failed ({0}). Run the complete package as the currently signed-in Windows user."
+  ],
+  "packageMissing": [
+    "配套脚本未找到。请右键 ZIP 选择“全部解压”，再打开解压文件夹内的启动器。",
+    "Script mancante. Estrai tutto lo ZIP, poi apri Start nella cartella estratta.",
+    "Script missing. Extract the entire ZIP, then open Start from the extracted folder."
   ]
 }
