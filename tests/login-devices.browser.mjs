@@ -90,8 +90,20 @@ export async function browserProof(owner,staff,storeId,pass,origin=process.env.L
  await region.getByRole('button',{name:'撤销该员工所有设备的本店访问'}).click();await op.getByRole('dialog').getByRole('button',{name:'确认',exact:true}).click();await expect(op.getByRole('dialog')).not.toBeVisible();await expect(op.getByText('已撤销本门店访问',{exact:true}).first()).toBeVisible();
  await page.goto(origin+'/app/dashboard');await page.waitForURL('**/account/pending');
  await page.goto(origin+'/account/settings');await expect(page.getByRole('heading',{name:'登录设备',exact:true})).toBeVisible();
+ // Self-store logout must leave the personal account session usable.
+ await region.locator('select').selectOption({label:'Synthetic owner'},{force:true});
+ await expect(region.getByText('当前设备',{exact:true})).toHaveCount(1);
+ const ownList=await (await op.request.get(origin+'/api/backend/staff/sessions?memberId='+await region.locator('select').inputValue())).json();
+ assert.ok(ownList.devices.filter(device=>!device.revoked).length>1,'Self revoke must include multiple already-visited owner store sessions');
+ await region.getByRole('button',{name:'撤销该员工所有设备的本店访问'}).click();await expect(op.getByRole('dialog')).toBeVisible();
+ const ownRevocation=op.waitForResponse(response=>response.url().endsWith('/api/backend/staff/sessions/revoke')&&response.request().method()==='POST');
+ await op.getByRole('dialog').getByRole('button',{name:'确认',exact:true}).click();
+ const ownResult=await ownRevocation;assert.equal(ownResult.status(),200);assert.equal((await ownResult.json()).currentStoreRevoked,true);
+ await op.waitForURL('**/account/pending');
+ assert.equal((await op.request.get(origin+'/api/auth/account/session')).status(),200);assert.equal((await op.request.get(origin+'/api/backend/state')).status(),403);
+ await op.goto(origin+'/account/settings');await expect(op.getByRole('heading',{name:'登录设备',exact:true})).toBeVisible();await expect(op.getByText('当前设备',{exact:true})).toHaveCount(1);
  assert.deepEqual(errors,[]);results.push(name);await oc.close();await other.close();await context.close();
  } finally {await browser.close();}
  }
- writeFileSync('.local/login-devices/browser.json',JSON.stringify({engines:results,widths:[1440,1024,390,375],languages:['zh-CN','it','en'],actualPhysicalDevice:false},null,2));pass('real Chromium/WebKit UI: four widths, three languages, browser reopen, personal logout, owner store-only revoke, cross-tab identity/session reset and stale-scope rejection');
+ writeFileSync('.local/login-devices/browser.json',JSON.stringify({engines:results,widths:[1440,1024,390,375],languages:['zh-CN','it','en'],actualPhysicalDevice:false},null,2));pass('real Chromium/WebKit UI: four widths, three languages, browser reopen, personal logout, owner store-only revoke, cross-tab identity/session reset, stale-scope rejection and owner self-store logout');
 }

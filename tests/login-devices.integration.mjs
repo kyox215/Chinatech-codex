@@ -124,6 +124,23 @@ try {
  const others={requestId:randomUUID(),scope:'others'};assert.equal((await req(a,'/api/auth/account/sessions/revoke',others,staff.id)).status,200);assert.equal((await req(a,'/api/auth/account')).status,200);assert.equal((await req(anew,'/api/auth/account')).status,401);
  const snap=new Map(a);assert.equal((await req(a,'/api/auth/logout',{})).status,200);assert.equal((await req(snap,'/api/auth/account')).status,401);
  pass('sign out all other sessions preserves current; local logout rejects captured original cookies');
+ // Independent owner/store: do not change the existing cross-store fixtures.
+ const selfOwner=await create('self-owner'),selfStore=randomUUID();stores.push(selfStore);
+ await sql`insert into chinatech_v2.stores(id,name) values(${selfStore},'Synthetic self-revoke store')`;
+ await sql`insert into chinatech_v2_private.store_state(store_id,settings) values(${selfStore},${sql.json({revision:0,shopName:'Synthetic self-revoke store',address:'Test',phone:'',paper:'a4',repairWarrantyMonths:6,retailWarrantyMonths:12,suppliers:[],finance:[]})})`;
+ const [selfMember]=await sql`insert into chinatech_v2.store_memberships(store_id,user_id,role,membership_status,permissions) values(${selfStore},${selfOwner.id},'owner','active',${permissions}) returning id`;
+ const ownSessions=[];
+ for(let index=0;index<3;index++) { const jar=await login(selfOwner,false);jar.set('ct_store',selfStore);assert.equal((await req(jar,'/api/backend/state')).status,200);ownSessions.push({jar,id:(await current(jar)).id}); }
+ ownSessions.sort((left,right)=>left.id<right.id?-1:left.id>right.id?1:0);
+ const selfActor=ownSessions[0],selfRequest=randomUUID();
+ const beforeSelf=await sql`select session_id,revision,revoked_at from chinatech_v2_private.store_login_sessions where store_id=${selfStore} order by session_id`;
+ assert.equal(beforeSelf.length,3);assert.equal(beforeSelf[0].session_id,selfActor.id);assert.ok(beforeSelf.every(row=>row.revoked_at===null&&row.revision===1));
+ const selfRevoke=await req(selfActor.jar,'/api/backend/staff/sessions/revoke',{requestId:selfRequest,memberId:selfMember.id,scope:'all'},selfOwner.id);assert.equal(selfRevoke.status,200);assert.equal((await selfRevoke.json()).currentStoreRevoked,true);
+ const afterSelf=await sql`select revision,revoked_at from chinatech_v2_private.store_login_sessions where store_id=${selfStore} order by session_id`;
+ assert.equal(afterSelf.length,3);assert.ok(afterSelf.every(row=>row.revoked_at!==null&&row.revision===2),'Every store session changes exactly once');
+ const [selfReceipt]=await sql`select count(*)::int as count from chinatech_v2_private.session_audit where actor_id=${selfOwner.id} and request_id=${selfRequest}`;assert.equal(selfReceipt.count,1);
+ for(const own of ownSessions) { assert.equal((await req(own.jar,'/api/backend/state')).status,403);assert.equal((await req(own.jar,'/api/auth/account/session')).status,200); }
+ pass('owner store-all self-revoke with smallest UUID actor commits every target once, writes one receipt, denies all store sessions and preserves accounts');
  const {browserProof}=await import('./login-devices.browser.mjs');await browserProof(owner,staff,stores[0],pass,origin);
  mkdirSync('.local/login-devices',{recursive:true});writeFileSync('.local/login-devices/integration.json',JSON.stringify({checks,timings,productionWrites:0},null,2));
 }finally {

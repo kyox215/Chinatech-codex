@@ -59,6 +59,13 @@ export async function manageDevices(request: NextRequest, storeMode: boolean, wr
         if (access) await tx`select chinatech_v2_private.lock_store_session(${access.storeId},${row.session_id})`;
         if (row.revoked_at) continue;
         if (body.scope === "one" && row.revision !== body.revision) throw new AuthRequestError("设备状态已变化，请重新读取。", 409);
+      }
+      // Finish all owner checks and acquire parent locks in stable UUID order.
+      // Revoking the actor's store access must be the last store update, since
+      // the remaining rows' RLS still checks that actor's live store access.
+      const updates = access ? [...rows.filter(row => row.session_id !== identity.sessionId), ...rows.filter(row => row.session_id === identity.sessionId)] : rows;
+      for (const row of updates) {
+        if (row.revoked_at) continue;
         if (access) await tx`update chinatech_v2_private.store_login_sessions set revoked_at=now(),revision=revision+1 where store_id=${access.storeId} and session_id=${row.session_id} and revoked_at is null`;
         else await tx`update chinatech_v2_private.login_sessions set revoked_at=now(),revision=revision+1 where session_id=${row.session_id} and user_id=${target} and revoked_at is null`;
       }
@@ -70,7 +77,7 @@ export async function manageDevices(request: NextRequest, storeMode: boolean, wr
         if (typeof reason === "object" && reason !== null && "code" in reason && reason.code === "23505" && "constraint_name" in reason && reason.constraint_name === "session_audit_pkey") throw Object.assign(new Error("登录设备暂不可用，请稍后重试。"), { code: "40001" });
         throw reason;
       }
-      return { ok: true, currentRevoked: !access && body.sessionId === identity.sessionId };
+      return { ok: true, currentRevoked: !access && body.sessionId === identity.sessionId, currentStoreRevoked: Boolean(access && rows.some(row => row.session_id === identity.sessionId)) };
     });
     if ("currentRevoked" in result && result.currentRevoked) {
       try { await supabase.auth.signOut({ scope: "local" }); } catch { /* The project session is already revoked. */ }

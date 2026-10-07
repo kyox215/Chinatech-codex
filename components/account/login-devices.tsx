@@ -98,6 +98,7 @@ export function LoginDevicesPanel({ storeMode = false }: { storeMode?: boolean }
       }
       retry.current = null; dialog.current?.close(); setConfirmation(null);
       if (payload.currentRevoked) { clearBackend(); router.replace("/login"); router.refresh(); return; }
+      if (payload.currentStoreRevoked) { clearBackend(); router.replace("/account/pending"); router.refresh(); return; }
       setMessage(storeMode ? "已撤销本门店访问" : "已退出所选登录设备");
       await load();
     } catch (reason) { if (generation === epoch.current) setError(reason instanceof Error && !["TimeoutError", "TypeError", "AbortError"].includes(reason.name) ? reason.message : "连接中断，结果尚未确认；请重试原操作。"); }
