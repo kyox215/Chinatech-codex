@@ -7,6 +7,7 @@ import { Brand } from "@/components/brand";
 import { ProductPreview } from "@/components/home/product-preview";
 import { WorkflowTour } from "@/components/home/workflow-tour";
 import { TutorialLibrary } from "@/components/home/tutorial-library";
+import { AccountActions } from "./account-actions";
 import { PublicHeader } from "@/components/home/public-header";
 import styles from "./home.module.css";
 
@@ -24,7 +25,7 @@ export default function HomePageContent() {
     <PublicHeader />
 
     <section className={styles.hero} id="main-content"><div className={styles.heroInner}>
-      <div className={styles.heroCopy}><span className={styles.pill}><span />{t("为维修门店的每一天")}</span><h1>{t("让繁忙有序，")}<br />{t("让维修")}<span>{t("更简单。")}</span></h1><p>{t("从接机、配件到货，到整机销售。")}<br className={styles.desktopBreak} />{t("把门店的日常，整理在一个清晰的工作台。")}</p><div className={styles.heroActions}><Link className="button button--primary" href="/login">{t("开始使用")}<ArrowRight size={18} /></Link><a className="button button--secondary" href="#tutorials">{t("观看使用教程")}<ArrowDown size={16} /></a></div><div className={styles.heroFoot}><span><Check size={15} />{t("电脑与手机皆可用")}</span><span><ShieldCheck size={15} />{t("按门店授权访问")}</span></div></div>
+      <div className={styles.heroCopy}><span className={styles.pill}><span />{t("为维修门店的每一天")}</span><h1>{t("让繁忙有序，")}<br />{t("让维修")}<span>{t("更简单。")}</span></h1><p>{t("从接机、配件到货，到整机销售。")}<br className={styles.desktopBreak} />{t("把门店的日常，整理在一个清晰的工作台。")}</p><div className={styles.heroActions}><AccountActions variant="primary" /><a className="button button--secondary" href="#tutorials">{t("观看使用教程")}<ArrowDown size={16} /></a></div><div className={styles.heroFoot}><span><Check size={15} />{t("电脑与手机皆可用")}</span><span><ShieldCheck size={15} />{t("按门店授权访问")}</span></div></div>
       <div className={styles.heroVisual}><div className={styles.orbit} aria-hidden="true" /><ProductPreview /></div>
     </div><div className={styles.moduleStrip}><span>{t("一个工作台，串起门店日常")}</span><div><span><Wrench size={19} />{t("维修工单")}</span><i /><span><PackageCheck size={19} />{t("采购到货")}</span><i /><span><Laptop size={19} />{t("整机档案")}</span><i /><span><History size={19} />{t("客户与历史")}</span></div></div></section>
 
@@ -42,7 +43,7 @@ export default function HomePageContent() {
     <section className={`${styles.section} ${styles.devicesSection}`}><div className={styles.devicesCopy}><span className={styles.sectionLabel}>{t("在柜台，也在手边")}</span><h2>{t("电脑上看全局，")}<br />{t("手机上接着做。")}</h2><p>{t("同一个网站，适合不同的工作时刻。坐下来处理列表，拿起手机记录设备与照片。")}</p><ul><li><CheckCheck size={20} />{t("桌面完整列表，查看更从容")}</li><li><Smartphone size={20} />{t("手机单栏操作，接机更顺手")}</li><li><ShieldCheck size={20} />{t("两端沿用相同的门店权限")}</li></ul></div><div className={styles.devicesGraphic} aria-label={t("电脑与手机界面示意")}><div className={styles.miniDesktop}><div><Laptop size={18} /><strong>{t("门店工作台")}</strong><span>{t("示意")}</span></div><div className={styles.miniColumns}><span>{t("待处理")}<i /><i /><i /></span><span>{t("进行中")}<i /><i /></span><span>{t("已完成")}<i /><i /><i /></span></div></div><div className={styles.miniPhone}><span /><small>ChinaTech</small><strong>{t("随手，记清楚。")}</strong><div><Smartphone size={29} /><b>{t("接机登记")}</b><small>{t("客户设备 · 维修需求")}</small></div><div><Check size={17} />{t("资料已记录")}</div><div><PackageCheck size={17} />{t("继续跟进")}</div></div></div></section>
 
     <section className={`${styles.section} ${styles.faqSection}`} id="questions"><div><span className={styles.sectionLabel}>{t("开始之前")}</span><h2>{t("你可能想了解")}</h2><p>{t("关于账号、设备与日常使用。")}</p></div><div className={styles.faqList}>{faqs.map(([question, answer]) => <details key={question}><summary>{t(question)}<ChevronDown size={18} /></summary><p>{t(answer)}</p></details>)}</div></section>
-    <section className={styles.finalCta}><span className={styles.ctaIcon}><Wrench size={28} /></span><h2>{t("下一步，从这里开始。")}</h2><p>{t("登录 ChinaTech，继续门店今天的工作。")}</p><div><Link className="button button--primary" href="/login">{t("登录工作台")}<ArrowRight size={17} /></Link><Link className="button button--secondary" href="/register">{t("创建账号")}</Link></div></section>
-    <footer className={styles.footer}><Brand /><p>{t("© 2026 ChinaTech · 让门店日常井井有条")}</p><div><Link href="/toolbox">{t("工具箱")}</Link><a href="#tutorials">{t("使用帮助")}</a><Link href="/login">{t("登录")}</Link><Link href="/register">{t("注册")}</Link></div></footer>
+    <section className={styles.finalCta}><span className={styles.ctaIcon}><Wrench size={28} /></span><h2>{t("下一步，从这里开始。")}</h2><p>{t("登录 ChinaTech，继续门店今天的工作。")}</p><div><AccountActions variant="cta" /></div></section>
+    <footer className={styles.footer}><Brand /><p>{t("© 2026 ChinaTech · 让门店日常井井有条")}</p><div><Link href="/toolbox">{t("工具箱")}</Link><a href="#tutorials">{t("使用帮助")}</a><AccountActions variant="footer" /></div></footer>
   </main>;
 }

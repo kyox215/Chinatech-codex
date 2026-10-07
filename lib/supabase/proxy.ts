@@ -11,7 +11,7 @@ export async function updateSupabaseSession(request: NextRequest) {
   if (!isSupabaseMode()) return response;
   preventAuthCaching(response);
   // A keepalive activity write must never restore a previous account via late cookies.
-  if (request.nextUrl.pathname === "/api/auth/activity") return response;
+  if (["/api/auth/activity", "/api/auth/status"].includes(request.nextUrl.pathname)) return response;
   try {
     const { url, publishableKey } = getSupabaseConfig();
     const supabase = createServerClient(url, publishableKey, {

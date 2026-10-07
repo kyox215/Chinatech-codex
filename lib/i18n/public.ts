@@ -1,5 +1,7 @@
 // Auth and public website copy. Customer text and stored business values are never translated here.
 export const publicMessages: Record<string, readonly [string, string]> = {
+"重新检查": ["Verifica di nuovo", "Check again"],
+"正在核对账号状态…": ["Verifica dello stato account…", "Checking account status…"],
 "Windows 11 Pro 升级": ["Aggiornamento a Windows 11 Pro", "Windows 11 Pro upgrade"],
 "保留文件与应用的就地升级工具": ["Strumento di aggiornamento che mantiene file e app", "In-place upgrade tool retaining files and apps"],
 "Windows 升级检测版": ["Verifica aggiornamento Windows", "Windows upgrade inspection release"],

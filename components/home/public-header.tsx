@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, PanelsTopLeft } from "lucide-react";
+import { ArrowLeft, PanelsTopLeft } from "lucide-react";
+import { AccountActions } from "./account-actions";
+import { useEffect, useRef } from "react";
+import { useAuthStatus } from "@/components/auth-status-provider";
 import { Brand } from "@/components/brand";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useLanguage } from "@/components/language-provider";
@@ -9,14 +12,23 @@ import styles from "./home.module.css";
 
 export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" | "office" | "windows" }) {
   const { t } = useLanguage();
+  const { status } = useAuthStatus();
   const isHome = page === "home";
   const isTool = page === "office" || page === "windows";
+  const header = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const element = header.current;
+    const parent = element?.parentElement;
+    if (!element || !parent) return;
+    const measure = () => parent.style.setProperty("--public-header-offset", `${element.getBoundingClientRect().height + 16}px`);
+    const observer = new ResizeObserver(measure); observer.observe(element); measure();
+    return () => { observer.disconnect(); parent.style.removeProperty("--public-header-offset"); };
+  }, []);
 
-  return <header className={styles.header}><div className={styles.headerInner}>
+  return <header ref={header} className={styles.header} data-signed-in={status.state === "workspace" || status.state === "account" || status.state === "unverified"}><div className={styles.headerInner}>
     <div className={styles.headerLeft}>
       <nav className={styles.authNav} aria-label={t("账户入口")}>
-        <Link href="/login">{t("登录")}</Link>
-        <Link className="button button--primary" href="/register">{t("注册")}</Link>
+        <AccountActions />
       </nav>
       <span className={styles.divider} />
       <Brand compact />
@@ -27,11 +39,10 @@ export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" | "o
       <a href="#workflow">{t("业务流程")}</a>
       <a href="#questions">{t("常见问题")}</a>
     </nav>}
-    <Link className={styles.publicLink} href={isHome || isTool ? "/toolbox" : "/"}>
+    <Link className={styles.publicLink} href={isHome || isTool ? "/toolbox" : "/"} aria-label={t(isHome ? "工具箱" : isTool ? "返回工具箱" : "返回首页")}>
       {isHome ? <PanelsTopLeft size={17} aria-hidden="true" /> : <ArrowLeft size={17} aria-hidden="true" />}
-      {t(isHome ? "工具箱" : isTool ? "返回工具箱" : "返回首页")}
+      <span className={styles.publicLinkLabel}>{t(isHome ? "工具箱" : isTool ? "返回工具箱" : "返回首页")}</span>
     </Link>
     <LanguageSwitcher />
-    <Link className={styles.workspaceLink} href="/app/dashboard">{t("进入工作台")}<ArrowRight size={16} aria-hidden="true" /></Link>
   </div></header>;
 }

@@ -71,3 +71,15 @@ OAuth redirectTo 仍限定当前可信 origin 与 /auth/callback，新增 ?inten
 本次发布已安装兼容生产迁移 20261007131534，四表 FORCE RLS、匿名/客户端零新增DML与内部执行授权、runtime不能enable、缺记录0、enabled=false已核对。源SQL与原CLI候选20261006205638字节一致，仅按工具实际生产version对齐文件名。严格启用须在新应用上线核验后执行。
 
 发布前补充反例：老板以UUID最前会话撤销自己的全部本店会话，原循环先撤销actor导致后续权限拒绝并503完整回滚。现先稳定序锁定全部父会话/校验版本，再先更改其他会话、actor最后；当前本店访问撤销回执让界面返回待授权，个人账号仍可用。独立本地三会话反例200、版本各+1、唯一审计1、门店403/个人200并精确清理通过，长期API/双浏览器增加此例。
+
+## 2026-10-07 首页与账号状态闭环
+
+用户选择已登录返回首页仍保留公开介绍。统一AuthStatus状态anonymous/unverified/account/workspace/unavailable；scope为服务器HMAC显示范围，不含账号/会话原ID、邮箱或token，不作为授权。GET /api/auth/status最小读取有效身份、项目live_user及当前选中/默认门店member_access，禁止Cookie和CDN缓存；proxy跳过它与activity。整页导航正常刷新会话；过期token的非可信hint只返回409 SESSION_REFRESH_REQUIRED，公开操作显示重核并由用户重试整页刷新，轮询不刷新Cookie。
+
+首页及工具箱三页公共导航隐藏已登录账号的登录/注册，统一工作台/账号状态、账号设置、退出；首页首屏/底部/页脚同步。登录/注册已有有效会话分流，待授权核验实际项目会话，可重查并观察授权变化；服务故障在登录/注册/账号设置显示专用重试。OAuth/邮箱确认/绑定/恢复入口不受普通登录分流拦截。
+
+AuthStatusProvider前台30秒只读、focus/online/visibility/pageshow及子路由重核，事件去重、Abort/epoch防迟到；子路由不恢复旧initial。可信pointer/keyboard在公开页按分钟上报账号活动，后台/轮询不续期。BroadcastChannel/无身份随机storage通知只触发核验；受保护页跨标签变化销毁内存后整页权威重读。本地预览仍独立且正式production不开放预览。
+
+本地验收：9新增状态单测，34定向Auth/策略测试；最新候选401测试中400通过+1既有Windows原生parser未配置skip。8新增双浏览器回归；受影响98浏览器用例最初94通过，4失败定向修复动态公共栏锚点及教程只读状态请求后补验通过。真实隔离55421/55422合成账号10组检查覆盖老板/员工/无成员/未验证、成员和账号停用、撤销、31天闲置、只读不续期/不登记门店访问、409不发Cookie、登录/首页/工具箱/分流/退出后退/跨标签/503/持久布局/无JS SSR及三语四宽度。
+
+证据.local/auth-loop/integration.json与对应日志；实际window.error/unhandledrejection为0。WebKit原生fetch/SSE取消由Playwright Console.messageAdded桥接成pageerror，精确原始网络报告另存nativeCancelled/failedRequests，不当作已发生页面JS异常，也不声称所有网络零取消。公开导航截图已实际查看；未验实体iPhone、真实外部OAuth/SMS和物理重开。上线版本/CI/正式会话证据另记PROJECT_MEMORY，不能以此本地记录冒充上线。无schema/Auth配置/业务数据迁移。

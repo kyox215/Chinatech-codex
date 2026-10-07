@@ -372,3 +372,7 @@ RepairPartForm复用SearchCombobox及既有field-grid／button语义，只保留
 ## 2026-10-07 登录会话发布
 
 本次登录勾选、活动追踪、个人/员工设备复用既有控件、三语和权限边界；用途/nonce隔离、原会话政策继承、账号+会话清草稿/确认、两个身份header、Cookie退出清理与窄范围幂等竞争处理共用正式后端。迁移先兼容、验证应用后严格启用，保留共享Auth及已提交业务；完整产品/迁移/当前验收见[登录设备29](29-login-session-devices.md)。
+
+## 2026-10-07 公开账号入口与会话状态
+
+公开首页和工具箱复用PublicHeader、Brand、LanguageSwitcher、LogoutButton及button/icon-button；AccountActions统一导航、首屏、底部行动与页脚。AuthStatusProvider读取最小服务端状态，所有门店写入仍在原领域边界。手机账号操作同排、44px，工具箱图标保留完整可访问名；ResizeObserver只测量公共栏高度，用局部--public-header-offset处理公开锚点，长译文不靠缩字或遮挡。AuthStatusUnavailable复用AuthFrame内表单语义。验证及限制见docs29与PROJECT_MEMORY。

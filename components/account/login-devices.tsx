@@ -1,4 +1,5 @@
 "use client";
+import { notifyAuthChanged } from "@/lib/auth-events";
 import { useRouter } from "next/navigation";
 import { clearBackend, isBackendClient } from "@/lib/backend/client";
 import { useId, useCallback, useEffect, useRef, useState } from "react";
@@ -97,6 +98,7 @@ export function LoginDevicesPanel({ storeMode = false }: { storeMode?: boolean }
         throw new Error(payload.message || "操作未完成，请重试。");
       }
       retry.current = null; dialog.current?.close(); setConfirmation(null);
+      notifyAuthChanged();
       if (payload.currentRevoked) { clearBackend(); router.replace("/login"); router.refresh(); return; }
       if (payload.currentStoreRevoked) { clearBackend(); router.replace("/account/pending"); router.refresh(); return; }
       setMessage(storeMode ? "已撤销本门店访问" : "已退出所选登录设备");
