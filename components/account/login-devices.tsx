@@ -25,6 +25,7 @@ export function LoginDevicesPanel({ storeMode = false }: { storeMode?: boolean }
   const [confirmation, setConfirmation] = useState<Operation | null>(null);
   const [message, setMessage] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
+  const panel = useRef<HTMLElement>(null);
   const abort = useRef<AbortController | null>(null);
   const inFlight = useRef(false);
   const epoch = useRef(0);
@@ -71,6 +72,14 @@ export function LoginDevicesPanel({ storeMode = false }: { storeMode?: boolean }
     window.addEventListener("focus", refresh); window.addEventListener("online", refresh);
     return () => { window.removeEventListener("focus", refresh); window.removeEventListener("online", refresh); };
   }, [load]);
+  useEffect(() => {
+    if (!allowed || storeMode || window.location.hash !== "#login-devices") return;
+    let active = true;
+    // Account forms mount after their authoritative read. Resolve the explicit
+    // device shortcut once its target exists, rather than scrolling before load.
+    queueMicrotask(() => { if (active) panel.current?.scrollIntoView({ block: "start", behavior: "instant" }); });
+    return () => { active = false; };
+  }, [allowed, storeMode]);
   function ask(scope: Operation["scope"], device?: LoginDevice) {
     if (inFlight.current || loading || !data) return;
     setError(""); setMessage("");
@@ -108,7 +117,7 @@ export function LoginDevicesPanel({ storeMode = false }: { storeMode?: boolean }
   }
   const time = (value: string) => new Intl.DateTimeFormat(locale === "zh-CN" ? "zh-CN" : locale === "it" ? "it-IT" : "en-GB", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
   if (!allowed) return null;
-  return <section className={`panel ${styles.panel}`} aria-label={t(storeMode ? "员工登录设备" : "登录设备")} aria-busy={loading || busy}>
+  return <section ref={panel} id={storeMode ? undefined : "login-devices"} className={`panel ${styles.panel}`} aria-label={t(storeMode ? "员工登录设备" : "登录设备")} aria-busy={loading || busy}>
     <header className={styles.header}><h2>{t(storeMode ? "员工登录设备" : "登录设备")}</h2><button type="button" className="button button--secondary" disabled={loading || busy} onClick={() => void load()}>{t("刷新")}</button></header>
     {storeMode ? <><p>{t("仅撤销此设备的本店访问，其他门店不受影响；重新登录后可恢复。")}</p><label className="field"><span>{t("员工")}</span><SelectControl value={selected} disabled={busy} onChange={event => { setMemberId(event.target.value); setOffset(0); setMessage(""); }}>{staff.data.members.filter(row => row.membershipStatus === "active").map(member => <option key={member.id} value={member.id}>{member.name}</option>)}</SelectControl></label></> : <p>{t("每项代表一个浏览器登录，多个标签页共享同一登录。")}</p>}
     {message ? <p role="status">{t(message)}</p> : null}

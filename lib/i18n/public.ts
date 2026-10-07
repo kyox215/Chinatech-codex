@@ -1,5 +1,13 @@
 // Auth and public website copy. Customer text and stored business values are never translated here.
 export const publicMessages: Record<string, readonly [string, string]> = {
+"当前账号": ["Account attuale", "Current account"],
+"账号详情": ["Dettagli account", "Account details"],
+"已获门店授权": ["Accesso al negozio autorizzato", "Store access granted"],
+"邮箱验证": ["Verifica email", "Email verification"],
+"当前门店": ["Negozio attuale", "Current store"],
+"门店成员": ["Membro del negozio", "Store member"],
+"角色": ["Ruolo", "Role"],
+
 "{architecture} · {size} MB": ["{architecture} · {size} MB", "{architecture} · {size} MB"],
 "Office 桌面助手": ["Assistente Office desktop", "Office desktop assistant"],
 "版本 {version} · Windows 11 · 使用本人 Windows 管理员账号 · 需要联网": ["Versione {version} · Windows 11 · Usa il tuo account amministratore Windows · Connessione richiesta", "Version {version} · Windows 11 · Use your own Windows administrator account · Internet required"],

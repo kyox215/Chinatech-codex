@@ -28,7 +28,7 @@ export function AuthStatusProvider({ initial, children }: { initial: AuthStatus;
       setChecking(true);
       void fetch("/api/auth/status", { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12000)]) }).then(async response => {
         if (response.status === 409) {
-          if (alive && epoch === generation) { needsDocumentRefresh.current = true; current = { ...current, state: "unavailable" }; setStatus(current); }
+          if (alive && epoch === generation) { needsDocumentRefresh.current = true; current = { ...current, state: "unavailable", account: null, store: null }; setStatus(current); }
           return;
         }
         const next: AuthStatus = await response.json();
@@ -38,7 +38,7 @@ export function AuthStatusProvider({ initial, children }: { initial: AuthStatus;
         if (next.state !== "unavailable" && (next.scope !== current.scope || next.state === "anonymous")) clearBackend();
         current = next; setStatus(next);
       }).catch(() => {
-        if (alive && epoch === generation && !controller.signal.aborted) { current = { ...current, state: "unavailable" }; setStatus(current); }
+        if (alive && epoch === generation && !controller.signal.aborted) { current = { ...current, state: "unavailable", account: null, store: null }; setStatus(current); }
       }).finally(() => { if (alive && epoch === generation) { flight = undefined; setChecking(false); } });
     };
     control.current = () => check(true);
@@ -49,7 +49,14 @@ export function AuthStatusProvider({ initial, children }: { initial: AuthStatus;
       void fetch("/api/auth/activity", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ store: false }), signal: AbortSignal.timeout(10000) }).then(response => { if (!response.ok) { lastActivity = 0; if (alive) check(true); } }).catch(() => { lastActivity = 0; });
     };
     const foreground = () => { window.clearTimeout(foregroundTimer); foregroundTimer = window.setTimeout(() => check(true), 60); };
-    const unsubscribe = subscribeAuthChanged(foreground);
+    const identityChanged = () => {
+      // Identity notifications invalidate private facts immediately, including
+      // hidden tabs. The following HTTP read alone establishes the new identity.
+      epoch++; flight?.abort(); flight = undefined; needsDocumentRefresh.current = false;
+      clearBackend(); current = { ...current, state: "unavailable", account: null, store: null };
+      setStatus(current); setChecking(true); foreground();
+    };
+    const unsubscribe = subscribeAuthChanged(identityChanged);
     window.addEventListener("focus", foreground); window.addEventListener("online", foreground); window.addEventListener("pageshow", foreground);
     document.addEventListener("visibilitychange", foreground);
     document.addEventListener("pointerdown", interacted); document.addEventListener("keydown", interacted);

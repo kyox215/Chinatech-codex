@@ -50,3 +50,25 @@
 @media(max-width:767px) { .header[data-signed-in=true] .authNav { flex-wrap: nowrap; } .header[data-signed-in=true] .publicLink { width: 44px; height: 44px; padding: 0; justify-content: center; } .header[data-signed-in=true] .publicLinkLabel { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
 
 @media(max-width:767px) { .header[data-signed-in=true] .authNav { grid-column: 1 / -1; padding-right: 54px; } .header[data-signed-in=true] .authNav > a { flex-shrink: 0; white-space: nowrap; } .header[data-signed-in=true] .publicLink { justify-self: end; } }
+
+/* Account disclosure uses the same native details semantics as AppShell. */
+.accountMenu { position: relative; flex: 1 1 auto; min-width: 0; max-width: 180px; }
+.accountTrigger { display: flex; align-items: center; gap: 7px; min-height: 44px; min-width: 0; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); font-size: 14px; font-weight: 650; cursor: pointer; list-style: none; }
+.accountTrigger::-webkit-details-marker { display: none; }
+.accountTrigger > svg { flex: 0 0 auto; transition: transform .15s; }
+.accountMenu[open] .accountTrigger > svg { transform: rotate(180deg); }
+.accountTrigger:focus-visible { outline: 2px solid var(--primary-600); outline-offset: 2px; }
+.accountName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.accountPanel { position: absolute; top: calc(100% + 8px); left: 0; z-index: 30; width: min(330px,calc(100vw - 32px)); max-height: calc(100dvh - var(--public-header-offset, 140px) - 24px); overflow: auto; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow-md); }
+.accountIdentity { display: grid; gap: 5px; padding-bottom: 12px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.accountIdentity strong { font-size: 15px; }
+.accountIdentity span { color: var(--text-secondary); font-size: 13px; }
+.accountFacts { display: grid; gap: 10px; margin: 14px 0; font-size: 13px; }
+.accountFacts > div { display: grid; grid-template-columns: 82px minmax(0,1fr); gap: 10px; }
+.accountFacts dt { color: var(--text-secondary); }
+.accountFacts dd { margin: 0; overflow-wrap: anywhere; }
+.accountLinks { display: grid; gap: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+.accountLinks > a,.accountPanelLogout { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 9px 8px; border: 0; border-radius: var(--radius-control); background: transparent; font-size: 14px; text-align: left; cursor: pointer; }
+.accountLinks > a:hover,.accountPanelLogout:hover { background: var(--surface-subtle); }
+@media(max-width:767px) { .accountTrigger :global(.profile-menu__avatar) { width: 24px; height: 24px; } .accountTrigger { gap: 5px; padding-inline: 5px; } .accountPanel { left: 0; } }
+@media(prefers-reduced-motion:reduce) { .accountTrigger > svg { transition: none; } }

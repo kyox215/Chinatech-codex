@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     if (!isSupabaseMode()) status = await getAuthStatus();
     else {
       const token = readAuthAccessToken(request.cookies.getAll());
-      if (!token) status = { state: "anonymous", scope: null, formal: true };
+      if (!token) status = { state: "anonymous", scope: null, formal: true, account: null, store: null };
       else {
         // An expiry hint can only request an explicit document refresh. It grants
         // no identity and never writes cookies from a background request.
@@ -24,6 +24,6 @@ export async function GET(request: NextRequest) {
       }
     }
   }
-  catch { status = { state: "unavailable", scope: null, formal: isSupabaseMode() }; }
+  catch { status = { state: "unavailable", scope: null, formal: isSupabaseMode(), account: null, store: null }; }
   return preventAuthCaching(NextResponse.json(status, { status: status.state === "unavailable" ? 503 : 200 }));
 }

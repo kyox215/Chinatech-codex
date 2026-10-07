@@ -376,3 +376,8 @@ RepairPartForm复用SearchCombobox及既有field-grid／button语义，只保留
 ## 2026-10-07 公开账号入口与会话状态
 
 公开首页和工具箱复用PublicHeader、Brand、LanguageSwitcher、LogoutButton及button/icon-button；AccountActions统一导航、首屏、底部行动与页脚。AuthStatusProvider读取最小服务端状态，所有门店写入仍在原领域边界。手机账号操作同排、44px，工具箱图标保留完整可访问名；ResizeObserver只测量公共栏高度，用局部--public-header-offset处理公开锚点，长译文不靠缩字或遮挡。AuthStatusUnavailable复用AuthFrame内表单语义。验证及限制见docs29与PROJECT_MEMORY。
+
+
+## 2026-10-08 公开页具名账号菜单
+
+`components/home/account-menu.tsx` 复用原生 details/summary、既有 profile-menu__avatar、button/icon-button、LogoutButton、角色词条和语义 token；模块 CSS 负责公开导航锚定、44px 触控、完整资料换行及受限视口滚动。导航按账号名称／工作台／退出显示；名称过长只截断触发器，展开仍完整显示。点击外部、焦点移出及 Escape 关闭；身份或状态变化重建菜单。复用个人账号设置，登录设备链接定位其异步挂载面板；不复制设置表单或扩门店权限。中／意／英及四宽度已覆盖，详见 docs29 本轮证据。
