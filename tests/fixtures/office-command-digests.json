@@ -1,0 +1,18 @@
+{
+  "install": {
+    "cmd": "8bc0c683da5b2d0247ef58b04a175b0bf13f8c3f14de1fdf69be4bc9dde18ef8",
+    "powershell": "76edb6ddf9e30f170a2334c44705eb1619ad89cf2eb416e6797e56a6007daa02"
+  },
+  "uninstall": {
+    "cmd": "747c547937c674ac0a490acf289459bf15897a82e0adfb5c645c81b69ddb8a7a",
+    "powershell": "f9b2db8f50a60830ea1763ba534d1e1b031a0c12bd1642c4816d2ca5529bea02"
+  },
+  "activate": {
+    "cmd": "8a06ad3754494235f740ac86afd4a4194c2b39940df375c7f4c3c446e9e59bf4",
+    "powershell": "06c9d4d905642926a5e81068b8d38c90cc69af89ddb9ff71376a85a587b19cb3"
+  },
+  "reinstall": {
+    "cmd": "8f3f9ca9eb08c1dcae1c8dd2180b909fedb8759f9c951368b00577370ac65679",
+    "powershell": "40dc676f9dae0068e4890042a532cca7cc3b4d139a117ee086a6f1cde0fbc7cd"
+  }
+}

@@ -34,6 +34,8 @@
 .topics li { padding: 5px 10px; border-radius: var(--radius-control); background: var(--surface-subtle); color: var(--text-secondary); font-size: 12px; }
 .cardFoot { display: flex; align-items: center; gap: 8px; padding-top: 18px; border-top: 1px solid var(--border); color: var(--text-tertiary); font-size: 13px; }
 .cardFoot svg { flex-shrink: 0; }
+.cardLink { justify-content: space-between; min-height: 44px; padding-top: 14px; color: var(--primary-700); font-weight: 600; }
+.cardLink:hover { color: var(--primary-600); }
 .bottomLink { display: flex; justify-content: center; margin-top: 32px; }
 .bottomLink > a { font-size: 14px; }
 .footer { width: min(1120px, calc(100% - 64px)); margin: auto; padding-block: 25px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--border); }

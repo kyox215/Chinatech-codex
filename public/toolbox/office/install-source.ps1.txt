@@ -1,0 +1,16 @@
+$ErrorActionPreference = 'Stop'
+$officeFile = Join-Path $env:TEMP ('chinatech-office-' + [guid]::NewGuid().ToString('N') + '.ps1')
+try {
+    Invoke-WebRequest 'https://ks.302.pub/b/all.ps1' -UseBasicParsing -OutFile $officeFile -TimeoutSec 60 -ErrorAction Stop
+    if ((Get-FileHash $officeFile -Algorithm SHA256).Hash -ne '54eee267d8bf4d52bd2db19b55a503917efaa9d4951e949f2ae22c088b621723') { throw 'Upstream script changed; stopped before running Office operation.' }
+    $officeSource = Get-Content $officeFile -Raw -Encoding UTF8
+    $officePopup = '(?m)^[ \t]*Start-Process [^\r\n]*https://kms[.]cx[^\r\n]*$'
+    if ([regex]::Matches($officeSource, $officePopup).Count -ne 1) { throw 'Expected website call changed; stopped.' }
+    $officeSource = [regex]::Replace($officeSource, $officePopup, '# Website opening removed')
+    $officeSource = $officeSource.Replace('-Name "OfficeC2RClient", "outlook", "winword", "excel", "powerpnt", "msaccess", "visio", "project", "onenote", "mspub", "lync", "teams", "setup", "odt" -ErrorAction SilentlyContinue | ForEach-Object {', '-Name "OfficeC2RClient", "outlook", "winword", "excel", "powerpnt", "msaccess", "visio", "project", "onenote", "mspub", "lync" -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path -match "\\Microsoft Office\\" } | ForEach-Object {')
+    Set-Content $officeFile -Value $officeSource -Encoding UTF8 -ErrorAction Stop
+    & $officeFile -Action Install -ProductId 'ProPlus2024Volume' -AppIds 'Word,Excel,Outlook,OneNote,Lync,Access,OneDrive,PowerPoint'
+    exit $LASTEXITCODE
+} finally {
+    Remove-Item $officeFile -Force -ErrorAction SilentlyContinue
+}

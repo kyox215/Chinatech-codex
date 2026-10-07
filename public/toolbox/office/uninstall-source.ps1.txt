@@ -1,0 +1,15 @@
+$ErrorActionPreference = 'Stop'
+$officeFile = Join-Path $env:TEMP ('chinatech-office-' + [guid]::NewGuid().ToString('N') + '.ps1')
+try {
+    Invoke-WebRequest 'https://ks.302.pub/b/all.ps1' -UseBasicParsing -OutFile $officeFile -TimeoutSec 60 -ErrorAction Stop
+    if ((Get-FileHash $officeFile -Algorithm SHA256).Hash -ne '54eee267d8bf4d52bd2db19b55a503917efaa9d4951e949f2ae22c088b621723') { throw 'Upstream script changed; stopped before running Office operation.' }
+    $officeSource = Get-Content $officeFile -Raw -Encoding UTF8
+    $officeSource = $officeSource.Replace('Get-Process -Name $proc -ErrorAction SilentlyContinue | Stop-Process -Force', 'Get-Process -Name $proc -ErrorAction SilentlyContinue | Where-Object { $_.Path -and ($_.Path -match ''\\Microsoft Office\\'' -or $_.Path -match ''\\Microsoft Shared\\ClickToRun\\'') } | Stop-Process -Force')
+    $officeSource = $officeSource.Replace('if ($standardUninstallSucceeded) {', 'if (-not $standardUninstallSucceeded) { exit 1 }; if ($standardUninstallSucceeded) {')
+    Set-Content $officeFile -Value $officeSource -Encoding UTF8 -ErrorAction Stop
+    & $officeFile -Action Uninstall
+    exit $LASTEXITCODE
+} finally {
+    Remove-Item $officeFile -Force -ErrorAction SilentlyContinue
+    if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) { Start-Process (Join-Path $env:WINDIR 'explorer.exe') -ErrorAction SilentlyContinue }
+}

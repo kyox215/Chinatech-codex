@@ -7,7 +7,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { useLanguage } from "@/components/language-provider";
 import styles from "./home.module.css";
 
-export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" }) {
+export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" | "office" }) {
   const { t } = useLanguage();
   const isHome = page === "home";
 
@@ -26,9 +26,9 @@ export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" }) {
       <a href="#workflow">{t("业务流程")}</a>
       <a href="#questions">{t("常见问题")}</a>
     </nav>}
-    <Link className={styles.publicLink} href={isHome ? "/toolbox" : "/"}>
+    <Link className={styles.publicLink} href={isHome || page === "office" ? "/toolbox" : "/"}>
       {isHome ? <PanelsTopLeft size={17} aria-hidden="true" /> : <ArrowLeft size={17} aria-hidden="true" />}
-      {t(isHome ? "工具箱" : "返回首页")}
+      {t(isHome ? "工具箱" : page === "office" ? "返回工具箱" : "返回首页")}
     </Link>
     <LanguageSwitcher />
     <Link className={styles.workspaceLink} href="/app/dashboard">{t("进入工作台")}<ArrowRight size={16} aria-hidden="true" /></Link>

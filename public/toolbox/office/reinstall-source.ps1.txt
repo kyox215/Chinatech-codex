@@ -1,0 +1,130 @@
+﻿$ErrorActionPreference = 'Stop'
+$expectedHash = '54eee267d8bf4d52bd2db19b55a503917efaa9d4951e949f2ae22c088b621723'
+$stage = 'Preflight'
+$exitCode = 1
+$session = [guid]::NewGuid().ToString('N')
+$f = Join-Path $env:TEMP ('office-auto-' + $session + '.ps1')
+$oneDriveSetup = Join-Path $env:TEMP ('office-auto-' + $session + '-onedrive.exe')
+$xmlFile = Join-Path $env:TEMP ('office-auto-' + $session + '.xml')
+$env:OFFICE_AUTO_CONFIG = $xmlFile
+$log = Join-Path $env:TEMP ('office-auto-' + $session + '.log')
+$ps = Join-Path $PSHOME 'powershell.exe'
+function Assert-NoReboot {
+    $pending = (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') -or (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired')
+    $renames = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -ErrorAction SilentlyContinue).PendingFileRenameOperations
+    if ($pending -or $renames) { throw 'Restart Windows before continuing. No automatic restart will be performed.' }
+}
+function Get-OfficeMsi {
+    Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData' -ErrorAction SilentlyContinue | ForEach-Object {
+        Get-ItemProperty ($_.PSPath + '\Products\*\InstallProperties') -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match '(?i)Microsoft.*(Office|Visio|Project)' -and $_.Publisher -match '(?i)Microsoft' }
+    }
+}
+function Run-Step([string]$action, [string[]]$extra = @()) {
+    Write-Host ('>>> ' + $action) -ForegroundColor Cyan
+    & $ps -NoProfile -ExecutionPolicy Bypass -File $f -Action $action @extra
+    $rc = $LASTEXITCODE
+    if ($rc -in @(3010,1641)) { throw ($action + ': restart required, code ' + $rc) }
+    if ($rc -ne 0) { throw ($action + ': failed, code ' + $rc) }
+}
+try {
+    Start-Transcript -Path $log | Out-Null
+    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run this command in an Administrator CMD window.' }
+    if ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess) { throw 'Use a 64-bit Administrator CMD window.' }
+    Assert-NoReboot
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest 'https://ks.302.pub/b/all.ps1' -UseBasicParsing -OutFile $f -TimeoutSec 60
+    if ((Get-FileHash $f -Algorithm SHA256).Hash -ne $expectedHash) { throw 'Remote script changed. Stopped before uninstall; update and review this command.' }
+    Invoke-WebRequest 'https://ks.302.pub/gen?p=ProPlus2024Volume&a=Word%2CExcel%2COutlook%2COneNote%2CLync%2CAccess%2COneDrive%2CPowerPoint' -UseBasicParsing -OutFile $xmlFile -TimeoutSec 60
+    if ((Get-FileHash $xmlFile -Algorithm SHA256).Hash -ne 'dac6d8bfed2d9c0b7464c5b76b78cef24616b812930e428b636745e302d9ab3f') { throw 'Installation configuration changed. Stopped before uninstall.' }
+    $xml = Get-Content $xmlFile -Raw -Encoding UTF8
+    $xml = $xml.Replace('Name="AUTOACTIVATE" Value="1"', 'Name="AUTOACTIVATE" Value="0"')
+    Set-Content $xmlFile $xml -Encoding UTF8
+    $s = Get-Content $f -Raw -Encoding UTF8
+    $s = [regex]::Replace($s, '(?ms)^    try \{\r?\n[^\r\n]*Opening the KMS activation guide[^\r\n]*\r?\n.*?^    \}\r?\n    catch \{\r?\n.*?^    \}', '')
+    $s = $s.Replace('[System.Windows.Forms.MessageBox]::Show($Text, $Caption, $Buttons, $Icon) | Out-Null', 'Write-Host ($Caption + '': '' + $Text)')
+    $s = $s.Replace('if ($process.ExitCode -ne 0) {', 'if ($process.ExitCode -ne 0) { exit $process.ExitCode;')
+    $s = $s.Replace('if ($standardUninstallSucceeded) {', 'if (-not $standardUninstallSucceeded) { exit 1 }; if ($standardUninstallSucceeded) {')
+    $s = $s.Replace('if ($exitCode -ne 0) {', 'if ($exitCode -ne 0) { exit $exitCode;')
+    $s = $s.Replace('$response = Invoke-WebRequest -Uri $configurationUrl -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop', '$response = [pscustomobject]@{Content=[IO.File]::ReadAllText($env:OFFICE_AUTO_CONFIG)}')
+    $s = $s.Replace('Get-Process -Name $proc -ErrorAction SilentlyContinue | Stop-Process -Force', 'Get-Process -Name $proc -ErrorAction SilentlyContinue | Where-Object { $_.Path -and ($_.Path -match ''\\Microsoft Office\\'' -or $_.Path -match ''\\Microsoft Shared\\ClickToRun\\'') } | Stop-Process -Force')
+    $s = $s.Replace('-Name "OfficeC2RClient", "outlook", "winword", "excel", "powerpnt", "msaccess", "visio", "project", "onenote", "mspub", "lync", "teams", "setup", "odt" -ErrorAction SilentlyContinue | ForEach-Object {', '-Name "OfficeC2RClient", "outlook", "winword", "excel", "powerpnt", "msaccess", "visio", "project", "onenote", "mspub", "lync" -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path -match ''\\Microsoft Office\\'' } | ForEach-Object {')
+    $s = [regex]::Replace($s, '(?m)^(    & \$script:CscriptPath //nologo \$ospp /(?:inpkey:\$Key|sethst:\$hostPart|act)|        & \$script:CscriptPath //nologo \$ospp /setprt:\$portPart)\r?$', '$1 | Out-Host; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }')
+    Set-Content $f $s -Encoding UTF8
+    $bases = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ } | Select-Object -Unique
+    $roots = @($bases | ForEach-Object { $b = $_; 'root\Office16','Office16','Office15','Office14' | ForEach-Object { Join-Path $b ('Microsoft Office\' + $_) } })
+    $apps = @('WINWORD.EXE','EXCEL.EXE','OUTLOOK.EXE','ONENOTE.EXE','LYNC.EXE','MSACCESS.EXE','POWERPNT.EXE')
+    $cfgPath = 'HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration'
+    $beforeCfg = Get-ItemProperty $cfgPath -ErrorAction SilentlyContinue
+    if ($beforeCfg.InstallationPath) { $roots += (Join-Path $beforeCfg.InstallationPath 'root\Office16'), (Join-Path $beforeCfg.InstallationPath 'Office16') }
+    foreach ($baseKey in @('HKLM:\SOFTWARE\Microsoft\Office','HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office')) {
+        foreach ($v in @('14.0','15.0','16.0')) {
+            $root = (Get-ItemProperty ($baseKey + '\' + $v + '\Common\InstallRoot') -ErrorAction SilentlyContinue).Path
+            if ($root) { $roots += $root }
+        }
+    }
+    $allApps = $apps + @('VISIO.EXE','WINPROJ.EXE','MSPUB.EXE')
+    $beforeFiles = @($roots | ForEach-Object { $r = $_; $allApps | ForEach-Object { $p = Join-Path $r $_; if (Test-Path $p) { $p } } })
+    $beforeMsi = @(Get-OfficeMsi)
+    foreach ($item in $beforeMsi) {
+        if ($item.InstallLocation) {
+            $roots += $item.InstallLocation
+            foreach ($v in @('Office14','Office15','Office16')) { $roots += (Join-Path $item.InstallLocation $v) }
+        }
+    }
+    $oneDrivePaths = @((Join-Path $env:LOCALAPPDATA 'Microsoft\OneDrive\OneDrive.exe')) + @($bases | ForEach-Object { Join-Path $_ 'Microsoft OneDrive\OneDrive.exe' })
+    if (-not @($oneDrivePaths | Where-Object { Test-Path $_ }).Count) {
+        Invoke-WebRequest 'https://go.microsoft.com/fwlink/?linkid=844652' -UseBasicParsing -OutFile $oneDriveSetup -TimeoutSec 120
+        $sig = Get-AuthenticodeSignature $oneDriveSetup
+        if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation(?:,|$)') { throw 'OneDrive installer Microsoft signature verification failed.' }
+    }
+    $stage = 'Uninstall'
+    if ($beforeCfg.ProductReleaseIds -or $beforeFiles.Count -or $beforeMsi.Count) { Run-Step Uninstall } else { Write-Host 'No desktop Office detected; uninstall skipped.' }
+
+    if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) { Start-Process (Join-Path $env:WINDIR 'explorer.exe') }
+    $left = @($roots | ForEach-Object { $r = $_; ($apps + @('VISIO.EXE','WINPROJ.EXE','MSPUB.EXE')) | ForEach-Object { $p = Join-Path $r $_; if (Test-Path $p) { $p } } })
+    $oldCfg = Get-ItemProperty $cfgPath -ErrorAction SilentlyContinue
+    if ($left.Count -gt 0 -or $oldCfg.ProductReleaseIds) { throw ('Uninstall verification failed. Remaining files: ' + ($left -join ', ')) }
+    if (@(Get-OfficeMsi).Count) { throw 'Registered MSI Office products remain after uninstall.' }
+    Assert-NoReboot
+    Write-Host 'Uninstall verified.' -ForegroundColor Green
+    $stage = 'Install'
+    Run-Step Install -extra @('-ProductId','ProPlus2024Volume','-AppIds','Word,Excel,Outlook,OneNote,Lync,Access,OneDrive,PowerPoint')
+    $cfg = Get-ItemProperty $cfgPath
+    if ('ProPlus2024Volume' -notin @($cfg.ProductReleaseIds -split ',' | ForEach-Object { $_.Trim() })) { throw 'Expected Office 2024 product is missing.' }
+    $svc = Get-Service ClickToRunSvc
+    if ($svc.Status -ne 'Running') { throw 'ClickToRun service is not running.' }
+    $installRoots = @($bases | ForEach-Object { Join-Path $_ 'Microsoft Office\root\Office16' })
+    foreach ($app in $apps) { if (-not @($installRoots | Where-Object { Test-Path (Join-Path $_ $app) }).Count) { throw ('Missing selected app: ' + $app) } }
+    if (-not @($oneDrivePaths | Where-Object { Test-Path $_ }).Count) {
+        if (-not (Test-Path $oneDriveSetup)) { throw 'OneDrive installer not prepared.' }
+        Write-Host 'Installing selected OneDrive Desktop...'
+        $oneDriveProcess = Start-Process $oneDriveSetup -ArgumentList '/silent /allusers' -Wait -PassThru
+        if ($oneDriveProcess.ExitCode -ne 0) { throw ('OneDrive installer failed or needs restart, code ' + $oneDriveProcess.ExitCode) }
+        for ($n = 0; $n -lt 20 -and -not @($oneDrivePaths | Where-Object { Test-Path $_ }).Count; $n++) { Start-Sleep -Seconds 3 }
+        if (-not @($oneDrivePaths | Where-Object { Test-Path $_ }).Count) { throw 'Selected OneDrive Desktop was not found after installation.' }
+    }
+    Assert-NoReboot
+    Write-Host 'Installation verified.' -ForegroundColor Green
+    $stage = 'Activate'
+    Run-Step Activate -extra @('-Key','XJ2XN-FW8RK-P4HMP-DKDBV-GCVGB','-Srv','s1.kms.cx')
+    $osppRoots = @($installRoots) + @($bases | ForEach-Object { Join-Path $_ 'Microsoft Office\Office16' })
+    $ospp = $osppRoots | ForEach-Object { Join-Path $_ 'ospp.vbs' } | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $ospp) { throw 'ospp.vbs not found.' }
+    $status = (& (Join-Path $env:WINDIR 'System32\cscript.exe') //nologo $ospp /dstatusall 2>&1 | Out-String)
+    Write-Host $status
+    $licensed = @(($status -split '(?m)^SKU ID:') | Where-Object { $_ -match '(?m)^LICENSE NAME:[^\r\n]*ProPlus2024VL' -and $_ -match 'LICENSE STATUS:\s*---LICENSED---' -and $_ -match 'Last 5 characters of installed product key:\s*GCVGB\b' })
+    if ($licensed.Count -eq 0) { throw 'Office LTSC ProPlus 2024 is not LICENSED with the expected key.' }
+    Write-Host 'SUCCESS: uninstall, installation and Office 2024 activation verified.' -ForegroundColor Green
+    $exitCode = 0
+} catch {
+    Write-Host ('STOPPED at ' + $stage + ': ' + $_.Exception.Message) -ForegroundColor Red
+} finally {
+    Remove-Item $oneDriveSetup -Force -ErrorAction SilentlyContinue
+    Remove-Item $xmlFile -Force -ErrorAction SilentlyContinue
+    Remove-Item Env:\OFFICE_AUTO_CONFIG -ErrorAction SilentlyContinue
+    Remove-Item $f -Force -ErrorAction SilentlyContinue
+    if ($stage -ne 'Preflight' -and -not (Get-Process explorer -ErrorAction SilentlyContinue)) { Start-Process (Join-Path $env:WINDIR 'explorer.exe') -ErrorAction SilentlyContinue }
+    Write-Host ('Log: ' + $log)
+    Stop-Transcript -ErrorAction SilentlyContinue | Out-Null
+}
+exit $exitCode

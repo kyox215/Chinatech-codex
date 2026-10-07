@@ -1,0 +1,26 @@
+$ErrorActionPreference = 'Stop'
+$officeFile = Join-Path $env:TEMP ('chinatech-office-' + [guid]::NewGuid().ToString('N') + '.ps1')
+try {
+    Invoke-WebRequest 'https://ks.302.pub/b/all.ps1' -UseBasicParsing -OutFile $officeFile -TimeoutSec 60 -ErrorAction Stop
+    if ((Get-FileHash $officeFile -Algorithm SHA256).Hash -ne '54eee267d8bf4d52bd2db19b55a503917efaa9d4951e949f2ae22c088b621723') { throw 'Upstream script changed; stopped before running Office operation.' }
+    $officeSource = Get-Content $officeFile -Raw -Encoding UTF8
+    $officeNative = '(?m)^(    & \$script:CscriptPath //nologo \$ospp /(?:inpkey:\$Key|sethst:\$hostPart|act)|        & \$script:CscriptPath //nologo \$ospp /setprt:\$portPart)\r?$'
+    if ([regex]::Matches($officeSource, $officeNative).Count -ne 4) { throw 'Activation calls changed; stopped.' }
+    $officeSource = [regex]::Replace($officeSource, $officeNative, '$1 | Out-Host; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }')
+    $officeSource = $officeSource.Replace('$ospp /dstatus 2>&1', '$ospp /dstatusall 2>&1')
+    $officeSource = $officeSource.Replace('if ($dstatus -match ''LICENSE STATUS:\s*---LICENSED---'') {', '$officeTarget = @(($dstatus -split ''(?m)^SKU ID:'') | Where-Object { $_ -match ''(?m)^LICENSE NAME:[^\r\n]*ProPlus2024VL'' -and $_ -match ''LICENSE STATUS:\s*---LICENSED---'' -and $_ -match ''Last 5 characters of installed product key:\s*GCVGB\b'' }); if ($officeTarget.Count -gt 0) {')
+    Set-Content $officeFile -Value $officeSource -Encoding UTF8 -ErrorAction Stop
+    & $officeFile -Action Activate -Key 'XJ2XN-FW8RK-P4HMP-DKDBV-GCVGB' -Srv 's1.kms.cx'
+    if ($LASTEXITCODE -ne 0) { throw ('Activation command failed: ' + $LASTEXITCODE) }
+    $officeBases = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
+    $officeStatusFile = $officeBases | ForEach-Object { $base=$_; 'root\Office16','Office16' | ForEach-Object { Join-Path $base ('Microsoft Office\' + $_ + '\ospp.vbs') } } | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $officeStatusFile) { throw 'Office status script not found.' }
+    $officeStatus = (& (Join-Path $env:WINDIR 'System32\cscript.exe') //nologo $officeStatusFile /dstatusall 2>&1 | Out-String)
+    if ($LASTEXITCODE -ne 0) { throw 'Office license status check failed.' }
+    $officeLicensed = @(($officeStatus -split '(?m)^SKU ID:') | Where-Object { $_ -match '(?m)^LICENSE NAME:[^\r\n]*ProPlus2024VL' -and $_ -match 'LICENSE STATUS:\s*---LICENSED---' -and $_ -match 'Last 5 characters of installed product key:\s*GCVGB\b' })
+    if ($officeLicensed.Count -eq 0) { throw 'Office LTSC ProPlus 2024 is not LICENSED with the expected key.' }
+    Write-Host 'Office LTSC ProPlus 2024 license status verified.' -ForegroundColor Green
+    exit $LASTEXITCODE
+} finally {
+    Remove-Item $officeFile -Force -ErrorAction SilentlyContinue
+}
