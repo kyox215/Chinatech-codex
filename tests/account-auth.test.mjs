@@ -38,6 +38,7 @@ function harness() {
     const context = createContext({ exports, process: { env: { NODE_ENV: "production", BACKEND_MODE: "supabase", APP_ORIGIN: "https://shop.example.test", SUPABASE_URL: "https://project.example.test", SUPABASE_PUBLISHABLE_KEY: "sb_publishable_synthetic", APP_DATABASE_URL: "synthetic-private-intent-key" } }, Buffer, URL, Headers, AbortSignal, Date: Clock,
       fetch: async () => new Response(JSON.stringify({ external: state.external, sms_provider: "twilio" }), { status: state.settingsStatus }),
       require: name => {
+        if (name === "@/lib/toolbox/office-server") return { getOfficeAdmin: async () => { if (!state.officeAdmin) throw new Error("not admin"); return {}; } };
         if (name === "@/lib/backend/database") return { BackendError, withDatabase: async (identity, storeId, action) => { assert.equal(storeId, null); state.calls.push(["live", identity]); if (!state.live) throw new BackendError("revoked", 401); return action(); } };
         if (name.startsWith("@/")) return load(name.slice(2) + ".ts");
         if (name.startsWith("./") || name.startsWith("../")) return load(resolve(dirname(path), name + ".ts"));
@@ -173,4 +174,12 @@ test("phone binding preserves leading zero and verified same-user identity is pu
   const verified = await h.post("phone/verify", { phone: "+390123456789", token: "123456" }); assert.equal(verified.status, 200);
   assert.equal(h.state.calls.find(([action]) => action === "verify")[1].type, "phone_change");
   assert.equal(verified.cookies.get("ct_rebuild_auth").value, "new-session-for-" + userA);
+});
+
+
+test("Office management capability is explicit, metadata-independent and absent when unavailable", async () => {
+ const h=harness(),route=h.load("app/api/auth/account/route.ts");
+ let body=await (await route.GET(h.request("/api/auth/account"))).json();assert.equal(body.capabilities.canManageOffice,false);
+ h.state.officeAdmin=true;body=await (await route.GET(h.request("/api/auth/account"))).json();assert.equal(body.capabilities.canManageOffice,true);
+ h.state.officeAdmin=false;body=await (await route.GET(h.request("/api/auth/account"))).json();assert.equal(body.capabilities.canManageOffice,false);
 });

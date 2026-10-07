@@ -32,3 +32,13 @@ export async function withDatabase<T>(identity: AuthIdentity, storeId: string | 
 export class BackendError extends Error {
   constructor(message: string, public status = 400, public code?: string) { super(message); }
 }
+
+// Public Office reads expose one control row only, without inventing an Auth identity.
+export async function readOfficeControl(): Promise<{ enabled: boolean; version: string }> {
+  return database().begin(async tx => {
+    await tx`select set_config('request.jwt.claims','{"role":"anon"}',true),set_config('statement_timeout','5000',true)`;
+    const [row] = await tx<{ enabled: boolean; version: string }[]>`select enabled,command_version::text as version from chinatech_v2_private.office_command_control where singleton=true`;
+    if (!row) throw new BackendError("Office 服务暂不可用，请稍后重试。",503);
+    return row;
+  }) as Promise<{ enabled: boolean; version: string }>;
+}

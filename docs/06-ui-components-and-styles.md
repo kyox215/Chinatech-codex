@@ -1,5 +1,9 @@
 # 公共组件与样式复用规范
 
+## 2026-10-07 Office 联网控制
+
+OfficeToolboxControl 是全站工具管理专用组件，复用账号设置card/cardHead/form/muted/nav及原button/语义token；通过AccountOverview可选capabilities.canManageOffice接入原账号设置列与锚点。显示能力来自服务端，写权限由独立管理API/私有表再次检查。公开Office页仅异步生成受控启动器，Blob下载当前命令、网关源码链接，生成/停用/错误/复制/迟到响应独立反馈，44px与三语保留。仅复用组件，无新主题/依赖/普通输入框。控制语义与验证范围见[整体开关31](31-office-command-control.md)。
+
 ## 2026-10-07 Office 命令工具
 
 `/toolbox/office` 复用 PublicHeader 的 `page="office"` 返回工具箱、Brand、LanguageSwitcher、button、segmented-control 及已有颜色／圆角／边框 token；四种操作及终端选择、长命令与复制反馈使用工具箱私有组件和 CSS Module，无新公共控件、主题或依赖。选中终端复用 `segmented-control__active`，手机操作至少44px。Office 分类新增实际命令入口，其他待添加分类保持原展示。

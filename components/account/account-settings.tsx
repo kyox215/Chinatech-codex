@@ -1,5 +1,6 @@
 "use client";
 
+import { OfficeToolboxControl } from "./office-toolbox-control";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
 import Link from "next/link";
@@ -123,7 +124,7 @@ function AccountForms({ data, refreshing, refresh, onBusyChange }: { data: Accou
       <span className={styles.avatar}><ShieldCheck size={30} aria-hidden="true" /></span>
       <div><h1>{t("我的账号")}</h1><p className={styles.email}>{account.email}</p></div>
       <span className="status-pill status-pill--success"><Check size={14} />{t("邮箱已验证")}</span>
-      <nav aria-label={t("账号设置分类")} className={styles.nav}><a href="#account-email"><Mail size={18} />{t("登录邮箱")}</a><a href="#account-providers"><Link2 size={18} />{t("第三方账号")}</a><a href="#account-phone"><Smartphone size={18} />{t("手机号码")}</a></nav>
+      <nav aria-label={t("账号设置分类")} className={styles.nav}><a href="#account-email"><Mail size={18} />{t("登录邮箱")}</a><a href="#account-providers"><Link2 size={18} />{t("第三方账号")}</a><a href="#account-phone"><Smartphone size={18} />{t("手机号码")}</a>{data.capabilities?.canManageOffice ? <a href="#office-toolbox"><ShieldCheck size={18}/>{t("网站工具箱管理")}</a> : null}</nav>
       <p className={styles.muted}>{t("绑定方式用于登录同一个账号，门店权限保持不变。")}</p>
       <button className="button button--secondary" type="button" disabled={disabled} onClick={() => void refresh()}><RefreshCw size={16} className={refreshing ? "spin" : undefined} />{refreshing ? t("正在刷新…") : t("刷新绑定状态")}</button>
     </aside>
@@ -169,6 +170,7 @@ function AccountForms({ data, refreshing, refresh, onBusyChange }: { data: Accou
         </form> : null}
         <Feedback feedback={feedback} operations={["phone", "verify"]} />
       </section>
+      {data.capabilities?.canManageOffice ? <OfficeToolboxControl /> : null}
     </div>
   </div>;
 }

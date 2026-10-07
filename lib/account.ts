@@ -1,5 +1,6 @@
 export type AccountProvider = "google" | "apple";
 export type AccountOverview = {
+  capabilities?: { canManageOffice: boolean };
   account: {
     id: string; email: string; emailVerified: boolean; pendingEmail: string;
     phone: string; phoneVerified: boolean; pendingPhone: string;
