@@ -6,6 +6,17 @@ async function units(page:Page):Promise<RetailUnit[]> {return page.evaluate(key=
 async function openActions(page:Page) {await expect(page.locator('[data-retail-group="actions"]')).toBeVisible();const button=page.locator('[data-retail-group="actions"] > button[aria-controls]');if(await button.isVisible() && await button.getAttribute("aria-expanded")==="false")await button.click();}
 test.beforeEach(async({page})=>{await page.addInitScript(()=>{window.print=()=>{const state=window as typeof window & {workflowPrints?:number};state.workflowPrints=(state.workflowPrints??0)+1;};});await page.goto("/login");await page.getByRole("button",{name:"填入演示账号",exact:true}).click();await page.getByRole("button",{name:"登录工作台",exact:true}).click();await expect(page).toHaveURL(/\/app\/dashboard$/);});
 async function newForm(page:Page,model:string) {await page.goto("/app/retail/new");await page.getByRole("radio",{name:"新机",exact:true}).locator("..").click();await page.getByRole("combobox",{name:"型号 / 商品名称 *",exact:true}).fill(model);}
+async function checkAfterScroll(page:Page,name:string) {
+ const checkbox=page.getByRole("checkbox",{name,exact:true});
+ await checkbox.locator("..").evaluate(element=>element.scrollIntoView({block:"center",behavior:"instant"}));
+ await expect.poll(()=>checkbox.evaluate(async element=>{
+  const before=element.getBoundingClientRect();
+  await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));
+  const after=element.getBoundingClientRect();
+  return Math.abs(before.top-after.top)<0.5&&Math.abs(before.left-after.left)<0.5;
+ })).toBe(true);
+ await checkbox.check();await expect(checkbox).toBeChecked();
+}
 test("新建默认仅建档，部分检查可保存，完整检查一次可售并刷新",async({page})=>{
  await newForm(page,"DEMO Single submit draft");
  await expect(page.getByRole("combobox",{name:"保存方式",exact:true})).toHaveValue("inspecting");
@@ -16,7 +27,9 @@ test("新建默认仅建档，部分检查可保存，完整检查一次可售�
  expect(saved.status).toBe("inspecting");expect(saved.inspection).toEqual({functional:false,ownership:false,data:false});expect(saved.costCents).toBeNull();
  await openActions(page);await page.getByRole("checkbox",{name:"功能检测已完成",exact:true}).check();await page.getByRole("button",{name:"记录检测",exact:true}).click();
  await expect.poll(async()=> (await units(page)).find(item=>item.id===saved.id)?.inspection.functional).toBe(true);
- await page.getByRole("checkbox",{name:"所有权及账号锁核验已完成",exact:true}).check();await page.getByRole("checkbox",{name:"数据处理核验已完成",exact:true}).check();await page.getByLabel("售价",{exact:true}).fill("80");
+ await expect(page.locator(".retail-actions").getByRole("status")).toHaveText("本次操作已保存并追加到单机历史。");
+ await expect(page.getByRole("checkbox",{name:"所有权及账号锁核验已完成",exact:true})).toBeEnabled();
+ await checkAfterScroll(page,"所有权及账号锁核验已完成");await checkAfterScroll(page,"数据处理核验已完成");await page.getByLabel("售价",{exact:true}).fill("80");
  await page.getByRole("button",{name:"保存检测并设为可售",exact:true}).click();
  await expect.poll(async()=> (await units(page)).find(item=>item.id===saved.id)?.status).toBe("available");
  await page.reload();saved=(await units(page)).find(item=>item.id===saved.id)!;expect(saved.priceCents).toBe(8000);expect(saved.events.at(-2)?.detail).toContain("功能检测：已核对");expect(saved.events.at(-1)?.title).toContain("approve");
