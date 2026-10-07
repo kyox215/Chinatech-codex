@@ -1,0 +1,7 @@
+﻿未检测到 Windows PowerShell。没有执行激活或安装。
+Windows PowerShell non trovato. Nessuna attivazione o installazione eseguita.
+Windows PowerShell was not found. No activation or installation was performed.
+
+按回车关闭。
+Premi Invio per chiudere.
+Press Enter to close.

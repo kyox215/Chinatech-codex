@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<release schemaVersion="1" version="2026.10.07-preview.1" status="inspection-only">
+<release schemaVersion="1" version="2026.10.07-preview.2" status="inspection-only">
   <target version="26H2" edition="Professional" architecture="x64" />
   <verifiedRoutes>
 

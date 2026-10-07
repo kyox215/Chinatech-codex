@@ -6,7 +6,8 @@ $tokens = $null; $errors = $null
 if ($errors.Count) { throw ($errors.Message -join '; ') }
 foreach ($locale in @('zh-CN','it','en')) {
     $loader = [IO.File]::ReadAllText((Join-Path $root ('public/toolbox/windows/Start-' + $locale + '.cmd.txt')))
-    $code = [regex]::Match($loader, '-Command "([^\r\n]+)"').Groups[1].Value
+    $encoded = [regex]::Match($loader, '-EncodedCommand ([A-Za-z0-9+/=]+)').Groups[1].Value
+    $code = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encoded))
     if (-not $code) { throw 'missing CMD PowerShell loader' }
     [Management.Automation.Language.Parser]::ParseInput($code,[ref]$tokens,[ref]$errors) | Out-Null
     if ($errors.Count) { throw ($errors.Message -join '; ') }

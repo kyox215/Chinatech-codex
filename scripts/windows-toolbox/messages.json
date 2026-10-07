@@ -443,5 +443,10 @@
     "目标系统、版本或授权最终核验未通过，未标记成功。",
     "Verifica finale di sistema, edizione o attivazione fallita. Il successo non è stato confermato.",
     "Final target system, edition or licensing verification failed. Success was not recorded."
+  ],
+  "bootstrap": [
+    "启动环境检查未通过（{0}）。请使用当前 Windows 登录用户运行完整包。",
+    "Verifica dell’ambiente di avvio fallita ({0}). Esegui il pacchetto completo con l’utente Windows attualmente connesso.",
+    "Startup environment check failed ({0}). Run the complete package as the currently signed-in Windows user."
   ]
 }

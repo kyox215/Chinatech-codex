@@ -46,21 +46,25 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
 test("each language launcher pins the executed file and avoids dynamic remote execution", () => {
   for (const language of ["zh-CN", "it", "en"]) {
     const cmd = read(`public/toolbox/windows/Start-${language}.cmd.txt`).toString("utf8");
-    assert.equal(decodeLiteral(cmd, "expected"), manifest.files["ChinaTech-Windows.ps1"].sha256);
-    assert.equal(decodeLiteral(cmd, "lang"), language);
-    assert.ok(cmd.includes("$env:CT_TOOLBOX_PACKAGE"));
+    const encoded = cmd.match(/-EncodedCommand ([A-Za-z0-9+/=]+)/)?.[1];
+    assert.ok(encoded);
+    const code = Buffer.from(encoded, "base64").toString("utf16le");
+    assert.equal(decodeLiteral(code, "expected"), manifest.files["ChinaTech-Windows.ps1"].sha256);
+    assert.equal(decodeLiteral(code, "lang"), language);
+    assert.ok(code.includes("$env:CT_TOOLBOX_PACKAGE"));
     assert.ok(cmd.includes("DisableDelayedExpansion"));
     assert.ok(cmd.includes(String.raw`!SystemRoot!\System32\WindowsPowerShell\v1.0\powershell.exe`));
     assert.ok(cmd.includes(String.raw`!SystemRoot!\Sysnative\WindowsPowerShell\v1.0\powershell.exe`));
-    assert.ok(cmd.includes("[Environment]::SystemDirectory"));
-    assert.ok(cmd.includes("Get-AuthenticodeSignature"));
-    assert.equal((cmd.match(/ReadAllBytes/g) || []).length, 2, "Both native-host branches use one-read loaders");
-    assert.ok(cmd.includes("ComputeHash($bytes)"));
-    assert.ok(cmd.includes("[ScriptBlock]::Create($code)"));
-    assert.ok(cmd.includes("-PackageDirectory $pkg -EntryHash $expected -ResumePath $resume -OwnerSid $sid"));
-    assert.ok(!cmd.includes("& $p") && !cmd.includes("OpenRead"));
-    assert.ok(!/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(cmd), "No escaped control characters in CMD paths.");
-    assert.ok(!/iex|Invoke-Expression|https?:|runas|EncodedCommand/i.test(cmd));
+    assert.ok(code.includes("[Environment]::SystemDirectory"));
+    assert.ok(code.includes("Get-AuthenticodeSignature"));
+    assert.equal((code.match(/ReadAllBytes/g) || []).length, 1, "One read supplies hash and executed bytes");
+    assert.ok(code.includes("ComputeHash($bytes)"));
+    assert.ok(code.includes("[ScriptBlock]::Create($code)"));
+    assert.ok(code.includes("-PackageDirectory $pkg -EntryHash $expected -ResumePath $resume -OwnerSid $sid"));
+    assert.ok(!code.includes("& $p") && !code.includes("OpenRead"));
+    assert.match(cmd, /^[\x09\x0a\x0d\x20-\x7e]+$/, "CMD must contain only ASCII syntax");
+    assert.ok(cmd.split("\r\n").every(line => line.length < 8191), "CMD line must fit Windows limit");
+    assert.ok(!/iex|Invoke-Expression|https?:|runas|-Command /i.test(cmd));
     assert.ok(!cmd.includes("& '%~dp0"));
     assert.equal(cmd.replaceAll("\r\n", "").includes("\n"), false);
   }

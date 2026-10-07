@@ -25,6 +25,9 @@ jobs:
       - name: Windows PowerShell workflow parsing and pure cryptographic checks
         shell: powershell
         run: ./tests/windows-toolbox.workflow.ps1
+      - name: Real CMD launch, languages, paths, code pages and corrupt packages
+        shell: powershell
+        run: ./tests/windows-toolbox.cmd.ps1
       - name: Scope of this check
         shell: powershell
         run: |

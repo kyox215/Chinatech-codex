@@ -112,7 +112,7 @@ const table = "@{\n" + Object.entries(messages).map(([key, values]) => `    ${qu
 // The expected digest is compiled into each loader. One read supplies both the
 // hash and ScriptBlock: changing the file between verification and execution
 // cannot substitute bytes. All package/resume values remain encoded data.
-const loaderTemplate = `$ErrorActionPreference='Stop';try{function d([string]$v){[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($v))};$pkg=d '__PACKAGE_B64__';if(-not $pkg){$pkg=$env:CT_TOOLBOX_PACKAGE};$expected=d '__HASH_B64__';$lang=d '__LANGUAGE_B64__';$resume=d '__RESUME_B64__';$owner=d '__OWNER_B64__';$hostPath=[IO.Path]::GetFullPath([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName);$native=[IO.Path]::GetFullPath((Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell\\v1.0\\powershell.exe'));if([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or $hostPath -ine $native){throw 'host'};$sig=Get-AuthenticodeSignature -LiteralPath $native -ErrorAction Stop;if($sig.Status -ne 'Valid' -or $null -eq $sig.SignerCertificate -or $sig.SignerCertificate.Subject -notmatch '(^|,\\s*)O=Microsoft Corporation(,|$)'){throw 'signature'};$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;if($sid -notmatch '^S-1-5-21-\\d+-\\d+-\\d+-\\d+$' -or ($owner -and $owner -ne $sid)){throw 'owner'};$bytes=[IO.File]::ReadAllBytes((Join-Path $pkg 'ChinaTech-Windows.ps1'));$a=[Security.Cryptography.SHA256]::Create();try{$h=([BitConverter]::ToString($a.ComputeHash($bytes))).Replace('-','').ToLowerInvariant()}finally{$a.Dispose()};if($expected -notmatch '^[a-f0-9]{64}$' -or $h -ne $expected){throw 'integrity'};$code=[Text.Encoding]::UTF8.GetString($bytes).TrimStart([char]65279);& ([ScriptBlock]::Create($code)) -Language $lang -PackageDirectory $pkg -EntryHash $expected -ResumePath $resume -OwnerSid $sid}catch{Write-Host (d '__ERROR_B64__');exit 2}`;
+const loaderTemplate = `$ErrorActionPreference='Stop';try{function d([string]$v){[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($v))};$pkg=d '__PACKAGE_B64__';if(-not $pkg){$pkg=$env:CT_TOOLBOX_PACKAGE};$expected=d '__HASH_B64__';$lang=d '__LANGUAGE_B64__';$resume=d '__RESUME_B64__';$owner=d '__OWNER_B64__';$hostPath=[IO.Path]::GetFullPath([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName);$native=[IO.Path]::GetFullPath((Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell\\v1.0\\powershell.exe'));if([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or $hostPath -ine $native){throw 'host'};$sig=Get-AuthenticodeSignature -LiteralPath $native -ErrorAction Stop;if($sig.Status -ne 'Valid' -or $null -eq $sig.SignerCertificate -or $sig.SignerCertificate.Subject -notmatch '(^|,\\s*)O=Microsoft Corporation(,|$)'){throw 'signature'};$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;if($sid -notmatch '^S-1-5-21-\\d+-\\d+-\\d+-\\d+$' -or ($owner -and $owner -ne $sid)){throw 'owner'};$bytes=[IO.File]::ReadAllBytes((Join-Path $pkg 'ChinaTech-Windows.ps1'));$a=[Security.Cryptography.SHA256]::Create();try{$h=([BitConverter]::ToString($a.ComputeHash($bytes))).Replace('-','').ToLowerInvariant()}finally{$a.Dispose()};if($expected -notmatch '^[a-f0-9]{64}$' -or $h -ne $expected){throw 'integrity'};$code=[Text.Encoding]::UTF8.GetString($bytes).TrimStart([char]65279);& ([ScriptBlock]::Create($code)) -Language $lang -PackageDirectory $pkg -EntryHash $expected -ResumePath $resume -OwnerSid $sid}catch{$reason=$_.Exception.Message;if(@('host','signature','owner') -contains $reason){Write-Host ((d '__BOOTSTRAP_B64__') -f $reason)}else{Write-Host (d '__ERROR_B64__')};[void](Read-Host (d '__PRESSENTER_B64__'));exit 2}`;
 const template = readFileSync(resolve(source, "runner.ps1"), "utf8");
 const replacements = {
   __RELEASE_HASH__: sha(xml), __MESSAGES__: table,
@@ -130,34 +130,36 @@ const files = { "ChinaTech-Windows.ps1": runner, "release.xml": Buffer.from(xml)
 for (const language of ["zh-CN", "it", "en"]) {
   const languageIndex = ["zh-CN", "it", "en"].indexOf(language);
   let loader = loaderTemplate;
-  const data = { PACKAGE: "", HASH: sha(runner), LANGUAGE: language, RESUME: "", OWNER: "", ERROR: messages.integrity[languageIndex] };
+  const data = { PACKAGE: "", HASH: sha(runner), LANGUAGE: language, RESUME: "", OWNER: "", ERROR: messages.integrity[languageIndex], BOOTSTRAP: messages.bootstrap[languageIndex], PRESSENTER: messages.pressEnter[languageIndex] };
   for (const [name, value] of Object.entries(data)) loader = loader.replace(`__${name}_B64__`, Buffer.from(value, "utf16le").toString("base64"));
-  // Delayed expansion only passes the system location as data after CMD parsing.
-  // Keep it disabled when reading %~dp0, so ! in a real package path is intact.
-  files[`Start-${language}.cmd`] = Buffer.from(crlf(String.raw`@echo off
+  const encoded = Buffer.from(loader, "utf16le").toString("base64");
+  // ASCII-only CMD: localized text is decoded by PowerShell, never parsed by
+  // CMD after changing its code page or jumping to a byte offset. GOTO avoids
+  // duplicating the encoded command inside a parenthesized block.
+  const command = String.raw`@echo off
 setlocal DisableDelayedExpansion
 chcp 65001 >nul
 set "CT_TOOLBOX_PACKAGE=%~dp0"
 setlocal EnableDelayedExpansion
-if exist "!SystemRoot!\Sysnative\WindowsPowerShell\v1.0\powershell.exe" (
-  "!SystemRoot!\Sysnative\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "${loader}"
-) else (
-  if not exist "!SystemRoot!\System32\WindowsPowerShell\v1.0\powershell.exe" goto missing
-  "!SystemRoot!\System32\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "${loader}"
-)
-if errorlevel 11 goto failure
-if errorlevel 10 exit /b 10
-if errorlevel 1 goto failure
-exit /b 0
+set "CT_TOOLBOX_PS=!SystemRoot!\System32\WindowsPowerShell\v1.0\powershell.exe"
+if exist "!SystemRoot!\Sysnative\WindowsPowerShell\v1.0\powershell.exe" set "CT_TOOLBOX_PS=!SystemRoot!\Sysnative\WindowsPowerShell\v1.0\powershell.exe"
+if not exist "!CT_TOOLBOX_PS!" goto missing
+"!CT_TOOLBOX_PS!" -NoLogo -NoProfile -ExecutionPolicy Bypass -OutputFormat Text -EncodedCommand ${encoded}
+exit /b !errorlevel!
 :missing
-echo ${messages.missingPowerShell[languageIndex]}
-:failure
-echo ${messages.pressEnter[languageIndex]}
+type "!CT_TOOLBOX_PACKAGE!Launcher-notices.txt"
 set /p "CT_TOOLBOX_CLOSE="
 exit /b 2
-`));
+`;
+  if (command.split("\n").some(line => line.length >= 8191)) throw new Error("CMD command exceeds Windows limit");
+  files[`Start-${language}.cmd`] = Buffer.from(crlf(command));
   writeFileSync(resolve(output, `Start-${language}.cmd.txt`), files[`Start-${language}.cmd`]);
 }
+// TYPE streams text; the shell never interprets these translated notices.
+files["Launcher-notices.txt"] = Buffer.from("\ufeff" + crlf([
+  ...messages.missingPowerShell, "", ...messages.pressEnter, "",
+].join("\n")));
+writeFileSync(resolve(output, "Launcher-notices.txt"), files["Launcher-notices.txt"]);
 const readme = [
   config.status === "inspection-only" ? "ChinaTech Windows — inspection release / 检测版 / versione di verifica" : "ChinaTech Windows — verified routes / 已验路线 / percorsi verificati",
   "",
