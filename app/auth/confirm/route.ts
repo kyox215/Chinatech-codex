@@ -1,3 +1,5 @@
+import { establishLogin } from "@/lib/server/login-sessions";
+import { LOGIN_INTENT_COOKIE, readLoginValue } from "@/lib/server/login-policy";
 import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseMode } from "@/lib/supabase/config";
 import { createSupabaseRouteClient, preventAuthCaching, trustedAuthOrigin } from "@/lib/supabase/server";
@@ -9,6 +11,7 @@ export async function GET(request: NextRequest) {
   const failure = (source?: NextResponse) => {
     const response = preventAuthCaching(NextResponse.redirect(new URL(`/login?notice=${notice}`, origin)));
     if (source) copyAuthCookies(source, response);
+    response.cookies.set(LOGIN_INTENT_COOKIE, "", { path: "/", maxAge: 0 });
     clearRecoveryProof(response);
     return response;
   };
@@ -20,6 +23,10 @@ export async function GET(request: NextRequest) {
   if (!isSupabaseMode() || request.nextUrl.searchParams.has("error") || (!pkce && !hashed)) return failure();
   const response = preventAuthCaching(NextResponse.redirect(new URL("/account/pending", origin)));
   try {
+    const oauthCallback = request.nextUrl.pathname === "/auth/callback";
+    const intent = readLoginValue(request.cookies.get(LOGIN_INTENT_COOKIE)?.value);
+    const validIntent = intent?.purpose === "oauth-login" && typeof intent.nonce === "string" && intent.nonce === request.nextUrl.searchParams.get("intent") && typeof intent.remember === "boolean" && typeof intent.expires === "number" && intent.expires > Date.now()/1000 && intent.expires <= Date.now()/1000+600 ? intent : null;
+    if (oauthCallback && (!pkce || !validIntent)) return failure(response);
     const supabase = createSupabaseRouteClient(request, response);
     let recovery = false;
     if (pkce) {
@@ -38,6 +45,8 @@ export async function GET(request: NextRequest) {
       await supabase.auth.signOut({ scope: "local" });
       return failure(response);
     }
+    await establishLogin(request, response, supabase, oauthCallback && pkce && !recovery && validIntent?.remember === true);
+    response.cookies.set(LOGIN_INTENT_COOKIE, "", { path: "/", maxAge: 0 });
     clearRecoveryProof(response);
     if (recovery) {
       const { data: claims, error } = await supabase.auth.getClaims();

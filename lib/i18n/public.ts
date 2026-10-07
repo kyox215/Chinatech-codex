@@ -24,7 +24,7 @@ export const publicMessages: Record<string, readonly [string, string]> = {
 "此开关控制全站 Office 命令，仅网站管理员可操作。": ["Questo controllo gestisce i comandi Office dell’intero sito. Solo l’amministratore del sito può modificarlo.", "This control manages Office commands across the website. Only the website administrator may change it."],
 "正在读取工具箱状态…": ["Lettura dello stato degli strumenti…", "Reading toolbox status…"],
 "Office 命令状态": ["Stato dei comandi Office", "Office command status"],
-"已开启": ["Abilitato", "Enabled"],
+"已开启": ["Attivo", "Enabled"],
 "已关闭": ["Disabilitato", "Disabled"],
 "关闭后当前全部新版命令失效，重新开启需要生成新命令。已开始的操作不会被强制中断。": ["Disabilitando il controllo, tutti i comandi attuali vengono revocati. Dopo la riattivazione occorre generarne di nuovi. Le operazioni già avviate non vengono interrotte forzatamente.", "Disabling revokes all current commands. New commands must be generated after re-enabling. Started operations are not forcibly interrupted."],
 "关闭并作废当前命令": ["Disabilita e revoca i comandi attuali", "Disable and revoke current commands"],

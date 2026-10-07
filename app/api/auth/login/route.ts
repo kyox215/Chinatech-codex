@@ -1,3 +1,4 @@
+import { establishLogin } from "@/lib/server/login-sessions";
 import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseMode } from "@/lib/supabase/config";
 import { authEmail, authFailure, authPassword, AuthRequestError, createSupabaseRouteClient, preventAuthCaching, readAuthBody, requireSameOrigin } from "@/lib/supabase/server";
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
       response.cookies.getAll().forEach(cookie => failure.cookies.set(cookie));
       return failure;
     }
+    await establishLogin(request, response, supabase, body.remember === true);
     return response;
   } catch (reason) { return authFailure(reason, "认证服务暂不可用，请稍后重试。"); }
 }

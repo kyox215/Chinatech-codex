@@ -12,6 +12,10 @@ export async function getAuthIdentity(): Promise<AuthIdentity> {
   return { userId: user.id, sessionId: claims.session_id };
 }
 export async function memberInTransaction(tx: TransactionSql, storeId: string, userId: string): Promise<StaffMember> {
+  const [allowed] = await tx`select chinatech_v2_private.member_access(${storeId}) as allowed`;
+  if (!allowed?.allowed) throw new BackendError("此设备无法访问本门店，请重新登录或联系老板。", 403);
+  await tx`insert into chinatech_v2_private.store_login_sessions(store_id,session_id,user_id)
+    values(${storeId},(current_setting('request.jwt.claims')::jsonb->>'session_id')::uuid,${userId}) on conflict do nothing`;
   const [row] = await tx`select m.id,m.role,m.permissions,m.revision,m.membership_status,a.account_status,a.display_name,a.email from chinatech_v2.store_memberships m join chinatech_v2.accounts a on a.id=m.user_id where m.store_id=${storeId} and m.user_id=${userId} and m.membership_status='active' and a.account_status='active'`;
   if (!row) throw new BackendError("当前账号尚未获得此门店授权。", 403);
   return { id: row.id, name: row.display_name || row.email, email: row.email, role: row.role, permissions: row.permissions, revision: row.revision, accountStatus: row.account_status, membershipStatus: row.membership_status };

@@ -1,3 +1,4 @@
+import { matchingLoginPolicy, sessionCookieOptions } from "@/lib/server/login-policy";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
@@ -26,7 +27,10 @@ export async function createSupabaseServerClient() {
       getAll: () => cookieStore.getAll(),
       setAll: (values) => {
         // Proxy commits refresh cookies before Server Components start rendering.
-        try { values.forEach(({ name, value, options }) => cookieStore.set(name, value, authCookieOptions(options))); } catch { /* Read-only Server Component cookie store. */ }
+        const finalCookies = new Map(cookieStore.getAll().map(cookie => [cookie.name, cookie]));
+        values.forEach(cookie => finalCookies.set(cookie.name, cookie));
+        const policy = matchingLoginPolicy([...finalCookies.values()]);
+        try { values.forEach(({ name, value, options }) => cookieStore.set(name, value, authCookieOptions(sessionCookieOptions(name, options, policy)))); } catch { /* Read-only Server Component cookie store. */ }
       },
     },
   });
@@ -41,10 +45,9 @@ export function createSupabaseRouteClient(request: NextRequest, response: NextRe
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll: (values, headers) => {
-        values.forEach(({ name, value, options }) => {
-          request.cookies.set(name, value);
-          response.cookies.set(name, value, authCookieOptions(options));
-        });
+        values.forEach(({ name, value }) => request.cookies.set(name, value));
+        const policy = matchingLoginPolicy(request.cookies.getAll());
+        values.forEach(({ name, value, options }) => response.cookies.set(name, value, authCookieOptions(sessionCookieOptions(name, options, policy))));
         Object.entries(headers).forEach(([name, value]) => response.headers.set(name, value));
         preventAuthCaching(response);
       },

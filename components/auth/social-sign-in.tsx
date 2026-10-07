@@ -6,7 +6,7 @@ import { LoaderCircle } from "lucide-react";
 import { ProviderMark } from "./provider-mark";
 import styles from "./auth-experience.module.css";
 
-export function SocialSignIn({ disabled, onBusyChange }: { disabled?: boolean; onBusyChange: (busy: boolean) => void }) {
+export function SocialSignIn({ disabled, onBusyChange, remember = false }: { disabled?: boolean; remember?: boolean; onBusyChange: (busy: boolean) => void }) {
   const { t , systemText } = useLanguage();
   const [busy, setBusy] = useState<"google" | "apple" | null>(null);
   const [error, setError] = useState("");
@@ -16,7 +16,7 @@ export function SocialSignIn({ disabled, onBusyChange }: { disabled?: boolean; o
     inFlight.current = true;
     setError(""); setBusy(provider); onBusyChange(true);
     try {
-      const response = await fetch(`/api/auth/${provider}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", cache: "no-store", signal: AbortSignal.timeout(20000) });
+      const response = await fetch(`/api/auth/${provider}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ remember }), cache: "no-store", signal: AbortSignal.timeout(20000) });
       const payload = await response.json() as { redirectTo?: string; message?: string };
       if (!response.ok || !payload.redirectTo) throw new Error(payload.message || "暂时无法继续，请使用邮箱登录或稍后重试。");
       window.location.assign(payload.redirectTo);

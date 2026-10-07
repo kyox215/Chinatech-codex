@@ -1,3 +1,4 @@
+import { establishLogin, sessionRemember } from "@/lib/server/login-sessions";
 import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseMode } from "@/lib/supabase/config";
 import { preventAuthCaching, trustedAuthOrigin } from "@/lib/supabase/server";
@@ -20,10 +21,12 @@ export async function GET(request: NextRequest) {
       return intent.kind === "email" ? copyAuthCookies(response, redirect("email-pending")) : response;
     }
     if (!/^[a-z\d._~-]{8,1024}$/i.test(code)) return response;
+    const remember = await sessionRemember(original.identity);
     const staged = stagedAccountClient(request);
     const flowId = request.nextUrl.searchParams.get("sb_flow_id");
     const { data, error } = await staged.supabase.auth.exchangeCodeForSession(code, flowId !== null ? { flowId } : undefined);
     if (error || data.user?.id !== intent.userId) return response;
+    await establishLogin(staged.request, staged.response, staged.supabase, remember);
     const verified = await requireAccountSession(staged.request, staged.response);
     if (verified.identity.userId !== intent.userId) return response;
     const success = intent.kind === "email"

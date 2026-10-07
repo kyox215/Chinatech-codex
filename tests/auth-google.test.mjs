@@ -25,6 +25,7 @@ function harness(google = true, apple = false) {
       if (name === "@/lib/server/account-oauth") return load("lib/server/account-oauth.ts");
       if (name === "@/lib/server/account-auth") return load("lib/server/account-auth.ts");
       if (name === "@/lib/backend/database") return { BackendError: class extends Error {}, withDatabase: () => { throw new Error("No database allowed in OAuth initiation."); } };
+      if (name === "./login-policy" || name === "@/lib/server/login-policy") return load("lib/server/login-policy.ts");
       return require(name);
     } });
     runInContext(code, context, { filename: path });
@@ -105,9 +106,17 @@ test("temporary recovery verification failures retain proof and return 503; inva
       if (name === "@/lib/supabase/config") return { isSupabaseMode: () => true };
       if (name === "@/lib/supabase/server") return { AuthRequestError: RequestError, preventAuthCaching: response => response, authFailure: (error, fallback, status) => NextResponse.json({ message: error instanceof RequestError ? error.message : fallback }, { status: error instanceof RequestError ? error.status : status }) };
       if (name === "@/lib/server/auth-flows") return { requireRecoverySession: async () => { throw reason; }, copyAuthCookies: (_, target) => target, clearRecoveryProof: () => { cleared = true; } };
+      if (name === "./login-policy" || name === "@/lib/server/login-policy") return { clearLoginPolicy: () => { throw new Error("Recovery GET must not clear login cookies"); } };
       return require(name);
     } }));
     const response = await exports.GET(new NextRequest("https://shop.example.test/api/auth/reset-password"));
     assert.equal(response.status, expectedStatus); assert.equal(cleared, shouldClear);
   }
+});
+test("OAuth remember choice is a signed short-lived HttpOnly intent and invalid choice is rejected",async()=>{
+ const h=harness();const response=await h.call({remember:true});assert.equal(response.status,200);
+ const cookie=response.cookies.get('ct_login_intent');assert.equal(cookie.httpOnly,true);assert.equal(cookie.secure,true);assert.equal(cookie.maxAge,600);
+ const intent=h.load('lib/server/login-policy.ts').readLoginValue(cookie.value);assert.equal(intent.remember,true);assert.ok(intent.expires>Date.now()/1000);
+ assert.equal(intent.purpose,'oauth-login');assert.match(intent.nonce,/^[0-9a-f-]{36}$/);const authorization=new URL((await response.json()).redirectTo);assert.equal(new URL(authorization.searchParams.get('redirect_to')).searchParams.get('intent'),intent.nonce);
+ const requests=h.requests.length;assert.equal((await h.call({remember:'true'})).status,400);assert.equal(h.requests.length,requests);
 });

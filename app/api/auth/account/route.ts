@@ -13,6 +13,6 @@ export async function GET(request: NextRequest) {
     const availability = await accountAvailability();
     let canManageOffice=false;
     try { await getOfficeAdmin(identity); canManageOffice=true; } catch { /* Account management remains usable when Office control is unavailable. */ }
-    return copyAuthCookies(response, NextResponse.json({ account: accountProjection(user), availability, capabilities: { canManageOffice } }));
+    return copyAuthCookies(response, NextResponse.json({ sessionId: identity.sessionId, account: accountProjection(user), availability, capabilities: { canManageOffice } }));
   } catch (reason) { return copyAuthCookies(response, authFailure(reason, "账号资料暂不可用，请稍后重试。")); }
 }
