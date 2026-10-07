@@ -22,6 +22,7 @@ export const sourceExceptions = new Map([
   ["lib/retail-warranty-terms.ts", "Versioned sale policy text is frozen; tests/print-language.test.mjs validates its independent language registry."],
   ["lib/print-language.ts", "Independent signing/printing language, structured values and original-text parser; tests/print-language.test.mjs owns coverage."],
   ["lib/tutorials.ts", "Explicit locale-specific tutorial records; tests/i18n.test.mjs validates all 15 media records and captions."],
+  ["lib/office-tutorials.ts", "Explicit three-language Office storyboard records; tests/office-tutorials.test.mjs validates all 12 catalogs, chapters, captions and media hashes."],
 ]);
 
 // Exact source text exceptions are intentionally reviewable. Runtime customer data

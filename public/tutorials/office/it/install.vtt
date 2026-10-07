@@ -1,0 +1,52 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:06.167
+Apri gli strumenti ChinaTech nel browser, entra nella pagina Office e scegli Solo installazione.
+
+00:00:06.167 --> 00:00:11.792
+Il sito fornisce un comando: premere un pulsante sul sito non installa il programma.
+
+00:00:11.792 --> 00:00:15.708
+Salva i documenti Word, Excel e le altre modifiche.
+
+00:00:15.708 --> 00:00:19.458
+L’installazione potrebbe chiudere le applicazioni Office.
+
+00:00:19.458 --> 00:00:23.542
+Controlla anche la versione e i componenti indicati nella pagina.
+
+00:00:23.542 --> 00:00:26.417
+PowerShell è selezionato inizialmente.
+
+00:00:26.417 --> 00:00:30.417
+Se userai CMD, scegli CMD prima di copiare.
+
+00:00:30.417 --> 00:00:34.833
+I due formati sono diversi: usa quello del terminale che aprirai.
+
+00:00:34.833 --> 00:00:37.125
+Premi Copia comando completo.
+
+00:00:37.125 --> 00:00:42.000
+Se il browser non permette la copia, scarica il testo e copialo dal file.
+
+00:00:42.000 --> 00:00:47.125
+Usa tutto il contenuto del sito, senza trascrivere il lungo comando dal video.
+
+00:00:47.125 --> 00:00:53.875
+In Windows apri PowerShell come amministratore, controlla il nome del terminale e incolla tutto il comando.
+
+00:00:53.875 --> 00:00:58.333
+Questa è un’illustrazione: il video non esegue l’installazione.
+
+00:00:58.333 --> 00:01:02.208
+Decidi se premere Invio solo dopo aver salvato i documenti.
+
+00:01:02.208 --> 00:01:05.958
+Controlla il risultato nell’output reale del programma.
+
+00:01:05.958 --> 00:01:12.583
+Con errore 403, problemi di rete o verifica fallita, fermati senza aggirare i controlli.
+
+00:01:12.583 --> 00:01:16.583
+Installazione e licenza valida sono due verifiche separate.

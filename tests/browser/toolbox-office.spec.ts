@@ -28,7 +28,7 @@ test('eight controlled Office commands copy and download identical text without 
    const loader=Buffer.from(command.split(' ').at(-1)!,'base64').toString('utf16le');
    expect(loader).toContain('/api/toolbox/office/script?token=');expect(loader).not.toContain('s1.kms.cx');expect(loader).not.toContain('FromBase64String');
    await expect(page.locator('.segmented-control__active')).toHaveText(terminal==='cmd'?'CMD':'PowerShell');
-   await activate(page.getByRole('button',{name:'复制完整命令',exact:true}));await expect(page.locator('main').getByRole('status')).toHaveText('命令已复制，请在所选管理员终端中粘贴。');
+   await activate(page.getByRole('button',{name:'复制完整命令',exact:true}));await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('status')).toHaveText('命令已复制，请在所选管理员终端中粘贴。');
    expect(await page.evaluate(()=>(window as unknown as {officeCopied:string}).officeCopied)).toBe(command);
    const waiting=page.waitForEvent('download');await activate(page.getByRole('button',{name:'下载命令文本',exact:true}));const download=await waiting;
    expect(download.suggestedFilename()).toBe(`office-${action}-${terminal}.txt`);const stream=(await download.createReadStream())!;const parts:Buffer[]=[];for await(const part of stream)parts.push(Buffer.from(part));expect(Buffer.concat(parts).toString('utf8')).toBe(command+'\n');
@@ -38,19 +38,19 @@ test('eight controlled Office commands copy and download identical text without 
  await activate(page.locator('header').getByRole('link',{name:'返回工具箱',exact:true}));await expect(page).toHaveURL(/\/toolbox$/);expect(errors).toEqual([]);
 });
 test('disabled or unavailable gateway hides old command and supports regeneration',async({page})=>{
- const state=await gateway(page);state.enabled=false;await page.goto('/toolbox/office');await expect(page.locator('main').getByRole('alert')).toHaveText('Office 命令已停用。');await expect(page.getByRole('button',{name:'复制完整命令',exact:true})).toBeDisabled();await expect(page.locator('pre')).toHaveCount(0);
+ const state=await gateway(page);state.enabled=false;await page.goto('/toolbox/office');await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('alert')).toHaveText('Office 命令已停用。');await expect(page.getByRole('button',{name:'复制完整命令',exact:true})).toBeDisabled();await expect(page.locator('pre')).toHaveCount(0);
  state.enabled=true;await activate(page.getByRole('button',{name:'重新生成命令',exact:true}));await expect(page.locator('pre code')).toContainText('powershell.exe');
  const old=(await page.locator('pre code').textContent())!;state.version='3';await activate(page.getByRole('button',{name:'重新生成命令',exact:true}));await expect(page.locator('pre code')).not.toHaveText(old);
- state.fail=true;await activate(page.getByRole('button',{name:'重新生成命令',exact:true}));await expect(page.locator('main').getByRole('alert')).toHaveText('Office 服务暂不可用，请稍后重试。');await expect(page.locator('pre')).toHaveCount(0);await expect(page.getByRole('button',{name:'下载命令文本',exact:true})).toBeDisabled();
+ state.fail=true;await activate(page.getByRole('button',{name:'重新生成命令',exact:true}));await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('alert')).toHaveText('Office 服务暂不可用，请稍后重试。');await expect(page.locator('pre')).toHaveCount(0);await expect(page.getByRole('button',{name:'下载命令文本',exact:true})).toBeDisabled();
  state.fail=false;await activate(page.getByRole('button',{name:'重新生成命令',exact:true}));await expect(page.locator('pre code')).toContainText('powershell.exe');
 });
 test('clipboard denial, missing API and delayed copy never claim success for another operation',async({page})=>{
  await gateway(page);await page.addInitScript(()=>{const state={reject:true,delayed:false,resolve:()=>{}};(window as unknown as {officeClipboard:typeof state}).officeClipboard=state;Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{if(state.reject)throw new DOMException('Denied','NotAllowedError');if(state.delayed)await new Promise<void>(r=>{state.resolve=r;});}}});});
- await page.goto('/toolbox/office');const copy=page.getByRole('button',{name:'复制完整命令',exact:true});await expect(copy).toBeEnabled();await activate(copy);await expect(page.locator('main').getByRole('alert')).toContainText('复制失败');
- await page.evaluate(()=>{const s=(window as unknown as {officeClipboard:{reject:boolean;delayed:boolean}}).officeClipboard;s.reject=false;});await activate(copy);await expect(page.locator('main').getByRole('status')).toContainText('命令已复制');
+ await page.goto('/toolbox/office');const copy=page.getByRole('button',{name:'复制完整命令',exact:true});await expect(copy).toBeEnabled();await activate(copy);await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('alert')).toContainText('复制失败');
+ await page.evaluate(()=>{const s=(window as unknown as {officeClipboard:{reject:boolean;delayed:boolean}}).officeClipboard;s.reject=false;});await activate(copy);await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('status')).toContainText('命令已复制');
  await page.evaluate(()=>{(window as unknown as {officeClipboard:{delayed:boolean}}).officeClipboard.delayed=true;});await activate(page.getByRole('button',{name:'已复制完整命令',exact:true}));await expect(page.getByRole('button',{name:'正在复制…',exact:true})).toBeDisabled();
- await activate(page.getByRole('button',{name:/^仅卸载/}));await expect(copy).toBeEnabled();await page.evaluate(()=>{(window as unknown as {officeClipboard:{resolve:()=>void}}).officeClipboard.resolve();});await expect(page.locator('main').getByRole('status')).toHaveCount(0);
- await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:undefined}));await activate(copy);await expect(page.locator('main').getByRole('alert')).toContainText('复制失败');
+ await activate(page.getByRole('button',{name:/^仅卸载/}));await expect(copy).toBeEnabled();await page.evaluate(()=>{(window as unknown as {officeClipboard:{resolve:()=>void}}).officeClipboard.resolve();});await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('status')).toHaveCount(0);
+ await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:undefined}));await activate(copy);await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('alert')).toContainText('复制失败');
 });
 
 test('late generation response cannot replace the current action or terminal',async({page})=>{

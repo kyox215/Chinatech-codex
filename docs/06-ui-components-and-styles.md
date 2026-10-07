@@ -3,6 +3,9 @@
 ## 2026-10-07 Office 联网控制
 
 OfficeToolboxControl 是全站工具管理专用组件，复用账号设置card/cardHead/form/muted/nav及原button/语义token；通过AccountOverview可选capabilities.canManageOffice接入原账号设置列与锚点。显示能力来自服务端，写权限由独立管理API/私有表再次检查。公开Office页仅异步生成受控启动器，Blob下载当前命令、网关源码链接，生成/停用/错误/复制/迟到响应独立反馈，44px与三语保留。仅复用组件，无新主题/依赖/普通输入框。控制语义与验证范围见[整体开关31](31-office-command-control.md)。
+## 2026-10-07 Office视频复用
+
+TutorialLibrary增加可选readonly教程目录、4:3／16:9及操作回调，默认首页目录／4:3与Strict ref微任务清理保留；Office通过独立三语目录复用播放器，不复制媒体处理或新UI框架。教程→对应命令使用有限OfficeAction hash，同页明确选项及焦点／刷新／前后返回保持一致；手动改选时已有command hash同步。共用PublicHeader、语言／按钮／token，私有Office锚点避开sticky header。目录语言只改显示，原命令及源码字节不译写、不执行。媒体／章节／封面／字幕按同一实测配音生成；图示必须标示，不能把动画当Windows实际执行成功。
 
 ## 2026-10-07 Office 命令工具
 

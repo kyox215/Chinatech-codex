@@ -3,6 +3,7 @@
 .watchColumn { min-width: 0; }
 .player { position: relative; aspect-ratio: 4 / 3; background: var(--text); }
 .video { display: block; width: 100%; height: 100%; aspect-ratio: 4 / 3; object-fit: contain; }
+.widescreen, .widescreen .video { aspect-ratio: 16 / 9; }
 .video:focus-visible { outline: 3px solid var(--primary-500); outline-offset: -3px; }
 .playOverlay { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; padding: 26px; border: 0; background: linear-gradient(transparent 45%, var(--overlay)); cursor: pointer; }
 .playOverlay:focus-visible { outline: 3px solid var(--primary-500); outline-offset: -4px; }
