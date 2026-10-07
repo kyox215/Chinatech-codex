@@ -10,6 +10,7 @@ param(
 # Generated package pins the release policy. Inspection never downloads or executes
 # third-party scripts, changes licensing, or creates a scheduled task.
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 # ScriptBlock invocation has no MyInvocation path; a pinned loader supplies it.
 $script:PackageRoot = $PackageDirectory
 if (-not $script:PackageRoot -and $MyInvocation.MyCommand.Path) { $script:PackageRoot = Split-Path -Parent $MyInvocation.MyCommand.Path }
@@ -29,6 +30,9 @@ function Get-Message([string]$Key) {
     if (-not $script:Messages.ContainsKey($Key)) { throw 'unknown-message-key' }
     return [string]$script:Messages[$Key][$script:LanguageIndex]
 }
+
+# Direct console output avoids encoded-command CLIXML on redirected streams.
+function Write-CTMessage([string]$Message) { [Console]::WriteLine($Message) }
 
 function Get-Sha256([string]$Path) {
     $stream = [IO.File]::OpenRead($Path)
@@ -244,19 +248,19 @@ function Assert-MicrosoftSetup([string]$Path) {
 }
 
 function Invoke-Inspection {
-    Write-Host (Get-Message 'title')
-    if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { Write-Host (Get-Message 'platform'); return $null }
+    Write-CTMessage (Get-Message 'title')
+    if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { Write-CTMessage (Get-Message 'platform'); return $null }
     [void](Assert-CTEntryHost)
     $release = Read-Release
     $facts = Get-SystemFacts
-    Write-Host ((Get-Message 'detected') -f $facts.Caption, $facts.Edition, $facts.Architecture, $facts.InstallLanguage)
+    Write-CTMessage ((Get-Message 'detected') -f $facts.Caption, $facts.Edition, $facts.Architecture, $facts.InstallLanguage)
     $route = Get-Route $facts.Version $facts.Build $facts.Edition $facts.Architecture
     if ($route.Allowed) {
         $displaySteps = @($route.Steps | ForEach-Object { Get-Message ('step-' + $_) })
-        Write-Host ((Get-Message 'route') -f ($displaySteps -join ' -> '))
-    } else { Write-Host (Get-Message $route.Reason) }
+        Write-CTMessage ((Get-Message 'route') -f ($displaySteps -join ' -> '))
+    } else { Write-CTMessage (Get-Message $route.Reason) }
     $issues = @(Get-PreflightIssues $facts)
-    foreach ($issue in $issues) { Write-Host (Get-Message $issue) }
+    foreach ($issue in $issues) { Write-CTMessage (Get-Message $issue) }
     # Inspection reports facts only. The separate entry branch checks both gates
     # before asking for UAC or importing any workflow operation.
     return New-Object PSObject -Property @{ Release=$release; Route=$route; Facts=$facts; Issues=$issues }
@@ -287,7 +291,7 @@ if (-not $LibraryOnly) {
             if ($null -eq $inspection) { $result = 2 }
             elseif (-not $inspection.Route.Allowed -or $inspection.Issues.Count -or
                 -not (Test-RouteRelease $inspection.Release $inspection.Route.Route $inspection.Facts)) {
-                Write-Host (Get-Message 'blocked'); $result = 10
+                Write-CTMessage (Get-Message 'blocked'); $result = 10
             } else {
                 Assert-CTEntryBytes
                 $hostPath = Assert-CTEntryHost
@@ -302,7 +306,7 @@ if (-not $LibraryOnly) {
                     $result = $child.ExitCode
                 } else {
                     . Import-CTWorkflow
-                    Write-Host (Get-Message 'backup'); Write-Host (Get-Message 'kmsNotice')
+                    Write-CTMessage (Get-Message 'backup'); Write-CTMessage (Get-Message 'kmsNotice')
                     # The workflow owns the single local confirmation and repeats
                     # facts, permissions and source checks before persistent writes.
                     $outcome = Invoke-CTWorkflow -Release $inspection.Release -Route $inspection.Route.Route -PackageRoot $script:PackageRoot -Language $Language -ExpectedEntryHash $script:ExpectedEntryHash -MediaPaths @{}
@@ -310,12 +314,13 @@ if (-not $LibraryOnly) {
             }
         }
         if ($outcome) {
-            if ($outcome -eq 'completed') { Write-Host (Get-Message 'completed'); $result=0 }
-            elseif ($outcome -eq 'cancelled') { Write-Host (Get-Message 'cancelled'); $result=0 }
-            elseif ($outcome -eq 'awaiting-restart') { Write-Host (Get-Message 'inProgress'); $result=0 }
-            else { Write-Host (Get-Message 'workflow.failedUnknown'); $result=1 }
+            if ($outcome -eq 'completed') { Write-CTMessage (Get-Message 'completed'); $result=0 }
+            elseif ($outcome -eq 'cancelled') { Write-CTMessage (Get-Message 'cancelled'); $result=0 }
+            elseif ($outcome -eq 'awaiting-restart') { Write-CTMessage (Get-Message 'inProgress'); $result=0 }
+            else { Write-CTMessage (Get-Message 'workflow.failedUnknown'); $result=1 }
         }
-    } catch { Write-Host (Get-CTFailureMessage $_.Exception.Message) }
-    [void](Read-Host (Get-Message 'pressEnter'))
+    } catch { Write-CTMessage (Get-CTFailureMessage $_.Exception.Message) }
+    Write-CTMessage (Get-Message 'pressEnter')
+    [void][Console]::ReadLine()
     exit $result
 }
