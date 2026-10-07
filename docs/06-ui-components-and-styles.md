@@ -1,5 +1,13 @@
 # 公共组件与样式复用规范
 
+## 2026-10-07 Windows 检测候选
+
+`/toolbox/windows` 复用 PublicHeader、Brand、LanguageProvider、LanguageSwitcher、公共 button 与 token；PublicHeader 仅扩展 `page="windows"`，与 Office 共用返回工具箱。下载／条件面板使用工具箱私有 CSS Module，无新主题或依赖。核心说明与下载由 SSR 输出；无 JavaScript 仍可看默认中文说明并下载包含三语入口的ZIP。
+
+网页与启动器同步三语，清单关联生成源哈希；明确显示检测版和自动升级未开放。三语四宽度／双浏览器和无JS下载已实测，Windows／PS2／实际旧浏览器未验。详细状态见[Windows工具箱31](31-windows-toolbox-upgrade.md)。
+
+
+
 LanguageSwitcher复用useFormReady：服务端/初始化期间禁用选择，准备后保留第一笔语言选择及刷新偏好；防止未接事件时原生下拉值被保存偏好覆盖。所有现有使用方共用，无新样式/主题。
 
 ## 2026-10-07 Office 联网控制

@@ -1,5 +1,12 @@
 # 决策与真实进度
 
+
+## 2026-10-07 Windows工具箱执行驱动与检测发布
+
+用户授权保留文件应用升级Win11Pro并发布。新增公开Windows入口与三语实际ZIP下载，驱动已接入固定同字节loader／UAC／DPAPI-HMAC／精确版本媒体／InteractiveToken恢复任务；公开inspection-only、空路线与媒体、编译false，未进行Windows安装／激活／桥接或硬件绕过。完整自动化未完成，不能以检测入口发布代表实现全部目标。已校验官方26H2Pro目标ISO，Windows真实文件／应用／设置／Office及中断恢复验收仍缺。
+
+386Node、3365三语键、strictTS、lint0错1既有warning、正式构建及34Windows／Office双浏览器通过；独立专项审查修复未取得锁仍删除active恢复任务及完整政策证据绑定缺口，当前公开可达检测无未修复阻断。发布采用最新main167b766隔离限定候选，不混入Office整体开关候选和私有Windows媒体。详细范围和证据见[Windows工具箱31](31-windows-toolbox-upgrade.md)。
+
 ## 2026-10-07 登录设备发布候选
 
 默认临时登录、勾选后持久保存，前台30天闲置；个人会话退出与老板本店访问撤销隔离。复核修复和16组本地API/双浏览器验收已完成，本次基于最新main隔离发布，不包含根目录其他任务。生产状态须待当次CI/兼容迁移/应用核验/严格启用后的实际证据；详见[登录设备29](29-login-session-devices.md)。

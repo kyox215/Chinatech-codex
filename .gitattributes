@@ -1,0 +1,4 @@
+
+# Hash-pinned downloadable bytes must survive every checkout unchanged.
+public/toolbox/windows/* -text
+scripts/windows-toolbox/* text eol=lf

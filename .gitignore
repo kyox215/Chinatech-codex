@@ -16,6 +16,7 @@ archive.local/
 *.bundle
 *.private.*
 *.zip
+!public/toolbox/windows/ChinaTech-Windows-Check.zip
 history/
 prototypes/
 design/

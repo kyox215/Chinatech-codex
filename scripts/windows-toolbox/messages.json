@@ -1,0 +1,447 @@
+{
+  "title": [
+    "ChinaTech · Windows 升级检测",
+    "ChinaTech · Verifica aggiornamento Windows",
+    "ChinaTech · Windows upgrade check"
+  ],
+  "platform": [
+    "请在 Windows 电脑上运行。没有执行激活或安装。",
+    "Esegui su un PC Windows. Nessuna attivazione o installazione eseguita.",
+    "Run on a Windows PC. No activation or installation was performed."
+  ],
+  "missingPowerShell": [
+    "未检测到 Windows PowerShell。没有执行激活或安装。",
+    "Windows PowerShell non trovato. Nessuna attivazione o installazione eseguita.",
+    "Windows PowerShell was not found. No activation or installation was performed."
+  ],
+  "integrity": [
+    "文件校验失败。重新从 ChinaTech 下载并解压完整包。",
+    "Verifica dei file fallita. Scarica ed estrai di nuovo il pacchetto completo da ChinaTech.",
+    "File integrity check failed. Download and extract the complete ChinaTech package again."
+  ],
+  "unknown": [
+    "无法可靠读取必要系统信息，已停止。",
+    "Impossibile leggere con certezza le informazioni di sistema richieste. Operazione interrotta.",
+    "Required system information could not be read reliably. Stopped."
+  ],
+  "arch": [
+    "当前系统不是 x64。无法通过就地升级转换架构并保留应用。",
+    "Il sistema attuale non è x64. Non è possibile cambiare architettura mantenendo le app con un aggiornamento sul posto.",
+    "The current system is not x64. An in-place upgrade cannot change architecture while retaining apps."
+  ],
+  "edition": [
+    "当前版本没有经过验证的 Pro 转换路径，已停止。",
+    "Non è disponibile un percorso verificato verso Pro per questa edizione. Operazione interrotta.",
+    "There is no verified Pro conversion path for this edition. Stopped."
+  ],
+  "servicePack": [
+    "Windows 7 需要 SP1。此启动器不会自动安装系统前置补丁。",
+    "Windows 7 richiede SP1. Questo programma non installa automaticamente le patch preliminari.",
+    "Windows 7 requires SP1. This launcher does not automatically install prerequisite patches."
+  ],
+  "space": [
+    "系统盘可用空间不足或未知，已停止。",
+    "Spazio libero sul disco di sistema insufficiente o sconosciuto. Operazione interrotta.",
+    "System drive free space is insufficient or unknown. Stopped."
+  ],
+  "power": [
+    "电脑使用电池供电或电源状态未知，已停止。请连接电源。",
+    "Alimentazione a batteria o stato sconosciuto. Operazione interrotta. Collega l'alimentatore.",
+    "Running on battery or power status unknown. Stopped. Connect AC power."
+  ],
+  "reboot": [
+    "系统已有待完成的重启。请先完成重启再检测。",
+    "È già richiesto un riavvio del sistema. Riavvia prima di ripetere la verifica.",
+    "A system restart is already pending. Restart before checking again."
+  ],
+  "encryption": [
+    "系统盘加密恢复条件尚未核验，已停止。不要把恢复密钥提交给网站。",
+    "Le condizioni di ripristino del disco crittografato non sono state verificate. Operazione interrotta. Non inviare la chiave al sito.",
+    "Encrypted drive recovery conditions have not been verified. Stopped. Do not submit recovery keys to the website."
+  ],
+  "hook": [
+    "发现授权 Hook 或相关 IFEO 配置，可能与升级冲突。为避免影响 Windows 或 Office，已停止。尚未完整核验续期任务和安全排除。",
+    "Rilevato un hook di attivazione o una configurazione IFEO potenzialmente incompatibile. Operazione interrotta per proteggere Windows e Office. Attività di rinnovo ed esclusioni di sicurezza non ancora completamente verificate.",
+    "An activation hook or related IFEO configuration may conflict with upgrading. Stopped to protect Windows and Office. Renewal tasks and security exclusions have not been fully checked."
+  ],
+  "blocked": [
+    "当前为检测版：尚无 Windows 端到端升级验收，自动激活与升级均未开放。检测完成不代表电脑兼容。没有修改系统。",
+    "Versione di verifica: nessun percorso ha superato i test completi di aggiornamento Windows. Attivazione e aggiornamento automatici non disponibili. La verifica non dimostra la compatibilità. Il sistema non è stato modificato.",
+    "Inspection release: no route has passed end-to-end Windows upgrade tests. Automatic activation and upgrade are unavailable. Inspection does not prove compatibility. The system was not modified."
+  ],
+  "detected": [
+    "当前系统：{0}；版本：{1}；架构：{2}；系统安装语言：{3}",
+    "Sistema: {0}; edizione: {1}; architettura: {2}; lingua di installazione: {3}",
+    "System: {0}; edition: {1}; architecture: {2}; install language: {3}"
+  ],
+  "route": [
+    "候选路径：{0}。这不是已经通过验收的升级路径。",
+    "Percorso candidato: {0}. Non è un percorso di aggiornamento già verificato.",
+    "Candidate route: {0}. This is not a validated upgrade path."
+  ],
+  "step-windows81": [
+    "Windows 8.1 中间升级",
+    "Passaggio intermedio a Windows 8.1",
+    "Intermediate Windows 8.1 upgrade"
+  ],
+  "step-windows10": [
+    "Windows 10 中间升级",
+    "Passaggio intermedio a Windows 10",
+    "Intermediate Windows 10 upgrade"
+  ],
+  "step-convert-pro": [
+    "核验并转换为 Pro",
+    "Verifica e conversione a Pro",
+    "Verify and convert to Pro"
+  ],
+  "step-activate-pro": [
+    "核验 Pro 授权",
+    "Verifica attivazione Pro",
+    "Verify Pro activation"
+  ],
+  "step-windows11-target": [
+    "Windows 11 Pro 目标升级",
+    "Aggiornamento finale a Windows 11 Pro",
+    "Target Windows 11 Pro upgrade"
+  ],
+  "step-verify-target": [
+    "重启后核验实际结果",
+    "Verifica del risultato dopo il riavvio",
+    "Verify actual results after restarting"
+  ],
+  "backup": [
+    "开始前必须备份重要文件。安装只允许保留个人文件、应用与设置；不能保证零风险。",
+    "Prima di iniziare, salva i file importanti. Sono consentiti solo aggiornamenti che mantengano file, app e impostazioni; il rischio non è nullo.",
+    "Back up important files before starting. Only upgrades retaining files, apps and settings are allowed; zero risk cannot be guaranteed."
+  ],
+  "kmsNotice": [
+    "本地模拟激活会临时写入授权 Hook、IFEO 和 Defender 排除，不安装续期任务。检测到 Office 或无法核验安全状态时会停止。激活状态不等于有效或永久许可证。",
+    "L’attivazione simulata locale scrive temporaneamente hook, IFEO ed esclusioni Defender, senza attività di rinnovo. Si arresta se rileva Office o non può verificare la sicurezza. Lo stato attivo non equivale a una licenza valida o permanente.",
+    "Local simulated activation temporarily writes a licensing hook, IFEO and Defender exclusion without renewal tasks. It stops if Office is detected or safety cannot be verified. Activated status is not a valid or permanent license."
+  ],
+  "confirm": [
+    "确认已备份、接受微软条款及上述系统改动，并允许自动重启？输入 YES 开始，其他输入取消。",
+    "Confermi il backup, accetti i termini Microsoft e le modifiche indicate e autorizzi i riavvii automatici? Scrivi YES per iniziare, altrimenti annulla.",
+    "Confirm your backup, accept Microsoft terms and the stated system changes, and allow automatic restarts? Type YES to start; anything else cancels."
+  ],
+  "cancelled": [
+    "已取消。没有开始激活或安装。",
+    "Annullato. Attivazione e installazione non avviate.",
+    "Cancelled. Activation and installation were not started."
+  ],
+  "activation": [
+    "正在核验 Windows 授权状态…",
+    "Verifica dello stato di attivazione Windows…",
+    "Checking Windows activation status…"
+  ],
+  "activationFailed": [
+    "Windows 激活未通过核验，已停止升级。",
+    "Attivazione Windows non verificata. Aggiornamento interrotto.",
+    "Windows activation verification failed. Upgrade stopped."
+  ],
+  "retention": [
+    "安装程序无法确认保留文件和应用，已停止。不会改成清空安装。",
+    "Il programma di installazione non conferma il mantenimento di file e app. Operazione interrotta; nessuna installazione pulita.",
+    "Setup could not confirm retention of files and apps. Stopped; no clean installation will be attempted."
+  ],
+  "media": [
+    "没有匹配当前安装语言、架构及目标版本的已校验微软媒体，已停止。",
+    "Supporto Microsoft verificato non disponibile per lingua, architettura e versione richieste. Operazione interrotta.",
+    "No verified Microsoft media matches the install language, architecture and target version. Stopped."
+  ],
+  "signature": [
+    "微软安装程序签名无效，已停止。",
+    "Firma del programma di installazione Microsoft non valida. Operazione interrotta.",
+    "Microsoft Setup signature is invalid. Stopped."
+  ],
+  "admin": [
+    "升级需要管理员权限。没有开始激活或安装。",
+    "L'aggiornamento richiede privilegi amministrativi. Attivazione e installazione non avviate.",
+    "Upgrade requires administrator privileges. Activation and installation were not started."
+  ],
+  "inProgress": [
+    "安装程序已启动，尚未确认升级完成。请保持供电，不要关闭电脑。",
+    "Installazione avviata; aggiornamento non ancora confermato. Mantieni l'alimentazione e non spegnere il PC.",
+    "Setup started; upgrade completion is not yet confirmed. Keep AC power connected and do not turn off the PC."
+  ],
+  "completed": [
+    "已核验目标 Windows 版本和授权状态。请继续检查个人文件、应用及设置。",
+    "Versione Windows e stato di attivazione verificati. Controlla ora file personali, app e impostazioni.",
+    "Target Windows version and activation status verified. Now check your personal files, apps and settings."
+  ],
+  "failed": [
+    "操作未完成，已停止。已保留恢复资料，不会清理 Windows.old。错误阶段：{0}",
+    "Operazione non completata e interrotta. Dati di ripristino conservati; Windows.old non viene eliminato. Fase: {0}",
+    "Operation did not complete and stopped. Recovery data is retained; Windows.old is not removed. Stage: {0}"
+  ],
+  "resume": [
+    "重启后请再次打开同一启动器。会先核对实际系统，不能把上次启动安装当作升级成功。",
+    "Dopo il riavvio, riapri lo stesso programma. Verificherà il sistema reale; l'avvio precedente non dimostra il successo.",
+    "After restarting, open the same launcher again. It will check the actual system; a previous setup launch does not prove success."
+  ],
+  "pressEnter": [
+    "按回车关闭。",
+    "Premi Invio per chiudere.",
+    "Press Enter to close."
+  ],
+  "workflow.confirm": [
+    "已核对备份及显示的改动，接受微软条款并允许自动重启？输入 UPGRADE 开始，其他输入取消。",
+    "Hai verificato il backup e le modifiche indicate, accetti i termini Microsoft e autorizzi i riavvii automatici? Scrivi UPGRADE per iniziare; altrimenti annulla.",
+    "Have you checked your backup and the stated changes, accepted Microsoft terms and allowed automatic restarts? Type UPGRADE to start; anything else cancels."
+  ],
+  "workflow.taskDescription": [
+    "ChinaTech Windows 升级恢复",
+    "Ripresa aggiornamento Windows ChinaTech",
+    "ChinaTech Windows upgrade recovery"
+  ],
+  "workflow.failedUnknown": [
+    "操作未完成，已停止。请保留本机恢复资料；不要重复执行未知结果的安装或激活。",
+    "Operazione non completata e interrotta. Conserva i dati di ripristino locali; non ripetere installazioni o attivazioni con esito sconosciuto.",
+    "The operation did not complete and stopped. Keep local recovery data; do not repeat an installation or activation whose result is unknown."
+  ],
+  "workflow.prerequisite": [
+    "自动流程需要 x64 Windows PowerShell 5.1 及已验前置条件，已停止。",
+    "La procedura automatica richiede Windows PowerShell 5.1 x64 e prerequisiti verificati. Operazione interrotta.",
+    "Automation requires x64 Windows PowerShell 5.1 and verified prerequisites. Stopped."
+  ],
+  "workflow.identity": [
+    "操作账号、安装语言或发布版本已变化，已停止恢复。",
+    "Account, lingua di installazione o versione del pacchetto cambiati. Ripresa interrotta.",
+    "The operation account, install language or package release changed. Recovery stopped."
+  ],
+  "workflow.platform": [
+    "请在 Windows 电脑上运行。没有执行激活或安装。",
+    "Esegui su un PC Windows. Nessuna attivazione o installazione eseguita.",
+    "Run on a Windows PC. No activation or installation was performed."
+  ],
+  "workflow.integrity": [
+    "文件校验失败。重新从 ChinaTech 下载并解压完整包。",
+    "Verifica dei file fallita. Scarica ed estrai di nuovo il pacchetto completo da ChinaTech.",
+    "File integrity check failed. Download and extract the complete ChinaTech package again."
+  ],
+  "workflow.edition": [
+    "当前版本没有经过验证的 Pro 转换路径，已停止。",
+    "Non è disponibile un percorso verificato verso Pro per questa edizione. Operazione interrotta.",
+    "There is no verified Pro conversion path for this edition. Stopped."
+  ],
+  "workflow.media": [
+    "没有匹配当前安装语言、架构及目标版本的已校验微软媒体，已停止。",
+    "Supporto Microsoft verificato non disponibile per lingua, architettura e versione richieste. Operazione interrotta.",
+    "No verified Microsoft media matches the install language, architecture and target version. Stopped."
+  ],
+  "workflow.retention": [
+    "安装程序无法确认保留文件和应用，已停止。不会改成清空安装。",
+    "Il programma di installazione non conferma il mantenimento di file e app. Operazione interrotta; nessuna installazione pulita.",
+    "Setup could not confirm retention of files and apps. Stopped; no clean installation will be attempted."
+  ],
+  "workflow.activationFailed": [
+    "Windows 激活未通过核验，已停止升级。",
+    "Attivazione Windows non verificata. Aggiornamento interrotto.",
+    "Windows activation verification failed. Upgrade stopped."
+  ],
+  "workflow.systemPath": [
+    "系统程序位置不可信，已停止。请使用原始 Windows PowerShell。",
+    "Percorso dei programmi di sistema non attendibile. Operazione interrotta. Usa Windows PowerShell originale.",
+    "The system executable location is untrusted. Stopped. Use original Windows PowerShell."
+  ],
+  "workflow.interactiveAdmin": [
+    "需要原操作账号的交互式管理员会话，已停止。",
+    "È richiesta una sessione amministrativa interattiva dello stesso account. Operazione interrotta.",
+    "An interactive administrator session of the original account is required. Stopped."
+  ],
+  "workflow.reparse": [
+    "检测到重定向目录或文件，已停止。",
+    "Rilevato un file o una cartella reindirizzati. Operazione interrotta.",
+    "A redirected file or directory was detected. Stopped."
+  ],
+  "workflow.unsafeAcl": [
+    "恢复资料访问权限不符合要求，已停止。",
+    "Permessi dei dati di ripristino non validi. Operazione interrotta.",
+    "Recovery data access permissions do not meet requirements. Stopped."
+  ],
+  "workflow.workPath": [
+    "恢复目录不符合受保护路径规则，已停止。",
+    "La cartella di ripristino non rispetta i requisiti di protezione. Operazione interrotta.",
+    "The recovery directory does not meet protected path requirements. Stopped."
+  ],
+  "workflow.stateKey": [
+    "无法验证本机恢复密钥，已停止。",
+    "Impossibile verificare la chiave locale di ripristino. Operazione interrotta.",
+    "The local recovery key could not be verified. Stopped."
+  ],
+  "workflow.stateTampered": [
+    "恢复状态缺失或校验失败，已停止；不会重放安装或激活。",
+    "Stato di ripristino mancante o non valido. Operazione interrotta; installazione e attivazione non saranno ripetute.",
+    "Recovery state is missing or failed integrity checks. Stopped; installation and activation will not be replayed."
+  ],
+  "workflow.stateTransition": [
+    "恢复阶段顺序不符合验证规则，已停止。",
+    "Sequenza delle fasi di ripristino non valida. Operazione interrotta.",
+    "The recovery stage sequence does not match verified rules. Stopped."
+  ],
+  "workflow.editionUnknown": [
+    "无法可靠读取已安装系统版本，已停止。",
+    "Impossibile leggere con certezza l’edizione installata. Operazione interrotta.",
+    "The installed edition could not be read reliably. Stopped."
+  ],
+  "workflow.editionMismatch": [
+    "系统实际版本与记录不一致，已停止。",
+    "L’edizione reale non coincide con quella registrata. Operazione interrotta.",
+    "The actual system edition differs from its recorded value. Stopped."
+  ],
+  "workflow.routeUnverified": [
+    "当前路线没有完整 Windows 验收证据，已停止。",
+    "Il percorso non dispone di prove complete dei test Windows. Operazione interrotta.",
+    "This route has no complete Windows acceptance evidence. Stopped."
+  ],
+  "workflow.stagePolicy": [
+    "升级阶段与发布规则不一致，已停止。",
+    "Le fasi di aggiornamento non rispettano la politica del pacchetto. Operazione interrotta.",
+    "Upgrade stages do not match the release policy. Stopped."
+  ],
+  "workflow.retentionUnverified": [
+    "当前中间升级不能可靠确认保留应用，已停止。",
+    "Il passaggio intermedio non può confermare il mantenimento delle app. Operazione interrotta.",
+    "This intermediate upgrade cannot reliably confirm app retention. Stopped."
+  ],
+  "workflow.conversionUnverified": [
+    "当前版本没有已验的原生 Pro 转换流程，已停止。",
+    "Non è disponibile una conversione nativa verificata a Pro per questa edizione. Operazione interrotta.",
+    "This edition has no verified native Pro conversion workflow. Stopped."
+  ],
+  "workflow.mediaMismatch": [
+    "安装媒体的语言、版本或架构不匹配，已停止。",
+    "Lingua, edizione o architettura del supporto non corrispondono. Operazione interrotta.",
+    "Installation media language, edition or architecture does not match. Stopped."
+  ],
+  "workflow.mediaSource": [
+    "安装媒体来源不符合微软来源规则，已停止。",
+    "La fonte del supporto non rispetta i requisiti Microsoft. Operazione interrotta.",
+    "The installation media source does not meet Microsoft source requirements. Stopped."
+  ],
+  "workflow.mediaReceipt": [
+    "解压媒体的文件清单校验失败，已停止。",
+    "Verifica dell’elenco dei file del supporto estratto fallita. Operazione interrotta.",
+    "The extracted media file receipt failed verification. Stopped."
+  ],
+  "workflow.mediaAlreadyPresent": [
+    "发现已有安装媒体；结果未核对前不会覆盖或重复执行。",
+    "Supporto di installazione già presente; non sarà sovrascritto né rieseguito prima della verifica.",
+    "Existing installation media was found; it will not be overwritten or replayed before review."
+  ],
+  "workflow.activationSafetyUnknown": [
+    "无法核验 Office、授权任务或安全排除的状态，已停止激活。",
+    "Impossibile verificare lo stato di Office, delle attività di attivazione o delle esclusioni di sicurezza. Attivazione interrotta.",
+    "Office, licensing tasks or security exclusions could not be verified. Activation stopped."
+  ],
+  "workflow.activationConflict": [
+    "发现授权或安全配置冲突，已停止；不会清理已有配置。",
+    "Rilevato un conflitto nelle impostazioni di attivazione o sicurezza. Operazione interrotta; le impostazioni esistenti non saranno rimosse.",
+    "A licensing or security configuration conflict was detected. Stopped; existing configuration will not be removed."
+  ],
+  "workflow.officeActivationConflict": [
+    "检测到已安装 Office，为避免影响其授权，已停止模拟激活。",
+    "Office è installato. Attivazione simulata interrotta per proteggere la sua licenza.",
+    "Office is installed. Simulated activation stopped to protect its licensing."
+  ],
+  "workflow.activationChangedOfficeOrSafety": [
+    "激活后 Office 或安全配置发生变化，已停止并保留核对资料。",
+    "Configurazione di Office o sicurezza cambiata dopo l’attivazione. Operazione interrotta; dati di verifica conservati.",
+    "Office or security configuration changed after activation. Stopped and retained review data."
+  ],
+  "workflow.sourcePolicy": [
+    "上游文件不符合固定版本及校验规则，已停止。",
+    "Il file sorgente non rispetta versione e impronta fissate. Operazione interrotta.",
+    "The upstream file does not match the pinned version and integrity policy. Stopped."
+  ],
+  "workflow.activationUnknown": [
+    "激活结果未知或已有未核对文件，已停止；不会重复执行。",
+    "Esito dell’attivazione sconosciuto o file precedenti non verificati. Operazione interrotta; nessuna ripetizione automatica.",
+    "Activation result is unknown or previous files are unverified. Stopped; it will not be replayed."
+  ],
+  "workflow.licenseUnknown": [
+    "无法可靠确认 Windows 授权状态，已停止。",
+    "Impossibile confermare con certezza lo stato di attivazione Windows. Operazione interrotta.",
+    "Windows licensing status could not be confirmed reliably. Stopped."
+  ],
+  "workflow.conversionCancelled": [
+    "Pro 版本转换已取消或结果未核验，已停止。",
+    "Conversione a Pro annullata o esito non verificato. Operazione interrotta.",
+    "Pro edition conversion was cancelled or its result is unverified. Stopped."
+  ],
+  "workflow.package": [
+    "启动包文件结构不符合规则，已停止。",
+    "Struttura del pacchetto non valida. Operazione interrotta.",
+    "The launch package file structure does not match policy. Stopped."
+  ],
+  "workflow.task": [
+    "自动恢复任务的身份或权限校验失败，已停止。",
+    "Identità o permessi dell’attività di ripristino non validi. Operazione interrotta.",
+    "Automatic recovery task identity or permissions failed verification. Stopped."
+  ],
+  "workflow.taskCleanup": [
+    "无法确认恢复任务已停用。操作已停止，请保留本机诊断资料。",
+    "Impossibile confermare la disattivazione dell’attività di ripristino. Operazione interrotta; conserva i dati diagnostici locali.",
+    "Recovery task removal could not be confirmed. The operation stopped; keep local diagnostic data."
+  ],
+  "workflow.fixtureOnly": [
+    "此测试适配器不能用于 Windows 实际执行，已停止。",
+    "Questo adattatore di test non può eseguire operazioni reali su Windows. Operazione interrotta.",
+    "This test adapter cannot run real Windows operations. Stopped."
+  ],
+  "workflow.language": [
+    "启动语言不符合支持范围，已停止。",
+    "Lingua del programma non supportata. Operazione interrotta.",
+    "The launcher language is unsupported. Stopped."
+  ],
+  "workflow.alreadyRunning": [
+    "另一个升级流程正在运行，已停止本次启动。",
+    "Un’altra procedura di aggiornamento è in corso. Questo avvio è stato interrotto.",
+    "Another upgrade workflow is running. This launch stopped."
+  ],
+  "workflow.operation": [
+    "恢复操作不符合发布规则，已停止。",
+    "Operazione di ripristino non prevista dal pacchetto. Operazione interrotta.",
+    "The recovery operation does not match release policy. Stopped."
+  ],
+  "workflow.preflight": [
+    "系统前置条件未通过核验，已停止。",
+    "I prerequisiti di sistema non hanno superato la verifica. Operazione interrotta.",
+    "System prerequisites did not pass verification. Stopped."
+  ],
+  "workflow.preflightChanged": [
+    "确认后系统或账号状态已变化，已停止。",
+    "Stato del sistema o account cambiato dopo la conferma. Operazione interrotta.",
+    "The system or account state changed after confirmation. Stopped."
+  ],
+  "workflow.routeChanged": [
+    "系统当前路线与确认或恢复路线不一致，已停止。",
+    "Il percorso attuale non coincide con quello confermato o salvato. Operazione interrotta.",
+    "The current system route differs from the confirmed or recovery route. Stopped."
+  ],
+  "workflow.interruptedUnknown": [
+    "中断后的实际结果无法确认，已停止；不会重复安装或激活。",
+    "Impossibile confermare il risultato dopo l’interruzione. Operazione interrotta; installazione e attivazione non saranno ripetute.",
+    "The actual result after interruption cannot be confirmed. Stopped; installation and activation will not be replayed."
+  ],
+  "workflow.actualTargetMismatch": [
+    "重启后的实际系统与预期阶段不符，已停止。",
+    "Il sistema reale dopo il riavvio non corrisponde alla fase prevista. Operazione interrotta.",
+    "The actual system after restart does not match the expected stage. Stopped."
+  ],
+  "workflow.downgrade": [
+    "目标媒体低于当前系统版本，已停止；不会执行降级。",
+    "Il supporto destinazione è precedente al sistema attuale. Operazione interrotta; nessun downgrade.",
+    "Target media is older than the current system. Stopped; no downgrade will be attempted."
+  ],
+  "workflow.setupFailed": [
+    "安装程序报告失败，已停止并保留恢复资料。",
+    "Il programma di installazione ha segnalato un errore. Operazione interrotta; dati di ripristino conservati.",
+    "Setup reported failure. Stopped and retained recovery data."
+  ],
+  "workflow.finalVerification": [
+    "目标系统、版本或授权最终核验未通过，未标记成功。",
+    "Verifica finale di sistema, edizione o attivazione fallita. Il successo non è stato confermato.",
+    "Final target system, edition or licensing verification failed. Success was not recorded."
+  ]
+}

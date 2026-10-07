@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "version": "2026.10.07-preview.1",
+  "status": "inspection-only",
+  "target": { "version": "26H2", "edition": "Professional", "architecture": "x64" },
+  "verifiedRoutes": [],
+  "media": [],
+  "sources": [
+    {
+      "id": "mediacreationtool",
+      "repository": "AveYo/MediaCreationTool.bat",
+      "commit": "2f1f304652175d1d8c9a3a2f8eff6bb0ff881b13",
+      "path": "MediaCreationTool.bat",
+      "sha256": "4b1486451a42cfc8d1372026c91ac09ae47bd010ec88d0233b93c0f4f8113296",
+      "license": "MIT",
+      "role": "reference-only"
+    },
+    {
+      "id": "kms",
+      "repository": "nminhducit/KMS_VL_ALL_AIO",
+      "commit": "bb8988973d82a9b39d54516dbb35b1c338dba5f5",
+      "path": "KMS5.2.cmd",
+      "sha256": "231a26b590dd53342f962fd6b46254772d74fce9b9c321df4f5fc6c2bf398b0b",
+      "license": "not-established",
+      "role": "windows-manual-only"
+    }
+  ]
+}

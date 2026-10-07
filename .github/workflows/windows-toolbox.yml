@@ -1,0 +1,31 @@
+name: Windows toolbox native parsing
+on:
+  push:
+    paths:
+      - 'scripts/windows-toolbox/**'
+      - 'public/toolbox/windows/**'
+      - 'tests/windows-toolbox*'
+      - '.github/workflows/windows-toolbox.yml'
+  pull_request:
+    paths:
+      - 'scripts/windows-toolbox/**'
+      - 'public/toolbox/windows/**'
+      - 'tests/windows-toolbox*'
+      - '.github/workflows/windows-toolbox.yml'
+permissions:
+  contents: read
+jobs:
+  powershell:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - name: Windows PowerShell 5.1 core and closed-gate tests
+        shell: powershell
+        run: ./tests/windows-toolbox.ps1
+      - name: Windows PowerShell workflow parsing and pure cryptographic checks
+        shell: powershell
+        run: ./tests/windows-toolbox.workflow.ps1
+      - name: Scope of this check
+        shell: powershell
+        run: |
+          'This job parses real Windows PowerShell and checks closed gates. It never installs, activates or changes the OS. Client upgrade, retained files/apps/settings and interactive ACL/task tests require separate disposable-Windows evidence.' | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
