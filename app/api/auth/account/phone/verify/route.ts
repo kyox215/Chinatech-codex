@@ -1,3 +1,4 @@
+import { establishLogin, sessionRemember } from "@/lib/server/login-sessions";
 import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseMode } from "@/lib/supabase/config";
 import { authFailure, AuthRequestError, preventAuthCaching, readAuthBody, requireSameOrigin } from "@/lib/supabase/server";
@@ -13,10 +14,13 @@ export async function POST(request: NextRequest) {
     const { user, identity } = await requireAccountSession(request, response, true);
     if (!(await accountAvailability()).phone) throw new AuthRequestError("短信验证尚未配置。", 503);
     if (storedAccountPhone(user.new_phone) !== body.phone) throw new AuthRequestError("待验证号码已变化，请刷新账号资料后重试。", 409);
+    const remember = await sessionRemember(identity);
     const staged = stagedAccountClient(request);
     const { data, error } = await staged.supabase.auth.verifyOtp({ phone: body.phone, token: body.token, type: "phone_change" });
     accountActionError(error, "验证码无效或已过期，请核对后重试。");
     if (data.user?.id !== identity.userId) throw new AuthRequestError("账号状态已变化，请重新登录。", 409);
+    if (storedAccountPhone(data.user.phone) !== body.phone || !data.user.phone_confirmed_at) throw new AuthRequestError("手机尚未完成验证，请刷新后核对。", 409);
+    await establishLogin(staged.request, staged.response, staged.supabase, remember);
     const verified = await requireAccountSession(staged.request, staged.response);
     if (verified.identity.userId !== identity.userId || storedAccountPhone(verified.user.phone) !== body.phone || !verified.user.phone_confirmed_at) throw new AuthRequestError("手机尚未完成验证，请刷新后核对。", 409);
     return copyAuthCookies(staged.response, response);

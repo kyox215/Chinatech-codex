@@ -91,7 +91,7 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
       </div> : null}
       {!supabaseMode && !previewAvailable ? <p className="form-error" role="alert">{t("登录服务尚未开放，请联系门店。")}</p> : null}
       {notice ? <p className={styles.successNotice} role="status">{systemText(notice)}</p> : null}
-      {supabaseMode ? <SocialSignIn disabled={!ready || isSubmitting} onBusyChange={setOAuthBusy} /> : null}
+      {supabaseMode ? <SocialSignIn remember={remember} disabled={!ready || isSubmitting} onBusyChange={setOAuthBusy} /> : null}
 
       <div className="form-field">
         <label htmlFor="email">{t("电子邮件")}</label>
@@ -103,8 +103,9 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
         <InputControl shell leading={<LockKeyhole size={20} />} id="password" name="password" type={showPassword ? "text" : "password"} required maxLength={128} autoComplete="current-password" value={password} disabled={busy || unavailable} error={fieldErrors.password ? t(fieldErrors.password) : undefined} onChange={event => { setPassword(event.target.value); setFieldErrors(current => ({ ...current, password: undefined })); setError(""); }} placeholder={t("输入此账号的登录密码")} trailing={<button className="input-icon-button" type="button" disabled={busy || unavailable} onClick={() => setShowPassword(value => !value)} aria-pressed={showPassword} aria-label={showPassword ? t("隐藏密码") : t("显示密码")}>{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button>} />
       </div>
 
-      <div className="form-options">
-        {!supabaseMode ? <><label className="checkbox-label"><input type="checkbox" checked={remember} disabled={busy || unavailable} onChange={(event) => setRemember(event.target.checked)} /><span>{t("保持本次预览登录")}</span></label><Link href="/forgot-password">{t("忘记密码？")}</Link></> : <Link href="/forgot-password">{t("忘记密码？")}</Link>}
+      <div className={`form-options ${styles.loginOptions}`}>
+        <label className="checkbox-label"><input type="checkbox" checked={remember} disabled={busy || unavailable} onChange={event => setRemember(event.target.checked)} /><span>{t(supabaseMode ? "在此设备保持登录" : "保持本次预览登录")}</span></label><Link href="/forgot-password">{t("忘记密码？")}</Link>
+        {supabaseMode && remember ? <small>{t("连续 30 天未使用后需重新登录")}</small> : null}
       </div>
 
       {error ? <p className="form-error" id="login-error" role="alert"><AlertCircle size={17} />{systemText(error)}</p> : null}

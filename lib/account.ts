@@ -1,5 +1,6 @@
 export type AccountProvider = "google" | "apple";
 export type AccountOverview = {
+  sessionId: string;
   account: {
     id: string; email: string; emailVerified: boolean; pendingEmail: string;
     phone: string; phoneVerified: boolean; pendingPhone: string;

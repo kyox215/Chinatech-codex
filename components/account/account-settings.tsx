@@ -1,4 +1,5 @@
 "use client";
+import { LoginDevicesPanel } from "./login-devices";
 
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
@@ -34,7 +35,6 @@ export function AccountSettings({ notice = "" }: { notice?: string }) {
   const [unauthorized, setUnauthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const request = useRef<AbortController | null>(null);
-  const mutating = useRef(false);
   const load = useCallback(async () => {
     request.current?.abort();
     const controller = new AbortController(); request.current = controller;
@@ -55,7 +55,7 @@ export function AccountSettings({ notice = "" }: { notice?: string }) {
     let active = true;
     // Wait for subscriptions to settle; Strict Mode cleanup cancels the discarded read.
     void Promise.resolve().then(() => { if (active) void load(); });
-    const refresh = () => { if (!mutating.current && document.visibilityState === "visible") { setLoading(true); void load(); } };
+    const refresh = () => { if (document.visibilityState === "visible") { setLoading(true); void load(); } };
     window.addEventListener("focus", refresh); window.addEventListener("online", refresh);
     return () => { active = false; request.current?.abort(); window.removeEventListener("focus", refresh); window.removeEventListener("online", refresh); };
   }, [load]);
@@ -64,7 +64,8 @@ export function AccountSettings({ notice = "" }: { notice?: string }) {
     {notices[notice] ? <p className={notice === "account-failed" ? "form-error" : styles.notice} role={notice === "account-failed" ? "alert" : "status"}>{t(notices[notice])}</p> : null}
     {error ? <div className={`panel ${styles.state}`} role="alert"><CircleAlert size={26} /><p>{systemText(error)}</p>{unauthorized ? <Link className="button button--primary" href="/login">{t("重新登录")}</Link> : <button className="button button--secondary" onClick={() => void load()}>{t("重新读取")}</button>}</div> : null}
     {!data && !error ? <div className={`panel ${styles.state}`} role="status"><LoaderCircle className="spin" size={25} />{t("正在读取账号…")}</div> : null}
-    {data ? <AccountForms key={data.account.id} data={data} refreshing={loading || Boolean(error)} refresh={() => { setLoading(true); return load(); }} onBusyChange={value => { mutating.current = value; }} /> : null}
+    {data ? <AccountForms key={`forms:${data.account.id}:${data.sessionId}`} data={data} refreshing={loading || Boolean(error)} refresh={() => { setLoading(true); return load(); }} /> : null}
+    {data ? <LoginDevicesPanel key={`devices:${data.account.id}:${data.sessionId}`} /> : null}
   </>;
 }
 
@@ -85,7 +86,7 @@ function Feedback({ feedback, operations }: { feedback: FeedbackState | null; op
   if (!feedback || !operations.includes(feedback.operation)) return null;
   return <p className={feedback.error ? "form-error" : styles.notice} role={feedback.error ? "alert" : "status"}>{systemText(feedback.message)}</p>;
 }
-function AccountForms({ data, refreshing, refresh, onBusyChange }: { data: AccountOverview; refreshing: boolean; refresh: () => Promise<AccountOverview | undefined>; onBusyChange: (value: boolean) => void }) {
+function AccountForms({ data, refreshing, refresh }: { data: AccountOverview; refreshing: boolean; refresh: () => Promise<AccountOverview | undefined> }) {
   const { t } = useLanguage();
   const { account, availability } = data;
   const [email, setEmail] = useState("");
@@ -96,15 +97,18 @@ function AccountForms({ data, refreshing, refresh, onBusyChange }: { data: Accou
   const [busy, setBusy] = useState<Operation | null>(null);
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
   const inFlight = useRef(false);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const emailCooldown = useCooldown(); const phoneCooldown = useCooldown();
   const disabled = Boolean(busy) || refreshing;
 
   async function perform(operation: Operation, path: string, body: Record<string, string>) {
     if (inFlight.current || refreshing) return;
-    inFlight.current = true; onBusyChange(true); setBusy(operation); setFeedback(null);
+    inFlight.current = true; setBusy(operation); setFeedback(null);
     try {
-      const response = await fetch(`/api/auth/account/${path}`, { method: "POST", headers: { "Content-Type": "application/json", "X-CT-Account-ID": account.id }, body: JSON.stringify(body), cache: "no-store", signal: AbortSignal.timeout(20000) });
+      const response = await fetch(`/api/auth/account/${path}`, { method: "POST", headers: { "Content-Type": "application/json", "X-CT-Account-ID": account.id, "X-CT-Session-ID": data.sessionId }, body: JSON.stringify(body), cache: "no-store", signal: AbortSignal.timeout(20000) });
       const payload = await readResponse(response) as { message?: string; redirectTo?: string };
+      if (!alive.current) return;
       if (payload.redirectTo) { window.location.assign(payload.redirectTo); return; }
       if (operation === "email") emailCooldown.start();
       if (operation === "phone") phoneCooldown.start();
@@ -112,9 +116,10 @@ function AccountForms({ data, refreshing, refresh, onBusyChange }: { data: Accou
       setFeedback({ operation, error: false, message: payload.message || "请求已处理，请核对最新状态。" });
       await refresh();
     } catch (reason) {
+      if (!alive.current) return;
       setFeedback({ operation, error: true, message: reason instanceof AccountRequestError ? reason.message : "请求结果尚未确认。请刷新账号状态后核对，输入已保留。" });
       if (reason instanceof AccountRequestError && [401, 409].includes(reason.status)) await refresh();
-    } finally { inFlight.current = false; setBusy(null); onBusyChange(false); }
+    } finally { inFlight.current = false; if (alive.current) { setBusy(null); } }
   }
 
 

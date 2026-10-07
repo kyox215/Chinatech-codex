@@ -1,3 +1,4 @@
+import { clearLoginPolicy } from "@/lib/server/login-policy";
 import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseMode } from "@/lib/supabase/config";
 import { authFailure, authPassword, AuthRequestError, preventAuthCaching, readAuthBody, requireSameOrigin } from "@/lib/supabase/server";
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) throw new AuthRequestError(error.code === "same_password" ? "新密码不能与原密码相同。" : "无法更新密码，请使用更强的密码或重新申请重置。", 400);
     clearRecoveryProof(response);
+    clearLoginPolicy(response);
     // Supabase password updates revoke other sessions; remove this recovery session too.
     await supabase.auth.signOut({ scope: "local" });
     return response;

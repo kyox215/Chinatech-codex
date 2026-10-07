@@ -12,10 +12,22 @@ function database() {
   connection ??= postgres(url, { max: 5, prepare: false, idle_timeout: 20, connect_timeout: 10, ssl: parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost" ? false : "require" });
   return connection;
 }
+export async function enrollLogin(identity: AuthIdentity, remember: boolean, browser: string, os: string) {
+  await database().begin(async tx => {
+    await tx`select set_config('request.jwt.claims',${JSON.stringify({ sub: identity.userId, session_id: identity.sessionId, role: "authenticated" })},true)`;
+    await tx`select chinatech_v2_private.enroll_login_session(${remember},${browser},${os})`;
+  });
+}
 export async function withDatabase<T>(identity: AuthIdentity, storeId: string | null, run: (tx: TransactionSql) => Promise<T>): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try { return await database().begin("isolation level serializable", async tx => {
     await tx`select set_config('request.jwt.claims',${JSON.stringify({ sub: identity.userId, session_id: identity.sessionId, role: "authenticated" })},true), set_config('app.store_id',${storeId ?? ""},true),set_config('statement_timeout','10000',true)`;
+    // Lock the project session before checking validity; revocation serializes with writes.
+    const locked = await tx`select session_id from chinatech_v2_private.login_sessions where session_id=${identity.sessionId} and user_id=${identity.userId} for share`;
+    if (!locked.length) {
+      await tx`select chinatech_v2_private.adopt_cutover_login_session()`;
+      await tx`select session_id from chinatech_v2_private.login_sessions where session_id=${identity.sessionId} and user_id=${identity.userId} for share`;
+    }
     const [live] = await tx<{ live: boolean }[]>`select chinatech_v2_private.live_user() as live`;
     if (!live?.live) throw new BackendError("会话已失效，请重新登录。", 401);
     return await run(tx);

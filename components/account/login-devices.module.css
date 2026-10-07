@@ -1,0 +1,14 @@
+.panel { padding: 24px; margin-top: 20px; }
+.header, .actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.header h2 { margin: 0; }
+.list { display: grid; gap: 12px; margin-block: 20px; }
+.device { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 1px solid var(--border); padding-block: 16px; }
+.device dl { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-bottom: 0; }
+.device dt { font-size: 13px; color: var(--text-secondary); }
+.device dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.device strong { margin-right: 12px; }
+.dialog { max-width: min(480px, calc(100vw - 32px)); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 24px; }
+.dialog::backdrop { background: var(--overlay); }
+@media (max-width: 767px) { .panel { padding: 16px; } .device { align-items: stretch; flex-direction: column; } .device dl { display: grid; } }
+
+.panel button { min-height: 44px; }

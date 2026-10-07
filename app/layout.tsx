@@ -1,3 +1,5 @@
+import { LoginActivity } from "@/components/login-activity";
+import { isSupabaseMode } from "@/lib/supabase/config";
 import type { Metadata } from "next";
 import { LegacyServiceWorkerCleanup } from "@/components/legacy-service-worker-cleanup";
 import { LanguageProvider } from "@/components/language-provider";
@@ -14,7 +16,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN" data-scroll-behavior="smooth">
-      <body><LegacyServiceWorkerCleanup /><LanguageProvider>{children}</LanguageProvider></body>
+      <body><LegacyServiceWorkerCleanup /><LanguageProvider><LoginActivity enabled={isSupabaseMode()} />{children}</LanguageProvider></body>
     </html>
   );
 }
