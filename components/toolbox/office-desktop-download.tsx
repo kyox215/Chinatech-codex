@@ -7,7 +7,7 @@ import styles from "./office-tools.module.css";
 
 export function OfficeDesktopDownload() {
   const { t } = useLanguage();
-  return <section className={styles.details} id="office-desktop" aria-labelledby="office-desktop-title">
+  return <section className={`${styles.details} ${styles.desktopDownload}`} id="office-desktop" aria-labelledby="office-desktop-title">
     <h2 id="office-desktop-title">{t("Office 桌面助手")}</h2>
     <p>{t("版本 {version} · Windows 11 · 使用本人 Windows 管理员账号 · 需要联网", { version: officeDesktopRelease.version })}</p>
     <p>{t("下载对应架构的程序，输入管理员提供的密钥，然后选择安装、激活、卸载或重装。程序会显示进度、错误处理建议，并可导出诊断报告。")}</p>
