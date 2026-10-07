@@ -20,7 +20,7 @@ const sourceInputSha256 = sha(JSON.stringify(sourceInputs));
 // Bind evidence to what will actually run, excluding report hashes (circular)
 // and expiring Microsoft URL tokens. Downloaded bytes remain SHA256-pinned.
 const routePolicy = ({ id, language, sourceVersion, sourceBuild, sourceEdition, architecture, hardwarePolicy, stages }) => ({ id, language, sourceVersion, sourceBuild, sourceEdition, architecture, hardwarePolicy, stages });
-const releasePolicy = { schemaVersion: config.schemaVersion, target: config.target, routes: config.verifiedRoutes.map(routePolicy), media: config.media.map(({ url, ...image }) => image), sources: config.sources };
+const releasePolicy = { schemaVersion: config.schemaVersion, target: config.target, routes: config.verifiedRoutes.map(routePolicy), media: config.media.map(image => Object.fromEntries(Object.entries(image).filter(([key]) => key !== "url"))), sources: config.sources };
 const releasePolicySha256 = sha(JSON.stringify(releasePolicy));
 
 const fail = reason => { throw new Error(`Verified Windows release rejected: ${reason}`); };

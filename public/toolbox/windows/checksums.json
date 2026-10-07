@@ -6,7 +6,7 @@
     "edition": "Professional",
     "architecture": "x64"
   },
-  "sourceInputSha256": "35acfa833bad92b08326a460b468fb2fd5091f190b476193379e9630faa4750f",
+  "sourceInputSha256": "7b3eb6942239787169ac3ad5ced826f4b51744919133d1ea3245ba150ec48cb2",
   "releasePolicySha256": "d15b5bb808e7de9c9ef005f6c74dfeaf217d0ee294e2f1df755f9114d8c20a6e",
   "evidenceFiles": {},
   "inputs": {
@@ -14,16 +14,16 @@
     "messages.json": "ac99a12a55e5ba71025662c1cfc5e0cb7a3373c2443ae3e17278741a149c6347",
     "runner.ps1": "a26219f43ef90c5b9766c8043f3fcff767fbcbd316264945f417f5882b6d2d27",
     "workflow.ps1": "6a93afebfd6149f207f4e3dfbe1830d18b36ee1b5ab1fd0d1c5c7560f4a9be1d",
-    "build.mjs": "5e17806350e67ae78a53f26f999ce091d5a8bf96c69139faed419678c95a1039"
+    "build.mjs": "2b69b96ab5b54e564d3d5de8d7116bc62edbfcbde87ba5927d1512eebec5baab"
   },
   "archive": {
     "path": "/toolbox/windows/ChinaTech-Windows-Check.zip",
-    "sha256": "92d5be5a390df3294229e08a520688800b457a7a58cd9b7539c570473df3eb95",
-    "bytes": 43167
+    "sha256": "771cbb9bcdb837c6c93b94b9c1c394a4171af2c750768f673fac802b113a5dd8",
+    "bytes": 43176
   },
   "files": {
     "ChinaTech-Windows.ps1": {
-      "sha256": "60e893bc1b8058239bd09bdb623395a26585662a9ed435a2510bb403e965f567",
+      "sha256": "d04d8483992f92336f0dc8ad592ebd570269ce35485d6354d48cf5b22d94367a",
       "bytes": 117621
     },
     "release.xml": {
@@ -31,15 +31,15 @@
       "bytes": 831
     },
     "Start-zh-CN.cmd": {
-      "sha256": "51fecc211cc4865040716e9f6ef0579f1dd1d3406123fb45fb4ab29747607906",
+      "sha256": "2a5fb4dd026ec2e0c4d3991b15c8259ae1372491d8fc181f27019e0049fd773c",
       "bytes": 4325
     },
     "Start-it.cmd": {
-      "sha256": "d7505437f9a915c3a0a3b2ed809876d15b8f449f200f204fc0c74785d6815361",
+      "sha256": "39864cd5512d5d6f72448eaaedbd0229460ba389b52439add0dd367555ff6f67",
       "bytes": 4649
     },
     "Start-en.cmd": {
-      "sha256": "eb1b83cdda5485bb84f2eac5447f437aee305ab364c94ef87648824d73cf1419",
+      "sha256": "30282374d231ed393e7f5fa8c469466e156f11a105cf895b89283583ded2925a",
       "bytes": 4630
     },
     "README.txt": {
