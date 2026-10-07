@@ -54,3 +54,18 @@ export async function readOfficeControl(): Promise<{ enabled: boolean; version: 
     return row;
   }) as Promise<{ enabled: boolean; version: string }>;
 }
+
+// Desktop capabilities are independent from Auth identities. Never synthesize an Auth user.
+export async function withOfficeDesktopDatabase<T>(keyHash: string, installationId: string, run: (tx: TransactionSql) => Promise<T>): Promise<T> {
+  if (!/^[a-f0-9]{64}$/.test(keyHash) || !/^[a-f0-9-]{36}$/.test(installationId)) throw new BackendError('请求无效。', 400);
+  for (let attempt = 0; ; attempt++) {
+    try { return await database().begin('isolation level read committed', async tx => {
+      await tx`select set_config('request.jwt.claims','{"role":"anon"}',true), set_config('app.office_desktop_key_hash',${keyHash},true), set_config('app.office_desktop_installation',${installationId},true), set_config('statement_timeout','10000',true)`;
+      return run(tx);
+    }) as T; } catch (error) {
+      const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null;
+      if ((code !== '40001' && code !== '40P01') || attempt >= 2) throw error;
+      await new Promise(resolve => setTimeout(resolve, 25 * (attempt + 1)));
+    }
+  }
+}

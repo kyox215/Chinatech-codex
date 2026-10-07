@@ -1,4 +1,5 @@
 "use client";
+import { OfficeDesktopLicenses } from "./office-desktop-licenses";
 import { LoginDevicesPanel } from "./login-devices";
 
 import { OfficeToolboxControl } from "./office-toolbox-control";
@@ -176,6 +177,7 @@ function AccountForms({ data, refreshing, refresh }: { data: AccountOverview; re
         <Feedback feedback={feedback} operations={["phone", "verify"]} />
       </section>
       {data.capabilities?.canManageOffice ? <OfficeToolboxControl /> : null}
+      {data.capabilities?.canManageOffice ? <OfficeDesktopLicenses /> : null}
     </div>
   </div>;
 }

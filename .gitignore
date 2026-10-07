@@ -29,3 +29,6 @@ FILE_MANIFEST.json
 00-先读我.md
 Codex_从这里启动.md
 打开这里.html
+
+desktop/office-assistant/**/bin/
+desktop/office-assistant/**/obj/

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Check, Clipboard, Download, ExternalLink, FileText, Play, Terminal } from "lucide-react";
 import { Brand } from "@/components/brand";
+import { OfficeDesktopDownload } from "./office-desktop-download";
 import { PublicHeader } from "@/components/home/public-header";
 import { TutorialLibrary } from "@/components/home/tutorial-library";
 import { getOfficeTutorials } from "@/lib/office-tutorials";
@@ -108,6 +109,7 @@ export function OfficeToolsPage() {
         <h1>{t("Office 安装与激活")}</h1>
         <p>{t("Windows 管理员终端 · Office LTSC 专业增强版 2024")}</p>
       </div><a className={`button button--secondary ${styles.tutorialEntry}`} href="#office-tutorials"><Play size={17} aria-hidden="true" />{t("观看 Office 视频教程")}</a></div>
+      <OfficeDesktopDownload />
       <div className={styles.layout}>
         <aside className={styles.actions} aria-label={t("选择 Office 操作")}>
           {officeCommands.map(item => <button type="button" key={item.id} className={styles.action} aria-pressed={action === item.id} onClick={() => chooseAction(item.id)}>

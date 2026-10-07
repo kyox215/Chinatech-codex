@@ -1,0 +1,492 @@
+{
+  "Title": [
+    "ChinaTech Office 助手",
+    "Assistente Office ChinaTech",
+    "ChinaTech Office Assistant"
+  ],
+  "Unlock": [
+    "验证密钥",
+    "Verifica chiave",
+    "Verify key"
+  ],
+  "Key": [
+    "使用密钥",
+    "Chiave di accesso",
+    "Access key"
+  ],
+  "Server": [
+    "授权服务",
+    "Servizio licenze",
+    "License service"
+  ],
+  "Locked": [
+    "请输入使用密钥以继续。",
+    "Inserisci la chiave per continuare.",
+    "Enter your access key to continue."
+  ],
+  "LicenseNotice": [
+    "此密钥只授权助手。目标版本需要对应的 Office LTSC 2024 批量许可证。",
+    "La chiave autorizza solo l’assistente. Serve una licenza volume compatibile con Office LTSC 2024.",
+    "The key authorizes the assistant only. The target requires a matching Office LTSC 2024 volume license."
+  ],
+  "Lock": [
+    "锁定助手",
+    "Blocca assistente",
+    "Lock assistant"
+  ],
+  "Inspect": [
+    "重新检测",
+    "Controlla di nuovo",
+    "Inspect again"
+  ],
+  "Inventory": [
+    "电脑检测",
+    "Controllo computer",
+    "Computer inspection"
+  ],
+  "NoOffice": [
+    "未检测到 Click-to-Run Office。",
+    "Office Click-to-Run non rilevato.",
+    "No Click-to-Run Office detected."
+  ],
+  "OfficeOpen": [
+    "Office 正在运行，请保存文档并关闭。",
+    "Office è aperto. Salva e chiudi i documenti.",
+    "Office is running. Save documents and close the apps."
+  ],
+  "Restart": [
+    "检测到待重启状态。",
+    "È necessario un riavvio.",
+    "A restart is pending."
+  ],
+  "LicenseUnknown": [
+    "授权状态将在操作后核验。",
+    "La licenza verrà verificata dopo l’operazione.",
+    "License status will be verified after the operation."
+  ],
+  "Operations": [
+    "选择操作",
+    "Scegli operazione",
+    "Choose an operation"
+  ],
+  "install": [
+    "安装 Office LTSC 2024",
+    "Installa Office LTSC 2024",
+    "Install Office LTSC 2024"
+  ],
+  "activate": [
+    "核验与激活现有授权",
+    "Verifica e attiva la licenza esistente",
+    "Verify and activate existing license"
+  ],
+  "uninstall": [
+    "卸载 Office 套件",
+    "Disinstalla la suite Office",
+    "Uninstall Office suite"
+  ],
+  "reinstall": [
+    "完整重装 Office",
+    "Reinstalla Office",
+    "Reinstall Office"
+  ],
+  "installInfo": [
+    "安装 Word、Excel 等组件；与已有套件冲突时停止。",
+    "Installa Word, Excel e altre app. Si ferma in caso di conflitti.",
+    "Installs Word, Excel and other apps. Stops on suite conflicts."
+  ],
+  "activateInfo": [
+    "使用当前已有授权配置，不设置第三方激活服务器。",
+    "Usa la configurazione esistente senza impostare server di terze parti.",
+    "Uses the existing license configuration without setting third-party activation servers."
+  ],
+  "uninstallInfo": [
+    "仅移除检测到的 Office 套件，保留 Visio、Project 和个人文档。",
+    "Rimuove la suite rilevata, preservando Visio, Project e documenti personali.",
+    "Removes detected Office suites, preserving Visio, Project and personal documents."
+  ],
+  "reinstallInfo": [
+    "先准备微软安装文件，再移除套件并安装 LTSC 2024。",
+    "Prepara i file Microsoft, poi rimuove la suite e installa LTSC 2024.",
+    "Prepares Microsoft installation files, then removes suites and installs LTSC 2024."
+  ],
+  "Confirm": [
+    "请核对操作范围",
+    "Verifica l’operazione",
+    "Review the operation"
+  ],
+  "ConfirmBody": [
+    "请先保存所有文档。卸载和重装会移除下列 Office 套件；没有恢复原版本的自动回滚。是否开始？",
+    "Salva tutti i documenti. Disinstallazione e reinstallazione rimuovono le suite elencate. Non è disponibile il ripristino automatico della versione precedente. Avviare?",
+    "Save all documents. Uninstall and reinstall remove the listed suites. Automatic rollback to the previous version is unavailable. Start?"
+  ],
+  "Working": [
+    "正在处理",
+    "Operazione in corso",
+    "Working"
+  ],
+  "Progress": [
+    "执行进度",
+    "Avanzamento",
+    "Progress"
+  ],
+  "authorize": [
+    "验证本次操作授权",
+    "Verifica autorizzazione",
+    "Checking authorization"
+  ],
+  "inspect": [
+    "核对电脑状态",
+    "Verifica computer",
+    "Checking computer state"
+  ],
+  "prepare": [
+    "准备微软部署工具",
+    "Prepara lo strumento Microsoft",
+    "Preparing Microsoft deployment tool"
+  ],
+  "download": [
+    "下载 Office 安装文件",
+    "Scarica i file Office",
+    "Downloading Office installation files"
+  ],
+  "activateStage": [
+    "核验现有 Office 授权",
+    "Verifica la licenza Office",
+    "Checking Office license"
+  ],
+  "installStage": [
+    "安装 Office",
+    "Installa Office",
+    "Installing Office"
+  ],
+  "uninstallStage": [
+    "卸载已核对的套件",
+    "Disinstalla le suite confermate",
+    "Removing confirmed suites"
+  ],
+  "verify": [
+    "核验实际结果",
+    "Verifica risultato",
+    "Verifying actual results"
+  ],
+  "execute": [
+    "执行操作",
+    "Esegue operazione",
+    "Executing operation"
+  ],
+  "Cancel": [
+    "在安全步骤停止",
+    "Ferma al prossimo punto sicuro",
+    "Stop at the next safe step"
+  ],
+  "CancelPending": [
+    "已请求停止，等待当前步骤完成。",
+    "Arresto richiesto. Attendi la fine della fase corrente.",
+    "Stop requested. Waiting for the current step to finish."
+  ],
+  "Export": [
+    "导出脱敏报告",
+    "Esporta rapporto anonimizzato",
+    "Export redacted report"
+  ],
+  "Tutorials": [
+    "查看操作教程",
+    "Apri le guide",
+    "Open tutorials"
+  ],
+  "Recover": [
+    "上次操作可能中断，请重新检测。不会自动重复卸载。",
+    "L’operazione precedente potrebbe essere stata interrotta. Controlla di nuovo. La disinstallazione non viene ripetuta automaticamente.",
+    "The previous operation may have been interrupted. Inspect again. Uninstall will not be repeated automatically."
+  ],
+  "CloseBusy": [
+    "操作尚未结束。已请求在安全步骤停止，请等待结果。",
+    "Operazione in corso. Arresto richiesto al prossimo punto sicuro. Attendi il risultato.",
+    "The operation is running. A safe stop was requested. Wait for the result."
+  ],
+  "Completed": [
+    "操作已完成并通过结果核验。",
+    "Operazione completata e verificata.",
+    "Operation completed and verified."
+  ],
+  "SLOW_STEP": [
+    "当前步骤耗时较长，请保持电脑开启；进度尚无法确定。",
+    "La fase sta richiedendo tempo. Mantieni acceso il computer; avanzamento non disponibile.",
+    "This step is taking longer. Keep the computer on; progress is not yet known."
+  ],
+  "KEY_INVALID": [
+    "密钥无效、已停用或已到期。请联系管理员核对。",
+    "Chiave non valida, disabilitata o scaduta. Contatta l’amministratore.",
+    "Key invalid, disabled or expired. Contact the administrator."
+  ],
+  "DEVICE_LIMIT": [
+    "已达到安装授权上限。请联系管理员重新授权。",
+    "Limite di installazioni raggiunto. Contatta l’amministratore.",
+    "Installation limit reached. Contact the administrator."
+  ],
+  "SESSION_INVALID": [
+    "会话无效，请重新输入密钥。",
+    "Sessione non valida. Reinserisci la chiave.",
+    "Invalid session. Enter the key again."
+  ],
+  "SESSION_EXPIRED": [
+    "会话已到期，请重新验证密钥。",
+    "Sessione scaduta. Verifica di nuovo la chiave.",
+    "Session expired. Verify the key again."
+  ],
+  "SESSION_REVOKED": [
+    "授权已变化，请重新验证密钥。",
+    "Autorizzazione modificata. Verifica di nuovo la chiave.",
+    "Authorization changed. Verify the key again."
+  ],
+  "TOOLBOX_DISABLED": [
+    "管理员已暂停工具箱。请稍后重试。",
+    "Strumenti sospesi dall’amministratore. Riprova più tardi.",
+    "The administrator paused the toolbox. Try again later."
+  ],
+  "ACTION_NOT_ALLOWED": [
+    "此密钥未授权所选操作。请联系管理员。",
+    "Operazione non autorizzata da questa chiave. Contatta l’amministratore.",
+    "This key does not authorize the selected operation. Contact the administrator."
+  ],
+  "INVALID_REQUEST": [
+    "操作请求无效，请重新打开助手。",
+    "Richiesta non valida. Riapri l’assistente.",
+    "Invalid request. Reopen the assistant."
+  ],
+  "INVALID_SERVER": [
+    "授权服务地址无效。请使用官方发布的程序。",
+    "Indirizzo del servizio non valido. Usa il programma ufficiale.",
+    "Invalid license service address. Use the official release."
+  ],
+  "SERVICE_UNAVAILABLE": [
+    "授权服务尚未配置或暂不可用。请联系管理员。",
+    "Servizio licenze non configurato o non disponibile. Contatta l’amministratore.",
+    "Licensing is not configured or is temporarily unavailable. Contact the administrator."
+  ],
+  "NO_ACCESS": [
+    "没有此操作的管理权限。",
+    "Permesso di gestione mancante.",
+    "Management permission is missing."
+  ],
+  "REQUEST_CONFLICT": [
+    "请求或授权状态冲突，请重新检测并重试。",
+    "Richiesta o licenza in conflitto. Controlla e riprova.",
+    "Request or license conflict. Inspect and try again."
+  ],
+  "NETWORK_ERROR": [
+    "无法连接授权服务。请检查网络后重试。",
+    "Connessione al servizio non riuscita. Controlla la rete e riprova.",
+    "Cannot connect to licensing. Check the network and try again."
+  ],
+  "LOCAL_STATE_INVALID": [
+    "本机任务文件无法验证。请重新打开程序；不要手动修改任务文件。",
+    "File locali non verificabili. Riapri il programma senza modificare i file.",
+    "Local task files cannot be verified. Reopen the app without editing task files."
+  ],
+  "ADMIN_REQUIRED": [
+    "尚未获得管理员权限，操作未开始。请重新授权。",
+    "Permessi amministratore mancanti. Operazione non avviata. Autorizza di nuovo.",
+    "Administrator permission missing. Operation not started. Authorize again."
+  ],
+  "UAC_CANCELLED": [
+    "管理员授权已取消，操作未开始。",
+    "Autorizzazione annullata. Operazione non avviata.",
+    "Administrator authorization cancelled. Operation not started."
+  ],
+  "ANOTHER_TASK": [
+    "另一项 Office 操作正在运行，请等待完成。",
+    "Un’altra operazione Office è in corso. Attendi.",
+    "Another Office operation is running. Wait for it to finish."
+  ],
+  "SOURCE_INVALID": [
+    "执行文件校验失败，已停止。请获取最新版程序。",
+    "Verifica file fallita. Operazione fermata. Scarica la versione aggiornata.",
+    "File verification failed. Stopped. Obtain the latest app version."
+  ],
+  "PACKAGE_EXPIRED": [
+    "执行授权已到期，尚未开始。请重新操作。",
+    "Autorizzazione scaduta. Operazione non avviata. Riprova.",
+    "Execution authorization expired. Operation not started. Try again."
+  ],
+  "ENVIRONMENT_CHANGED": [
+    "Office 清单已经变化。请重新检测并核对操作范围。",
+    "L’elenco Office è cambiato. Controlla e verifica l’operazione.",
+    "Office inventory changed. Inspect and review the operation again."
+  ],
+  "RESTART_REQUIRED": [
+    "需要重启电脑。保存文档，重启后重新检测；不会自动续跑。",
+    "Riavvio necessario. Salva, riavvia e controlla. Nessuna ripresa automatica.",
+    "Restart required. Save, restart and inspect again. No automatic resume."
+  ],
+  "SAVE_DOCUMENTS": [
+    "Office 仍在运行。请保存文档、关闭应用后重试。",
+    "Office è aperto. Salva, chiudi le app e riprova.",
+    "Office is running. Save documents, close the apps and try again."
+  ],
+  "UNSUPPORTED_SYSTEM": [
+    "此版本先支持 Windows 11 64 位。请核对系统后再操作。",
+    "Questa versione supporta Windows 11 a 64 bit. Verifica il sistema.",
+    "This version targets 64-bit Windows 11. Check the system."
+  ],
+  "MSI_UNSUPPORTED": [
+    "检测到旧 MSI Office。请先通过微软支持的方式处理，助手不会自动清理。",
+    "Rilevato Office MSI. Usa una procedura Microsoft prima di continuare.",
+    "MSI Office detected. Use a supported Microsoft procedure before continuing."
+  ],
+  "CANCELLED": [
+    "已在安全步骤停止。请重新检测当前状态后选择操作。",
+    "Arresto al punto sicuro. Controlla lo stato prima di continuare.",
+    "Stopped at a safe step. Inspect the current state before continuing."
+  ],
+  "DOWNLOAD_FAILED": [
+    "微软部署工具下载失败。尚未卸载，请检查网络后重试。",
+    "Download dello strumento fallito. Nessuna rimozione. Controlla la rete.",
+    "Deployment tool download failed. Nothing uninstalled. Check the network."
+  ],
+  "SETUP_FAILED": [
+    "微软部署工具返回失败。请导出报告并核对当前安装状态。",
+    "Lo strumento Microsoft ha segnalato un errore. Esporta il rapporto e controlla lo stato.",
+    "Microsoft deployment tool failed. Export the report and inspect the installation state."
+  ],
+  "PRODUCT_NOT_FOUND": [
+    "没有检测到可处理的目标产品。请重新检测并选择适用操作。",
+    "Prodotto di destinazione non rilevato. Controlla e scegli un’operazione applicabile.",
+    "Target product not detected. Inspect and choose an applicable operation."
+  ],
+  "PRODUCT_CONFLICT": [
+    "已有 Office 套件。请核对后选择完整重装；现有安装未移除。",
+    "Suite Office già presente. Verifica e scegli reinstallazione. Nessuna rimozione.",
+    "An Office suite exists. Review and choose reinstall. Nothing removed."
+  ],
+  "ARCHITECTURE_CONFLICT": [
+    "已有 32 位 Office 组件，与本次 64 位安装冲突。请先核对兼容性。",
+    "Componenti Office a 32 bit in conflitto con l’installazione a 64 bit. Verifica compatibilità.",
+    "Existing 32-bit Office conflicts with this 64-bit installation. Review compatibility."
+  ],
+  "REMOVAL_INCOMPLETE": [
+    "卸载后仍检测到套件，已停止后续安装。请导出报告并处理残留。",
+    "Suite ancora rilevata dopo la rimozione. Installazione fermata. Esporta il rapporto.",
+    "Suite remains after uninstall. Further installation stopped. Export the report."
+  ],
+  "INSTALL_VERIFY_FAILED": [
+    "安装结果未通过核验。请重新检测并导出报告；不要重复卸载。",
+    "Installazione non verificata. Controlla ed esporta il rapporto senza ripetere la rimozione.",
+    "Installation verification failed. Inspect and export a report without repeating uninstall."
+  ],
+  "LICENSE_CHECK_FAILED": [
+    "授权状态无法确认。请在 Office 中核对许可证；不要因授权检查失败重新卸载。",
+    "Licenza non verificabile. Controlla in Office senza disinstallare di nuovo.",
+    "License status could not be verified. Check in Office without uninstalling again."
+  ],
+  "ACTIVATION_FAILED": [
+    "现有授权未能激活。请核对正版许可证、组织网络或联系许可证管理员。",
+    "Attivazione non riuscita. Verifica licenza, rete aziendale o contatta l’amministratore.",
+    "Existing activation failed. Check the license, organization network or contact the license administrator."
+  ],
+  "INSTALLED_UNLICENSED": [
+    "Office 已安装并核验，尚未激活。请完成正版授权；无需重复安装。",
+    "Office installato e verificato, non attivato. Completa la licenza senza reinstallare.",
+    "Office installed and verified, not activated. Complete licensing without reinstalling."
+  ],
+  "COMPLETED": [
+    "操作已完成并通过结果核验。",
+    "Operazione completata e verificata.",
+    "Operation completed and verified."
+  ],
+  "RESULT_UNKNOWN": [
+    "未取得可靠的完成结果。请重新检测并导出报告，避免重复卸载。",
+    "Risultato non disponibile. Controlla ed esporta il rapporto, evitando una nuova rimozione.",
+    "Reliable completion result unavailable. Inspect and export a report; avoid repeating uninstall."
+  ],
+  "START_FAILED": [
+    "执行器未启动，操作未开始。请重试或联系管理员。",
+    "Esecutore non avviato. Nessuna operazione iniziata. Riprova o contatta l’amministratore.",
+    "Executor did not start. No operation began. Retry or contact the administrator."
+  ],
+  "UNEXPECTED_ERROR": [
+    "出现未知问题，已停止后续步骤。请重新检测并导出报告。",
+    "Errore imprevisto. Fasi successive fermate. Controlla ed esporta il rapporto.",
+    "Unexpected problem. Further steps stopped. Inspect and export a report."
+  ],
+  "TASK_RECOVERY_REQUIRED": [
+    "上次任务未正常结束，已暂停新操作。请重启 Windows、确认 Office 安装程序已退出，再由管理员按照交付说明解除任务保护。不要直接重复安装。",
+    "Il lavoro precedente non è terminato regolarmente. Riavvia Windows, verifica che gli installatori Office siano chiusi e chiedi a un amministratore di sbloccare il lavoro seguendo la guida.",
+    "The previous task did not finish normally. Restart Windows, confirm Office installers have exited, then ask an administrator to clear task protection using the guide. Do not repeat installation yet."
+  ],
+  "DISK_SPACE": [
+    "磁盘空间不足。安装或重装前请释放至少 12 GB，卸载前至少 1 GB，然后重新检测。助手不会删除个人文件。",
+    "Spazio insufficiente. Libera almeno 12 GB per installare o reinstallare, oppure 1 GB per disinstallare, quindi riprova. I file personali non vengono eliminati.",
+    "Not enough disk space. Free at least 12 GB for installation or reinstallation, or 1 GB for removal, then inspect again. Personal files are preserved."
+  ],
+  "LICENSE_REQUIRED": [
+    "未检测到此电脑已安装的目标产品密钥。请联系许可证管理员配置匹配的 Office LTSC 2024 MAK 或组织批量激活；助手密钥和 Microsoft 365 订阅不能替代此产品的授权。无需重新安装。",
+    "Codice del prodotto di destinazione non rilevato. Contatta l’amministratore per configurare MAK o attivazione volume di Office LTSC 2024. La chiave dell’assistente e Microsoft 365 non sostituiscono questa licenza. Non reinstallare.",
+    "No installed key for the target product was detected. Ask your license administrator to configure a matching Office LTSC 2024 MAK or organization volume activation. The assistant key and Microsoft 365 subscription do not replace that license. Reinstallation is unnecessary."
+  ],
+  "UNSUPPORTED_PRODUCT": [
+    "检测到当前助手不支持的 Office 产品。自动安装、卸载和重装已停止；请导出报告，由管理员核对兼容性。不要反复重装。",
+    "Rilevato un prodotto Office non supportato. Le operazioni automatiche sono ferme. Esporta il rapporto e chiedi una verifica di compatibilità; non ripetere la reinstallazione.",
+    "An unsupported Office product was detected. Automatic changes are stopped. Export the report and ask an administrator to review compatibility; do not repeat reinstall."
+  ],
+  "PRESERVATION_VERIFY_FAILED": [
+    "原有 Visio 或 Project 未通过保留核验，已停止后续步骤。请导出报告并由管理员核对实际状态；不要重复卸载。",
+    "La verifica di conservazione di Visio o Project è fallita. Le fasi successive sono ferme. Esporta il rapporto e verifica lo stato senza ripetere la rimozione.",
+    "Existing Visio or Project could not be verified as preserved. Further steps are stopped. Export the report and inspect the actual state without repeating removal."
+  ],
+  "ADMIN_ACCOUNT_REQUIRED": [
+    "请登录具有管理员权限的 Windows 账号后再使用操作功能。本版不支持在提权时换成另一个账号；检测和报告仍可使用。",
+    "Accedi a Windows con un account amministratore. Questa versione non supporta il cambio di account durante UAC; controllo e rapporti restano disponibili.",
+    "Sign in to Windows with an administrator account. This version does not support switching accounts at UAC; inspection and reports remain available."
+  ],
+  "InstallExistsHint": [
+    "已有 Office 套件。如需替换版本，请先核对完整重装的范围。",
+    "Una suite Office è già presente. Verifica l’ambito della reinstallazione prima di sostituirla.",
+    "An Office suite already exists. Review the reinstall scope before replacing it."
+  ],
+  "InstalledRequiredHint": [
+    "需要先安装适用的 Office 套件。",
+    "È richiesta una suite Office compatibile già installata.",
+    "A compatible installed Office suite is required."
+  ],
+  "RecoveryChecked": [
+    "已核对上次任务",
+    "Lavoro precedente verificato",
+    "Previous task reviewed"
+  ],
+  "RecoveryConfirmBody": [
+    "请先导出报告，并按使用说明重启、确认旧安装程序已退出、核对 Office 状态及归档受保护的任务标记。确认这些步骤已完成吗？此按钮只归档助手的本地待核对记录，不会解除系统任务保护。",
+    "Esporta prima il rapporto. Segui la guida: riavvia, verifica che gli installatori siano chiusi, controlla Office e archivia il record protetto. Hai completato questi passi? Questo pulsante archivia solo il promemoria locale, senza rimuovere la protezione del lavoro.",
+    "Export the report first. Follow the guide: restart, confirm installers have exited, inspect Office, and archive the protected marker. Have you completed those steps? This button archives only the local reminder and does not clear system task protection."
+  ],
+  "ConfirmInstall": [
+    "将安装 Office LTSC 2024 的六个应用。请先保存并关闭文档；助手不会提供 Office 许可证。是否开始？",
+    "Verranno installate sei app Office LTSC 2024. Salva e chiudi i documenti. L’assistente non fornisce una licenza Office. Avviare?",
+    "Six Office LTSC 2024 apps will be installed. Save and close documents. The assistant does not provide an Office license. Start?"
+  ],
+  "ConfirmActivate": [
+    "只核验并尝试激活已经安装的 Office 授权，不设置新的产品密钥或第三方激活服务器。是否开始？",
+    "Verifica e tenta l’attivazione della licenza già installata, senza impostare nuovi codici o server di terze parti. Avviare?",
+    "Verify and attempt activation of the installed license, without setting a new key or third-party server. Start?"
+  ],
+  "ConfirmUninstall": [
+    "将移除下列 Office 套件。请先保存并关闭文档；保留个人文档、Visio 和 Project。没有自动恢复原版本的回滚。是否开始？",
+    "Verranno rimosse le suite elencate. Salva e chiudi i documenti. Documenti personali, Visio e Project saranno conservati. Nessun ripristino automatico della versione precedente. Avviare?",
+    "The listed Office suites will be removed. Save and close documents. Personal documents, Visio and Project are preserved. There is no automatic rollback to the previous version. Start?"
+  ],
+  "ConfirmReinstall": [
+    "将先准备安装媒体，再移除下列套件并安装 Office LTSC 2024。请先保存并关闭文档；没有自动恢复原版本的回滚。是否开始？",
+    "Verranno preparati i file, poi rimosse le suite elencate e installato Office LTSC 2024. Salva e chiudi i documenti. Nessun ripristino automatico della versione precedente. Avviare?",
+    "Installation media will be prepared, then the listed suites will be removed and Office LTSC 2024 installed. Save and close documents. There is no automatic rollback to the previous version. Start?"
+  ],
+  "INSPECTION_FAILED": [
+    "本次操作结果已记录，但重新检测电脑失败。请稍后重试检测或导出报告，不要因此重复安装或卸载。",
+    "Il risultato è stato registrato, ma il nuovo controllo del computer è fallito. Riprova il controllo o esporta il rapporto senza ripetere installazione o rimozione.",
+    "The operation result was recorded, but refreshing the computer inspection failed. Retry inspection or export the report without repeating installation or removal."
+  ],
+  "LicensedReported": [
+    "Windows 报告此 Office 已激活；本检测不核验许可证购买或组织授权。",
+    "Windows segnala Office attivato; questo controllo non verifica acquisto o autorizzazione della licenza.",
+    "Windows reports Office activated; this check does not verify license purchase or entitlement."
+  ]
+}
