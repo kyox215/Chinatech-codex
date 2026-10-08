@@ -1,0 +1,5 @@
+38e2a5136cf38c5479a3f1f3cda33ab5ccd87c138eb754017da649530256ea31  SmartSwitch-3.7.73.4-universal-coexist-lab3.apk
+9714e2571daeafaec5433bf993f4273c73076dfb8dbacfe4eb4e851ec8b3e62b  SmartSwitch-3.7.73.4-universal-lab3.apk
+21e26c68760d9e46749de2bbb502c15d41b4feacd09ea78fb42a3e27359926bd  README-lab3.md
+691561816463392bc9d2e8760406ca540adba518f9c54f95dac1c54452df1ac8  SmartSwitch-3.7.73.4-receiver-recovery-lab2.apk
+7daa79ef27c1a8b63a14638cb03ae33bafe680e946bad4a224635a1d10697de1  SmartSwitch-3.7.73.4-receiver-entry-lab1.apk

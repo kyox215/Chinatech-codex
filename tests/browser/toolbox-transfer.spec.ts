@@ -5,11 +5,14 @@ import { androidAssistantRelease as release } from "../../lib/toolbox/android-as
 import { smartSwitchExperimentRelease } from "../../lib/toolbox/smart-switch-experiment-release";
 
 const smartSwitchExpected = {
-  apkPath: "/toolbox/smart-switch-experiment/SmartSwitch-3.7.73.4-receiver-recovery-lab2.apk",
-  bytes: 41941787,
-  sha256: "691561816463392bc9d2e8760406ca540adba518f9c54f95dac1c54452df1ac8",
+  apkPath: "/toolbox/smart-switch-experiment/SmartSwitch-3.7.73.4-universal-coexist-lab3.apk",
+  updateApkPath: "/toolbox/smart-switch-experiment/SmartSwitch-3.7.73.4-universal-lab3.apk",
+  bytes: 42699726,
+  sha256: "38e2a5136cf38c5479a3f1f3cda33ab5ccd87c138eb754017da649530256ea31",
+  updateSha256: "9714e2571daeafaec5433bf993f4273c73076dfb8dbacfe4eb4e851ec8b3e62b",
   signerSha256: "22e7f48efb1f168f67886a617b83af67885a233b6a1c6f16428f138f5b367dab",
 } as const;
+const proofDirectory = process.env.TOOLBOX_PROOF_DIR ?? ".local/smartswitch-web-release/proof";
 
 const copy = {
   "zh-CN": { title: "数据传输", open: "查看数据传输工具", sender: "旧手机 · 发送", receiver: "新手机 · 接收", system: "系统类型", version: "安卓版本", blocked: "先解决系统兼容性。", ready: "可以安装首版助手，迁移能力待手机核验。", partial: "仅授权部分照片", partialNotice: "仅授权部分照片时，只能读取所选内容；不能显示为全部相册完成。", wifi: "热点连接权限" },
@@ -19,28 +22,40 @@ const copy = {
 
 const smartSwitchCopy = {
   "zh-CN": {
-    recovery: "lab2：非三星接收端二维码等待 15 秒后切换手动直连，设置入口支持通用 Wi-Fi；配对与资料恢复仍待真机核验。",
-    title: "Smart Switch 接收入口实验版",
-    download: "下载 Smart Switch 实验 APK",
-    notice: "用于测试非三星手机的接收入口；安装、配对和资料恢复尚未真机验证。",
-    warning: "这是独立签名的实验修改版，不是三星官方更新。不能覆盖官方或系统预装版本；请先在未安装官方版本的备用手机上使用测试资料核对。",
+    recovery: "Android 16 模拟器的两端局域网传输与断线恢复已通过。模拟器自动热点被系统拒绝；HONOR 等真机热点、相机扫码和跨品牌资料恢复尚未验收。",
+    title: "Smart Switch 通用通道实验版",
+    download: "下载 lab3 并存版（推荐）",
+    update: "更新已安装的 lab1／lab2",
+    notice: "lab3 将通用本地传输通道嵌入 Smart Switch APK，打开后选择发送或接收。两机须用 lab3，并存版与更新包可以互通；不能与三星原版、lab1／lab2 或 ChinaTech 独立助手混用。",
+    warning: "独立签名实验包，不是三星官方更新。推荐并存版可与官方或预装 Smart Switch 同时安装，无需卸载原版；更新包仅用于本站 lab1／lab2，不能覆盖三星官方签名包。",
+    legacy: "ChinaTech 0.2 保留下载作参考；已发现原生 TLS 连接缺陷，修复尚未随旧包发布。建议使用上方 lab3，不将此旧包视为已可完成迁移。",
     integrity: "查看 APK 校验信息",
+    scope: "传输范围与限制",
+    pending: "lab3 安装包仍在核验，下载尚未开放。",
   },
-  it: {
-    recovery: "lab2: sui destinatari non Samsung, dopo 15 secondi di attesa del QR si passa alla connessione manuale; si possono aprire le impostazioni Wi-Fi generiche. Abbinamento e ripristino richiedono ancora verifiche sui telefoni.",
-    title: "Smart Switch: ricezione sperimentale",
-    download: "Scarica APK Smart Switch sperimentale",
-    notice: "Per provare la ricezione su telefoni non Samsung; installazione, abbinamento e ripristino non sono stati verificati su dispositivi reali.",
-    warning: "Questa modifica sperimentale ha una firma indipendente e non è un aggiornamento ufficiale Samsung. Non può sostituire la versione ufficiale o preinstallata; prova prima dati sintetici su un telefono di riserva senza la versione ufficiale.",
+  "it": {
+    recovery: "Su due emulatori Android 16 sono riusciti trasferimento LAN e recupero dopo disconnessione. Il sistema ha rifiutato l’hotspot automatico dell’emulatore; hotspot e scansione con fotocamera su telefoni reali come HONOR, e ripristino tra marche, restano da verificare.",
+    title: "Smart Switch: canale universale sperimentale",
+    download: "Scarica lab3 affiancabile (consigliata)",
+    update: "Aggiorna lab1/lab2 già installata",
+    notice: "lab3 integra un canale locale universale nell’APK Smart Switch: all’apertura scegli Invio o Ricezione. Entrambi devono usare lab3; la versione affiancabile e quella di aggiornamento sono interoperabili. Non si abbina a Smart Switch Samsung originale, lab1/lab2 o all’assistente ChinaTech separato.",
+    warning: "APK sperimentale con firma indipendente, non un aggiornamento ufficiale Samsung. La versione affiancabile consigliata si installa insieme a Smart Switch ufficiale o preinstallato, senza disinstallarlo. L’aggiornamento è solo per lab1/lab2 di questo sito e non sostituisce APK con firma Samsung.",
+    legacy: "ChinaTech 0.2 resta scaricabile come riferimento. È stato trovato un difetto nella connessione TLS nativa; il vecchio APK non contiene la correzione. Usa preferibilmente lab3 sopra; questo vecchio APK non prova una migrazione funzionante.",
     integrity: "Verifica informazioni APK",
+    scope: "Dati trasferibili e limiti",
+    pending: "L’APK lab3 è ancora in verifica; il download non è disponibile.",
   },
-  en: {
-    recovery: "lab2: on non-Samsung receivers, 15 seconds of QR waiting switches to manual connection, with generic Wi-Fi settings available. Pairing and restoration still need phone verification.",
-    title: "Smart Switch receiver-entry experiment",
-    download: "Download experimental Smart Switch APK",
-    notice: "For testing the receiver entry on non-Samsung phones; installation, pairing and restoration have not been verified on real devices.",
-    warning: "This experimental modification is independently signed and is not an official Samsung update. It cannot replace an official or preinstalled version; first check test data on a spare phone without the official version.",
+  "en": {
+    recovery: "Two Android 16 emulators passed LAN transfer and disconnection recovery. The system denied the emulator’s automatic hotspot; physical HONOR and other phones’ hotspots, camera scanning and cross-brand restoration remain unverified.",
+    title: "Smart Switch universal-channel experiment",
+    download: "Download lab3 side-by-side (recommended)",
+    update: "Update installed lab1/lab2",
+    notice: "lab3 embeds a universal local transfer channel in the Smart Switch APK: choose Send or Receive when opening it. Both phones need lab3; the side-by-side and update editions can pair. It cannot pair with original Samsung Smart Switch, lab1/lab2 or the separate ChinaTech assistant.",
+    warning: "An independently signed experimental APK, not an official Samsung update. The recommended side-by-side edition installs alongside official or preinstalled Smart Switch without uninstalling it. The update edition is only for this site’s lab1/lab2 and cannot replace Samsung-signed APKs.",
+    legacy: "ChinaTech 0.2 remains downloadable for reference. A native TLS connection defect was found; the old APK does not include the fix. Prefer lab3 above; this old APK must not be treated as a working migration release.",
     integrity: "View APK verification details",
+    scope: "Transfer scope and limits",
+    pending: "The lab3 APK is still being verified; download is not available yet.",
   },
 } as const;
 
@@ -67,16 +82,51 @@ for (const locale of ["zh-CN", "it", "en"] as const) for (const width of [1440, 
     await expect(smartSwitch.getByText(smartText.notice, { exact: true })).toBeVisible();
     await expect(smartSwitch.getByText(smartText.recovery, { exact: true })).toBeVisible();
     await expect(smartSwitch.getByText(smartText.warning, { exact: true })).toBeVisible();
+    await expect(smartSwitch.locator("ol li")).toHaveCount(4);
+    await expect(page.getByText(smartText.legacy, { exact: true })).toBeVisible();
+    await expect(smartSwitch).toContainText("3.7.73.4-universal-lab3");
+    await expect(smartSwitch).toContainText(locale === "zh-CN" ? "Android 8 及以上" : locale === "it" ? "Android 8 o successivo" : "Android 8 or later");
     const smartDownload = smartSwitch.getByRole("link", { name: smartText.download, exact: true });
-    await expect(smartDownload).toBeVisible();
-    await expect(smartDownload).toHaveAttribute("href", smartSwitchExpected.apkPath);
-    await expect(smartDownload).toHaveAttribute("download", "");
+    const smartUpdate = smartSwitch.getByRole("link", { name: smartText.update, exact: true });
     const smartInstructions = smartSwitch.locator(`a[href="${smartSwitchExperimentRelease.instructionsPath}"]`);
     await expect(smartInstructions).toBeVisible();
     await expect(smartInstructions).toHaveAttribute("download", "");
+    await expect(smartInstructions).toHaveAttribute("href", "/toolbox/smart-switch-experiment/README-lab3.md");
+    const scope = smartSwitch.locator("summary").filter({ hasText: smartText.scope });
+    await expect(scope).toHaveText(smartText.scope);
+    await scope.click();
+    const limits = smartSwitch.locator("details").filter({ has: page.locator("summary").filter({ hasText: smartText.scope }) });
+    await expect(limits).toHaveAttribute("open", "");
+    await expect(limits.locator("li")).toHaveCount(4);
+    await expect(limits).toContainText("HarmonyOS NEXT");
+    await expect(limits).toContainText("10000");
+    await expect(limits).toContainText("5");
+    expect(await limits.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    await scope.click();
     const smartIntegrity = smartSwitch.locator("summary").filter({ hasText: smartText.integrity });
-    await expect(smartIntegrity).toHaveText(smartText.integrity);
-    for (const control of [smartDownload, smartInstructions, smartIntegrity]) {
+    const controls = [smartInstructions, scope];
+    if (smartSwitchExperimentRelease.available) {
+      await expect(smartDownload).toBeVisible();
+      await expect(smartDownload).toHaveAttribute("href", smartSwitchExpected.apkPath);
+      await expect(smartDownload).toHaveAttribute("download", "");
+      await expect(smartIntegrity).toHaveText(smartText.integrity);
+      await expect(smartUpdate).toBeVisible();
+      await expect(smartUpdate).toHaveAttribute("href", smartSwitchExpected.updateApkPath);
+      await expect(smartUpdate).toHaveAttribute("download", "");
+      controls.push(smartDownload, smartUpdate, smartIntegrity);
+      await smartIntegrity.click();
+      await expect(smartSwitch.locator("details").filter({ has: page.locator("summary").filter({ hasText: smartText.integrity }) })).toHaveAttribute("open", "");
+      await expect(smartSwitch.locator("code")).toHaveText([smartSwitchExpected.sha256, smartSwitchExpected.updateSha256, smartSwitchExpected.signerSha256]);
+      await expect(smartSwitch.locator("code").first()).toBeVisible();
+      await expect(smartSwitch.locator("code").last()).toBeVisible();
+    } else {
+      await expect(smartSwitch.getByRole("status")).toHaveText(smartText.pending);
+      await expect(smartDownload).toHaveCount(0);
+      await expect(smartUpdate).toHaveCount(0);
+      await expect(smartIntegrity).toHaveCount(0);
+      await expect(smartSwitch.locator("code")).toHaveCount(0);
+    }
+    for (const control of controls) {
       const dimensions = await control.evaluate(element => {
         const bounds = element.getBoundingClientRect();
         return { width: bounds.width, height: bounds.height };
@@ -84,11 +134,6 @@ for (const locale of ["zh-CN", "it", "en"] as const) for (const width of [1440, 
       expect(dimensions.width).toBeGreaterThanOrEqual(44);
       expect(dimensions.height).toBeGreaterThanOrEqual(44);
     }
-    await smartIntegrity.click();
-    await expect(smartSwitch.locator("details")).toHaveAttribute("open", "");
-    await expect(smartSwitch.locator("code")).toHaveText([smartSwitchExpected.sha256, smartSwitchExpected.signerSha256]);
-    await expect(smartSwitch.locator("code").first()).toBeVisible();
-    await expect(smartSwitch.locator("code").last()).toBeVisible();
     expect(await smartSwitch.evaluate(element => {
       const bounds = element.getBoundingClientRect();
       return element.scrollWidth <= element.clientWidth + 1 && bounds.left >= -1 && bounds.right <= window.innerWidth + 1;
@@ -122,10 +167,10 @@ for (const locale of ["zh-CN", "it", "en"] as const) for (const width of [1440, 
     if (width === 375 || width === 1440) {
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
       await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-      await page.screenshot({ path: `.local/smartswitch-web-release/proof/${test.info().project.name}-${locale}-${width}.png`, fullPage: true });
-      await page.screenshot({ path: `.local/smartswitch-web-release/proof/${test.info().project.name}-${locale}-${width}-viewport.png` });
+      await page.screenshot({ path: `${proofDirectory}/${test.info().project.name}-${locale}-${width}.png`, fullPage: true });
+      await page.screenshot({ path: `${proofDirectory}/${test.info().project.name}-${locale}-${width}-viewport.png` });
       await smartSwitch.evaluate(element => element.scrollIntoView({ block: "start", behavior: "instant" }));
-      await page.screenshot({ path: `.local/smartswitch-web-release/proof/${test.info().project.name}-${locale}-${width}-smart-switch-card.png` });
+      await page.screenshot({ path: `${proofDirectory}/${test.info().project.name}-${locale}-${width}-smart-switch-card.png` });
     }
   });
 }
@@ -146,22 +191,60 @@ test("APK download matches verified local release", async ({ page }) => {
   expect(createHash("sha256").update(bytes).digest("hex")).toBe(release.sha256);
 });
 
-test("Smart Switch APK download matches the verified experiment", async ({ page }) => {
+test("Both Smart Switch APK downloads match the verified experiments", async ({ page, request }) => {
+  expect(smartSwitchExperimentRelease.available).toBe(true);
+  expect(smartSwitchExperimentRelease.versionCode).toBe(377304132);
   expect(smartSwitchExperimentRelease.apkPath).toBe(smartSwitchExpected.apkPath);
+  expect(smartSwitchExperimentRelease.updateApkPath).toBe(smartSwitchExpected.updateApkPath);
   expect(smartSwitchExperimentRelease.bytes).toBe(smartSwitchExpected.bytes);
+  expect(smartSwitchExperimentRelease.updateBytes).toBe(smartSwitchExpected.bytes);
   expect(smartSwitchExperimentRelease.sha256).toBe(smartSwitchExpected.sha256);
+  expect(smartSwitchExperimentRelease.updateSha256).toBe(smartSwitchExpected.updateSha256);
   expect(smartSwitchExperimentRelease.signerSha256).toBe(smartSwitchExpected.signerSha256);
+  expect(smartSwitchExperimentRelease.packageName).toBe("com.sec.android.easyMover.chinatech");
+  expect(smartSwitchExperimentRelease.updatePackageName).toBe("com.sec.android.easyMover");
   await page.goto("/toolbox/transfer");
-  const downloadLink = page.locator(`#smart-switch-experiment a[href="${smartSwitchExpected.apkPath}"]`);
-  await expect(downloadLink).toBeVisible();
-  await expect(downloadLink).toHaveAttribute("download", "");
-  const event = page.waitForEvent("download");
-  await downloadLink.click();
-  const download = await event, path = await download.path();
-  expect(await download.failure()).toBeNull();
-  expect(download.suggestedFilename()).toBe("SmartSwitch-3.7.73.4-receiver-recovery-lab2.apk");
-  expect(path).toBeTruthy();
-  const bytes = readFileSync(path!);
-  expect(bytes.length).toBe(smartSwitchExpected.bytes);
-  expect(createHash("sha256").update(bytes).digest("hex")).toBe(smartSwitchExpected.sha256);
+  for (const [apkPath, sha256] of [[smartSwitchExpected.apkPath, smartSwitchExpected.sha256], [smartSwitchExpected.updateApkPath, smartSwitchExpected.updateSha256]] as const) {
+    const downloadLink = page.locator(`#smart-switch-experiment a[href="${apkPath}"]`);
+    await expect(downloadLink).toBeVisible();
+    await expect(downloadLink).toHaveAttribute("download", "");
+    const event = page.waitForEvent("download");
+    await downloadLink.click();
+    const download = await event, path = await download.path();
+    expect(await download.failure()).toBeNull();
+    expect(download.suggestedFilename()).toBe(apkPath.split("/").at(-1));
+    expect(path).toBeTruthy();
+    const bytes = readFileSync(path!);
+    expect(bytes.length).toBe(smartSwitchExpected.bytes);
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(sha256);
+    const range = await request.get(apkPath, { headers: { Range: "bytes=0-1023" } });
+    expect(range.status()).toBe(206);
+    expect(range.headers()["content-range"]).toBe(`bytes 0-1023/${smartSwitchExpected.bytes}`);
+    expect(await range.body()).toEqual(bytes.subarray(0, 1024));
+    await range.dispose();
+  }
+  for (const path of ["/toolbox/smart-switch-experiment/README-lab3.md", "/toolbox/smart-switch-experiment/SHA256SUMS-lab3.txt"]) {
+    const response = await request.get(path);
+    expect(response.status()).toBe(200);
+    expect(await response.body()).toEqual(readFileSync(`public${path}`));
+    expect(await response.text()).toContain(smartSwitchExpected.sha256);
+    expect(await response.text()).toContain(smartSwitchExpected.updateSha256);
+    await response.dispose();
+  }
+});
+
+test("Previous APKs and lab2 documents retain their original bytes", async ({ request }) => {
+  const retained = [
+    ["/toolbox/smart-switch-experiment/SmartSwitch-3.7.73.4-receiver-entry-lab1.apk", "7daa79ef27c1a8b63a14638cb03ae33bafe680e946bad4a224635a1d10697de1"],
+    ["/toolbox/smart-switch-experiment/SmartSwitch-3.7.73.4-receiver-recovery-lab2.apk", "691561816463392bc9d2e8760406ca540adba518f9c54f95dac1c54452df1ac8"],
+    ["/toolbox/android-assistant/ChinaTech-Phone-Assistant-0.2.0-alpha.apk", "2b20bb31207cbcb82e2b84dbf614b655b12ad3cf9a0b6bc88d24288eaee689a4"],
+    ["/toolbox/smart-switch-experiment/README.md", "f91e653e20edccee4a532985e9168c1391d2a87aa1cf10214858314b2868440c"],
+    ["/toolbox/smart-switch-experiment/SHA256SUMS.txt", "d4779089a53f4d7d2e1f9d2241cfe38f8aa9a5cd338f3860d1546af97ce4b899"],
+  ] as const;
+  for (const [path, sha256] of retained) {
+    const response = await request.get(path);
+    expect(response.status()).toBe(200);
+    expect(createHash("sha256").update(await response.body()).digest("hex")).toBe(sha256);
+    await response.dispose();
+  }
 });

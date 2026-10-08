@@ -43,15 +43,18 @@ export function AndroidTransferPage() {
       <section className={styles.intro} aria-labelledby="transfer-title">
         <Smartphone size={28} aria-hidden="true" /><h1 id="transfer-title">{t("数据传输")}</h1>
         <p>{t("两部手机，本地迁移资料。")}</p>
-        <h2>{t("安卓手机助手")}</h2>
-        <div className={styles.release}><span className={shared.pending}>{t("扫描传输测试包")}</span><span>{t("版本 {version} · Android 8 及以上", { version: release.version })}</span></div>
-        <p className={styles.muted}>{t("扫描已授权资料，按类别和分页列表选择后传输。支持媒体、公开文件、通讯录 VCF、基础日历 ICS 和可见 APP 安装包；APP 安装尚未实现，系统导入和跨品牌实机仍待核验。")}</p>
-        <p className={styles.muted}>{t("不设资料总数或已确认传输的固定时长上限。首次配对限时 10 分钟；恢复时重新校验已完成文件，未完成文件从头重传。")}</p>
-        {release.available && release.apkPath ? <a className="button button--primary" href={release.apkPath} download><Download size={17} aria-hidden="true" />{t("下载安卓测试 APK")}</a> : <p role="status">{t("测试 APK 正在构建；下载就绪后将在这里提供。")}</p>}
-        {release.sha256 && <details className={styles.integrity}><summary>{t("查看 APK 校验信息")}</summary><p>{t("安装前核对文件与签名指纹；测试包不代表所有品牌已通过验证。")}</p><dl><dt>{t("文件 SHA256")}</dt><dd><code>{release.sha256}</code></dd><dt>{t("签名证书 SHA256")}</dt><dd><code>{release.signerSha256}</code></dd></dl></details>}
       </section>
       <SmartSwitchExperimentDownload />
-      <section className={styles.panel} aria-labelledby="steps-title"><h2 id="steps-title">{t("ChinaTech 助手使用步骤")}</h2>
+      <section className={styles.panel} aria-labelledby="legacy-assistant-title">
+        <h2 id="legacy-assistant-title">{t("ChinaTech 0.2 旧版参考")}</h2>
+        <div className={styles.release}><span className={shared.pending}>{t("扫描传输测试包")}</span><span>{t("版本 {version} · Android 8 及以上", { version: release.version })}</span></div>
+        <p>{t("ChinaTech 0.2 保留下载作参考；已发现原生 TLS 连接缺陷，修复尚未随旧包发布。建议使用上方 lab3，不将此旧包视为已可完成迁移。")}</p>
+        <p className={styles.muted}>{t("扫描已授权资料，按类别和分页列表选择后传输。支持媒体、公开文件、通讯录 VCF、基础日历 ICS 和可见 APP 安装包；APP 安装尚未实现，系统导入和跨品牌实机仍待核验。")}</p>
+        <p className={styles.muted}>{t("不设资料总数或已确认传输的固定时长上限。首次配对限时 10 分钟；恢复时重新校验已完成文件，未完成文件从头重传。")}</p>
+        {release.available && release.apkPath ? <a className="button button--secondary" href={release.apkPath} download><Download size={17} aria-hidden="true" />{t("下载 ChinaTech 0.2 旧包")}</a> : <p role="status">{t("测试 APK 正在构建；下载就绪后将在这里提供。")}</p>}
+        {release.sha256 && <details className={styles.integrity}><summary>{t("查看 APK 校验信息")}</summary><p>{t("安装前核对文件与签名指纹；测试包不代表所有品牌已通过验证。")}</p><dl><dt>{t("文件 SHA256")}</dt><dd><code>{release.sha256}</code></dd><dt>{t("签名证书 SHA256")}</dt><dd><code>{release.signerSha256}</code></dd></dl></details>}
+      </section>
+      <section className={styles.panel} aria-labelledby="steps-title"><h2 id="steps-title">{t("ChinaTech 0.2 旧版步骤")}</h2>
         <ol className={styles.steps}>
           <li>{t("两机安装同版本助手，旧机先扫描已授权资料，按类别或逐项选择。")}</li>
           <li>{t("选好资料后，新机选择本机保存目录并创建热点；旧机读取新机二维码，核对两端信息后开始发送。")}</li>
@@ -63,7 +66,7 @@ export function AndroidTransferPage() {
         <p className={styles.muted}>{t("旧机由助手申请加入新机热点，首次连接通常需要系统确认；旧版本手动加入，不兼容时使用同一路由器。")}</p>
         <p className={styles.muted}>{t("配对码只在手机助手内使用，请勿粘贴到网页、客服消息或公开截图。首版没有网页远控或云端备份。")}</p>
       </section>
-      <section className={styles.panel} aria-labelledby="plan-title"><h2 id="plan-title">{t("ChinaTech 助手迁移前核对")}</h2>
+      <section className={styles.panel} aria-labelledby="plan-title"><h2 id="plan-title">{t("ChinaTech 0.2 旧版规划")}</h2>
         <p className={styles.muted}>{t("选择两机情况，查看当前覆盖与需要的权限。这里不会读取手机资料。")}</p>
         <div className={styles.devices}><DeviceChoices side="sender" value={sender} onChange={setSender} /><ArrowRight className={styles.direction} size={24} aria-hidden="true" /><DeviceChoices side="receiver" value={receiver} onChange={setReceiver} /></div>
         <div className={styles.notices} role="status" aria-live="polite"><strong>{t(plan.runnable ? "可以安装首版助手，迁移能力待手机核验。" : "先解决系统兼容性。")}</strong><ul>{plan.notices.map(notice => <li key={notice}>{t(notice)}</li>)}</ul></div>
