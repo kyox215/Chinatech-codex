@@ -44,6 +44,7 @@ export const publicMessages: Record<string, readonly [string, string]> = {
 "新手机": ["Nuovo telefono","New phone"],
 "权限与处理方式": ["Permessi e procedura","Permissions and handling"],
 "Smart Switch 接收入口实验版": ["Smart Switch: ricezione sperimentale","Smart Switch receiver-entry experiment"],
+"lab2：非三星接收端二维码等待 15 秒后切换手动直连，设置入口支持通用 Wi-Fi；配对与资料恢复仍待真机核验。": ["lab2: sui destinatari non Samsung, dopo 15 secondi di attesa del QR si passa alla connessione manuale; si possono aprire le impostazioni Wi-Fi generiche. Abbinamento e ripristino richiedono ancora verifiche sui telefoni.", "lab2: on non-Samsung receivers, 15 seconds of QR waiting switches to manual connection, with generic Wi-Fi settings available. Pairing and restoration still need phone verification."],
 "接收入口实验版": ["Ricezione sperimentale","Receiver-entry experiment"],
 "版本 {version} · Android 6 及以上 · ARM32 / ARM64": ["Versione {version} · Android 6 o successivo · ARM32 / ARM64","Version {version} · Android 6 or later · ARM32 / ARM64"],
 "用于测试非三星手机的接收入口；安装、配对和资料恢复尚未真机验证。": ["Per provare la ricezione su telefoni non Samsung; installazione, abbinamento e ripristino non sono stati verificati su dispositivi reali.","For testing the receiver entry on non-Samsung phones; installation, pairing and restoration have not been verified on real devices."],

@@ -12,6 +12,7 @@ export function SmartSwitchExperimentDownload() {
     <h2 id="smart-switch-experiment-title">{t("Smart Switch 接收入口实验版")}</h2>
     <div className={styles.release}><span className={shared.pending}>{t("接收入口实验版")}</span><span>{t("版本 {version} · Android 6 及以上 · ARM32 / ARM64", { version: release.version })}</span></div>
     <p>{t("用于测试非三星手机的接收入口；安装、配对和资料恢复尚未真机验证。")}</p>
+    <p>{t("lab2：非三星接收端二维码等待 15 秒后切换手动直连，设置入口支持通用 Wi-Fi；配对与资料恢复仍待真机核验。")}</p>
     <p className={styles.muted}>{t("这是独立签名的实验修改版，不是三星官方更新。不能覆盖官方或系统预装版本；请先在未安装官方版本的备用手机上使用测试资料核对。")}</p>
     <div className={styles.downloadActions}>
       <a className="button button--primary" href={release.apkPath} download><Download size={17} aria-hidden="true" />{t("下载 Smart Switch 实验 APK")}</a>

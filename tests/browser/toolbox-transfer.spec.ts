@@ -5,9 +5,9 @@ import { androidAssistantRelease as release } from "../../lib/toolbox/android-as
 import { smartSwitchExperimentRelease } from "../../lib/toolbox/smart-switch-experiment-release";
 
 const smartSwitchExpected = {
-  apkPath: "/toolbox/smart-switch-experiment/SmartSwitch-3.7.73.4-receiver-entry-lab1.apk",
-  bytes: 41708257,
-  sha256: "7daa79ef27c1a8b63a14638cb03ae33bafe680e946bad4a224635a1d10697de1",
+  apkPath: "/toolbox/smart-switch-experiment/SmartSwitch-3.7.73.4-receiver-recovery-lab2.apk",
+  bytes: 41941787,
+  sha256: "261da7a599b79b0025a937a8533a3919d963c0b6669d043e2738d8a1b3142366",
   signerSha256: "22e7f48efb1f168f67886a617b83af67885a233b6a1c6f16428f138f5b367dab",
 } as const;
 
@@ -19,6 +19,7 @@ const copy = {
 
 const smartSwitchCopy = {
   "zh-CN": {
+    recovery: "lab2：非三星接收端二维码等待 15 秒后切换手动直连，设置入口支持通用 Wi-Fi；配对与资料恢复仍待真机核验。",
     title: "Smart Switch 接收入口实验版",
     download: "下载 Smart Switch 实验 APK",
     notice: "用于测试非三星手机的接收入口；安装、配对和资料恢复尚未真机验证。",
@@ -26,6 +27,7 @@ const smartSwitchCopy = {
     integrity: "查看 APK 校验信息",
   },
   it: {
+    recovery: "lab2: sui destinatari non Samsung, dopo 15 secondi di attesa del QR si passa alla connessione manuale; si possono aprire le impostazioni Wi-Fi generiche. Abbinamento e ripristino richiedono ancora verifiche sui telefoni.",
     title: "Smart Switch: ricezione sperimentale",
     download: "Scarica APK Smart Switch sperimentale",
     notice: "Per provare la ricezione su telefoni non Samsung; installazione, abbinamento e ripristino non sono stati verificati su dispositivi reali.",
@@ -33,6 +35,7 @@ const smartSwitchCopy = {
     integrity: "Verifica informazioni APK",
   },
   en: {
+    recovery: "lab2: on non-Samsung receivers, 15 seconds of QR waiting switches to manual connection, with generic Wi-Fi settings available. Pairing and restoration still need phone verification.",
     title: "Smart Switch receiver-entry experiment",
     download: "Download experimental Smart Switch APK",
     notice: "For testing the receiver entry on non-Samsung phones; installation, pairing and restoration have not been verified on real devices.",
@@ -62,6 +65,7 @@ for (const locale of ["zh-CN", "it", "en"] as const) for (const width of [1440, 
     await expect(smartSwitch).toHaveAttribute("aria-labelledby", "smart-switch-experiment-title");
     await expect(smartSwitch.getByRole("heading", { name: smartText.title, level: 2, exact: true })).toBeVisible();
     await expect(smartSwitch.getByText(smartText.notice, { exact: true })).toBeVisible();
+    await expect(smartSwitch.getByText(smartText.recovery, { exact: true })).toBeVisible();
     await expect(smartSwitch.getByText(smartText.warning, { exact: true })).toBeVisible();
     const smartDownload = smartSwitch.getByRole("link", { name: smartText.download, exact: true });
     await expect(smartDownload).toBeVisible();
@@ -155,7 +159,7 @@ test("Smart Switch APK download matches the verified experiment", async ({ page 
   await downloadLink.click();
   const download = await event, path = await download.path();
   expect(await download.failure()).toBeNull();
-  expect(download.suggestedFilename()).toBe("SmartSwitch-3.7.73.4-receiver-entry-lab1.apk");
+  expect(download.suggestedFilename()).toBe("SmartSwitch-3.7.73.4-receiver-recovery-lab2.apk");
   expect(path).toBeTruthy();
   const bytes = readFileSync(path!);
   expect(bytes.length).toBe(smartSwitchExpected.bytes);

@@ -1,54 +1,81 @@
-# Smart Switch 接收入口实验版 lab1 / Esperimento / Experiment
+# Smart Switch lab2 — 接收连接回退 / Recupero connessione / Receiver recovery
 
 ## 中文
 
-这是基于3.7.73.4制作的本地实验修改版，**不是三星官方更新，也不是已经验证的完整跨品牌换机工具**。原样本来自与查询时Galaxy Store列示版本一致的公开镜像；原签名自洽，但未取得第一方商店二进制作独立比对。
+基于 Smart Switch 3.7.73.4 的独立签名实验修改版。lab2 保留 lab1 的发送／接收入口，增加二维码等待截止和系统 Wi-Fi 设置回退；不是三星官方更新，不是已经验证的全品牌完整迁移工具。
 
-修改仅限普通启动时主界面的双按钮选择，使非三星手机可尝试“发送／接收”入口；特殊launch_mode 20保持原行为。真实品牌识别、系统权限、签名检查、配套服务及其他限制均保持原规则。无线／有线协议和热点角色也未改；没有强制新机创建热点。APP名称、图标和翻译沿原包。
+**荣耀现场**：用户 HONOR Magic8 Pro（BKQ-N49）、MagicOS 11，在接收页二维码持续加载。源码确认常规 QR 依赖本机 P2P 地址；普通重签应用可能只得到 Android 隐藏后的占位 MAC，原校验拒绝它后没有页面结束反馈。另一处原手动设置按钮只支持三星私有 action。未取得该手机日志，不把机制分析当作唯一根因的运行证明。
 
-APK：`SmartSwitch-3.7.73.4-receiver-entry-lab1.apk`，41,708,257字节。支持包结构标示为Android 6.0+、ARM32/ARM64；实际设备兼容性未验证。实验签名不同于三星，**不能覆盖官方或系统预装版本**。建议使用尚未安装官方版的备用手机，不以卸载原版或清空资料作为测试准备。
+**lab2 行为**：仅非三星接收端仍在前台、尚未连接且 QR 未生成时等待 15 秒，随后调用原完整手动直连流程，并显示原因。二维码成功、已连接、离开页面或退后台会取消等待；恢复前台重新计时。三星接收与发送端不自动切换。手动下一步在非三星上打开通用 Wi-Fi 设置；三星保留专用入口并在失败时回退。系统不支持直连时明确提示使用 ChinaTech 助手。
 
-测试步骤：
+**这不是补出一个可扫码二维码**：不填假 MAC、不关闭地址校验、不改变无线／有线协议、不增加或授予系统权限。手动页出现、系统设置打开、两端配对、资料收到与目标恢复是不同结果，后续阶段仍待真机核验。
 
-1. 把APK复制到备用手机，用文件管理器打开，按系统提示处理安装来源。若系统拒绝，记录非敏感错误，先停止。
-2. 首先确认能否启动、是否出现发送／接收按钮、接收是否进入来源设备选择；这些步骤尚未实测。
-3. 首轮只用合成照片、普通测试文件和测试联系人，逐类确认对端连接、传输和目标实际可用结果。
-4. 记录两端品牌／型号／安卓版本、所用原版或实验版本、网络方式与失败步骤。不要把文件接收成功等同联系人／日历／APP已经恢复。
+安装与复验：
 
-已验证DEX局部修改、资源／Manifest保留、v1/v2/v3签名及对齐。未验证Android安装／启动、真实热点、非三星接收、资料恢复、配套服务或跨品牌兼容；没有迁移客户资料、发布或升级ChinaTech 0.2客户端。
+1. 下载 `SmartSwitch-3.7.73.4-receiver-recovery-lab2.apk`。Android 6.0+，仅 ARM32／ARM64。Android 中基础版本名称仍显示 3.7.73.4，数字构建号为 **377304131**；文件名与网页标示 lab2。
+2. 之前从本站安装 lab1 的手机可尝试直接覆盖升级：两包实验签名一致，lab2 构建号增加。不需要卸载、清除应用资料或删除手机资料。若系统拒绝更新，保留现有数据并记录错误。
+3. 独立实验签名不能覆盖三星官方或系统预装同包应用；不要求卸载官方版作为测试准备。
+4. 新机选择接收，保持页面前台。若 QR 不出现，15 秒后应切换手动直连页。点下一步打开 Wi-Fi 设置，寻找系统的 Wi-Fi Direct／直连选项；普通 Wi-Fi 网络列表不代表已经 P2P 连接。
+5. 另一台手机按原 Smart Switch 手动连接流程操作，核对设备名称与系统确认。首轮只用测试照片／文件／联系人，检查对端握手、目标数量和真实可用结果。
+6. 如果本系统没有直连菜单或无法配对，在**两台手机**安装本站独立的 ChinaTech Phone Assistant，使用新机热点或同一路由器。ChinaTech 与 Smart Switch 的二维码／传输协议不同，不能一端使用一个。
 
-`VERIFICATION.json`记录实际检查；`SHA256SUMS.txt`校验交付文件；`patch-tools.zip`只含自主补丁工具与记录，不含完整三星源码、原APK或私钥。重现需同哈希原包及记录中的项目工具，不是手机安装程序。
+兼容范围：HONOR／Samsung／Xiaomi、Redmi、POCO／OPPO、OnePlus、realme／vivo、iQOO／Pixel、Motorola、Lenovo／Nothing、Sony、ASUS、Nokia、HMD／ZTE、nubia、Meizu、Sharp、TCL、TECNO、Infinix、itel及其他 Android OEM 按相同公开接口条件审核；这是机制覆盖，不是逐系列实测认证。华为必须先确认 Android APK 兼容；原生 HarmonyOS NEXT 不由本 APK 支持。未来 Android、x86、工作资料／双开／保险箱另行核验。
+
+Android 13+ 要实际允许附近设备，旧版发现可能要求位置开关；Android 17／target37 要实际允许局域网访问。普通权限不等于 LOCAL_MAC_ADDRESS、BACKUP、INSTALL_PACKAGES、WRITE_SECURE_SETTINGS 等系统身份。联系人／日历目标账号、媒体部分授权、应用 split／ABI／安装器、短信角色、厂商 provider 与聊天私库分别核对；不能因为接收按钮可见就宣称全部资料可还原。
+
+实验签名证书 SHA256：`22e7f48efb1f168f67886a617b83af67885a233b6a1c6f16428f138f5b367dab`。文件大小和 SHA256 见网页与 `SHA256SUMS.txt`。lab1 原文件保留，不用它的旧校验值验证 lab2。
+
+实际验证限于源码／纯策略回归、DEX／包结构、签名和网站下载。尚未在这台荣耀或所有品牌手机上验证 lab2 安装、配对、传输、锁屏、系统导入与完整恢复。没有客户资料迁移或系统权限修改。
 
 ## Italiano
 
-Questa modifica locale sperimentale si basa sulla versione 3.7.73.4. **Non è un aggiornamento ufficiale Samsung né uno strumento completo di migrazione tra marchi già verificato.** Il campione proviene da un mirror pubblico e corrisponde alla versione mostrata nel Galaxy Store durante la ricerca. La firma originale è coerente, ma non è stato ottenuto un APK direttamente dallo store per un confronto indipendente.
+Modifica sperimentale di Smart Switch 3.7.73.4 con firma indipendente. lab2 conserva i pulsanti Invio/Ricezione di lab1 e aggiunge un'attesa limitata del QR e un accesso alternativo alle impostazioni Wi-Fi. Non è un aggiornamento ufficiale Samsung né una migrazione completa tra tutti i marchi già verificata.
 
-La sola modifica riguarda la scelta dei due pulsanti nella schermata iniziale normale, per provare Invio/Ricezione su dispositivi non Samsung. La modalità speciale launch_mode 20 resta invariata. Identificazione reale del marchio, autorizzazioni, controlli della firma, servizi ausiliari e altre limitazioni rimangono originali. Non cambiano protocolli wireless/via cavo o ruoli hotspot; il nuovo telefono non viene forzato a creare un hotspot. Nome, icona e traduzioni restano quelli del pacchetto originale.
+Il problema segnalato riguarda HONOR Magic8 Pro (BKQ-N49), MagicOS 11: QR in caricamento continuo. Il codice richiede l'indirizzo P2P locale; Android può restituire un MAC anonimizzato a un'app rifirmata. L'originale lo rifiuta senza terminare chiaramente l'attesa. Il pulsante manuale usa inoltre un'azione privata Samsung. Non sono disponibili i log del telefono: il meccanismo non prova l'unica causa reale.
 
-APK: `SmartSwitch-3.7.73.4-receiver-entry-lab1.apk`, 41.708.257 byte. I metadati indicano Android 6.0+ e ARM32/ARM64; la compatibilità reale non è stata verificata. La firma sperimentale è diversa: **non può aggiornare la versione ufficiale o preinstallata**. Usare preferibilmente un telefono di prova senza Smart Switch ufficiale, senza disinstallare l'originale o cancellare dati per preparare il test.
+Solo su destinatari non Samsung, con pagina in primo piano, nessuna connessione e QR non generato, lab2 attende 15 secondi, poi esegue il flusso manuale originale completo e mostra il motivo. QR riuscito, connessione, cambio pagina o pausa annullano l'attesa; tornando in primo piano parte una nuova attesa. Mittenti e ricevitori Samsung non passano automaticamente alla modalità manuale. Il pulsante successivo apre il Wi-Fi generico sui non Samsung; su Samsung mantiene l'azione originale e ripiega sul Wi-Fi se fallisce. Se Wi-Fi Direct non è disponibile, viene indicato l'assistente ChinaTech.
 
-1. Copiare l'APK sul telefono di prova e aprirlo con il gestore file, seguendo le richieste del sistema sull'origine dell'installazione. Se viene bloccato, annotare l'errore senza dati personali e fermarsi.
-2. Verificare prima avvio, pulsanti Invio/Ricezione e accesso alla scelta del dispositivo sorgente. Questi passaggi non sono stati provati.
-3. Usare inizialmente solo foto, file e contatti sintetici; controllare connessione, trasferimento e reale disponibilità dei dati sul destinatario per ogni categoria.
-4. Annotare marca/modello/versione Android di entrambi, versione ufficiale o sperimentale, connessione e punto di errore. Un file ricevuto non prova il ripristino di contatti, calendario o app.
+Non viene creato un QR fittizio: nessun MAC inventato, controllo disabilitato, protocollo cambiato o nuovo privilegio di sistema. Pagina manuale, impostazioni aperte, abbinamento, ricezione e ripristino sono risultati distinti. Le fasi sui telefoni richiedono ancora verifica.
 
-Verificati: modifica locale DEX, conservazione di risorse/Manifest, firme v1/v2/v3 e allineamento. Non verificati: installazione/avvio Android, hotspot reale, ricezione non Samsung, ripristino, servizi ausiliari e compatibilità tra marchi. Nessuna migrazione di dati di clienti o modifica del client ChinaTech 0.2. La disponibilità sul sito non dimostra che la migrazione sui telefoni sia stata verificata.
+1. Scarica `SmartSwitch-3.7.73.4-receiver-recovery-lab2.apk`: Android 6.0+, ARM32/ARM64. Android mostra ancora la versione base 3.7.73.4; il codice build è **377304131**, file e sito indicano lab2.
+2. Se hai lab1 di questo sito, prova l'aggiornamento diretto: stessa firma sperimentale e build superiore. Non serve disinstallare, cancellare dati dell'app o dati del telefono. Se rifiutato, conserva i dati e annota l'errore.
+3. Questa firma non può aggiornare Smart Switch ufficiale o preinstallato. Non disinstallare l'originale per preparare la prova.
+4. Scegli Ricezione e mantieni la pagina visibile. Dopo 15 secondi senza QR deve comparire il flusso manuale. Apri il Wi-Fi e cerca Wi-Fi Direct nelle opzioni del sistema; il normale elenco Wi-Fi non prova una connessione P2P.
+5. Sul secondo telefono usa il flusso manuale originale e controlla nome e consenso. Inizia con foto, file e contatti sintetici, verificando collegamento e dati realmente utilizzabili.
+6. Se manca Wi-Fi Direct o l'abbinamento fallisce, installa ChinaTech Phone Assistant su **entrambi** e usa hotspot del nuovo telefono o lo stesso router. QR e protocolli ChinaTech/Smart Switch non sono interoperabili.
 
-`VERIFICATION.json` contiene le verifiche; `SHA256SUMS.txt` contiene gli hash; `patch-tools.zip` include solo strumenti e registri della modifica, senza sorgenti Samsung completi, APK originale o chiavi private. La riproduzione richiede il campione con lo stesso hash e gli strumenti indicati; lo ZIP non è un'app per il telefono.
+Copertura dell'analisi: HONOR; Samsung; Xiaomi/Redmi/POCO; OPPO/OnePlus/realme; vivo/iQOO; Pixel/Motorola/Lenovo; Nothing/Sony/ASUS/Nokia/HMD; ZTE/nubia/Meizu/Sharp/TCL/TECNO/Infinix/itel e altri OEM Android. È un'analisi dei meccanismi comuni, non una certificazione di ogni modello. Huawei richiede compatibilità APK Android; HarmonyOS NEXT nativo è escluso. Versioni future, x86, profili aziendali, clonazione app e spazi sicuri richiedono verifiche specifiche.
+
+Android 13+ richiede consenso Dispositivi nelle vicinanze; versioni precedenti possono richiedere posizione attiva. Android 17/target37 richiede accesso alla rete locale. Il consenso ordinario non concede LOCAL_MAC_ADDRESS, BACKUP, INSTALL_PACKAGES o WRITE_SECURE_SETTINGS. Contatti/calendari, accesso parziale ai media, split/ABI/installazione, SMS, provider OEM e dati privati delle app vanno controllati separatamente.
+
+Certificato SHA256: `22e7f48efb1f168f67886a617b83af67885a233b6a1c6f16428f138f5b367dab`. Dimensione e hash file sul sito e in `SHA256SUMS.txt`. lab1 resta conservato; i suoi hash non verificano lab2. Verificate soltanto sorgenti/politica JVM, struttura DEX/APK, firma e download. Installazione lab2, abbinamento e migrazione su questo HONOR e tutte le marche non sono stati verificati. Nessun trasferimento di dati clienti o modifica dei privilegi di sistema.
 
 ## English
 
-This local experimental modification is based on 3.7.73.4. **It is not an official Samsung update or a verified complete cross-brand migration tool.** The sample came from a public mirror matching the Galaxy Store version observed during research. Its original signature is self-consistent; no first-party store binary was obtained for independent comparison.
+An independently signed experimental modification of Smart Switch 3.7.73.4. lab2 retains lab1's Send/Receive entry and adds a bounded QR wait and Wi-Fi settings recovery. It is not an official Samsung update or a verified complete migration tool for every brand.
 
-The only modification changes the normal home-screen two-button selector, allowing an attempt at Send/Receive on non-Samsung phones. Special launch_mode 20 remains unchanged. Real manufacturer detection, permissions, signature checks, companion services and other restrictions retain their original rules. Wireless/cable protocols and hotspot roles are unchanged; this does not force the new phone to create a hotspot. App name, icon and translations remain original.
+The reported device is HONOR Magic8 Pro (BKQ-N49), MagicOS 11, with QR loading indefinitely. Source requires the local P2P address; Android may return an anonymized MAC to a re-signed app. The original rejects it without clearly ending the wait. Its manual settings button also uses a Samsung-private action. Device logs are unavailable; this mechanism is not proof of the sole on-device cause.
 
-APK: `SmartSwitch-3.7.73.4-receiver-entry-lab1.apk`, 41,708,257 bytes. Package metadata specifies Android 6.0+ and ARM32/ARM64; actual device compatibility is unverified. The independent experimental signature **cannot update an official or preinstalled version**. Prefer a spare phone without official Smart Switch; do not uninstall the original or erase data as test preparation.
+On non-Samsung receivers only, while the QR page is foreground, disconnected and without a generated QR, lab2 waits 15 seconds then invokes the complete original manual flow and shows the reason. QR success, connection, leaving the page or pausing cancels the wait; resuming starts a new wait. Senders and Samsung receivers do not automatically switch. The next button opens generic Wi-Fi settings on non-Samsung devices; Samsung retains its original action with generic fallback on failure. Unsupported Wi-Fi Direct points to the ChinaTech assistant.
 
-1. Copy the APK to the spare phone and open it using a file manager, following system prompts about the installation source. If installation is blocked, record a non-sensitive error and stop.
-2. First check launch, Send/Receive buttons and entry to the source-device selection screen. These steps have not been tested.
-3. Initially use only synthetic photos, ordinary test files and test contacts. Check connection, transfer and usable destination results separately for each category.
-4. Record both brands/models/Android versions, official or experimental app versions, connection and failure stage. Receiving a file does not prove contacts, calendars or apps were restored.
+No fake QR is produced: no fabricated MAC, disabled address validation, changed protocol or new system privilege. Manual UI, settings opening, pairing, receiving and restoration are separate outcomes. Phone behavior still needs verification.
 
-Verified: local DEX change, preserved resources/Manifest, v1/v2/v3 signatures and alignment. Unverified: Android installation/launch, actual hotspot, non-Samsung reception, restoration, companion services and cross-brand compatibility. No customer data migration or ChinaTech 0.2 client update occurred. Website availability does not verify Android migration.
+1. Download `SmartSwitch-3.7.73.4-receiver-recovery-lab2.apk`: Android 6.0+, ARM32/ARM64. Android still displays base version 3.7.73.4; build code is **377304131**. The file and website identify lab2.
+2. If this site's lab1 is installed, try an in-place update: same experimental signer and higher build code. Uninstalling, clearing app data or erasing phone data is unnecessary. Preserve data and record any rejected-update error.
+3. This signer cannot update official or system-preinstalled Smart Switch. Uninstalling the official app is not required as test preparation.
+4. Choose Receive and keep the page foreground. After 15 seconds without QR, it should switch to the manual flow. Open Wi-Fi settings and find the system's Wi-Fi Direct option; a normal Wi-Fi list does not prove P2P connection.
+5. Follow the original manual flow on the other phone and check peer name and consent. Begin with synthetic photos, files and contacts, checking the connection and actual usable destination data.
+6. If Wi-Fi Direct is absent or pairing fails, install ChinaTech Phone Assistant on **both** phones and use the new phone's hotspot or the same router. ChinaTech and Smart Switch QR codes/protocols are not interoperable.
 
-`VERIFICATION.json` records checks; `SHA256SUMS.txt` lists hashes; `patch-tools.zip` contains only our patch tools and records, without complete Samsung sources, original APK or private keys. Reproduction requires the matching original sample and recorded tools; the ZIP is not a phone application.
+Mechanism review covers HONOR; Samsung; Xiaomi/Redmi/POCO; OPPO/OnePlus/realme; vivo/iQOO; Pixel/Motorola/Lenovo; Nothing/Sony/ASUS/Nokia/HMD; ZTE/nubia/Meizu/Sharp/TCL/TECNO/Infinix/itel and other Android OEMs. This is common-mechanism coverage, not certification of every model. Huawei requires Android APK compatibility; native HarmonyOS NEXT is excluded. Future Android, x86, work profiles, app clones and secure spaces need separate checks.
+
+Android 13+ requires actual Nearby devices consent; older discovery may require location mode. Android 17/target37 requires local-network permission. Ordinary permission dialogs do not grant LOCAL_MAC_ADDRESS, BACKUP, INSTALL_PACKAGES or WRITE_SECURE_SETTINGS. Contact/calendar accounts, partial media access, app splits/ABI/installers, SMS roles, OEM providers and private app data require separate checks.
+
+Signer SHA256: `22e7f48efb1f168f67886a617b83af67885a233b6a1c6f16428f138f5b367dab`. File size/hash are on the website and in `SHA256SUMS.txt`. lab1 is preserved; its hashes do not verify lab2. Verification covers source/JVM policy, DEX/APK structure, signing and downloads only. lab2 installation, pairing and migration on this HONOR or all brands remain unverified. No customer migration or system-privilege modification occurred.
+
+## Official platform references / 平台依据 / Riferimenti
+
+- [Wi-Fi Direct](https://developer.android.com/develop/connectivity/wifi/wifip2p)
+- [P2P device information and MAC privacy](https://developer.android.com/reference/android/net/wifi/p2p/WifiP2pManager)
+- [Android local-network permission](https://developer.android.com/privacy-and-security/local-network-permission)
+- [Samsung supported transfer direction](https://www.samsung.com/us/support/answer/ANS10001344/)
