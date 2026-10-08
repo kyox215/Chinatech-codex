@@ -68,7 +68,7 @@ const notice = response => new URL(response.headers.get("location")).searchParam
 test("binding inherits the verified original ledger policy despite missing or replayed policy cookies", async () => {
   for (const flow of ["callback", "phone"]) for (const remember of [true, false]) {
     const h = harness(); h.state.remember = remember;
-    const replay = h.load("lib/server/login-policy.ts").signLoginValue({ sessionId: "foreign-session", remember: !remember, expires: Math.floor(Date.now()/1000)+600 });
+    const replay = h.load("lib/server/login-policy.ts").signLoginValue({ sessionId: "foreign-session", remember: !remember, expires: Math.floor(h.state.clock/1000)+600 });
     let response;
     if (flow === "callback") {
       const { request } = h.callback(); request.cookies.set("ct_login_policy", replay);
@@ -84,7 +84,7 @@ test("signup PKCE and recovery never borrow a pending persistent OAuth intent", 
   for (const recovery of [false, true]) {
     const h = harness(); h.state.recovery = recovery;
     const policy = h.load("lib/server/login-policy.ts");
-    const intent = policy.signLoginValue({ purpose: "oauth-login", nonce: "pending-oauth", remember: true, expires: Math.floor(Date.now()/1000)+600 });
+    const intent = policy.signLoginValue({ purpose: "oauth-login", nonce: "pending-oauth", remember: true, expires: Math.floor(h.state.clock/1000)+600 });
     const request = h.request("/auth/confirm?code=synthetic-auth-code&intent=pending-oauth", undefined, { cookie: `ct_login_intent=${intent}` });
     const response = await h.load("app/auth/confirm/route.ts").GET(request);
     assert.equal(new URL(response.headers.get("location")).pathname, recovery ? "/reset-password" : "/account/pending");
@@ -95,9 +95,9 @@ test("signup PKCE and recovery never borrow a pending persistent OAuth intent", 
 });
 
 test("OAuth retention requires a matching signed purpose, callback nonce and live deadline", async () => {
-  for (const variant of ["valid", "purpose", "nonce", "expired", "missing"]) {
+  for (const variant of ["valid", "purpose", "nonce", "expired", "future", "missing"]) {
     const h = harness(); const policy = h.load("lib/server/login-policy.ts");
-    const intent = policy.signLoginValue({ purpose: variant === "purpose" ? "signup" : "oauth-login", nonce: "expected-nonce", remember: true, expires: Math.floor(Date.now()/1000)+(variant === "expired" ? -1 : 600) });
+    const intent = policy.signLoginValue({ purpose: variant === "purpose" ? "signup" : "oauth-login", nonce: "expected-nonce", remember: true, expires: Math.floor(h.state.clock/1000)+(variant === "expired" ? -1 : variant === "future" ? 601 : 600) });
     const request = h.request(`/auth/callback?code=synthetic-auth-code&intent=${variant === "nonce" ? "wrong-nonce" : "expected-nonce"}`, undefined, { cookie: variant === "missing" ? "" : `ct_login_intent=${intent}` });
     const response = await h.load("app/auth/confirm/route.ts").GET(request);
     assert.equal(new URL(response.headers.get("location")).pathname, variant === "valid" ? "/account/pending" : "/login");
