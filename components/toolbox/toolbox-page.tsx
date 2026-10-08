@@ -47,11 +47,11 @@ export function ToolboxPage() {
         </div>
         <div className={styles.grid}>
           {categories.map(({ id, title, description, topics, icon: Icon, tone }) => <article className={styles.card} data-tone={tone} key={id} aria-labelledby={`${id}-title`}>
-            <div className={styles.cardTop}><span className={styles.categoryIcon}><Icon size={26} strokeWidth={1.7} aria-hidden="true" /></span><span className={styles.pending}>{t(id === "office" ? "命令参考" : id === "windows" ? "检测版" : "待添加")}</span></div>
+            <div className={styles.cardTop}><span className={styles.categoryIcon}><Icon size={26} strokeWidth={1.7} aria-hidden="true" /></span><span className={styles.pending}>{t(id === "office" ? "命令参考" : id === "windows" ? "检测版" : id === "transfer" ? "扫描传输测试包" : "待添加")}</span></div>
             <h3 id={`${id}-title`}>{t(title)}</h3>
             <p>{t(description)}</p>
             <ul className={styles.topics}>{topics.map(topic => <li key={topic}>{t(topic)}</li>)}</ul>
-            {id === "office" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/office">{t("查看安装与激活命令")}<ArrowRight size={17} aria-hidden="true" /></Link> : id === "windows" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/windows">{t("查看 Windows 升级工具")}<ArrowRight size={17} aria-hidden="true" /></Link> : <div className={styles.cardFoot}><FolderOpen size={17} aria-hidden="true" /><span>{t("工具与下载链接准备中")}</span></div>}
+            {id === "office" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/office">{t("查看安装与激活命令")}<ArrowRight size={17} aria-hidden="true" /></Link> : id === "windows" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/windows">{t("查看 Windows 升级工具")}<ArrowRight size={17} aria-hidden="true" /></Link> : id === "transfer" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/transfer">{t("查看数据传输工具")}<ArrowRight size={17} aria-hidden="true" /></Link> : <div className={styles.cardFoot}><FolderOpen size={17} aria-hidden="true" /><span>{t("工具与下载链接准备中")}</span></div>}
           </article>)}
         </div>
       </section>

@@ -1,0 +1,2 @@
+7daa79ef27c1a8b63a14638cb03ae33bafe680e946bad4a224635a1d10697de1  SmartSwitch-3.7.73.4-receiver-entry-lab1.apk
+e7d62ff727021aaf60db057e0f7ee47fdfb0fe647fcf8fad0bfcb433d083a490  README.md

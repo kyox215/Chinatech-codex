@@ -10,11 +10,11 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { useLanguage } from "@/components/language-provider";
 import styles from "./home.module.css";
 
-export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" | "office" | "windows" }) {
+export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" | "office" | "windows" | "transfer" }) {
   const { t } = useLanguage();
   const { status } = useAuthStatus();
   const isHome = page === "home";
-  const isTool = page === "office" || page === "windows";
+  const isTool = page === "office" || page === "windows" || page === "transfer";
   const header = useRef<HTMLElement>(null);
   useEffect(() => {
     const element = header.current;
