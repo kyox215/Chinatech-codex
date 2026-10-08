@@ -33,23 +33,20 @@
 /* The public header keeps account links first and a language control visible on phones. */
 .headerInner { flex-wrap: wrap; column-gap: 16px; row-gap: 4px; }
 .navigation { flex-wrap: wrap; justify-content: center; gap: 18px; }
-.publicLink { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding-inline: 12px; border-radius: var(--radius-control); background: var(--primary-50); color: var(--primary-700); font-size: 14px; font-weight: 600; }
+.publicLink { flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding-inline: 12px; border-radius: var(--radius-control); background: var(--primary-50); color: var(--primary-700); font-size: 14px; font-weight: 600; }
 .publicLink:hover { background: var(--primary-100); }
-@media (max-width: 1100px) and (min-width: 768px) { .headerInner { column-gap: 15px; }.navigation { gap: 12px; }.headerLeft { gap: 12px; } }
-@media (max-width: 767px) { .headerInner { display: grid; grid-template-columns: 1fr auto; padding-block: 4px; }.headerLeft { display: contents; }.authNav { grid-column: 1; grid-row: 1; }.publicLink { grid-column: 2; grid-row: 1; }.header :global(.brand) { grid-column: 1; grid-row: 2; }.headerInner > label { grid-column: 2; grid-row: 2; }.page section[id] { scroll-margin-top: 110px; }.heroActions { flex-wrap: wrap; } }
+@media (max-width: 1100px) and (min-width: 768px) { .headerInner { column-gap: 15px; }.navigation { order: 1; flex-basis: 100%; gap: 12px; }.headerLeft { gap: 12px; min-width: 0; flex: 1 1 auto; }.publicLink { margin-left: auto; } }
+@media (max-width: 767px) { .headerInner { display: grid; grid-template-columns: 1fr auto; padding-block: 4px; }.headerLeft { display: contents; }.authNav { grid-column: 1; grid-row: 1; }.publicLink { grid-column: 2; grid-row: 1; justify-self: end; }.header :global(.brand) { grid-column: 1; grid-row: 2; }.headerInner > label { grid-column: 1 / -1; grid-row: 2; justify-self: end; }.page section[id] { scroll-margin-top: 110px; }.heroActions { flex-wrap: wrap; } }
 .heroCopy:lang(en) h1, .heroCopy:lang(it) h1 { letter-spacing: -.035em; }
 
 /* Public account actions share the existing button and icon-button semantics. */
 .authNav { flex-wrap: wrap; }
-.accountLogout { width: auto; min-width: 44px; min-height: 44px; margin: 0; }
 .accountFeedback { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; }
 @media(max-width:767px) { .headerLeft { flex-wrap: wrap; } .authNav { gap: 6px; } .footer > div,.finalCta > div { flex-wrap: wrap; } }
 
 .page section[id] { scroll-margin-top: var(--public-header-offset, 140px); }
 
-@media(max-width:767px) { .header[data-signed-in=true] .authNav { flex-wrap: nowrap; } .header[data-signed-in=true] .publicLink { width: 44px; height: 44px; padding: 0; justify-content: center; } .header[data-signed-in=true] .publicLinkLabel { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
-
-@media(max-width:767px) { .header[data-signed-in=true] .authNav { grid-column: 1 / -1; padding-right: 54px; } .header[data-signed-in=true] .authNav > a { flex-shrink: 0; white-space: nowrap; } .header[data-signed-in=true] .publicLink { justify-self: end; } }
+@media(max-width:767px) { .authNav { min-width: 0; } .header[data-signed-in=true] .authNav { flex-wrap: nowrap; } .header[data-signed-in=true] .authNav > a { flex-shrink: 0; white-space: nowrap; } }
 
 /* Account disclosure uses the same native details semantics as AppShell. */
 .accountMenu { position: relative; flex: 1 1 auto; min-width: 0; max-width: 180px; }

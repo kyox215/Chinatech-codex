@@ -35,7 +35,7 @@ test('eight controlled Office commands copy and download identical text without 
    await expect(page.getByRole('link',{name:'查看当前操作脚本源码',exact:true})).toHaveAttribute('href',/\/api\/toolbox\/office\/script\?token=/);
   }
  }
- await activate(page.locator('header').getByRole('link',{name:'返回工具箱',exact:true}));await expect(page).toHaveURL(/\/toolbox$/);expect(errors).toEqual([]);
+ await activate(page.locator('header').getByRole('link',{name:'工具箱',exact:true}));await expect(page).toHaveURL(/\/toolbox$/);expect(errors).toEqual([]);
 });
 test('disabled or unavailable gateway hides old command and supports regeneration',async({page})=>{
  const state=await gateway(page);state.enabled=false;await page.goto('/toolbox/office');await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('alert')).toHaveText('Office 命令已停用。');await expect(page.getByRole('button',{name:'复制完整命令',exact:true})).toBeDisabled();await expect(page.locator('pre')).toHaveCount(0);

@@ -13,7 +13,9 @@ async function openFixture(page: Page) {
 }
 
 test("named account disclosure shows own facts and settings/device links", async ({ page }) => {
-  await openFixture(page); await menu(page).locator("summary").click();
+  await openFixture(page);
+  await expect(page.getByRole("button", { name: "退出登录", exact: true })).toHaveCount(0);
+  await menu(page).locator("summary").click();
   const panel = page.getByRole("region", { name: "账号详情" });
   await expect(panel).toBeVisible(); await expect(panel.getByText(fixture.account.email, { exact: true })).toBeVisible();
   await expect(panel.getByText(fixture.store.name, { exact: true })).toBeVisible(); await expect(panel.getByText("老板", { exact: true })).toBeVisible();
@@ -23,6 +25,15 @@ test("named account disclosure shows own facts and settings/device links", async
   await page.keyboard.press("Escape"); await expect(panel).not.toBeVisible(); await expect(menu(page).locator("summary")).toBeFocused();
   await page.keyboard.press("Enter"); await expect(panel).toBeVisible();
   await page.getByText("电脑与手机皆可用", { exact: true }).click(); await expect(panel).not.toBeVisible();
+  for (const path of ["/toolbox", "/toolbox/office", "/toolbox/windows", "/toolbox/transfer"]) {
+    await page.goto(path); await expect(menu(page).locator("summary")).toHaveText(/Synthetic owner/);
+    const toolbox = page.locator("header").getByRole("link", { name: "工具箱", exact: true });
+    await expect(toolbox).toHaveText("工具箱"); await expect(toolbox).toHaveAttribute("href", "/toolbox");
+    await expect(page.getByRole("button", { name: "退出登录", exact: true })).toHaveCount(0);
+  }
+  await page.locator("header").getByRole("link", { name: "工具箱", exact: true }).click(); await page.waitForURL("**/toolbox");
+  await expect(page.locator("header").getByRole("link", { name: "工具箱", exact: true })).toHaveAttribute("aria-current", "page");
+  await page.locator('header a[href="/"]').click(); await page.waitForURL(/\/$/);
 });
 
 test("full long account and email remain readable at four widths in three languages", async ({ page }) => {
@@ -32,7 +43,17 @@ test("full long account and email remain readable at four widths in three langua
   for (const locale of ["zh-CN", "it", "en"] as Locale[]) {
     await page.getByLabel("语言 / Lingua / Language").selectOption(locale, { force: true });
     for (const width of [1440, 1024, 390, 375]) {
-      await page.setViewportSize({ width, height: 1000 }); await menu(page).locator("summary").click();
+      await page.setViewportSize({ width, height: 1000 });
+      const toolbox = page.locator("header").getByRole("link", { name: translate("工具箱", locale), exact: true });
+      const label = toolbox.locator("span"); await expect(label).toHaveText(translate("工具箱", locale));
+      expect(await label.evaluate(element => getComputedStyle(element).clipPath)).toBe("none");
+      const linkBox = await toolbox.boundingBox(), labelBox = await label.boundingBox();
+      expect(linkBox!.height).toBeGreaterThanOrEqual(44); expect(labelBox!.width).toBeGreaterThan(20); expect(labelBox!.height).toBeGreaterThan(10);
+      expect(linkBox!.x + linkBox!.width).toBeLessThanOrEqual(width); expect(labelBox!.x).toBeGreaterThanOrEqual(linkBox!.x);
+      const navBox = await page.getByRole("navigation", { name: translate("账户入口", locale) }).boundingBox();
+      expect(navBox!.x + navBox!.width).toBeLessThanOrEqual(linkBox!.x);
+      await expect(page.getByRole("button", { name: translate("退出登录", locale), exact: true })).toHaveCount(0);
+      await menu(page).locator("summary").click();
       const panel = page.getByRole("region", { name: translate("账号详情", locale) });
       await expect(panel.getByText(longName, { exact: true })).toBeVisible(); await expect(panel.locator("img")).toHaveCount(0);
       const box = await panel.boundingBox(); expect(box).not.toBeNull(); expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(width);

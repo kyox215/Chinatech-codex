@@ -180,7 +180,7 @@ test("all twelve real Office videos play with captions and chapter seeking, rele
   await activate(section(page).getByRole("button", { name: translate("播放教程：{title}", "zh-CN", { title: getOfficeTutorials("zh-CN")[3].title }), exact: true }));
   await expectPlaying(video(page));
   const leaving = await video(page).elementHandle();
-  await activate(page.locator("header").getByRole("link", { name: "返回工具箱", exact: true }));
+  await activate(page.locator("header").getByRole("link", { name: "工具箱", exact: true }));
   await expect(page).toHaveURL(/\/toolbox$/);
   await expect.poll(() => leaving!.evaluate(element => (element as HTMLVideoElement).paused && !element.hasAttribute("src") && !element.isConnected)).toBe(true);
   await leaving!.dispose();

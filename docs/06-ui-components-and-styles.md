@@ -381,3 +381,8 @@ RepairPartForm复用SearchCombobox及既有field-grid／button语义，只保留
 ## 2026-10-08 公开页具名账号菜单
 
 `components/home/account-menu.tsx` 复用原生 details/summary、既有 profile-menu__avatar、button/icon-button、LogoutButton、角色词条和语义 token；模块 CSS 负责公开导航锚定、44px 触控、完整资料换行及受限视口滚动。导航按账号名称／工作台／退出显示；名称过长只截断触发器，展开仍完整显示。点击外部、焦点移出及 Escape 关闭；身份或状态变化重建菜单。复用个人账号设置，登录设备链接定位其异步挂载面板；不复制设置表单或扩门店权限。中／意／英及四宽度已覆盖，详见 docs29 本轮证据。
+
+
+## 2026-10-09 公开导航精简
+
+PublicHeader右侧统一显示具备真实可见文字的“工具箱”，链接/toolbox；工具箱本页aria-current=page，品牌继续返回首页。沿用既有图标、词条、语义token及CSS Module，无新控件／主题。AccountActions不再渲染独立或页脚退出，退出复用AccountMenu内的LogoutButton。手机顶行账号／工作台／工具箱，品牌和语言第二行；语言跨列但靠右，避免其宽度挤掉账号名称。768–1100px主页分区导航另排一行，工具箱保持右侧，公开锚点仍由实际header高度测量。三语、长名称、四宽及菜单／退出／品牌和工具箱路径按本轮证据核验。

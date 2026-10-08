@@ -15,6 +15,7 @@ test("preview login, homepage SSR, toolbox and logout share navigation", async (
   await expect(nav(page).getByRole("link", { name: "注册", exact: true })).toHaveCount(0);
   await page.goto("/login"); await page.waitForURL("**/app/dashboard");
   await page.goto("/"); await page.goto("/toolbox");
+  await nav(page).locator("details summary").click();
   await nav(page).getByRole("button", { name: "退出本地预览", exact: true }).click();
   await page.waitForURL(/\/$/); await page.goBack();
   await expect(nav(page).getByRole("link", { name: "登录", exact: true })).toBeVisible();

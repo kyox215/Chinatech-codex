@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, PanelsTopLeft } from "lucide-react";
+import { PanelsTopLeft } from "lucide-react";
 import { AccountActions } from "./account-actions";
 import { useEffect, useRef } from "react";
 import { useAuthStatus } from "@/components/auth-status-provider";
@@ -14,7 +14,6 @@ export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" | "o
   const { t } = useLanguage();
   const { status } = useAuthStatus();
   const isHome = page === "home";
-  const isTool = page === "office" || page === "windows" || page === "transfer";
   const header = useRef<HTMLElement>(null);
   useEffect(() => {
     const element = header.current;
@@ -39,10 +38,10 @@ export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" | "o
       <a href="#workflow">{t("业务流程")}</a>
       <a href="#questions">{t("常见问题")}</a>
     </nav>}
-    <Link className={styles.publicLink} href={isHome || isTool ? "/toolbox" : "/"} aria-label={t(isHome ? "工具箱" : isTool ? "返回工具箱" : "返回首页")}>
-      {isHome ? <PanelsTopLeft size={17} aria-hidden="true" /> : <ArrowLeft size={17} aria-hidden="true" />}
-      <span className={styles.publicLinkLabel}>{t(isHome ? "工具箱" : isTool ? "返回工具箱" : "返回首页")}</span>
-    </Link>
     <LanguageSwitcher />
+    <Link className={styles.publicLink} href="/toolbox" aria-label={t("工具箱")} aria-current={page === "toolbox" ? "page" : undefined}>
+      <PanelsTopLeft size={17} aria-hidden="true" />
+      <span className={styles.publicLinkLabel}>{t("工具箱")}</span>
+    </Link>
   </div></header>;
 }
