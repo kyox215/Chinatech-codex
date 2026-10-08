@@ -89,11 +89,25 @@ test("identity replacement closes details and discards a delayed previous accoun
 });
 
 test("account-only state hides store facts; service failure clears private detail", async ({ page }) => {
-  let unavailable = false;
-  await page.route("**/api/auth/status", route => route.fulfill({ status: unavailable ? 503 : 200, json: unavailable ? { state: "unavailable", scope: null, formal: true, account: null, store: null } : { ...fixture, state: "account", store: null } }));
+  let unavailable = false; let publicState = "account";
+  await page.route("**/api/auth/status", route => route.fulfill({ status: unavailable ? 503 : 200, json: unavailable ? { state: "unavailable", scope: null, formal: true, account: null, store: null } : { ...fixture, state: publicState, account: publicState === "unverified" ? null : fixture.account, store: null } }));
   await page.goto("/"); await expect(menu(page).locator("summary")).toHaveText(/Synthetic owner/); await menu(page).locator("summary").click();
   const panel = page.getByRole("region", { name: "账号详情" });
   await expect(panel.getByText("等待门店授权", { exact: true })).toBeVisible(); await expect(panel.getByText("Synthetic shop", { exact: true })).toHaveCount(0);
+  publicState = "unverified"; await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.locator('header nav > a[href="/verify-email"]')).toBeVisible();
+  for (const locale of ["zh-CN", "it", "en"] as Locale[]) {
+    await page.getByLabel("语言 / Lingua / Language").selectOption(locale, { force: true });
+    for (const width of [390, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      const summaryBox = await menu(page).locator("summary").boundingBox();
+      const actionBox = await page.locator('header nav > a[href="/verify-email"]').boundingBox();
+      const toolBox = await page.locator("header").getByRole("link", { name: translate("工具箱", locale), exact: true }).boundingBox();
+      expect(summaryBox!.width).toBeGreaterThanOrEqual(60); expect(summaryBox!.x + summaryBox!.width).toBeLessThanOrEqual(actionBox!.x);
+      expect(actionBox!.x + actionBox!.width).toBeLessThanOrEqual(toolBox!.x);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+  }
   unavailable = true; await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(menu(page)).toHaveCount(0); await expect(page.getByText("owner@example.test", { exact: true })).toHaveCount(0);
 });
