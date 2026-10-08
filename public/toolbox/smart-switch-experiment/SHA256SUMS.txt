@@ -1,3 +1,3 @@
-261da7a599b79b0025a937a8533a3919d963c0b6669d043e2738d8a1b3142366  SmartSwitch-3.7.73.4-receiver-recovery-lab2.apk
+691561816463392bc9d2e8760406ca540adba518f9c54f95dac1c54452df1ac8  SmartSwitch-3.7.73.4-receiver-recovery-lab2.apk
 7daa79ef27c1a8b63a14638cb03ae33bafe680e946bad4a224635a1d10697de1  SmartSwitch-3.7.73.4-receiver-entry-lab1.apk
 f91e653e20edccee4a532985e9168c1391d2a87aa1cf10214858314b2868440c  README.md
