@@ -167,10 +167,10 @@ for (const locale of ["zh-CN", "it", "en"] as const) for (const width of [1440, 
     if (width === 375 || width === 1440) {
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
       await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-      await page.screenshot({ path: `${proofDirectory}/${test.info().project.name}-${locale}-${width}.png`, fullPage: true });
-      await page.screenshot({ path: `${proofDirectory}/${test.info().project.name}-${locale}-${width}-viewport.png` });
+      await page.screenshot({ path: `${proofDirectory}/${test.info().project.name}-${locale}-${width}.png`, fullPage: true, scale: "css" });
+      await page.screenshot({ path: `${proofDirectory}/${test.info().project.name}-${locale}-${width}-viewport.png`, scale: "css" });
       await smartSwitch.evaluate(element => element.scrollIntoView({ block: "start", behavior: "instant" }));
-      await page.screenshot({ path: `${proofDirectory}/${test.info().project.name}-${locale}-${width}-smart-switch-card.png` });
+      await page.screenshot({ path: `${proofDirectory}/${test.info().project.name}-${locale}-${width}-smart-switch-card.png`, scale: "css" });
     }
   });
 }
