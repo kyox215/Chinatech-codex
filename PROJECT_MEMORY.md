@@ -1,5 +1,10 @@
 # ChinaTech 项目连续记忆
 
+## 2026-10-09 Mi Mover lab2跨品牌传输发布候选
+
+用户明确要求完善并上架/toolbox/transfer#mimover-universal；原实际页面接公开API引擎，同lab2两台Android8+无品牌白名单。媒体/VCF/普通ICS/base+split确认恢复；保存/ACK/最终完成/恢复分别显示，旧文件与旧下载保护。v2/v3、ZIP和6/6原ARM64 ELF16KB、2930原payload/无stub与200三语检查通过；双Android16 ARM64合成传输/Provider/系统安装/原选择与诚实结果分别记录。自动LOHS本轮SYSTEM_2失败，同WiFi及手动备用支持路径；物理品牌/旧API/其他ABI/光学扫码/自动加入未验。精确包与进一步证据见docs/mimover-universal-compatibility.md、android/mimover-universal、公开README/SHA；CI与正式站下载验收在本轮发布证明记录，不冒称实体手机。未改DB/认证或其他APK。
+
+
 最后更新：2026-10-09。当前已获真实后台接入与线上替换授权，旧M1仅本地范围不能覆盖最新决定。
 
 

@@ -388,3 +388,12 @@ RepairPartForm复用SearchCombobox及既有field-grid／button语义，只保留
 PublicHeader右侧统一显示具备真实可见文字的“工具箱”，链接/toolbox；工具箱本页aria-current=page，品牌继续返回首页。沿用既有图标、词条、语义token及CSS Module，无新控件／主题。AccountActions不再渲染独立或页脚退出，退出复用AccountMenu内的LogoutButton。手机顶行账号／工作台／工具箱，品牌和语言第二行；语言跨列但靠右，避免其宽度挤掉账号名称。768px及以上用明确网格固定账号／语言／工具箱位置，主页分区导航另排一行，工具箱保持右侧，公开锚点仍由实际header高度测量。三语、长名称、四宽及菜单／退出／品牌和工具箱路径按本轮证据核验。
 
 手机验证邮箱等较长账号行动文案允许换行，账号触发器至少保留60px宽／44px高，避免只有全页无溢出但按钮互相遮挡；既有待授权／未验证投影与退出服务不变。三语375／390已实际验证。
+
+
+## 2026-10-09 Mi Mover独立下载卡
+
+MimoverDownload为数据传输领域组件，复用PublicHeader/语言provider、原panel/button/downloadActions/release/integrity和token，#mimover-universal继续使用既有实测header offset。metadata为mimover-release，完整version/bytes/SHA/cert才开放下载；原生details摘要至少44px，哈希换行，用户主动点击读取37.8MB包，不预载。没有新主题/公共控件/框架。中意英四宽、两浏览器与无JS原生键盘完整下载均按实际发布证据验收。
+
+## 2026-10-09 Smart Switch lab4原版界面
+
+公开下载卡优先原界面lab4，复用原toolbox样式／按钮／三语；旧APK和独立0.3保留。原Launcher／首页／连接来源与7无线阶段使用原资源绑定自主真实目录／选择／确认／收据。网站文案、release元数据、实际两APK与说明SHA、两端必须同lab4和未验收实体范围一致。详[规格](smart-switch-original-ui.md)，真实原生与网站／生产验收分别记录。

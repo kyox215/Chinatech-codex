@@ -9,6 +9,7 @@ import { SelectControl } from "@/components/select-control";
 import { useLanguage } from "@/components/language-provider";
 import { androidBrands, androidVersions, androidVersionNames, coverageLabels, defaultProfile, planAndroidTransfer, type DeviceProfile, type AndroidSystem } from "@/lib/toolbox/android-transfer";
 import { androidAssistantRelease as release } from "@/lib/toolbox/android-assistant-release";
+import { MimoverDownload } from "./mimover-download";
 import { SmartSwitchExperimentDownload } from "./smart-switch-experiment-download";
 import shared from "./toolbox.module.css";
 import home from "@/components/home/home.module.css";
@@ -56,6 +57,7 @@ export function AndroidTransferPage() {
         </div>
         {release.sha256 && <details className={styles.integrity}><summary>{t("查看 APK 校验信息")}</summary><p>{t("安装前核对文件与签名指纹；测试包不代表所有品牌已通过验证。")}</p><dl><dt>{t("文件 SHA256")}</dt><dd><code>{release.sha256}</code></dd><dt>{t("签名证书 SHA256")}</dt><dd><code>{release.signerSha256}</code></dd></dl></details>}
       </section>
+      <MimoverDownload />
       <SmartSwitchExperimentDownload />
       <section className={styles.panel} aria-labelledby="steps-title"><h2 id="steps-title">{t("ChinaTech 使用步骤")}</h2>
         <ol className={styles.steps}>
