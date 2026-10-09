@@ -56,3 +56,12 @@ Supports authorized media/files, standard VCF fields/contact photos, calendar IC
 Verification uses two Android16/API36 ARM64 emulators and synthetic data: original UI, three of four selected objects, 2,162,690 verified bytes, changed-catalog rejection, final-receipt recovery, notification, cancellation and actual system-hotspot QR generation. Data transfer used existing Wi-Fi. Automatic hotspot joining, optical scanning and physical HONOR/other brands remain unverified. See VERIFICATION-lab4.json; this is not all-brand certification.
 
 Public distribution relies on the user’s explicit statement of Samsung permission to modify and distribute; the license document was not independently reviewed. Published source includes only first-party code and compile interfaces, with no private keys, complete Samsung decompiled source or other OEM code.
+
+## 安装包校验 / Verifica APK / APK verification
+
+SHA256 · 42,761,166 bytes per APK
+
+- SmartSwitch-3.7.73.4-original-ui-coexist-lab4.apk
+  `6115198b29ec3b67be59459ffca86a47f9804ef49b8e2baabbf2a5dbcc635a20`
+- SmartSwitch-3.7.73.4-original-ui-lab4.apk
+  `9f68089caf3c694beeefcf200348727892307a4d167db48e6eab7e2bf5c72ce0`
