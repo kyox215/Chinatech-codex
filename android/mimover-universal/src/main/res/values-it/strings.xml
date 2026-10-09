@@ -44,7 +44,7 @@
   <string name="create_pairing">Verifica i file e crea il codice</string>
   <string name="code_notice">Il nuovo telefono mostra il codice per il vecchio. Contiene credenziali: condividilo solo con il tuo dispositivo. Scade dopo 10 minuti senza abbinamento; nessun limite di durata dopo conferma.</string>
   <string name="pairing_code">Codice di abbinamento</string>
-  <string name="paste_code">Incolla il codice del vecchio telefono</string>
+  <string name="paste_code">Incolla il codice del nuovo telefono</string>
   <string name="copy_code">Copia il codice temporaneo</string>
   <string name="code_copied">Codice copiato. Alla scadenza la app tenta di cancellarlo dagli appunti.</string>
   <string name="choose_folder">Scegli prima la cartella di destinazione</string>
@@ -200,4 +200,5 @@
   <string name="original_file_progress">%1$d file selezionati</string>
   <string name="original_no_items">Nessun dato autorizzato selezionato</string>
   <string name="original_page_count">%1$d elementi in questa pagina; usa Avanti per gli altri.</string>
+  <string name="original_restore_unbound">Nessun risultato di ripristino per questo trasferimento. Apri i dettagli per scegliere il ripristino dei file ricevuti.</string>
 </resources>

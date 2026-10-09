@@ -88,5 +88,5 @@ for kind,header,pkg in newChunks[1:]:
  out=bytearray(pkg[:header])+b''.join(contents);struct.pack_into('<I',out,4,len(out));result.append(out)
 body=b''.join(result);merged=struct.pack('<HHII',2,12,12+len(body),struct.unpack_from('<I',original,8)[0]+1)+body
 (build/'merged-resources.arsc').write_bytes(merged)
-(b/'merged-resource-verification.json').write_text(json.dumps({'originalStringIndicesPreserved':len(originalStrings),'ownedPackage':'0x6e','keys':200,'permissionLabelsUpdated':aliasPatched,'originalLayoutsAssetsNativeUnchanged':True,'bytes':len(merged)},indent=2)+'\n')
+(b/'merged-resource-verification.json').write_text(json.dumps({'originalStringIndicesPreserved':len(originalStrings),'ownedPackage':'0x6e','keys':len(translations['en']),'permissionLabelsUpdated':aliasPatched,'originalLayoutsAssetsNativeUnchanged':True,'bytes':len(merged)},indent=2)+'\n')
 print('Merged normal resources; original permission labels corrected:',aliasPatched)

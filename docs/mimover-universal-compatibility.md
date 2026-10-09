@@ -51,10 +51,18 @@ lab1 的后续步骤为公开网络与两端配对、真实类别选择、公共
 
 原Scanner真实类别、批量与单项、分页以及忙碌禁用从TransferStore共享索引读。ACK数仅来自已核对SAVED哈希的dedup投影，准备／重连数字不能算已完成；新机类目来自接收对象，不能用空发送目录显示。保存／恢复分别显示，合法最终确认前不能跳成功页，取消／残留／权限与安装继续有明确入口。前台通知回原控制器，角色与公开权限待续操作保存在私有状态。
 
-Manifest取消旧厂商服务／广播接收器／provider入口（AndroidX初始化保留），只声明必要公开读写／网络／前台服务／系统确认安装权限；没有短信／通话／厂商备份特权。资源表追加0x6e三语字符串包，保持原ID和全局字符串索引，并改正56处授权标签；真实AndroidResources/Theme避免包装器导致自定义drawable用系统classloader崩溃。此失败、勾选busy漏指纹等初轮证据保留。
+Manifest取消旧厂商服务／广播接收器／provider入口（AndroidX初始化保留），只声明必要公开读写／网络／前台服务／系统确认安装权限；没有短信／通话／厂商备份特权。资源表追加0x6e三语字符串包（201词条），保持原ID和全局字符串索引，并改正56处授权标签；真实AndroidResources/Theme避免包装器导致自定义drawable用系统classloader崩溃。此失败、勾选busy漏指纹等初轮证据保留。
 
-精确候选：4.5.7.5-ct-lab2(45707)，com.miui.huanji.chinatech，min26/target35，37,760,572B，SHAa17ac328b5cefaccaf1f11baf728a80a2aad90d10245e5e6a152d6dd1da19075，本站lab1同证书1b71b70b…efc75。v2/v3、ZIP16KB与6/6 ARM64 ELF16KB检查通过；相对lab1保留2930原payload原字节，变化仅Manifest/resources.arsc/classes3（原classes2仅lab1已核验双卡补丁）。自主577类含隔离ZXing，不含compile stubs／测试组件。source ZIP不含密钥、闭源反编译内容或原厂APK。
+精确候选：4.5.7.5-ct-lab2(45707)，com.miui.huanji.chinatech，min26/target35，37,764,668B，SHA4607f469cd156d19a0d24e19608302ece2abe8bab4cc464e037d3a6e845dab9b，本站lab1同证书1b71b70b…efc75。v2/v3、ZIP16KB与6/6 ARM64 ELF16KB检查通过；相对lab1保留2930原payload原字节，变化仅Manifest/resources.arsc/classes3（原classes2仅lab1已核验双卡补丁）。自主583类含隔离ZXing，不含compile stubs／测试组件。source ZIP不含密钥、闭源反编译内容或原厂APK。
 
-当前证据：`.local/mimover-universal-next/`（artifact/static/resource与tests）、[自主模块](../android/mimover-universal/README.md)。Android16/API36 ARM64两独立AVD合成资料验证，不使用真实客户数据。237条SQLite缓存／分页与回执、PinnedTLS、3对象2162690B两机真实网络传输／SAF字节、最终确认故障恢复、真实媒体／联系人／日历、系统base+split确认／取消已分别运行。500ms故障等待、权限由AVD授权、provider间隙注入等属于测试条件，不冒称生产真实进程死亡。原三语／勾选忙碌／进度投影／最终精确APK正在收口，最终数量与证据以交付VERIFICATION为准。
+当前证据：`.local/mimover-universal-next/`（artifact/static/resource与tests）、[自主模块](../android/mimover-universal/README.md)。Android16/API36 ARM64两独立AVD合成资料验证，不使用真实客户数据。237条SQLite缓存／分页与回执、PinnedTLS、3对象2162690B两机真实网络传输／SAF字节、最终确认故障恢复、真实媒体／联系人／日历、系统base+split确认／取消已分别运行。500ms故障等待、权限由AVD授权、provider间隙注入等属于测试条件，不冒称生产真实进程死亡。原三语触摸入口、121条勾选／3页／忙碌、准备／重试不冒ACK与最终状态已通过；最终4607两端同签名覆盖安装、原页实际网络传输与SAF字节、121条分页重建、进度可见和本轮恢复统计绑定80项复验通过；此前未变引擎证据复用，19组去重3160项不能全部称为最终APK实跑。手动回退22项通过；有效热点IP选择因LOHS失败未实跑。精确范围以交付VERIFICATION为准。
 
 OPPO/Motorola/Samsung/Xiaomi/Redmi等物理手机、旧API/其他ABI、光学扫码／自动热点加入未验证；支持通用公开API与没有品牌白名单不等于所有手机实测。正式入口与生产下载SHA由本轮发布证明核验；网站上线不能代替真机数据迁移。原厂程序依赖保留，不承诺完整原包无任何网络访问。
+
+
+本轮LOHS有附近设备权限后仍实际返回SYSTEM_2，未称热点生成成功；手动热点QR、同WiFi网络已分别测试，光学扫码/自动加入仍待真机。原Host连接方式补公开本机IP候选核对（只有热点存活但地址未知才可用），无猜网关；Guest/Scanner更多操作补系统手动加入后发送，沿用原公开Network验证与TLS/配对确认。Web实际28双浏览器三语四宽及无JavaScript键盘激活完整APK下载/SHA与Range通过，正式发布尚待CI和生产下载验收。
+
+
+最终原页面闭环修正：Scanner/Progress使用原phone header实际子树、单个44dp返回；分页previous栈保存，第三页重建返回第二页。Progress原纯装饰黑盖移除，原百分比标题按状态20sp、计数16sp、类别20sp显示，实际列表/停止原View保持；sender类目仅选择项、receiver仅SAVED投影。原系统像素截图确认可见而非只getText。接收Finish/Details只把本轮ready+directory对应completion恢复统计作为当前结果；自动关闭/旧任务统计不匹配显示‘本次无对应恢复结果’。QR读取中/失败反馈回原Guest，输入码明确来自新机；原数据/恢复写入及安装CAS不改。
+
+旧候选PR40的2ac23d完整CI37921809538成功，期间正式main新增Smart Switch lab4。MiMover发布必须融合最新main并以最终APK、最新CI和正式下载为证据，旧候选CI不冒称最终发布。物理品牌/光学扫码/自动加入范围仍保持待验。

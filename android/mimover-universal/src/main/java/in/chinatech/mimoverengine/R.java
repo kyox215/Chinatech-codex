@@ -200,4 +200,5 @@ public static final int original_pair_help=0x6e0100c4;
 public static final int original_file_progress=0x6e0100c5;
 public static final int original_no_items=0x6e0100c6;
 public static final int original_page_count=0x6e0100c7;
+public static final int original_restore_unbound=0x6e0100c8;
 }}

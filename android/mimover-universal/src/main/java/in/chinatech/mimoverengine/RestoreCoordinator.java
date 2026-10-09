@@ -21,6 +21,7 @@ final class RestoreCoordinator {
  private RestoreCoordinator(Context c){this.c=c;prefs=c.getSharedPreferences("restore-queue-v1",Context.MODE_PRIVATE);pendingKey=prefs.getString("pending",null);imported=prefs.getLong("last-imported",0);existing=prefs.getLong("last-existing",0);partial=prefs.getLong("last-partial",0);failed=prefs.getLong("last-failed",0);files=prefs.getLong("last-files",0);kind=prefs.getString("last-kind","");failure=prefs.getBoolean("unfinished",false)?"RESTORE_INTERRUPTED":prefs.getString("last-failure","");}
  void attach(Listener l){listener=l;signal();}void detach(Listener l){if(listener==l)listener=null;}
  boolean isActive(){CancellationScope current=io;return active||(current!=null&&current.hasResources());}boolean needsResume(){return !active&&prefs.getBoolean("unfinished",false);}
+ boolean describes(String completion){return completion!=null&&completion.equals(prefs.getString("completion",null));}
  boolean automatically(){return prefs.getBoolean("auto",false);}
  boolean[] choices(){return new boolean[]{prefs.getBoolean("media",true),prefs.getBoolean("contacts",true),prefs.getBoolean("calendar",true),prefs.getBoolean("apps",true)};}
  long calendar(){return prefs.getLong("calendar-id",-1);}

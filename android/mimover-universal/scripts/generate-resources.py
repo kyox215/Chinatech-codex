@@ -6,6 +6,8 @@ updates={
 'app_name':('Mi Mover · Universal lab2','小米换机 · 通用 lab2','Mi Mover · Universale lab2'),
 'alpha_notice':('Both Android phones need this Mi Mover lab2. Choose data on the old phone; receive and restore approved categories on the new one.','两端安卓手机均需使用此 Mi Mover lab2。旧机选择资料，新机接收并恢复已授权的范围。','Entrambi i telefoni Android devono usare Mi Mover lab2. Seleziona i dati sul vecchio telefono e ripristina le categorie approvate sul nuovo.'),
 'qr_invalid':('Invalid or expired universal transfer code. Generate a fresh code on the new phone.','通用传输二维码无效或已过期，请在新机重新生成。','Codice di trasferimento universale non valido o scaduto. Generane uno nuovo sul nuovo telefono.'),
+'paste_code':('Paste the new phone pairing code','粘贴新机配对码','Incolla il codice del nuovo telefono'),
+'original_restore_unbound':('No restoration result is recorded for this transfer. Open the details to choose restoration for the received files.','本次传输尚无对应恢复结果，可打开明细选择恢复已收文件。','Nessun risultato di ripristino per questo trasferimento. Apri i dettagli per scegliere il ripristino dei file ricevuti.'),
 'original_permission_scope':('Permissions for selected transfer','所选传输的权限','Permessi del trasferimento selezionato'),
 'original_permission_intro':('Choose the data and restoration categories. Android asks for the corresponding permissions when needed.','选择传输和恢复范围后，按实际需要授予 Android 权限。','Scegli le categorie da trasferire e ripristinare. Android chiederà i permessi necessari.'),
 'original_wifi_devices':('Nearby Wi-Fi devices','附近 Wi-Fi 设备','Dispositivi Wi-Fi vicini'),

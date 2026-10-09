@@ -42,3 +42,8 @@ Independently signed experimental APK that installs alongside official Mi Mover.
 6. Keep originals after interruption. Up to5 automatic reconnects; after stop/exit pair again. Completed objects are checked and skipped, incomplete files restart from the beginning. No byte-offset resume. Review permissions, storage and partial/failed/archived-only results before continuing restoration.
 
 Private data, logins, chats, SMS, calls, passwords, protected spaces and full recurring calendars are unsupported. An archived APK is not an installed app. File contents use an encrypted local connection; file providers may sync independently and original dependencies remain. Keep QR/credentials private. Verification uses two Android16 ARM64 emulators, synthetic data and bridged networking; this does not certify physical-phone hotspot joining, optical scanning or all brands.
+## SHA-256 / Integrità / Integrity
+
+APK (37,764,668 bytes): `4607f469cd156d19a0d24e19608302ece2abe8bab4cc464e037d3a6e845dab9b`
+
+Signer certificate SHA-256: `1b71b70be3bb58e2db847aa71029ca2c071e467c60f5babef62a841eb00efc75`

@@ -25,7 +25,7 @@ export const mimoverRelease: MimoverRelease = {
   instructionsPath: "/toolbox/mimover-universal/README.md",
   checksumsPath: "/toolbox/mimover-universal/SHA256SUMS.txt",
   bytes: 37764668,
-  sha256: "b7f7519356a385ca661e91bfec2f4c4cb481a16740e2d67636856c186066d593",
+  sha256: "4607f469cd156d19a0d24e19608302ece2abe8bab4cc464e037d3a6e845dab9b",
   signerSha256: "1b71b70be3bb58e2db847aa71029ca2c071e467c60f5babef62a841eb00efc75",
 };
 

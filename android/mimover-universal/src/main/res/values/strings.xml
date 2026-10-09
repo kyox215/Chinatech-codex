@@ -44,7 +44,7 @@
   <string name="create_pairing">Check selected files and create pairing code</string>
   <string name="code_notice">The new phone shows this temporary code to the old phone. It contains hotspot credentials: share only with your device. Unpaired codes expire after 10 minutes; confirmed transfer duration is unrestricted.</string>
   <string name="pairing_code">Pairing code</string>
-  <string name="paste_code">Paste pairing code from old phone</string>
+  <string name="paste_code">Paste the new phone pairing code</string>
   <string name="copy_code">Copy temporary pairing code</string>
   <string name="code_copied">Code copied. At expiry the app attempts to clear this clipboard entry.</string>
   <string name="choose_folder">Choose destination folder first</string>
@@ -200,4 +200,5 @@
   <string name="original_file_progress">%1$d selected files</string>
   <string name="original_no_items">No authorized data selected yet</string>
   <string name="original_page_count">%1$d items on this page; more items are available with Next.</string>
+  <string name="original_restore_unbound">No restoration result is recorded for this transfer. Open the details to choose restoration for the received files.</string>
 </resources>

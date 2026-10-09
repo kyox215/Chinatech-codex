@@ -44,7 +44,7 @@
   <string name="create_pairing">核对所选资料并创建配对码</string>
   <string name="code_notice">新机显示此临时配对码，旧机读取。码含热点凭据，只交给自己的旧机；未配对10分钟失效。双方核对后不限制传输时长。</string>
   <string name="pairing_code">配对码</string>
-  <string name="paste_code">粘贴旧手机配对码</string>
+  <string name="paste_code">粘贴新机配对码</string>
   <string name="copy_code">复制短期配对码</string>
   <string name="code_copied">配对码已复制，到期后应用会尝试清空该剪贴板内容。</string>
   <string name="choose_folder">先选择接收目录</string>
@@ -200,4 +200,5 @@
   <string name="original_file_progress">已选 %1$d 个文件</string>
   <string name="original_no_items">尚未选择已授权资料</string>
   <string name="original_page_count">本页 %1$d 项；更多资料可点下一页。</string>
+  <string name="original_restore_unbound">本次传输尚无对应恢复结果，可打开明细选择恢复已收文件。</string>
 </resources>

@@ -26,13 +26,13 @@ public final class UniversalActivity extends CoreActivity {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(state);
         page = state == null ? (receiving ? HOST : GUEST) : state.getString("original-page", receiving ? HOST : GUEST);
-        if (state != null) { category = state.getString("original-category"); after = state.getLong("original-after"); }
+        if (state != null) { category = state.getString("original-category"); after = state.getLong("original-after");long[] history=state.getLongArray("original-previous");if(history!=null)for(long cursor:history)previous.add(cursor); }
         ready = true;
         render(page);
         changed();
     }
     @Override protected void onSaveInstanceState(Bundle state) {
-        state.putString("original-page",page);state.putString("original-category",category);state.putLong("original-after",after);
+        state.putString("original-page",page);state.putString("original-category",category);state.putLong("original-after",after);long[] history=new long[previous.size()];for(int i=0;i<history.length;i++)history[i]=previous.get(i);state.putLongArray("original-previous",history);
         super.onSaveInstanceState(state);
     }
     private int originalId(String name) { return getResources().getIdentifier(name,"id","com.miui.huanji"); }
@@ -43,14 +43,26 @@ public final class UniversalActivity extends CoreActivity {
     private void header(int title) {
         visible("actionbar_phone",true);visible("actionbar_pad",false);
         label("title_phone",getString(title));label("title",getString(title));
-        for(String name:new String[]{"home","home_phone","home_pad"}) {View v=original(name);if(v!=null){v.setVisibility(View.VISIBLE);v.setContentDescription(getString(R.string.close));v.setOnClickListener(w->back());}}
+        View backView=original("home_phone");if(backView==null)backView=original("home");if(backView==null)backView=original("home_pad");
+        final View selectedBack=backView;
+        for(String name:new String[]{"home","home_phone","home_pad"}){View v=original(name);if(v==null)continue;v.setVisibility(v==selectedBack?View.VISIBLE:View.GONE);if(v!=selectedBack)continue;v.setContentDescription(getString(R.string.close));v.setMinimumWidth(dp(44));v.setMinimumHeight(dp(44));ViewGroup.LayoutParams params=v.getLayoutParams();if(params!=null){if(params.width>=0)params.width=Math.max(params.width,dp(44));if(params.height>=0)params.height=Math.max(params.height,dp(44));v.setLayoutParams(params);}v.setOnClickListener(w->back());}
     }
     private void render(String next) {
         if(changing||isFinishing())return;changing=true;
         try {
             page=next;rows=null;uiStatus=null;uiCount=null;uiSsid=null;uiSummary=null;uiSend=null;originalQr=null;
             int layout=HOST.equals(next)?HostR.layout.activity_host:GUEST.equals(next)?HostR.layout.activity_guest:SELECT.equals(next)?HostR.layout.activity_scanner:PROGRESS.equals(next)?HostR.layout.activity_transfer:receiving?HostR.layout.activity_receiver_finish:HostR.layout.activity_sender_finish;
-            originalRoot=getLayoutInflater().inflate(layout,null,false);setContentView(originalRoot);
+            originalRoot=getLayoutInflater().inflate(layout,null,false);
+            if(SELECT.equals(next)||PROGRESS.equals(next)){
+                // These original resources expect an Activity ActionBar. Reuse the OEM
+                // phone header stub explicitly because this controller has no ActionBar.
+                LinearLayout frame=column();
+                int barLayout=getResources().getIdentifier("actionbar_stub_phone","layout","com.miui.huanji");
+                View bar=getLayoutInflater().inflate(barLayout,frame,false);bar.setId(originalId("actionbar_phone"));
+                frame.addView(bar,new LinearLayout.LayoutParams(-1,-2));
+                frame.addView(originalRoot,new LinearLayout.LayoutParams(-1,0,1));originalRoot=frame;
+            }
+            setContentView(originalRoot);
             final int pl=originalRoot.getPaddingLeft(),pt=originalRoot.getPaddingTop(),pr=originalRoot.getPaddingRight(),pb=originalRoot.getPaddingBottom();
             originalRoot.setOnApplyWindowInsetsListener((v,insets)->{if(android.os.Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.systemBars());v.setPadding(pl+bars.left,pt+bars.top,pr+bars.right,pb+bars.bottom);}else v.setPadding(pl+insets.getSystemWindowInsetLeft(),pt+insets.getSystemWindowInsetTop(),pr+insets.getSystemWindowInsetRight(),pb+insets.getSystemWindowInsetBottom());return insets;});
             originalRoot.requestApplyInsets();
@@ -123,13 +135,26 @@ public final class UniversalActivity extends CoreActivity {
         new AlertDialog.Builder(this).setItems(new String[]{"中文","Italiano","English"},(d,n)->{String code=new String[]{"zh","it","en"}[n];getSharedPreferences("mimover-universal-ui",MODE_PRIVATE).edit().putString("language",code).apply();if(android.os.Build.VERSION.SDK_INT>=33)getSystemService(android.app.LocaleManager.class).setApplicationLocales(android.os.LocaleList.forLanguageTags(code));recreate();}).show();
     }
     private void progress() {
+        header(R.string.original_transfer_title);
         visible("transfer_single_group_view",false);visible("button_expand_list",false);
         uiStatus=(TextView)original("transfer_title");uiCount=(TextView)original("transfer_summary");uiSummary=(TextView)original("transfer_multiple_group_summary");
-        label("transfer_multiple_group_title",getString(R.string.original_choose_data));
+        label("transfer_multiple_group_title",getString(R.string.original_choose_data));((TextView)original("transfer_multiple_group_title")).setTextSize(20);
         action("button_cancel",R.string.stop,this::stopPrompt);
         action("button_exit",R.string.close,this::back);
         action("button_reconnect",R.string.continue_action,()->render(receiving?HOST:GUEST));
         View group=original("transfer_multiple_group_view");if(group!=null)group.setVisibility(View.VISIBLE);
+        for(String decoration:new String[]{"back_view","top_back_view","up_back_view"})visible(decoration,false);
+        ViewGroup stage=(ViewGroup)original("bottom_view");
+        int background=getResources().getIdentifier("themed_white","color","com.miui.huanji");if(background!=0)stage.setBackgroundColor(getResources().getColor(background,getTheme()));
+        LinearLayout content=column();content.setPadding(dp(16),dp(12),dp(16),dp(16));
+        LinearLayout statusBlock=(LinearLayout)original("transfer_middle_view");View transfer=original("transfer_view"),failure=original("transfer_interrupt"),stop=original("button_cancel");
+        for(View part:new View[]{statusBlock,transfer,failure,stop}){if(part!=null&&part.getParent() instanceof ViewGroup)((ViewGroup)part.getParent()).removeView(part);}
+        statusBlock.setGravity(Gravity.TOP);statusBlock.setAlpha(1);content.addView(statusBlock,new LinearLayout.LayoutParams(-1,-2));
+        // The OEM title was sized for a short percentage. It now holds a full status sentence.
+        uiStatus.setTextSize(20);uiStatus.setAlpha(1);uiCount.setTextSize(16);uiCount.setAlpha(1);
+        content.addView(transfer,new LinearLayout.LayoutParams(-1,0,1));content.addView(failure,new LinearLayout.LayoutParams(-1,0,1));
+        Button stopButton=(Button)stop;int stopBackground=getResources().getIdentifier("transfer_phone_button_background","drawable","com.miui.huanji");if(stopBackground!=0)stopButton.setBackgroundResource(stopBackground);stopButton.setMinHeight(dp(48));stopButton.setTextSize(16);content.addView(stopButton,new LinearLayout.LayoutParams(-1,-2));
+        stage.addView(content,new android.widget.FrameLayout.LayoutParams(-1,-1));
         RecyclerView list=(RecyclerView)original("transfer_list");if(list!=null){list.setLayoutManager(new LinearLayoutManager(this));rows=new Rows(true);list.setAdapter(rows);}
     }
     private void finishPage() {
@@ -140,9 +165,11 @@ public final class UniversalActivity extends CoreActivity {
         action(receiving?"receiver_finish_button":"sender_finish_button",R.string.close,this::back);
         if(receiving)action("receiver_finish_detail_button",R.string.original_details,this::details);
     }
+    private boolean restorationIsCurrent(){String ready=engine.store.get("restore-ready"),dir=engine.store.get("restore-directory");return ready!=null&&dir!=null&&engine.directory!=null&&dir.equals(engine.directory.toString())&&restore.describes(ready+"|"+dir);}
+    private String restorationForThisTransfer(){return restorationIsCurrent()?restorationText():getString(R.string.original_restore_unbound);}
     private void details() {
-        AlertDialog.Builder dialog=new AlertDialog.Builder(this).setTitle(R.string.original_details).setMessage(status.getText()+"\n\n"+restoreStatus.getText()+"\n\n"+residuals.getText()+"\n\n"+scanScope.getText()+"\n\n"+getString(R.string.unsupported_scope)).setNegativeButton(R.string.close,null);
-        if(restore.needsInstallation())dialog.setPositiveButton(R.string.restore_install_continue,(d,w)->restore.repeatInstallation(this)).setNeutralButton(R.string.restore_install_skip,(d,w)->restore.skipInstallation());
+        AlertDialog.Builder dialog=new AlertDialog.Builder(this).setTitle(R.string.original_details).setMessage(status.getText()+"\n\n"+restorationForThisTransfer()+"\n\n"+residuals.getText()+"\n\n"+scanScope.getText()+"\n\n"+getString(R.string.unsupported_scope)).setNegativeButton(R.string.close,null);
+        if(restore.needsInstallation()&&restorationIsCurrent())dialog.setPositiveButton(R.string.restore_install_continue,(d,w)->restore.repeatInstallation(this)).setNeutralButton(R.string.restore_install_skip,(d,w)->restore.skipInstallation());
         else dialog.setPositiveButton(R.string.restore_title,(d,w)->configureRestore());
         dialog.show();
     }
@@ -151,7 +178,8 @@ public final class UniversalActivity extends CoreActivity {
         super.connectSelected();
     }
     @Override protected void manualSend(){if(engine.selectedCount()==0){render(SELECT);Toast.makeText(this,R.string.original_no_items,Toast.LENGTH_LONG).show();return;}super.manualSend();}
-    @Override public void read(String code) { super.read(code);if(engine.selectedCount()==0)render(SELECT); }
+    @Override public void read(String code) { super.read(code);if(engine.selectedCount()==0)render(SELECT);else updateOriginal(); }
+    @Override public void state(int message){super.state(message);if(ready&&!changing)updateOriginal();}
     @Override public void changed() {
         if(isFinishing()||isDestroyed())return;
         super.changed();if(!ready||changing)return;
@@ -176,15 +204,15 @@ public final class UniversalActivity extends CoreActivity {
         }
         if(uiSend!=null)uiSend.setEnabled(!engine.isActive()&&!restore.isActive()&&engine.selectedCount()>0);
         if(uiCount!=null)uiCount.setText(getString(receiving?R.string.original_receiving_files:R.string.original_sent_files,receiving?engine.receivedCount:progressDone(),receiving?engine.expectedCount:engine.store.sendingCount()));
-        if(uiSummary!=null)uiSummary.setText(FINISH.equals(page)?(receiving?restoreStatus.getText():status.getText()):getString(R.string.original_file_progress,receiving?engine.expectedCount:engine.selectedCount()));
+        if(uiSummary!=null)uiSummary.setText(FINISH.equals(page)?(receiving?restorationForThisTransfer():status.getText()):getString(R.string.original_file_progress,receiving?engine.expectedCount:engine.selectedCount()));
         if(HOST.equals(page)){
             ProtocolCore.Pairing pair=engine.serverPair;
             if(uiSsid!=null)uiSsid.setText(pair==null?directory.getText():pair.ssid.isEmpty()?getString(R.string.router_qr_ready):pair.ssid);
             if(originalQr!=null){originalQr.setImageDrawable(qr.getDrawable());originalQr.setVisibility(pair==null?View.GONE:View.VISIBLE);}
         }
-        if(GUEST.equals(page)&&uiStatus!=null)uiStatus.setText(engine.isActive()?current:getString(R.string.original_pair_help)+"\n"+selected.getText());
+        if(GUEST.equals(page)&&uiStatus!=null)uiStatus.setText(engine.isActive()?current:getString(R.string.original_pair_help)+"\n"+selected.getText()+(qrState.getText().length()==0?"":"\n"+qrState.getText()));
         boolean failed=!engine.isActive()&&attentionStatus(engine.status);
-        if(PROGRESS.equals(page)){visible("transfer_interrupt",failed);if(failed){label("transfer_title_interrupt",current);label("transfer_summary_interrupt",getString(R.string.recovery_notice));}}
+        if(PROGRESS.equals(page)){visible("transfer_interrupt",failed);visible("transfer_view",!failed);if(failed){label("transfer_title_interrupt",current);label("transfer_summary_interrupt",getString(R.string.recovery_notice));}}
         if(rows!=null)rows.refresh();
     }
     private boolean attentionStatus(int value){return value==R.string.file_failed||value==R.string.partial_remains||value==R.string.service_start_failed||value==R.string.service_timeout||value==R.string.session_expired||value==R.string.action_failed||value==R.string.receiver_complete_unconfirmed||value==R.string.transfer_failed||value==R.string.integrity_failed||value==R.string.tls_failed||value==R.string.permission_denied||value==R.string.cancelled;}
@@ -242,7 +270,7 @@ public final class UniversalActivity extends CoreActivity {
                 boolean yes=engine.isSelected(row.item.n);if(check!=null){check.setChecked(yes);check.setOnCheckedChangeListener((button,on)->selectionChanged(check,row,on));}
                 root.setOnClickListener(v->{if(!engine.isActive()&&!restore.isActive())safeAction(()->engine.chooseItem(row.item.n,!engine.isSelected(row.item.n)));});
             }else{
-                int index=Arrays.asList(TYPES).indexOf(row.category);String name=getString(LABELS[index]);long count=transferring&&receiving?engine.receiptProjection.category(row.category):engine.store.countCategory(row.category);
+                int index=Arrays.asList(TYPES).indexOf(row.category);String name=getString(LABELS[index]);long count=transferring?(receiving?engine.receiptProjection.category(row.category):engine.store.selectedCategoryCount(row.category)):engine.store.countCategory(row.category);
                 if(title!=null)title.setText(name);if(summary!=null)summary.setText(getString(R.string.category_count,name,count));
                 if(permission instanceof TextView&&!transferring&&!ScanState.NONE.equals(engine.phoneScanState())){
                     int notice=0;
