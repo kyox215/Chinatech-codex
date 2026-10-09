@@ -11,7 +11,7 @@ export function SmartSwitchExperimentDownload() {
   return <section className={`${styles.panel} ${styles.experiment}`} id="smart-switch-experiment" aria-labelledby="smart-switch-experiment-title">
     <h2 id="smart-switch-experiment-title">{t("Smart Switch 通用通道实验版")}</h2>
     <div className={styles.release}><span className={shared.pending}>{t("通用通道实验版")}</span><span>{t("版本 {version} · Android 8 及以上 · ARM32 / ARM64", { version: release.version })}</span></div>
-    <p>{t("lab3 将通用本地传输通道嵌入 Smart Switch APK，打开后选择发送或接收。两机须用 lab3，并存版与更新包可以互通；不能与三星原版、lab1／lab2 或 ChinaTech 独立助手混用。")}</p>
+    <p>{t("lab3 将通用本地传输通道嵌入 Smart Switch APK，打开后选择发送或接收。两机须用 lab3，并存版与更新包可以互通；不能与三星原版、lab1／lab2 或 ChinaTech 0.2 混用。")}</p>
     <p>{t("Android 16 模拟器的两端局域网传输与断线恢复已通过。模拟器自动热点被系统拒绝；HONOR 等真机热点、相机扫码和跨品牌资料恢复尚未验收。")}</p>
     <p className={styles.muted}>{t("独立签名实验包，不是三星官方更新。推荐并存版可与官方或预装 Smart Switch 同时安装，无需卸载原版；更新包仅用于本站 lab1／lab2，不能覆盖三星官方签名包。")}</p>
     <ol className={styles.steps}>

@@ -31,15 +31,16 @@ export function planAndroidTransfer(source: DeviceProfile, target: DeviceProfile
   for (const [side, profile] of [["sender", source], ["receiver", target]] as const) if (profile.sdk === 37) connectionPermissions.push({ side, permission: "ACCESS_LOCAL_NETWORK", mode: "runtime", explanation: "允许访问这次局域网传输；拒绝后不能开始连接。" });
   const photoPermission = source.sdk !== null && source.sdk >= 33 ? "READ_MEDIA_IMAGES / READ_MEDIA_VIDEO / READ_MEDIA_AUDIO" : "READ_EXTERNAL_STORAGE";
   const capabilities: TransferCapability[] = [
-    { kind: "media", title: "照片、视频与音频", coverage: "alpha", detail: "按授权范围扫描照片、视频和音频，分页选择并传输原文件；相册索引和系统显示日期还原仍需单独核验。", permissions: [
+    { kind: "media", title: "照片、视频与音频", coverage: "alpha", detail: "按授权范围扫描媒体并选择传输；已验证照片和视频可确认导入 ChinaTech 图库目录。保留接收文件，重复导入重读核验；相册分组、显示日期和位置字段另行核对。", permissions: [
       { side: "sender", permission: "ACTION_OPEN_DOCUMENT", mode: "picker", explanation: "仅访问用户选择的文件，不需要全部文件权限。" },
       { side: "sender", permission: photoPermission + (source.sdk !== null && source.sdk >= 34 ? " / READ_MEDIA_VISUAL_USER_SELECTED" : ""), mode: "runtime", explanation: "扫描按系统版本请求媒体权限；部分照片授权只扫描可见子集，拒绝后仍可手动选文件。" },
+      { side: "receiver", permission: target.sdk !== null && target.sdk <= 28 ? "WRITE_EXTERNAL_STORAGE" : "MediaStore / IS_PENDING", mode: target.sdk !== null && target.sdk <= 28 ? "runtime" : "special", explanation: "Android 8／9 导入图库需另行允许存储写入；Android 10 以上通过 MediaStore 创建本助手自己的媒体。原接收文件保留，不修改已有图库项目。" },
     ] },
     { kind: "files", title: "文档、下载与文件夹", coverage: "alpha", detail: "扫描系统可见公共文件和用户授权的文件夹；不绕过 Android/data、保险箱或其他应用私有目录的系统访问限制。", permissions: [
       { side: "sender", permission: "ACTION_OPEN_DOCUMENT_TREE", mode: "picker", explanation: "文件夹需用户在系统选择器授权；不可读取或扫描失败的范围单独报告。" },
       { side: "receiver", permission: "ACTION_OPEN_DOCUMENT_TREE", mode: "picker", explanation: "用户选择保存目录；同名文件保留原件，不静默覆盖。" },
     ] },
-    { kind: "contacts", title: "通讯录", coverage: "alpha", detail: "首版导出姓名、电话和邮箱为 VCF，交系统通讯录确认导入。分组、头像与自定义字段后续接入。", permissions: [
+    { kind: "contacts", title: "通讯录", coverage: "alpha", detail: "通过系统标准 VCF 导出可见通讯录及其实际提供的字段和头像；失败范围明确标示部分，基础回退另计。由系统通讯录确认目标账号、重复项和导入结果。", permissions: [
       { side: "sender", permission: "READ_CONTACTS", mode: "runtime", explanation: "仅在选择导出联系人时请求；拒绝后可以手动选择 VCF 文件。" },
       { side: "receiver", permission: "ACTION_VIEW / VCF", mode: "picker", explanation: "由系统通讯录确认导入，不申请写联系人权限。文件接收完成不代表系统导入完成。" },
     ] },

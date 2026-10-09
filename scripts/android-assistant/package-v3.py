@@ -1,0 +1,51 @@
+from pathlib import Path
+import hashlib,json,re,zipfile
+r=Path(__file__).resolve().parents[2];p=r/'.local/android-assistant-v3';d=r/'交付/安卓手机助手-0.3.0-alpha-20261009';proof=json.loads((p/'native-proof/apk-verification.json').read_text());apk=d/'ChinaTech-Phone-Assistant-0.3.0-alpha.apk';assert hashlib.sha256(apk.read_bytes()).hexdigest()==proof['apkSha256'];static=json.loads((p/'native-proof/static-verification.json').read_text());assert static['status']=='passed' and static['apkSha256']==proof['apkSha256']
+logs=(p/'native-final-pair.log').read_text();assert logs.count('INSTRUMENTATION_CODE: -1')==2 and 'failure=' not in logs;assert 'hotspotQrGenerated=true' in logs
+modes=json.loads((p/'native-modes.json').read_text());assert len(modes)==8 and all(x['status']=='passed' for x in modes);native_total=36+sum(x['checks'] for x in modes);assert native_total==216;installs=json.loads((p/'final-install.json').read_text());assert sum(x['sha256']==proof['apkSha256'] for x in installs)==2;jvm=json.loads((p/'jvm-verification.json').read_text());assert sum(x['assertions'] for x in jvm['tests'])==204
+readme='''# ChinaTech 手机助手 0.3.0-alpha
+
+Android 8及以上的自主跨品牌测试版，两台手机均安装此版。可覆盖本站ChinaTech0.2（同包名/同候选证书），原扫描数据库路径保留；首次打开重新选择收/发角色。旧0.2配对码需重新生成。保留旧手机原件。签名仍是项目候选证书，不是厂商预装身份；没有Google服务依赖或JNI架构白名单。
+
+1. 旧机选择发送，扫描授权资料，按类别/分页勾选；手选文件/目录亦可。不设10000总项或批准后的2小时上限。
+2. 新机选择接收，授权本地保存目录，创建自动热点和二维码；旧机实时扫码，按系统确认加入。Android8/9在系统Wi-Fi设置加入。
+3. 自动热点被拒绝时，在新机开启系统WPA2热点并填写真实SSID/密码生成码，或让两机接入同一Wi-Fi。旧机自动连接被拒绝时，可选“已手动连接Wi-Fi，发送所选资料”。不要在网页输入配对码。
+4. 两端核对并批准，等待文件关闭、重读SHA256和最终回执。已完成对象在同任务/同目录重新核验后跳过，未完成对象从头传；5次自动重连后需处理问题，没有字节偏移续传。
+5. 接收后可明确确认导入照片/视频到Pictures/ChinaTech或Movies/ChinaTech；独立账本核对重复副本和未完成创建，公开/修改/未知副本不删除。已收文件保留。
+6. 通讯录用系统标准VCF，保留其实际提供的多卡/字段/头像；失败时标部分和基础回退。系统通讯录导入需另核对目标账号、重复项及实际结果。APP是base+原设备split归档，未实现安装；重复日历原字段保留，未实现完整恢复。
+
+验证：Android16 ARM64两台专用模拟器216检查（3文件2162690字节、实际自动热点QR、TLS、SAF重读、最终回执恢复、Camera2帧、页面重建、实际MediaStore与ContactsProvider）；204 JVM检查含10017清单、多卡流式与固定内存、取消/权限策略；另25项实际选择界面/数据库一致性检查包含在216项原生检查内。照片光学扫码、HONOR BKQ-N49/MagicOS11及其他品牌/旧API/ARM32/x86真机、锁屏持续运行未验。权限拒绝的发送保护用Context策略注入，不是实际系统撤权测试；最终回执等待测试缩时500ms，生产180s。
+
+边界：系统提供者可能隐去GPS位置；不恢复完整相册分组/系统显示日期或APP内部数据/登录、聊天、短信通话、密码、保险箱、工作空间、安全密钥。Android8/9图库写入需存储写权限，部分副本可能在复制中可见。原生HarmonyOS NEXT无APK运行时不适用。拒绝/部分授权/未完成范围不得称全机迁移。先用少量可删除的测试资料核对新机，再传个人资料。未取得全品牌认证。
+
+## Italiano
+
+ChinaTech 0.3.0-alpha autonomo per Android8+. Installa questa versione su entrambi, scegli Invio sul vecchio e Ricezione sul nuovo. Scansiona/seleziona dati autorizzati; scegli cartella locale, crea hotspot e scansiona QR live. In alternativa usa hotspot WPA2 di sistema con SSID/password reali oppure stessa Wi-Fi e invio dopo connessione manuale. Conferma su entrambi.
+
+Trasferimento cifrato, originali conservati, SHA256 riletto e ricevuta finale. Nessun limite totale di file o durata approvata; 5 riconnessioni, incompleti da zero. Importazione Galleria separata con journal; copie pubbliche/modificate conservate. VCF di sistema mantiene campi/foto effettivi e più schede, ripiego parziale segnalato; importazione rubrica da confermare. Archivi APK base/split non significano installazione. Chat, dati privati, SMS/chiamate, password e spazi protetti richiedono migrazioni proprie. API/telefoni reali delle marche non certificati; HarmonyOS NEXT senza APK escluso. Android16 ARM64 emulato:216 controlli; JVM:204. Non è prova su telefoni fisici. Le autorizzazioni/media cloud/provider possono limitare originali e metadati.
+
+## English
+
+Standalone ChinaTech0.3.0-alpha for Android8+. Install on both phones. Scan/select authorized data on the old sender; choose a local folder on the new receiver, create its hotspot and scan live. Use a manually enabled WPA2 hotspot with real credentials or the same Wi-Fi if automatic setup is rejected. Confirm both phones.
+
+Encrypted transfer, originals kept, reread SHA256 and final receipt. No total selected-file count or approved-session duration cap;5 auto reconnects, incomplete objects restart. Explicit Gallery import has a separate journal; published/edited copies stay. System vCard preserves fields/photos and multiple cards actually supplied, with partial fallback reported. Confirm Contacts import/account/duplicates separately. Base/split APK archives are not installation. Private app data/logins/chats/SMS/calls/passwords/protected spaces need their own migration. Physical brands/older APIs remain unverified; native HarmonyOS NEXT without APK is unsupported. Android16 ARM64 emulators passed216 checks;204 JVM checks passed. These are not physical-device certification. Providers can restrict source bytes and location metadata.
+'''
+(d/'README.md').write_text(readme)
+files=[]
+for folder in ['android/phone-assistant','scripts/android-assistant','tests/android-assistant-native','tests/android-assistant-runtime']:
+ files.extend(f for f in (r/folder).rglob('*') if f.is_file() and '__pycache__' not in f.parts and not f.name.endswith('.apk'))
+manifest={str(f.relative_to(r)):hashlib.sha256(f.read_bytes()).hexdigest() for f in files};(p/'source-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+source=d/'ChinaTech-Phone-Assistant-0.3.0-alpha-source.zip'
+with zipfile.ZipFile(source,'w',zipfile.ZIP_DEFLATED) as z:
+ for f in sorted(files):z.write(f,str(f.relative_to(r)))
+ z.write(r/'docs/android-assistant-v3-research.md','docs/android-assistant-v3-research.md');z.write(p/'source-manifest.json','SOURCE-MANIFEST.json')
+with zipfile.ZipFile(source) as z:assert not any('.local/' in x or x.endswith(('.p12','.jks','.env','.vcf')) for x in z.namelist())
+proof.update({'static':static,'jvm':jvm,'nativePair':{'checks':36,'bytes':2162690,'hotspotQrGenerated':True,'evidence':'.local/android-assistant-v3/native-final-pair.log'},'nativeModes':modes,'nativeCheckTotal':native_total,'runtime':'Two project-owned Android16/API36 ARM64 emulators, synthetic data only','limits':['physical HONOR and other brands untested','optical QR untested','no byte-offset resume','external Contacts import unverified','denied-source Context policy injection, not system revocation','finish-grace test scaled500ms vsproduction180000ms'],'sourceZipSha256':hashlib.sha256(source.read_bytes()).hexdigest(),'sourceHashes':manifest,'oemSampleResearch':'.local/android-assistant-v3/research-verification.json','independentReview':'Gallery safety, Contacts provider export and selection synchronization independently reviewed; pending-row recovery, aggregate multi-vCard export and actual selection click tests passed under Android','jniLibraries':0,'published':False})
+(d/'VERIFICATION.json').write_text(json.dumps(proof,indent=2,ensure_ascii=False)+'\n');(p/'delivery-verification.json').write_text(json.dumps(proof,indent=2,ensure_ascii=False)+'\n')
+(d/'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(f.read_bytes()).hexdigest()+'  '+f.name+'\n' for f in sorted(d.iterdir()) if f.is_file() and f.name!='SHA256SUMS.txt'))
+for base in [r,r/'.local/smartswitch-web-release/source']:
+ public=base/'public/toolbox/android-assistant';public.mkdir(parents=True,exist_ok=True)
+ (public/apk.name).write_bytes(apk.read_bytes());(public/'README-0.3.md').write_text(readme)
+ meta={'version':'0.3.0-alpha','available':True,'apkPath':'/toolbox/android-assistant/'+apk.name,'instructionsPath':'/toolbox/android-assistant/README-0.3.md','sha256':proof['apkSha256'],'signerSha256':proof['signerCertificateSha256'],'bytes':proof['apkBytes'],'minAndroid':8,'targetApi':37}
+ (base/'lib/toolbox/android-assistant-release.ts').write_text('/** Frozen standalone candidate; emulator evidence is distinct from physical-brand verification. */\nexport const androidAssistantRelease = '+json.dumps(meta,indent=2)+' as const;\n')
+print(json.dumps({'apkSha256':proof['apkSha256'],'bytes':proof['apkBytes'],'jvmChecks':204,'nativeChecks':native_total,'sourceZipBytes':source.stat().st_size,'available':True,'websitePublished':False},indent=2))

@@ -1,0 +1,11 @@
+from pathlib import Path
+import hashlib,json,xml.etree.ElementTree as ET,zipfile,re
+r=Path(__file__).resolve().parents[2];p=r/'.local/android-assistant-v3/native-proof';v=json.loads((p/'apk-verification.json').read_text());apk=r/'交付/安卓手机助手-0.3.0-alpha-20261009/ChinaTech-Phone-Assistant-0.3.0-alpha.apk';a='{http://schemas.android.com/apk/res/android}';m=ET.parse(r/'android/phone-assistant/app/src/main/AndroidManifest.xml').getroot()
+assert hashlib.sha256(apk.read_bytes()).hexdigest()==v['apkSha256'];assert m.get('package')==v['package'];assert m.get(a+'versionCode')==str(v['versionCode']);assert m.get(a+'versionName')==v['versionName']
+permissions={e.get(a+'name'):e for e in m.findall('uses-permission')};assert not set(permissions)&{'android.permission.MANAGE_EXTERNAL_STORAGE','android.permission.READ_SMS','android.permission.WRITE_SMS','android.permission.READ_CALL_LOG','android.permission.WRITE_CALL_LOG','android.permission.WRITE_CONTACTS','android.permission.QUERY_ALL_PACKAGES','android.permission.REQUEST_INSTALL_PACKAGES','android.permission.LOCAL_MAC_ADDRESS'}
+assert permissions['android.permission.WRITE_EXTERNAL_STORAGE'].get(a+'maxSdkVersion')=='28';app=m.find('application');assert app.get(a+'debuggable')=='false' and app.get(a+'allowBackup')=='false'
+activities={e.get(a+'name'):e.get(a+'exported') for e in app.findall('activity')};assert activities=={'.LaunchActivity':'true','.MainActivity':'false','.LiveQrActivity':'false'};assert app.find('service').get(a+'exported')=='false'
+with zipfile.ZipFile(apk) as z:assert not any(x.startswith('lib/') or 'runtime-test' in x.lower() for x in z.namelist())
+manifest=(p/'apk-badging.txt').read_text();assert "versionCode='3'" in manifest and "minSdkVersion:'26'" in manifest and "targetSdkVersion:'37'" in manifest
+signature=(p/'apk-signature.txt').read_text();assert 'v2 scheme (APK Signature Scheme v2): true' in signature and 'v3 scheme (APK Signature Scheme v3): true' in signature
+result={'status':'passed','apkSha256':v['apkSha256'],'jniLibraries':0,'exportedActivities':['LaunchActivity'],'permissions':'No root/SMS/call logs/all-files/full-package-query/contact-write/install permission','signingSchemes':['v2','v3']};(p/'static-verification.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))

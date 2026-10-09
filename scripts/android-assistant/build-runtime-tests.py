@@ -1,0 +1,8 @@
+from pathlib import Path
+import os,subprocess,zipfile
+r=Path(__file__).resolve().parents[2];b=r/'.local/android-assistant-v3';t=r/'tests/android-assistant-runtime';build=b/'runtime-test-build';build.mkdir(exist_ok=True);(build/'classes').mkdir(exist_ok=True);(build/'dex').mkdir(exist_ok=True);j=r/'.local/android-assistant/toolchain/jdk/jdk-21.0.12.1+1/Contents/Home';bt=r/'.local/android-assistant/toolchain/sdk/android-16';api=r/'.local/android-assistant/toolchain/sdk/android-37.0/android.jar';env=dict(os.environ,JAVA_HOME=str(j),PATH=str(j/'bin')+os.pathsep+os.environ['PATH'])
+def run(args):subprocess.run([str(x) for x in args],env=env,check=True)
+(build/'sources.args').write_text('\n'.join('"'+str(p)+'"' for p in (t/'src').rglob('*.java')))
+run([j/'bin/javac','--release','8','-cp',str(api)+os.pathsep+str(b/'native-proof/build/classes.jar'),'-d',build/'classes','@'+str(build/'sources.args')]);run([j/'bin/jar','--create','--file',build/'tests.jar','-C',build/'classes','.']);run([bt/'d8','--lib',api,'--classpath',b/'native-proof/build/classes.jar','--min-api','26','--output',build/'dex',build/'tests.jar']);run([bt/'aapt2','link','-o',build/'unsigned.apk','--manifest',t/'AndroidManifest.xml','-I',api]);
+with zipfile.ZipFile(build/'unsigned.apk','a') as z:z.write(build/'dex/classes.dex','classes.dex')
+run([bt/'zipalign','-P','16','-f','4',build/'unsigned.apk',build/'aligned.apk']);run([bt/'apksigner','sign','--v4-signing-enabled','false','--ks',r/'.local/android-assistant/native-proof/candidate-key.p12','--ks-key-alias','candidate','--ks-pass','pass:android','--out',b/'runtime-tests.apk',build/'aligned.apk'])
