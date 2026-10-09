@@ -37,6 +37,9 @@ public sealed class MainWindow : Window {
  private RecordedRun? recordedRun;private object? unfinishedJob;private DateTimeOffset? inspectedAt;
  private bool recovering;private readonly System.Windows.Threading.DispatcherTimer expiryTimer=new(){Interval=TimeSpan.FromSeconds(1)};
  private bool busy,executing,cancelRequested;
+ private bool? acceptingNewSessions;
+ private bool checkingService;
+ private string serviceError="";
  private EventWaitHandle? stop;
  private PasswordBox? input;
  private readonly List<object> events=[];
@@ -49,8 +52,8 @@ public sealed class MainWindow : Window {
   messages=JsonSerializer.Deserialize<Dictionary<string,string[]>>(stream)!;
   var workArea=SystemParameters.WorkArea;Width=Math.Min(1060,workArea.Width);Height=Math.Min(820,workArea.Height);MinWidth=Math.Min(780,workArea.Width);MinHeight=Math.Min(580,workArea.Height);FontSize=16;FontFamily=new FontFamily("Segoe UI, Microsoft YaHei UI");Background=new SolidColorBrush(Color.FromRgb(246,247,249));WindowStartupLocation=WindowStartupLocation.CenterScreen;
   Closing+=(_,e)=>{if(executing){e.Cancel=true;RequestStop();MessageBox.Show(T("CloseBusy"),T("Title"));}else session=null;};
-  Loaded+=async(_,_)=>{try{LoadPrevious();installation=Native.Installation();}catch(ToolException e){error=e.Code;}catch{error="LOCAL_STATE_INVALID";}await Inspect();};
-  expiryTimer.Tick+=(_,_)=>{if(!busy&&!executing&&session!=null&&session.ExpiresAt<=DateTimeOffset.UtcNow){session=null;error="SESSION_EXPIRED";Render();}};expiryTimer.Start();Closed+=(_,_)=>expiryTimer.Stop();
+  Loaded+=async(_,_)=>{try{LoadPrevious();installation=Native.Installation();}catch(ToolException e){error=e.Code;}catch{error="LOCAL_STATE_INVALID";}await Inspect();await CheckService();};
+  expiryTimer.Tick+=(_,_)=>{if(!busy&&!executing&&session!=null&&session.ExpiresAt<=DateTimeOffset.UtcNow){session=null;acceptingNewSessions=null;error="SESSION_EXPIRED";Render();_=CheckService();}};expiryTimer.Start();Closed+=(_,_)=>expiryTimer.Stop();
   Render();
  }
  private static string LocalText(string name){var path=Path.Combine(Native.Root,name);if(new FileInfo(path).Length>262144)throw new ToolException("LOCAL_STATE_INVALID");return File.ReadAllText(path);}
@@ -66,7 +69,7 @@ public sealed class MainWindow : Window {
   if(result==null)return;
   if(!File.Exists(Path.Combine(Native.Root,"last-job.json"))){recovering=true;unfinishedJob=new{id,action};throw new ToolException("LOCAL_STATE_INVALID");}
   if(File.Exists(Path.Combine(Native.Root,"last-job.json"))){using var prior=JsonDocument.Parse(LocalText("last-job.json"));var priorId=prior.RootElement.GetProperty("id").GetString();var priorAction=prior.RootElement.GetProperty("action").GetString();if(priorId!=id||priorAction!=action){recovering=true;unfinishedJob=Guid.TryParseExact(priorId,"D",out _)&&priorAction!=null&&Protocol.Actions.Contains(priorAction)?new{id=priorId,action=priorAction}:new{state="unreadable"};throw new ToolException("LOCAL_STATE_INVALID");}}
-  recordedRun=new("0.1.1",Fingerprint.RunnerSha256,id,action,DateTimeOffset.UtcNow,result,events.Select(x=>JsonSerializer.SerializeToElement(x,Protocol.Json)).ToArray());
+  recordedRun=new("0.1.2",Fingerprint.RunnerSha256,id,action,DateTimeOffset.UtcNow,result,events.Select(x=>JsonSerializer.SerializeToElement(x,Protocol.Json)).ToArray());
   var temporary=Path.Combine(Native.Root,"last-result."+id+".tmp");File.WriteAllText(temporary,JsonSerializer.Serialize(recordedRun,Protocol.Json));File.Move(temporary,Path.Combine(Native.Root,"last-result.json"),true);
   recovering=result.Code is "RESULT_UNKNOWN" or "UNEXPECTED_ERROR";unfinishedJob=recovering?new{id,action}:null;
   if(!recovering&&File.Exists(Path.Combine(Native.Root,"last-job.json")))File.Delete(Path.Combine(Native.Root,"last-job.json"));
@@ -84,10 +87,10 @@ public sealed class MainWindow : Window {
   var header=new DockPanel();var languages=new ComboBox{Width=150,Height=44,Margin=new Thickness(10,0,0,0),IsEnabled=!busy,ItemsSource=new[]{"中文","Italiano","English"},SelectedIndex=locale=="it"?1:locale=="en"?2:0};DockPanel.SetDock(languages,Dock.Right);header.Children.Add(languages);languages.SelectionChanged+=(_,_)=>{locale=languages.SelectedIndex==1?"it":languages.SelectedIndex==2?"en":"zh-CN";Render();};header.Children.Add(Text(T("Title"),24));root.Children.Add(header);
   root.Children.Add(Text(T("Server")+": "+server,14,muted));
   if(session==null) {
-   var login=new StackPanel();login.Children.Add(Text(T("Locked"),20));login.Children.Add(Text(T("LicenseNotice"),14,muted));login.Children.Add(Text(T("Key")));
-   input=new PasswordBox{MinHeight=44,FontSize=16,Padding=new Thickness(10),Margin=new Thickness(0,0,0,16),IsEnabled=!busy};System.Windows.Automation.AutomationProperties.SetName(input,T("Key"));login.Children.Add(input);
-   login.Children.Add(Button("Unlock",async(_,_)=>await Unlock(),true));root.Children.Add(Panel(login));
-  }else{root.Children.Add(Button("Lock",(_,_)=>{session=null;error="";Render();}));}
+   var login=new StackPanel();login.Children.Add(Text(T("Locked"),20));login.Children.Add(Text(T("LicenseNotice"),14,muted));login.Children.Add(Text(T(serviceError.Length>0?serviceError:acceptingNewSessions==true?"ServiceReady":checkingService?"ServiceCheck":"ServiceUnknown"),14,muted));login.Children.Add(Text(T("Key")));
+   input=new PasswordBox{MinHeight=44,FontSize=16,Padding=new Thickness(10),Margin=new Thickness(0,0,0,16),IsEnabled=!busy&&acceptingNewSessions==true};System.Windows.Automation.AutomationProperties.SetName(input,T("Key"));login.Children.Add(input);
+   login.Children.Add(Button("Unlock",async(_,_)=>await Unlock(),true,acceptingNewSessions==true));login.Children.Add(Button("CheckService",async(_,_)=>await CheckService()));root.Children.Add(Panel(login));
+  }else{root.Children.Add(Button("Lock",async(_,_)=>{session=null;acceptingNewSessions=null;error="";Render();await CheckService();}));}
   if(inventory!=null) {
    var facts=new StackPanel();facts.Children.Add(Text(T("Inventory"),20));facts.Children.Add(Text(inventory.System+" · "+inventory.Architecture));facts.Children.Add(Text(inventory.Products.Length==0?T("NoOffice"):string.Join(" · ",inventory.Products)));
    facts.Children.Add(Text(T("LicenseUnknown"),14,muted));if(inventory.RestartRequired)facts.Children.Add(Text(T("Restart")));if(inventory.OfficeOpen)facts.Children.Add(Text(T("OfficeOpen")));if(!inventory.Supported)facts.Children.Add(Text(T("UNSUPPORTED_SYSTEM")));facts.Children.Add(Button("Inspect",async(_,_)=>await Inspect()));root.Children.Add(Panel(facts));
@@ -100,10 +103,23 @@ public sealed class MainWindow : Window {
   Content=new ScrollViewer{Content=root,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled};
  }
  private async Task Inspect() {busy=true;Render();try{inventory=await Task.Run(Native.Inspect);inspectedAt=DateTimeOffset.UtcNow;}catch{error="UNEXPECTED_ERROR";}finally{busy=false;Render();}}
+ private async Task<bool> ReadService(Gateway gateway) {
+  var state=await gateway.Get<ServiceStatus>("/api/toolbox/office-desktop/status");
+  if(state.AcceptingNewSessions is not bool enabled)throw new ToolException("SERVICE_UNAVAILABLE");
+  acceptingNewSessions=enabled;
+  if(!enabled)throw new ToolException("DESKTOP_PAUSED");
+  return true;
+ }
+ private async Task CheckService() {
+  if(busy||executing||session!=null)return;
+  busy=true;checkingService=true;acceptingNewSessions=null;serviceError="";Render();
+  try{using var gateway=new Gateway(Protocol.TrustedServer(server));await ReadService(gateway);}
+  catch(ToolException e){serviceError=e.Code;}catch{serviceError="SERVICE_UNAVAILABLE";}finally{checkingService=false;busy=false;Render();}
+ }
  private async Task Unlock() {
-  if(busy||input==null)return;var key=input.Password;input.Clear();busy=true;error="";Render();
-  try{if(installation=="")installation=Native.Installation();using var gateway=new Gateway(Protocol.TrustedServer(server));var next=await gateway.Post<Session>("/api/toolbox/office-desktop/session",new{key,installationId=installation,language=locale});if(next.ExpiresAt<=DateTimeOffset.UtcNow||next.Actions==null||next.Actions.Length==0||next.Actions.Any(a=>!Protocol.Actions.Contains(a))||string.IsNullOrWhiteSpace(next.SessionToken))throw new ToolException("SESSION_INVALID");session=next;inventory=await Task.Run(Native.Inspect);inspectedAt=DateTimeOffset.UtcNow;}
-  catch(ToolException e){error=e.Code;}catch{error="UNEXPECTED_ERROR";}finally{key="";busy=false;Render();}
+  if(busy||input==null||acceptingNewSessions!=true)return;var key=input.Password;input.Clear();busy=true;error="";serviceError="";Render();
+  try{if(installation=="")installation=Native.Installation();using var gateway=new Gateway(Protocol.TrustedServer(server));await ReadService(gateway);var next=await gateway.Post<Session>("/api/toolbox/office-desktop/session",new{key,installationId=installation,language=locale});if(next.ExpiresAt<=DateTimeOffset.UtcNow||next.Actions==null||next.Actions.Length==0||next.Actions.Any(a=>!Protocol.Actions.Contains(a))||string.IsNullOrWhiteSpace(next.SessionToken))throw new ToolException("SESSION_INVALID");session=next;inventory=await Task.Run(Native.Inspect);inspectedAt=DateTimeOffset.UtcNow;}
+  catch(ToolException e){error=e.Code;if(e.Code=="DESKTOP_PAUSED")acceptingNewSessions=false;}catch{error="UNEXPECTED_ERROR";}finally{key="";busy=false;Render();}
  }
  private void RequestStop(){if(stop!=null){stop.Set();cancelRequested=true;Render();}}
  private static string[] SuiteProducts(string[] products)=>products.Where(p=>System.Text.RegularExpressions.Regex.IsMatch(p,"^(ProPlus|Standard|O365ProPlus|O365Business|O365HomePrem|O365SmallBusPrem|O365EduCloud|Professional|HomeBusiness|HomeStudent|Personal)[A-Za-z0-9]*$")).ToArray();
@@ -142,6 +158,6 @@ public sealed class MainWindow : Window {
  private void Export() {
   if(result==null&&inventory==null&&recordedRun==null)return;var save=new SaveFileDialog{Title=T("Export"),Filter="JSON (*.json)|*.json",FileName="ChinaTech-Office-report-"+DateTime.Now.ToString("yyyyMMdd-HHmm")+".json"};
   if(save.ShowDialog()!=true)return;
-  try{File.WriteAllText(save.FileName,JsonSerializer.Serialize(new{appVersion="0.1.1",currentRunnerSha256=Fingerprint.RunnerSha256,currentInspection=new{capturedAt=inspectedAt,inventory},recordedRun,result,events,unfinishedJob,recoveryRequired=recovering,errorCode=error.Length>0?error:null},new JsonSerializerOptions(Protocol.Json){WriteIndented=true}));}catch{error="LOCAL_STATE_INVALID";Render();}
+  try{File.WriteAllText(save.FileName,JsonSerializer.Serialize(new{appVersion="0.1.2",currentRunnerSha256=Fingerprint.RunnerSha256,currentInspection=new{capturedAt=inspectedAt,inventory},recordedRun,result,events,unfinishedJob,recoveryRequired=recovering,errorCode=error.Length>0?error:null},new JsonSerializerOptions(Protocol.Json){WriteIndented=true}));}catch{error="LOCAL_STATE_INVALID";Render();}
  }
 }

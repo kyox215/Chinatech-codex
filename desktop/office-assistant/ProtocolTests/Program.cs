@@ -35,3 +35,17 @@ if(args.Length>1){
  if(metadata.GetBlobBytes(constants["Development"].Value)[0]!=0||StringValue("Server")!="https://www.chinatech.in/"||StringValue("RunnerSha256")!=digest)throw new Exception("Release constants invalid");
  var manifest=JsonDocument.Parse(File.ReadAllText(Path.Combine(root,".local/office-desktop/dist",rid,"manifest.json")));using var executable=new PEReader(File.OpenRead(Path.Combine(root,".local/office-desktop/dist",rid,"ChinaTech.OfficeAssistant.exe")));if(executable.PEHeaders.CoffHeader.Machine!=(rid=="win-x64"?Machine.Amd64:Machine.Arm64))throw new Exception("Wrong PE architecture");if(manifest.RootElement.GetProperty("development").GetBoolean())throw new Exception("Dev manifest");Console.WriteLine("Release metadata verified: "+rid+" / official origin / pinned runner / no test class");
 }
+
+// Real loopback HTTP checks exercise the shared GET/POST transport without keys.
+using(var portFinder=new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback,0)){
+ portFinder.Start();var port=((System.Net.IPEndPoint)portFinder.LocalEndpoint).Port;portFinder.Stop();
+ using var listener=new System.Net.HttpListener();listener.Prefixes.Add($"http://127.0.0.1:{port}/");listener.Start();
+ async Task Respond(int status,string body){var context=await listener.GetContextAsync();if(context.Request.HttpMethod!="GET"||context.Request.HasEntityBody||context.Request.Headers["Authorization"]!=null)throw new Exception("Startup GET sent credentials or body");context.Response.StatusCode=status;if(status==302)context.Response.RedirectLocation=$"http://127.0.0.1:{port}/unexpected";var bytes=System.Text.Encoding.UTF8.GetBytes(body);context.Response.ContentLength64=bytes.Length;await context.Response.OutputStream.WriteAsync(bytes);context.Response.Close();}
+ using var gateway=new Gateway(Protocol.Server($"http://127.0.0.1:{port}/"));
+ var pending=Respond(200,"{\"acceptingNewSessions\":true}");var enabled=await gateway.Get<ServiceStatus>("/api/toolbox/office-desktop/status");await pending;if(enabled.AcceptingNewSessions!=true)throw new Exception("Available service GET rejected");count++;
+ pending=Respond(200,"{\"acceptingNewSessions\":false}");var paused=await gateway.Get<ServiceStatus>("/api/toolbox/office-desktop/status");await pending;if(paused.AcceptingNewSessions!=false)throw new Exception("Paused service GET rejected");count++;
+ pending=Respond(302,"{}");try{await gateway.Get<ServiceStatus>("/api/toolbox/office-desktop/status");throw new Exception("Redirect accepted");}catch(ToolException e)when(e.Code=="SERVICE_UNAVAILABLE"){count++;}await pending;
+ pending=Respond(200,new string('x',262145));try{await gateway.Get<ServiceStatus>("/api/toolbox/office-desktop/status");throw new Exception("Oversized GET accepted");}catch(ToolException e)when(e.Code=="SERVICE_UNAVAILABLE"){count++;}await pending;
+}
+if(Protocol.RequiresUnlock("DESKTOP_PAUSED"))throw new Exception("Admission pause revokes existing sessions");count++;
+Console.WriteLine($"Protocol and native HTTP checks passed: {count}; no Office execution.");

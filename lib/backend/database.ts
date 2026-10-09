@@ -55,6 +55,16 @@ export async function readOfficeControl(): Promise<{ enabled: boolean; version: 
   }) as Promise<{ enabled: boolean; version: string }>;
 }
 
+// Startup status is a public boolean only; it does not adopt or fabricate an Auth session.
+export async function readOfficeDesktopAdmission(): Promise<{ acceptingNewSessions: boolean }> {
+  return database().begin(async tx => {
+    await tx`select set_config('request.jwt.claims','{"role":"anon"}',true),set_config('statement_timeout','5000',true)`;
+    const [row] = await tx<{ accepting_new_sessions: boolean }[]>`select c.enabled and d.enabled as accepting_new_sessions from chinatech_v2_private.office_command_control c cross join chinatech_v2_private.office_desktop_control d where c.singleton and d.singleton`;
+    if (!row) throw new BackendError('Office 服务暂不可用，请稍后重试。', 503);
+    return { acceptingNewSessions: row.accepting_new_sessions };
+  }) as Promise<{ acceptingNewSessions: boolean }>;
+}
+
 // Desktop capabilities are independent from Auth identities. Never synthesize an Auth user.
 export async function withOfficeDesktopDatabase<T>(keyHash: string, installationId: string, run: (tx: TransactionSql) => Promise<T>): Promise<T> {
   if (!/^[a-f0-9]{64}$/.test(keyHash) || !/^[a-f0-9-]{36}$/.test(installationId)) throw new BackendError('请求无效。', 400);

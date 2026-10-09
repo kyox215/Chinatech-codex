@@ -195,6 +195,7 @@ export const publicMessages: Record<string, readonly [string, string]> = {
 "程序尚未数字签名。运行前可核对 SHA256；若 Windows 拦截，请先核对来源与文件，不要关闭系统防护。": ["Il programma non è ancora firmato digitalmente. Verifica SHA256 prima di eseguirlo; se Windows lo blocca, controlla origine e file senza disattivare le protezioni.", "The program is not yet digitally signed. Verify SHA256 before running; if Windows blocks it, check the source and file without disabling system protection."],
 "查看文件校验值": ["Mostra checksum dei file", "Show file checksums"],
 "下载 SHA256 校验清单": ["Scarica elenco checksum SHA256", "Download SHA256 checksum list"],
+"DESKTOP_PAUSED": ["L’amministratore ha sospeso i nuovi accessi. Riprova più tardi o contattalo.", "The administrator has paused new unlocks. Try again later or contact the administrator."],
 "SERVICE_UNAVAILABLE": ["Servizio licenze non configurato o non disponibile. Contatta l’amministratore.", "Licensing is not configured or is temporarily unavailable. Contact the administrator."],
 "NO_ACCESS": ["Permesso di gestione mancante.", "Management permission is missing."],
 "KEY_INVALID": ["Chiave non valida, disabilitata o scaduta. Contatta l’amministratore.", "Key invalid, disabled or expired. Contact the administrator."],

@@ -1,9 +1,9 @@
-const base = "https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v0.1.1";
+const base = "https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v0.1.2";
 export const officeDesktopRelease = {
-  version: "0.1.1",
+  version: "0.1.2",
   files: [
-    { architecture: "x64", bytes: 64864981, sha256: "fcd022df1f810b072bae7f6bb45e00a7b37716bc9ae57c15d90349ffb1e64fa4", href: `${base}/ChinaTech-Office-Assistant-x64.exe` },
-    { architecture: "ARM64", bytes: 61018312, sha256: "4ea331a0d0b23c97e011198adad5395fde7540a99b950b9fef76039a8c6f5b1f", href: `${base}/ChinaTech-Office-Assistant-ARM64.exe` },
+    { architecture: "x64", bytes: 64867236, sha256: "7eeaa7e52bcbddb64665235b2a213d65d79bab354ff01ece5a12c117ecfbdb49", href: `${base}/ChinaTech-Office-Assistant-x64.exe` },
+    { architecture: "ARM64", bytes: 61020568, sha256: "10faee61298122a6660fbd641076697035d3edb6a4d064e9728a081510a253bb", href: `${base}/ChinaTech-Office-Assistant-ARM64.exe` },
   ],
   instructions: `${base}/README.txt`,
   checksums: `${base}/SHA256SUMS.txt`,

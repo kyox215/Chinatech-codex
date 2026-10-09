@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 namespace ChinaTech.OfficeAssistant;
 public sealed class ToolException(string code) : Exception(code) { public string Code { get; } = code; }
+public sealed record ServiceStatus(bool? AcceptingNewSessions);
 public sealed record Session(string SessionToken, DateTimeOffset ExpiresAt, string[] Actions, string LicenseId, string Epoch);
 public sealed record Package(int V, string Action, string Version, string Digest, DateTimeOffset ExpiresAt, string JobId, string Nonce, string Tag, string Ciphertext);
 public static class Protocol {
@@ -42,10 +43,12 @@ public static class Protocol {
 public sealed class Gateway : IDisposable {
  private readonly HttpClient client;
  public Gateway(Uri server) {client=new HttpClient(new HttpClientHandler{AllowAutoRedirect=false}){BaseAddress=server,Timeout=Timeout.InfiniteTimeSpan};}
- public async Task<T> Post<T>(string path,object body,string? token=null,string? installation=null,CancellationToken cancel=default) {
+ public Task<T> Get<T>(string path,CancellationToken cancel=default)=>Send<T>(path,null,null,null,cancel);
+ public Task<T> Post<T>(string path,object body,string? token=null,string? installation=null,CancellationToken cancel=default)=>Send<T>(path,body,token,installation,cancel);
+ private async Task<T> Send<T>(string path,object? body,string? token,string? installation,CancellationToken cancel) {
   using var deadline=CancellationTokenSource.CreateLinkedTokenSource(cancel);deadline.CancelAfter(TimeSpan.FromSeconds(30));var requestCancel=deadline.Token;
-  using var request=new HttpRequestMessage(HttpMethod.Post,path);
-  request.Content=new StringContent(JsonSerializer.Serialize(body,Protocol.Json),Encoding.UTF8,"application/json");
+  using var request=new HttpRequestMessage(body==null?HttpMethod.Get:HttpMethod.Post,path);
+  if(body!=null)request.Content=new StringContent(JsonSerializer.Serialize(body,Protocol.Json),Encoding.UTF8,"application/json");
   if(token!=null)request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",token);
   if(installation!=null)request.Headers.Add("X-CT-Installation-ID",installation);
   try {

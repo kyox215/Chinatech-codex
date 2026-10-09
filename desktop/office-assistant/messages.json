@@ -488,5 +488,30 @@
     "Windows 报告此 Office 已激活；本检测不核验许可证购买或组织授权。",
     "Windows segnala Office attivato; questo controllo non verifica acquisto o autorizzazione della licenza.",
     "Windows reports Office activated; this check does not verify license purchase or entitlement."
+  ],
+  "ServiceCheck": [
+    "正在检查联网服务…",
+    "Verifica del servizio online…",
+    "Checking online service…"
+  ],
+  "ServiceReady": [
+    "服务可用，请输入密钥。",
+    "Servizio disponibile. Inserisci la chiave.",
+    "Service available. Enter your key."
+  ],
+  "CheckService": [
+    "重新检查联网服务",
+    "Ricontrolla il servizio online",
+    "Check online service again"
+  ],
+  "DESKTOP_PAUSED": [
+    "管理员已暂停新的解锁。请稍后重试或联系管理员。",
+    "L’amministratore ha sospeso i nuovi accessi. Riprova più tardi o contattalo.",
+    "The administrator has paused new unlocks. Try again later or contact the administrator."
+  ],
+  "ServiceUnknown": [
+    "尚未确认联网服务，请重新检查。",
+    "Servizio online non confermato. Ripeti la verifica.",
+    "Online service is not confirmed. Check again."
   ]
 }
