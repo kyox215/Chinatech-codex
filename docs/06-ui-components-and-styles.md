@@ -1,5 +1,10 @@
 # 公共组件与样式复用规范
 
+## 2026-10-09 Smart Switch 原版界面 lab4
+
+下载卡继续复用 SmartSwitchExperimentDownload、PublicHeader、LanguageProvider、既有panel/button/token，置于独立助手前以区分包。版本／大小／SHA／说明同release事实；旧链接原字节保留。无新增主题／控件，三语与实际下载按当前候选验收。原生沿用原1356资源和主题，自主控制器绑定真实目录／选择／进度／收据，不向原MainDataModel发空成功事件。详docs/smart-switch-original-ui.md。
+
+
 ## 2026-10-07 Windows 检测候选
 
 `/toolbox/windows` 复用 PublicHeader、Brand、LanguageProvider、LanguageSwitcher、公共 button 与 token；PublicHeader 仅扩展 `page="windows"`，与 Office 共用返回工具箱。下载／条件面板使用工具箱私有 CSS Module，无新主题或依赖。核心说明与下载由 SSR 输出；无 JavaScript 仍可看默认中文说明并下载包含三语入口的ZIP。
