@@ -47,11 +47,11 @@ export function AndroidTransferPage() {
       <section id="chinatech-assistant" className={`${styles.panel} ${styles.experiment}`} aria-labelledby="chinatech-assistant-title">
         <h2 id="chinatech-assistant-title">{t("ChinaTech 手机助手")}</h2>
         <div className={styles.release}><span className={shared.pending}>{t("扫描传输测试包")}</span><span>{t("版本 {version} · Android 8 及以上", { version: release.version })}</span></div>
-        <p>{t("0.3 支持自动热点、手动热点和同一 Wi-Fi，内置实时扫码。Android 16 模拟器已验证本地传输与恢复；品牌真机仍待核验。")}</p>
-        <p className={styles.muted}>{t("扫描授权资料后分类选择，文件保存与图库导入分开核验。通讯录保留系统标准 VCF 字段与头像；系统导入、重复日历还原和 APP 安装分别核对。")}</p>
-        <p className={styles.muted}>{t("不设资料总数或已确认传输的固定时长上限。首次配对限时 10 分钟；恢复时重新校验已完成文件，未完成文件从头重传。")}</p>
+        <p>{t("0.4 支持自动热点、手动热点和同一 Wi-Fi，内置实时扫码。正常传输在数据流中核对长度与 SHA256，写入并关闭成功即显示新机已保存，不再整文件重读。Android 16 模拟器已验证本地传输与恢复；品牌真机仍待核验。")}</p>
+        <p className={styles.muted}>{t("扫描授权资料后分类选择；完成传输后，新机按首次设置自动排队恢复照片、视频、音频、通讯录、日历与可安装 APP。系统权限、目标日历、未知来源安装和每个安装确认仍需用户在系统中确认。")}</p>
+        <p className={styles.muted}>{t("不设资料总数或已确认传输的固定时长上限。首次配对限时 10 分钟；断线恢复时才重新打开并核对已完成文件，未完成文件从头重传。")}</p>
         <div className={styles.downloadActions}>
-        {release.available && release.apkPath ? <a className="button button--primary" href={release.apkPath} download><Download size={17} aria-hidden="true" />{t("下载 ChinaTech 0.3 测试版")}</a> : <p role="status">{t("测试 APK 正在构建；下载就绪后将在这里提供。")}</p>}
+        {release.available && release.apkPath ? <a className="button button--primary" href={release.apkPath} download><Download size={17} aria-hidden="true" />{t("下载 ChinaTech 0.4 测试版")}</a> : <p role="status">{t("测试 APK 正在构建；下载就绪后将在这里提供。")}</p>}
         <a className="button button--secondary" href={release.instructionsPath} download>{t("下载新版说明")}</a>
         </div>
         {release.sha256 && <details className={styles.integrity}><summary>{t("查看 APK 校验信息")}</summary><p>{t("安装前核对文件与签名指纹；测试包不代表所有品牌已通过验证。")}</p><dl><dt>{t("文件 SHA256")}</dt><dd><code>{release.sha256}</code></dd><dt>{t("签名证书 SHA256")}</dt><dd><code>{release.signerSha256}</code></dd></dl></details>}
@@ -60,11 +60,11 @@ export function AndroidTransferPage() {
       <section className={styles.panel} aria-labelledby="steps-title"><h2 id="steps-title">{t("ChinaTech 使用步骤")}</h2>
         <ol className={styles.steps}>
           <li>{t("两机安装同版本助手，旧机先扫描已授权资料，按类别或逐项选择。")}</li>
-          <li>{t("选好资料后，新机选择本机保存目录并创建热点；旧机读取新机二维码，核对两端信息后开始发送。")}</li>
-          <li>{t("保持两机连接，等待所选资料逐项保存并校验；断线后重新配对恢复，系统导入另行确认。")}</li>
+          <li>{t("选好资料后，新机选择本机保存目录、恢复范围并创建热点；旧机读取新机二维码，核对两端信息后开始发送。")}</li>
+          <li>{t("保持两机连接；新文件写入并关闭成功即显示新机已保存。传输完成后按所选范围自动恢复，系统导入和 APP 安装按提示确认。")}</li>
           <li>{t("逐项检查新机资料；未完成项目按官方迁移指引补做。")}</li>
         </ol>
-        <p className={styles.muted}>{t("旧机使用内置相机实时扫码；系统连接失败可手动连接 Wi-Fi 后继续。收到照片和视频后，可另行确认导入图库；通讯录在系统应用中核对导入。")}</p>
+        <p className={styles.muted}>{t("旧机使用内置相机实时扫码；系统连接失败可手动连接 Wi-Fi 后继续。照片、视频和音频自动导入 ChinaTech 目录；通讯录和日历在授予写入权限、选择目标后恢复，APP 需系统安装确认。")}</p>
         <p className={styles.muted}>{t("二维码含临时配对凭据，仅供两机使用。系统相机照片和云文件夹可能由对应应用保存或同步；助手自身不上传资料到网站。")}</p>
         <p className={styles.muted}>{t("旧机由助手申请加入新机热点，首次连接通常需要系统确认；旧版本手动加入，不兼容时使用同一路由器。")}</p>
         <p className={styles.muted}>{t("配对码只在手机助手内使用，请勿粘贴到网页、客服消息或公开截图。首版没有网页远控或云端备份。")}</p>

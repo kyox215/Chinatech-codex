@@ -51,7 +51,8 @@ test('received or hash-mismatching content is never counted as saved',()=>{
 test('scanned exports retain explicit reconstruction boundaries',()=>{
  const p=planAndroidTransfer(defaultProfile,defaultProfile);
  assert.equal(p.capabilities.find(c=>c.kind==='calendar').coverage,'alpha');
- assert.ok(p.capabilities.find(c=>c.kind==='calendar').permissions.every(x=>x.permission!=='WRITE_CALENDAR'));
- assert.ok(p.capabilities.find(c=>c.kind==='apps').permissions.every(x=>x.permission!=='REQUEST_INSTALL_PACKAGES'));
+ assert.ok(p.capabilities.find(c=>c.kind==='contacts').permissions.some(x=>x.permission==='WRITE_CONTACTS'));
+ assert.ok(p.capabilities.find(c=>c.kind==='calendar').permissions.some(x=>x.permission==='WRITE_CALENDAR'));
+ assert.ok(p.capabilities.find(c=>c.kind==='apps').permissions.some(x=>x.permission==='REQUEST_INSTALL_PACKAGES'));
  assert.equal(p.capabilities.find(c=>c.kind==='protected').coverage,'external');
 });
