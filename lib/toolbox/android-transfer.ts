@@ -31,7 +31,7 @@ export function planAndroidTransfer(source: DeviceProfile, target: DeviceProfile
   for (const [side, profile] of [["sender", source], ["receiver", target]] as const) if (profile.sdk === 37) connectionPermissions.push({ side, permission: "ACCESS_LOCAL_NETWORK", mode: "runtime", explanation: "允许访问这次局域网传输；拒绝后不能开始连接。" });
   const photoPermission = source.sdk !== null && source.sdk >= 33 ? "READ_MEDIA_IMAGES / READ_MEDIA_VIDEO / READ_MEDIA_AUDIO" : "READ_EXTERNAL_STORAGE";
   const capabilities: TransferCapability[] = [
-    { kind: "media", title: "照片、视频与音频", coverage: "alpha", detail: "按授权范围扫描媒体并选择传输；已验证照片和视频可确认导入 ChinaTech 图库目录。保留接收文件，重复导入重读核验；相册分组、显示日期和位置字段另行核对。", permissions: [
+    { kind: "media", title: "照片、视频与音频", coverage: "alpha", detail: "按授权范围扫描媒体并选择传输；完成传输后可自动导入 ChinaTech 图库目录。新文件在数据流中核对并在写入关闭后计保存；恢复已有文件时才重读核验。相册分组、显示日期和位置字段另行核对。", permissions: [
       { side: "sender", permission: "ACTION_OPEN_DOCUMENT", mode: "picker", explanation: "仅访问用户选择的文件，不需要全部文件权限。" },
       { side: "sender", permission: photoPermission + (source.sdk !== null && source.sdk >= 34 ? " / READ_MEDIA_VISUAL_USER_SELECTED" : ""), mode: "runtime", explanation: "扫描按系统版本请求媒体权限；部分照片授权只扫描可见子集，拒绝后仍可手动选文件。" },
       { side: "receiver", permission: target.sdk !== null && target.sdk <= 28 ? "WRITE_EXTERNAL_STORAGE" : "MediaStore / IS_PENDING", mode: target.sdk !== null && target.sdk <= 28 ? "runtime" : "special", explanation: "Android 8／9 导入图库需另行允许存储写入；Android 10 以上通过 MediaStore 创建本助手自己的媒体。原接收文件保留，不修改已有图库项目。" },
@@ -40,17 +40,17 @@ export function planAndroidTransfer(source: DeviceProfile, target: DeviceProfile
       { side: "sender", permission: "ACTION_OPEN_DOCUMENT_TREE", mode: "picker", explanation: "文件夹需用户在系统选择器授权；不可读取或扫描失败的范围单独报告。" },
       { side: "receiver", permission: "ACTION_OPEN_DOCUMENT_TREE", mode: "picker", explanation: "用户选择保存目录；同名文件保留原件，不静默覆盖。" },
     ] },
-    { kind: "contacts", title: "通讯录", coverage: "alpha", detail: "通过系统标准 VCF 导出可见通讯录及其实际提供的字段和头像；失败范围明确标示部分，基础回退另计。由系统通讯录确认目标账号、重复项和导入结果。", permissions: [
+    { kind: "contacts", title: "通讯录", coverage: "alpha", detail: "通过系统标准 VCF 导出可见通讯录及其实际提供的字段和头像；新机在授予联系人写入权限后自动导入本地联系人，重复项和目标账号仍由系统可见结果核对。", permissions: [
       { side: "sender", permission: "READ_CONTACTS", mode: "runtime", explanation: "仅在选择导出联系人时请求；拒绝后可以手动选择 VCF 文件。" },
-      { side: "receiver", permission: "ACTION_VIEW / VCF", mode: "picker", explanation: "由系统通讯录确认导入，不申请写联系人权限。文件接收完成不代表系统导入完成。" },
+      { side: "receiver", permission: "WRITE_CONTACTS", mode: "runtime", explanation: "仅在用户启用通讯录恢复后请求；拒绝时保留 VCF 文件，不将接收完成显示为已导入。" },
     ] },
-    { kind: "calendar", title: "日历与待办", coverage: "alpha", detail: "非重复日历导出基础 ICS；重复事件和例外保留原始字段归档，尚未实现还原。系统导入、账号同步和厂商待办另行核对。", permissions: [
+    { kind: "calendar", title: "日历与待办", coverage: "alpha", detail: "非重复日历导出 ICS；新机选择可写目标日历并授予权限后自动恢复。重复事件、例外和不支持字段保留原始归档并报告为部分，账号同步和厂商待办另行核对。", permissions: [
       { side: "sender", permission: "READ_CALENDAR", mode: "runtime", explanation: "只读取本资料空间中可访问的日历。" },
-      { side: "receiver", permission: "ACTION_VIEW / ICS", mode: "picker", explanation: "由适用日历应用确认 ICS 导入；收到文件不代表事件已写入目标日历。" },
+      { side: "receiver", permission: "WRITE_CALENDAR", mode: "runtime", explanation: "用户选择可写目标日历后请求；拒绝时保留 ICS 文件，不将接收完成显示为已恢复。" },
     ] },
-    { kind: "apps", title: "APP 本体与安装清单", coverage: "alpha", detail: "扫描系统可见的普通启动器 APP，选择后保存基础包、拆分包及清单；未实现自动安装，内部数据不随安装包迁移。", permissions: [
-      { side: "sender", permission: "PackageManager / <queries>", mode: "special", explanation: "只列系统可见的普通启动器 APP，不申请全面应用查询权限；缺失 APP 保留官方重装指引。" },
-      { side: "receiver", permission: "APK / Store", mode: "picker", explanation: "接收安装包不代表 APP 已安装或能运行；签名、拆分包、架构、最低系统和购买许可仍需核对。" },
+    { kind: "apps", title: "APP 本体与安装清单", coverage: "alpha", detail: "扫描可见普通启动器 APP，选择后保存基础包、拆分包及清单；新机按队列发起系统安装，必须由用户确认未知来源权限和每个安装。内部数据不随安装包迁移。", permissions: [
+      { side: "sender", permission: "PackageManager / <queries>", mode: "special", explanation: "只列可见普通启动器 APP；缺失 APP 保留官方重装指引。" },
+      { side: "receiver", permission: "REQUEST_INSTALL_PACKAGES", mode: "special", explanation: "仅在用户选择 APP 恢复后向系统请求安装；未知来源、签名、拆分包、架构、最低系统和购买许可仍由系统确认。" },
     ] },
     { kind: "sms", title: "短信与彩信", coverage: "external", detail: "首版使用系统或官方备份迁移。后续需核验受限权限、默认短信角色及安装器授权。", permissions: [
       { side: "sender", permission: "READ_SMS", mode: "role", explanation: "运行时同意并不保证受限权限可授予；首版不申请。" },
@@ -71,7 +71,7 @@ export function planAndroidTransfer(source: DeviceProfile, target: DeviceProfile
 }
 
 export type VerifiedReceipt = { objectId: string; expectedBytes: number; receivedBytes: number; expectedSha256: string; savedSha256: string; destinationCommitted: boolean; imported?: boolean };
-/** Transfer receipt is valid only after the destination has been independently reopened and hashed. */
+/** A new file is valid after stream hashing plus a successful durable close; recovery additionally reopens existing files. */
 export function isVerifiedReceipt(receipt: VerifiedReceipt): boolean {
   return /^[A-Za-z0-9_-]{16,80}$/.test(receipt.objectId) && Number.isSafeInteger(receipt.expectedBytes) && receipt.expectedBytes >= 0
     && receipt.receivedBytes === receipt.expectedBytes && /^[a-f0-9]{64}$/.test(receipt.expectedSha256)
