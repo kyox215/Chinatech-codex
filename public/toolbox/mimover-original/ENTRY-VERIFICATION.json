@@ -1,0 +1,65 @@
+{
+  "artifactSha256": "593998e7b3769cc0f33e300183ab78943700996fcece1d0432b4d1a9d23fee1f",
+  "installedExact": true,
+  "device": {
+    "sdk": "36",
+    "manufacturer": "Google",
+    "brand": "google",
+    "abi": "arm64-v8a",
+    "miuiVersion": ""
+  },
+  "checks": [
+    {
+      "check": "actual non-MIUI AVD",
+      "passed": true
+    },
+    {
+      "check": "exact frozen APK is installed",
+      "passed": true
+    },
+    {
+      "check": "original New and Old labels remain",
+      "passed": true
+    },
+    {
+      "check": "actual original role buttons clickable",
+      "passed": true
+    },
+    {
+      "check": "New touch opens original SelectOldDeviceActivity",
+      "passed": true
+    },
+    {
+      "check": "all three original source options remain",
+      "passed": true
+    },
+    {
+      "check": "Back restores original New role",
+      "passed": true
+    },
+    {
+      "check": "cold reopen keeps original dual roles",
+      "passed": true
+    },
+    {
+      "check": "Old touch opens its original permission guide",
+      "passed": true
+    },
+    {
+      "check": "Original old-phone permission categories retained",
+      "passed": true
+    },
+    {
+      "check": "Permission denial does not remove original dual entry",
+      "passed": true
+    }
+  ],
+  "passed": 11,
+  "oldActivity": "com.miui.huanji/com.miui.huanji.MainActivity",
+  "oldFlowScope": "Original permission guide and denial; original Guest/transfer not verified",
+  "newActivity": "com.miui.huanji.ui.SelectOldDeviceActivity",
+  "addedEngine": false,
+  "transferVerified": false,
+  "physicalBrandPhonesVerified": false,
+  "scope": "Original OEM UI touch only on fresh synthetic Android16 ARM64 AVD; original data/protocol/restoration retained byte-for-byte outside h2; no lab2 transfer evidence reused"
+}

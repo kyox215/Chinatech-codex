@@ -1,5 +1,10 @@
 # 决策与真实进度
 
+## 2026-10-09 Mi Mover 原版最小修正
+
+用户明确原版解限，原lab2入口/文件撤下。仅原版h2入口分支/安装清单修正，无新原生页面/分类/引擎；原权限/协议/恢复保留。网页复用既有面板/按钮/token，三语明确只验证入口和原系统限制；原APK内容不重写。精确验证与后续原协议适配见docs/mimover-original-restriction.md。
+
+
 ## 2026-10-09 Mi Mover lab2跨品牌传输与工具箱下载
 
 原实际Main/Source/Host/Guest/Scanner/Transfer/Finish页面连接自主公开API引擎；两端Android8+选新/旧，无品牌白名单。媒体/SAF、VCF、普通ICS与base+split系统确认恢复，保存/ACK/最终确认/恢复分开；准备或重试不冒完成。三语下载卡、精确APK、说明和SHA作为同一发布事实；品牌真机/旧API/光学扫码/热点加入仍待验。当前合成双Android16/provider/系统安装与状态证据见[兼容研究](mimover-universal-compatibility.md)；完整CI和正式下载验收以本轮发布证明为准。旧下载与业务DB保持。

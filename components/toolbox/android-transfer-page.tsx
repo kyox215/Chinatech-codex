@@ -9,7 +9,7 @@ import { SelectControl } from "@/components/select-control";
 import { useLanguage } from "@/components/language-provider";
 import { androidBrands, androidVersions, androidVersionNames, coverageLabels, defaultProfile, planAndroidTransfer, type DeviceProfile, type AndroidSystem } from "@/lib/toolbox/android-transfer";
 import { androidAssistantRelease as release } from "@/lib/toolbox/android-assistant-release";
-import { MimoverDownload } from "./mimover-download";
+import { MimoverOriginalDownload } from "./mimover-original-download";
 import { SmartSwitchExperimentDownload } from "./smart-switch-experiment-download";
 import shared from "./toolbox.module.css";
 import home from "@/components/home/home.module.css";
@@ -45,7 +45,7 @@ export function AndroidTransferPage() {
         <Smartphone size={28} aria-hidden="true" /><h1 id="transfer-title">{t("数据传输")}</h1>
         <p>{t("两部手机，本地迁移资料。")}</p>
       </section>
-      <MimoverDownload />
+      <MimoverOriginalDownload />
       <SmartSwitchExperimentDownload />
       <section id="chinatech-assistant" className={`${styles.panel} ${styles.experiment}`} aria-labelledby="chinatech-assistant-title">
         <h2 id="chinatech-assistant-title">{t("ChinaTech 手机助手")}</h2>

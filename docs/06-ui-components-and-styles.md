@@ -1,5 +1,10 @@
 # 公共组件与样式复用规范
 
+## 2026-10-09 Mi Mover 原版最小修正
+
+用户明确原版解限，原lab2入口/文件撤下。仅原版h2入口分支/安装清单修正，无新原生页面/分类/引擎；原权限/协议/恢复保留。网页复用既有面板/按钮/token，三语明确只验证入口和原系统限制；原APK内容不重写。精确验证与后续原协议适配见docs/mimover-original-restriction.md。
+
+
 ## 2026-10-09 Smart Switch 原版界面 lab4
 
 下载卡继续复用 SmartSwitchExperimentDownload、PublicHeader、LanguageProvider、既有panel/button/token，置于独立助手前以区分包。版本／大小／SHA／说明同release事实；旧链接原字节保留。无新增主题／控件，三语与实际下载按当前候选验收。原生沿用原1356资源和主题，自主控制器绑定真实目录／选择／进度／收据，不向原MainDataModel发空成功事件。详docs/smart-switch-original-ui.md。

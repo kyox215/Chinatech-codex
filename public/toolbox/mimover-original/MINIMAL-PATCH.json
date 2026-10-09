@@ -1,0 +1,38 @@
+{
+  "package": "com.miui.huanji",
+  "versionName": "4.5.7.5",
+  "versionCode": 45708,
+  "minSdk": 21,
+  "targetSdk": 35,
+  "apkSha256": "593998e7b3769cc0f33e300183ab78943700996fcece1d0432b4d1a9d23fee1f",
+  "apkBytes": 36846924,
+  "originalApkSha256": "2e2b845f44fc99249de19c7801d7ce6aa67e31f3372ba54dc4f6d20782e25752",
+  "changedEntries": [
+    "classes2.dex",
+    "AndroidManifest.xml"
+  ],
+  "manifestChanges": [
+    "remove system sharedUserId android.uid.backup",
+    "versionCode:45705->45708"
+  ],
+  "dexBodyChangedOffsets": [
+    1996484,
+    1996486,
+    1996487
+  ],
+  "dexChecksumUpdated": true,
+  "addedFiles": [],
+  "addedDex": false,
+  "originalMainApplication": true,
+  "originalLabelVersionNameResourcesPermissionsComponentsProtocolAndRestorationPreserved": true,
+  "originalGlobalMiuiStatusUnchanged": true,
+  "signerSha256": "1b71b70be3bb58e2db847aa71029ca2c071e467c60f5babef62a841eb00efc75",
+  "independentlySigned": true,
+  "physicalBrandTransferVerified": false,
+  "payloadEntries": 2932,
+  "preservedEntries": 2930,
+  "classes2PatchedSha256": "e92485a7c9edaf9de81ccbeb5089cc0a9e27d95bd3137709e71fe7a444fc1e0a",
+  "originalClasses1Sha256": "67c68213384a0fa978e5ac6cf2fc116b0129cd17bb32eb113040a2afbc5cca4e",
+  "originalResourceTableSha256": "f8c3400331083a643eb1401adc072253c7fd0d1f4482a928607b1db2251ed59a",
+  "scope": "static minimal patch comparison; live entry verification is separate"
+}
