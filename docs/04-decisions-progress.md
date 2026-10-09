@@ -769,3 +769,7 @@ Google后续选择：用户明确复用ChinaTech OS原入口、确认同一个Go
 ## 2026-10-09 公开导航工具箱与退出位置
 
 按用户截图要求，右侧统一工具箱图标及可见文字，独立退出收进既有账号详情，左侧具名账号／工作台继续保留。手机语言不再挤顶行账号；1024长导航另排，品牌可返回首页。只调整公共UI和相关回归，未改认证／权限／数据协议。隔离候选基于正式main695f6c6，根未上线UI状态／目录／Office等工作保护。验证与发布状态见PROJECT_MEMORY及.local/public-header-menu/；详见docs06／16。
+
+## 2026-10-09 Smart Switch lab4原版界面
+
+恢复原Launcher／首页／无线阶段原布局，接入CTSS5/6真实目录选择和发送确认、通知／取消／冻结选择重连。最终两APK及两模拟器真实传输／回执通过；物理HONOR与其他品牌、热点自动加入／光学QR待验。网站发布候选已备，详[规格](smart-switch-original-ui.md)，发布状态以本轮published-verification.json为准。

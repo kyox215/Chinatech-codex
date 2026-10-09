@@ -5,11 +5,11 @@ import { androidAssistantRelease as release } from "../../lib/toolbox/android-as
 import { smartSwitchExperimentRelease } from "../../lib/toolbox/smart-switch-experiment-release";
 
 const smartSwitchExpected = {
-  apkPath: "/toolbox/smart-switch-experiment/SmartSwitch-3.7.73.4-universal-coexist-lab3.apk",
-  updateApkPath: "/toolbox/smart-switch-experiment/SmartSwitch-3.7.73.4-universal-lab3.apk",
-  bytes: 42699726,
-  sha256: "38e2a5136cf38c5479a3f1f3cda33ab5ccd87c138eb754017da649530256ea31",
-  updateSha256: "9714e2571daeafaec5433bf993f4273c73076dfb8dbacfe4eb4e851ec8b3e62b",
+  apkPath: "/toolbox/smart-switch-experiment/SmartSwitch-3.7.73.4-original-ui-coexist-lab4.apk",
+  updateApkPath: "/toolbox/smart-switch-experiment/SmartSwitch-3.7.73.4-original-ui-lab4.apk",
+  bytes: 42761166,
+  sha256: "6115198b29ec3b67be59459ffca86a47f9804ef49b8e2baabbf2a5dbcc635a20",
+  updateSha256: "9f68089caf3c694beeefcf200348727892307a4d167db48e6eab7e2bf5c72ce0",
   signerSha256: "22e7f48efb1f168f67886a617b83af67885a233b6a1c6f16428f138f5b367dab",
 } as const;
 const proofDirectory = process.env.TOOLBOX_PROOF_DIR ?? ".local/smartswitch-web-release/proof";
@@ -22,40 +22,40 @@ const copy = {
 
 const smartSwitchCopy = {
   "zh-CN": {
-    recovery: "Android 16 模拟器的两端局域网传输与断线恢复已通过。模拟器自动热点被系统拒绝；HONOR 等真机热点、相机扫码和跨品牌资料恢复尚未验收。",
-    title: "Smart Switch 通用通道实验版",
-    download: "下载 lab3 并存版（推荐）",
-    update: "更新已安装的 lab1／lab2",
-    notice: "lab3 将通用本地传输通道嵌入 Smart Switch APK，打开后选择发送或接收。两机须用 lab3，并存版与更新包可以互通；不能与三星原版、lab1／lab2 或 ChinaTech 0.2 混用。",
-    warning: "独立签名实验包，不是三星官方更新。推荐并存版可与官方或预装 Smart Switch 同时安装，无需卸载原版；更新包仅用于本站 lab1／lab2，不能覆盖三星官方签名包。",
+    recovery: "Android 16 模拟器已验证原界面勾选、两端局域网传输、通知返回、取消和最终回执恢复。HONOR 等品牌真机、热点自动加入和光学扫码仍待验收。",
+    title: "Smart Switch 原版界面实验版",
+    download: "下载 lab4 原版界面并存版（推荐）",
+    update: "更新本站 lab1／lab2／lab3 原包名版",
+    notice: "lab4 保留三星原首页、连接、资料选择、进度和完成页面，接入通用局域网传输。两机都需 lab4；并存版与更新包互通，不与三星原版、旧 lab 或 ChinaTech 0.3 混用。",
+    warning: "独立签名实验包，保留原界面，不是三星官方更新。并存版可覆盖本站 lab3 并存版；更新包仅用于本站 lab1／lab2／lab3 原包名版本，不能覆盖三星官方签名包。",
     legacy: "0.3 支持自动热点、手动热点和同一 Wi-Fi，内置实时扫码。Android 16 模拟器已验证本地传输与恢复；品牌真机仍待核验。",
     integrity: "查看 APK 校验信息",
     scope: "传输范围与限制",
-    pending: "lab3 安装包仍在核验，下载尚未开放。",
+    pending: "lab4 安装包仍在核验，下载尚未开放。",
   },
   "it": {
-    recovery: "Su due emulatori Android 16 sono riusciti trasferimento LAN e recupero dopo disconnessione. Il sistema ha rifiutato l’hotspot automatico dell’emulatore; hotspot e scansione con fotocamera su telefoni reali come HONOR, e ripristino tra marche, restano da verificare.",
-    title: "Smart Switch: canale universale sperimentale",
-    download: "Scarica lab3 affiancabile (consigliata)",
-    update: "Aggiorna lab1/lab2 già installata",
-    notice: "lab3 integra un canale locale universale nell’APK Smart Switch: all’apertura scegli Invio o Ricezione. Entrambi devono usare lab3; la versione affiancabile e quella di aggiornamento sono interoperabili. Non si abbina a Smart Switch Samsung originale, lab1/lab2 o a ChinaTech 0.2.",
-    warning: "APK sperimentale con firma indipendente, non un aggiornamento ufficiale Samsung. La versione affiancabile consigliata si installa insieme a Smart Switch ufficiale o preinstallato, senza disinstallarlo. L’aggiornamento è solo per lab1/lab2 di questo sito e non sostituisce APK con firma Samsung.",
+    recovery: "Su emulatori Android 16 sono verificati selezione nell’interfaccia originale, trasferimento LAN, ritorno dalla notifica, annullamento e recupero della ricevuta finale. Telefoni reali come HONOR, collegamento automatico all’hotspot e scansione ottica restano da verificare.",
+    title: "Smart Switch: interfaccia originale sperimentale",
+    download: "Scarica lab4 affiancabile con interfaccia originale (consigliata)",
+    update: "Aggiorna lab1/lab2/lab3 del sito con pacchetto originale",
+    notice: "lab4 conserva le schermate originali Samsung di avvio, connessione, selezione, avanzamento e completamento, con trasferimento LAN universale. Entrambi i telefoni richiedono lab4; le due edizioni sono interoperabili, ma non con Smart Switch Samsung originale, vecchie lab o ChinaTech 0.3.",
+    warning: "APK sperimentale con firma indipendente e interfaccia originale, non un aggiornamento ufficiale Samsung. L’edizione affiancabile aggiorna lab3 affiancabile di questo sito; l’altra è solo per lab1/lab2/lab3 con nome pacchetto originale e non sostituisce APK firmati Samsung.",
     legacy: "0.3 supporta hotspot automatico/manuale e stessa Wi-Fi, con scansione QR live. Trasferimento locale e recupero verificati su emulatori Android 16; telefoni reali ancora da verificare.",
     integrity: "Verifica informazioni APK",
     scope: "Dati trasferibili e limiti",
-    pending: "L’APK lab3 è ancora in verifica; il download non è disponibile.",
+    pending: "L’APK lab4 è ancora in verifica; il download non è disponibile.",
   },
   "en": {
-    recovery: "Two Android 16 emulators passed LAN transfer and disconnection recovery. The system denied the emulator’s automatic hotspot; physical HONOR and other phones’ hotspots, camera scanning and cross-brand restoration remain unverified.",
-    title: "Smart Switch universal-channel experiment",
-    download: "Download lab3 side-by-side (recommended)",
-    update: "Update installed lab1/lab2",
-    notice: "lab3 embeds a universal local transfer channel in the Smart Switch APK: choose Send or Receive when opening it. Both phones need lab3; the side-by-side and update editions can pair. It cannot pair with original Samsung Smart Switch, lab1/lab2 or ChinaTech 0.2.",
-    warning: "An independently signed experimental APK, not an official Samsung update. The recommended side-by-side edition installs alongside official or preinstalled Smart Switch without uninstalling it. The update edition is only for this site’s lab1/lab2 and cannot replace Samsung-signed APKs.",
+    recovery: "Android 16 emulators verified original-screen selection, two-phone LAN transfer, notification return, cancellation and final-receipt recovery. Physical HONOR and other brands, automatic hotspot joining and optical scanning remain unverified.",
+    title: "Smart Switch original-interface experiment",
+    download: "Download lab4 original-interface side-by-side edition (recommended)",
+    update: "Update this site’s original-package lab1/lab2/lab3",
+    notice: "lab4 keeps Samsung’s original start, connection, selection, progress and completion screens with universal LAN transfer. Both phones need lab4; its two editions can pair, but cannot pair with original Samsung Smart Switch, older labs or ChinaTech 0.3.",
+    warning: "An independently signed experimental APK retaining the original interface, not an official Samsung update. The side-by-side edition updates this site’s side-by-side lab3; the update edition is only for this site’s lab1/lab2/lab3 with the original package name and cannot replace Samsung-signed APKs.",
     legacy: "0.3 supports automatic/manual hotspots and same Wi-Fi, with live QR scanning. Android 16 emulators verified local transfer and recovery; physical brands remain unverified.",
     integrity: "View APK verification details",
     scope: "Transfer scope and limits",
-    pending: "The lab3 APK is still being verified; download is not available yet.",
+    pending: "The lab4 APK is still being verified; download is not available yet.",
   },
 } as const;
 
@@ -84,14 +84,14 @@ for (const locale of ["zh-CN", "it", "en"] as const) for (const width of [1440, 
     await expect(smartSwitch.getByText(smartText.warning, { exact: true })).toBeVisible();
     await expect(smartSwitch.locator("ol li")).toHaveCount(4);
     await expect(page.getByText(smartText.legacy, { exact: true })).toBeVisible();
-    await expect(smartSwitch).toContainText("3.7.73.4-universal-lab3");
+    await expect(smartSwitch).toContainText("3.7.73.4-original-ui-lab4");
     await expect(smartSwitch).toContainText(locale === "zh-CN" ? "Android 8 及以上" : locale === "it" ? "Android 8 o successivo" : "Android 8 or later");
     const smartDownload = smartSwitch.getByRole("link", { name: smartText.download, exact: true });
     const smartUpdate = smartSwitch.getByRole("link", { name: smartText.update, exact: true });
     const smartInstructions = smartSwitch.locator(`a[href="${smartSwitchExperimentRelease.instructionsPath}"]`);
     await expect(smartInstructions).toBeVisible();
     await expect(smartInstructions).toHaveAttribute("download", "");
-    await expect(smartInstructions).toHaveAttribute("href", "/toolbox/smart-switch-experiment/README-lab3.md");
+    await expect(smartInstructions).toHaveAttribute("href", "/toolbox/smart-switch-experiment/README-lab4.md");
     const scope = smartSwitch.locator("summary").filter({ hasText: smartText.scope });
     await expect(scope).toHaveText(smartText.scope);
     await scope.click();
@@ -193,7 +193,7 @@ test("APK download matches verified local release", async ({ page }) => {
 
 test("Both Smart Switch APK downloads match the verified experiments", async ({ page, request }) => {
   expect(smartSwitchExperimentRelease.available).toBe(true);
-  expect(smartSwitchExperimentRelease.versionCode).toBe(377304132);
+  expect(smartSwitchExperimentRelease.versionCode).toBe(377304135);
   expect(smartSwitchExperimentRelease.apkPath).toBe(smartSwitchExpected.apkPath);
   expect(smartSwitchExperimentRelease.updateApkPath).toBe(smartSwitchExpected.updateApkPath);
   expect(smartSwitchExperimentRelease.bytes).toBe(smartSwitchExpected.bytes);
@@ -223,7 +223,7 @@ test("Both Smart Switch APK downloads match the verified experiments", async ({ 
     expect(await range.body()).toEqual(bytes.subarray(0, 1024));
     await range.dispose();
   }
-  for (const path of ["/toolbox/smart-switch-experiment/README-lab3.md", "/toolbox/smart-switch-experiment/SHA256SUMS-lab3.txt"]) {
+  for (const path of ["/toolbox/smart-switch-experiment/README-lab4.md", "/toolbox/smart-switch-experiment/SHA256SUMS-lab4.txt"]) {
     const response = await request.get(path);
     expect(response.status()).toBe(200);
     expect(await response.body()).toEqual(readFileSync(`public${path}`));

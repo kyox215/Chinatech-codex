@@ -44,6 +44,7 @@ export function AndroidTransferPage() {
         <Smartphone size={28} aria-hidden="true" /><h1 id="transfer-title">{t("数据传输")}</h1>
         <p>{t("两部手机，本地迁移资料。")}</p>
       </section>
+      <SmartSwitchExperimentDownload />
       <section id="chinatech-assistant" className={`${styles.panel} ${styles.experiment}`} aria-labelledby="chinatech-assistant-title">
         <h2 id="chinatech-assistant-title">{t("ChinaTech 手机助手")}</h2>
         <div className={styles.release}><span className={shared.pending}>{t("扫描传输测试包")}</span><span>{t("版本 {version} · Android 8 及以上", { version: release.version })}</span></div>
@@ -56,7 +57,6 @@ export function AndroidTransferPage() {
         </div>
         {release.sha256 && <details className={styles.integrity}><summary>{t("查看 APK 校验信息")}</summary><p>{t("安装前核对文件与签名指纹；测试包不代表所有品牌已通过验证。")}</p><dl><dt>{t("文件 SHA256")}</dt><dd><code>{release.sha256}</code></dd><dt>{t("签名证书 SHA256")}</dt><dd><code>{release.signerSha256}</code></dd></dl></details>}
       </section>
-      <SmartSwitchExperimentDownload />
       <section className={styles.panel} aria-labelledby="steps-title"><h2 id="steps-title">{t("ChinaTech 使用步骤")}</h2>
         <ol className={styles.steps}>
           <li>{t("两机安装同版本助手，旧机先扫描已授权资料，按类别或逐项选择。")}</li>
