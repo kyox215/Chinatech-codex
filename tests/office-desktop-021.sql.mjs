@@ -106,6 +106,10 @@ try {
   assert.equal(control.currentVersion, '0.2.0');
   assert.deepEqual(JSON.parse(JSON.stringify(control.eligibleMinimumVersions)), ['0.0.0', '0.2.0']);
   await rejects(() => patch(control, { minimumVersion: '0.2.1' }), 'VERSION_NOT_AVAILABLE');
+  await rejects(() => database.withDatabase(identity, null, async tx => {
+    await admission.lockDesktopAdmission(tx);
+    await tx`update chinatech_v2_private.office_desktop_control set minimum_version='0.2.1',updated_by=${admin.id} where singleton`;
+  }), '42501');
   control = await patch(control, { minimumVersion: '0.2.0' });
   assert.equal(control.minimumVersion, '0.2.0');
   pass('Verified 0.2.0 remains recommended and cannot select an unverified 0.2.1 minimum');
