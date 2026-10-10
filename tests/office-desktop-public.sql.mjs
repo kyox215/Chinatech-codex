@@ -49,7 +49,7 @@ try {
   pass('Public grants/jobs FORCE RLS, no public/Auth grants, no runtime release marker or capability mutation');
 
   let control = await admission.getDesktopAdmission(identity);
-  assert.equal(control.currentVersion, '0.1.1'); assert.deepEqual(JSON.parse(JSON.stringify(control.eligibleMinimumVersions)), ['0.0.0']);
+  assert.equal(control.currentVersion, load('lib/toolbox/office-desktop-release-catalog.ts').previousPublishedVersion); assert.deepEqual(JSON.parse(JSON.stringify(control.eligibleMinimumVersions)), ['0.0.0']);
   await fail(() => admission.changeDesktopAdmission(identity, { enabled: true, minimumVersion: '0.2.0', expectedRevision: control.revision, requestId: randomUUID() }), 'VERSION_NOT_AVAILABLE');
   const live = opening(), active = { ...await desktop.openDesktopSession(live), installationId: live.installationId };
   assert.equal(active.grantId, live.requestId); assert.ok(Date.parse(active.expiresAt) <= Date.now() + 3600000);
