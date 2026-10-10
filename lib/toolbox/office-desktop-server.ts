@@ -10,6 +10,8 @@ import { officeResponse } from './office-server';
 import { DesktopError, desktopKey, desktopUuid, desktopAction, desktopActions, licenseHash, mintDesktopLicense, signDesktopSession, readDesktopSession, assertDesktopLicense, encryptDesktopPackage } from './office-desktop-token';
 import type { OfficeAction } from './office-commands';
 import { lockDesktopAdmission, readDesktopAdmission } from './office-desktop-admission';
+import { openPublicDesktopSession, publicDesktopPackage } from './office-desktop-public';
+import { isPublicDesktopToken } from './office-desktop-public-token';
 
 type LicenseRow = { id: string; label: string; enabled: boolean; expires_at: Date; max_devices: number; actions: OfficeAction[]; revision: string; device_count?: number; key_hash: string };
 type ControlRow = { enabled: boolean; epoch: string; admin_user_id: string | null };
@@ -51,12 +53,15 @@ export function desktopFailure(error: unknown) {
   return officeResponse(NextResponse.json({ code }, { status }));
 }
 export async function openDesktopSession(body: Record<string, unknown>) {
+  if (body.mode !== undefined) return openPublicDesktopSession(body);
   desktopKey();
   const keyHash = licenseHash(body.key), installationId = desktopUuid(body.installationId);
   if (typeof body.language !== 'string' || !['zh-CN', 'it', 'en'].includes(body.language)) throw new DesktopError('INVALID_REQUEST');
   return withOfficeDesktopDatabase(keyHash, installationId, async tx => {
     await lockDesktopAdmission(tx);
-    if (!(await readDesktopAdmission(tx)).enabled) throw new DesktopError('DESKTOP_PAUSED', 403);
+    const admission = await readDesktopAdmission(tx);
+    if (admission.minimum_version !== '0.0.0') throw new DesktopError('UPDATE_REQUIRED', 426);
+    if (!admission.enabled) throw new DesktopError('DESKTOP_PAUSED', 403);
     const first = await readLicense(tx); await lockLicense(tx, first.id);
     const l = await readLicense(tx, first.id), c = await control(tx); available(l, c);
     const devices = await tx<{ installation_id: string }[]>`select installation_id from chinatech_v2_private.office_desktop_devices where license_id=${l.id}`;
@@ -72,7 +77,9 @@ export async function openDesktopSession(body: Record<string, unknown>) {
 export async function desktopPackage(request: NextRequest, body: Record<string, unknown>) {
   const header = request.headers.get('authorization');
   if (!header?.startsWith('Bearer ')) throw new DesktopError('SESSION_INVALID', 401);
-  const token = header.slice(7), session = readDesktopSession(token), action = desktopAction(body.action), id = desktopUuid(body.requestId);
+  const token = header.slice(7);
+  if (isPublicDesktopToken(token)) return publicDesktopPackage(request, body, token);
+  const session = readDesktopSession(token), action = desktopAction(body.action), id = desktopUuid(body.requestId);
   if (desktopUuid(request.headers.get('x-ct-installation-id')) !== session.installationId) throw new DesktopError('SESSION_INVALID', 401);
   const runner = await readFile(join(process.cwd(), 'server-assets/office-desktop/runner.ps1.txt'));
   return withOfficeDesktopDatabase(session.keyHash, session.installationId, async tx => {

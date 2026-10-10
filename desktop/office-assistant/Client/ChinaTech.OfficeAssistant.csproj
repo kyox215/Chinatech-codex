@@ -2,7 +2,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework><UseWPF>true</UseWPF><EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <AssemblyName>ChinaTech.OfficeAssistant</AssemblyName><Version>0.1.2</Version><ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>ChinaTech.OfficeAssistant</AssemblyName><Version>0.2.0</Version><ApplicationManifest>app.manifest</ApplicationManifest>
     <PublishSingleFile>true</PublishSingleFile><SelfContained>true</SelfContained><IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract><DebugType>none</DebugType><EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <DefineConstants Condition="'$(OfficeDevelopment)' == 'true'">$(DefineConstants);OFFICE_DEVELOPMENT</DefineConstants>
     <RestorePackagesPath>../../../../.local/office-desktop/nuget</RestorePackagesPath>

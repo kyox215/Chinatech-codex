@@ -18,7 +18,7 @@ async function handle(request: NextRequest, changing: boolean) {
     if (changing) requireSameOrigin(request);
     const { identity } = await requireAccountSession(request, cookies, changing);
     if (changing && request.headers.get('x-ct-session-id') !== identity.sessionId) throw new DesktopError('SESSION_INVALID', 409);
-    const result = changing ? await changeDesktopAdmission(identity, await readAuthBody(request, ['enabled', 'expectedRevision', 'requestId'])) : await getDesktopAdmission(identity);
+    const result = changing ? await changeDesktopAdmission(identity, await readAuthBody(request, ['enabled', 'minimumVersion', 'expectedRevision', 'requestId'])) : await getDesktopAdmission(identity);
     return copyAuthCookies(cookies, officeResponse(NextResponse.json(result)));
   } catch (error) {
     return copyAuthCookies(cookies, desktopFailure(error));

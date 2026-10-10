@@ -49,3 +49,14 @@ using(var portFinder=new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loo
 }
 if(Protocol.RequiresUnlock("DESKTOP_PAUSED"))throw new Exception("Admission pause revokes existing sessions");count++;
 Console.WriteLine($"Protocol and native HTTP checks passed: {count}; no Office execution.");
+
+foreach(var pair in new[]{("0.9.0","0.10.0"),("1.2.9","1.2.10"),("0.2.0","0.2.1")}){if(Protocol.CompareVersions(pair.Item1,pair.Item2)>=0)throw new Exception("Versions were compared lexicographically");count++;}
+foreach(var bad in new[]{"0.02.0","0.2","0.2.0-dev","0.2.0 ","-1.0.0","0.2.65536","1000000000.0.0"})Reject(()=>Protocol.CompareVersions(bad,"0.2.0"),"SERVICE_UNAVAILABLE");
+Protocol.ValidateService(new ServiceStatus(true,"0.0.0","0.1.1"));count++; // New binary may precede public release readiness.
+Reject(()=>Protocol.ValidateService(new ServiceStatus(true,"0.3.0","0.3.0")),"UPDATE_REQUIRED");
+Reject(()=>Protocol.ValidateService(new ServiceStatus(false,"0.2.0","0.2.0")),"DESKTOP_PAUSED");
+Reject(()=>Protocol.ValidateService(new ServiceStatus(null,"0.0.0","0.2.0")),"SERVICE_UNAVAILABLE");
+Reject(()=>Protocol.ValidateService(new ServiceStatus(true,"0.3.0","0.2.0")),"SERVICE_UNAVAILABLE");
+var publicClock=DateTimeOffset.UtcNow;var validPublic=new Session("synthetic-session",publicClock.AddMinutes(30),["install"],Guid.NewGuid().ToString("D"),"4");Protocol.ValidateSession(validPublic,publicClock);count++;
+foreach(var malformed in new[]{validPublic with{GrantId="bad"},validPublic with{SessionToken=""},validPublic with{ExpiresAt=publicClock},validPublic with{ExpiresAt=publicClock.AddHours(2)},validPublic with{Actions=["unknown"]},validPublic with{Actions=["install","install"]},validPublic with{Actions=[]},validPublic with{Epoch="0"}})Reject(()=>Protocol.ValidateSession(malformed,publicClock),"SESSION_INVALID");
+Console.WriteLine($"Protocol, startup policy and native HTTP checks passed: {count}; no Office execution.");

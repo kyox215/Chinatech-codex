@@ -225,19 +225,19 @@
     "Installation limit reached. Contact the administrator."
   ],
   "SESSION_INVALID": [
-    "会话无效，请重新输入密钥。",
-    "Sessione non valida. Reinserisci la chiave.",
-    "Invalid session. Enter the key again."
+    "服务授权响应无效，请重新联网检查。",
+    "Risposta di autorizzazione non valida. Ripeti la verifica online.",
+    "The authorization response is invalid. Check online again."
   ],
   "SESSION_EXPIRED": [
-    "会话已到期，请重新验证密钥。",
-    "Sessione scaduta. Verifica di nuovo la chiave.",
-    "Session expired. Verify the key again."
+    "服务会话已到期，请重新联网检查。",
+    "La sessione è scaduta. Ripeti la verifica online.",
+    "The service session has expired. Check online again."
   ],
   "SESSION_REVOKED": [
-    "授权已变化，请重新验证密钥。",
-    "Autorizzazione modificata. Verifica di nuovo la chiave.",
-    "Authorization changed. Verify the key again."
+    "服务授权已变化，请重新联网检查。",
+    "L’autorizzazione del servizio è cambiata. Ripeti la verifica online.",
+    "Service authorization has changed. Check online again."
   ],
   "TOOLBOX_DISABLED": [
     "管理员已暂停工具箱。请稍后重试。",
@@ -505,13 +505,63 @@
     "Check online service again"
   ],
   "DESKTOP_PAUSED": [
-    "管理员已暂停新的解锁。请稍后重试或联系管理员。",
-    "L’amministratore ha sospeso i nuovi accessi. Riprova più tardi o contattalo.",
-    "The administrator has paused new unlocks. Try again later or contact the administrator."
+    "管理员已暂停新的启动。请稍后重试。",
+    "L’amministratore ha sospeso nuovi avvii. Riprova più tardi.",
+    "The administrator has paused new starts. Try again later."
   ],
   "ServiceUnknown": [
     "尚未确认联网服务，请重新检查。",
     "Servizio online non confermato. Ripeti la verifica.",
     "Online service is not confirmed. Check again."
+  ],
+  "ServiceGate": [
+    "连接服务后使用工具",
+    "Collegati al servizio per usare gli strumenti",
+    "Connect to use the tools"
+  ],
+  "AutoAccessNotice": [
+    "联网检查通过后自动进入，无需输入密钥或验证码。",
+    "L’accesso è automatico dopo la verifica online, senza chiavi o codici di verifica.",
+    "Enter automatically after the online check. No key or verification code is required."
+  ],
+  "ConnectedNotice": [
+    "服务已验证，可以选择操作。每次操作需要联网。",
+    "Servizio verificato. Seleziona un’operazione; ogni operazione richiede Internet.",
+    "Service verified. Choose an operation; each operation requires Internet."
+  ],
+  "UpdateTitle": [
+    "必须更新后才能使用",
+    "Aggiornamento obbligatorio",
+    "Update required to continue"
+  ],
+  "UPDATE_REQUIRED": [
+    "此版本已停用，请下载新版后再使用。",
+    "Questa versione non è più utilizzabile. Scarica la nuova versione.",
+    "This version is no longer usable. Download the latest version."
+  ],
+  "CLIENT_UNSUPPORTED": [
+    "此版本不受服务支持，请下载官方新版。",
+    "Questa versione non è supportata. Scarica la versione ufficiale aggiornata.",
+    "This version is unsupported. Download the current official version."
+  ],
+  "DownloadUpdate": [
+    "下载新版",
+    "Scarica aggiornamento",
+    "Download update"
+  ],
+  "Exit": [
+    "退出",
+    "Esci",
+    "Exit"
+  ],
+  "Versions": [
+    "当前程序 / 已发布最新版",
+    "Versione locale / ultima pubblicata",
+    "Current app / latest published version"
+  ],
+  "RATE_LIMITED": [
+    "启动请求过于频繁，请稍后再试。",
+    "Troppi avvii. Riprova più tardi.",
+    "Too many start requests. Try again later."
   ]
 }

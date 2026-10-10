@@ -56,13 +56,28 @@ export async function readOfficeControl(): Promise<{ enabled: boolean; version: 
 }
 
 // Startup status is a public boolean only; it does not adopt or fabricate an Auth session.
-export async function readOfficeDesktopAdmission(): Promise<{ acceptingNewSessions: boolean }> {
+export async function readOfficeDesktopAdmission(): Promise<{ acceptingNewSessions: boolean; minimumVersion: string; releaseReady: boolean; verifiedVersion: string | null }> {
   return database().begin(async tx => {
     await tx`select set_config('request.jwt.claims','{"role":"anon"}',true),set_config('statement_timeout','5000',true)`;
-    const [row] = await tx<{ accepting_new_sessions: boolean }[]>`select c.enabled and d.enabled as accepting_new_sessions from chinatech_v2_private.office_command_control c cross join chinatech_v2_private.office_desktop_control d where c.singleton and d.singleton`;
+    const [row] = await tx<{ accepting_new_sessions: boolean; minimum_version: string; release_ready: boolean; verified_version: string | null }[]>`select c.enabled and d.enabled as accepting_new_sessions,d.minimum_version,d.release_ready,d.verified_version from chinatech_v2_private.office_command_control c cross join chinatech_v2_private.office_desktop_control d where c.singleton and d.singleton`;
     if (!row) throw new BackendError('Office 服务暂不可用，请稍后重试。', 503);
-    return { acceptingNewSessions: row.accepting_new_sessions };
-  }) as Promise<{ acceptingNewSessions: boolean }>;
+    return { acceptingNewSessions: row.accepting_new_sessions, minimumVersion: row.minimum_version, releaseReady: row.release_ready, verifiedVersion: row.verified_version };
+  }) as Promise<{ acceptingNewSessions: boolean; minimumVersion: string; releaseReady: boolean; verifiedVersion: string | null }>;
+}
+
+// Server-issued public capabilities remain separate from Auth and legacy key scopes.
+export async function withOfficePublicDatabase<T>(grantId: string, installationId: string, issuing: boolean, run: (tx: TransactionSql) => Promise<T>): Promise<T> {
+  if (!/^[a-f0-9-]{36}$/.test(grantId) || !/^[a-f0-9-]{36}$/.test(installationId)) throw new BackendError('请求无效。', 400);
+  for (let attempt = 0; ; attempt++) {
+    try { return await database().begin('isolation level read committed', async tx => {
+      await tx`select set_config('request.jwt.claims','{"role":"anon"}',true),set_config('app.office_desktop_grant_id',${grantId},true),set_config('app.office_desktop_installation',${installationId},true),set_config('app.office_desktop_public_issue',${issuing ? 'true' : 'false'},true),set_config('statement_timeout','10000',true)`;
+      return run(tx);
+    }) as T; } catch (error) {
+      const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null;
+      if ((code !== '40001' && code !== '40P01') || attempt >= 2) throw error;
+      await new Promise(resolve => setTimeout(resolve, 25 * (attempt + 1)));
+    }
+  }
 }
 
 // Desktop capabilities are independent from Auth identities. Never synthesize an Auth user.

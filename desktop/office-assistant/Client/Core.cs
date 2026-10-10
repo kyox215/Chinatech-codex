@@ -7,13 +7,30 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 namespace ChinaTech.OfficeAssistant;
 public sealed class ToolException(string code) : Exception(code) { public string Code { get; } = code; }
-public sealed record ServiceStatus(bool? AcceptingNewSessions);
-public sealed record Session(string SessionToken, DateTimeOffset ExpiresAt, string[] Actions, string LicenseId, string Epoch);
+public sealed record ServiceStatus(bool? AcceptingNewSessions,string MinimumVersion,string CurrentVersion);
+public sealed record Session(string SessionToken, DateTimeOffset ExpiresAt, string[] Actions, string GrantId, string Epoch);
 public sealed record Package(int V, string Action, string Version, string Digest, DateTimeOffset ExpiresAt, string JobId, string Nonce, string Tag, string Ciphertext);
 public static class Protocol {
  public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+ public const string AppVersion="0.2.0";
  public static readonly string[] Actions=["install","activate","uninstall","reinstall"];
- public static bool RequiresUnlock(string code)=>code is "SESSION_INVALID" or "SESSION_EXPIRED" or "SESSION_REVOKED" or "KEY_INVALID" or "TOOLBOX_DISABLED" or "ACTION_NOT_ALLOWED" or "NO_ACCESS";
+ public static bool RequiresUnlock(string code)=>code is "SESSION_INVALID" or "SESSION_EXPIRED" or "SESSION_REVOKED" or "KEY_INVALID" or "TOOLBOX_DISABLED" or "ACTION_NOT_ALLOWED" or "NO_ACCESS" or "UPDATE_REQUIRED" or "CLIENT_UNSUPPORTED";
+ public static int CompareVersions(string? left,string? right) {
+  int[] Parse(string? value){if(value==null||!System.Text.RegularExpressions.Regex.IsMatch(value,"^(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})$"))throw new ToolException("SERVICE_UNAVAILABLE");var parts=value.Split('.').Select(int.Parse).ToArray();if(parts.Any(part=>part>ushort.MaxValue))throw new ToolException("SERVICE_UNAVAILABLE");return parts;}
+  var a=Parse(left);var b=Parse(right);for(var i=0;i<3;i++){var difference=a[i].CompareTo(b[i]);if(difference!=0)return difference;}return 0;
+ }
+ public static void ValidateServiceSchema(ServiceStatus state) {
+  if(state.AcceptingNewSessions is not bool||CompareVersions(state.MinimumVersion,state.CurrentVersion)>0)throw new ToolException("SERVICE_UNAVAILABLE");
+ }
+ public static void ValidateService(ServiceStatus state) {
+  ValidateServiceSchema(state);
+  if(CompareVersions(AppVersion,state.MinimumVersion)<0)throw new ToolException("UPDATE_REQUIRED");
+  if(state.AcceptingNewSessions!=true)throw new ToolException("DESKTOP_PAUSED");
+ }
+ public static void ValidateSession(Session state,DateTimeOffset? clock=null){
+  var now=clock??DateTimeOffset.UtcNow;
+  if(state.ExpiresAt<=now||state.ExpiresAt>now.AddHours(1).AddSeconds(5)||state.Actions==null||state.Actions.Length==0||state.Actions.Distinct().Count()!=state.Actions.Length||state.Actions.Any(a=>!Actions.Contains(a))||string.IsNullOrWhiteSpace(state.SessionToken)||state.SessionToken.Length>1500||!Guid.TryParseExact(state.GrantId,"D",out _)||state.Epoch==null||!System.Text.RegularExpressions.Regex.IsMatch(state.Epoch,"^[1-9][0-9]{0,18}$"))throw new ToolException("SESSION_INVALID");
+ }
  public static bool ValidResult(Result? result,int processExit,string? action=null){
   if(result==null||string.IsNullOrEmpty(result.Code)||!System.Text.RegularExpressions.Regex.IsMatch(result.Code,"^[A-Z][A-Z0-9_]{1,63}$")||string.IsNullOrEmpty(result.Stage)||!System.Text.RegularExpressions.Regex.IsMatch(result.Stage,"^[a-z][a-z_]{1,31}$")||!new[]{"success","installed_unlicensed","error","cancelled","restart_required"}.Contains(result.Status))return false;
   if((result.Status is "success" or "installed_unlicensed")!=(processExit==0))return false;

@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from 'node:fs';
 import { randomUUID, randomBytes } from 'node:crypto';
 import postgres from 'postgres';
 import { createClient } from '@supabase/supabase-js';
@@ -40,7 +40,11 @@ if (process.argv.includes('--cleanup')) {
       await tx`delete from chinatech_v2_private.office_desktop_jobs where license_id in (select id from chinatech_v2_private.office_desktop_licenses where created_by=${admin.id})`;
       await tx`delete from chinatech_v2_private.office_desktop_devices where license_id in (select id from chinatech_v2_private.office_desktop_licenses where created_by=${admin.id})`;
       await tx`delete from chinatech_v2_private.office_desktop_licenses where created_by=${admin.id}`;
-      await tx`update chinatech_v2_private.office_desktop_control set enabled=true,revision=0,updated_at=null,updated_by=null where singleton and (updated_by=${admin.id} or updated_by is null)`;
+      if (fixture.publicGrantIds?.length) {
+        await tx`delete from chinatech_v2_private.office_desktop_public_jobs where grant_id in ${tx(fixture.publicGrantIds)}`;
+        await tx`delete from chinatech_v2_private.office_desktop_public_grants where id in ${tx(fixture.publicGrantIds)}`;
+      }
+      await tx`update chinatech_v2_private.office_desktop_control set enabled=true,revision=0,updated_at=null,updated_by=null,minimum_version='0.0.0',release_ready=false,verified_version=null where singleton and (updated_by=${admin.id} or updated_by is null)`;
       // accounts.id intentionally has a NO ACTION FK to Auth. Remove only our
       // exact synthetic project rows before asking Auth to delete those users.
       await tx`delete from chinatech_v2.accounts where id in ${tx(ids)}`;
@@ -64,6 +68,10 @@ if (process.argv.includes('--cleanup')) {
   const [oldControl] = await sql`select admin_user_id,enabled,command_version::text as command_version,revision::text as revision,updated_at,updated_by from chinatech_v2_private.office_command_control where singleton`;
   if (!oldControl || oldControl.admin_user_id || oldControl.enabled) throw Error('Local Office control is in use; preserve other tests');
   const fixture = { origin: 'http://127.0.0.1:3235', users: [], oldControl, signingKey: randomBytes(32).toString('hex') };
+  if (existsSync(file)) {
+    if (!JSON.parse(readFileSync(file, 'utf8')).cleaned) throw Error('Existing fixture is still active; preserve');
+    renameSync(file, '.local/office-admission/fixture.cleaned.' + randomUUID() + '.json');
+  }
   const persist = () => writeFileSync(file, JSON.stringify(fixture), { mode: 0o600 });
   writeFileSync(file, JSON.stringify(fixture), { mode: 0o600, flag: 'wx' });
   try {
