@@ -1,5 +1,12 @@
 # ChinaTech 项目连续记忆
 
+## 2026-10-10 Office Assistant 0.2.1 管理员修复发布
+
+专用 Windows ARM64 VM 已复现 0.2.0 未提权管理员误禁用操作。0.2.1 仅通过 Limited linked token 只读确认同用户管理员身份；真正执行仍要求 UAC、当前管理员角色和原 DPAPI/管道校验。联网自动准入、旧会话原到期及原 runner 保留。新增限定迁移只扩展 0.2.1 客户端上界与已验证 0.2.0 历史 minimum，运行角色仍无权改发布标记。新版本只有双 EXE 完整下载 SHA 校验后才可设为 minimum；发布及实际正式运行以当次发布回执为准，旧 0.2.0 资产保持。
+
+本地双 RID 严格构建、各 80 项 C# 协议、21 项 Office 定向测试、8 组实际受限 PostgreSQL 版本切换及正式模式构建通过；同一修复的 VM 联网、检测、三语、确认取消、真实脱敏报告导出、单实例和 x64 兼容层启动已通过。未执行 Office 安装/卸载/重装/激活，不证明真实许可证或实体 x64；EXE 尚无 Authenticode 签名。正式 0.2.1 的完整 CI、下载及 VM 复验须按冻结提交核验。
+
+
 ## 2026-10-09 Mi Mover 原版入口最小补丁
 
 用户纠正只解除原版限制，lab2自有引擎超出范围，已撤正式入口/文件。重新从原样本制作：h2本地3字节、Manifest去system sharedUID+code45708，原MainApplication/资源/类别/权限/组件/协议/恢复全部保留，无classes3或自有引擎。精确SHA593998e7…fee1f/36846924B/min21/target35；独立原包名不能覆盖官方签名。全新非MIUI Android16 ARM64实际原New/Old入口、三来源、返回/冷重开、原旧机权限说明/拒绝11项通过，原安装文件SHA一致。原热点/写权限/短信/安装/私库系统依赖未解除，不称完整跨品牌迁移，也不复用lab2测试。详docs/mimover-original-restriction.md、android/mimover-original。网站仅原版入口解限实验范围，原lab2路径删除；其他工具/业务库保护。

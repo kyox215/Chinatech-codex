@@ -2,7 +2,7 @@ import 'server-only';
 import type { TransactionSql } from 'postgres';
 import { withDatabase, type AuthIdentity } from '@/lib/backend/database';
 import { DesktopError, desktopUuid } from './office-desktop-token';
-import { desktopVersion } from './office-desktop-public-token';
+import { desktopVersion, compareDesktopVersions } from './office-desktop-public-token';
 import { previousPublishedVersion, eligibleMinimumVersions } from './office-desktop-release-catalog';
 
 export type DesktopAdmissionState = {
@@ -34,7 +34,7 @@ async function requireAdmin(tx: TransactionSql, identity: AuthIdentity) {
 }
 function projection(row: AdmissionRow, identity: AuthIdentity): DesktopAdmissionState {
   const verified = row.release_ready && typeof row.verified_version === 'string' ? row.verified_version : null;
-  return { enabled: row.enabled, revision: row.revision, updatedAt: row.updated_at?.toISOString() ?? null, accountId: identity.userId, sessionId: identity.sessionId, minimumVersion: row.minimum_version, currentVersion: verified ?? previousPublishedVersion, eligibleMinimumVersions: verified ? [...new Set([...eligibleMinimumVersions, verified])] : [...eligibleMinimumVersions] };
+  return { enabled: row.enabled, revision: row.revision, updatedAt: row.updated_at?.toISOString() ?? null, accountId: identity.userId, sessionId: identity.sessionId, minimumVersion: row.minimum_version, currentVersion: verified ?? previousPublishedVersion, eligibleMinimumVersions: verified ? [...new Set([...eligibleMinimumVersions.filter(version => compareDesktopVersions(version, verified) <= 0), verified])] : ['0.0.0'] };
 }
 export async function getDesktopAdmission(identity: AuthIdentity): Promise<DesktopAdmissionState> {
   return withDatabase(identity, null, async tx => {

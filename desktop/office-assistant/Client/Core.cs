@@ -12,7 +12,7 @@ public sealed record Session(string SessionToken, DateTimeOffset ExpiresAt, stri
 public sealed record Package(int V, string Action, string Version, string Digest, DateTimeOffset ExpiresAt, string JobId, string Nonce, string Tag, string Ciphertext);
 public static class Protocol {
  public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
- public const string AppVersion="0.2.0";
+ public const string AppVersion="0.2.1";
  public static readonly string[] Actions=["install","activate","uninstall","reinstall"];
  public static bool RequiresUnlock(string code)=>code is "SESSION_INVALID" or "SESSION_EXPIRED" or "SESSION_REVOKED" or "KEY_INVALID" or "TOOLBOX_DISABLED" or "ACTION_NOT_ALLOWED" or "NO_ACCESS" or "UPDATE_REQUIRED" or "CLIENT_UNSUPPORTED";
  public static int CompareVersions(string? left,string? right) {

@@ -67,6 +67,39 @@ test('a release boolean without a verified version falls back and exposes no can
   }
 });
 
+test('publishing 0.2.1 preserves the installed 0.2.0 minimum for pause and resume', async () => {
+  const verifiedRow = { ...row, enabled: true, minimum_version: '0.2.0', release_ready: true, verified_version: '0.2.1' };
+  const { api, writes } = fixture(null, verifiedRow);
+  const state = await api.getDesktopAdmission(identity);
+  assert.equal(state.currentVersion, '0.2.1');
+  assert.deepEqual(JSON.parse(JSON.stringify(state.eligibleMinimumVersions)), ['0.0.0', '0.2.0', '0.2.1']);
+  const paused = await api.changeDesktopAdmission(identity, { requestId: randomUUID(), enabled: false, expectedRevision: '2' });
+  assert.equal(paused.minimumVersion, '0.2.0'); assert.equal(paused.enabled, false);
+  const next = fixture(null, { ...verifiedRow, enabled: false, revision: paused.revision });
+  const resumed = await next.api.changeDesktopAdmission(identity, { requestId: randomUUID(), enabled: true, minimumVersion: '0.2.1', expectedRevision: paused.revision });
+  assert.equal(resumed.enabled, true); assert.equal(resumed.minimumVersion, '0.2.1');
+  assert.equal(writes.length, 2);
+});
+
+test('historical minima require a verified release at least as new as that minimum', async () => {
+  for (const versionRow of [{ ...row, release_ready: true, verified_version: '0.1.1' }, { ...row, release_ready: false, verified_version: '0.2.1' }, { ...row, release_ready: true, verified_version: null }]) {
+    const { api, writes } = fixture(null, versionRow);
+    const state = await api.getDesktopAdmission(identity);
+    assert.ok(!state.eligibleMinimumVersions.includes('0.2.0'));
+    for (const minimumVersion of ['0.2.0', '0.2.1', '0.2.2']) {
+      await assert.rejects(api.changeDesktopAdmission(identity, { requestId: randomUUID(), enabled: true, minimumVersion, expectedRevision: '2' }), error => error.code === 'VERSION_NOT_AVAILABLE');
+    }
+    assert.equal(writes.length, 0);
+  }
+});
+
+test('the old verified marker cannot select the 0.2.1 candidate minimum', async () => {
+  const { api, writes } = fixture(null, { ...row, enabled: true, minimum_version: '0.2.0', release_ready: true, verified_version: '0.2.0' });
+  assert.equal((await api.getDesktopAdmission(identity)).currentVersion, '0.2.0');
+  await assert.rejects(api.changeDesktopAdmission(identity, { requestId: randomUUID(), enabled: true, minimumVersion: '0.2.1', expectedRevision: '2' }), error => error.code === 'VERSION_NOT_AVAILABLE');
+  assert.equal(writes.length, 0);
+});
+
 test('public status binds recommendation to the verified version rather than the candidate constant', async () => {
   const api = load('app/api/toolbox/office-desktop/status/route.ts', {
     '@/lib/backend/database': { readOfficeDesktopAdmission: async () => ({ acceptingNewSessions: true, minimumVersion: '0.2.0', releaseReady: true, verifiedVersion: '0.2.0' }) },

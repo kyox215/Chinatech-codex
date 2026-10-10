@@ -13,7 +13,26 @@ public sealed record Inventory(string System,string Architecture,string[] Produc
 public static class Native {
  public static readonly string Root=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"ChinaTech","OfficeAssistant");
  public static readonly string WorkRoot=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),"ChinaTechOfficeAssistant","Jobs");
- public static bool HasAdministratorAccount(){using var identity=WindowsIdentity.GetCurrent();return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator)||(identity.Groups?.Contains(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid,null))??false);}
+ [StructLayout(LayoutKind.Sequential)]private struct LinkedToken{public IntPtr Handle;}
+ [DllImport("advapi32.dll",EntryPoint="GetTokenInformation",SetLastError=true)]
+ [return:MarshalAs(UnmanagedType.Bool)]private static extern bool GetElevationType(SafeAccessTokenHandle token,int informationClass,out int value,uint length,out uint returnedLength);
+ [DllImport("advapi32.dll",EntryPoint="GetTokenInformation",SetLastError=true)]
+ [return:MarshalAs(UnmanagedType.Bool)]private static extern bool GetLinkedToken(SafeAccessTokenHandle token,int informationClass,out LinkedToken value,uint length,out uint returnedLength);
+ public static bool HasAdministratorAccount(){
+  try{
+   using var identity=WindowsIdentity.GetCurrent();
+   if(new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator))return true;
+   // An unelevated UAC administrator has a limited token; Groups omits deny-only SIDs.
+   if(!GetElevationType(identity.AccessToken,18,out var type,sizeof(int),out var typeLength)||typeLength!=sizeof(int)||type!=3)return false;
+   var size=(uint)Marshal.SizeOf<LinkedToken>();
+   if(!GetLinkedToken(identity.AccessToken,19,out var token,size,out var tokenLength))return false;
+   using var linked=new SafeAccessTokenHandle(token.Handle);
+   if(linked.IsInvalid||tokenLength!=size)return false;
+   using var administrator=new WindowsIdentity(linked.DangerousGetHandle());
+   // Query the linked token only. Execution still requires runas and the worker's elevated token.
+   return identity.User!=null&&administrator.User!=null&&identity.User.Equals(administrator.User)&&new WindowsPrincipal(administrator).IsInRole(WindowsBuiltInRole.Administrator);
+  }catch(Exception e)when(e is System.Security.SecurityException or UnauthorizedAccessException or ArgumentException or System.ComponentModel.Win32Exception){return false;}
+ }
  public static Inventory Inspect() {
   using var hklm=RegistryKey.OpenBaseKey(RegistryHive.LocalMachine,RegistryView.Registry64);
   using var config=hklm.OpenSubKey(@"SOFTWARE\Microsoft\Office\ClickToRun\Configuration");
