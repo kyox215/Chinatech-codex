@@ -1,0 +1,13 @@
+{
+  "mode": "artifact",
+  "expectedSubject": "",
+  "endpoint": "",
+  "accountName": "",
+  "profileName": "",
+  "profileEku": "",
+  "tenantId": "",
+  "subscriptionId": "",
+  "timestampUrl": "http://timestamp.acs.microsoft.com",
+  "signToolPath": "",
+  "dlibPath": ""
+}

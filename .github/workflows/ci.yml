@@ -9,6 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Verify Office release input preparation
+        run: python desktop/office-assistant/release/test_prepare.py
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -33,3 +40,22 @@ jobs:
         env:
           BACKEND_MODE: supabase
           LOCAL_PREVIEW: "0"
+  office-signing-syntax:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Parse Office signing tools in Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion.Major -ne 5) { throw 'PowerShell 5.1 required' }
+          foreach ($name in @('OfficePePayload.ps1','Sign-OfficeRelease.ps1','Test-OfficeAuthenticode.ps1')) {
+            $tokens = $null
+            $errors = $null
+            $file = Join-Path 'desktop/office-assistant/release' $name
+            $null = [Management.Automation.Language.Parser]::ParseFile($file,[ref]$tokens,[ref]$errors)
+            if ($errors.Count -ne 0) { throw ($name + ': ' + (($errors | ForEach-Object { $_.ErrorId }) -join ',')) }
+            Write-Output ($name + ': syntax passed')
+          }
