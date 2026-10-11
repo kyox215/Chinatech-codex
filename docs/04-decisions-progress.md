@@ -790,3 +790,10 @@ Google后续选择：用户明确复用ChinaTech OS原入口、确认同一个Go
 ## 2026-10-09 Smart Switch lab4原版界面
 
 恢复原Launcher／首页／无线阶段原布局，接入CTSS5/6真实目录选择和发送确认、通知／取消／冻结选择重连。最终两APK及两模拟器真实传输／回执通过；物理HONOR与其他品牌、热点自动加入／光学QR待验。网站发布候选已备，详[规格](smart-switch-original-ui.md)，发布状态以本轮published-verification.json为准。
+
+
+## 2026-10-11 Office 1.0.1 修复候选（待验）
+
+候选修复安装完成后安装器占用阻止激活、许可读取失败门禁、检测及 HTTP 正文等待、真实重启和未知安装结果恢复，以及小屏和三语反馈。72 项 Core、32 项 Office Node（零跳过）、最新双 RID 严格自包含构建及 WindowsChecks ARM64 编译通过；核心 Office 边界为替身，编译不代替真实 GUI 验收。
+
+远程原 1.0.0 已实际完成八项安装与同任务恢复激活，两目标许可均为 1；最新报告包含实际 ActivationAttempts 和 fresh 读回。1.0.1 在该 VM 尚未运行，GUI、安装收尾和恢复仍待验。候选未数字签名，releaseReady=false、realWindowsAcceptance=pending；同提交完整 CI 待核。已备 1.0.1 下载元数据及最终二进制校验，7 项元数据相关回归属于原 32 项子集；官网与公开资产仍为 1.0.0，待 CI／发布，旧后台协议未改。详见[开发与虚拟机测试记录](Office助手1.0.1开发与虚拟机测试20261011.md)。

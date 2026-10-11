@@ -60,10 +60,12 @@ public sealed class MainWindow : Window
     {
         using var identity = WindowsIdentity.GetCurrent();
         _actorSid = identity.User?.Value ?? "";
-        Width = 1120;
-        Height = 860;
-        MinWidth = 780;
-        MinHeight = 640;
+        // WPF dimensions and WorkArea use device-independent units, including at high DPI.
+        var workArea = SystemParameters.WorkArea;
+        Width = Math.Min(1120, workArea.Width);
+        Height = Math.Min(860, workArea.Height);
+        MinWidth = Math.Min(780, workArea.Width);
+        MinHeight = Math.Min(640, workArea.Height);
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = new SolidColorBrush(Color.FromRgb(245, 246, 249));
         Foreground = Ink;
@@ -246,6 +248,7 @@ public sealed class MainWindow : Window
         if (_refreshing) return T("Detecting");
         if (_journalError.Length > 0) return T("ReadFailed", T(_journalError));
         if (_inventory == null) return T("NeedsDetection");
+        if (RecoveryBlocker() is { } recovery) return T(recovery);
         var blocker = Policy.Blocker(_inventory);
         if (blocker != null) return T(blocker);
         if (action == ActionKind.Activate && !_inventory.TargetInstalled) return T("NoTarget");
@@ -255,6 +258,15 @@ public sealed class MainWindow : Window
 
     private bool OwnTask => _job != null && _actorSid.Length > 0 && _job.ActorSid == _actorSid;
     private bool CanResume => OwnTask && _job!.Status is not (JobStatus.Completed or JobStatus.InstalledUnlicensed or JobStatus.NeedsReview);
+
+    private string? RecoveryBlocker()
+    {
+        if (_executing || _workerActive) return null;
+        if (ExecutionSafety.RestartCheckpointError(_job) is { } error) return error;
+        return _job != null && (_job.RestartBoot != null
+            || Policy.RebootExit(_job.InstallerExitCode ?? 0) && _job.RestartVerifiedBoot == null)
+            ? "RESTART_REQUIRED" : null;
+    }
 
     private void ApplyState()
     {
@@ -302,14 +314,16 @@ public sealed class MainWindow : Window
         _refresh.IsEnabled = !_refreshing && !_dialogOpen;
         _export.IsEnabled = !_dialogOpen;
         _resume.IsEnabled = CanResume && !_executing && !_workerActive && !_refreshing && _inventory != null && _journalError.Length == 0 && !_dialogOpen;
-        var resumeBlocker = _inventory == null ? T("NeedsDetection") : Policy.Blocker(_inventory) is { } code ? T(code) : null;
+        var resumeBlocker = _inventory == null ? T("NeedsDetection") : RecoveryBlocker() is { } recovery ? T(recovery)
+            : Policy.Blocker(_inventory) is { } code ? T(code) : null;
         if (resumeBlocker != null) _resume.IsEnabled = false;
-        _resumeReason.Text = _job != null && !OwnTask ? T("ACTOR_MISMATCH") : CanResume && resumeBlocker != null ? T("ActionBlocked", resumeBlocker) : "";
+        _resumeReason.Text = _job != null && !OwnTask ? T("ACTOR_MISMATCH") : _job != null && resumeBlocker != null ? T("ActionBlocked", resumeBlocker) : "";
         _resumeReason.Visibility = _resumeReason.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         _cancel.IsEnabled = (_executing || _workerActive && OwnTask) && !_cancelRequested;
         _cancel.Visibility = _executing || _workerActive ? Visibility.Visible : Visibility.Collapsed;
         _notice.Text = _errorCode.Length > 0 ? T(_errorCode) : _journalError.Length > 0 ? T("ReadFailed", T(_journalError)) : _resolvingServer ? T("ResolvingServer") : _exportedPath.Length > 0 ? T("Exported", _exportedPath) : "";
-        _notice.Foreground = _errorCode == "WORKER_START_PENDING" || _resolvingServer && _errorCode.Length == 0 && _journalError.Length == 0 ? Purple : ErrorColor;
+        _notice.Foreground = _errorCode == "WORKER_START_PENDING" || _resolvingServer && _errorCode.Length == 0 && _journalError.Length == 0 ? Purple
+            : _errorCode.Length == 0 && _journalError.Length == 0 && _exportedPath.Length > 0 ? Muted : ErrorColor;
         _notice.Visibility = _notice.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
 
         if (_job == null) AddText(_task, T("NoTask"), Muted);
@@ -325,10 +339,11 @@ public sealed class MainWindow : Window
             }
             AddText(_task, T(_job.Action.ToString()) + " · " + T("Stage") + ": " + T("Stage_" + _job.Stage));
             var interrupted = !_workerActive && !_executing && _job.Status == JobStatus.Running;
-            AddText(_task, T("Status") + ": " + T(interrupted ? "Status_Interrupted" : "Status_" + _job.Status), interrupted || _job.Status is JobStatus.Failed or JobStatus.NeedsReview or JobStatus.ComponentMissing ? ErrorColor : Ink);
+            var restartVerified = _job.Status == JobStatus.AwaitingRestart && _job.RestartBoot == null && _job.RestartVerifiedBoot != null;
+            AddText(_task, T("Status") + ": " + T(interrupted ? "Status_Interrupted" : restartVerified ? "Status_ReadyToResume" : "Status_" + _job.Status), interrupted || _job.Status is JobStatus.Failed or JobStatus.NeedsReview or JobStatus.ComponentMissing ? ErrorColor : Ink);
             AddText(_task, T(interrupted ? "WORKER_INTERRUPTED" : _job.Code));
             var facts = new List<string>();
-            if (_job.Removed) facts.Add(T("RemovalDone"));
+            if (_job.Removed) facts.Add(T(_job.RemovalStarted ? "RemovalDone" : "RemovalSkipped"));
             if (_job.Installed) facts.Add(T("InstallationDone"));
             AddText(_task, facts.Count > 0 ? string.Join(" · ", facts) : T("NoCompletionFact"), Muted, 13);
             AddText(_task, T("UpdatedAt") + ": " + _job.UpdatedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture), Muted, 13);
@@ -379,7 +394,21 @@ public sealed class MainWindow : Window
         _exportedPath = "";
         ReadTask();
         ApplyState();
-        try { _inventory = await OfficePlatform.InspectAsync(); }
+        try
+        {
+            _inventory = await OfficePlatform.InspectAsync();
+            if (!_executing && !_workerActive && OwnTask && RecoveryBlocker() != null)
+            {
+                // Reconcile only after a fresh observation and a verified Windows boot change.
+                // The elevated worker repeats this check before modifying the machine.
+                try
+                {
+                    _job = await Coordinator.ReviewInterruptedAsync(_job!, _inventory);
+                    _finalResult = _job;
+                }
+                catch (OfficeFailure failure) { _errorCode = failure.Code; }
+            }
+        }
         catch (OfficeFailure failure) { _inventory = null; _errorCode = failure.Code; }
         catch (Exception) { _inventory = null; _errorCode = "INSPECTION_FAILED"; }
         finally { _refreshing = false; ApplyState(); }
@@ -415,6 +444,7 @@ public sealed class MainWindow : Window
         if (_executing || _workerActive || _dialogOpen || _refreshing) return;
         await RefreshAsync();
         if (!CanResume || _job == null || _inventory == null || _journalError.Length > 0) return;
+        if (RecoveryBlocker() is { } recovery) { _errorCode = recovery; ApplyState(); return; }
         if (Policy.Blocker(_inventory) is { } blocker) { _errorCode = blocker; ApplyState(); return; }
         var existing = _job;
         _dialogOpen = true;
@@ -494,8 +524,9 @@ public sealed class MainWindow : Window
     {
         var dialog = new Window
         {
-            Owner = this, Title = T("ConfirmTitle"), Width = 680, MinWidth = 560, SizeToContent = SizeToContent.Height,
-            MaxHeight = Math.Max(600, SystemParameters.WorkArea.Height - 80), WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = this, Title = T("ConfirmTitle"), Width = Math.Min(680, SystemParameters.WorkArea.Width),
+            MinWidth = Math.Min(560, SystemParameters.WorkArea.Width), SizeToContent = SizeToContent.Height,
+            MaxHeight = SystemParameters.WorkArea.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Background = Brushes.White, Foreground = Ink, FontFamily = FontFamily, FontSize = 15, ShowInTaskbar = false
         };
         var root = new StackPanel { Margin = new Thickness(24) };
@@ -509,7 +540,7 @@ public sealed class MainWindow : Window
             AddText(root, T("FallbackServer") + ": k.302.pub", Muted, 14);
         }
         AddText(root, T("Elevation"), Muted, 14);
-        AddText(root, T("TermsInstruction"), Muted, 14);
+        if (action != ActionKind.Uninstall) AddText(root, T("TermsInstruction"), Muted, 14);
         var termsStatus = new TextBlock { Foreground = Muted, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 10) };
         var agreeText = new TextBlock { Text = T("TermsAgree"), Foreground = Ink, TextWrapping = TextWrapping.Wrap };
         var agree = new CheckBox { Content = agreeText, Foreground = Ink, IsEnabled = false, IsChecked = false, MinHeight = 44, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 4, 0, 16) };
@@ -537,9 +568,12 @@ public sealed class MainWindow : Window
                 termsStatus.Foreground = ErrorColor;
             }
         };
-        root.Children.Add(open);
-        root.Children.Add(termsStatus);
-        root.Children.Add(agree);
+        if (action != ActionKind.Uninstall)
+        {
+            root.Children.Add(open);
+            root.Children.Add(termsStatus);
+            root.Children.Add(agree);
+        }
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         var back = DialogButton(T("Back"), false);
         back.IsCancel = true;
@@ -552,17 +586,18 @@ public sealed class MainWindow : Window
         AutomationProperties.SetAutomationId(confirm, "ConfirmOperation");
         void UpdateConfirm()
         {
-            confirm.IsEnabled = opened && agree.IsChecked == true;
+            confirm.IsEnabled = action == ActionKind.Uninstall || opened && agree.IsChecked == true;
             confirm.Background = confirm.IsEnabled ? Purple : Brushes.White;
             confirm.Foreground = confirm.IsEnabled ? Brushes.White : Ink;
             ((TextBlock)confirm.Content).Foreground = confirm.Foreground;
         }
         agree.Checked += (_, _) => UpdateConfirm();
         agree.Unchecked += (_, _) => UpdateConfirm();
-        confirm.Click += (_, _) => { if (opened && agree.IsChecked == true) dialog.DialogResult = true; };
+        confirm.Click += (_, _) => { if (action == ActionKind.Uninstall || opened && agree.IsChecked == true) dialog.DialogResult = true; };
         buttons.Children.Add(back);
         buttons.Children.Add(confirm);
         root.Children.Add(buttons);
+        UpdateConfirm();
         dialog.Content = new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Foreground = Ink };
         return dialog.ShowDialog() == true;
     }
@@ -613,7 +648,8 @@ public sealed class MainWindow : Window
         if (!_workerActive) return;
         var dialog = new Window
         {
-            Owner = this, Title = T("CloseBusyTitle"), Width = 540, SizeToContent = SizeToContent.Height,
+            Owner = this, Title = T("CloseBusyTitle"), Width = Math.Min(540, SystemParameters.WorkArea.Width),
+            MaxHeight = SystemParameters.WorkArea.Height, SizeToContent = SizeToContent.Height,
             WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = Brushes.White,
             Foreground = Ink, FontFamily = FontFamily, FontSize = 15, ShowInTaskbar = false, ResizeMode = ResizeMode.NoResize
         };
@@ -628,7 +664,8 @@ public sealed class MainWindow : Window
         buttons.Children.Add(back);
         buttons.Children.Add(close);
         root.Children.Add(buttons);
-        dialog.Content = root;
+        dialog.Content = new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         _allowClose = dialog.ShowDialog() == true;
         args.Cancel = !_allowClose;
     }

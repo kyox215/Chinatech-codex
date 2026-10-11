@@ -9,9 +9,22 @@ using Microsoft.Win32.SafeHandles;
 namespace ChinaTech.OfficeAssistant;
 public static partial class Coordinator {
  public static JobRecord? Latest() {
-  try { return Journal.Latest(); } catch (OfficeFailure) { throw; } catch { throw new OfficeFailure("JOURNAL_INVALID"); }
+  try {
+   var latest = Journal.Latest();
+   return latest?.Status == JobStatus.Running && !IsWorkerActive() ? ExecutionSafety.MarkWorkerInterrupted(latest) : latest;
+  } catch (OfficeFailure) { throw; } catch { throw new OfficeFailure("JOURNAL_INVALID"); }
  }
  public static bool IsWorkerActive() => Journal.IsWorkerActive();
+ public static async Task<JobRecord> ReviewInterruptedAsync(JobRecord job, Inventory fresh) {
+  if (IsWorkerActive() || ExecutionSafety.RestartCheckpointError(job) != "INSTALLER_RESULT_UNKNOWN"
+   && job.RestartBoot == null && (!Policy.RebootExit(job.InstallerExitCode ?? 0) || job.RestartVerifiedBoot != null)) return job;
+  var reviewed = System.Text.Json.JsonSerializer.Deserialize<JobRecord>(System.Text.Json.JsonSerializer.Serialize(job, Reports.Json), Reports.Json)!;
+  if (await ExecutionSafety.VerifyRestartAsync(reviewed, new OfficePlatform().BootIdAsync, () => Task.FromResult(fresh))) {
+   reviewed.UpdatedAt = DateTimeOffset.UtcNow;
+   if (reviewed.Status == JobStatus.AwaitingRestart) reviewed.Code = "RESTART_VERIFIED";
+  }
+  return reviewed;
+ }
  private static string PipeName(Guid id) => "ChinaTech.OfficeAssistant1.Cancel." + id.ToString("N");
  public static async Task<bool> RequestCancelAsync(Guid id) {
   try {
@@ -28,7 +41,8 @@ public static partial class Coordinator {
   Policy.Validate(request);
   if (IsWorkerActive()) throw new OfficeFailure("ANOTHER_TASK");
   var preceding = Latest();
-  if (preceding?.RestartBoot != null && preceding.RestartBoot == await new OfficePlatform().BootIdAsync()) throw new OfficeFailure("RESTART_REQUIRED");
+  var platform = new OfficePlatform();
+  await ExecutionSafety.VerifyRestartAsync(preceding, platform.BootIdAsync, () => OfficePlatform.InspectAsync());
   using var identity = WindowsIdentity.GetCurrent();
   var sid = identity.User?.Value ?? throw new OfficeFailure("IDENTITY_UNAVAILABLE");
   if (request.Resume && new Journal(request.Id).Read().ActorSid != sid) throw new OfficeFailure("ACTOR_MISMATCH");
@@ -58,9 +72,7 @@ public static partial class Coordinator {
    if (last.Id != request.Id || last.ActorSid != sid) throw new OfficeFailure("JOB_RECORDING_FAILED");
    observed = last;
    if (observed == null) throw new OfficeFailure(worker.ExitCode == 3 ? "ANOTHER_TASK" : "WORKER_FAILED");
-   if (observed.Status == JobStatus.Running) {
-    observed.Status = JobStatus.NeedsReview; observed.Code = "WORKER_INTERRUPTED";
-   }
+   ExecutionSafety.MarkWorkerInterrupted(observed);
    progress.Report(observed); return observed;
   }
  }
@@ -79,7 +91,8 @@ public static partial class Coordinator {
    catch (IOException) { return 3; }
    using (lease) {
     var preceding = Latest();
-    if (preceding?.RestartBoot != null && preceding.RestartBoot == await new OfficePlatform().BootIdAsync()) return 4;
+    var platform = new OfficePlatform();
+    await ExecutionSafety.VerifyRestartAsync(preceding, platform.BootIdAsync, () => OfficePlatform.InspectAsync());
     var store = new Journal(id); store.Create();
     if (!request.Resume && File.Exists(Path.Combine(store.DirectoryPath, "job.json"))) return 2;
     var job = request.Resume ? store.Read() : new JobRecord { Id = id, Action = action, Language = request.Language,
