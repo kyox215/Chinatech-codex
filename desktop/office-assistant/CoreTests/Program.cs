@@ -260,11 +260,12 @@ await Test("settlement deadline also bounds a hung inspection", async () => {
  catch (OfficeFailure failure) { Assert(failure.Code == "INSTALLER_BUSY" && watch.Elapsed < TimeSpan.FromSeconds(1)); }
  finally { pending.TrySetResult(Fake.Ready); }
 });
-await Test("installation display is silent while external acceptance remains explicit", () => {
+await Test("install and removal are silent without weakening agreement or app protection", () => {
  var config = XDocument.Parse(Configuration.Install("media", "en-us"));
  Assert((string?)config.Root!.Element("Display")!.Attribute("Level") == "None" && (string?)config.Root.Element("Display")!.Attribute("AcceptEULA") == "TRUE");
  var removal = XDocument.Parse(Configuration.Remove());
- Assert((string?)removal.Root!.Element("Display")!.Attribute("Level") == "Full" && removal.Root.Element("Display")!.Attribute("AcceptEULA") == null);
+ Assert((string?)removal.Root!.Element("Display")!.Attribute("Level") == "None" && removal.Root.Element("Display")!.Attribute("AcceptEULA") == null);
+ Assert((string?)removal.Root!.Element("Property")!.Attribute("Value") == "FALSE" && (string?)removal.Root.Element("Remove")!.Attribute("All") == "TRUE");
  return Task.CompletedTask;
 });
 await Test("complete install waits for settlement before activating and never repeats removal", async () => {
@@ -301,6 +302,165 @@ await Test("activation exception followed by unreadable license keeps installati
  var retry = await Run(f, New(ActionKind.Activate));
  Assert(retry.Status == JobStatus.Completed && f.Removes == 1 && f.Installs == 1 && f.Activations == 2);
 });
+await Test("progress accepts only measured operations and valid finite counts", () => {
+ var now = DateTimeOffset.UtcNow;
+ var valid = new JobProgress("DOWNLOADING_TOOL", ProgressUnit.Bytes, 100000, 200000, now);
+ Assert(ProgressPolicy.IsValid(valid) && ProgressPolicy.Percentage(valid) == 50);
+ foreach (var invalid in new[] {
+  valid with { Code = "C:\\PRIVATE\\secret.log" }, valid with { Code = "https://private.invalid/key" },
+  valid with { Code = "INSTALLING_OFFICE" }, valid with { Unit = (ProgressUnit)99 }, valid with { Unit = ProgressUnit.Items },
+  valid with { Completed = -1 }, valid with { Total = 0 }, valid with { Total = -1 }, valid with { Completed = 200001 },
+  valid with { Total = ProgressPolicy.ToolMaximum + 1 }, valid with { Completed = long.MaxValue, Total = null },
+  valid with { ObservedAt = default }, valid with { ObservedAt = now.AddMinutes(2) }
+ }) Assert(!ProgressPolicy.IsValid(invalid) && ProgressPolicy.Percentage(invalid) == null);
+ Assert(!ProgressPolicy.IsValid(new("DOWNLOADING_OFFICE", ProgressUnit.None, 1, null, now)));
+ Assert(!ProgressPolicy.IsValid(new("VERIFYING_MEDIA", ProgressUnit.Items, 0, null, now)));
+ Assert(ProgressPolicy.IsValid(new("VERIFYING_MEDIA", ProgressUnit.Items, 4098, 4098, now)));
+ try { JsonSerializer.Deserialize<JobProgress>("{\"Code\":\"DOWNLOADING_TOOL\",\"Unit\":1,\"Completed\":\"NaN\",\"Total\":200000}", Reports.Json); throw new Exception("non-finite count accepted"); }
+ catch (JsonException) { }
+ return Task.CompletedTask;
+});
+await Test("unknown byte totals and ODT stages never produce estimated percentages", async () => {
+ var measurements = new List<JobProgress>(); using var input = new MemoryStream(new byte[200000]); using var output = new MemoryStream();
+ var received = await MeasuredCopy.CopyAsync(input, output, "DOWNLOADING_ONEDRIVE", null, ProgressPolicy.OneDriveMaximum,
+  p => { measurements.Add(p); Assert(p.Completed == output.Length); return Task.CompletedTask; }, default);
+ Assert(received == 200000 && output.Length == received && measurements.Last().Completed == received);
+ Assert(measurements.All(p => p.Total == null && ProgressPolicy.Percentage(p) == null));
+ Assert(ProgressPolicy.Percentage(new("DOWNLOADING_OFFICE", ProgressUnit.None, 0, null, DateTimeOffset.UtcNow)) == null);
+});
+await Test("known byte progress follows written bytes and reaches its measured total", async () => {
+ var measurements = new List<JobProgress>(); using var input = new MemoryStream(new byte[200000]); using var output = new MemoryStream();
+ var received = await MeasuredCopy.CopyAsync(input, output, "DOWNLOADING_TOOL", 200000, ProgressPolicy.ToolMaximum,
+  p => { measurements.Add(p); Assert(p.Completed == output.Length); return Task.CompletedTask; }, default);
+ Assert(received == 200000 && measurements.First().Completed == 0 && measurements.Last().Completed == received);
+ Assert(ProgressPolicy.Percentage(measurements.Last()) == 100 && measurements.All(ProgressPolicy.IsValid));
+});
+await Test("inconsistent advertised lengths and bounded unknown streams fail closed", async () => {
+ foreach (var lengths in new (int Actual, long? Expected, long Maximum)[] { (200000, 200001, ProgressPolicy.ToolMaximum), (200000, 150000, ProgressPolicy.ToolMaximum), (200000, null, 150000), (99999, null, ProgressPolicy.ToolMaximum), (200000, 200000, 150000), (200000, 0, ProgressPolicy.ToolMaximum) }) {
+  using var input = new MemoryStream(new byte[lengths.Actual]); using var output = new MemoryStream();
+  try { await MeasuredCopy.CopyAsync(input, output, "DOWNLOADING_TOOL", lengths.Expected, lengths.Maximum, null, default); throw new Exception("invalid download succeeded"); }
+  catch (OfficeFailure failure) { Assert(failure.Code == "DOWNLOAD_FAILED" && output.Length <= lengths.Maximum); }
+ }
+});
+await Test("an understated length never emits 100 percent before inconsistent EOF", async () => {
+ using var input = new MemoryStream(new byte[200000]); using var output = new MemoryStream(); var measurements = new List<JobProgress>();
+ try { await MeasuredCopy.CopyAsync(input, output, "DOWNLOADING_TOOL", 131072, ProgressPolicy.ToolMaximum,
+  p => { measurements.Add(p); return Task.CompletedTask; }, default); throw new Exception("extra bytes accepted"); }
+ catch (OfficeFailure failure) { Assert(failure.Code == "DOWNLOAD_FAILED"); }
+ Assert(measurements.All(p => ProgressPolicy.Percentage(p) < 100) && output.Length == 131072);
+});
+await Test("cancelling a measured copy stops before EOF without claiming completion", async () => {
+ using var cancel = new CancellationTokenSource(); using var input = new MemoryStream(new byte[200000]); using var output = new MemoryStream();
+ var measurements = new List<JobProgress>();
+ try { await MeasuredCopy.CopyAsync(input, output, "DOWNLOADING_TOOL", 200000, ProgressPolicy.ToolMaximum,
+  p => { measurements.Add(p); if (p.Completed > 0) cancel.Cancel(); return Task.CompletedTask; }, cancel.Token); throw new Exception("cancelled transfer completed"); }
+ catch (OperationCanceledException) { }
+ Assert(output.Length < 200000 && measurements.Last().Completed < measurements.Last().Total);
+});
+await Test("progress saves are awaited and throttled with operation and completion updates", async () => {
+ var job = New(); job.Stage = Stage.Download; var store = new ProgressStore(); var clock = new ProgressClock(); var recorder = new ProgressRecorder(job, store, clock);
+ JobProgress Bytes(long count) => new("DOWNLOADING_TOOL", ProgressUnit.Bytes, count, 200000, DateTimeOffset.UtcNow);
+ await recorder.ObserveAsync(Bytes(0)); await recorder.ObserveAsync(Bytes(0));
+ await recorder.ObserveAsync(Bytes(1)); await recorder.ObserveAsync(Bytes(2)); Assert(store.Saved.Count == 1);
+ clock.Advance(); await recorder.ObserveAsync(Bytes(100000)); Assert(store.Saved.Count == 2);
+ await recorder.ObserveAsync(new("DOWNLOADING_OFFICE", ProgressUnit.None, 0, null, DateTimeOffset.UtcNow));
+ await recorder.ObserveAsync(Bytes(0)); await recorder.ObserveAsync(Bytes(200000));
+ Assert(store.Saved.Count == 5 && !store.InFlight && ProgressPolicy.Percentage(job.Progress!) == 100);
+});
+await Test("restarting the same verification immediately clears its previous completed count", async () => {
+ var job = New(); job.Stage = Stage.Download; var store = new ProgressStore(); var recorder = new ProgressRecorder(job, store);
+ await recorder.ObserveAsync(new("VERIFYING_MEDIA", ProgressUnit.Items, 2, 2, DateTimeOffset.UtcNow));
+ await recorder.ObserveAsync(new("VERIFYING_MEDIA", ProgressUnit.Items, 0, 2, DateTimeOffset.UtcNow));
+ Assert(store.Saved.Count == 2 && job.Progress!.Completed == 0);
+});
+await Test("every workflow stage and terminal result clear earlier operation progress", async () => {
+ var f = new Fake { EmitProgress = true }; var job = await Run(f, New());
+ Assert(job.Status == JobStatus.Completed && job.Progress == null && f.History.Any(j => j.Progress?.Unit == ProgressUnit.Bytes));
+ Assert(f.History.GroupBy(j => j.Stage).All(group => group.First().Progress == null));
+ var failed = new Fake { EmitProgress = true, MediaFails = true }; var failure = await Run(failed, New());
+ Assert(failure.Status == JobStatus.Failed && failure.Progress == null && failed.Removes == 0 && failed.Saved!.Progress == null);
+});
+await Test("download cancellation clears measured progress and never removes Office", async () => {
+ using var cancel = new CancellationTokenSource(); var f = new Fake { EmitProgress = true, CancelDuringProgress = cancel }; var job = await Run(f, New(), token: cancel.Token);
+ Assert(job.Status == JobStatus.Cancelled && job.Progress == null && f.Saved!.Progress == null && f.Removes == 0);
+});
+await Test("progress recording failure has an explicit error before destructive boundaries", async () => {
+ var f = new Fake { EmitProgress = true, FailProgressSave = true }; var job = await Run(f, New());
+ Assert(job.Status == JobStatus.Failed && job.Code == "JOB_RECORDING_FAILED" && job.Progress == null && f.Removes == 0 && f.Installs == 0);
+});
+await Test("stale, terminal and wrong-stage progress cannot be rendered or exported", () => {
+ var job = New(); job.Stage = Stage.Download; job.UpdatedAt = DateTimeOffset.UtcNow;
+ job.Progress = new("DOWNLOADING_TOOL", ProgressUnit.Bytes, 99000, 100000, job.UpdatedAt);
+ Assert(ProgressPolicy.Current(job) != null); var fingerprint = Fake.Old.Fingerprint;
+ foreach (var status in Enum.GetValues<JobStatus>().Where(s => s != JobStatus.Running)) {
+  job.Status = status; Assert(ProgressPolicy.Current(job) == null);
+  using var json = JsonDocument.Parse(Reports.Export(Fake.Old, job, "zh")); Assert(json.RootElement.GetProperty("task").GetProperty("Progress").ValueKind == JsonValueKind.Null);
+ }
+ job.Status = JobStatus.Running; job.Stage = Stage.Install; Assert(ProgressPolicy.Current(job) == null);
+ job.Stage = Stage.Download; job.Progress = job.Progress with { ObservedAt = job.StartedAt.AddSeconds(-1) }; Assert(ProgressPolicy.Current(job) == null);
+ Assert(Fake.Old.Fingerprint == fingerprint);
+ return Task.CompletedTask;
+});
+await Test("exported progress contains only its allowlisted operation and counts", () => {
+ var job = New(); job.Stage = Stage.Download; job.UpdatedAt = DateTimeOffset.UtcNow;
+ job.Progress = new("DOWNLOADING_TOOL", ProgressUnit.Bytes, 100000, 200000, job.UpdatedAt);
+ using var json = JsonDocument.Parse(Reports.Export(Fake.Old, job, "en")); var progress = json.RootElement.GetProperty("task").GetProperty("Progress");
+ Assert(progress.EnumerateObject().Select(p => p.Name).Order().SequenceEqual(new[] { "Code", "Completed", "ObservedAt", "Total", "Unit" }.Order()));
+ Assert(progress.GetProperty("Completed").GetInt64() == 100000 && progress.GetProperty("Total").GetInt64() == 200000);
+ return Task.CompletedTask;
+});
+await Test("resume replaces stale progress and restores the platform observer", async () => {
+ var job = New(); job.Stage = Stage.Download; job.Status = JobStatus.Failed; job.UpdatedAt = DateTimeOffset.UtcNow;
+ job.Progress = new("DOWNLOADING_TOOL", ProgressUnit.Bytes, 99000, 100000, job.UpdatedAt);
+ var f = new Fake { EmitProgress = true }; Func<JobProgress, Task> prior = _ => throw new Exception("stale observer used"); f.ProgressObserver = prior;
+ await Run(f, job, true);
+ Assert(job.Status == JobStatus.Completed && job.Progress == null && f.History.First().Progress == null && ReferenceEquals(prior, f.ProgressObserver));
+});
+await Test("UI suggests activation only for an owned installed-unlicensed task with targets present", () => {
+ var job = New(); job.Status = JobStatus.InstalledUnlicensed; job.Installed = true;
+ Assert(PresentationPolicy.Primary(job, Fake.Ready, true) == PrimaryOperation.Activate);
+ Assert(PresentationPolicy.Primary(job, Fake.Empty, true) == PrimaryOperation.InstallActivate);
+ Assert(PresentationPolicy.Primary(job, Fake.Ready, false) == PrimaryOperation.InstallActivate);
+ return Task.CompletedTask;
+});
+await Test("UI resumes settlement failure without suggesting another removal", () => {
+ var job = New(); job.Status = JobStatus.Failed; job.Installed = true; job.Stage = Stage.Components; job.Code = "INSTALLER_BUSY";
+ Assert(PresentationPolicy.Primary(job, Fake.Ready, true) == PrimaryOperation.Resume);
+ return Task.CompletedTask;
+});
+await Test("UI resumes cancellation after a successful installer result", () => {
+ var job = New(); job.Status = JobStatus.Cancelled; job.Installed = true; job.Stage = Stage.Install; job.InstallerExitCode = 0;
+ Assert(PresentationPolicy.Primary(job, Fake.Ready, true) == PrimaryOperation.Resume);
+ return Task.CompletedTask;
+});
+await Test("UI never treats an uncertain installer result as a safe continuation", () => {
+ var job = New(); job.Status = JobStatus.Failed; job.Installed = true; job.Stage = Stage.Install; job.InstallerExitCode = 500;
+ Assert(PresentationPolicy.Primary(job, Fake.Ready, true) == PrimaryOperation.InstallActivate);
+ job.Status = JobStatus.NeedsReview; job.Stage = Stage.Components;
+ Assert(PresentationPolicy.Primary(job, Fake.Ready, true) == PrimaryOperation.InstallActivate);
+ return Task.CompletedTask;
+});
+await Test("UI never converts removal failures or completed tasks to activation resume", () => {
+ var job = New(ActionKind.Uninstall); job.Status = JobStatus.Failed; job.Installed = true; job.Stage = Stage.Components;
+ Assert(PresentationPolicy.Primary(job, Fake.Ready, true) == PrimaryOperation.InstallActivate);
+ job = New(); job.Status = JobStatus.Completed; job.Installed = true; job.Stage = Stage.Finished;
+ Assert(PresentationPolicy.Primary(job, Fake.Ready, true) == PrimaryOperation.InstallActivate);
+ return Task.CompletedTask;
+});
+await Test("UI repairs missing components through the original task instead of removing Office again", () => {
+ var job = New(); job.Status = JobStatus.ComponentMissing; job.Installed = true; job.Stage = Stage.Components;
+ Assert(PresentationPolicy.Primary(job, Fake.Ready, true) == PrimaryOperation.Resume);
+ Assert(PresentationPolicy.Primary(job, Fake.Ready, false) == PrimaryOperation.InstallActivate);
+ return Task.CompletedTask;
+});
+await Test("UI percentage never rounds incomplete bytes to one hundred", () => {
+ var progress = new JobProgress("DOWNLOADING_TOOL", ProgressUnit.Bytes, 131072, 131073, DateTimeOffset.UtcNow);
+ Assert(PresentationPolicy.DisplayPercentage(progress) == 99);
+ Assert(PresentationPolicy.DisplayPercentage(progress with { Completed = 131073 }) == 100);
+ Assert(PresentationPolicy.DisplayPercentage(progress with { Total = null }) == null);
+ Assert(PresentationPolicy.DisplayPercentage(progress with { Completed = -1 }) == null);
+ return Task.CompletedTask;
+});
 Console.WriteLine($"FINAL: {passed} meaningful workflow checks passed; Office boundaries are synthetic.");
 
 sealed class ResponseFixture(Stream body) : HttpMessageHandler {
@@ -321,7 +481,22 @@ sealed class StalledBody : Stream {
  public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 }
 
-sealed class Fake : IOfficePlatform, IJobStore {
+sealed class ProgressStore : IJobStore {
+ public bool InFlight;
+ public List<JobRecord> Saved { get; } = [];
+ public async Task SaveAsync(JobRecord job) {
+  if (InFlight) throw new Exception("overlapping progress write"); InFlight = true;
+  await Task.Yield(); Saved.Add(JsonSerializer.Deserialize<JobRecord>(JsonSerializer.Serialize(job, Reports.Json), Reports.Json)!); InFlight = false;
+ }
+}
+sealed class ProgressClock : TimeProvider {
+ private long timestamp;
+ public override long TimestampFrequency => 1000;
+ public override long GetTimestamp() => timestamp;
+ public void Advance() => timestamp += 1000;
+}
+
+sealed class Fake : IOfficePlatform, IJobStore, IOfficeProgressSource {
  public static readonly Inventory Old = new("Windows 11", "X64", ["ProPlus2021Volume", "VisioPro2021Volume", "ProjectPro2021Volume"], [], [], [], [], [], [], DateTimeOffset.UtcNow);
  public static readonly Inventory Empty = Old with { OfficeProducts = [] };
  public static readonly Inventory Ready = Empty with { OfficeProducts = ["ProPlus2024Volume", "SkypeforBusiness2024Volume"], Platform = "x64", OfficeVersion = "16.0.1.1", SuiteLanguages = ["en-us"], SkypeLanguages = ["en-us"], Components = Policy.Components.Select(id => new ComponentState(id, true)).ToArray() };
@@ -335,13 +510,31 @@ sealed class Fake : IOfficePlatform, IJobStore {
  public int BusyAfterInstallReads;
  public bool FailBootAfterMutation, OneDriveNeedsInstall;
  public JobRecord? Saved;
+ public List<JobRecord> History { get; } = [];
+ public Func<JobProgress, Task>? ProgressObserver { get; set; }
+ public bool EmitProgress, FailProgressSave;
+ public CancellationTokenSource? CancelDuringProgress;
  public CancellationTokenSource? CancelAfterRemove;
  public CancellationTokenSource? CancelAfterInstall;
  public CancellationTokenSource? CancelOnWait, CancelOnBoot;
  public Task<Inventory> InspectAsync() { if (Installs > 0 && BusyAfterInstallReads-- > 0) return Task.FromResult(Inventory with { Installers = ["OfficeC2RClient", "msiexec"] }); return Task.FromResult(Inventory); }
  public Task<string> BootIdAsync() { BootReads++; CancelOnBoot?.Cancel(); if (FailBootAfterMutation && Removes + Installs + OneDriveRuns > 0) throw new OfficeFailure("INSPECTION_FAILED"); return Task.FromResult(Boot); }
- public Task SaveAsync(JobRecord job) { Saved = JsonSerializer.Deserialize<JobRecord>(JsonSerializer.Serialize(job, Reports.Json), Reports.Json); if (job.Code == "WAITING_INSTALLERS") CancelOnWait?.Cancel(); return Task.CompletedTask; }
- public Task<MediaState> PrepareAsync(JobRecord job, CancellationToken cancellation) { Downloads++; if (DownloadFails) throw new OfficeFailure("DOWNLOAD_FAILED"); if (ChangeAfterDownload) Inventory = Old with { OfficeProducts = ["Different"] }; return Task.FromResult(new MediaState("16.0.1.1", "hash", [])); }
+ public Task SaveAsync(JobRecord job) {
+  if (FailProgressSave && job.Progress != null) { FailProgressSave = false; throw new IOException("simulated progress save failure"); }
+  Saved = JsonSerializer.Deserialize<JobRecord>(JsonSerializer.Serialize(job, Reports.Json), Reports.Json); History.Add(Saved!);
+  if (job.Code == "WAITING_INSTALLERS") CancelOnWait?.Cancel(); return Task.CompletedTask;
+ }
+ public async Task<MediaState> PrepareAsync(JobRecord job, CancellationToken cancellation) {
+  Downloads++; if (DownloadFails) throw new OfficeFailure("DOWNLOAD_FAILED");
+  if (EmitProgress && ProgressObserver != null) {
+   await ProgressObserver(new("DOWNLOADING_TOOL", ProgressUnit.Bytes, 0, 200000, DateTimeOffset.UtcNow));
+   await ProgressObserver(new("DOWNLOADING_TOOL", ProgressUnit.Bytes, 200000, 200000, DateTimeOffset.UtcNow));
+   CancelDuringProgress?.Cancel(); cancellation.ThrowIfCancellationRequested();
+   await ProgressObserver(new("DOWNLOADING_OFFICE", ProgressUnit.None, 0, null, DateTimeOffset.UtcNow));
+  }
+  if (ChangeAfterDownload) Inventory = Old with { OfficeProducts = ["Different"] };
+  return new MediaState("16.0.1.1", "hash", []);
+ }
  public Task VerifyMediaAsync(JobRecord job) { if (MediaFails) throw new OfficeFailure("MEDIA_CHANGED"); return Task.CompletedTask; }
  public Task PrepareRemovalAsync(JobRecord job, CancellationToken cancellation) => Task.CompletedTask;
  public Task<int> RemoveAsync(JobRecord job) { Removes++; if (!LeaveProducts) Inventory = ForeignAfterRemove ? Empty with { OfficeProducts = ["Foreign"] } : Empty; CancelAfterRemove?.Cancel(); return Task.FromResult(RemoveExit); }

@@ -11,7 +11,10 @@ public static partial class Coordinator {
  public static JobRecord? Latest() {
   try {
    var latest = Journal.Latest();
-   return latest?.Status == JobStatus.Running && !IsWorkerActive() ? ExecutionSafety.MarkWorkerInterrupted(latest) : latest;
+   if (latest?.Status == JobStatus.Running && !IsWorkerActive()) {
+    ExecutionSafety.MarkWorkerInterrupted(latest); latest.Progress = null;
+   }
+   return latest;
   } catch (OfficeFailure) { throw; } catch { throw new OfficeFailure("JOURNAL_INVALID"); }
  }
  public static bool IsWorkerActive() => Journal.IsWorkerActive();
@@ -62,7 +65,7 @@ public static partial class Coordinator {
     if (cancellation.IsCancellationRequested && !cancelDelivered) cancelDelivered = await RequestCancelAsync(request.Id);
     try {
      var current = Latest();
-     if (current?.Id == request.Id) { observed = current; if (cancellation.IsCancellationRequested && !cancelDelivered) current.Code = "CANCEL_REQUEST_FAILED"; progress.Report(current); }
+     if (current?.Id == request.Id && current.ActorSid == sid) { observed = current; if (cancellation.IsCancellationRequested && !cancelDelivered) current.Code = "CANCEL_REQUEST_FAILED"; progress.Report(current); }
     } catch (OfficeFailure) { /* A concurrent atomic save is retried; success is never inferred. */ }
     await Task.Delay(700);
    }
@@ -73,6 +76,7 @@ public static partial class Coordinator {
    observed = last;
    if (observed == null) throw new OfficeFailure(worker.ExitCode == 3 ? "ANOTHER_TASK" : "WORKER_FAILED");
    ExecutionSafety.MarkWorkerInterrupted(observed);
+   observed.Progress = null;
    progress.Report(observed); return observed;
   }
  }

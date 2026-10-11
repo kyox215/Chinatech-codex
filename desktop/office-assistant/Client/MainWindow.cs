@@ -8,6 +8,8 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Markup;
+using System.Windows.Controls.Primitives;
 using System.Windows.Threading;
 using Microsoft.Win32;
 
@@ -18,7 +20,7 @@ public sealed class MainWindow : Window
     private static readonly Brush Ink = new SolidColorBrush(Color.FromRgb(35, 40, 49));
     private static readonly Brush Muted = new SolidColorBrush(Color.FromRgb(85, 95, 110));
     private static readonly Brush Purple = new SolidColorBrush(Color.FromRgb(95, 87, 255));
-    private static readonly Brush BorderColor = new SolidColorBrush(Color.FromRgb(218, 222, 230));
+    private static readonly Brush BorderColor = new SolidColorBrush(Color.FromRgb(230, 232, 239));
     private static readonly Brush ErrorColor = new SolidColorBrush(Color.FromRgb(153, 37, 37));
     private static readonly Brush WarningColor = new SolidColorBrush(Color.FromRgb(113, 78, 15));
     private readonly Dictionary<TextBlock, string> _labels = [];
@@ -38,6 +40,28 @@ public sealed class MainWindow : Window
     private readonly Button _export;
     private readonly Button _resume;
     private readonly Button _cancel;
+    private readonly TextBlock _headline = new() { FontSize = 23, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _subline = new() { FontSize = 13, Foreground = Muted, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 3, 0, 0) };
+    private readonly TextBlock _statusLabel = new() { FontSize = 12, FontWeight = FontWeights.SemiBold };
+    private readonly Border _statusBadge = new() { CornerRadius = new CornerRadius(14), Padding = new Thickness(11, 5, 11, 5), VerticalAlignment = VerticalAlignment.Top };
+    private readonly TextBlock _machine = new() { FontSize = 12, Foreground = Muted, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 14) };
+    private readonly TextBlock _officeSummary = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right };
+    private readonly TextBlock _licenseSummary = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right };
+    private readonly TextBlock _readinessSummary = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right };
+    private readonly TextBlock _progressHeading = new() { FontSize = 14, FontWeight = FontWeights.SemiBold };
+    private readonly TextBlock _progressTitle = new() { FontSize = 14, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _progressMetric = new() { FontSize = 13, Foreground = Purple, FontWeight = FontWeights.SemiBold, Margin = new Thickness(12, 0, 0, 0) };
+    private readonly TextBlock _progressCaption = new() { FontSize = 12, Foreground = Muted, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 7, 0, 0) };
+    private readonly TextBlock _elapsed = new() { FontSize = 12, Foreground = Muted, Margin = new Thickness(12, 0, 0, 0) };
+    private readonly ProgressBar _progressBar = new() { Minimum = 0, Maximum = 100, Height = 7, Foreground = Purple, Background = new SolidColorBrush(Color.FromRgb(238, 238, 250)), BorderThickness = new Thickness(0), Margin = new Thickness(0, 9, 0, 0) };
+    private readonly UniformGrid _steps = new() { Columns = 4, Margin = new Thickness(0, 12, 0, 12) };
+    private readonly Grid _cards = new() { Margin = new Thickness(0, 0, 0, 4) };
+    private readonly Expander _moreActions = new();
+    private readonly Expander _detectionDetails = new();
+    private readonly Expander _taskDetails = new();
+    private Border? _configurationCard;
+    private Border? _detectionCard;
+    private Guid? _requestedJobId;
     private Inventory? _inventory;
     private JobRecord? _job;
     private JobRecord? _finalResult;
@@ -60,34 +84,44 @@ public sealed class MainWindow : Window
     {
         using var identity = WindowsIdentity.GetCurrent();
         _actorSid = identity.User?.Value ?? "";
-        // WPF dimensions and WorkArea use device-independent units, including at high DPI.
         var workArea = SystemParameters.WorkArea;
-        Width = Math.Min(1120, workArea.Width);
-        Height = Math.Min(860, workArea.Height);
+        Width = Math.Min(980, workArea.Width);
+        Height = Math.Min(800, workArea.Height);
         MinWidth = Math.Min(780, workArea.Width);
         MinHeight = Math.Min(640, workArea.Height);
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        Background = new SolidColorBrush(Color.FromRgb(245, 246, 249));
+        Background = new SolidColorBrush(Color.FromRgb(245, 246, 250));
         Foreground = Ink;
         FontFamily = new FontFamily("Segoe UI");
-        FontSize = 15;
+        FontSize = 14;
+        _uiLanguage.FontSize = 14;
+        _officeLanguage.FontSize = 16;
+        _uiLanguage.Padding = _officeLanguage.Padding = new Thickness(8, 5, 8, 5);
+        _officeLanguage.MinWidth = 175;
+        _officeLanguage.MaxWidth = 240;
+        _statusBadge.Child = _statusLabel;
 
-        var root = new StackPanel { Margin = new Thickness(24) };
-        var header = new Grid { Margin = new Thickness(0, 0, 0, 20) };
+        // Header, actions and measured progress stay visible while details scroll independently.
+        var root = new Grid { Margin = new Thickness(24, 18, 24, 14) };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var header = new Grid { Margin = new Thickness(0, 0, 0, 16) };
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var brand = new StackPanel { Orientation = Orientation.Horizontal };
+        brand.Children.Add(new Border { Width = 42, Height = 42, Background = Purple, CornerRadius = new CornerRadius(13), Margin = new Thickness(0, 0, 12, 0),
+            Child = new TextBlock { Text = "▦", Foreground = Brushes.White, FontSize = 29, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } });
         var heading = new StackPanel();
-        heading.Children.Add(new TextBlock { Text = "CHINATECH", FontWeight = FontWeights.SemiBold, FontSize = 14, Foreground = Purple });
-        heading.Children.Add(Label("Title", 28, FontWeights.SemiBold));
-        heading.Children.Add(Label("Subtitle", 15, color: Muted));
-        header.Children.Add(heading);
-        var language = new StackPanel { Margin = new Thickness(20, 0, 0, 0) };
-        language.Children.Add(Label("InterfaceLanguage", 13, color: Muted));
-        language.Children.Add(_uiLanguage);
-        Grid.SetColumn(language, 1);
-        header.Children.Add(language);
+        heading.Children.Add(Label("Title", 21, FontWeights.SemiBold));
+        heading.Children.Add(new TextBlock { Text = "CHINATECH", FontSize = 10, Foreground = Muted });
+        brand.Children.Add(heading);
+        header.Children.Add(brand);
+        Grid.SetColumn(_uiLanguage, 1);
+        header.Children.Add(_uiLanguage);
         root.Children.Add(header);
-
         _uiLanguage.ItemsSource = new[] { "中文", "Italiano", "English" };
         _uiLanguage.SelectedIndex = _locale == "zh-cn" ? 0 : _locale == "it-it" ? 1 : 2;
         AutomationProperties.SetAutomationId(_uiLanguage, "InterfaceLanguage");
@@ -95,100 +129,122 @@ public sealed class MainWindow : Window
         {
             if (_updating) return;
             _locale = _uiLanguage.SelectedIndex == 0 ? "zh-cn" : _uiLanguage.SelectedIndex == 1 ? "it-it" : "en-us";
-            ApplyText();
-            ApplyState();
+            ApplyText(); ApplyState();
         };
-
-        var cards = new Grid();
-        cards.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.9, GridUnitType.Star) });
-        cards.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.1, GridUnitType.Star) });
+        var body = new StackPanel();
+        var intro = new Grid { Margin = new Thickness(0, 0, 0, 14) };
+        intro.ColumnDefinitions.Add(new ColumnDefinition());
+        intro.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var introText = new StackPanel(); introText.Children.Add(_headline); introText.Children.Add(_subline);
+        intro.Children.Add(introText); Grid.SetColumn(_statusBadge, 1); intro.Children.Add(_statusBadge);
+        body.Children.Add(intro);
+        _cards.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.5, GridUnitType.Star) });
+        _cards.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        _cards.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        _cards.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var configuration = new StackPanel();
-        configuration.Children.Add(Label("Configuration", 21, FontWeights.SemiBold));
-        configuration.Children.Add(Label("FixedProduct", 17, FontWeights.SemiBold));
-        configuration.Children.Add(Label("AllComponents", 14, color: Muted));
-        var components = new Grid { Margin = new Thickness(0, 8, 0, 12) };
-        components.ColumnDefinitions.Add(new ColumnDefinition());
-        components.ColumnDefinitions.Add(new ColumnDefinition());
-        for (var index = 0; index < Policy.Components.Length; index++)
+        var product = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12) };
+        product.Children.Add(new Border { Width = 44, Height = 48, CornerRadius = new CornerRadius(12), Background = new SolidColorBrush(Color.FromRgb(239, 103, 62)), Margin = new Thickness(0, 0, 12, 0),
+            Child = new TextBlock { Text = "O", Foreground = Brushes.White, FontSize = 27, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } });
+        var productText = new StackPanel();
+        productText.Children.Add(new TextBlock { Text = "Office LTSC 2024", FontSize = 20, FontWeight = FontWeights.SemiBold });
+        productText.Children.Add(Label("Edition", 12, color: Muted)); product.Children.Add(productText); configuration.Children.Add(product);
+        var appHeading = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+        appHeading.ColumnDefinitions.Add(new ColumnDefinition()); appHeading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        appHeading.Children.Add(Label("SuiteApps", 12, color: Muted));
+        var all = Label("EightIncluded", 12, FontWeights.SemiBold, Purple); Grid.SetColumn(all, 1); appHeading.Children.Add(all); configuration.Children.Add(appHeading);
+        var components = new UniformGrid { Columns = 4, Margin = new Thickness(0, 0, 0, 12) };
+        var apps = new (string Id, string Letter, byte R, byte G, byte B)[] {
+            ("Word", "W", 36, 113, 204), ("Excel", "X", 38, 136, 92), ("PowerPoint", "P", 225, 107, 66), ("Outlook", "O", 37, 146, 219),
+            ("OneNote", "N", 148, 72, 200), ("Access", "A", 187, 71, 99), ("OneDrive", "☁", 66, 156, 240), ("Lync", "S", 57, 169, 212)
+        };
+        foreach (var app in apps)
         {
-            if (index % 2 == 0) components.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            var id = Policy.Components[index];
-            var component = new TextBlock { Text = "✓  " + Text.Component(id, _locale), Tag = id, FontSize = 15, Foreground = Ink, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5, 10, 5) };
-            if (id is "Outlook" or "Lync") _labels.Add(component, "Component:" + id);
-            AutomationProperties.SetAutomationId(component, "FixedComponent" + id);
-            Grid.SetRow(component, index / 2);
-            Grid.SetColumn(component, index % 2);
-            components.Children.Add(component);
+            var item = new Grid { Margin = new Thickness(0, 0, 8, 8), MinHeight = 34 };
+            item.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); item.ColumnDefinitions.Add(new ColumnDefinition());
+            item.Children.Add(new Border { Width = 28, Height = 28, CornerRadius = new CornerRadius(8), Background = new SolidColorBrush(Color.FromRgb(app.R, app.G, app.B)), Margin = new Thickness(0, 0, 7, 0), VerticalAlignment = VerticalAlignment.Center,
+                Child = new TextBlock { Text = app.Letter, Foreground = Brushes.White, FontSize = 14, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } });
+            var name = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Foreground = Muted };
+            _labels[name] = "ComponentPlain:" + app.Id;
+            AutomationProperties.SetAutomationId(name, "FixedComponent" + app.Id); Grid.SetColumn(name, 1); item.Children.Add(name); components.Children.Add(item);
         }
         configuration.Children.Add(components);
-        configuration.Children.Add(Label("InstallationLanguage", 15, FontWeights.SemiBold));
-        configuration.Children.Add(_officeLanguage);
+        var languageLine = new Grid { Margin = new Thickness(0, 10, 0, 0) };
+        languageLine.ColumnDefinitions.Add(new ColumnDefinition()); languageLine.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var languageLabel = Label("InstallationLanguage", 13); languageLabel.VerticalAlignment = VerticalAlignment.Center; languageLine.Children.Add(languageLabel);
+        Grid.SetColumn(_officeLanguage, 1); languageLine.Children.Add(_officeLanguage); configuration.Children.Add(languageLine);
+        _officeLanguage.ToolTip = T("LanguageNotice");
         AutomationProperties.SetAutomationId(_officeLanguage, "InstallationLanguage");
-        _officeLanguage.SelectionChanged += (_, _) =>
-        {
-            if (!_updating && _officeLanguage.SelectedIndex >= 0)
-                _installationLanguage = Policy.Languages[_officeLanguage.SelectedIndex];
-        };
-        configuration.Children.Add(Label("LanguageNotice", 13, color: Muted));
-        var configurationCard = Card(configuration);
-        configurationCard.Margin = new Thickness(0, 0, 16, 16);
-        cards.Children.Add(configurationCard);
-
-        var detection = new StackPanel();
-        detection.Children.Add(Label("Detection", 21, FontWeights.SemiBold));
-        detection.Children.Add(_facts);
-        detection.Children.Add(_warnings);
-        var detectionCard = Card(detection);
-        Grid.SetColumn(detectionCard, 1);
-        cards.Children.Add(detectionCard);
-        root.Children.Add(cards);
-
-        var actions = new StackPanel();
-        actions.Children.Add(Label("Actions", 21, FontWeights.SemiBold));
-        var actionGrid = new Grid { Margin = new Thickness(0, 8, 0, 0) };
-        foreach (var _ in Enum.GetValues<ActionKind>()) actionGrid.ColumnDefinitions.Add(new ColumnDefinition());
+        _officeLanguage.SelectionChanged += (_, _) => { if (!_updating && _officeLanguage.SelectedIndex >= 0) _installationLanguage = Policy.Languages[_officeLanguage.SelectedIndex]; };
+        _configurationCard = Card(configuration); _configurationCard.Margin = new Thickness(0, 0, 14, 0); _cards.Children.Add(_configurationCard);
+        var detection = new StackPanel(); detection.Children.Add(Label("Detection", 14, FontWeights.SemiBold)); detection.Children.Add(_machine);
+        detection.Children.Add(SummaryLine("Office", _officeSummary)); detection.Children.Add(SummaryLine("License", _licenseSummary)); detection.Children.Add(SummaryLine("SystemReadiness", _readinessSummary));
+        var inspectionDetails = new StackPanel(); inspectionDetails.Children.Add(_facts); inspectionDetails.Children.Add(_warnings);
+        _detectionDetails.Header = Label("DetectedDetails", 12, color: Muted);
+        _detectionDetails.Content = new ScrollViewer { Content = inspectionDetails, MaxHeight = 150, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        _detectionDetails.Margin = new Thickness(0, 8, 0, 0); detection.Children.Add(_detectionDetails);
+        _detectionCard = Card(detection); _detectionCard.Margin = new Thickness(0); Grid.SetColumn(_detectionCard, 1); _cards.Children.Add(_detectionCard); body.Children.Add(_cards);
+        var contentScroll = new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Foreground = Ink, Padding = new Thickness(0, 0, 2, 0) };
+        Grid.SetRow(contentScroll, 1); root.Children.Add(contentScroll);
+        var actions = new StackPanel { Margin = new Thickness(0, 12, 0, 12) };
+        var toolbar = new DockPanel { LastChildFill = false };
         foreach (var kind in Enum.GetValues<ActionKind>())
         {
-            var column = new StackPanel { Margin = new Thickness(0, 0, kind == ActionKind.Uninstall ? 0 : 12, 0) };
-            var button = Button(kind.ToString(), async (_, _) => await StartAsync(kind), kind == ActionKind.InstallActivate);
-            button.MinHeight = 52;
+            var button = Button(kind.ToString(), async (_, _) => { if (kind == ActionKind.InstallActivate && SuggestedOperation == PrimaryOperation.Resume) await ResumeAsync(); else await StartAsync(kind == ActionKind.InstallActivate ? PrimaryAction : kind); }, kind == ActionKind.InstallActivate);
             _actionButtons[kind] = button;
-            var reason = new TextBlock { Foreground = Muted, FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 4) };
-            _actionReasons[kind] = reason;
-            column.Children.Add(button);
-            column.Children.Add(reason);
-            Grid.SetColumn(column, (int)kind);
-            actionGrid.Children.Add(column);
+            _actionReasons[kind] = new TextBlock { FontSize = 12, Foreground = Muted, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5, 0, 0) };
         }
-        actions.Children.Add(actionGrid);
-        var secondary = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
         _refresh = Button("Refresh", async (_, _) => await RefreshAsync());
         _export = Button("Export", (_, _) => ExportReport());
         _resume = Button("Resume", async (_, _) => await ResumeAsync());
         _cancel = Button("Cancel", async (_, _) => await CancelAsync());
-        foreach (var button in new[] { _refresh, _export, _resume, _cancel })
-        {
-            button.Margin = new Thickness(0, 0, 10, 4);
-            secondary.Children.Add(button);
-        }
-        actions.Children.Add(secondary);
-        actions.Children.Add(_resumeReason);
-        actions.Children.Add(_notice);
-        root.Children.Add(Card(actions));
-
-        var task = new StackPanel();
-        task.Children.Add(Label("Task", 21, FontWeights.SemiBold));
-        task.Children.Add(_task);
-        root.Children.Add(Card(task));
-        Content = new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Foreground = Ink };
-
-        _timer.Tick += (_, _) => Poll();
-        Loaded += async (_, _) => { await RefreshAsync(); _timer.Start(); };
-        Closing += OnClosing;
-        Closed += (_, _) => _timer.Stop();
-        ApplyText();
-        ApplyState();
+        _actionButtons[ActionKind.InstallActivate].MinHeight = 48;
+        _actionButtons[ActionKind.InstallActivate].MinWidth = 200;
+        _actionButtons[ActionKind.InstallActivate].Margin = new Thickness(0, 0, 12, 0);
+        DockPanel.SetDock(_actionButtons[ActionKind.InstallActivate], Dock.Left); toolbar.Children.Add(_actionButtons[ActionKind.InstallActivate]);
+        var secondary = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
+        foreach (var button in new[] { _refresh, _resume, _cancel }) { button.Margin = new Thickness(0, 0, 8, 0); secondary.Children.Add(button); }
+        var otherContent = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
+        foreach (var button in new[] { _actionButtons[ActionKind.Activate], _actionButtons[ActionKind.Uninstall], _export }) { button.Margin = new Thickness(0, 0, 8, 4); otherContent.Children.Add(button); }
+        _moreActions.Header = Label("MoreActions", 13, color: Muted); _moreActions.Content = otherContent; _moreActions.VerticalAlignment = VerticalAlignment.Center;
+        secondary.Children.Add(_moreActions); DockPanel.SetDock(secondary, Dock.Right); toolbar.Children.Add(secondary); actions.Children.Add(toolbar);
+        actions.Children.Add(_actionReasons[ActionKind.InstallActivate]); actions.Children.Add(_resumeReason); actions.Children.Add(_notice);
+        Grid.SetRow(actions, 2); root.Children.Add(actions);
+        var progress = new StackPanel(); var progressHead = new Grid(); progressHead.ColumnDefinitions.Add(new ColumnDefinition()); progressHead.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        progressHead.Children.Add(_progressHeading); Grid.SetColumn(_elapsed, 1); progressHead.Children.Add(_elapsed); progress.Children.Add(progressHead); progress.Children.Add(_steps);
+        var progressLine = new Grid(); progressLine.ColumnDefinitions.Add(new ColumnDefinition()); progressLine.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        progressLine.Children.Add(_progressTitle); Grid.SetColumn(_progressMetric, 1); progressLine.Children.Add(_progressMetric); progress.Children.Add(progressLine); progress.Children.Add(_progressBar); progress.Children.Add(_progressCaption);
+        _taskDetails.Header = Label("TaskDetails", 12, color: Muted); _taskDetails.Margin = new Thickness(0, 6, 0, 0);
+        _taskDetails.Content = new ScrollViewer { Content = _task, MaxHeight = 125, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        progress.Children.Add(_taskDetails); var progressCard = Card(progress); progressCard.Margin = new Thickness(0); Grid.SetRow(progressCard, 3); root.Children.Add(progressCard);
+        var footer = new Grid { Margin = new Thickness(0, 10, 0, 0) }; footer.ColumnDefinitions.Add(new ColumnDefinition()); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        footer.Children.Add(Label("ProtectionShort", 11, color: Muted)); var version = new TextBlock { Text = Policy.Version, Foreground = Muted, FontSize = 11 }; Grid.SetColumn(version, 1); footer.Children.Add(version); Grid.SetRow(footer, 4); root.Children.Add(footer);
+        Content = root;
+        SizeChanged += (_, _) => ArrangeCards();
+        _timer.Tick += (_, _) => Poll(); Loaded += async (_, _) => { ArrangeCards(); await RefreshAsync(); _timer.Start(); }; Closing += OnClosing; Closed += (_, _) => _timer.Stop();
+        ApplyText(); ApplyState();
     }
+
+    private UIElement SummaryLine(string key, TextBlock value)
+    {
+        var row = new Grid { Margin = new Thickness(0, 0, 0, 11) };
+        row.ColumnDefinitions.Add(new ColumnDefinition()); row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.2, GridUnitType.Star) });
+        var label = key == "Office" ? new TextBlock { Text = "Office", Foreground = Muted, FontSize = 13 } : Label(key, 13, color: Muted);
+        row.Children.Add(label); Grid.SetColumn(value, 1); row.Children.Add(value); return row;
+    }
+
+    private void ArrangeCards()
+    {
+        if (_configurationCard == null || _detectionCard == null) return;
+        var stacked = ActualWidth < 850;
+        _cards.ColumnDefinitions[1].Width = stacked ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+        _cards.ColumnDefinitions[0].Width = stacked ? new GridLength(1, GridUnitType.Star) : new GridLength(1.5, GridUnitType.Star);
+        Grid.SetColumn(_detectionCard, stacked ? 0 : 1); Grid.SetRow(_detectionCard, stacked ? 1 : 0);
+        _configurationCard.Margin = stacked ? new Thickness(0, 0, 0, 12) : new Thickness(0, 0, 14, 0);
+    }
+
+    private PrimaryOperation SuggestedOperation => PresentationPolicy.Primary(_job, _inventory, OwnTask);
+    private ActionKind PrimaryAction => SuggestedOperation == PrimaryOperation.Activate ? ActionKind.Activate : ActionKind.InstallActivate;
 
     private string T(string key, params object[] args) => Text.Get(key, _locale, args);
 
@@ -202,7 +258,7 @@ public sealed class MainWindow : Window
     private static Border Card(UIElement content) => new()
     {
         Child = content, Background = Brushes.White, BorderBrush = BorderColor, BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(12), Padding = new Thickness(20), Margin = new Thickness(0, 0, 0, 16)
+        CornerRadius = new CornerRadius(18), Padding = new Thickness(18), Margin = new Thickness(0, 0, 0, 16)
     };
 
     private Button Button(string key, RoutedEventHandler handler, bool primary = false)
@@ -210,7 +266,7 @@ public sealed class MainWindow : Window
         var button = new Button
         {
             Content = new TextBlock { Text = T(key), TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Foreground = primary ? Brushes.White : Ink },
-            MinHeight = 44, Padding = new Thickness(16, 10, 16, 10), Background = primary ? Purple : Brushes.White,
+            Template = RoundedButtonTemplate, MinHeight = 44, Padding = new Thickness(16, 10, 16, 10), Background = primary ? Purple : Brushes.White,
             BorderBrush = primary ? Purple : BorderColor, BorderThickness = new Thickness(1), Foreground = primary ? Brushes.White : Ink
         };
         _buttonLabels[button] = key;
@@ -223,7 +279,8 @@ public sealed class MainWindow : Window
     {
         Title = T("Title") + " · " + Policy.Version;
         foreach (var (label, key) in _labels)
-            label.Text = key.StartsWith("Component:", StringComparison.Ordinal) ? "✓  " + Text.Component(key[10..], _locale) : T(key);
+            label.Text = key.StartsWith("ComponentPlain:", StringComparison.Ordinal) ? Text.Component(key[15..], _locale)
+                : key.StartsWith("Component:", StringComparison.Ordinal) ? "✓  " + Text.Component(key[10..], _locale) : T(key);
         foreach (var (button, key) in _buttonLabels)
         {
             ((TextBlock)button.Content).Text = T(key);
@@ -233,6 +290,7 @@ public sealed class MainWindow : Window
         _officeLanguage.ItemsSource = new[] { T("Chinese"), T("Italian"), T("English") };
         _officeLanguage.SelectedIndex = Array.IndexOf(Policy.Languages, _installationLanguage);
         _updating = false;
+        _officeLanguage.ToolTip = T("LanguageNotice");
         AutomationProperties.SetName(_uiLanguage, T("InterfaceLanguage"));
         AutomationProperties.SetName(_officeLanguage, T("InstallationLanguage"));
     }
@@ -301,15 +359,19 @@ public sealed class MainWindow : Window
         }
         foreach (var (kind, button) in _actionButtons)
         {
-            var reason = BlockReason(kind);
+            var reason = BlockReason(kind == ActionKind.InstallActivate ? PrimaryAction : kind);
             button.IsEnabled = reason == null;
             button.Opacity = reason == null ? 1 : 0.8;
             var textColor = reason == null && kind == ActionKind.InstallActivate ? Brushes.White : Ink;
             button.Foreground = textColor;
             ((TextBlock)button.Content).Foreground = textColor;
             button.Background = reason == null && kind == ActionKind.InstallActivate ? Purple : Brushes.White;
-            _actionReasons[kind].Text = reason == null ? "" : T("ActionBlocked", reason);
+            _actionReasons[kind].Text = reason == null || _executing || _workerActive ? "" : T("ActionBlocked", reason);
+            _actionReasons[kind].Visibility = _actionReasons[kind].Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+            button.ToolTip = reason;
         }
+        _moreActions.IsEnabled = !_dialogOpen;
+        _resume.Visibility = CanResume && !_executing && !_workerActive ? Visibility.Visible : Visibility.Collapsed;
         _officeLanguage.IsEnabled = !_executing && !_workerActive && !_dialogOpen;
         _refresh.IsEnabled = !_refreshing && !_dialogOpen;
         _export.IsEnabled = !_dialogOpen;
@@ -349,10 +411,134 @@ public sealed class MainWindow : Window
             AddText(_task, T("UpdatedAt") + ": " + _job.UpdatedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture), Muted, 13);
             foreach (var entry in _job.Events.TakeLast(6)) AddText(_task, entry.At.ToLocalTime().ToString("T", CultureInfo.CurrentCulture) + "  " + T("Stage_" + entry.Stage) + " · " + T(entry.Code), Muted, 13);
         }
-        if (_executing || _workerActive)
+        UpdateSummaryAndProgress();
+    }
+
+    private static readonly ControlTemplate RoundedButtonTemplate = (ControlTemplate)XamlReader.Parse("""
+        <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" TargetType="{x:Type Button}">
+          <Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.94" /></Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.82" /></Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="#5F57FF" /><Setter TargetName="Surface" Property="BorderThickness" Value="2" /></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+        """);
+
+    private void UpdateSummaryAndProgress()
+    {
+        var busy = _executing || _workerActive;
+        var job = _executing && _requestedJobId.HasValue && _job?.Id != _requestedJobId ? null : _job;
+        var inventory = _inventory;
+        if (inventory != null && OwnTask && job?.Observation is { } observation && observation.ObservedAt > inventory.ObservedAt)
+            inventory = observation;
+        var unknown = inventory == null || _errorCode == "INSPECTION_FAILED";
+        _machine.Text = unknown ? T("AwaitingInspection") : FriendlyWindows(inventory!) + " · " + inventory!.Architecture;
+        _officeSummary.Text = unknown ? T("UnknownFact") : inventory!.TargetInstalled && inventory.AllComponents ? T("InstalledShort")
+            : inventory.HasOffice ? T("OfficeDetectedShort") : T("NotInstalledShort");
+        _licenseSummary.Text = unknown || inventory!.LicenseError.Length > 0 ? T("UnknownFact") : !inventory.TargetInstalled ? T("AwaitingInspection")
+            : inventory.TargetLicensed ? T("Licensed") : T("UnlicensedShort");
+        _licenseSummary.Foreground = unknown || inventory!.LicenseError.Length > 0 ? WarningColor : inventory.TargetLicensed ? Green : Ink;
+        var blocker = unknown ? null : RecoveryBlocker() ?? Policy.Blocker(inventory!);
+        _readinessSummary.Text = unknown ? T("AwaitingInspection") : blocker != null ? T("NeedsAttentionShort")
+            : inventory!.RestartReasons.Length > 0 ? T("PendingRestartShort") : T("ReadyShort");
+        _readinessSummary.Foreground = blocker != null || !unknown && inventory!.RestartReasons.Length > 0 ? WarningColor : unknown ? Muted : Green;
+        var attention = _errorCode.Length > 0 || _journalError.Length > 0 || blocker != null
+            || job?.Status is JobStatus.AwaitingRestart or JobStatus.Failed or JobStatus.InstalledUnlicensed or JobStatus.ComponentMissing or JobStatus.NeedsReview;
+        var currentReady = !unknown && inventory!.TargetInstalled && inventory.AllComponents && inventory.TargetLicensed;
+        var removed = job?.Status == JobStatus.Completed && job.Action == ActionKind.Uninstall && !unknown && !inventory!.HasOffice;
+        _headline.Text = T(busy ? "HeroRunning" : attention ? "HeroAttention" : removed ? "HeroRemoved" : currentReady ? "HeroFinish" : "HeroReady");
+        _subline.Text = T(busy ? "HeroSubRunning" : attention ? "HeroSubAttention" : removed ? "HeroSubRemoved" : currentReady ? "HeroSubFinish" : "HeroSubReady");
+        _statusLabel.Text = T(busy ? "StatusRunning" : attention ? "StatusAttention" : currentReady || removed ? "StatusComplete" : "StatusReady");
+        _statusLabel.Foreground = busy ? Purple : attention ? WarningColor : Green;
+        _statusBadge.Background = new SolidColorBrush(busy ? Color.FromRgb(239, 237, 255) : attention ? Color.FromRgb(255, 248, 233) : Color.FromRgb(237, 248, 243));
+
+        var primary = _actionButtons[ActionKind.InstallActivate];
+        var primaryKey = SuggestedOperation == PrimaryOperation.Resume ? _job?.Status == JobStatus.ComponentMissing ? "RepairComponents" : "ResumeActivation"
+            : SuggestedOperation == PrimaryOperation.Activate ? "RetryActivation" : !unknown && inventory!.HasOffice ? "Reinstall" : "InstallActivate";
+        ((TextBlock)primary.Content).Text = T(primaryKey);
+        AutomationProperties.SetName(primary, T(primaryKey));
+        if (SuggestedOperation == PrimaryOperation.Resume)
         {
-            _task.Children.Add(new ProgressBar { IsIndeterminate = true, Height = 5, Foreground = Purple, Margin = new Thickness(0, 6, 0, 10) });
-            AddText(_task, T(_cancelRequested ? "CancellationRequested" : "CancellationNotice"), Muted, 13);
+            primary.IsEnabled = _resume.IsEnabled;
+            _resume.Visibility = Visibility.Collapsed;
+        }
+        var primaryColor = primary.IsEnabled ? Brushes.White : Ink;
+        primary.Foreground = primaryColor; ((TextBlock)primary.Content).Foreground = primaryColor;
+        primary.Background = primary.IsEnabled ? Purple : Brushes.White;
+
+        _elapsed.Text = busy && job != null ? T("Elapsed", FormatDuration(DateTimeOffset.UtcNow - job.StartedAt)) : "";
+        var measured = OwnTask && job != null && busy ? ProgressPolicy.Current(job) : null;
+        var percentage = PresentationPolicy.DisplayPercentage(measured);
+        _progressHeading.Text = T(busy || job == null ? "Task" : "LastTask");
+        var completed = job?.Status == JobStatus.Completed && !busy;
+        _progressBar.IsIndeterminate = (busy || _refreshing || _resolvingServer) && percentage == null;
+        _progressBar.Value = completed ? 100 : percentage ?? 0;
+        _progressBar.Foreground = completed ? Green : Purple;
+        _progressMetric.Text = completed ? "100%" : percentage.HasValue ? percentage.Value.ToString(CultureInfo.GetCultureInfo(_locale)) + "%" : "";
+        _progressTitle.Text = _cancelRequested ? T("CancellationRequested") : _resolvingServer ? T("ResolvingServer") : _refreshing && job == null ? T("Detecting")
+            : measured != null ? T(measured.Code) : job == null ? T(busy ? "WORKER_START_PENDING" : "WaitingProgress")
+            : job.Code == "WAITING_INSTALLERS" ? T("WaitingSettlement") : job.Status == JobStatus.Running && !busy ? T("WORKER_INTERRUPTED")
+            : T(job.Code);
+        _progressCaption.Text = "";
+        if (_cancelRequested) _progressCaption.Text = T("CancellationNotice");
+        else if (measured is { Unit: ProgressUnit.Bytes })
+            _progressCaption.Text = measured.Total.HasValue ? T("DownloadBytes", FormatBytes(measured.Completed), FormatBytes(measured.Total.Value)) : T("DownloadUnknownBytes", FormatBytes(measured.Completed));
+        else if (measured is { Unit: ProgressUnit.Items })
+            _progressCaption.Text = T("VerifyFileCount", measured.Completed, measured.Total!.Value);
+        else if (job?.Code == "WAITING_INSTALLERS" && busy)
+        {
+            var started = job.Events.LastOrDefault(e => e.Code == "WAITING_INSTALLERS")?.At ?? job.UpdatedAt;
+            var names = job.Observation?.Installers ?? [];
+            _progressCaption.Text = T("WaitDuration", FormatDuration(DateTimeOffset.UtcNow - started))
+                + (names.Length > 0 ? " · " + string.Join(", ", names) : "");
+        }
+        else if (job?.Installed == true && job.Code == "INSTALLER_BUSY") _progressCaption.Text = T("SettlementStopped");
+        else if (job == null) _progressCaption.Text = T(busy ? "CancellationNotice" : "WaitingProgressCaption");
+        else if (job.Status == JobStatus.Running && busy) _progressCaption.Text = T("AutomaticNextStep");
+        else _progressCaption.Text = T("UpdatedAt") + ": " + job.UpdatedAt.ToLocalTime().ToString("g", CultureInfo.GetCultureInfo(_locale));
+        AutomationProperties.SetName(_progressBar, _progressTitle.Text + ". " + _progressCaption.Text);
+        RenderSteps(job, completed);
+    }
+
+    private static readonly Brush Green = new SolidColorBrush(Color.FromRgb(24, 134, 91));
+    private static string FriendlyWindows(Inventory inventory)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(inventory.Windows, @"\b\d+\.\d+\.\d+(?:\.\d+)?\b", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        if (!match.Success || !Version.TryParse(match.Value, out var version)) return "Windows";
+        return version.Major == 10 && version.Build >= 22000 ? "Windows 11" : version.Major == 10 ? "Windows 10" : "Windows";
+    }
+    private string FormatBytes(long bytes)
+    {
+        var units = new[] { "B", "KB", "MB", "GB" }; var index = 0; double value = bytes;
+        while (value >= 1024 && index < units.Length - 1) { value /= 1024; index++; }
+        return value.ToString(index == 0 ? "0" : "0.0", CultureInfo.GetCultureInfo(_locale)) + " " + units[index];
+    }
+    private static string FormatDuration(TimeSpan elapsed)
+    {
+        if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+        return elapsed.TotalHours >= 1 ? FormattableString.Invariant($"{(long)elapsed.TotalHours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}")
+            : elapsed.ToString(@"mm\:ss", CultureInfo.InvariantCulture);
+    }
+    private void RenderSteps(JobRecord? job, bool completed)
+    {
+        _steps.Children.Clear();
+        var keys = job?.Action == ActionKind.Uninstall ? new[] { "PreparationStep", "RemovalStep", "VerificationStep", "FinishStep" }
+            : job?.Action == ActionKind.Activate ? new[] { "PreparationStep", "VerificationStep", "ActivationStep", "FinishStep" }
+            : new[] { "PreparationStep", "InstallationStep", "ActivationStep", "FinishStep" };
+        var index = job?.Stage switch { Stage.Remove or Stage.Install or Stage.Components => 1, Stage.Activate => 2, Stage.Finished => completed ? 4 : 3, _ => 0 };
+        for (var step = 0; step < 4; step++)
+        {
+            var done = completed || step < index; var active = !completed && step == index;
+            var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 6, 0) };
+            line.Children.Add(new Border { Width = 22, Height = 22, CornerRadius = new CornerRadius(11), Margin = new Thickness(0, 0, 7, 0),
+                Background = new SolidColorBrush(done ? Color.FromRgb(237, 248, 243) : active ? Color.FromRgb(239, 237, 255) : Color.FromRgb(248, 249, 252)),
+                Child = new TextBlock { Text = done ? "✓" : (step + 1).ToString(CultureInfo.InvariantCulture), Foreground = done ? Green : active ? Purple : Muted,
+                    FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } });
+            line.Children.Add(new TextBlock { Text = T(keys[step]), FontSize = 12, Foreground = active ? Purple : Muted, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap });
+            _steps.Children.Add(line);
         }
     }
 
@@ -466,6 +652,7 @@ public sealed class MainWindow : Window
         var cancellation = new CancellationTokenSource();
         _cancellation = cancellation;
         var requestId = resume?.Id ?? Guid.NewGuid();
+        _requestedJobId = requestId;
         ApplyState();
         try
         {
@@ -496,8 +683,8 @@ public sealed class MainWindow : Window
         _refreshing = true;
         ApplyState();
         try { _inventory = await OfficePlatform.InspectAsync(); }
-        catch (OfficeFailure failure) { _errorCode = failure.Code; }
-        catch (Exception) { _errorCode = "INSPECTION_FAILED"; }
+        catch (OfficeFailure failure) { _inventory = null; _errorCode = failure.Code; }
+        catch (Exception) { _inventory = null; _errorCode = "INSPECTION_FAILED"; }
         finally { _refreshing = false; ApplyState(); }
     }
 
@@ -610,7 +797,7 @@ public sealed class MainWindow : Window
     private static Button DialogButton(string text, bool primary) => new()
     {
         Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = primary ? Brushes.White : Ink, TextAlignment = TextAlignment.Center },
-        MinHeight = 44, MaxWidth = 320, Padding = new Thickness(16, 10, 16, 10), Margin = new Thickness(8, 0, 0, 0),
+        Template = RoundedButtonTemplate, MinHeight = 44, MaxWidth = 320, Padding = new Thickness(16, 10, 16, 10), Margin = new Thickness(8, 0, 0, 0),
         Foreground = primary ? Brushes.White : Ink, Background = primary ? Purple : Brushes.White,
         BorderBrush = primary ? Purple : BorderColor, BorderThickness = new Thickness(1)
     };

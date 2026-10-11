@@ -18,7 +18,7 @@ public static class Configuration {
  public static string Remove() => new XDocument(new XElement("Configuration",
   new XElement("Remove", new XAttribute("All", "TRUE")), new XElement("RemoveMSI"),
   new XElement("Property", new XAttribute("Name", "FORCEAPPSHUTDOWN"), new XAttribute("Value", "FALSE")),
-  new XElement("Display", new XAttribute("Level", "Full")))).ToString();
+  new XElement("Display", new XAttribute("Level", "None")))).ToString();
 }
 public interface IOfficePlatform {
  Task<Inventory> InspectAsync();

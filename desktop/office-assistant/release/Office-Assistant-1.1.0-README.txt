@@ -1,0 +1,28 @@
+ChinaTech Office Assistant 1.1.0 — test release
+
+中文
+Intel/AMD 的 64 位 Windows 请选择 x64；Windows ARM 电脑请选择 ARM64。下载 EXE 后先核对同发布页的 SHA256。当前程序未数字签名，Windows 可能显示来源或安全提示；请自行核对来源和校验值，保留系统防护。
+
+此测试版固定安装 Office LTSC 专业增强版 2024、64 位及八项应用。开始前会说明替换现有 Office（包括 Visio 和 Project）的范围；个人文档和 OneDrive 不在移除范围内。确认范围、适用的微软条款并授予管理员权限后才会执行。
+
+界面会显示真实下载字节和文件校验进度。Office 下载、安装、移除和激活没有可靠数字百分比时，只显示阶段、活动条和用时。安装器收尾最多等待五分钟，可取消；超时后保留已安装套件，重新检测后继续原任务激活。缺失组件从原任务修复，不重复卸载；激活失败可单独重试。
+
+该版本未签名；原生 Windows 1.1 界面、UAC 与完整实际 Office 流程仍待验收。请先备份重要文件。
+
+Italiano
+Scegli x64 per Windows a 64 bit Intel/AMD oppure ARM64 per Windows ARM. Dopo il download verifica il valore SHA256 indicato nella stessa release. Il programma non è firmato e Windows potrebbe mostrare un avviso: controlla personalmente origine e checksum e mantieni attive le protezioni di sistema.
+
+Questa versione di prova installa Office LTSC Professional Plus 2024 a 64 bit e tutte le otto applicazioni. Prima dell'esecuzione spiega la sostituzione di Office esistente, inclusi Visio e Project; documenti personali e OneDrive non sono nel perimetro di rimozione. Conferma l'ambito, i termini Microsoft applicabili e i privilegi di amministratore.
+
+L'interfaccia mostra byte scaricati e file verificati reali. Per download Office, installazione, rimozione e attivazione senza una percentuale affidabile mostra fase, attività e tempo trascorso. La finalizzazione attende al massimo cinque minuti e può essere annullata; dopo il limite Office resta installato e puoi aggiornare il controllo e riprendere l'attivazione. Le applicazioni mancanti vengono riparate nel task originale senza ripetere la rimozione.
+
+Questa versione non è firmata; interfaccia Windows 1.1, UAC e flusso Office reale completo restano da validare. Esegui prima il backup dei file importanti.
+
+English
+Choose x64 for 64-bit Intel/AMD Windows or ARM64 for Windows ARM. After downloading, verify the SHA256 listed on this release. This program is unsigned and Windows may show a source or safety warning; verify its source and checksum yourself and keep system protections enabled.
+
+This test release installs 64-bit Office LTSC Professional Plus 2024 and all eight applications. Before execution it explains replacement of existing Office, including Visio and Project. Personal documents and OneDrive are outside the removal scope. Confirm the scope, applicable Microsoft terms and administrator permissions before it runs.
+
+The UI shows measured download bytes and verified file counts. Office download, installation, removal and activation show stage, activity and elapsed time when no reliable numeric percentage exists. Installer settlement waits up to five minutes and can be cancelled; after the limit Office remains installed, then refresh inspection and resume activation. Missing applications are repaired in the original task without repeating removal.
+
+This release is unsigned. Native Windows 1.1 UI, UAC and the complete real Office flow remain to be validated. Back up important files first.

@@ -10,7 +10,10 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 namespace ChinaTech.OfficeAssistant;
 
-public sealed partial class OfficePlatform(string? jobDirectory = null, string? actorSid = null) : IOfficePlatform {
+public sealed partial class OfficePlatform(string? jobDirectory = null, string? actorSid = null) : IOfficePlatform, IOfficeProgressSource {
+ public Func<JobProgress, Task>? ProgressObserver { get; set; }
+ private Task ReportProgress(string code, ProgressUnit unit, long completed, long? total = null) =>
+  ProgressObserver?.Invoke(new(code, unit, completed, total, DateTimeOffset.UtcNow)) ?? Task.CompletedTask;
  private string DirectoryPath => jobDirectory ?? throw new OfficeFailure("REQUEST_INVALID");
  private string Setup => Path.Combine(DirectoryPath, "setup.exe");
  private string MediaRoot => Path.Combine(DirectoryPath, "media");
@@ -140,17 +143,19 @@ public sealed partial class OfficePlatform(string? jobDirectory = null, string? 
  public async Task<MediaState> PrepareAsync(JobRecord job, CancellationToken cancellation) {
   var drive = new DriveInfo(Path.GetPathRoot(DirectoryPath)!);
   if (drive.AvailableFreeSpace < 12L * 1024 * 1024 * 1024) throw new OfficeFailure("DISK_SPACE_LOW");
-  await Download("https://officecdn.microsoft.com/pr/wsus/setup.exe", Setup, 50L * 1024 * 1024, cancellation);
+  await Download("https://officecdn.microsoft.com/pr/wsus/setup.exe", Setup, ProgressPolicy.ToolMaximum, "DOWNLOADING_TOOL", cancellation);
   await VerifyMicrosoft(Setup);
   string? oneDriveHash = null;
   if (!OneDrivePaths().Any(File.Exists)) {
    var oneDrive = Path.Combine(DirectoryPath, "OneDriveSetup.exe");
-   await Download("https://go.microsoft.com/fwlink/?linkid=844652", oneDrive, 250L * 1024 * 1024, cancellation);
+   await Download("https://go.microsoft.com/fwlink/?linkid=844652", oneDrive, ProgressPolicy.OneDriveMaximum, "DOWNLOADING_ONEDRIVE", cancellation);
    await VerifyMicrosoft(oneDrive); oneDriveHash = await Sha256(oneDrive);
   }
   Directory.CreateDirectory(MediaRoot);
   var config = Path.Combine(DirectoryPath, "download.xml");
   await File.WriteAllTextAsync(config, Configuration.Install(MediaRoot, job.Language), cancellation);
+  // ODT does not expose a measured total through this call. Do not estimate it from elapsed time or pass count.
+  await ReportProgress("DOWNLOADING_OFFICE", ProgressUnit.None, 0);
   var exit = await RunInstaller(Setup, ["/download", config]);
   if (exit != 0) throw new OfficeFailure("DOWNLOAD_FAILED", exit);
   cancellation.ThrowIfCancellationRequested();
@@ -160,15 +165,23 @@ public sealed partial class OfficePlatform(string? jobDirectory = null, string? 
   var version = versions[0]!;
   await File.WriteAllTextAsync(config, Configuration.Install(MediaRoot, job.Language, version), cancellation);
   // Download the fixed version again so that a channel update cannot change the task mid-flight.
+  await ReportProgress("DOWNLOADING_OFFICE", ProgressUnit.None, 0);
   exit = await RunInstaller(Setup, ["/download", config]);
   if (exit != 0) throw new OfficeFailure("DOWNLOAD_FAILED", exit);
   CheckMediaFiles(version, job.Language);
   var files = new List<MediaFile>();
-  foreach (var file in Directory.EnumerateFiles(MediaRoot, "*", SearchOption.AllDirectories)) {
+  var paths = Directory.EnumerateFiles(MediaRoot, "*", SearchOption.AllDirectories).Take(4097).ToArray();
+  if (paths.Length is 0 or > 4096) throw new OfficeFailure("MEDIA_INVALID");
+  var totalFiles = paths.Length + 1;
+  await ReportProgress("VERIFYING_MEDIA", ProgressUnit.Items, 0, totalFiles);
+  foreach (var file in paths) {
    cancellation.ThrowIfCancellationRequested(); Journal.RejectReparse(file);
    files.Add(new(Path.GetRelativePath(MediaRoot, file), new FileInfo(file).Length, await Sha256(file)));
+   await ReportProgress("VERIFYING_MEDIA", ProgressUnit.Items, files.Count, totalFiles);
   }
-  return new(version, await Sha256(Setup), files, oneDriveHash);
+  var setupHash = await Sha256(Setup);
+  await ReportProgress("VERIFYING_MEDIA", ProgressUnit.Items, totalFiles, totalFiles);
+  return new(version, setupHash, files, oneDriveHash);
  }
  private void CheckMediaFiles(string version, string language) {
   var data = Path.Combine(MediaRoot, "Office", "Data"); var folder = Path.Combine(data, version);
@@ -183,11 +196,15 @@ public sealed partial class OfficePlatform(string? jobDirectory = null, string? 
  }
  public async Task VerifyMediaAsync(JobRecord job) {
   if (job.Media == null || job.Media.Files.Count == 0 || job.Media.Files.Count > 4096) throw new OfficeFailure("MEDIA_INVALID");
+  var totalFiles = job.Media.Files.Count + 1 + (job.Media.OneDriveSha256 == null ? 0 : 1); var checkedFiles = 0;
+  await ReportProgress("VERIFYING_MEDIA", ProgressUnit.Items, checkedFiles, totalFiles);
   await VerifyMicrosoft(Setup);
   if (await Sha256(Setup) != job.Media.SetupSha256) throw new OfficeFailure("MEDIA_CHANGED");
+  await ReportProgress("VERIFYING_MEDIA", ProgressUnit.Items, ++checkedFiles, totalFiles);
   if (job.Media.OneDriveSha256 != null) {
    var oneDrive = Path.Combine(DirectoryPath, "OneDriveSetup.exe"); await VerifyMicrosoft(oneDrive);
    if (await Sha256(oneDrive) != job.Media.OneDriveSha256) throw new OfficeFailure("MEDIA_CHANGED");
+   await ReportProgress("VERIFYING_MEDIA", ProgressUnit.Items, ++checkedFiles, totalFiles);
   }
   CheckMediaFiles(job.Media.Version, job.Language);
   foreach (var expected in job.Media.Files) {
@@ -195,10 +212,11 @@ public sealed partial class OfficePlatform(string? jobDirectory = null, string? 
    if (!path.StartsWith(MediaRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) throw new OfficeFailure("MEDIA_INVALID");
    Journal.RejectReparse(path);
    if (!File.Exists(path) || new FileInfo(path).Length != expected.Length || await Sha256(path) != expected.Sha256) throw new OfficeFailure("MEDIA_CHANGED");
+   await ReportProgress("VERIFYING_MEDIA", ProgressUnit.Items, ++checkedFiles, totalFiles);
   }
  }
  public async Task PrepareRemovalAsync(JobRecord job, CancellationToken cancellation) {
-  if (!File.Exists(Setup)) await Download("https://officecdn.microsoft.com/pr/wsus/setup.exe", Setup, 50L * 1024 * 1024, cancellation);
+  if (!File.Exists(Setup)) await Download("https://officecdn.microsoft.com/pr/wsus/setup.exe", Setup, ProgressPolicy.ToolMaximum, "DOWNLOADING_TOOL", cancellation);
   await VerifyMicrosoft(Setup);
  }
  public async Task<int> RemoveAsync(JobRecord job) {
@@ -246,25 +264,21 @@ public sealed partial class OfficePlatform(string? jobDirectory = null, string? 
   }
   throw new OfficeFailure("ACTIVATION_FAILED");
  }
- private static async Task Download(string url, string destination, long maximum, CancellationToken cancellation) {
+ private async Task Download(string url, string destination, long maximum, string progressCode, CancellationToken cancellation) {
   try {
    using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
    deadline.CancelAfter(TimeSpan.FromMinutes(10));
    using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
    using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
    response.EnsureSuccessStatusCode();
-   if (response.RequestMessage?.RequestUri?.Scheme != "https" || response.Content.Headers.ContentLength > maximum) throw new OfficeFailure("DOWNLOAD_FAILED");
+   var expectedLength = response.Content.Headers.ContentLength;
+   if (response.RequestMessage?.RequestUri?.Scheme != "https" || expectedLength is <= 0 || expectedLength > maximum) throw new OfficeFailure("DOWNLOAD_FAILED");
    var temporary = destination + ".download";
    Journal.RejectReparse(temporary);
    await using (var output = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None)) {
     await using var input = await response.Content.ReadAsStreamAsync(deadline.Token);
-    var bytes = new byte[65536]; long total = 0; int count;
-    while ((count = await input.ReadAsync(bytes, deadline.Token)) != 0) {
-     total += count; if (total > maximum) throw new OfficeFailure("DOWNLOAD_FAILED");
-     await output.WriteAsync(bytes.AsMemory(0, count), deadline.Token);
-    }
+    await MeasuredCopy.CopyAsync(input, output, progressCode, expectedLength, maximum, ProgressObserver, deadline.Token);
     await output.FlushAsync(deadline.Token); output.Flush(true);
-    if (total < 100000) throw new OfficeFailure("DOWNLOAD_FAILED");
    }
    File.Move(temporary, destination, true);
   } catch (OperationCanceledException) when (!cancellation.IsCancellationRequested) { throw new OfficeFailure("DOWNLOAD_FAILED"); }

@@ -2,6 +2,12 @@ namespace ChinaTech.OfficeAssistant;
 /// <summary>Each destructive boundary is journalled; cancellation never kills an installer.</summary>
 public sealed class Workflow(IOfficePlatform platform, IJobStore store) {
  public async Task<JobRecord> RunAsync(JobRecord job, bool resume, CancellationToken cancellation) {
+  var source = platform as IOfficeProgressSource;
+  var precedingObserver = source?.ProgressObserver;
+  var recorder = new ProgressRecorder(job, store);
+  if (source != null) source.ProgressObserver = recorder.ObserveAsync;
+  // An interrupted or resumed operation must get a new measurement from this worker.
+  job.Progress = null;
   try {
    Policy.Validate(new(job.Id, job.Action, job.Language, job.Server, job.ExpectedFingerprint, resume));
    if (resume && job.Status == JobStatus.Completed) return job;
@@ -97,6 +103,7 @@ public sealed class Workflow(IOfficePlatform platform, IJobStore store) {
    if (e.ExitCode is { } restartExit && Policy.RebootExit(restartExit)) { await Pause(job); return job; }
    await End(job, e.Code == "RESTART_REQUIRED" ? JobStatus.AwaitingRestart : e.Code is "REMOVAL_UNKNOWN" or "RESTART_CHECKPOINT_MISSING" or "INSTALLER_RESULT_UNKNOWN" ? JobStatus.NeedsReview : JobStatus.Failed, e.Code);
   } catch { await End(job, JobStatus.NeedsReview, "UNEXPECTED_FAILURE"); }
+  finally { if (source != null) source.ProgressObserver = precedingObserver; }
   return job;
  }
  private async Task Activate(JobRecord job, CancellationToken cancellation) {
@@ -131,12 +138,15 @@ public sealed class Workflow(IOfficePlatform platform, IJobStore store) {
    job.Observation.TargetLicensed ? job.Action == ActionKind.Activate ? "ACTIVATION_COMPLETE" : "OFFICE_READY" : "ACTIVATION_FAILED");
  }
  private async Task Enter(JobRecord job, Stage stage, string code) {
-  job.Stage = stage; job.Status = JobStatus.Running; job.Code = code; job.UpdatedAt = DateTimeOffset.UtcNow;
+  job.Progress = null; job.Stage = stage; job.Status = JobStatus.Running; job.Code = code; job.UpdatedAt = DateTimeOffset.UtcNow;
   job.Events.Add(new(stage, code, job.UpdatedAt)); await store.SaveAsync(job);
  }
- private Task Pause(JobRecord job) => ExecutionSafety.RecordInstallerRestartAsync(job, store.SaveAsync);
+ private Task Pause(JobRecord job) {
+  job.Progress = null;
+  return ExecutionSafety.RecordInstallerRestartAsync(job, store.SaveAsync);
+ }
  private async Task End(JobRecord job, JobStatus status, string code) {
-  job.Status = status; job.Code = code; job.UpdatedAt = DateTimeOffset.UtcNow;
+  job.Progress = null; job.Status = status; job.Code = code; job.UpdatedAt = DateTimeOffset.UtcNow;
   if (status == JobStatus.Completed) job.Stage = Stage.Finished;
   job.Events.Add(new(job.Stage, code, job.UpdatedAt)); await store.SaveAsync(job);
  }

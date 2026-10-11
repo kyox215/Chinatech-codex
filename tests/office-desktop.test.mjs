@@ -52,12 +52,12 @@ test('independent 1.0 desktop covers fixed UI, workflow outcomes and placeholder
   for(const key of declaration.split(',').map(s=>s.trim()))assert.ok(messages[prefix+key],prefix+key);
  }
 });
-test('public 1.0.1 downloads use the approved architecture assets and exact binary checksums',()=>{
- const base='https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v1.0.1';
- assert.equal(officeDesktopRelease.version,'1.0.1');
+test('public 1.1.0 downloads use the approved architecture assets and exact binary checksums',()=>{
+ const base='https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v1.1.0';
+ assert.equal(officeDesktopRelease.version,'1.1.0');
  assert.deepEqual(officeDesktopRelease.files,[
-  {architecture:'x64',bytes:64918166,sha256:'4a3f3d37da8b2b61b09472be567b6939176eb5e8f0b69f5662cb621620ef821f',href:base+'/ChinaTech-Office-Assistant-x64.exe'},
-  {architecture:'ARM64',bytes:61071501,sha256:'8fe0c2e6e961f43b3286e5967413f432f5448bfe2cd2457dcde1293063e66eba',href:base+'/ChinaTech-Office-Assistant-ARM64.exe'},
+  {architecture:'x64',bytes:64931240,sha256:'2f40e78c84ae04a3d2b718abe483f8253e6acf0016ab4c8655856dcd09383641',href:base+'/ChinaTech-Office-Assistant-x64.exe'},
+  {architecture:'ARM64',bytes:61084575,sha256:'92cdb413043874d630e13f04c85950173e87c2600bd2730c19ae7e3d5c1aed53',href:base+'/ChinaTech-Office-Assistant-ARM64.exe'},
  ]);
  assert.equal(officeDesktopRelease.instructions,base+'/README.txt');
  assert.equal(officeDesktopRelease.checksums,base+'/SHA256SUMS.txt');
