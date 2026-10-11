@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0-windows</TargetFramework><EnableWindowsTargeting>true</EnableWindowsTargeting><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><TreatWarningsAsErrors>true</TreatWarningsAsErrors><AllowUnsafeBlocks>true</AllowUnsafeBlocks><DefineConstants>OFFICE_NATIVE_CHECKS</DefineConstants><PublishSingleFile>true</PublishSingleFile><SelfContained>true</SelfContained></PropertyGroup>
+ <ItemGroup><ProjectReference Include="../Core/OfficeCore.csproj"/><Compile Include="../Client/Journal.cs" Link="Journal.cs"/><Compile Include="../Client/OfficePlatform.cs" Link="OfficePlatform.cs"/><Compile Include="../Client/Coordinator.cs" Link="Coordinator.cs"/></ItemGroup>
+</Project>

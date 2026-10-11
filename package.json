@@ -17,7 +17,7 @@
     "test:login-devices": "node tests/login-devices.integration.mjs",
     "build:windows-toolbox": "node scripts/windows-toolbox/build.mjs",
     "test:windows-toolbox": "node --test tests/windows-toolbox.test.mjs",
-    "build:office-desktop": "python3 desktop/office-assistant/build.py",
+    "build:office-desktop": "python3 desktop/office-assistant/build.py --rid win-x64",
     "test:office-desktop": "node --test tests/office-desktop.test.mjs tests/office-desktop-admission.test.mjs tests/office-desktop-public.test.mjs",
     "test:android-transfer": "node --test tests/android-transfer.test.mjs"
   },

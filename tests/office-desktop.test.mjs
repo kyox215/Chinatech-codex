@@ -5,6 +5,7 @@ import {createHash,createDecipheriv,randomUUID} from 'node:crypto';
 import ts from 'typescript';
 const moduleUrl=(file)=>'data:text/javascript;base64,'+Buffer.from(ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64');
 const api=await import(moduleUrl('lib/toolbox/office-desktop-token.ts'));
+const {officeDesktopRelease}=await import(moduleUrl('lib/toolbox/office-desktop-release.ts'));
 const key=Buffer.alloc(32,17),now=Date.now();
 const session={v:1,licenseId:randomUUID(),installationId:randomUUID(),keyHash:'1'.repeat(64),revision:'1',epoch:'4',exp:now+600000};
 const rejected=(fn,code)=>assert.throws(fn,e=>e.code===code);
@@ -32,9 +33,37 @@ test('AES GCM authenticates action, epoch, expiry, job and script; randomized no
  for(const patch of [{action:'uninstall'},{version:'5'},{jobId:randomUUID()},{expiresAt:new Date(now+250000).toISOString()},{digest:'f'.repeat(64)},{tag:Buffer.alloc(16).toString('base64')}])assert.throws(()=>decode({...pkg,...patch}));assert.throws(()=>decode(pkg,'another session'));
  mkdirSync('.local/office-desktop/proof',{recursive:true});writeFileSync('.local/office-desktop/proof/protocol-fixture.json',JSON.stringify({package:pkg,token,clock:new Date(now).toISOString()}));
 });
-test('native messages cover every fixed UI key, phase and stable failure code in three languages',()=>{
- const messages=JSON.parse(readFileSync('desktop/office-assistant/messages.json','utf8'));for(const [id,translations]of Object.entries(messages)){assert.equal(translations.length,3,id);for(const text of translations)assert.ok(typeof text==='string'&&text.trim(),id);}
- const source=readFileSync('desktop/office-assistant/Client/Program.cs','utf8')+readFileSync('desktop/office-assistant/Client/Native.cs','utf8')+readFileSync('desktop/office-assistant/Client/Core.cs','utf8');
- const codes=[...source.matchAll(/(?:ToolException|T)\("([A-Z_a-z]+)"\)/g)].map(m=>m[1]);const runner=readFileSync('server-assets/office-desktop/runner.ps1.txt','utf8');codes.push(...[...runner.matchAll(/(?:Fail|Event) '([A-Z_a-z]+)'/g)].map(m=>m[1]));
- for(const code of codes)assert.ok(messages[code],code);for(const action of api.desktopActions)assert.ok(messages[action+'Info']);
+test('independent 1.0 desktop covers fixed UI, workflow outcomes and placeholders in three languages',()=>{
+ const base='desktop/office-assistant/';
+ const text=readFileSync(base+'Client/Text.cs','utf8');
+ const messages=Object.fromEntries([...text.matchAll(/\["([A-Za-z_0-9]+)"\]\s*=\s*(\[[^\n]+\]),/g)].map(m=>[m[1],JSON.parse(m[2])]));
+ assert.ok(Object.keys(messages).length>100,'complete UI dictionary');
+ for(const [id,translations]of Object.entries(messages)){
+  assert.equal(translations.length,3,id);
+  const slots=translations.map(value=>{assert.ok(value.trim(),id);return [...value.matchAll(/\{([0-9]+)\}/g)].map(m=>m[1]).sort().join(',');});
+  assert.equal(slots[0],slots[1],id);assert.equal(slots[0],slots[2],id);
+ }
+ const files=['Client/MainWindow.cs','Client/Coordinator.cs','Client/Journal.cs','Client/OfficePlatform.cs','Core/Models.cs','Core/Workflow.cs'];
+ const source=files.map(f=>readFileSync(base+f,'utf8')).join('\n');
+ for(const match of source.matchAll(/(?:OfficeFailure|T|Label|Button)\("([A-Z_a-z0-9]+)"/g))if(!['Stage_','Status_'].includes(match[1]))assert.ok(messages[match[1]],match[1]);
+ const model=readFileSync(base+'Core/Models.cs','utf8');
+ for(const [kind,prefix]of [['ActionKind',''],['Stage','Stage_'],['JobStatus','Status_']]){
+  const declaration=model.match(new RegExp('enum '+kind+' \{([^}]+)\}'))[1];
+  for(const key of declaration.split(',').map(s=>s.trim()))assert.ok(messages[prefix+key],prefix+key);
+ }
+});
+test('public 1.0 downloads use the approved architecture assets and exact binary checksums',()=>{
+ const base='https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v1.0.0';
+ assert.equal(officeDesktopRelease.version,'1.0.0');
+ assert.deepEqual(officeDesktopRelease.files,[
+  {architecture:'x64',bytes:64906101,sha256:'083430f68462fce09ea60e6a2e1de79a7d992fa600eb90c1e2416021f6a05d09',href:base+'/ChinaTech-Office-Assistant-x64.exe'},
+  {architecture:'ARM64',bytes:61059434,sha256:'2879c3b199b0ffe7467fe04899109bc1b8a86753ab7b07edf700bbf1b201035f',href:base+'/ChinaTech-Office-Assistant-ARM64.exe'},
+ ]);
+ assert.equal(officeDesktopRelease.instructions,base+'/README.txt');
+ assert.equal(officeDesktopRelease.checksums,base+'/SHA256SUMS.txt');
+});
+test('public 1.0 copy identifies a test release and the full replacement scope without old admission claims',()=>{
+ const source=readFileSync('components/toolbox/office-desktop-download.tsx','utf8');
+ for(const fact of ['测试版','独立运行','无需网站登录','八项应用全选','OneDrive','Skype for Business','语言跟随 Windows','全部旧 Office，包括 Visio 和 Project','保留个人文档','仍待 Windows 验收','尚未数字签名'])assert.ok(source.includes(fact),fact);
+ for(const obsolete of ['打开后自动联网检查','通过检查后','六个应用','激活只检查和使用已有有效许可'])assert.ok(!source.includes(obsolete),obsolete);
 });
