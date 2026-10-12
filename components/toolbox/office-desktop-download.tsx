@@ -10,7 +10,7 @@ export function OfficeDesktopDownload() {
   return <section className={`${styles.details} ${styles.desktopDownload}`} id="office-desktop" aria-labelledby="office-desktop-title">
     <h2 id="office-desktop-title">{t("Office 桌面助手")}</h2>
     <p>{t("版本 {version} 测试版 · Windows 11 · 使用本人 Windows 管理员账号 · 安装与激活需要联网", { version: officeDesktopRelease.version })}</p>
-    <p>{t("独立运行，无需网站登录或使用密钥。可选择一键安装并激活、仅激活或卸载，查看进度、处理建议及诊断报告。")}</p>
+    <p>{t("独立运行，无需网站登录或使用密钥。Fluent 风格界面提供安装与独立应用管理，查看任务进度和诊断记录。")}</p>
     <p>{t("安装 Office LTSC 专业增强版 2024（64 位）。八项应用默认全选，可单独选择安装：Access、Excel、OneDrive、OneNote、Outlook（经典版）、PowerPoint、Skype for Business、Word。")}</p>
     <p>{t("Office 安装语言跟随 Windows，其他语言回退英语，也可独立选择中文、意大利语或英语。")}</p>
     <p>{t("兼容的已有应用、Office 版本和语言会保留。卸载可选择检测到的项目，或移除全部 Office（包括 Visio 和 Project）；全部卸载默认保留 OneDrive。个人文档保留。")}</p>
