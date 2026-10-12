@@ -70,6 +70,7 @@ public sealed partial class MainWindow : Window
     private readonly Dictionary<string, TextBlock> _componentPresence = [];
     private readonly List<Border> _componentIcons = [];
     private readonly TextBlock _selectionCount = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Foreground = Muted };
+    private readonly TextBlock _compactProductName = new() { Text = "Office LTSC 2024", FontSize = 16, FontWeight = FontWeights.SemiBold, Visibility = Visibility.Collapsed };
     private readonly Grid _productRow = new();
     private readonly Grid _selectionToolbar = new();
     private readonly Grid _root = new();
@@ -179,7 +180,9 @@ public sealed partial class MainWindow : Window
         Grid.SetColumn(_officeLanguage, 1); _productRow.Children.Add(_officeLanguage); configuration.Children.Add(_productRow);
         _selectionToolbar.ColumnDefinitions.Add(new ColumnDefinition());
         for (var i = 0; i < 3; i++) _selectionToolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        _selectionToolbar.Children.Add(_selectionCount);
+        var selectionHeading = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        selectionHeading.Children.Add(_compactProductName); selectionHeading.Children.Add(_selectionCount);
+        _selectionToolbar.Children.Add(selectionHeading);
         _selectAll = Button("SelectAll", (_, _) => SetComponentSelection(Policy.Components));
         _clearSelection = Button("ClearSelection", (_, _) => SetComponentSelection([]));
         foreach (var (button, column) in new[] { (_selectAll, 1), (_clearSelection, 2) })
@@ -318,8 +321,11 @@ public sealed partial class MainWindow : Window
         _cards.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
         _actions.Margin = new Thickness(0, compact ? 6 : 10, 0, compact ? 6 : 10);
         _productName.FontSize = compact ? 16 : 18;
+        _productRow.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        _compactProductName.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
         _suiteIcon.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         foreach (var name in _componentNames.Values) name.FontSize = compact ? 12 : 13;
+        foreach (var choice in _componentChoices.Values) choice.Padding = new Thickness(compact ? 1 : 5, 3, compact ? 1 : 5, 3);
         _appManagement.Visibility = compact && (_executing || _workerActive) ? Visibility.Collapsed : Visibility.Visible;
         foreach (var icon in _componentIcons) icon.Visibility = compact && ActualWidth < 850 ? Visibility.Collapsed : Visibility.Visible;
         _progressCaption.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;

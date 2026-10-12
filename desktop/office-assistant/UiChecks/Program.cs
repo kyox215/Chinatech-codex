@@ -142,6 +142,10 @@ internal static class Program
                     ? Color.FromRgb(245, 244, 255) : Colors.White), prefix + " selected application has a purple border and pale selected surface " + id);
         }
         var compact = viewport.Window.Height < 660;
+        var product = Field<TextBlock>(window, compact ? "_compactProductName" : "_productName");
+        Check(InLayout(product, root) && product.Text == "Office LTSC 2024" && product.FontSize >= 16,
+            prefix + " full product version remains visible at the same compact font size");
+        Inside(product, root, prefix + " product version");
         Check(Field<TextBlock>(window, "_subline").Visibility == (compact ? Visibility.Collapsed : Visibility.Visible), prefix + " compact branch");
         Check(ReferenceEquals(Field<ComboBox>(window, "_officeLanguage").Parent, Field<Grid>(window, compact ? "_selectionToolbar" : "_productRow")), prefix + " installation language placement");
         Inside(Field<StackPanel>(window, "_progress"), root, prefix + " fixed progress card");
