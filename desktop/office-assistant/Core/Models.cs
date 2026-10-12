@@ -97,7 +97,7 @@ public sealed class OfficeFailure(string code, int? exitCode = null) : Exception
  public int? ExitCode { get; } = exitCode;
 }
 public static partial class Policy {
- public const string Version = "1.2.0";
+ public const string Version = "1.3.0";
  public const string TermsUrl = "https://www.microsoft.com/licensing/terms/productoffering/OfficeDesktopApplications/all";
  public static readonly string[] Components = ["Access", "Excel", "OneDrive", "OneNote", "Outlook", "PowerPoint", "Lync", "Word"];
  public static readonly string[] Languages = ["zh-cn", "it-it", "en-us"];
