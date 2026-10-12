@@ -54,7 +54,8 @@ public static partial class Coordinator {
   using var ui = Process.GetCurrentProcess();
   foreach (var argument in new[] { "--worker", request.Id.ToString("D"), request.Action.ToString(), request.Language,
    request.Server, request.ExpectedFingerprint, request.Resume ? "resume" : "new", sid,
-   Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture), ui.StartTime.ToUniversalTime().Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture) }) start.ArgumentList.Add(argument);
+   Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture), ui.StartTime.ToUniversalTime().Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture),
+   Convert.ToBase64String(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new SelectionPayload(request.SelectedComponents, request.RemovalMode, request.RemovalTargets), Reports.Json)) }) start.ArgumentList.Add(argument);
   Process worker;
   try { worker = Process.Start(start) ?? throw new OfficeFailure("PROCESS_START_FAILED"); }
   catch (Win32Exception e) when (e.NativeErrorCode == 1223) { throw new OfficeFailure("UAC_CANCELLED"); }
@@ -82,9 +83,14 @@ public static partial class Coordinator {
  }
  public static async Task<int> Worker(string[] args) {
   try {
-   if (args.Length != 10 || args[0] != "--worker" || !Guid.TryParseExact(args[1], "D", out var id)
+   if (args.Length is not (10 or 11) || args[0] != "--worker" || !Guid.TryParseExact(args[1], "D", out var id)
     || !Enum.TryParse<ActionKind>(args[2], false, out var action) || args[6] is not ("new" or "resume")) return 2;
-   var request = new JobRequest(id, action, args[3], args[4], args[5], args[6] == "resume"); Policy.Validate(request);
+   SelectionPayload? selection = null;
+   if (args.Length == 11) {
+    if (args[10].Length > 131072) return 2;
+    selection = System.Text.Json.JsonSerializer.Deserialize<SelectionPayload>(Convert.FromBase64String(args[10]), Reports.Json) ?? throw new OfficeFailure("REQUEST_INVALID");
+   }
+   var request = new JobRequest(id, action, args[3], args[4], args[5], args[6] == "resume") { SelectedComponents = selection?.SelectedComponents, RemovalMode = selection?.RemovalMode ?? RemovalMode.All, RemovalTargets = selection?.RemovalTargets }; Policy.Validate(request);
    using var identity = WindowsIdentity.GetCurrent();
    if (!new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator)) return 2;
    var actor = new SecurityIdentifier(args[7]);
@@ -95,13 +101,15 @@ public static partial class Coordinator {
    catch (IOException) { return 3; }
    using (lease) {
     var preceding = Latest();
-    var platform = new OfficePlatform();
-    await ExecutionSafety.VerifyRestartAsync(preceding, platform.BootIdAsync, () => OfficePlatform.InspectAsync());
+    var platform = new OfficePlatform(actorSid: actor.Value, actorPid: uiPid, actorStarted: uiStarted);
+    await ExecutionSafety.VerifyRestartAsync(preceding, platform.BootIdAsync, ((IOfficePlatform)platform).InspectAsync);
     var store = new Journal(id); store.Create();
     if (!request.Resume && File.Exists(Path.Combine(store.DirectoryPath, "job.json"))) return 2;
     var job = request.Resume ? store.Read() : new JobRecord { Id = id, Action = action, Language = request.Language,
-     Server = request.Server, ExpectedFingerprint = request.ExpectedFingerprint, ActorSid = actor.Value };
+     Server = request.Server, ExpectedFingerprint = request.ExpectedFingerprint, ActorSid = actor.Value, Schema = args.Length == 11 ? 2 : 1,
+     SelectedComponents = request.SelectedComponents?.ToArray(), RemovalMode = request.RemovalMode, RemovalTargets = request.RemovalTargets?.ToArray() };
     if (job.ActorSid != actor.Value || job.Action != action || job.Language != request.Language || job.Server != request.Server) return 2;
+    OfficeSelection.ValidateResume(job, request);
     // Start cancellation listener before inspection/download. It authorizes only a safe cancellation request.
     using var cancelled = new CancellationTokenSource(); using var listenerStop = new CancellationTokenSource();
     var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -109,7 +117,7 @@ public static partial class Coordinator {
     try {
      await ready.Task;
      if (!request.Resume) await store.SaveAsync(job);
-     await new Workflow(new OfficePlatform(store.DirectoryPath, actor.Value), store).RunAsync(job, request.Resume, cancelled.Token);
+     await new Workflow(new OfficePlatform(store.DirectoryPath, actor.Value, uiPid, uiStarted), store).RunAsync(job, request.Resume, cancelled.Token);
     } finally {
      listenerStop.Cancel();
      try { await listener; } catch (OperationCanceledException) { }
@@ -118,6 +126,7 @@ public static partial class Coordinator {
    }
   } catch { return 1; }
  }
+ private sealed record SelectionPayload(string[]? SelectedComponents, RemovalMode RemovalMode, string[]? RemovalTargets);
  private static bool VerifyActor(int pid, long started, SecurityIdentifier actor) {
   try {
    using var process = Process.GetProcessById(pid);

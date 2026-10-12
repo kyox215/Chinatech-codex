@@ -461,6 +461,145 @@ await Test("UI percentage never rounds incomplete bytes to one hundred", () => {
  Assert(PresentationPolicy.DisplayPercentage(progress with { Completed = -1 }) == null);
  return Task.CompletedTask;
 });
+Inventory Compatible(params string[] apps) {
+ var componentIds = apps.Length == 0 ? new[] { "Word" } : apps;
+ var suite = componentIds.Any(OfficeSelection.SuiteComponents.Contains);
+ var skype = componentIds.Contains("Lync");
+ var products = new List<C2rProductState>();
+ if (suite) products.Add(new(OfficeSelection.Suite, ["en-us", "it-it"], OfficeSelection.SuiteComponents.Except(componentIds).Concat(["Lync", "Groove", "OneDrive", "Teams", "Publisher"]).ToArray(), true));
+ if (skype) products.Add(new(OfficeSelection.Skype, ["en-us", "it-it"], ["Groove", "OneDrive", "Teams"], true));
+ return Fake.Empty with { OfficeProducts = products.Select(p => p.Id).ToArray(), C2rDetails = products.ToArray(), Platform = "x64", OfficeVersion = "16.0.1.1", SuiteLanguages = suite ? ["en-us", "it-it"] : [], SkypeLanguages = skype ? ["en-us", "it-it"] : [], Components = Policy.Components.Select(c => new ComponentState(c, componentIds.Contains(c))).ToArray() };
+}
+JobRecord SelectedJob(Inventory inventory, string[] components, ActionKind action = ActionKind.InstallActivate, string[]? targets = null, RemovalMode mode = RemovalMode.Selected) => new() { Schema = 2, Id = Guid.NewGuid(), Action = action, Language = "en-us", Server = "k.302.pub", ExpectedFingerprint = inventory.Fingerprint, SelectedComponents = components, RemovalTargets = targets, RemovalMode = mode };
+await Test("schema2 partial installation retains installed unselected apps and all languages", async () => {
+ var f = new Fake { Inventory = Compatible("Word") }; var j = SelectedJob(f.Inventory, ["Excel"]); await Run(f, j);
+ Assert(j.Status == JobStatus.Completed && f.Removes == 0 && f.Activations == 1 && OfficeSelection.ComponentsPresent(f.Inventory, ["Word", "Excel"]) && f.Inventory.C2rDetails.Single().Languages.SequenceEqual(["en-us", "it-it"]));
+ var xml = XDocument.Parse(Configuration.Selected("media", j, j.Media!.Version));
+ Assert(xml.Descendants("Language").Count() == 2 && !xml.Descendants("Remove").Any() && !xml.Descendants("RemoveMSI").Any());
+});
+await Test("schema2 incompatible MSI or foreign Office blocks before downloads or removals", async () => {
+ foreach (var inventory in new[] { Compatible("Word") with { MsiProducts = ["Microsoft Office 2016"] }, Compatible("Word") with { OfficeProducts = [OfficeSelection.Suite, "VisioPro2021Volume"] }, Compatible("Word") with { Platform = "x86" } }) {
+  var f = new Fake { Inventory = inventory }; var j = SelectedJob(inventory, ["Excel"]); await Run(f, j); Assert(j.Code == "OFFICE_INCOMPATIBLE" && f.Downloads == 0 && f.Removes == 0 && f.Installs == 0);
+ }
+});
+await Test("schema2 unknown exclusions fail closed without modifying Office", async () => {
+ var inventory = Compatible("Word") with { C2rDetails = [] }; var f = new Fake { Inventory = inventory }; var j = SelectedJob(inventory, ["Excel"]); await Run(f, j); Assert(j.Code == "OFFICE_CONFIGURATION_UNKNOWN" && f.Installs == 0);
+});
+await Test("schema2 individual suite removal retains other applications languages and Skype SKU", async () => {
+ var f = new Fake { Inventory = Compatible("Word", "Excel", "Lync") }; var j = SelectedJob(f.Inventory, ["Word"], ActionKind.Uninstall, ["c2r-app:" + OfficeSelection.Suite + ":Excel"]); await Run(f, j);
+ Assert(j.Status == JobStatus.Completed && OfficeSelection.ComponentsPresent(f.Inventory, ["Word", "Lync"]) && !OfficeSelection.ComponentsPresent(f.Inventory, ["Excel"]) && f.Inventory.OfficeProducts.Contains(OfficeSelection.Skype));
+ var xml = XDocument.Parse(Configuration.Selected("media", j, "16.0.1.1", true)); Assert(!xml.Descendants("Remove").Any() && xml.Descendants("Language").Any(l => (string?)l.Attribute("ID") == "it-it") && (string?)xml.Root!.Element("Add")!.Attribute("Version") == "16.0.1.1");
+});
+await Test("schema2 last suite app removal removes only suite and leaves independent Skype", async () => {
+ var f = new Fake { Inventory = Compatible("Word", "Lync") }; var j = SelectedJob(f.Inventory, ["Word"], ActionKind.Uninstall, ["c2r-app:" + OfficeSelection.Suite + ":Word"]); await Run(f, j);
+ Assert(j.Status == JobStatus.Completed && !f.Inventory.OfficeProducts.Contains(OfficeSelection.Suite) && f.Inventory.OfficeProducts.Contains(OfficeSelection.Skype));
+ var xml = XDocument.Parse(Configuration.Selected("media", j, null, true)); Assert((string?)xml.Root!.Element("Remove")!.Attribute("All") == "FALSE" && xml.Descendants("Remove").Descendants("Product").Single().Attribute("ID")!.Value == OfficeSelection.Suite && !xml.Descendants("RemoveMSI").Any());
+});
+await Test("schema2 exact foreign C2R removal preserves unrelated Office products", async () => {
+ var f = new Fake { Inventory = Compatible("Word") with { OfficeProducts = [OfficeSelection.Suite, "VisioPro2021Volume", "ProjectPro2021Volume"] } }; var j = SelectedJob(f.Inventory, ["Word"], ActionKind.Uninstall, ["c2r-product:VisioPro2021Volume"]); await Run(f, j); Assert(j.Status == JobStatus.Completed && f.Inventory.OfficeProducts.SequenceEqual([OfficeSelection.Suite, "ProjectPro2021Volume"]));
+});
+await Test("schema2 selected MSI uses only verified exact GUID and preserves other MSI", async () => {
+ var a = new MsiProductState("{11111111-1111-1111-1111-111111111111}", "Microsoft Office 2016", true); var b = new MsiProductState("{22222222-2222-2222-2222-222222222222}", "Microsoft Visio 2016", true);
+ var f = new Fake { Inventory = Fake.Empty with { MsiProducts = [a.DisplayName, b.DisplayName], MsiDetails = [a, b] } }; var j = SelectedJob(f.Inventory, ["Word"], ActionKind.Uninstall, ["msi:" + a.ProductCode]); await Run(f, j); Assert(j.Status == JobStatus.Completed && f.Inventory.MsiDetails.SequenceEqual([b]));
+ var unsupported = f.Inventory with { MsiDetails = [b with { Verified = false }] }; var u = new Fake { Inventory = unsupported }; var rejected = SelectedJob(unsupported, ["Word"], ActionKind.Uninstall, ["msi:" + b.ProductCode]); await Run(u, rejected); Assert(rejected.Code == "MSI_IDENTITY_UNVERIFIED" && u.Removes == 0);
+});
+await Test("schema2 all mode freezes exact IDs preserves OneDrive and contains no broad removal", async () => {
+ var od = new OneDriveState("onedrive:user:" + new string('A', 64), "user", "sid", "profile/OneDrive.exe", "1", true, "");
+ var baseline = Compatible("Word") with { OneDriveDetails = [od], Components = Policy.Components.Select(c => new ComponentState(c, c is "Word" or "OneDrive")).ToArray() };
+ var f = new Fake { Inventory = baseline }; var j = SelectedJob(baseline, ["Word"], ActionKind.Uninstall, ["c2r-product:" + OfficeSelection.Suite], RemovalMode.All); await Run(f, j);
+ Assert(j.Status == JobStatus.Completed && f.Inventory.OneDriveDetails.SequenceEqual([od]) && j.SelectionPlan!.OneDriveIds.Length == 0 && j.SelectionPlan.RemoveProducts.SequenceEqual([OfficeSelection.Suite]));
+ var invalid = SelectedJob(baseline, ["Word"], ActionKind.Uninstall, [od.Id], RemovalMode.All); await Run(new Fake { Inventory = baseline }, invalid); Assert(invalid.Code == "REMOVAL_SELECTION_INVALID");
+});
+await Test("schema2 OneDrive explicit user selection removes only detected app and machine scope is unsupported", async () => {
+ var od = new OneDriveState("onedrive:user:" + new string('A', 64), "user", "sid", "profile/OneDrive.exe", "1", true, "");
+ var baseline = Compatible("Word") with { OneDriveDetails = [od] }; var f = new Fake { Inventory = baseline }; var j = SelectedJob(baseline, ["OneDrive"], ActionKind.Uninstall, [od.Id]); await Run(f, j); Assert(j.Status == JobStatus.Completed && f.Inventory.OfficeProducts.Contains(OfficeSelection.Suite) && f.Inventory.OneDriveDetails.Length == 0);
+ var machine = od with { Id = "onedrive:machine:" + new string('B', 64), Scope = "machine", Supported = false, ReasonCode = "ONEDRIVE_SCOPE_UNSUPPORTED" }; var unsupported = baseline with { OneDriveDetails = [machine] }; var u = new Fake { Inventory = unsupported }; var rejected = SelectedJob(unsupported, ["OneDrive"], ActionKind.Uninstall, [machine.Id]); await Run(u, rejected); Assert(rejected.Code == "ONEDRIVE_SCOPE_UNSUPPORTED" && u.Removes == 0 && OfficeSelection.GetRemovalOptions(unsupported).Single(o => o.RawKind == "onedrive-machine").Supported == false);
+});
+await Test("schema2 OneDrive-only installation requires no Office products or activation", async () => {
+ var f = new Fake { Inventory = Fake.Empty, OneDriveNeedsInstall = true }; var j = SelectedJob(f.Inventory, ["OneDrive"]); await Run(f, j); Assert(j.Status == JobStatus.Completed && f.Installs == 0 && f.Activations == 0 && OfficeSelection.RequiredProducts(["OneDrive"]).Length == 0);
+});
+await Test("schema2 requested product licensing ignores unrelated absent Skype", () => { var inventory = Compatible("Word") with { Licenses = [Fake.ValidLicenses[0]] }; Assert(OfficeSelection.InstalledForSelection(inventory, ["Word"]) && OfficeSelection.LicensedForSelection(inventory, ["Word"]) && !OfficeSelection.LicensedForSelection(inventory, ["Word", "Lync"]) && OfficeSelection.LicensedForSelection(inventory with { LicenseError = "bad" }, ["OneDrive"])); return Task.CompletedTask; });
+await Test("schema2 arbitrary duplicate empty selection and targets are rejected", () => {
+ foreach (var selected in new[] { Array.Empty<string>(), new[] { "Word", "Word" }, new[] { "Word;evil" } }) { try { Policy.Validate(new(Guid.NewGuid(), ActionKind.InstallActivate, "en-us", "k.302.pub", new string('A', 64)) { SelectedComponents = selected }); throw new Exception("invalid selection accepted"); } catch (OfficeFailure e) { Assert(e.Code == "SELECTION_INVALID"); } }
+ try { Policy.Validate(new(Guid.NewGuid(), ActionKind.Uninstall, "en-us", "k.302.pub", new string('A', 64)) { RemovalMode = RemovalMode.Selected, RemovalTargets = ["msi:display-name"] }); throw new Exception("invalid target accepted"); } catch (OfficeFailure e) { Assert(e.Code == "REMOVAL_SELECTION_INVALID"); }
+ return Task.CompletedTask;
+});
+await Test("schema2 frozen selections survive serialization and reject changed resume payload", () => {
+ var j = SelectedJob(Compatible("Word"), ["Excel"]); j.SelectionPlan = OfficeSelection.Freeze(j, Compatible("Word")); var restored = JsonSerializer.Deserialize<JobRecord>(JsonSerializer.Serialize(j, Reports.Json), Reports.Json)!; OfficeSelection.ValidatePlan(restored);
+ var request = new JobRequest(j.Id, j.Action, j.Language, j.Server, j.ExpectedFingerprint, true) { SelectedComponents = ["Word"], RemovalMode = j.RemovalMode };
+ try { OfficeSelection.ValidateResume(restored, request); throw new Exception("selection mutated"); } catch (OfficeFailure e) { Assert(e.Code == "RESUME_SELECTION_CHANGED"); }
+ return Task.CompletedTask;
+});
+await Test("schema2 inventory app MSI and OneDrive changes invalidate confirmation", () => {
+ var baseline = Compatible("Word"); Assert(baseline.Fingerprint != (baseline with { Components = [] }).Fingerprint && baseline.Fingerprint != (baseline with { MsiDetails = [new("{11111111-1111-1111-1111-111111111111}", "Office", true)] }).Fingerprint && baseline.Fingerprint != (baseline with { OneDriveDetails = [new("onedrive:user:" + new string('A', 64), "user", "sid", "path", "version", true, "")] }).Fingerprint); return Task.CompletedTask;
+});
+await Test("schema2 fresh unconfirmed product during preparation stops all removal", async () => {
+ var baseline = Compatible("Word"); var f = new Fake { Inventory = baseline, ChangeAfterRemovalPreparation = true }; var j = SelectedJob(baseline, ["Word"], ActionKind.Uninstall, ["c2r-product:" + OfficeSelection.Suite], RemovalMode.All); await Run(f, j); Assert(j.Code == "ENVIRONMENT_CHANGED" && f.Removes == 0);
+});
+await Test("schema2 cancellation after removal records completed facts and never activates", async () => {
+ using var token = new CancellationTokenSource(); var baseline = Compatible("Word", "Excel"); var f = new Fake { Inventory = baseline, CancelAfterRemove = token }; var j = SelectedJob(baseline, ["Word"], ActionKind.Uninstall, ["c2r-app:" + OfficeSelection.Suite + ":Excel"]); await Run(f, j, token: token.Token); Assert(j.Removed && f.Installs == 0 && f.Activations == 0);
+});
+await Test("schema2 unknown partial removal is never replayed", async () => {
+ var baseline = Compatible("Word", "Excel"); var f = new Fake { Inventory = baseline }; var j = SelectedJob(baseline, ["Word"], ActionKind.Uninstall, ["c2r-app:" + OfficeSelection.Suite + ":Excel"]); j.SelectionPlan = OfficeSelection.Freeze(j, baseline); j.RemovalStarted = true; j.CurrentRemovalStep = "c2r"; await Run(f, j, true); Assert(j.Status == JobStatus.NeedsReview && j.Code == "REMOVAL_UNKNOWN" && f.Removes == 0);
+});
+await Test("schema2 real reboot return is recovered without replaying completed exact removal", async () => {
+ var baseline = Compatible("Word", "Excel"); var f = new Fake { Inventory = baseline, RemoveExit = 3010 }; var j = SelectedJob(baseline, ["Word"], ActionKind.Uninstall, ["c2r-app:" + OfficeSelection.Suite + ":Excel"]); await Run(f, j); Assert(j.Status == JobStatus.AwaitingRestart && f.Removes == 1); f.Boot = "2000"; await Run(f, j, true); Assert(j.Status == JobStatus.Completed && f.Removes == 1);
+});
+await Test("schema2 installation reboot recovery preserves selected plan and skips removal", async () => {
+ var baseline = Compatible("Word"); var f = new Fake { Inventory = baseline, InstallExit = 3010 }; var j = SelectedJob(baseline, ["Excel"]); await Run(f, j); Assert(j.Status == JobStatus.AwaitingRestart); f.Boot = "2000"; await Run(f, j, true); Assert(j.Status == JobStatus.Completed && f.Installs == 1 && f.Removes == 0);
+});
+await Test("legacy null selections still use all eight and original full-install semantics", () => { Assert(OfficeSelection.Selected(New()).SequenceEqual(Policy.Components) && OfficeSelection.Selected(new JobRequest(Guid.NewGuid(), ActionKind.InstallActivate, "en-us", "k.302.pub", new string('A', 64))).SequenceEqual(Policy.Components)); return Task.CompletedTask; });
+await Test("schema2 unknown result after reboot accepts verified completed target without replay", async () => {
+ var baseline = Compatible("Word", "Excel"); var f = new Fake { Inventory = baseline }; var j = SelectedJob(baseline, ["Word"], ActionKind.Uninstall, ["c2r-app:" + OfficeSelection.Suite + ":Excel"]); j.SelectionPlan = OfficeSelection.Freeze(j, baseline);
+ await f.RemoveAsync(j); j.CurrentRemovalStep = "c2r"; j.CompletedRemovalSteps = []; j.RemovalStarted = true; j.InstallerStarted = true; j.InstallerBoot = "1000"; j.InstallerExitCode = null; j.Stage = Stage.Remove; f.Boot = "2000";
+ await Run(f, j, true); Assert(j.Status == JobStatus.Completed && f.Removes == 1 && j.Removed);
+});
+await Test("schema2 tampered persisted plan is rejected before operations", async () => {
+ var baseline = Compatible("Word"); var f = new Fake { Inventory = baseline }; var j = SelectedJob(baseline, ["Excel"]); j.SelectionPlan = OfficeSelection.Freeze(j, baseline) with { Components = ["Access"] }; await Run(f, j, true); Assert(j.Code == "JOURNAL_INVALID" && f.Installs == 0 && f.Removes == 0);
+});
+await Test("schema2 activation can target suite only while foreign products remain untouched", async () => {
+ var baseline = Compatible("Word") with { OfficeProducts = [OfficeSelection.Suite, "VisioPro2021Volume"] }; var f = new Fake { Inventory = baseline }; var j = SelectedJob(baseline, ["Word"], ActionKind.Activate); await Run(f, j);
+ Assert(j.Status == JobStatus.Completed && f.Removes == 0 && f.Installs == 0 && f.Activations == 1 && f.Inventory.OfficeProducts.SequenceEqual(baseline.OfficeProducts));
+});
+await Test("schema2 report removes OneDrive actor identity and path from both projections", () => {
+ var baseline = Compatible("Word") with { OneDriveDetails = [new("onedrive:user:" + new string('A', 64), "user", "PRIVATE-ACTOR", "PRIVATE-LOCAL-PATH", "1", true, "")] }; var j = SelectedJob(baseline, ["Word"]); j.Observation = baseline; var report = Reports.Export(baseline, j, "en"); Assert(!report.Contains("PRIVATE-ACTOR") && !report.Contains("PRIVATE-LOCAL-PATH")); return Task.CompletedTask;
+});
+await Test("schema1 persisted historical fingerprint still accepts unchanged detected inventory", async () => {
+ var f = new Fake(); var j = New(); j.ExpectedFingerprint = f.Inventory.LegacyFingerprint; await Run(f, j); Assert(j.Status == JobStatus.Completed && f.Removes == 1 && f.Installs == 1);
+});
+await Test("schema2 All cannot silently omit an unsafe or newly detected Office product", async () => {
+ var baseline = Compatible("Word") with { MsiProducts = ["Microsoft Office unknown"] }; var f = new Fake { Inventory = baseline }; var j = SelectedJob(baseline, ["Word"], ActionKind.Uninstall, ["c2r-product:" + OfficeSelection.Suite], RemovalMode.All); await Run(f, j); Assert(j.Code == "MSI_IDENTITY_UNVERIFIED" && f.Removes == 0);
+ var additional = Compatible("Word") with { OfficeProducts = [OfficeSelection.Suite, "VisioPro2021Volume"] }; f = new Fake { Inventory = additional }; j = SelectedJob(additional, ["Word"], ActionKind.Uninstall, ["c2r-product:" + OfficeSelection.Suite], RemovalMode.All); await Run(f, j); Assert(j.Code == "REMOVAL_SELECTION_INVALID" && f.Removes == 0);
+});
+await Test("schema2 installer cannot ignore exclusions and silently install unselected apps", () => {
+ var baseline = Fake.Empty with { Components = Policy.Components.Select(c => new ComponentState(c, false)).ToArray() }; var job = SelectedJob(baseline, ["Word"]); job.SelectionPlan = OfficeSelection.Freeze(job, baseline);
+ var wrong = Compatible("Word", "Excel"); Assert(!OfficeSelection.MatchesPlan(wrong, job)); return Task.CompletedTask;
+});
+await Test("schema2 suite-only activation failure suggests activation of the original selection", () => {
+ var inventory = Compatible("Word"); var job = SelectedJob(inventory, ["Word"]); job.Status = JobStatus.InstalledUnlicensed; job.Installed = true; Assert(PresentationPolicy.Primary(job, inventory, true) == PrimaryOperation.Activate); return Task.CompletedTask;
+});
+await Test("schema2 conflicting binary and effective exclusion never broadens per-app removal", () => {
+ var baseline = Compatible("Word", "Excel"); baseline = baseline with { C2rDetails = baseline.C2rDetails.Select(p => p with { ExcludedApps = p.ExcludedApps.Concat(["Word"]).ToArray() }).ToArray() };
+ Assert(OfficeSelection.InstallBlocker(baseline, ["Excel"]) == "OFFICE_CONFIGURATION_UNKNOWN");
+ Assert(OfficeSelection.GetRemovalOptions(baseline).Where(o => o.RawKind == "component").All(o => !o.Supported));
+ var job = SelectedJob(baseline, ["Word"], ActionKind.Uninstall, ["c2r-app:" + OfficeSelection.Suite + ":Excel"]);
+ try { OfficeSelection.Freeze(job, baseline); throw new Exception("conflicting plan accepted"); } catch (OfficeFailure e) { Assert(e.Code == "OFFICE_CONFIGURATION_UNKNOWN"); }
+ Assert(OfficeSelection.GetRemovalOptions(baseline).Single(o => o.RawKind == "c2r").Supported); return Task.CompletedTask;
+});
+await Test("schema2 preserves non-preset application exclusions on add and per-app removal", () => {
+ var baseline = Compatible("Word", "Excel"); baseline = baseline with { C2rDetails = baseline.C2rDetails.Select(p => p with { ExcludedApps = p.ExcludedApps.Except(["Publisher", "Groove", "Teams"]).ToArray() }).ToArray() };
+ var add = SelectedJob(baseline, ["Access"]); add.SelectionPlan = OfficeSelection.Freeze(add, baseline);
+ Assert(!add.SelectionPlan.Products.Single().ExcludedApps.Intersect(["Publisher", "Groove", "Teams"]).Any());
+ var remove = SelectedJob(baseline, ["Word"], ActionKind.Uninstall, ["c2r-app:" + OfficeSelection.Suite + ":Excel"]); remove.SelectionPlan = OfficeSelection.Freeze(remove, baseline);
+ Assert(!remove.SelectionPlan.Products.Single().ExcludedApps.Intersect(["Publisher", "Groove", "Teams"]).Any());
+ var changed = baseline with { C2rDetails = baseline.C2rDetails.Select(p => p with { ExcludedApps = p.ExcludedApps.Concat(["Publisher"]).ToArray() }).ToArray() };
+ Assert(!OfficeSelection.Preserved(changed, add)); return Task.CompletedTask;
+});
+await Test("schema2 keeps configured unselected application when its executable is missing", () => {
+ var baseline = Compatible("Word", "Excel"); baseline = baseline with { Components = baseline.Components.Select(c => c.Id == "Excel" ? c with { Present = false } : c).ToArray() };
+ var job = SelectedJob(baseline, ["Word"]); var plan = OfficeSelection.Freeze(job, baseline);
+ Assert(!plan.Products.Single().ExcludedApps.Contains("Excel")); return Task.CompletedTask;
+});
 Console.WriteLine($"FINAL: {passed} meaningful workflow checks passed; Office boundaries are synthetic.");
 
 sealed class ResponseFixture(Stream body) : HttpMessageHandler {
@@ -502,6 +641,7 @@ sealed class Fake : IOfficePlatform, IJobStore, IOfficeProgressSource {
  public static readonly Inventory Ready = Empty with { OfficeProducts = ["ProPlus2024Volume", "SkypeforBusiness2024Volume"], Platform = "x64", OfficeVersion = "16.0.1.1", SuiteLanguages = ["en-us"], SkypeLanguages = ["en-us"], Components = Policy.Components.Select(id => new ComponentState(id, true)).ToArray() };
  public static readonly LicenseState[] ValidLicenses = [new("ProPlus2024Volume", 1, 259200), new("SkypeforBusiness2024Volume", 1, 259200)];
  public Inventory Inventory = Old;
+ public bool ChangeAfterRemovalPreparation;
  public bool DownloadFails, MediaFails, MissingSkype, ActivationFails, WrongLicense, OnlySuiteLicense, ChangeAfterDownload, LeaveProducts, ForeignAfterRemove;
  public bool WrongPlatform, WrongLanguage, MissingSkypeSku, LostDuringActivation, LicenseErrorAfterActivation;
  public int Removes, Installs, Activations, Downloads, RemoveExit, InstallExit;
@@ -536,9 +676,28 @@ sealed class Fake : IOfficePlatform, IJobStore, IOfficeProgressSource {
   return new MediaState("16.0.1.1", "hash", []);
  }
  public Task VerifyMediaAsync(JobRecord job) { if (MediaFails) throw new OfficeFailure("MEDIA_CHANGED"); return Task.CompletedTask; }
- public Task PrepareRemovalAsync(JobRecord job, CancellationToken cancellation) => Task.CompletedTask;
- public Task<int> RemoveAsync(JobRecord job) { Removes++; if (!LeaveProducts) Inventory = ForeignAfterRemove ? Empty with { OfficeProducts = ["Foreign"] } : Empty; CancelAfterRemove?.Cancel(); return Task.FromResult(RemoveExit); }
+ public Task PrepareRemovalAsync(JobRecord job, CancellationToken cancellation) { if (ChangeAfterRemovalPreparation) Inventory = Inventory with { OfficeProducts = Inventory.OfficeProducts.Concat(["FreshProduct"]).ToArray() }; return Task.CompletedTask; }
+ public Task<int> RemoveAsync(JobRecord job) {
+  if (job.Schema == 2) {
+   Removes++; var plan = job.SelectionPlan!; job.CurrentRemovalStep = "c2r";
+   Inventory = Inventory with {
+    OfficeProducts = Inventory.OfficeProducts.Except(plan.RemoveProducts).ToArray(),
+    MsiDetails = Inventory.MsiDetails.Where(m => !plan.MsiProductCodes.Contains(m.ProductCode)).ToArray(),
+    MsiProducts = Inventory.MsiProducts.Where(title => !plan.Baseline.MsiDetails.Any(m => plan.MsiProductCodes.Contains(m.ProductCode) && m.DisplayName == title)).ToArray(),
+    OneDriveDetails = Inventory.OneDriveDetails.Where(d => !plan.OneDriveIds.Contains(d.Id)).ToArray(),
+    C2rDetails = Inventory.C2rDetails.Where(d => !plan.RemoveProducts.Contains(d.Id)).Select(d => plan.Products.FirstOrDefault(p => p.Id == d.Id) is { } change ? d with { ExcludedApps = change.ExcludedApps } : d).ToArray(),
+    Components = Inventory.Components.Select(c => c with { Present = c.Present && !(plan.RemoveProducts.Contains(OfficeSelection.Suite) && OfficeSelection.SuiteComponents.Contains(c.Id)) && !(plan.RemoveProducts.Contains(OfficeSelection.Skype) && c.Id == "Lync") && !(plan.Products.Any(p => p.ExcludedApps.Contains(c.Id) && (c.Id != "Lync" || p.Id == OfficeSelection.Skype))) && !(plan.OneDriveIds.Length != 0 && c.Id == "OneDrive") }).ToArray()
+   };
+   if (!Policy.RebootExit(RemoveExit)) { job.CurrentRemovalStep = null; if (plan.RemoveProducts.Length != 0 || plan.Products.Length != 0) job.CompletedRemovalSteps = ["c2r"]; }
+   CancelAfterRemove?.Cancel(); return Task.FromResult(RemoveExit);
+  }
+  Removes++; if (!LeaveProducts) Inventory = ForeignAfterRemove ? Empty with { OfficeProducts = ["Foreign"] } : Empty; CancelAfterRemove?.Cancel(); return Task.FromResult(RemoveExit); }
  public Task<int> InstallAsync(JobRecord job) {
+  if (job.Schema == 2) {
+   Installs++; var plan = job.SelectionPlan!;
+   Inventory = Inventory with { OfficeProducts = Inventory.OfficeProducts.Concat(plan.Products.Select(p => p.Id)).Distinct().ToArray(), OfficeVersion = job.Media!.Version, Platform = "x64", C2rDetails = Inventory.C2rDetails.Where(p => !plan.Products.Any(change => change.Id == p.Id)).Concat(plan.Products.Select(p => new C2rProductState(p.Id, p.Languages, p.ExcludedApps, true))).ToArray(), Components = Policy.Components.Select(c => new ComponentState(c, Inventory.Components.Any(old => old.Id == c && old.Present) || plan.Components.Contains(c) && c != "OneDrive")).ToArray() };
+   CancelAfterInstall?.Cancel(); return Task.FromResult(InstallExit);
+  }
   Installs++; Inventory = MissingSkype ? Ready with { Components = Ready.Components.Select(x => x.Id == "Lync" ? x with { Present = false } : x).ToArray() } : Ready;
   if (WrongPlatform) Inventory = Inventory with { Platform = "x86" };
   if (WrongLanguage) Inventory = Inventory with { SuiteLanguages = ["it-it"] };
@@ -549,7 +708,7 @@ sealed class Fake : IOfficePlatform, IJobStore, IOfficeProgressSource {
  public async Task EnsureOneDriveAsync(JobRecord job, CancellationToken cancellation) {
   if (!OneDriveNeedsInstall) return;
   await ExecutionSafety.RecordInstallerStartAsync(job, BootIdAsync, SaveAsync);
-  OneDriveRuns++; OneDriveNeedsInstall = false; Inventory = Inventory with { Components = Inventory.Components.Select(c => c.Id == "OneDrive" ? c with { Present = true } : c).ToArray() };
+  OneDriveRuns++; OneDriveNeedsInstall = false; Inventory = Inventory with { Components = Inventory.Components.Any(c => c.Id == "OneDrive") ? Inventory.Components.Select(c => c.Id == "OneDrive" ? c with { Present = true } : c).ToArray() : Inventory.Components.Concat([new ComponentState("OneDrive", true)]).ToArray() };
   await ExecutionSafety.RecordInstallerExitAsync(job, OneDriveExit, SaveAsync);
   if (Policy.RebootExit(OneDriveExit)) throw new OfficeFailure("ONEDRIVE_RESTART_REQUIRED", OneDriveExit);
  }

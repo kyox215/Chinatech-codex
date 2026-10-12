@@ -1,51 +1,33 @@
-# ChinaTech Office 助手 1.1
+# ChinaTech Office 助手 1.2
 
-全新独立 Windows WPF 助手。固定 Office LTSC Professional Plus 2024 64 位，Access、Excel、OneDrive、OneNote、经典 Outlook、PowerPoint、Skype for Business、Word 全部纳入安装和核验。界面提供中文、意大利语、英语；Office 安装语言默认跟随 Windows，可单独调整。
+独立 Windows WPF 助手，安装 Office LTSC Professional Plus 2024 64 位。八项默认全选，可分别选择 Access、Excel、OneDrive、OneNote、经典 Outlook、PowerPoint、Skype for Business、Word。界面与安装语言分别选择中文、意大利语、英语。
 
-运行测试候选包，重新检测后选择“一键安装并激活”。确认全部旧 Office、Visio、Project 的移除范围，并阅读和接受微软条款，再允许 Windows 管理员权限提示。助手先准备微软签名 ODT、固定版本 Office 媒体及需要的 OneDrive 安装器，准备失败不移除旧 Office。全程不读取或删除用户文档，也不卸载 OneDrive 或清理账户配置。
+兼容已有应用使用增量配置，保留原版本、全部语言和未选应用；版本、位数或产品不兼容时先明确选择卸载。组件配置与文件冲突时停止单项修改，可选择整套产品移除。套件及 Skype 按所选 SKU 核验授权。
 
-检测到 CBS、Windows Update、文件重命名待重启只显示建议。安装器实际返回需要重启时保存任务并暂停；必须重启 Windows 后再继续，关闭重开助手不等于重启。发生取消或中断后，已经完成卸载的任务只继续安装；组件缺失重新安装组件；安装完成但激活失败可以“单独激活”。未知卸载结果停止自动重放，先重新检测并核对。安装器执行中取消只记录请求，等待其结束，不强杀安装进程。
+卸载先重新检测，再选择应用或全部 Office。全部 Office 包括检测到的 Visio、Project，保留 OneDrive；MSI 产品按已核验 GUID 整项移除。OneDrive 仅支持原 UI 账户卸载，停止同步但不删除本地或云端文件；先下载仅在线文件并关闭 OneDrive；卸载期间保持助手窗口打开。机器级 OneDrive 明确不支持，由 Windows 设置处理。个人文档不列入移除范围。
 
-安装与激活按 [kms.cx](https://kms.cx/) 的产品选择和 Office 执行流程重新编写。ODT 从微软官网下载并验签，XML 在受保护的本机目录生成。安装固定 `ProPlus2024Volume`、`SkypeforBusiness2024Volume`、`PerpetualVL2024` 和 64 位，显式设置同一语言。Skype 单独检查 `LYNC.EXE`；已有 OneDrive 复用，缺失时采用微软签名安装器。激活前确认网站当前默认服务器及备用 `k.302.pub`，使用微软 `ospp.vbs`，重新读取两个目标许可的真实状态和宽限期。报告显示实际使用的服务器；完整密钥和私人文件路径不写报告。
-
-本版本取消旧联网准入、会话、取包和远程脚本依赖。后台执行的是同一 EXE 的提权 worker；任务日志和媒体在 `%ProgramData%\ChinaTech.OfficeAssistant1`，仅 Administrators 和 SYSTEM 可写，普通用户可读。任务在机器上使用一个独占锁；取消管道只接受取消指令并限定用户 SID。恢复任务须为原账户，后台启动确认后可关闭界面并重新打开查看。
-
-## 1.1 流程与进度
-
-先完成三语交互预览，再实现原生卡片界面、固定底部进度区和折叠详情。安装／移除不显示微软完成窗口；真正运行的安装器仍阻止激活，最多等候五分钟，可取消。超时保留已安装套件，重新检测后从原任务继续激活；组件缺失从原任务修复，不重复卸载。
-
-下载只按实际写入字节显示；总长度未知时不计算百分比。校验只按实际完成的文件数显示。Office 下载、安装、移除和激活没有接入已核实的数字进度来源，仅显示阶段、用时和活动条。百分比属于当前操作，不是全流程估计；未完成不舍入为100%。详项目内 `docs/Office助手1.1流程与界面优化20261012.md`；预览 `docs/previews/office-assistant-ui.html` 不执行Office操作。
+主界面不使用滚动容器；其他操作使用独立菜单，按钮固定高度。检测与任务记录在弹窗查看。任务持久化保存原选择与移除范围，恢复不能扩大选择；旧 Schema1 任务仍遵守旧全量范围并明确提示。真实下载字节、文件核验数量显示百分比，无法可靠测量的阶段显示活动条和用时。安装器收尾最多五分钟，未知结果不会重复执行破坏性步骤。
 
 ## 构建与验证
 
-在项目根目录运行：
+`python3 desktop/office-assistant/build.py --rid win-x64`，ARM 使用 `--rid win-arm64`。SDK 10.0.401。CoreTests 使用合成 Office 边界；UiChecks 在 Windows 测量真实 WPF 控件、使用合成库存，不运行安装器或激活。WindowsChecks 包含真实只读检测和隔离任务存储探针，仅编译不能证明运行通过。
 
-```sh
-python3 desktop/office-assistant/build.py --rid win-x64
-python3 desktop/office-assistant/build.py --rid win-arm64
-.local/office-desktop/toolchain/dotnet/dotnet run --project desktop/office-assistant/CoreTests/CoreTests.csproj -c Release
-```
-
-依赖来自官方 NuGet 源，保持严格警告检查。构建输出位于 `.local/office-rebuild-1.0/dist`。`CoreTests` 使用模拟 Office 边界验证恢复、取消、重启和失败分支；`WindowsChecks` 只检查原生检测、ACL、日志、锁和取消管道，其日志在独立 NativeChecks 目录，不操作 Office。它们不能替代真实界面、UAC、八项安装、激活与卸载验收。
-
-源码 ZIP 保留 `desktop/office-assistant/` 目录结构。在解压根目录使用已安装的 .NET 10 SDK 可运行 `python3 desktop/office-assistant/build.py --dotnet dotnet --rid win-x64`；ARM64 将 RID 改为 `win-arm64`。项目内 `npm run build:office-desktop` 默认构建 x64。
-
-双架构 EXE 为未签名的测试候选版；`manifest.json` 保持 `releaseReady=false`。1.1 当前仅为本地候选，未公开发布或更新官网；此前版本发布状态以对应 Release 和验证记录为准。完整 Windows 验收通过前不能标为稳定版。
+这是未签名测试版。完整 Windows GUI、UAC、Office 安装/激活/卸载、OneDrive 原账户卸载及真实文档保留尚待验收。部署与许可需适用的微软条款和有效授权。
 
 ## Italiano
 
-Versione candidata locale 1.1.0, autonoma e non firmata. Estrarre il pacchetto adatto a Windows x64 oppure ARM64 e aprire `ChinaTech.OfficeAssistant.exe`. Il piano comprende Office LTSC Professional Plus 2024 a 64 bit e tutte le otto applicazioni. La lingua di Office segue Windows ed è selezionabile separatamente dalla lingua dell'interfaccia.
+Assistente Windows per Office LTSC Professional Plus 2024 a 64 bit. Le otto applicazioni sono preselezionate e possono essere scelte singolarmente. Le installazioni compatibili mantengono applicazioni, versione e tutte le lingue. Una configurazione incoerente impedisce modifiche per applicazione.
 
-L'installazione sostituisce tutto il vecchio Office, inclusi Visio e Project. Documenti e account OneDrive non fanno parte della rimozione. Leggere l'ambito e le condizioni Microsoft prima di confermare. Gli avvisi di riavvio del registro sono indicativi; se l'installer richiede un riavvio, riavviare Windows prima di riprendere. La richiesta di annullamento attende la fine dell'installer. Interfaccia, UAC, installazione, attivazione e disinstallazione reali devono ancora essere convalidati.
+Rimuovi gli elementi rilevati selezionati oppure tutto Office, inclusi Visio e Project; la rimozione completa mantiene OneDrive. I prodotti MSI si rimuovono per intero. OneDrive si rimuove solo per l’account originale, interrompendo la sincronizzazione senza eliminare file locali o nel cloud. Scarica prima i file solo online, chiudi OneDrive e mantieni aperta la finestra dell’assistente durante la rimozione. Per tutti gli account usa le impostazioni Windows.
 
-L’interfaccia 1.1 riassume il controllo e mostra l’avanzamento in basso. Download e verifica dei file usano byte o file misurati; installazione e attivazione mostrano fase e tempo senza percentuali simulate. Dopo la finalizzazione riprende l’attivazione; le applicazioni mancanti vengono riparate nel task esistente senza ripetere la rimozione. Questa versione locale non è stata eseguita su Windows e non è pubblicata.
+La pagina principale non scorre; menu e finestre di dettaglio sono separati. La ripresa conserva la selezione originale; i task precedenti indicano il vecchio ambito. Solo misure reali mostrano percentuali. Versione di prova non firmata; flusso Windows reale, UAC, licenze e conservazione dei documenti restano da validare.
 
 ## English
 
-Standalone, unsigned local 1.1.0 test candidate. Extract the Windows x64 or ARM64 package and open `ChinaTech.OfficeAssistant.exe`. The plan installs 64-bit Office LTSC Professional Plus 2024 and all eight applications. Office language follows Windows and can be selected independently of the interface language.
+Windows assistant for 64-bit Office LTSC Professional Plus 2024. All eight applications are selected by default and individually selectable. Compatible installations retain existing apps, version and all languages. Inconsistent configuration blocks per-app changes.
 
-Installation replaces all previous Office products, including Visio and Project. Documents and OneDrive accounts are outside the removal scope. Review the scope and Microsoft terms before confirming. Registry restart flags are advisory; an installer restart requirement must be resolved by restarting Windows before resuming. Cancellation waits for the installer to finish. Actual GUI, UAC, installation, activation and uninstallation acceptance is still pending.
+Remove selected detected items or all Office, including Visio and Project; full Office removal retains OneDrive. MSI products require whole-product removal. OneDrive removal supports only the original account, stops sync and does not delete local or cloud files. Download online-only files first, close OneDrive and keep the assistant window open during removal. Use Windows Settings for all-account installations.
 
-The 1.1 interface summarizes inspection and keeps progress at the bottom. Downloads and file verification use measured bytes or files; installation and activation show stages and elapsed time without simulated percentages. Resume activation after installer settlement, or repair missing applications within the existing task without repeating removal. This local version has not been run on Windows or publicly released.
+The main page has no scrolling container; actions and details use separate menus and windows. Resume retains the original selection; legacy tasks show their original scope. Only real measurements show percentages. This unsigned test release still requires real Windows flow, UAC, licensing and document-preservation acceptance.
 
-部署配置与产品标识依据 [微软 LTSC 2024 部署说明](https://learn.microsoft.com/en-us/office/ltsc/2024/deploy)、[ODT 产品标识](https://learn.microsoft.com/en-us/microsoft-365/troubleshoot/installation/product-ids-supported-office-deployment-click-to-run)、[Office 激活工具](https://learn.microsoft.com/en-us/office/volume-license-activation/tools-to-manage-volume-activation-of-office)及[微软 OneDrive 部署说明](https://learn.microsoft.com/en-us/sharepoint/per-machine-installation)。
+依据：[ODT 配置](https://learn.microsoft.com/en-us/deployoffice/office-deployment-tool-configuration-options)、[LTSC 部署](https://learn.microsoft.com/en-us/office/ltsc/2024/deploy)、[Office 授权](https://learn.microsoft.com/en-us/office/volume-license-activation/tools-to-manage-volume-activation-of-office)。

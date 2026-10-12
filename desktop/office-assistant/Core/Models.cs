@@ -5,6 +5,14 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 namespace ChinaTech.OfficeAssistant;
 
+public enum RemovalMode { All, Selected }
+public enum RemovalKind { C2rProduct, SuiteApp, MsiProduct, OneDrive }
+public sealed record C2rProductState(string Id, string[] Languages, string[] ExcludedApps, bool ConfigurationKnown);
+public sealed record MsiProductState(string ProductCode, string DisplayName, bool Verified);
+public sealed record OneDriveState(string Id, string Scope, string ActorSid, string ExecutablePath, string Version, bool Supported, string ReasonCode);
+public sealed record RemovalOption(string Id, string DisplayName, string RawKind, bool Supported, string ReasonCode);
+public sealed record OfficeProductPlan(string Id, string[] Languages, string[] ExcludedApps);
+public sealed record SelectionPlan(string[] Components, OfficeProductPlan[] Products, string[] RemoveProducts, string[] MsiProductCodes, string[] OneDriveIds, Inventory Baseline);
 public enum ActionKind { InstallActivate, Activate, Uninstall }
 public enum Stage { Detect, Download, Remove, Install, Components, Activate, Finished }
 public enum JobStatus { Running, AwaitingRestart, Cancelled, Failed, InstalledUnlicensed, ComponentMissing, Completed, NeedsReview }
@@ -13,6 +21,9 @@ public sealed record LicenseState(string Product, int Status, int? GraceMinutes)
 public sealed record Inventory(string Windows, string Architecture, string[] OfficeProducts, string[] MsiProducts,
  string[] RestartReasons, string[] OpenApps, string[] Installers, ComponentState[] Components, LicenseState[] Licenses, DateTimeOffset ObservedAt) {
  public bool HasOffice => OfficeProducts.Length != 0 || MsiProducts.Length != 0;
+ public C2rProductState[] C2rDetails { get; init; } = [];
+ public MsiProductState[] MsiDetails { get; init; } = [];
+ public OneDriveState[] OneDriveDetails { get; init; } = [];
  public string Platform { get; init; } = "";
  public string OfficeVersion { get; init; } = "";
  public string[] SuiteLanguages { get; init; } = [];
@@ -21,22 +32,39 @@ public sealed record Inventory(string Windows, string Architecture, string[] Off
  public string[] IdleInstallerServices { get; init; } = [];
  public bool TargetInstalled => OfficeProducts.Contains("ProPlus2024Volume", StringComparer.OrdinalIgnoreCase)
   && OfficeProducts.Contains("SkypeforBusiness2024Volume", StringComparer.OrdinalIgnoreCase) && Platform.Equals("x64", StringComparison.OrdinalIgnoreCase);
- public bool MatchesPlan(JobRecord job) => TargetInstalled && SuiteLanguages.Contains(job.Language, StringComparer.OrdinalIgnoreCase)
+ public bool MatchesPlan(JobRecord job) => job.Schema == 2 ? OfficeSelection.MatchesPlan(this, job) : TargetInstalled && SuiteLanguages.Contains(job.Language, StringComparer.OrdinalIgnoreCase)
   && SkypeLanguages.Contains(job.Language, StringComparer.OrdinalIgnoreCase) && (job.Media == null || OfficeVersion == job.Media.Version);
  public bool AllComponents => Policy.Components.All(id => Components.Any(c => c.Id == id && c.Present));
  public bool TargetLicensed => LicenseError.Length == 0 && Licenses.Any(l => l.Product == "ProPlus2024Volume" && l.Status == 1)
    && Licenses.Any(l => l.Product == "SkypeforBusiness2024Volume" && l.Status == 1);
+ public string LegacyFingerprint => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("|", OfficeProducts.Order(StringComparer.Ordinal)) + ":" + string.Join("|", MsiProducts.Order(StringComparer.Ordinal)) + ":" + Platform + ":" + OfficeVersion + ":" + string.Join("|", SuiteLanguages.Order(StringComparer.Ordinal)) + ":" + string.Join("|", SkypeLanguages.Order(StringComparer.Ordinal)))));
  public string Fingerprint => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
    string.Join("|", OfficeProducts.Order(StringComparer.Ordinal)) + ":" + string.Join("|", MsiProducts.Order(StringComparer.Ordinal))
-   + ":" + Platform + ":" + OfficeVersion + ":" + string.Join("|", SuiteLanguages.Order(StringComparer.Ordinal)) + ":" + string.Join("|", SkypeLanguages.Order(StringComparer.Ordinal)))));
+   + ":" + Platform + ":" + OfficeVersion + ":" + string.Join("|", SuiteLanguages.Order(StringComparer.Ordinal)) + ":" + string.Join("|", SkypeLanguages.Order(StringComparer.Ordinal))
+   + ":" + string.Join("|", Components.OrderBy(c => c.Id, StringComparer.Ordinal).Select(c => c.Id + "=" + c.Present))
+   + ":" + JsonSerializer.Serialize(C2rDetails.OrderBy(p => p.Id, StringComparer.Ordinal), Reports.Json)
+   + ":" + JsonSerializer.Serialize(MsiDetails.OrderBy(p => p.ProductCode, StringComparer.Ordinal), Reports.Json)
+   + ":" + JsonSerializer.Serialize(OneDriveDetails.OrderBy(p => p.Id, StringComparer.Ordinal), Reports.Json))));
 }
-public sealed record JobRequest(Guid Id, ActionKind Action, string Language, string Server, string ExpectedFingerprint, bool Resume = false);
+public sealed record JobRequest(Guid Id, ActionKind Action, string Language, string Server, string ExpectedFingerprint, bool Resume = false) {
+ public string[]? SelectedComponents { get; init; }
+ public RemovalMode RemovalMode { get; init; } = RemovalMode.All;
+ public string[]? RemovalTargets { get; init; }
+}
 public sealed record StageEvent(Stage Stage, string Code, DateTimeOffset At);
 public sealed record ActivationAttempt(string Server, bool Licensed, DateTimeOffset At);
 public sealed record MediaFile(string RelativePath, long Length, string Sha256);
 public sealed record MediaState(string Version, string SetupSha256, List<MediaFile> Files, string? OneDriveSha256 = null);
 public sealed class JobRecord {
  public int Schema { get; set; } = 1;
+ public string[]? SelectedComponents { get; init; }
+ public RemovalMode RemovalMode { get; init; } = RemovalMode.All;
+ public string[]? RemovalTargets { get; init; }
+ public SelectionPlan? SelectionPlan { get; set; }
+ public string[] CompletedRemovalSteps { get; set; } = [];
+ public string? CurrentRemovalStep { get; set; }
+ public int ActorProcessId { get; init; }
+ public long ActorProcessStarted { get; init; }
  public Guid Id { get; set; }
  public ActionKind Action { get; set; }
  public string Language { get; set; } = "en-us";
@@ -69,7 +97,7 @@ public sealed class OfficeFailure(string code, int? exitCode = null) : Exception
  public int? ExitCode { get; } = exitCode;
 }
 public static partial class Policy {
- public const string Version = "1.1.0";
+ public const string Version = "1.2.0";
  public const string TermsUrl = "https://www.microsoft.com/licensing/terms/productoffering/OfficeDesktopApplications/all";
  public static readonly string[] Components = ["Access", "Excel", "OneDrive", "OneNote", "Outlook", "PowerPoint", "Lync", "Word"];
  public static readonly string[] Languages = ["zh-cn", "it-it", "en-us"];
@@ -85,6 +113,7 @@ public static partial class Policy {
  public static void Validate(JobRequest request) {
   if (request.Id == Guid.Empty || !Enum.IsDefined(request.Action) || !Languages.Contains(request.Language)
    || request.ExpectedFingerprint.Length != 64 || !request.ExpectedFingerprint.All(Uri.IsHexDigit)) throw new OfficeFailure("REQUEST_INVALID");
+  OfficeSelection.ValidateSelection(request);
   ValidateServer(request.Server);
  }
  public static bool RebootExit(int code) => code is 3010 or 1641;
@@ -95,10 +124,11 @@ public static partial class Policy {
 }
 public static class Reports {
  public static readonly JsonSerializerOptions Json = new() { WriteIndented = true, PropertyNameCaseInsensitive = false };
+ private static Inventory? SafeInventory(Inventory? inventory) => inventory == null ? null : inventory with { OneDriveDetails = inventory.OneDriveDetails.Select(d => d with { ActorSid = "", ExecutablePath = "" }).ToArray() };
  public static string Export(Inventory? inventory, JobRecord? job, string locale) => JsonSerializer.Serialize(new {
   schema = 1, assistantVersion = Policy.Version, locale, exportedAt = DateTimeOffset.UtcNow,
-  inventory, task = job == null ? null : new { job.Id, job.Action, job.Language, job.Server, job.ActivationServer, job.ActivationAttempts, job.Stage, job.Status, job.Code, Progress = ProgressPolicy.Current(job),
+  inventory = SafeInventory(inventory), task = job == null ? null : new { job.Id, job.Action, job.Language, job.SelectedComponents, job.RemovalMode, job.RemovalTargets, job.Server, job.ActivationServer, job.ActivationAttempts, job.Stage, job.Status, job.Code, Progress = ProgressPolicy.Current(job),
    job.Removed, job.RemovalStarted, job.Installed, job.StartedAt, job.UpdatedAt, job.InstallerExitCode, job.InstallerBoot, job.InstallerStarted, job.RestartBoot, job.RestartVerifiedBoot,
-   mediaVersion = job.Media?.Version, job.Events, job.Observation }
+   mediaVersion = job.Media?.Version, job.Events, Observation = SafeInventory(job.Observation) }
  }, Json);
 }

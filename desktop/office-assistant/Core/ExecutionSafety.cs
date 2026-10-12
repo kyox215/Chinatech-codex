@@ -30,6 +30,21 @@ public static class ExecutionSafety {
    if (after == job.InstallerBoot) throw new OfficeFailure("INSTALLER_RESULT_UNKNOWN");
    var fresh = await inspect();
    if (Policy.Blocker(fresh) is { } busy) throw new OfficeFailure(busy);
+   if (job.Schema == 2) {
+    OfficeSelection.ValidatePlan(job);
+    if (job.Action == ActionKind.Uninstall) {
+     OfficeSelection.ValidateRemovalEvolution(fresh, job);
+     if (job.CurrentRemovalStep != null) {
+      if (!OfficeSelection.RemovalStepComplete(fresh, job, job.CurrentRemovalStep)) throw new OfficeFailure("REMOVAL_UNKNOWN");
+      job.CompletedRemovalSteps = job.CompletedRemovalSteps.Concat([job.CurrentRemovalStep]).Distinct().ToArray(); job.CurrentRemovalStep = null;
+     }
+     job.Removed = OfficeSelection.RemovalComplete(fresh, job);
+    } else {
+     if (!OfficeSelection.InstallEvolutionAllowed(fresh, job)) throw new OfficeFailure("ENVIRONMENT_CHANGED");
+     job.Installed = OfficeSelection.MatchesPlan(fresh, job) && OfficeSelection.ComponentsPresent(fresh, OfficeSelection.Selected(job));
+    }
+    job.Observation = fresh; job.RestartVerifiedBoot = after; job.InstallerStarted = false; job.Status = JobStatus.Failed; job.Code = "WORKER_INTERRUPTED"; return true;
+   }
    if (job.RemovalStarted && !job.Removed && fresh.HasOffice) throw new OfficeFailure("REMOVAL_UNKNOWN");
    if (job.Stage != Stage.Remove && (fresh.MsiProducts.Length != 0 || fresh.OfficeProducts.Except(["ProPlus2024Volume", "SkypeforBusiness2024Volume"], StringComparer.OrdinalIgnoreCase).Any()))
     throw new OfficeFailure("ENVIRONMENT_CHANGED");
