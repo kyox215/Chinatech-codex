@@ -17,6 +17,7 @@ internal static class Program
     private static readonly DateTimeOffset ObservedAt = new(2026, 10, 12, 12, 0, 0, TimeSpan.Zero);
     private sealed record Viewport(string Name, Size Requested, Size Window, Size Client);
     private sealed record Fixture(string Name, Inventory? Inventory, JobStatus? Status = null, bool Busy = false, bool Refreshing = false, string[]? Components = null);
+    private sealed record RemovalFixture(string Name, Inventory Inventory);
     private static FieldInfo FindField(string name) => typeof(MainWindow).GetField(name, Private) ?? throw new InvalidOperationException("Missing fixture field: " + name);
     private static T Field<T>(MainWindow window, string name) => (T)FindField(name).GetValue(window)!;
     private static void Set(MainWindow window, string name, object? value) => FindField(name).SetValue(window, value);
@@ -103,6 +104,15 @@ internal static class Program
         // The client viewport is explicit and synthetic; the hidden HWND only gives
         // WPF valid Window min/max metrics. Unbounded height exposes capped overflow.
         root.Measure(new Size(viewport.Client.Width, double.PositiveInfinity));
+        if (root.DesiredSize.Height > viewport.Client.Height + Tolerance)
+        {
+            Console.WriteLine("Overflow diagnostics " + Field<string>(window, "_locale") + "/" + viewport.Name);
+            foreach (var child in root.Children.OfType<FrameworkElement>())
+                Console.WriteLine("Root row " + Grid.GetRow(child) + " " + child.GetType().Name + " desired=" + child.DesiredSize);
+            foreach (var child in Descendants(Field<Border>(window, "_configurationCard")).OfType<FrameworkElement>()
+                .Where(element => element is ComboBox or CheckBox or System.Windows.Controls.Primitives.UniformGrid))
+                Console.WriteLine(child.GetType().Name + " " + AutomationProperties.GetAutomationId(child) + " desired=" + child.DesiredSize);
+        }
         Check(root.DesiredSize.Height <= viewport.Client.Height + Tolerance,
             viewport.Name + " content height " + root.DesiredSize.Height + " exceeds client fixture " + viewport.Client.Height);
         root.Arrange(new Rect(viewport.Client)); root.UpdateLayout();
@@ -125,20 +135,75 @@ internal static class Program
             Check(checkbox.ActualHeight >= 44 - Tolerance, prefix + " " + id + " touch target"); Inside(checkbox, root, prefix + " " + id);
             var name = Field<Dictionary<string, TextBlock>>(window, "_componentNames")[id];
             Check(name.Text == Translation("Component", id, Field<string>(window, "_locale")), prefix + " full application name " + id); Inside(name, root, prefix + " application name " + id);
+            var frame = (Border)checkbox.Parent;
+            Check(frame.BorderBrush is SolidColorBrush border && border.Color == (checkbox.IsChecked == true
+                ? Color.FromRgb(95, 87, 255) : Color.FromRgb(230, 232, 239))
+                && frame.Background is SolidColorBrush fill && fill.Color == (checkbox.IsChecked == true
+                    ? Color.FromRgb(245, 244, 255) : Colors.White), prefix + " selected application has a purple border and pale selected surface " + id);
         }
         var compact = viewport.Window.Height < 660;
+        var product = Field<TextBlock>(window, compact ? "_compactProductName" : "_productName");
+        Check(InLayout(product, root) && product.Text == "Office LTSC 2024" && product.FontSize >= 16,
+            prefix + " full product version remains visible at the same compact font size");
+        Inside(product, root, prefix + " product version");
         Check(Field<TextBlock>(window, "_subline").Visibility == (compact ? Visibility.Collapsed : Visibility.Visible), prefix + " compact branch");
         Check(ReferenceEquals(Field<ComboBox>(window, "_officeLanguage").Parent, Field<Grid>(window, compact ? "_selectionToolbar" : "_productRow")), prefix + " installation language placement");
         Inside(Field<StackPanel>(window, "_progress"), root, prefix + " fixed progress card");
+        var progressCard = (Border)VisualTreeHelper.GetParent(Field<StackPanel>(window, "_progress"));
+        Check(ReferenceEquals(progressCard.Parent, root) && Grid.GetRow(progressCard) == 3
+            && root.RowDefinitions[3].Height.IsStar && progressCard.VerticalAlignment == VerticalAlignment.Bottom,
+            prefix + " progress occupies the remaining root row and aligns to its bottom");
+        var progressBounds = progressCard.TransformToAncestor(root).TransformBounds(new Rect(progressCard.RenderSize));
+        Check(Near(progressBounds.Bottom, root.RowDefinitions.Take(4).Sum(row => row.ActualHeight)),
+            prefix + " progress card actually reaches the bottom of its allocated row");
+        CheckManagement(window, compact, prefix);
+    }
+    private static void CheckManagement(MainWindow window, bool compact, string prefix)
+    {
+        var root = Field<Grid>(window, "_root"); var locale = Field<string>(window, "_locale");
+        var management = Field<Button>(window, "_appManagement");
+        var source = Field<Dictionary<ActionKind, Button>>(window, "_actionButtons")[ActionKind.Uninstall];
+        BindingOperations.GetBindingExpression(management, UIElement.IsEnabledProperty)?.UpdateTarget();
+        Check(ReferenceEquals(BindingOperations.GetBinding(management, UIElement.IsEnabledProperty)?.Source, source)
+            && management.IsEnabled == source.IsEnabled, prefix + " management reuses the existing uninstall availability source");
+        BindingOperations.GetBindingExpression(management, FrameworkElement.ToolTipProperty)?.UpdateTarget();
+        Check(ReferenceEquals(BindingOperations.GetBinding(management, FrameworkElement.ToolTipProperty)?.Source, source)
+            && Equals(management.ToolTip, source.ToolTip) && ToolTipService.GetShowOnDisabled(management),
+            prefix + " disabled management retains the existing translated block reason");
+        var label = Translation("Get", "AppManagement", locale);
+        Check(AutomationProperties.GetAutomationId(management) == "AppManagement"
+            && AutomationProperties.GetName(management) == label && ((TextBlock)management.Content).Text == label,
+            prefix + " management has a direct translated label and accessible name");
+        var busy = Field<bool>(window, "_executing") || Field<bool>(window, "_workerActive");
+        Check(management.Visibility == (compact && busy ? Visibility.Collapsed : Visibility.Visible),
+            prefix + " only a compact active task collapses the unavailable management entry");
+        if (management.Visibility == Visibility.Visible) Inside(management, root, prefix + " direct management entry");
+        foreach (var (field, key, glyph) in new[] { ("_refresh", "Refresh", "↻"), ("_moreActions", "MoreActions", "⋯") })
+        {
+            var button = Field<Button>(window, field); var name = Translation("Get", key, locale);
+            Check(Near(button.ActualWidth, 44) && Near(button.ActualHeight, 44), prefix + " " + key + " icon stays 44 by 44");
+            Check(((TextBlock)button.Content).Text == glyph && AutomationProperties.GetName(button) == name
+                && Equals(button.ToolTip, name), prefix + " " + key + " icon retains its full translated accessible name and tooltip");
+        }
+        Check(Descendants(Field<Border>(window, "_detectionCard")).Contains(Field<Button>(window, "_refresh")),
+            prefix + " refresh belongs to the detection card");
+    }
+    private static void CheckFluent(Window window, string prefix)
+    {
+        Check(window.Resources.MergedDictionaries.Any(dictionary => dictionary.Source?.OriginalString
+            == "pack://application:,,,/PresentationFramework.Fluent;component/Themes/Fluent.Light.xaml"),
+            prefix + " uses the built-in Fluent Light resource dictionary");
+        Check(AppContext.TryGetSwitch("Switch.System.Windows.Appearance.DisableFluentThemeWindowBackdrop", out var disabled) && disabled,
+            prefix + " disables the Fluent window backdrop");
     }
     private static void CheckMenu(MainWindow window, string prefix)
     {
         var menu = Field<ContextMenu>(window, "_otherMenu"); var root = Field<Grid>(window, "_root");
-        Check(menu.Items.Count == 3 && !Descendants(root).Contains(menu), prefix + " independent menu has three entries");
+        Check(menu.Items.Count == 2 && !Descendants(root).Contains(menu), prefix + " independent menu has activation and export entries");
         Check(menu.Placement == System.Windows.Controls.Primitives.PlacementMode.Bottom && !menu.IsOpen, prefix + " anchored menu remains unshown in fixture");
         var buttons = Field<Dictionary<ActionKind, Button>>(window, "_actionButtons");
-        var sources = new[] { buttons[ActionKind.Activate], buttons[ActionKind.Uninstall], Field<Button>(window, "_export") };
-        var keys = new[] { "Activate", "Uninstall", "Export" };
+        var sources = new[] { buttons[ActionKind.Activate], Field<Button>(window, "_export") };
+        var keys = new[] { "Activate", "Export" };
         for (var i = 0; i < keys.Length; i++)
         {
             var item = (MenuItem)menu.Items[i]; BindingOperations.GetBindingExpression(item, UIElement.IsEnabledProperty)?.UpdateTarget();
@@ -270,6 +335,179 @@ internal static class Program
         Set(window, "_executing", false); Set(window, "_workerActive", false); Set(window, "_job", null);
         Set(window, "_errorCode", "");
     }
+    private static RemovalFixture[] RemovalFixtures(Inventory partial, Inventory empty)
+    {
+        var user = new OneDriveState("onedrive:user:" + new string('A', 64), "user", "synthetic-actor", @"C:\Synthetic\OneDrive.exe", "24.000.0000.0000", true, "");
+        var machine = new OneDriveState("onedrive:machine:" + new string('B', 64), "machine", "", @"C:\SyntheticMachine\OneDrive.exe", "24.000.0000.0000", false, "ONEDRIVE_SCOPE_UNSUPPORTED");
+        var unknownActor = new OneDriveState("onedrive:user:" + new string('C', 64), "user", "", @"C:\SyntheticUnknown\OneDrive.exe", "24.000.0000.0000", false, "ONEDRIVE_ACTOR_UNAVAILABLE");
+        const string msiCode = "{11111111-1111-1111-1111-111111111111}";
+        return [
+            new("components", partial with { OneDriveDetails = [user, machine, unknownActor] }),
+            new("msi-whole", empty with { MsiProducts = ["Office Professional Plus 2016"], MsiDetails = [new(msiCode, "Office Professional Plus 2016", true)] }),
+            new("configuration-unknown", partial with { C2rDetails = [], OneDriveDetails = [machine, unknownActor] }),
+            new("additional-and-unverified", empty with {
+                OfficeProducts = ["Visio2021Volume", "Project2021Volume"],
+                MsiProducts = ["Unverified Office MSI"], OneDriveDetails = [user, machine]
+            })
+        ];
+    }
+    private static Dictionary<string, CheckBox> RemovalChoices(Window dialog)
+    {
+        var scroll = ((Grid)dialog.Content).Children.OfType<ScrollViewer>().Single();
+        return ((StackPanel)scroll.Content).Children.OfType<CheckBox>().ToDictionary(
+            checkbox => AutomationProperties.GetAutomationId(checkbox)["RemoveTarget".Length..], StringComparer.Ordinal);
+    }
+    private static void MeasureRemovalDialog(Window dialog, Viewport viewport, string prefix)
+    {
+        dialog.Width = Math.Min(720, viewport.Window.Width); dialog.Height = Math.Min(620, viewport.Window.Height);
+        var size = new Size(dialog.Width, dialog.Height); var client = new Size(size.Width - 16, size.Height - 40);
+        dialog.Measure(size); dialog.Arrange(new Rect(size));
+        var root = (Grid)dialog.Content;
+        root.Measure(client); root.Arrange(new Rect(client)); root.UpdateLayout();
+        var nodes = Descendants(root).ToArray();
+        var buttons = nodes.OfType<Button>().Where(button => InLayout(button, root)).ToArray();
+        Check(buttons.Length == 2, prefix + " management has only back and review actions");
+        foreach (var button in buttons)
+        {
+            Check(Near(button.ActualHeight, 44), prefix + " management button stays 44 high");
+            Inside(button, root, prefix + " management button");
+        }
+        var radios = nodes.OfType<RadioButton>().ToArray();
+        Check(radios.Length == 2, prefix + " management has two removal modes");
+        foreach (var radio in radios)
+        {
+            Check(radio.ActualHeight >= 44 - Tolerance, prefix + " mode touch target");
+            Inside(radio, root, prefix + " management mode");
+        }
+        var scroll = root.Children.OfType<ScrollViewer>().Single(); Inside(scroll, root, prefix + " management list viewport");
+        Check(scroll.HorizontalScrollBarVisibility == ScrollBarVisibility.Disabled, prefix + " management list does not require horizontal scrolling");
+        var list = (StackPanel)scroll.Content;
+        foreach (var (id, checkbox) in RemovalChoices(dialog))
+        {
+            Check(checkbox.ActualHeight >= 44 - Tolerance, prefix + " removal touch target " + id);
+            Inside(checkbox, list, prefix + " removal content " + id);
+            var bounds = checkbox.TransformToAncestor(scroll).TransformBounds(new Rect(checkbox.RenderSize));
+            Check(bounds.Left >= -Tolerance && bounds.Right <= scroll.ActualWidth + Tolerance,
+                prefix + " removal item fits the list viewport horizontally " + id);
+        }
+        Check(!dialog.IsLoaded && !dialog.IsVisible && PresentationSource.FromVisual(dialog) == null,
+            prefix + " management construction and measurement never show or load a dialog");
+    }
+    private static void CheckRemovalDialog(MainWindow window, string locale, Viewport viewport, RemovalFixture fixture)
+    {
+        var prefix = locale + "/" + viewport.Name + "/management-" + fixture.Name;
+        ApplyFixture(window, new("management", fixture.Inventory));
+        Field<ComboBox>(window, "_uiLanguage").SelectedIndex = Array.IndexOf(Policy.Languages, locale);
+        var installSelection = Field<HashSet<string>>(window, "_selectedComponents").ToArray();
+        var inventoryBefore = Field<Inventory>(window, "_inventory");
+        var targets = Field<HashSet<string>>(window, "_removalTargets");
+        targets.Add("synthetic-old-target"); Set(window, "_removalMode", RemovalMode.All);
+        var build = typeof(MainWindow).GetMethod("BuildRemovalSelection", Private) ?? throw new InvalidOperationException("Missing pure management builder");
+        var dialog = (Window)build.Invoke(window, [fixture.Inventory])!;
+        Check(!dialog.IsLoaded && !dialog.IsVisible && Field<RemovalMode>(window, "_removalMode") == RemovalMode.Selected && targets.Count == 0,
+            prefix + " pure construction resets old removal scope without showing the dialog");
+        Check(ReferenceEquals(inventoryBefore, Field<Inventory>(window, "_inventory"))
+            && Field<HashSet<string>>(window, "_selectedComponents").SetEquals(installSelection)
+            && !Field<bool>(window, "_executing") && !Field<bool>(window, "_workerActive") && !Field<bool>(window, "_refreshing"),
+            prefix + " management construction preserves installation draft and inventory without starting work");
+        CheckFluent(dialog, prefix);
+        dialog.Hide(); var handle = new WindowInteropHelper(dialog).EnsureHandle();
+        Check(handle != IntPtr.Zero && HwndSource.FromHwnd(handle)?.RootVisual == null && !dialog.IsLoaded,
+            prefix + " dialog HWND stays hidden and disconnected from its visual root");
+        MeasureRemovalDialog(dialog, viewport, prefix);
+        var root = (Grid)dialog.Content;
+        var modes = Descendants(root).OfType<RadioButton>().ToDictionary(AutomationProperties.GetAutomationId);
+        var selected = modes["RemoveSelectedMode"]; var all = modes["RemoveAllMode"];
+        var next = Descendants(root).OfType<Button>().Single(button => AutomationProperties.GetAutomationId(button) == "ReviewRemoval");
+        Check(dialog.Title == Translation("Get", "AppManagement", locale)
+            && Equals(selected.Content, Translation("Get", "RemoveSelected", locale))
+            && Equals(all.Content, Translation("Get", "RemoveAllOffice", locale))
+            && ((TextBlock)next.Content).Text == Translation("Get", "ReviewRemoval", locale),
+            prefix + " management title, modes and review action are translated");
+        Check(selected.IsChecked == true && all.IsChecked != true && !next.IsEnabled, prefix + " review starts disabled with no removal targets");
+        Check(next.Background is SolidColorBrush disabledFill && disabledFill.Color == Colors.White
+            && ((TextBlock)next.Content).Foreground is SolidColorBrush disabledInk && disabledInk.Color == Color.FromRgb(85, 95, 110),
+            prefix + " disabled review has a neutral surface and readable muted text");
+        var options = OfficeSelection.GetRemovalOptions(fixture.Inventory);
+        var perApp = options.Any(option => option.RawKind == "component" && option.Supported);
+        var visible = options.Where(option => !(perApp && option.Id == "c2r-product:" + OfficeSelection.Suite)).ToArray();
+        var choices = RemovalChoices(dialog);
+        Check(new HashSet<string>(choices.Keys, StringComparer.Ordinal).SetEquals(visible.Select(option => option.Id)),
+            prefix + " only detected canonical removal targets are displayed");
+        var lines = Descendants(root).OfType<TextBlock>().Select(text => text.Text).ToArray();
+        Check(lines.Contains(Translation("Get", "DetectedOnly", locale))
+            && lines.Any(line => line.Contains(Translation("Get", "AllRemovalPreservesOneDrive", locale), StringComparison.Ordinal)),
+            prefix + " detected-only and OneDrive retention facts remain visible");
+        foreach (var option in visible)
+        {
+            var checkbox = choices[option.Id];
+            var name = (string)typeof(MainWindow).GetMethod("RemovalName", Private)!.Invoke(window, [option.Id, fixture.Inventory])!;
+            Check(checkbox.IsEnabled == option.Supported && checkbox.IsChecked != true && AutomationProperties.GetName(checkbox) == name,
+                prefix + " removal availability and full accessible name " + option.Id);
+            var optionLines = ((StackPanel)checkbox.Content).Children.OfType<TextBlock>().Select(text => text.Text).ToArray();
+            Check(optionLines.Contains(name), prefix + " detected removal item full name " + option.Id);
+            if (option.RawKind == "msi") Check(optionLines.Contains(Translation("Get", "WholeMsiProduct", locale)), prefix + " MSI remains a whole product");
+            if (!option.Supported) Check(optionLines.Contains(Translation("Get", option.ReasonCode, locale)), prefix + " unsupported target explains its block " + option.Id);
+        }
+        var supported = visible.FirstOrDefault(option => option.Supported);
+        if (supported != null)
+        {
+            choices[supported.Id].IsChecked = true;
+            Check(targets.SetEquals([supported.Id]) && next.IsEnabled, prefix + " a supported checkbox updates the reviewed canonical scope");
+            Check(next.Background is SolidColorBrush activeFill && activeFill.Color == Color.FromRgb(95, 87, 255)
+                && ((TextBlock)next.Content).Foreground is SolidColorBrush activeInk && activeInk.Color == Colors.White,
+                prefix + " valid reviewed scope restores the primary action appearance");
+            choices[supported.Id].IsChecked = false;
+            Check(targets.Count == 0 && !next.IsEnabled, prefix + " clearing the only target blocks empty review");
+        }
+        var userOneDrive = visible.FirstOrDefault(option => option.RawKind == "onedrive-user" && option.Supported);
+        if (userOneDrive != null)
+        {
+            choices[userOneDrive.Id].IsChecked = true;
+            Check(targets.SetEquals([userOneDrive.Id]) && next.IsEnabled, prefix + " explicit user OneDrive selection is separate from all Office");
+            choices[userOneDrive.Id].IsChecked = false;
+        }
+        all.IsChecked = true;
+        var office = options.Where(option => option.RawKind is "c2r" or "msi").ToArray();
+        Check(Field<RemovalMode>(window, "_removalMode") == RemovalMode.All
+            && targets.SetEquals(office.Where(option => option.Supported).Select(option => option.Id))
+            && targets.All(id => !id.StartsWith("onedrive:", StringComparison.Ordinal) && !id.StartsWith("c2r-app:", StringComparison.Ordinal)),
+            prefix + " all Office freezes whole detected products and preserves every OneDrive scope");
+        choices = RemovalChoices(dialog);
+        Check(new HashSet<string>(choices.Keys, StringComparer.Ordinal).SetEquals(office.Select(option => option.Id))
+            && choices.Values.All(checkbox => !checkbox.IsEnabled)
+            && office.All(option => choices[option.Id].IsChecked == option.Supported), prefix + " all mode cannot edit its fixed detected product selection");
+        var unsafeAll = office.Any(option => !option.Supported);
+        Check(next.IsEnabled == (targets.Count > 0 && !unsafeAll), prefix + " unverified Office prevents all-product submission");
+        if (unsafeAll) Check(Descendants(root).OfType<TextBlock>().Any(text => text.Text == Translation("Get", "UnsafeAllRemoval", locale)),
+            prefix + " unsafe all-product range explains its block");
+        MeasureRemovalDialog(dialog, viewport, prefix + "/all");
+        selected.IsChecked = true;
+        Check(Field<RemovalMode>(window, "_removalMode") == RemovalMode.Selected && targets.Count == 0 && !next.IsEnabled,
+            prefix + " returning to selected mode clears the all-product draft");
+        MeasureRemovalDialog(dialog, viewport, prefix + "/selected-again");
+        if (fixture.Name == "components" && viewport.Name == "minimum") SaveRemovalProof(dialog, locale, viewport);
+        Check(!dialog.IsLoaded && !dialog.IsVisible && dialog.DialogResult == null
+            && !Field<System.Windows.Threading.DispatcherTimer>(window, "_timer").IsEnabled,
+            prefix + " fixture never submits, shows, loads, or starts inspection");
+        Console.WriteLine("PASS " + prefix + " (pure construction, radio/checkbox state only, Office operations=0)");
+    }
+    private static void SaveRemovalProof(Window dialog, string locale, Viewport viewport)
+    {
+        var root = (Grid)dialog.Content; var client = new Size(Math.Min(720, viewport.Window.Width) - 16, Math.Min(620, viewport.Window.Height) - 40);
+        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(client.Width), (int)Math.Ceiling(client.Height), 96, 96, PixelFormats.Pbgra32);
+        var background = new DrawingVisual();
+        using (var drawing = background.RenderOpen()) drawing.DrawRectangle(dialog.Background, null, new Rect(client));
+        bitmap.Render(background); bitmap.Render(root);
+        var pixels = new byte[bitmap.PixelWidth * bitmap.PixelHeight * 4]; bitmap.CopyPixels(pixels, bitmap.PixelWidth * 4, 0);
+        var colors = new HashSet<uint>(); for (var i = 0; i < pixels.Length; i += 4) colors.Add(BitConverter.ToUInt32(pixels, i));
+        Check(colors.Count > 20, "management synthetic screenshot must contain rendered controls: " + colors.Count + " colors");
+        var directory = Path.GetFullPath(".local/office-1.3-ui-proof"); Directory.CreateDirectory(directory);
+        var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        var file = Path.Combine(directory, locale + "-" + viewport.Name + "-management.png");
+        using var stream = File.Create(file); encoder.Save(stream);
+        Console.WriteLine("PNG " + Path.GetFileName(file) + " (real WPF management controls, synthetic client viewport, 96 DPI fixture)");
+    }
     private static void SaveProof(MainWindow window, string locale, Viewport viewport, Fixture fixture)
     {
         if (viewport.Name is not ("minimum" or "default") || fixture.Name is not ("partial" or "running")) return;
@@ -287,7 +525,7 @@ internal static class Program
         var colors = new HashSet<uint>();
         for (var i = 0; i < pixels.Length; i += 4) colors.Add(BitConverter.ToUInt32(pixels, i));
         Check(colors.Count > 20, "native synthetic screenshot must contain rendered controls: " + colors.Count + " colors");
-        var directory = Path.GetFullPath(".local/office-1.2-ui-proof"); Directory.CreateDirectory(directory);
+        var directory = Path.GetFullPath(".local/office-1.3-ui-proof"); Directory.CreateDirectory(directory);
         var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
         var file = Path.Combine(directory, locale + "-" + viewport.Name + "-" + fixture.Name + ".png");
         using var stream = File.Create(file); encoder.Save(stream);
@@ -306,6 +544,7 @@ internal static class Program
         var handle = new WindowInteropHelper(window).EnsureHandle();
         Check(handle != IntPtr.Zero && HwndSource.FromHwnd(handle)?.RootVisual == null && !window.IsLoaded,
             "hidden HWND exists without showing/loading MainWindow or attaching its RootVisual");
+        CheckFluent(window, "main window");
         var partial = InventoryFixture();
         var empty = new Inventory("Microsoft Windows 11 10.0.26100", "X64", [], [], [], [], [], Policy.Components.Select(id => new ComponentState(id, false)).ToArray(), [], ObservedAt);
         var oneDriveOnly = empty with { Components = Policy.Components.Select(id => new ComponentState(id, id == "OneDrive")).ToArray(),
@@ -328,9 +567,17 @@ internal static class Program
             Console.WriteLine("PASS " + prefix + " (requested=" + viewport.Requested + "; work-area-clamped window=" + viewport.Window
                 + "; actual=" + window.RenderSize + "; synthetic client=" + viewport.Client + ")");
         }
+        Check(layoutFixtures == 120, "all 120 existing native main-window fixtures are retained");
         CheckSelection(window, partial);
         CheckActorWindowRequirement(window);
+        var removalFixtures = 0;
+        foreach (var locale in Policy.Languages) foreach (var viewport in viewports.Where(viewport => viewport.Name is "minimum" or "short"))
+            foreach (var fixture in RemovalFixtures(partial, empty))
+            {
+                CheckRemovalDialog(window, locale, viewport, fixture); removalFixtures++;
+            }
+        Check(removalFixtures == 24, "management runs four inventory boundaries in three languages and both compact viewports");
         Check(!window.IsLoaded && !window.IsVisible && PresentationSource.FromVisual(window) == null && !Field<System.Windows.Threading.DispatcherTimer>(window, "_timer").IsEnabled, "fixture never loads/shows main GUI or starts inspection timer");
-        Console.WriteLine($"{_count} assertions across {layoutFixtures} native WPF synthetic layout/state fixtures and selection/menu/actor-window checks passed. Office operations=0. Real GUI/UAC/DPI/Office acceptance remains pending.");
+        Console.WriteLine($"{_count} assertions across {layoutFixtures} native WPF synthetic layout/state fixtures, {removalFixtures} pure management fixtures and selection/menu/actor-window checks passed. Office operations=0. Real GUI/UAC/DPI/Office acceptance remains pending.");
     }
 }

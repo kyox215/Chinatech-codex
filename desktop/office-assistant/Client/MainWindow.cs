@@ -58,6 +58,7 @@ public sealed partial class MainWindow : Window
     private readonly UniformGrid _steps = new() { Columns = 4, Margin = new Thickness(0, 12, 0, 12) };
     private readonly Grid _cards = new() { Margin = new Thickness(0, 0, 0, 4) };
     private readonly Button _moreActions;
+    private readonly Button _appManagement;
     private readonly Button _detectionDetails;
     private readonly Button _taskDetails;
     private readonly Button _selectAll;
@@ -69,6 +70,7 @@ public sealed partial class MainWindow : Window
     private readonly Dictionary<string, TextBlock> _componentPresence = [];
     private readonly List<Border> _componentIcons = [];
     private readonly TextBlock _selectionCount = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Foreground = Muted };
+    private readonly TextBlock _compactProductName = new() { Text = "Office LTSC 2024", FontSize = 16, FontWeight = FontWeights.SemiBold, Visibility = Visibility.Collapsed };
     private readonly Grid _productRow = new();
     private readonly Grid _selectionToolbar = new();
     private readonly Grid _root = new();
@@ -76,9 +78,11 @@ public sealed partial class MainWindow : Window
     private readonly Grid _intro = new();
     private readonly StackPanel _actions = new();
     private readonly StackPanel _progress = new();
+    private readonly Border _progressCard;
     private readonly Grid _footer = new();
     private readonly TextBlock _edition = new() { FontSize = 12, Foreground = Muted };
     private readonly TextBlock _productName = new() { Text = "Office LTSC 2024", FontSize = 18, FontWeight = FontWeights.SemiBold };
+    private readonly Border _suiteIcon;
     private readonly HashSet<string> _selectedComponents = new(Policy.Components, StringComparer.Ordinal);
     private readonly HashSet<string> _removalTargets = new(StringComparer.Ordinal);
     private RemovalMode _removalMode = RemovalMode.All;
@@ -120,6 +124,7 @@ public sealed partial class MainWindow : Window
         Foreground = Ink;
         FontFamily = new FontFamily("Segoe UI");
         FontSize = 14;
+        ApplyFluentTheme(this);
         _uiLanguage.FontSize = 14;
         _officeLanguage.FontSize = 16;
         _uiLanguage.Padding = _officeLanguage.Padding = new Thickness(8, 5, 8, 5);
@@ -131,7 +136,7 @@ public sealed partial class MainWindow : Window
         _officeLanguage.MaxWidth = 140;
         var root = _root;
         root.Margin = new Thickness(20, 14, 20, 12);
-        foreach (var height in new[] { GridLength.Auto, GridLength.Auto, GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star) })
+        foreach (var height in new[] { GridLength.Auto, GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto })
             root.RowDefinitions.Add(new RowDefinition { Height = height });
         var header = _header;
         header.Margin = new Thickness(0, 0, 0, 10);
@@ -166,13 +171,19 @@ public sealed partial class MainWindow : Window
         var configuration = new StackPanel();
         _productRow.ColumnDefinitions.Add(new ColumnDefinition());
         _productRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var product = new StackPanel(); product.Children.Add(_productName); product.Children.Add(_edition);
+        var product = new StackPanel { Orientation = Orientation.Horizontal };
+        _suiteIcon = new Border { Width = 30, Height = 34, CornerRadius = new CornerRadius(8), Background = new SolidColorBrush(Color.FromRgb(225, 107, 66)), Margin = new Thickness(0, 0, 8, 0),
+            Child = new TextBlock { Text = "O", Foreground = Brushes.White, FontSize = 21, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } };
+        product.Children.Add(_suiteIcon);
+        var productText = new StackPanel(); productText.Children.Add(_productName); productText.Children.Add(_edition); product.Children.Add(productText);
         _productRow.Children.Add(product);
         _productRow.Margin = new Thickness(0, 0, 0, 4);
         Grid.SetColumn(_officeLanguage, 1); _productRow.Children.Add(_officeLanguage); configuration.Children.Add(_productRow);
         _selectionToolbar.ColumnDefinitions.Add(new ColumnDefinition());
         for (var i = 0; i < 3; i++) _selectionToolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        _selectionToolbar.Children.Add(_selectionCount);
+        var selectionHeading = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        selectionHeading.Children.Add(_compactProductName); selectionHeading.Children.Add(_selectionCount);
+        _selectionToolbar.Children.Add(selectionHeading);
         _selectAll = Button("SelectAll", (_, _) => SetComponentSelection(Policy.Components));
         _clearSelection = Button("ClearSelection", (_, _) => SetComponentSelection([]));
         foreach (var (button, column) in new[] { (_selectAll, 1), (_clearSelection, 2) })
@@ -196,8 +207,8 @@ public sealed partial class MainWindow : Window
                 Child = new TextBlock { Text = app.Letter, Foreground = Brushes.White, FontSize = 13, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } };
             item.Children.Add(icon); _componentIcons.Add(icon);
             var names = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            var name = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Foreground = Ink };
-            var presence = new TextBlock { FontSize = 10, Foreground = new SolidColorBrush(Color.FromRgb(24, 134, 91)) };
+            var name = new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap, Foreground = Ink };
+            var presence = new TextBlock { FontSize = 11, TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(Color.FromRgb(24, 134, 91)) };
             _componentNames[app.Id] = name; _componentPresence[app.Id] = presence;
             names.Children.Add(name); names.Children.Add(presence); Grid.SetColumn(names, 1); item.Children.Add(names);
             var choice = new CheckBox { Content = item, IsChecked = true, MinHeight = 44, Padding = new Thickness(5, 3, 5, 3),
@@ -213,7 +224,12 @@ public sealed partial class MainWindow : Window
         AutomationProperties.SetAutomationId(_officeLanguage, "InstallationLanguage");
         _officeLanguage.SelectionChanged += (_, _) => { if (!_updating && _officeLanguage.SelectedIndex >= 0) _installationLanguage = Policy.Languages[_officeLanguage.SelectedIndex]; };
         _configurationCard = Card(configuration); _configurationCard.Padding = new Thickness(14); _configurationCard.Margin = new Thickness(0, 0, 12, 0); _cards.Children.Add(_configurationCard);
-        var detection = new StackPanel(); detection.Children.Add(Label("Detection", 14, FontWeights.SemiBold)); detection.Children.Add(_machine);
+        _refresh = Button("Refresh", async (_, _) => await RefreshAsync());
+        _refresh.Width = 44; _refresh.Padding = new Thickness(0);
+        var detection = new StackPanel();
+        var detectionHeader = new Grid(); detectionHeader.ColumnDefinitions.Add(new ColumnDefinition()); detectionHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var detectionTitle = Label("Detection", 14, FontWeights.SemiBold); detectionTitle.VerticalAlignment = VerticalAlignment.Center; detectionHeader.Children.Add(detectionTitle);
+        Grid.SetColumn(_refresh, 1); detectionHeader.Children.Add(_refresh); detection.Children.Add(detectionHeader); detection.Children.Add(_machine);
         detection.Children.Add(SummaryLine("Office", _officeSummary)); detection.Children.Add(SummaryLine("License", _licenseSummary)); detection.Children.Add(SummaryLine("SystemReadiness", _readinessSummary));
         _detectionDetails = Button("DetectedDetails", (_, _) => ShowDetails(false)); _detectionDetails.BorderThickness = new Thickness(0); _detectionDetails.Padding = new Thickness(0, 4, 0, 4);
         _detectionDetails.HorizontalAlignment = HorizontalAlignment.Left; detection.Children.Add(_detectionDetails);
@@ -234,12 +250,16 @@ public sealed partial class MainWindow : Window
         }
         var primary = _actionButtons[ActionKind.InstallActivate];
         primary.HorizontalAlignment = HorizontalAlignment.Left; primary.MinWidth = 170; primary.Margin = new Thickness(0, 0, 8, 0); toolbar.Children.Add(primary);
-        _refresh = Button("Refresh", async (_, _) => await RefreshAsync()); _export = Button("Export", (_, _) => ExportReport());
+        _export = Button("Export", (_, _) => ExportReport());
+        _appManagement = Button("AppManagement", async (_, _) => await StartAsync(ActionKind.Uninstall));
+        _appManagement.SetBinding(UIElement.IsEnabledProperty, new Binding("IsEnabled") { Source = _actionButtons[ActionKind.Uninstall] });
+        _appManagement.SetBinding(ToolTipProperty, new Binding("ToolTip") { Source = _actionButtons[ActionKind.Uninstall] });
+        ToolTipService.SetShowOnDisabled(_appManagement, true);
         _resume = Button("Resume", async (_, _) => await ResumeAsync()); _cancel = Button("Cancel", async (_, _) => await CancelAsync());
         _moreActions = Button("MoreActions", (_, _) => { _otherMenu.PlacementTarget = _moreActions; _otherMenu.IsOpen = true; });
-        _moreActions.MinWidth = 112;
+        _moreActions.Width = _moreActions.MinWidth = 44; _moreActions.Padding = new Thickness(0);
         _otherMenu.Placement = PlacementMode.Bottom;
-        foreach (var kind in new[] { ActionKind.Activate, ActionKind.Uninstall })
+        foreach (var kind in new[] { ActionKind.Activate })
         {
             var menu = new MenuItem { Header = T(kind.ToString()), Height = 44, MinWidth = 220, FontSize = 13 };
             menu.SetBinding(UIElement.IsEnabledProperty, new Binding("IsEnabled") { Source = _actionButtons[kind] });
@@ -250,7 +270,7 @@ public sealed partial class MainWindow : Window
         exportMenu.SetBinding(UIElement.IsEnabledProperty, new Binding("IsEnabled") { Source = _export });
         exportMenu.Click += (_, _) => { _otherMenu.IsOpen = false; ExportReport(); }; _menuLabels[exportMenu] = "Export"; _otherMenu.Items.Add(exportMenu);
         var secondary = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
-        foreach (var button in new[] { _refresh, _resume, _cancel, _moreActions }) { button.Margin = new Thickness(0, 0, 3, 0); secondary.Children.Add(button); }
+        foreach (var button in new[] { _appManagement, _resume, _cancel, _moreActions }) { button.Margin = new Thickness(0, 0, 3, 0); secondary.Children.Add(button); }
         Grid.SetColumn(secondary, 1); toolbar.Children.Add(secondary); actions.Children.Add(toolbar);
         _notice.TextWrapping = TextWrapping.NoWrap; _notice.TextTrimming = TextTrimming.CharacterEllipsis;
         _notice.FontSize = 12; _notice.Margin = new Thickness(0, 5, 0, 0);
@@ -265,7 +285,7 @@ public sealed partial class MainWindow : Window
         var metric = new StackPanel { Orientation = Orientation.Horizontal }; metric.Children.Add(_elapsed); metric.Children.Add(_progressMetric);
         Grid.SetColumn(metric, 1); progressLine.Children.Add(metric); progress.Children.Add(progressLine);
         progress.Children.Add(_progressBar); progress.Children.Add(_progressCaption);
-        var progressCard = Card(progress); progressCard.Padding = new Thickness(14, 8, 14, 10); progressCard.Margin = new Thickness(0); Grid.SetRow(progressCard, 3); root.Children.Add(progressCard);
+        _progressCard = Card(progress); _progressCard.Padding = new Thickness(14, 8, 14, 10); _progressCard.Margin = new Thickness(0); _progressCard.VerticalAlignment = VerticalAlignment.Bottom; Grid.SetRow(_progressCard, 3); root.Children.Add(_progressCard);
         var footer = _footer; footer.Margin = new Thickness(0, 8, 0, 0); footer.VerticalAlignment = VerticalAlignment.Bottom;
         footer.ColumnDefinitions.Add(new ColumnDefinition()); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         footer.Children.Add(Label("ProtectionShort", 11, color: Muted)); var version = new TextBlock { Text = Policy.Version, Foreground = Muted, FontSize = 11 }; Grid.SetColumn(version, 1); footer.Children.Add(version); Grid.SetRow(footer, 4); root.Children.Add(footer);
@@ -296,12 +316,19 @@ public sealed partial class MainWindow : Window
         _edition.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         _machine.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         _footer.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        _configurationCard.Padding = _detectionCard.Padding = new Thickness(compact ? 8 : 14);
+        _configurationCard.Padding = _detectionCard.Padding = new Thickness(compact ? 6 : 14);
         _configurationCard.Margin = new Thickness(0, 0, compact ? 8 : 12, 0);
-        _cards.ColumnDefinitions[0].Width = new GridLength(compact ? 1.85 : 1.65, GridUnitType.Star);
+        _cards.ColumnDefinitions[0].Width = new GridLength(compact ? 2.7 : 1.65, GridUnitType.Star);
         _cards.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
         _actions.Margin = new Thickness(0, compact ? 6 : 10, 0, compact ? 6 : 10);
+        _progressCard.Padding = compact ? new Thickness(14, 1, 14, 1) : new Thickness(14, 8, 14, 10);
         _productName.FontSize = compact ? 16 : 18;
+        _productRow.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        _compactProductName.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
+        _suiteIcon.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        foreach (var name in _componentNames.Values) name.FontSize = compact ? 12 : 13;
+        foreach (var choice in _componentChoices.Values) choice.Padding = new Thickness(compact ? 1 : 5, 3, compact ? 1 : 5, 3);
+        _appManagement.Visibility = compact && (_executing || _workerActive) ? Visibility.Collapsed : Visibility.Visible;
         foreach (var icon in _componentIcons) icon.Visibility = compact && ActualWidth < 850 ? Visibility.Collapsed : Visibility.Visible;
         _progressCaption.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         _steps.Visibility = compact || !(_executing || _workerActive) ? Visibility.Collapsed : Visibility.Visible;
@@ -351,7 +378,7 @@ public sealed partial class MainWindow : Window
     private static Border Card(UIElement content) => new()
     {
         Child = content, Background = Brushes.White, BorderBrush = BorderColor, BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(18), Padding = new Thickness(18), Margin = new Thickness(0, 0, 0, 16)
+        CornerRadius = new CornerRadius(14), Padding = new Thickness(18), Margin = new Thickness(0, 0, 0, 16)
     };
 
     private Button Button(string key, RoutedEventHandler handler, bool primary = false)
@@ -359,7 +386,7 @@ public sealed partial class MainWindow : Window
         var button = new Button
         {
             Content = new TextBlock { Text = T(key), TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Foreground = primary ? Brushes.White : Ink },
-            Template = RoundedButtonTemplate, MinHeight = 44, Height = 44, VerticalAlignment = VerticalAlignment.Center, Padding = new Thickness(12, 5, 12, 5), Background = primary ? Purple : Brushes.White,
+            Template = RoundedButtonTemplate, MinWidth = 0, MinHeight = 44, Height = 44, VerticalAlignment = VerticalAlignment.Center, Padding = new Thickness(12, 5, 12, 5), Background = primary ? Purple : Brushes.White,
             BorderBrush = primary ? Purple : BorderColor, BorderThickness = new Thickness(1), Foreground = primary ? Brushes.White : Ink
         };
         _buttonLabels[button] = key;
@@ -376,8 +403,9 @@ public sealed partial class MainWindow : Window
                 : key.StartsWith("Component:", StringComparison.Ordinal) ? "✓  " + Text.Component(key[10..], _locale) : T(key);
         foreach (var (button, key) in _buttonLabels)
         {
-            ((TextBlock)button.Content).Text = T(key);
+            ((TextBlock)button.Content).Text = ReferenceEquals(button, _moreActions) ? "⋯" : ReferenceEquals(button, _refresh) ? "↻" : T(key);
             AutomationProperties.SetName(button, T(key));
+            if (ReferenceEquals(button, _moreActions) || ReferenceEquals(button, _refresh)) button.ToolTip = T(key);
         }
         foreach (var (menu, key) in _menuLabels) { menu.Header = T(key); AutomationProperties.SetName(menu, T(key)); }
         foreach (var (id, label) in _componentNames) label.Text = Text.Component(id, _locale);
@@ -441,7 +469,7 @@ public sealed partial class MainWindow : Window
             _componentPresence[id].Text = _inventory == null ? T("UnknownFact") : T(present ? "InstalledShort" : "NotInstalledShort");
             _componentPresence[id].Foreground = present ? Green : Muted;
             AutomationProperties.SetName(choice, Text.Component(id, _locale) + " · " + _componentPresence[id].Text);
-            if (choice.Parent is Border frame) { frame.Background = choice.IsChecked == true ? new SolidColorBrush(Color.FromRgb(247, 246, 255)) : Brushes.White; }
+            if (choice.Parent is Border frame) { frame.Background = choice.IsChecked == true ? new SolidColorBrush(Color.FromRgb(245, 244, 255)) : Brushes.White; frame.BorderBrush = choice.IsChecked == true ? Purple : BorderColor; }
         }
         _selectionCount.Text = T("SelectedCount", _selectedComponents.Count);
         _selectAll.IsEnabled = _clearSelection.IsEnabled = !selectionLocked;
@@ -884,13 +912,13 @@ public sealed partial class MainWindow : Window
         var action = request.Action;
         var components = request.SelectedComponents ?? Policy.Components;
         var activatesOffice = action != ActionKind.Uninstall && OfficeSelection.RequiredProducts(components).Length != 0;
-        var dialog = new Window
+        var dialog = ApplyFluentTheme(new Window
         {
             Owner = this, Title = T("ConfirmTitle"), Width = Math.Min(680, SystemParameters.WorkArea.Width),
             MinWidth = Math.Min(560, SystemParameters.WorkArea.Width), SizeToContent = SizeToContent.Height,
             MaxHeight = SystemParameters.WorkArea.Height, WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Background = Brushes.White, Foreground = Ink, FontFamily = FontFamily, FontSize = 15, ShowInTaskbar = false
-        };
+        });
         var root = new StackPanel { Margin = new Thickness(24) };
         AddText(root, ConfirmationTitle(request), size: 23);
         if (resume) AddText(root, T("ResumeConfirm"));
@@ -988,13 +1016,25 @@ public sealed partial class MainWindow : Window
         "zh-cn" => T("Chinese"), "it-it" => T("Italian"), "en-us" => T("English"), _ => code
     };
 
-    private static Button DialogButton(string text, bool primary) => new()
+    private static Button DialogButton(string text, bool primary)
     {
-        Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = primary ? Brushes.White : Ink, TextAlignment = TextAlignment.Center },
-        Template = RoundedButtonTemplate, MinHeight = 44, MaxWidth = 320, Padding = new Thickness(16, 10, 16, 10), Margin = new Thickness(8, 0, 0, 0),
-        Foreground = primary ? Brushes.White : Ink, Background = primary ? Purple : Brushes.White,
-        BorderBrush = primary ? Purple : BorderColor, BorderThickness = new Thickness(1)
-    };
+        var button = new Button
+        {
+            Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = primary ? Brushes.White : Ink, TextAlignment = TextAlignment.Center },
+            Template = RoundedButtonTemplate, MinHeight = 44, MaxWidth = 320, Padding = new Thickness(16, 10, 16, 10), Margin = new Thickness(8, 0, 0, 0),
+            Foreground = primary ? Brushes.White : Ink, Background = primary ? Purple : Brushes.White,
+            BorderBrush = primary ? Purple : BorderColor, BorderThickness = new Thickness(1)
+        };
+        button.IsEnabledChanged += (_, _) =>
+        {
+            var activePrimary = primary && button.IsEnabled;
+            button.Background = activePrimary ? Purple : Brushes.White;
+            button.BorderBrush = activePrimary ? Purple : BorderColor;
+            button.Foreground = activePrimary ? Brushes.White : button.IsEnabled ? Ink : Muted;
+            ((TextBlock)button.Content).Foreground = button.Foreground;
+        };
+        return button;
+    }
 
     private void ExportReport()
     {
@@ -1034,13 +1074,13 @@ public sealed partial class MainWindow : Window
             return;
         }
         if (!_workerActive) return;
-        var dialog = new Window
+        var dialog = ApplyFluentTheme(new Window
         {
             Owner = this, Title = T("CloseBusyTitle"), Width = Math.Min(540, SystemParameters.WorkArea.Width),
             MaxHeight = SystemParameters.WorkArea.Height, SizeToContent = SizeToContent.Height,
             WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = Brushes.White,
             Foreground = Ink, FontFamily = FontFamily, FontSize = 15, ShowInTaskbar = false, ResizeMode = ResizeMode.NoResize
-        };
+        });
         var root = new StackPanel { Margin = new Thickness(24) };
         AddText(root, T("CloseBusy"));
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };

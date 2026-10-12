@@ -104,8 +104,8 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: office-1.2-native-wpf-fixture-renders
-          path: .local/office-1.2-ui-proof/
+          name: office-1.3-native-wpf-fixture-renders
+          path: .local/office-1.3-ui-proof/
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7

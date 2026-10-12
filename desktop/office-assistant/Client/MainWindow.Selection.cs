@@ -15,12 +15,12 @@ public sealed partial class MainWindow
         RemovalTargets = request.RemovalTargets?.ToArray()
     };
 
-    private Window DetailWindow(string title) => new()
+    private Window DetailWindow(string title) => ApplyFluentTheme(new Window
     {
         Owner = this, Title = title, Width = Math.Min(720, SystemParameters.WorkArea.Width),
         Height = Math.Min(620, SystemParameters.WorkArea.Height), WindowStartupLocation = WindowStartupLocation.CenterOwner,
         Background = Brushes.White, Foreground = Ink, FontFamily = FontFamily, FontSize = 14, ShowInTaskbar = false
-    };
+    });
 
     private void ShowDetails(bool task)
     {
@@ -73,17 +73,19 @@ public sealed partial class MainWindow
         return string.Join("\n", keep.Select(name => "• " + name));
     }
 
-    private bool ShowRemovalSelection(Inventory baseline)
+    private bool ShowRemovalSelection(Inventory baseline) => BuildRemovalSelection(baseline).ShowDialog() == true;
+
+    private Window BuildRemovalSelection(Inventory baseline)
     {
         _otherMenu.IsOpen = false;
         _removalMode = RemovalMode.Selected;
         _removalTargets.Clear();
         var options = OfficeSelection.GetRemovalOptions(baseline);
-        var dialog = DetailWindow(T("ChooseRemoval"));
+        var dialog = DetailWindow(T("AppManagement"));
         var root = new Grid { Margin = new Thickness(24) };
         foreach (var height in new[] { GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto, GridLength.Auto })
             root.RowDefinitions.Add(new RowDefinition { Height = height });
-        var heading = new StackPanel(); AddText(heading, T("ChooseRemoval"), size: 23);
+        var heading = new StackPanel(); AddText(heading, T("AppManagement"), size: 23);
         AddText(heading, T("DetectedOnly"), Muted); root.Children.Add(heading);
         var modes = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 12) };
         var selected = new RadioButton { Content = T("RemoveSelected"), IsChecked = true, MinHeight = 44, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 24, 0) };
@@ -131,6 +133,6 @@ public sealed partial class MainWindow
         }
         selected.Checked += (_, _) => Rebuild(); all.Checked += (_, _) => Rebuild();
         Rebuild(); dialog.Content = root;
-        return dialog.ShowDialog() == true;
+        return dialog;
     }
 }

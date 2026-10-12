@@ -12,6 +12,7 @@ internal static class Text
         ["EightIncluded"] = ["8 项全选", "Tutte e 8 selezionate", "All 8 selected"],
         ["SystemReadiness"] = ["运行环境", "Stato del sistema", "System readiness"],
         ["DetectedDetails"] = ["检测详情", "Dettagli del controllo", "Inspection details"],
+        ["AppManagement"] = ["应用管理", "Gestisci app", "Manage apps"],
         ["MoreActions"] = ["其他操作", "Altre operazioni", "More actions"],
         ["TaskDetails"] = ["查看详细记录", "Mostra registro", "Show details"],
         ["ProtectionShort"] = ["个人文档保留", "Documenti personali mantenuti", "Personal documents retained"],
