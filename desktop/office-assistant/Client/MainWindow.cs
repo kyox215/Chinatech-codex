@@ -1016,13 +1016,25 @@ public sealed partial class MainWindow : Window
         "zh-cn" => T("Chinese"), "it-it" => T("Italian"), "en-us" => T("English"), _ => code
     };
 
-    private static Button DialogButton(string text, bool primary) => new()
+    private static Button DialogButton(string text, bool primary)
     {
-        Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = primary ? Brushes.White : Ink, TextAlignment = TextAlignment.Center },
-        Template = RoundedButtonTemplate, MinHeight = 44, MaxWidth = 320, Padding = new Thickness(16, 10, 16, 10), Margin = new Thickness(8, 0, 0, 0),
-        Foreground = primary ? Brushes.White : Ink, Background = primary ? Purple : Brushes.White,
-        BorderBrush = primary ? Purple : BorderColor, BorderThickness = new Thickness(1)
-    };
+        var button = new Button
+        {
+            Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = primary ? Brushes.White : Ink, TextAlignment = TextAlignment.Center },
+            Template = RoundedButtonTemplate, MinHeight = 44, MaxWidth = 320, Padding = new Thickness(16, 10, 16, 10), Margin = new Thickness(8, 0, 0, 0),
+            Foreground = primary ? Brushes.White : Ink, Background = primary ? Purple : Brushes.White,
+            BorderBrush = primary ? Purple : BorderColor, BorderThickness = new Thickness(1)
+        };
+        button.IsEnabledChanged += (_, _) =>
+        {
+            var activePrimary = primary && button.IsEnabled;
+            button.Background = activePrimary ? Purple : Brushes.White;
+            button.BorderBrush = activePrimary ? Purple : BorderColor;
+            button.Foreground = activePrimary ? Brushes.White : button.IsEnabled ? Ink : Muted;
+            ((TextBlock)button.Content).Foreground = button.Foreground;
+        };
+        return button;
+    }
 
     private void ExportReport()
     {

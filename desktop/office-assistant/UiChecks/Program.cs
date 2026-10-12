@@ -425,6 +425,9 @@ internal static class Program
             && ((TextBlock)next.Content).Text == Translation("Get", "ReviewRemoval", locale),
             prefix + " management title, modes and review action are translated");
         Check(selected.IsChecked == true && all.IsChecked != true && !next.IsEnabled, prefix + " review starts disabled with no removal targets");
+        Check(next.Background is SolidColorBrush disabledFill && disabledFill.Color == Colors.White
+            && ((TextBlock)next.Content).Foreground is SolidColorBrush disabledInk && disabledInk.Color == Color.FromRgb(85, 95, 110),
+            prefix + " disabled review has a neutral surface and readable muted text");
         var options = OfficeSelection.GetRemovalOptions(fixture.Inventory);
         var perApp = options.Any(option => option.RawKind == "component" && option.Supported);
         var visible = options.Where(option => !(perApp && option.Id == "c2r-product:" + OfficeSelection.Suite)).ToArray();
@@ -451,6 +454,9 @@ internal static class Program
         {
             choices[supported.Id].IsChecked = true;
             Check(targets.SetEquals([supported.Id]) && next.IsEnabled, prefix + " a supported checkbox updates the reviewed canonical scope");
+            Check(next.Background is SolidColorBrush activeFill && activeFill.Color == Color.FromRgb(95, 87, 255)
+                && ((TextBlock)next.Content).Foreground is SolidColorBrush activeInk && activeInk.Color == Colors.White,
+                prefix + " valid reviewed scope restores the primary action appearance");
             choices[supported.Id].IsChecked = false;
             Check(targets.Count == 0 && !next.IsEnabled, prefix + " clearing the only target blocks empty review");
         }
