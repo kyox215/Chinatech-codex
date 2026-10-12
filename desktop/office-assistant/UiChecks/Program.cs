@@ -110,7 +110,7 @@ internal static class Program
             foreach (var child in root.Children.OfType<FrameworkElement>())
                 Console.WriteLine("Root row " + Grid.GetRow(child) + " " + child.GetType().Name + " desired=" + child.DesiredSize);
             foreach (var child in Descendants(Field<Border>(window, "_configurationCard")).OfType<FrameworkElement>()
-                .Where(element => element is ComboBox or CheckBox or UniformGrid))
+                .Where(element => element is ComboBox or CheckBox or System.Windows.Controls.Primitives.UniformGrid))
                 Console.WriteLine(child.GetType().Name + " " + AutomationProperties.GetAutomationId(child) + " desired=" + child.DesiredSize);
         }
         Check(root.DesiredSize.Height <= viewport.Client.Height + Tolerance,
