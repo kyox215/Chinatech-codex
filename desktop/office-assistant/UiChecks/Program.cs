@@ -104,6 +104,15 @@ internal static class Program
         // The client viewport is explicit and synthetic; the hidden HWND only gives
         // WPF valid Window min/max metrics. Unbounded height exposes capped overflow.
         root.Measure(new Size(viewport.Client.Width, double.PositiveInfinity));
+        if (root.DesiredSize.Height > viewport.Client.Height + Tolerance)
+        {
+            Console.WriteLine("Overflow diagnostics " + Field<string>(window, "_locale") + "/" + viewport.Name);
+            foreach (var child in root.Children.OfType<FrameworkElement>())
+                Console.WriteLine("Root row " + Grid.GetRow(child) + " " + child.GetType().Name + " desired=" + child.DesiredSize);
+            foreach (var child in Descendants(Field<Border>(window, "_configurationCard")).OfType<FrameworkElement>()
+                .Where(element => element is ComboBox or CheckBox or UniformGrid))
+                Console.WriteLine(child.GetType().Name + " " + AutomationProperties.GetAutomationId(child) + " desired=" + child.DesiredSize);
+        }
         Check(root.DesiredSize.Height <= viewport.Client.Height + Tolerance,
             viewport.Name + " content height " + root.DesiredSize.Height + " exceeds client fixture " + viewport.Client.Height);
         root.Arrange(new Rect(viewport.Client)); root.UpdateLayout();

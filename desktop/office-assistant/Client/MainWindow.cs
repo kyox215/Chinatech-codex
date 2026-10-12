@@ -80,6 +80,7 @@ public sealed partial class MainWindow : Window
     private readonly Grid _footer = new();
     private readonly TextBlock _edition = new() { FontSize = 12, Foreground = Muted };
     private readonly TextBlock _productName = new() { Text = "Office LTSC 2024", FontSize = 18, FontWeight = FontWeights.SemiBold };
+    private readonly Border _suiteIcon;
     private readonly HashSet<string> _selectedComponents = new(Policy.Components, StringComparer.Ordinal);
     private readonly HashSet<string> _removalTargets = new(StringComparer.Ordinal);
     private RemovalMode _removalMode = RemovalMode.All;
@@ -169,8 +170,9 @@ public sealed partial class MainWindow : Window
         _productRow.ColumnDefinitions.Add(new ColumnDefinition());
         _productRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var product = new StackPanel { Orientation = Orientation.Horizontal };
-        product.Children.Add(new Border { Width = 30, Height = 34, CornerRadius = new CornerRadius(8), Background = new SolidColorBrush(Color.FromRgb(225, 107, 66)), Margin = new Thickness(0, 0, 8, 0),
-            Child = new TextBlock { Text = "O", Foreground = Brushes.White, FontSize = 21, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } });
+        _suiteIcon = new Border { Width = 30, Height = 34, CornerRadius = new CornerRadius(8), Background = new SolidColorBrush(Color.FromRgb(225, 107, 66)), Margin = new Thickness(0, 0, 8, 0),
+            Child = new TextBlock { Text = "O", Foreground = Brushes.White, FontSize = 21, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } };
+        product.Children.Add(_suiteIcon);
         var productText = new StackPanel(); productText.Children.Add(_productName); productText.Children.Add(_edition); product.Children.Add(productText);
         _productRow.Children.Add(product);
         _productRow.Margin = new Thickness(0, 0, 0, 4);
@@ -202,7 +204,7 @@ public sealed partial class MainWindow : Window
             item.Children.Add(icon); _componentIcons.Add(icon);
             var names = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
             var name = new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap, Foreground = Ink };
-            var presence = new TextBlock { FontSize = 11, Foreground = new SolidColorBrush(Color.FromRgb(24, 134, 91)) };
+            var presence = new TextBlock { FontSize = 11, TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(Color.FromRgb(24, 134, 91)) };
             _componentNames[app.Id] = name; _componentPresence[app.Id] = presence;
             names.Children.Add(name); names.Children.Add(presence); Grid.SetColumn(names, 1); item.Children.Add(names);
             var choice = new CheckBox { Content = item, IsChecked = true, MinHeight = 44, Padding = new Thickness(5, 3, 5, 3),
@@ -310,12 +312,13 @@ public sealed partial class MainWindow : Window
         _edition.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         _machine.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         _footer.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        _configurationCard.Padding = _detectionCard.Padding = new Thickness(compact ? 8 : 14);
+        _configurationCard.Padding = _detectionCard.Padding = new Thickness(compact ? 6 : 14);
         _configurationCard.Margin = new Thickness(0, 0, compact ? 8 : 12, 0);
-        _cards.ColumnDefinitions[0].Width = new GridLength(compact ? 1.85 : 1.65, GridUnitType.Star);
+        _cards.ColumnDefinitions[0].Width = new GridLength(compact ? 2.7 : 1.65, GridUnitType.Star);
         _cards.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
         _actions.Margin = new Thickness(0, compact ? 6 : 10, 0, compact ? 6 : 10);
         _productName.FontSize = compact ? 16 : 18;
+        _suiteIcon.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         foreach (var name in _componentNames.Values) name.FontSize = compact ? 12 : 13;
         _appManagement.Visibility = compact && (_executing || _workerActive) ? Visibility.Collapsed : Visibility.Visible;
         foreach (var icon in _componentIcons) icon.Visibility = compact && ActualWidth < 850 ? Visibility.Collapsed : Visibility.Visible;
