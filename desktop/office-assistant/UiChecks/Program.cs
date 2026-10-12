@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -87,13 +88,14 @@ internal static class Program
             viewport.Name + " must select the real compact/normal branch: " + window.RenderSize);
         Call(window, "ArrangeCards");
         var root = Field<Grid>(window, "_root");
-        // The client viewport is explicit and synthetic; no HWND is created to
-        // measure window chrome. Unbounded height exposes otherwise capped overflow.
+        // The client viewport is explicit and synthetic; the hidden HWND only gives
+        // WPF valid Window min/max metrics. Unbounded height exposes capped overflow.
         root.Measure(new Size(viewport.Client.Width, double.PositiveInfinity));
         Check(root.DesiredSize.Height <= viewport.Client.Height + Tolerance,
             viewport.Name + " content height " + root.DesiredSize.Height + " exceeds client fixture " + viewport.Client.Height);
         root.Arrange(new Rect(viewport.Client)); root.UpdateLayout();
-        Check(!window.IsLoaded && !window.IsVisible && PresentationSource.FromVisual(window) == null, "measurement must not show/load the main Window or create its HWND");
+        Check(!window.IsLoaded && !window.IsVisible && PresentationSource.FromVisual(window) == null,
+            "measurement must not show/load the main Window or connect it to the hidden HWND");
     }
     private static void CheckLayout(MainWindow window, Viewport viewport, string prefix)
     {
@@ -179,10 +181,15 @@ internal static class Program
     public static void Main()
     {
         // No Show, dispatcher pump, Loaded event, inspection, worker, installer,
-        // menu action click or licence calls. Hide changes Collapsed to Hidden,
-        // allowing layout dimensions without creating/showing an HWND.
+        // menu action click or licence calls. Hide changes Collapsed to Hidden.
+        // WPF Window min/max measurement requires a valid hidden HWND; EnsureHandle
+        // creates it without Show or connecting MainWindow as its RootVisual.
         Console.WriteLine("Native WPF synthetic control fixtures only; Office inspection and operations are not invoked.");
-        var window = new MainWindow(); window.Hide(); var partial = InventoryFixture();
+        var window = new MainWindow(); window.Hide();
+        var handle = new WindowInteropHelper(window).EnsureHandle();
+        Check(handle != IntPtr.Zero && HwndSource.FromHwnd(handle)?.RootVisual == null && !window.IsLoaded,
+            "hidden HWND exists without showing/loading MainWindow or attaching its RootVisual");
+        var partial = InventoryFixture();
         var empty = new Inventory("Microsoft Windows 11 10.0.26100", "X64", [], [], [], [], [], Policy.Components.Select(id => new ComponentState(id, false)).ToArray(), [], ObservedAt);
         var fixtures = new[] { new Fixture("unknown", null), new("detecting", null, Refreshing: true), new("empty", empty), new("partial", partial),
             new("running", partial, JobStatus.Running, Busy: true), new("completed", InventoryFixture(complete: true), JobStatus.Completed),
