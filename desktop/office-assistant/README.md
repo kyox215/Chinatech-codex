@@ -1,4 +1,4 @@
-# ChinaTech Office 助手 1.0
+# ChinaTech Office 助手 1.1
 
 全新独立 Windows WPF 助手。固定 Office LTSC Professional Plus 2024 64 位，Access、Excel、OneDrive、OneNote、经典 Outlook、PowerPoint、Skype for Business、Word 全部纳入安装和核验。界面提供中文、意大利语、英语；Office 安装语言默认跟随 Windows，可单独调整。
 
@@ -9,6 +9,12 @@
 安装与激活按 [kms.cx](https://kms.cx/) 的产品选择和 Office 执行流程重新编写。ODT 从微软官网下载并验签，XML 在受保护的本机目录生成。安装固定 `ProPlus2024Volume`、`SkypeforBusiness2024Volume`、`PerpetualVL2024` 和 64 位，显式设置同一语言。Skype 单独检查 `LYNC.EXE`；已有 OneDrive 复用，缺失时采用微软签名安装器。激活前确认网站当前默认服务器及备用 `k.302.pub`，使用微软 `ospp.vbs`，重新读取两个目标许可的真实状态和宽限期。报告显示实际使用的服务器；完整密钥和私人文件路径不写报告。
 
 本版本取消旧联网准入、会话、取包和远程脚本依赖。后台执行的是同一 EXE 的提权 worker；任务日志和媒体在 `%ProgramData%\ChinaTech.OfficeAssistant1`，仅 Administrators 和 SYSTEM 可写，普通用户可读。任务在机器上使用一个独占锁；取消管道只接受取消指令并限定用户 SID。恢复任务须为原账户，后台启动确认后可关闭界面并重新打开查看。
+
+## 1.1 流程与进度
+
+先完成三语交互预览，再实现原生卡片界面、固定底部进度区和折叠详情。安装／移除不显示微软完成窗口；真正运行的安装器仍阻止激活，最多等候五分钟，可取消。超时保留已安装套件，重新检测后从原任务继续激活；组件缺失从原任务修复，不重复卸载。
+
+下载只按实际写入字节显示；总长度未知时不计算百分比。校验只按实际完成的文件数显示。Office 下载、安装、移除和激活没有接入已核实的数字进度来源，仅显示阶段、用时和活动条。百分比属于当前操作，不是全流程估计；未完成不舍入为100%。详项目内 `docs/Office助手1.1流程与界面优化20261012.md`；预览 `docs/previews/office-assistant-ui.html` 不执行Office操作。
 
 ## 构建与验证
 
@@ -24,18 +30,22 @@ python3 desktop/office-assistant/build.py --rid win-arm64
 
 源码 ZIP 保留 `desktop/office-assistant/` 目录结构。在解压根目录使用已安装的 .NET 10 SDK 可运行 `python3 desktop/office-assistant/build.py --dotnet dotnet --rid win-x64`；ARM64 将 RID 改为 `win-arm64`。项目内 `npm run build:office-desktop` 默认构建 x64。
 
-双架构 EXE 为未签名的测试候选版；`manifest.json` 保持 `releaseReady=false`。当前版本用于公开测试，官网发布状态以对应 Release 和发布验证记录为准。完整 Windows 验收通过前不能标为稳定版。
+双架构 EXE 为未签名的测试候选版；`manifest.json` 保持 `releaseReady=false`。1.1 当前仅为本地候选，未公开发布或更新官网；此前版本发布状态以对应 Release 和验证记录为准。完整 Windows 验收通过前不能标为稳定版。
 
 ## Italiano
 
-Versione di prova 1.0.0, autonoma e non firmata. Estrarre il pacchetto adatto a Windows x64 oppure ARM64 e aprire `ChinaTech.OfficeAssistant.exe`. Il piano comprende Office LTSC Professional Plus 2024 a 64 bit e tutte le otto applicazioni. La lingua di Office segue Windows ed è selezionabile separatamente dalla lingua dell'interfaccia.
+Versione candidata locale 1.1.0, autonoma e non firmata. Estrarre il pacchetto adatto a Windows x64 oppure ARM64 e aprire `ChinaTech.OfficeAssistant.exe`. Il piano comprende Office LTSC Professional Plus 2024 a 64 bit e tutte le otto applicazioni. La lingua di Office segue Windows ed è selezionabile separatamente dalla lingua dell'interfaccia.
 
 L'installazione sostituisce tutto il vecchio Office, inclusi Visio e Project. Documenti e account OneDrive non fanno parte della rimozione. Leggere l'ambito e le condizioni Microsoft prima di confermare. Gli avvisi di riavvio del registro sono indicativi; se l'installer richiede un riavvio, riavviare Windows prima di riprendere. La richiesta di annullamento attende la fine dell'installer. Interfaccia, UAC, installazione, attivazione e disinstallazione reali devono ancora essere convalidati.
 
+L’interfaccia 1.1 riassume il controllo e mostra l’avanzamento in basso. Download e verifica dei file usano byte o file misurati; installazione e attivazione mostrano fase e tempo senza percentuali simulate. Dopo la finalizzazione riprende l’attivazione; le applicazioni mancanti vengono riparate nel task esistente senza ripetere la rimozione. Questa versione locale non è stata eseguita su Windows e non è pubblicata.
+
 ## English
 
-Standalone, unsigned 1.0.0 test candidate. Extract the Windows x64 or ARM64 package and open `ChinaTech.OfficeAssistant.exe`. The plan installs 64-bit Office LTSC Professional Plus 2024 and all eight applications. Office language follows Windows and can be selected independently of the interface language.
+Standalone, unsigned local 1.1.0 test candidate. Extract the Windows x64 or ARM64 package and open `ChinaTech.OfficeAssistant.exe`. The plan installs 64-bit Office LTSC Professional Plus 2024 and all eight applications. Office language follows Windows and can be selected independently of the interface language.
 
 Installation replaces all previous Office products, including Visio and Project. Documents and OneDrive accounts are outside the removal scope. Review the scope and Microsoft terms before confirming. Registry restart flags are advisory; an installer restart requirement must be resolved by restarting Windows before resuming. Cancellation waits for the installer to finish. Actual GUI, UAC, installation, activation and uninstallation acceptance is still pending.
+
+The 1.1 interface summarizes inspection and keeps progress at the bottom. Downloads and file verification use measured bytes or files; installation and activation show stages and elapsed time without simulated percentages. Resume activation after installer settlement, or repair missing applications within the existing task without repeating removal. This local version has not been run on Windows or publicly released.
 
 部署配置与产品标识依据 [微软 LTSC 2024 部署说明](https://learn.microsoft.com/en-us/office/ltsc/2024/deploy)、[ODT 产品标识](https://learn.microsoft.com/en-us/microsoft-365/troubleshoot/installation/product-ids-supported-office-deployment-click-to-run)、[Office 激活工具](https://learn.microsoft.com/en-us/office/volume-license-activation/tools-to-manage-volume-activation-of-office)及[微软 OneDrive 部署说明](https://learn.microsoft.com/en-us/sharepoint/per-machine-installation)。

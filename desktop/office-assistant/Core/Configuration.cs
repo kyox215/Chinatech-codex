@@ -13,12 +13,12 @@ public static class Configuration {
    new XElement("Property", new XAttribute("Name", "AUTOACTIVATE"), new XAttribute("Value", "0")),
    new XElement("Property", new XAttribute("Name", "FORCEAPPSHUTDOWN"), new XAttribute("Value", "FALSE")),
    new XElement("Updates", new XAttribute("Enabled", "TRUE")),
-   new XElement("Display", new XAttribute("Level", "Full"), new XAttribute("AcceptEULA", "TRUE")))).ToString();
+   new XElement("Display", new XAttribute("Level", "None"), new XAttribute("AcceptEULA", "TRUE")))).ToString();
  }
  public static string Remove() => new XDocument(new XElement("Configuration",
   new XElement("Remove", new XAttribute("All", "TRUE")), new XElement("RemoveMSI"),
   new XElement("Property", new XAttribute("Name", "FORCEAPPSHUTDOWN"), new XAttribute("Value", "FALSE")),
-  new XElement("Display", new XAttribute("Level", "Full"), new XAttribute("AcceptEULA", "TRUE")))).ToString();
+  new XElement("Display", new XAttribute("Level", "None")))).ToString();
 }
 public interface IOfficePlatform {
  Task<Inventory> InspectAsync();

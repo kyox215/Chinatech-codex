@@ -65,10 +65,17 @@ public sealed class Journal(Guid id) : IJobStore {
   var job = JsonSerializer.Deserialize<JobRecord>(File.ReadAllText(path), Reports.Json) ?? throw new OfficeFailure("JOURNAL_INVALID");
   if (job.Schema != 1 || job.Id != id || !Enum.IsDefined(job.Stage) || !Enum.IsDefined(job.Status)) throw new OfficeFailure("JOURNAL_INVALID");
   Policy.Validate(new(job.Id, job.Action, job.Language, job.Server, job.ExpectedFingerprint));
+  if (job.Progress != null) {
+   ProgressPolicy.Validate(job.Progress);
+   if (job.Status != JobStatus.Running) job.Progress = null;
+   else if (ProgressPolicy.Current(job) == null) throw new OfficeFailure("JOURNAL_INVALID");
+  }
   return job;
  }
  public async Task SaveAsync(JobRecord job) {
   if (job.Id != id) throw new OfficeFailure("JOURNAL_INVALID");
+  if (job.Status != JobStatus.Running) job.Progress = null;
+  else if (job.Progress != null && ProgressPolicy.Current(job) == null) throw new OfficeFailure("JOURNAL_INVALID");
   ValidateProtection(DirectoryPath);
   await Atomic(Path.Combine(DirectoryPath, "job.json"), JsonSerializer.Serialize(job, Reports.Json));
   await Atomic(Path.Combine(Root, "latest"), id.ToString("D"));

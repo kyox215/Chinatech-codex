@@ -1,21 +1,35 @@
 # 公共组件与样式复用规范
 
-## 2026-10-09 Mi Mover 原版最小修正
+## 2026-10-12 Office 1.1 原生界面
 
-用户明确原版解限，原lab2入口/文件撤下。仅原版h2入口分支/安装清单修正，无新原生页面/分类/引擎；原权限/协议/恢复保留。网页复用既有面板/按钮/token，三语明确只验证入口和原系统限制；原APK内容不重写。精确验证与后续原协议适配见docs/mimover-original-restriction.md。
+桌面 WPF 继续复用既有三语 Text、检测／确认／UAC／取消／恢复入口；仅客户端私有卡片、圆角按钮模板、折叠详情和固定进度区，不新增网页公共控件／UI框架。颜色沿用 ChinaTech 紫色与白色面板语义。进度与主操作投影归Core纯策略，权限和实际操作仍由原执行器检查。HTML完整预览为独立示例，Chrome三语与代表宽度交互已验；不作为原生运行证明。详[本轮报告](Office助手1.1流程与界面优化20261012.md)。
+
+## 2026-10-08 Smart Switch lab2 下载说明
+
+复用既有实验下载卡、语义按钮／面板／token／公共词典，仅新增三语15秒回退及真机待验说明；无新增通用控件或主题。版本／URL／大小／SHA／签名同release元数据，lab1下载原字节保留。本地与正式各28两浏览器3语4宽／锚点及实际下载通过，源报告与限制见安卓第15节。
+
+## 2026-10-08 安卓手机助手候选
+
+0.2按最新决定同步新机热点／旧机扫描发送，继续复用同一控件与样式，没有新公共主题。页面仅展示端上扫描支持范围／恢复粒度；APP包接收不宣称已安装，日历基础ICS与重复原字段归档分开。原生每页50为读取窗口，分类全选覆盖所有索引项。旧10000／2h产品限制已移除，首次未批准配对仍短期；设备与provider终止需按真实进度恢复。
+
+`/toolbox/transfer`复用工具箱公共layout、PublicHeader（仅新增transfer返回工具箱变体）、Brand、LanguageProvider／LanguageSwitcher、SelectControl及既有button／field／颜色和圆角token。两机配置为手动规划，不读取真机；权限／迁移覆盖由lib/toolbox/android-transfer.ts同源计算，已实现alpha与后续／官方迁移分别显示。原生安卓采用系统控件和三语资源，无Google服务依赖。
+
+页面仅增加工具箱作用域CSS Module，桌面两机并列、手机单栏，选择控件44px／16px，长权限代码与指纹可换行。APK可用状态、版本／大小／SHA／签名指纹来自实际构建元数据，未生成不得显示假下载或功能已完成。网页不接受配对码／客户资料，不做远控。实际验证与首版有限范围见[安卓助手方案](android-phone-assistant.md)和PROJECT_MEMORY；未授权媒体空间、直接联系人写入及APP安装不能借本次网页候选冒称已实现。
+
+## 2026-10-08 控件状态与恢复（本地候选）
+
+按钮继续使用既有 `.button`／`.icon-button`，增加按下、键盘焦点、可操作条件下的悬停；普通禁用用不可操作光标，`aria-busy`与提交中form的submit按钮显示转圈。空态简易按钮不再覆盖公共按钮。业务同步ref锁、fieldset、失败草稿和原提交恢复仍由调用方维护，CSS不能代替写入门控。
+
+新增稳定公共展示 `PageRecovery`／`PageLoading`，复用panel、module-empty、module-skeleton、PageTitle和token；根／后台错误及后台等待使用；公开页面保留无JavaScript的服务端内容，不铺设全局loading边界。`PageRecovery.retry`仅重新读取路由，`internal`保留后台手机菜单；服务异常／离线分开，内部异常文本不展示。BackendSyncNotice沿既有provider增加重试读取入口，不重放业务POST。无新主题、依赖或万能业务组件。
+
+SearchCombobox增加opt-in `optionDetailsAsDescription`，设备目录选择器将品牌／型号标签作为名称，别名／年款等说明仍完整显示并由aria-describedby关联；客户手机号＋姓名等默认候选保持原命名。普通SelectControl的空值以data-empty表达未选样式，不改业务默认或canonical值。当前候选有持续选中高亮。
+
+采购弹层用同一fieldset与父同步busy锁全部子操作；成功到货／更正清本次数量备注，失败保留；照片／状态确认／保管／售后建单明确处理中。新客户入口按customers.edit，查看关联不变。具体修复、三语、四宽／双浏览器、合成接口与限制见[本轮UI审查33](33-ui-states-and-closure.md)，旧文档中“没有公共Button/Panel/Field组件”继续有效。
 
 
-## 2026-10-09 Smart Switch 原版界面 lab4
+## 2026-10-07 共享设备目录候选
 
-下载卡继续复用 SmartSwitchExperimentDownload、PublicHeader、LanguageProvider、既有panel/button/token，置于独立助手前以区分包。版本／大小／SHA／说明同release事实；旧链接原字节保留。无新增主题／控件，三语与实际下载按当前候选验收。原生沿用原1356资源和主题，自主控制器绑定真实目录／选择／进度／收据，不向原MainDataModel发空成功事件。详docs/smart-switch-original-ui.md。
-
-
-## 2026-10-07 Windows 检测候选
-
-`/toolbox/windows` 复用 PublicHeader、Brand、LanguageProvider、LanguageSwitcher、公共 button 与 token；PublicHeader 仅扩展 `page="windows"`，与 Office 共用返回工具箱。下载／条件面板使用工具箱私有 CSS Module，无新主题或依赖。核心说明与下载由 SSR 输出；无 JavaScript 仍可看默认中文说明并下载包含三语入口的ZIP。
-
-网页与启动器同步三语，清单关联生成源哈希；明确显示检测版和自动升级未开放。三语四宽度／双浏览器和无JS下载已实测，Windows／PS2／实际旧浏览器未验。详细状态见[Windows工具箱31](31-windows-toolbox-upgrade.md)。
-
+DeviceCatalogControl 复用 SearchCombobox，商品新建／就地编辑／维修接机共享；默认其他用途仍12项，本目录扩50项、按需加载、可选系列与分页。公共 opt-in optionLimit、menuHeader／menuFooter、menuClassName、onOpenChange／loading 不混入权限或业务写入；目录私有CSS固定页码操作，16px输入和44px触控保持。管理页复用AppShell／PageTitle／InputControl／TextareaControl／SelectControl、已有按钮与token，不增加全局导航或新主题。用途、三语及验证见[共享目录32](32-shared-device-catalog.md)。
 
 
 LanguageSwitcher复用useFormReady：服务端/初始化期间禁用选择，准备后保留第一笔语言选择及刷新偏好；防止未接事件时原生下拉值被保存偏好覆盖。所有现有使用方共用，无新样式/主题。
@@ -23,17 +37,44 @@ LanguageSwitcher复用useFormReady：服务端/初始化期间禁用选择，准
 ## 2026-10-07 Office 联网控制
 
 OfficeToolboxControl 是全站工具管理专用组件，复用账号设置card/cardHead/form/muted/nav及原button/语义token；通过AccountOverview可选capabilities.canManageOffice接入原账号设置列与锚点。显示能力来自服务端，写权限由独立管理API/私有表再次检查。公开Office页仅异步生成受控启动器，Blob下载当前命令、网关源码链接，生成/停用/错误/复制/迟到响应独立反馈，44px与三语保留。仅复用组件，无新主题/依赖/普通输入框。控制语义与验证范围见[整体开关31](31-office-command-control.md)。
+
+## 2026-10-07 Windows 检测候选
+
+`/toolbox/windows` 复用 PublicHeader、Brand、LanguageProvider、LanguageSwitcher、公共 button 与 token；PublicHeader 仅扩展 `page="windows"`，与 Office 共用返回工具箱。下载／条件面板使用工具箱私有 CSS Module，无新主题或依赖。核心说明与下载由 SSR 输出；无 JavaScript 仍可看默认中文说明并下载包含三语入口的ZIP。
+
+网页与启动器同步三语，清单关联生成源哈希；明确显示检测版和自动升级未开放。三语四宽度／双浏览器和无JS下载已实测，Windows／PS2／实际旧浏览器未验。详细状态见docs/31。
+
 ## 2026-10-07 Office视频复用
 
 TutorialLibrary增加可选readonly教程目录、4:3／16:9及操作回调，默认首页目录／4:3与Strict ref微任务清理保留；Office通过独立三语目录复用播放器，不复制媒体处理或新UI框架。教程→对应命令使用有限OfficeAction hash，同页明确选项及焦点／刷新／前后返回保持一致；手动改选时已有command hash同步。共用PublicHeader、语言／按钮／token，私有Office锚点避开sticky header。目录语言只改显示，原命令及源码字节不译写、不执行。媒体／章节／封面／字幕按同一实测配音生成；图示必须标示，不能把动画当Windows实际执行成功。
 
 ## 2026-10-07 Office 命令工具
 
+当前修复候选在安装／完整重装增加含Skype／不含Skype的显式选择，默认八组件保留；复用segmented-control及button，无新增公共组件／token／输入框／主题。组件选择与操作／终端共用scope，变化清理迟到命令；false选项签名绑定单独服务器变体，不用前端标签改变安装事实。20双浏览器检查包含三语切换、复制／下载与默认恢复，API使用明确替身；实际七组件重装仍待授权。旧教程尚未同步，见docs31，不把旧视频当新流程验收。
+
 `/toolbox/office` 复用 PublicHeader 的 `page="office"` 返回工具箱、Brand、LanguageSwitcher、button、segmented-control 及已有颜色／圆角／边框 token；四种操作及终端选择、长命令与复制反馈使用工具箱私有组件和 CSS Module，无新公共控件、主题或依赖。选中终端复用 `segmented-control__active`，手机操作至少44px。Office 分类新增实际命令入口，其他待添加分类保持原展示。
 
 命令数据归 `lib/toolbox/office-commands.ts`，八种终端命令与四份可读源码以静态 `.txt` 供查看／下载；网页只显示或复制文字。Clipboard 调用失败保留手动选择与下载，操作／终端变化和卸载组件均隔离迟到结果。全部内容同步中／意／英。单独安装／激活／卸载脚本使用独立临时文件及固定上游哈希；完整重装保留用户提供源码与配置预检。激活核对目标版本、授权状态及密钥后缀，不将其他 Office 版本授权当成功。
 
 验收仅针对公开页面、命令字节／源码／下载一致性、语法和复制状态；不代替 Windows 真机安装或许可证验证。不新增后台读取／写入、权限或业务数据链路，签名／打印／教程及数据保存闭环不适用。
+
+## 2026-10-07 公开工具箱
+
+首页与 `/toolbox` 共用 `components/home/public-header.tsx` 的 `PublicHeader`：沿用原首页 header CSS，`page="toolbox"` 显示返回首页，默认显示首页分区导航和工具箱入口。手机登录／注册与工具箱／返回入口第一行直接可见，品牌与 LanguageSwitcher 第二行；导航触控至少44px。复用 Brand、LanguageSwitcher／SelectControl、LanguageProvider、Lucide、公共 button 与颜色／圆角／边框 token，工具箱布局仅在自己的 CSS Module 中维护，无新主题或依赖。四张分类卡片是待添加内容的只读展示，不伪装可点击工具。实际匿名双浏览器、三语四宽度与构建验收见docs04。
+
+## 2026-10-06 商品档案高密度布局
+
+桌面压缩摘要照片与价格区，基础信息按实际栏宽以两／三列展示，规格保留逐字段编辑；金额改为紧凑事实行，检测并列核验，保修与预览移到实物列。原资料／历史在标题按钮就地展开，手机继续单组折叠，照片管理在原缩略图区展开、可放大，未降低照片文件质量。长型号、识别码、多磁盘、系统长词及完整金额允许必要换行／自然增高；不把任意历史或长资料保证为一屏。
+
+复用PageTitle、RetailDetailView、RetailFieldButton／Editor、Gallery、WarrantyPanel／Control、InputControl及SelectControl。Gallery和WarrantyPanel增加模块内opt-in compact；普通月数保存态紧凑，自定义／待核对／编辑态完整展开。DOM data-custom只用于排版，canonical／金额／检查／快照／门店权限与后台不变，三语仍完整显示。教程只同步整机第5／6步三语画面，配音、章节与字幕复用。
+
+实际合成1440×900对比原商品1518→846px、受管1641→900px，减少44%／45%；摘要299／314→152px。1024、390、375及767／768草稿、长资料／百万金额／负毛利／零／未知、自定义保修保存打印与焦点已验收。详细证据与发布结论见docs04和PROJECT_MEMORY。
+
+## 2026-10-06 商品详情统一复用
+
+在售原商品和新商品共享RetailDetailView／RetailGallery／字段编辑、检测、销售卡和三语打印；来源展示使用私有readOnly作用域，核对前不可编辑或上传。保留PageTitle／AppShell、IdentifierScanner／IdentifierField、InputControl／SelectControl、私有设备草稿及现有panel／detail-section__head／form-fields语义样式。RetailRecordPreparation负责本页实际核对与两步确认，RetailRecordSourceFacts只显示保留原文；未新建通用表单框架或主题。
+
+RetailRecordScanner从旧独立列表提取后复用于唯一商品入口；buildRetailListIndex作为列表和工作台同一来源。手机单组展开及草稿保持，电脑双栏，原资料桌面按需展开；旧客户链接显式展开原资料，新交易链接定位saleId。四宽度和Chrome／WebKit验证，正式本地服务用合成门店实际保存；证据见docs04。
 
 ## 三语显示与后续维护（2026-10-06）
 
@@ -51,6 +92,14 @@ TutorialLibrary增加可选readonly教程目录、4:3／16:9及操作回调，�
 公共输入、候选、识码、SingleChoice／MultiChoice继续保留原控件、字段关联、值、onChange、焦点与校验。错误在显示层翻译，原 `setCustomValidity` 和领域异常未改写；SelectControl只在语言改变时刷新增强显示，原生option必须显式保存原value。表单不按语言加key；教程内容可按语言重建，以停止旧声轨并等待下一次用户播放。
 
 首页、账号页直接显示44px／16px语言选择器；后台放在既有侧栏账号菜单，手机仍使用标题旁菜单，无新全局导航。字体、颜色、按钮、面板、原生video和字幕轨沿用公共样式及模块CSS，无新UI框架或主题。教程的实际控件落点由DOM测量，不能用装饰鼠标代替真实目标。验收与限制见docs04与PROJECT_MEMORY。
+
+本轮商品功能已发布main `649f0fa`；独立完整验收与云端CI限制见PROJECT_MEMORY及docs04。
+
+2026-10-05 商品手机折叠与销售流程：复用原字段编辑、RetailGallery、RetailSaleCard、RetailReceipt及公共输入／候选／按钮／token。私有RetailDetailGroup仅维护整机手机分组呈现：电脑完整区块，手机统一44px展开头、单组展开，保留已挂载草稿。Gallery新增手机缩略图与按需照片工具，无照片仍为图标占位；未降低照片字节质量。销售卡集中步骤／下一步／打印，客户记录复用原列表和精确原销售链接。RetailReceipt增加可选restoreFocusRef，因为触摸点击不保证document.activeElement是按钮；销售和未售预览均传实际触发点。买家备注新增三语标签，未扩展条款或公共主题。具体规则和实际验收见docs05／04。
+
+2026-10-05 四日常组：复用RepairList、RepairStageControl、RepairContactControl、RepairGroupEditor、RepairItemsForm和SupplierBatchDialog，范围／通知切换用既有segmented-control与token，触控至少44px。SupplierBatchDialog仅扩展可选repairId范围与保存成功onSaved(工单ID数组)，实际下单／到货仍走原原子命令；阶段“下单”入口打开当前单核对清单。新增业务专用RepairReworkControl及RepairProjectControls，因为原“关联售后”未登记再次送回来源、零项目新返修不能直接选供应商；复用TextareaControl／InputControl／SelectControl和原portal dialog，不新增公共框架、token或万能控件。业务门控留在领域／store／服务端，短状态由共享repairProgress计算。列表成功提示正文pointer-events:none，44px关闭按钮pointer-events:auto，保留消息可读／键盘关闭并不挡住后续按钮。scope/view/noticeFilter沿原门店／成员／权限隔离和返回恢复，搜索不落持久存储。验收和发布详见PROJECT_MEMORY与docs22。
+
+2026-10-05 整机图形档案：复用原 `RetailGallery`／字段编辑／`PageTitle`／颜色与品类图标及现有 token；大图、售价、分类标签和圆环摘要配主辅双栏，手机保持单栏并优先检测／销售操作。样式只在原 retail-detail／gallery CSS Module 中维护；普通输入和写入仍走原领域控件。缩略图按容器排列，六张照片均保留44px目标；窄屏金额不拆行。没有新增公共组件、主题或依赖。财务未知／权限、保存核验与草稿的区分见[单机规格](05-retail-functional-spec.md#2026-10-05-商品单机档案可视化本地完成未上线)。
 
 2026-10-04 旧站浏览器退役：根 layout 仅挂载无界面的 `LegacyServiceWorkerCleanup`。它只更新同源根 scope 的精确 `/sw.js` 旧注册，不向新设备安装后台脚本；更新失败保留旧壳，联网／返回前台重试。清壳和注销由替换脚本在激活接管后执行，范围仅 `repairdesk-shell-*`。不得强制刷新或导航当前新页面，不得清空登录 cookie、IndexedDB 草稿／附件、记住登录设置或其他缓存／后台脚本。旧恢复入口和双域名兼容详见[旧站清理25](25-old-site-residue-audit.md)。无新增 UI、主题、依赖或业务协议。
 
@@ -375,17 +424,34 @@ RepairPartForm复用SearchCombobox及既有field-grid／button语义，只保留
 
 自动维护约束：`eslint.config.mjs` 禁止业务页面直接新增文本类原生 input、textarea、select；仅公共实现和专用类型例外。新增输入必须选择以上入口，并按影响运行 `npm run lint`、`npm run typecheck`、业务测试和 `npm run test:controls`。`tests/browser/input-states.spec.ts` 覆盖四态、点击／键盘清空、原请求锁定与失败重试、条件必填、数量／金额／未知与零、隐藏扫码和四个宽度；既有交互回归继续保留。具体本轮证据与未验证范围见 docs/04 和 PROJECT_MEMORY，不能以本声明代替验收。
 
+## 2026-10-04 维修阶段分组统一
+
+继续复用RepairStageControl、RepairList、SelectControl、RepairGroupEditor和InputControl。分组名称从共享阶段标签读取；维修分组管理的名称只读并可拖动排序，配件名称仍可编辑，无新公共控件／主题／CSS。保存成功才展开新组并调整会隐藏当前工单的阶段筛选，失败不移动。旧分组配置的读取兼容不写库；联系控制与工作台采购统计改读独立实际配件进度，不能依赖维修分组名推断到货。实际四宽度和双浏览器证据见项目记忆。
+
+## 2026-10-06 登录设备（本地候选）
+
+`LoginDevicesPanel` 是账号/员工会话领域组件，复用 panel/button/field/status、SelectControl、既有账号设置与员工设置入口，新增模块 CSS 仅表达设备事实列表与确认 dialog。沿用 border/radius-panel/text-secondary/overlay token，手机单栏、44px操作，电脑行内事实；不增加框架、公共主题或业务输入控件。登录勾选复用 checkbox-label，标签44px，三语提示完整换行。权限和会话写入留在服务端；细节及实际证据见[登录设备29](29-login-session-devices.md)。
+
 ## 2026-10-06 商品流程扩展
 
 新建沿用公共输入／规格／识码／选择／保修控件与CSS语义token，宽屏三组并排、中宽两列、手机单列；仅新建手机标题取消吸顶，仍16px输入和44px目标。Gallery新增显式onDraftChange/onBusyChange用于未建档照片，原档案照片确认不变。Checkout复用sale样式和公共输入，选填客户与付款备注展开；普通检测与收款备注选填。业务权限、金额、状态留在retail-workflow及后台，公共控件不承担业务判断。详见docs/30。
 
-## 2026-10-07 登录会话发布
+2026-10-07 登录设备维护：账号表单/个人设备分别以 forms:/devices: +账号+会话标识为唯一 key；设备面板 focus/online 重读，关闭旧确认并隔离迟到响应。未知网络结果同范围复用原请求 ID，不把返回前台视为重新授权。复用的控件与样式保持，详见 docs29 当前验收。
 
-本次登录勾选、活动追踪、个人/员工设备复用既有控件、三语和权限边界；用途/nonce隔离、原会话政策继承、账号+会话清草稿/确认、两个身份header、Cookie退出清理与窄范围幂等竞争处理共用正式后端。迁移先兼容、验证应用后严格启用，保留共享Auth及已提交业务；完整产品/迁移/当前验收见[登录设备29](29-login-session-devices.md)。
+## 2026-10-07 Office 桌面授权界面
+
+`OfficeDesktopLicenses` 属于账号工具授权领域，复用InputControl/SelectControl与既有账号card/form/muted、panel/button/field/module-table-scroll及语义token；只新增desktopCard/desktopTable模块样式保障16px输入、44px控件、英文自然换行和面板内滚动。无新公共组件或主题。原父账号页以账号/会话范围卸载旧草稿，密钥面板中止旧请求、忽略迟到响应，并在刷新/后续操作时清除原始密钥。真实本地双浏览器三语四宽度与生成/停用/恢复/刷新28项已验证、截图已查看。独立Windows WPF程序复用紫色主操作/白面板/16px/44px的视觉语义，不能当成网页组件；实际WPF锁定页已查看，无网页UI框架新增。规格和限制见office-desktop-assistant.md。
 
 ## 2026-10-07 公开账号入口与会话状态
 
 公开首页和工具箱复用PublicHeader、Brand、LanguageSwitcher、LogoutButton及button/icon-button；AccountActions统一导航、首屏、底部行动与页脚。AuthStatusProvider读取最小服务端状态，所有门店写入仍在原领域边界。手机账号操作同排、44px，工具箱图标保留完整可访问名；ResizeObserver只测量公共栏高度，用局部--public-header-offset处理公开锚点，长译文不靠缩字或遮挡。AuthStatusUnavailable复用AuthFrame内表单语义。验证及限制见docs29与PROJECT_MEMORY。
+
+
+Office桌面下载面板：components/toolbox/office-desktop-download复用OfficeToolsPage的details、既有button、语言provider及Download图标；仅新增SHA换行及下载卡滚动避让/间距作用域，未加控件框架。两浏览器三语1440/1024/390/375检查24项，实际展开校验/刷新，截图已目视。
+
+## 2026-10-08 Office命令实测继续（本地候选）
+
+Office候选已合入main49c0d5f；三语教程、Skype选项录制和实际播放同步，20双浏览器、404单测／1既有skip、三语／类型／lint／正式构建通过。实际用户Word／Excel／PPT样本及六应用启动通过，SYSTEM失败记录保留；OneDrive已配置账号，未新启动同步。无Skype重装仍被自动审批拒绝，0次执行，待完整直接授权句。两终端实装／重启／正式命令矩阵未全验，未推送部署。UI继续复用原segmented-control／button／PublicHeader，无新主题／公共控件。详细证据见docs31与PROJECT_MEMORY，不能以视频图示或接口替身替代实装。
 
 
 ## 2026-10-08 公开页具名账号菜单
@@ -393,11 +459,20 @@ RepairPartForm复用SearchCombobox及既有field-grid／button语义，只保留
 `components/home/account-menu.tsx` 复用原生 details/summary、既有 profile-menu__avatar、button/icon-button、LogoutButton、角色词条和语义 token；模块 CSS 负责公开导航锚定、44px 触控、完整资料换行及受限视口滚动。导航按账号名称／工作台／退出显示；名称过长只截断触发器，展开仍完整显示。点击外部、焦点移出及 Escape 关闭；身份或状态变化重建菜单。复用个人账号设置，登录设备链接定位其异步挂载面板；不复制设置表单或扩门店权限。中／意／英及四宽度已覆盖，详见 docs29 本轮证据。
 
 
+### 2026-10-08 数据传输实验下载卡
+
+SmartSwitchExperimentDownload为工具箱模块组件，复用PublicHeader／语言／button／原panel和校验details。metadata只从smart-switch-experiment-release读取；资源是点击下载，按钮44px，哈希可换行，模块downloadActions与release共用flex规则。实验锚点使用--public-header-offset避免页头遮挡。不是新增通用主题／控件；原ChinaTech助手权限规划独立。三语与验证状态见安卓助手规格第14节。
+
+
 ## 2026-10-09 公开导航精简
 
 PublicHeader右侧统一显示具备真实可见文字的“工具箱”，链接/toolbox；工具箱本页aria-current=page，品牌继续返回首页。沿用既有图标、词条、语义token及CSS Module，无新控件／主题。AccountActions不再渲染独立或页脚退出，退出复用AccountMenu内的LogoutButton。手机顶行账号／工作台／工具箱，品牌和语言第二行；语言跨列但靠右，避免其宽度挤掉账号名称。768px及以上用明确网格固定账号／语言／工具箱位置，主页分区导航另排一行，工具箱保持右侧，公开锚点仍由实际header高度测量。三语、长名称、四宽及菜单／退出／品牌和工具箱路径按本轮证据核验。
 
 手机验证邮箱等较长账号行动文案允许换行，账号触发器至少保留60px宽／44px高，避免只有全页无溢出但按钮互相遮挡；既有待授权／未验证投影与退出服务不变。三语375／390已实际验证。
+
+## 2026-10-09 ChinaTech助手0.3下载入口
+
+独立助手卡置于数据传输页首部，复用PublicHeader/Brand/SelectControl、既有panel/button和模块downloadActions动作间距及token；新增#chinatech-assistant定位，手机触控/三语/校验摘要换行沿现有规范。版本/APK字节与README来源统一release metadata。三星实验卡和历史下载保留，页面如实分开模拟器/真机和接收/图库/通讯录导入能力，无新主题/通用组件或框架。实际页面三语四宽度两浏览器及下载全hash验收以本轮发布证明为准。
 
 
 ## 2026-10-09 Mi Mover独立下载卡
@@ -407,3 +482,13 @@ MimoverDownload为数据传输领域组件，复用PublicHeader/语言provider�
 ## 2026-10-09 Smart Switch lab4原版界面
 
 公开下载卡优先原界面lab4，复用原toolbox样式／按钮／三语；旧APK和独立0.3保留。原Launcher／首页／连接来源与7无线阶段使用原资源绑定自主真实目录／选择／确认／收据。网站文案、release元数据、实际两APK与说明SHA、两端必须同lab4和未验收实体范围一致。详[规格](smart-switch-original-ui.md)，真实原生与网站／生产验收分别记录。
+
+
+### 2026-10-10 Office 桌面助手准入开关（本地候选）
+
+暂停仅拒绝新会话，旧会话按原期限继续；不改旧Office总开关epoch/密钥revision。复用account panel/form/button/token及原账户身份边界，新增独立OfficeDesktopControl，不引入主题或控件库。后台真实本地Auth/API与双浏览器保存/刷新/丢失响应恢复/三语四宽32项通过，实际WPF联网检查与断网恢复11项、SQL10组、HTTP8组和C#56项通过；不代表物理x64或本轮Office安装验收。源码79836d0/21限定文件已备，783其他blob保留，自动审批要求明确本轮新增源码公开授权，尚未迁移或发布。详docs/office-desktop-assistant.md和.local/office-admission/prepared-verification.json。
+
+
+### 2026-10-10 Office0.2管理与更新入口
+
+OfficeDesktopControl沿用account panel/form/button/token，最低版本复用SelectControl并提供明确三语aria-label，native选择框入口至少44px，不新增控件／主题。account-settings移除旧密钥生成卡，指定管理员侧栏新增本卡锚点；Office总开关保留。OfficeDesktopDownload沿原下载卡与release metadata改自动联网说明。中意英、Chromium／WebKit及1440／1024／390／375管理42项已通过；原生base-select内部呈现button不是独立操作入口，尺寸验收覆盖外层选择框和实际动作按钮。最终公开卡与正式构建证据见.local/office-admission/source/.local/office-public，不冒称线上下载已发布。

@@ -43,7 +43,7 @@ test('independent 1.0 desktop covers fixed UI, workflow outcomes and placeholder
   const slots=translations.map(value=>{assert.ok(value.trim(),id);return [...value.matchAll(/\{([0-9]+)\}/g)].map(m=>m[1]).sort().join(',');});
   assert.equal(slots[0],slots[1],id);assert.equal(slots[0],slots[2],id);
  }
- const files=['Client/MainWindow.cs','Client/Coordinator.cs','Client/Journal.cs','Client/OfficePlatform.cs','Core/Models.cs','Core/Workflow.cs'];
+ const files=['Client/MainWindow.cs','Client/Coordinator.cs','Client/Journal.cs','Client/OfficePlatform.cs','Client/ActivationSource.cs','Core/Models.cs','Core/Workflow.cs','Core/ExecutionSafety.cs','Core/InstallerSafety.cs'];
  const source=files.map(f=>readFileSync(base+f,'utf8')).join('\n');
  for(const match of source.matchAll(/(?:OfficeFailure|T|Label|Button)\("([A-Z_a-z0-9]+)"/g))if(!['Stage_','Status_'].includes(match[1]))assert.ok(messages[match[1]],match[1]);
  const model=readFileSync(base+'Core/Models.cs','utf8');
@@ -52,12 +52,12 @@ test('independent 1.0 desktop covers fixed UI, workflow outcomes and placeholder
   for(const key of declaration.split(',').map(s=>s.trim()))assert.ok(messages[prefix+key],prefix+key);
  }
 });
-test('public 1.0 downloads use the approved architecture assets and exact binary checksums',()=>{
- const base='https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v1.0.0';
- assert.equal(officeDesktopRelease.version,'1.0.0');
+test('public 1.1.0 downloads use the approved architecture assets and exact binary checksums',()=>{
+ const base='https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v1.1.0';
+ assert.equal(officeDesktopRelease.version,'1.1.0');
  assert.deepEqual(officeDesktopRelease.files,[
-  {architecture:'x64',bytes:64906101,sha256:'083430f68462fce09ea60e6a2e1de79a7d992fa600eb90c1e2416021f6a05d09',href:base+'/ChinaTech-Office-Assistant-x64.exe'},
-  {architecture:'ARM64',bytes:61059434,sha256:'2879c3b199b0ffe7467fe04899109bc1b8a86753ab7b07edf700bbf1b201035f',href:base+'/ChinaTech-Office-Assistant-ARM64.exe'},
+  {architecture:'x64',bytes:64931240,sha256:'2f40e78c84ae04a3d2b718abe483f8253e6acf0016ab4c8655856dcd09383641',href:base+'/ChinaTech-Office-Assistant-x64.exe'},
+  {architecture:'ARM64',bytes:61084575,sha256:'92cdb413043874d630e13f04c85950173e87c2600bd2730c19ae7e3d5c1aed53',href:base+'/ChinaTech-Office-Assistant-ARM64.exe'},
  ]);
  assert.equal(officeDesktopRelease.instructions,base+'/README.txt');
  assert.equal(officeDesktopRelease.checksums,base+'/SHA256SUMS.txt');

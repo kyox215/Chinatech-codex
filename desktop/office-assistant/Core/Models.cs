@@ -18,6 +18,7 @@ public sealed record Inventory(string Windows, string Architecture, string[] Off
  public string[] SuiteLanguages { get; init; } = [];
  public string[] SkypeLanguages { get; init; } = [];
  public string LicenseError { get; init; } = "";
+ public string[] IdleInstallerServices { get; init; } = [];
  public bool TargetInstalled => OfficeProducts.Contains("ProPlus2024Volume", StringComparer.OrdinalIgnoreCase)
   && OfficeProducts.Contains("SkypeforBusiness2024Volume", StringComparer.OrdinalIgnoreCase) && Platform.Equals("x64", StringComparison.OrdinalIgnoreCase);
  public bool MatchesPlan(JobRecord job) => TargetInstalled && SuiteLanguages.Contains(job.Language, StringComparer.OrdinalIgnoreCase)
@@ -47,11 +48,15 @@ public sealed class JobRecord {
  public Stage Stage { get; set; } = Stage.Detect;
  public JobStatus Status { get; set; } = JobStatus.Running;
  public string Code { get; set; } = "STARTED";
+ public JobProgress? Progress { get; set; }
  public bool Removed { get; set; }
  public bool RemovalStarted { get; set; }
  public bool OneDriveInitiallyPresent { get; set; }
  public bool Installed { get; set; }
+ public string? InstallerBoot { get; set; }
+ public bool InstallerStarted { get; set; }
  public string? RestartBoot { get; set; }
+ public string? RestartVerifiedBoot { get; set; }
  public int? InstallerExitCode { get; set; }
  public DateTimeOffset StartedAt { get; set; } = DateTimeOffset.UtcNow;
  public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
@@ -64,7 +69,7 @@ public sealed class OfficeFailure(string code, int? exitCode = null) : Exception
  public int? ExitCode { get; } = exitCode;
 }
 public static partial class Policy {
- public const string Version = "1.0.0";
+ public const string Version = "1.1.0";
  public const string TermsUrl = "https://www.microsoft.com/licensing/terms/productoffering/OfficeDesktopApplications/all";
  public static readonly string[] Components = ["Access", "Excel", "OneDrive", "OneNote", "Outlook", "PowerPoint", "Lync", "Word"];
  public static readonly string[] Languages = ["zh-cn", "it-it", "en-us"];
@@ -92,7 +97,8 @@ public static class Reports {
  public static readonly JsonSerializerOptions Json = new() { WriteIndented = true, PropertyNameCaseInsensitive = false };
  public static string Export(Inventory? inventory, JobRecord? job, string locale) => JsonSerializer.Serialize(new {
   schema = 1, assistantVersion = Policy.Version, locale, exportedAt = DateTimeOffset.UtcNow,
-  inventory, task = job == null ? null : new { job.Id, job.Action, job.Language, job.Server, job.ActivationServer, job.ActivationAttempts, job.Stage, job.Status, job.Code,
-   job.Removed, job.Installed, job.StartedAt, job.UpdatedAt, job.InstallerExitCode, mediaVersion = job.Media?.Version, job.Events, job.Observation }
+  inventory, task = job == null ? null : new { job.Id, job.Action, job.Language, job.Server, job.ActivationServer, job.ActivationAttempts, job.Stage, job.Status, job.Code, Progress = ProgressPolicy.Current(job),
+   job.Removed, job.RemovalStarted, job.Installed, job.StartedAt, job.UpdatedAt, job.InstallerExitCode, job.InstallerBoot, job.InstallerStarted, job.RestartBoot, job.RestartVerifiedBoot,
+   mediaVersion = job.Media?.Version, job.Events, job.Observation }
  }, Json);
 }
