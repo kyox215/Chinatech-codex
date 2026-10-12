@@ -16,7 +16,7 @@ internal static class Program
     private static readonly BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     private static readonly DateTimeOffset ObservedAt = new(2026, 10, 12, 12, 0, 0, TimeSpan.Zero);
     private sealed record Viewport(string Name, Size Requested, Size Window, Size Client);
-    private sealed record Fixture(string Name, Inventory? Inventory, JobStatus? Status = null, bool Busy = false, bool Refreshing = false);
+    private sealed record Fixture(string Name, Inventory? Inventory, JobStatus? Status = null, bool Busy = false, bool Refreshing = false, string[]? Components = null);
     private static FieldInfo FindField(string name) => typeof(MainWindow).GetField(name, Private) ?? throw new InvalidOperationException("Missing fixture field: " + name);
     private static T Field<T>(MainWindow window, string name) => (T)FindField(name).GetValue(window)!;
     private static void Set(MainWindow window, string name, object? value) => FindField(name).SetValue(window, value);
@@ -73,15 +73,18 @@ internal static class Program
     };
     private static void ApplyFixture(MainWindow window, Fixture fixture)
     {
+        var selected = Field<HashSet<string>>(window, "_selectedComponents");
+        selected.Clear(); selected.UnionWith(fixture.Components ?? Policy.Components);
+        var taskComponents = fixture.Components ?? ["Word", "Excel"];
         Set(window, "_inventory", fixture.Inventory);
         Set(window, "_job", fixture.Status is not { } status ? null : new JobRecord
         {
             Schema = 2, Id = Guid.NewGuid(), ActorSid = Field<string>(window, "_actorSid"), Status = status,
-            Action = ActionKind.InstallActivate, Language = "en-us", SelectedComponents = ["Word", "Excel"],
+            Action = ActionKind.InstallActivate, Language = "en-us", SelectedComponents = taskComponents,
             Stage = fixture.Busy ? Stage.Install : status == JobStatus.Completed ? Stage.Finished : Stage.Components,
-            Code = status switch { JobStatus.Completed => "COMPLETED", JobStatus.Failed => "PRESERVATION_FAILED", JobStatus.ComponentMissing => "COMPONENT_MISSING", JobStatus.AwaitingRestart => "RESTART_REQUIRED", _ => "STARTED" },
+            Code = status switch { JobStatus.Completed => fixture.Components is ["OneDrive"] ? "OFFICE_READY" : "COMPLETED", JobStatus.Failed => "PRESERVATION_FAILED", JobStatus.ComponentMissing => "COMPONENT_MISSING", JobStatus.AwaitingRestart => "RESTART_REQUIRED", _ => "STARTED" },
             Installed = !fixture.Busy, StartedAt = ObservedAt, UpdatedAt = ObservedAt,
-            ExpectedFingerprint = fixture.Inventory!.Fingerprint, SelectionPlan = new(["Word", "Excel"], [], [], [], [], fixture.Inventory),
+            ExpectedFingerprint = fixture.Inventory!.Fingerprint, SelectionPlan = new(taskComponents, [], [], [], [], fixture.Inventory),
             InstallerExitCode = status == JobStatus.AwaitingRestart ? 3010 : null,
             InstallerBoot = status == JobStatus.AwaitingRestart ? "100" : null, RestartBoot = status == JobStatus.AwaitingRestart ? "100" : null
         });
@@ -169,6 +172,57 @@ internal static class Program
         Set(window, "_inventory", null); Call(window, "ApplyState");
         Check(choices.Values.All(c => !c.IsEnabled) && selected.SetEquals(Policy.Components) && !primary.IsEnabled, "unknown inventory preserves selection and blocks execution");
     }
+    private static void CheckOneDriveOnly(MainWindow window, string locale, string prefix)
+    {
+        var inventory = Field<Inventory>(window, "_inventory"); var job = Field<JobRecord>(window, "_job");
+        var components = job.SelectedComponents ?? [];
+        Check(!inventory.HasOffice && inventory.Licenses.Length == 0 && job.Status == JobStatus.Completed
+            && components.SequenceEqual(["OneDrive"]) && OfficeSelection.RequiredProducts(components).Length == 0,
+            prefix + " completed OneDrive-only fixture has no Office or Office licensing target");
+        Check(Field<TextBlock>(window, "_officeSummary").Text == Translation("Get", "NotInstalledShort", locale)
+            && Field<TextBlock>(window, "_licenseSummary").Text == Translation("Get", "NotApplicable", locale),
+            prefix + " OneDrive-only detection reports Office absent and licensing not applicable");
+        var request = new JobRequest(Guid.NewGuid(), ActionKind.InstallActivate, "en-us", "k.302.pub", inventory.Fingerprint) { SelectedComponents = ["OneDrive"] };
+        var title = (string)typeof(MainWindow).GetMethod("ConfirmationTitle", Private)!.Invoke(window, [request])!;
+        Check(title == Translation("Get", "InstallSelected", locale), prefix + " OneDrive-only confirmation says install selected apps");
+        var steps = Descendants(Field<System.Windows.Controls.Primitives.UniformGrid>(window, "_steps")).OfType<TextBlock>().Select(t => t.Text).ToArray();
+        Check(steps.Contains(Translation("Get", "VerificationStep", locale)) && !steps.Contains(Translation("Get", "ActivationStep", locale)),
+            prefix + " OneDrive-only completion verifies without an Office activation step");
+        var selectedPhrase = locale switch { "zh-cn" => "所选应用", "it-it" => "app selezionate", _ => "Selected apps" };
+        var applicablePhrase = locale switch { "zh-cn" => "适用的授权状态", "it-it" => "licenze applicabili", _ => "applicable licenses" };
+        var headline = Field<TextBlock>(window, "_headline").Text; var outcome = Field<TextBlock>(window, "_progressTitle").Text;
+        Check(headline == Translation("Get", "HeroFinish", locale) && headline.Contains(selectedPhrase, StringComparison.OrdinalIgnoreCase)
+            && !headline.Contains("Office", StringComparison.OrdinalIgnoreCase), prefix + " completion headline applies to selected apps");
+        Check(outcome == Translation("Get", "OFFICE_READY", locale) && outcome.Contains(applicablePhrase, StringComparison.OrdinalIgnoreCase)
+            && !outcome.Contains("Office", StringComparison.OrdinalIgnoreCase), prefix + " completion outcome limits licensing to applicable apps");
+    }
+    private static void CheckActorWindowRequirement(MainWindow window)
+    {
+        // Invoke only the pure getter. Never call OnClosing, ReadTask or inspection.
+        var getter = typeof(MainWindow).GetProperty("RequiresOpenActorWindow", Private)!;
+        var requestId = Guid.NewGuid();
+        bool Required(bool requested, bool executing, bool active, JobRecord? job)
+        {
+            Set(window, "_requestedUserOneDriveRemoval", requested); Set(window, "_requestedJobId", requestId);
+            Set(window, "_executing", executing); Set(window, "_workerActive", active); Set(window, "_job", job);
+            return (bool)getter.GetValue(window)!;
+        }
+        var own = new JobRecord { Id = requestId, ActorSid = Field<string>(window, "_actorSid"), Action = ActionKind.Uninstall, Status = JobStatus.Running };
+        Check(Required(true, true, false, null), "original user-OneDrive launcher stays open during worker handshake");
+        Check(Required(true, false, true, own), "original user-OneDrive launcher stays open while its worker is active");
+        foreach (var status in new[] { JobStatus.Completed, JobStatus.Failed, JobStatus.Cancelled })
+        {
+            own.Status = status;
+            Check(!Required(true, false, false, own), status + " original user-OneDrive task permits ordinary closing once inactive");
+        }
+        own.Status = JobStatus.Running;
+        Check(!Required(false, false, true, own), "a viewer window is not required to stay open for another launcher");
+        Check(!Required(false, true, true, own), "ordinary or machine-scoped operations retain existing closing behavior");
+        Check(!Required(true, false, true, new JobRecord { Id = Guid.NewGuid(), Status = JobStatus.Running }), "an unrelated worker cannot retain the original launcher window");
+        Check(!Required(true, false, true, null), "an unknown unrelated worker does not match the original request");
+        Set(window, "_requestedUserOneDriveRemoval", false); Set(window, "_requestedJobId", null);
+        Set(window, "_executing", false); Set(window, "_workerActive", false); Set(window, "_job", null);
+    }
     private static void SaveProof(MainWindow window, string locale, Viewport viewport, Fixture fixture)
     {
         if (viewport.Name is not ("minimum" or "default") || fixture.Name is not ("partial" or "running")) return;
@@ -207,22 +261,29 @@ internal static class Program
             "hidden HWND exists without showing/loading MainWindow or attaching its RootVisual");
         var partial = InventoryFixture();
         var empty = new Inventory("Microsoft Windows 11 10.0.26100", "X64", [], [], [], [], [], Policy.Components.Select(id => new ComponentState(id, false)).ToArray(), [], ObservedAt);
+        var oneDriveOnly = empty with { Components = Policy.Components.Select(id => new ComponentState(id, id == "OneDrive")).ToArray(),
+            OneDriveDetails = [new("onedrive:user:synthetic", "user", "synthetic-actor", @"C:\Synthetic\OneDrive.exe", "24.000.0000.0000", true, "")] };
         var fixtures = new[] { new Fixture("unknown", null), new("detecting", null, Refreshing: true), new("empty", empty), new("partial", partial),
             new("running", partial, JobStatus.Running, Busy: true), new("completed", InventoryFixture(complete: true), JobStatus.Completed),
-            new("failed", partial, JobStatus.Failed), new("missing", partial, JobStatus.ComponentMissing), new("restart", partial, JobStatus.AwaitingRestart) };
+            new("failed", partial, JobStatus.Failed), new("missing", partial, JobStatus.ComponentMissing), new("restart", partial, JobStatus.AwaitingRestart),
+            new("onedrive-only-completed", oneDriveOnly, JobStatus.Completed, Components: ["OneDrive"]) };
         var viewports = new[] { ViewportFixture("minimum", new(680, 520)), ViewportFixture("default", new(980, 800)),
             ViewportFixture("short", new(1024, 600)), ViewportFixture("desktop", new(1024, 768)) };
+        var layoutFixtures = 0;
         foreach (var locale in Policy.Languages) foreach (var viewport in viewports) foreach (var fixture in fixtures)
         {
             ApplyFixture(window, fixture); Field<ComboBox>(window, "_uiLanguage").SelectedIndex = Array.IndexOf(Policy.Languages, locale);
             Check(Field<string>(window, "_locale") == locale, "real interface selector applies " + locale); Measure(window, viewport);
             var prefix = locale + "/" + viewport.Name + "/" + fixture.Name; CheckLayout(window, viewport, prefix); CheckMenu(window, prefix);
+            if (fixture.Components is ["OneDrive"]) CheckOneDriveOnly(window, locale, prefix);
             SaveProof(window, locale, viewport, fixture);
+            layoutFixtures++;
             Console.WriteLine("PASS " + prefix + " (requested=" + viewport.Requested + "; work-area-clamped window=" + viewport.Window
                 + "; actual=" + window.RenderSize + "; synthetic client=" + viewport.Client + ")");
         }
         CheckSelection(window, partial);
+        CheckActorWindowRequirement(window);
         Check(!window.IsLoaded && !window.IsVisible && PresentationSource.FromVisual(window) == null && !Field<System.Windows.Threading.DispatcherTimer>(window, "_timer").IsEnabled, "fixture never loads/shows main GUI or starts inspection timer");
-        Console.WriteLine($"{_count} assertions across 108 native WPF synthetic layout/state fixtures and selection/menu checks passed. Office operations=0. Real GUI/UAC/DPI/Office acceptance remains pending.");
+        Console.WriteLine($"{_count} assertions across {layoutFixtures} native WPF synthetic layout/state fixtures and selection/menu/actor-window checks passed. Office operations=0. Real GUI/UAC/DPI/Office acceptance remains pending.");
     }
 }

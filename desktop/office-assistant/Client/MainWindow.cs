@@ -85,6 +85,7 @@ public sealed partial class MainWindow : Window
     private Border? _configurationCard;
     private Border? _detectionCard;
     private Guid? _requestedJobId;
+    private bool _requestedUserOneDriveRemoval;
     private Inventory? _inventory;
     private JobRecord? _job;
     private JobRecord? _finalResult;
@@ -657,7 +658,9 @@ public sealed partial class MainWindow : Window
         _steps.Children.Clear();
         var keys = job?.Action == ActionKind.Uninstall ? new[] { "PreparationStep", "RemovalStep", "VerificationStep", "FinishStep" }
             : job?.Action == ActionKind.Activate ? new[] { "PreparationStep", "VerificationStep", "ActivationStep", "FinishStep" }
-            : new[] { "PreparationStep", "InstallationStep", "ActivationStep", "FinishStep" };
+            : job?.Schema == 2 && OfficeSelection.RequiredProducts(OfficeSelection.Selected(job)).Length == 0
+                ? new[] { "PreparationStep", "InstallationStep", "VerificationStep", "FinishStep" }
+                : new[] { "PreparationStep", "InstallationStep", "ActivationStep", "FinishStep" };
         var index = job?.Stage switch { Stage.Remove or Stage.Install or Stage.Components => 1, Stage.Activate => 2, Stage.Finished => completed ? 4 : 3, _ => 0 };
         for (var step = 0; step < 4; step++)
         {
@@ -809,6 +812,8 @@ public sealed partial class MainWindow : Window
         _cancellation = cancellation;
         var requestId = request.Id;
         _requestedJobId = requestId;
+        _requestedUserOneDriveRemoval = request.Action == ActionKind.Uninstall
+            && request.RemovalTargets?.Any(id => id.StartsWith("onedrive:user:", StringComparison.Ordinal)) == true;
         ApplyState();
         try
         {
@@ -884,7 +889,7 @@ public sealed partial class MainWindow : Window
             Background = Brushes.White, Foreground = Ink, FontFamily = FontFamily, FontSize = 15, ShowInTaskbar = false
         };
         var root = new StackPanel { Margin = new Thickness(24) };
-        AddText(root, T(action == ActionKind.InstallActivate ? "ConfirmInstall" : action == ActionKind.Activate ? "ConfirmActivate" : "ConfirmUninstall"), size: 23);
+        AddText(root, ConfirmationTitle(request), size: 23);
         if (resume) AddText(root, T("ResumeConfirm"));
         if (resume && _job?.Schema == 1) AddText(root, T("LegacyTaskScope"), WarningColor);
         var legacy = resume && _job?.Schema == 1;
@@ -904,6 +909,7 @@ public sealed partial class MainWindow : Window
             AddText(root, T("WillRemove") + ":\n" + string.Join("\n", (request.RemovalTargets ?? []).Select(id => "• " + RemovalName(id, inventory))));
             if (plan != null) AddText(root, T("WillKeep") + ":\n" + RemovalRetained(plan, request));
             if (request.RemovalTargets?.Any(id => id.StartsWith("onedrive:", StringComparison.Ordinal)) == true) AddText(root, T("OneDriveRemovalWarning"), WarningColor);
+            if (request.RemovalTargets?.Any(id => id.StartsWith("onedrive:user:", StringComparison.Ordinal)) == true) AddText(root, T("ONEDRIVE_WINDOW_REQUIRED"), WarningColor);
             if (plan?.RemoveProducts.Contains(OfficeSelection.Suite) == true && request.RemovalTargets?.Any(id => id.StartsWith("c2r-app:", StringComparison.Ordinal)) == true) AddText(root, T("LastSuiteApplication"), WarningColor);
         }
         if (activatesOffice)
@@ -1008,6 +1014,13 @@ public sealed partial class MainWindow : Window
 
     private void OnClosing(object? sender, CancelEventArgs args)
     {
+        if (RequiresOpenActorWindow)
+        {
+            args.Cancel = true;
+            _errorCode = "ONEDRIVE_WINDOW_REQUIRED";
+            ApplyState();
+            return;
+        }
         if (_allowClose) return;
         ReadTask();
         if (_executing && !_workerActive)
@@ -1041,4 +1054,11 @@ public sealed partial class MainWindow : Window
         _allowClose = dialog.ShowDialog() == true;
         args.Cancel = !_allowClose;
     }
+
+    private bool RequiresOpenActorWindow => _requestedUserOneDriveRemoval && (_executing
+        || _workerActive && _job?.Id == _requestedJobId);
+
+    private string ConfirmationTitle(JobRequest request) => T(request.Action == ActionKind.InstallActivate
+        ? OfficeSelection.RequiredProducts(OfficeSelection.Selected(request)).Length == 0 ? "InstallSelected" : "ConfirmInstall"
+        : request.Action == ActionKind.Activate ? "ConfirmActivate" : "ConfirmUninstall");
 }

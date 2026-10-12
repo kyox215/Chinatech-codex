@@ -4,7 +4,7 @@
 
 兼容已有应用使用增量配置，保留原版本、全部语言和未选应用；版本、位数或产品不兼容时先明确选择卸载。组件配置与文件冲突时停止单项修改，可选择整套产品移除。套件及 Skype 按所选 SKU 核验授权。
 
-卸载先重新检测，再选择应用或全部 Office。全部 Office 包括检测到的 Visio、Project，保留 OneDrive；MSI 产品按已核验 GUID 整项移除。OneDrive 仅支持原 UI 账户卸载，停止同步但不删除本地或云端文件；先下载仅在线文件并关闭 OneDrive。机器级 OneDrive 明确不支持，由 Windows 设置处理。个人文档不列入移除范围。
+卸载先重新检测，再选择应用或全部 Office。全部 Office 包括检测到的 Visio、Project，保留 OneDrive；MSI 产品按已核验 GUID 整项移除。OneDrive 仅支持原 UI 账户卸载，停止同步但不删除本地或云端文件；先下载仅在线文件并关闭 OneDrive；卸载期间保持助手窗口打开。机器级 OneDrive 明确不支持，由 Windows 设置处理。个人文档不列入移除范围。
 
 主界面不使用滚动容器；其他操作使用独立菜单，按钮固定高度。检测与任务记录在弹窗查看。任务持久化保存原选择与移除范围，恢复不能扩大选择；旧 Schema1 任务仍遵守旧全量范围并明确提示。真实下载字节、文件核验数量显示百分比，无法可靠测量的阶段显示活动条和用时。安装器收尾最多五分钟，未知结果不会重复执行破坏性步骤。
 
@@ -18,7 +18,7 @@
 
 Assistente Windows per Office LTSC Professional Plus 2024 a 64 bit. Le otto applicazioni sono preselezionate e possono essere scelte singolarmente. Le installazioni compatibili mantengono applicazioni, versione e tutte le lingue. Una configurazione incoerente impedisce modifiche per applicazione.
 
-Rimuovi gli elementi rilevati selezionati oppure tutto Office, inclusi Visio e Project; la rimozione completa mantiene OneDrive. I prodotti MSI si rimuovono per intero. OneDrive si rimuove solo per l’account originale, interrompendo la sincronizzazione senza eliminare file locali o nel cloud. Per tutti gli account usa le impostazioni Windows.
+Rimuovi gli elementi rilevati selezionati oppure tutto Office, inclusi Visio e Project; la rimozione completa mantiene OneDrive. I prodotti MSI si rimuovono per intero. OneDrive si rimuove solo per l’account originale, interrompendo la sincronizzazione senza eliminare file locali o nel cloud. Scarica prima i file solo online, chiudi OneDrive e mantieni aperta la finestra dell’assistente durante la rimozione. Per tutti gli account usa le impostazioni Windows.
 
 La pagina principale non scorre; menu e finestre di dettaglio sono separati. La ripresa conserva la selezione originale; i task precedenti indicano il vecchio ambito. Solo misure reali mostrano percentuali. Versione di prova non firmata; flusso Windows reale, UAC, licenze e conservazione dei documenti restano da validare.
 
@@ -26,7 +26,7 @@ La pagina principale non scorre; menu e finestre di dettaglio sono separati. La 
 
 Windows assistant for 64-bit Office LTSC Professional Plus 2024. All eight applications are selected by default and individually selectable. Compatible installations retain existing apps, version and all languages. Inconsistent configuration blocks per-app changes.
 
-Remove selected detected items or all Office, including Visio and Project; full Office removal retains OneDrive. MSI products require whole-product removal. OneDrive removal supports only the original account, stops sync and does not delete local or cloud files. Use Windows Settings for all-account installations.
+Remove selected detected items or all Office, including Visio and Project; full Office removal retains OneDrive. MSI products require whole-product removal. OneDrive removal supports only the original account, stops sync and does not delete local or cloud files. Download online-only files first, close OneDrive and keep the assistant window open during removal. Use Windows Settings for all-account installations.
 
 The main page has no scrolling container; actions and details use separate menus and windows. Resume retains the original selection; legacy tasks show their original scope. Only real measurements show percentages. This unsigned test release still requires real Windows flow, UAC, licensing and document-preservation acceptance.
 
