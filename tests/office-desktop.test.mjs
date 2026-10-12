@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,readdirSync} from 'node:fs';
 import {createHash,createDecipheriv,randomUUID} from 'node:crypto';
 import ts from 'typescript';
 const moduleUrl=(file)=>'data:text/javascript;base64,'+Buffer.from(ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64');
@@ -33,7 +33,7 @@ test('AES GCM authenticates action, epoch, expiry, job and script; randomized no
  for(const patch of [{action:'uninstall'},{version:'5'},{jobId:randomUUID()},{expiresAt:new Date(now+250000).toISOString()},{digest:'f'.repeat(64)},{tag:Buffer.alloc(16).toString('base64')}])assert.throws(()=>decode({...pkg,...patch}));assert.throws(()=>decode(pkg,'another session'));
  mkdirSync('.local/office-desktop/proof',{recursive:true});writeFileSync('.local/office-desktop/proof/protocol-fixture.json',JSON.stringify({package:pkg,token,clock:new Date(now).toISOString()}));
 });
-test('independent 1.0 desktop covers fixed UI, workflow outcomes and placeholders in three languages',()=>{
+test('independent desktop covers selected UI, workflow outcomes and placeholders in three languages',()=>{
  const base='desktop/office-assistant/';
  const text=readFileSync(base+'Client/Text.cs','utf8');
  const messages=Object.fromEntries([...text.matchAll(/\["([A-Za-z_0-9]+)"\]\s*=\s*(\[[^\n]+\]),/g)].map(m=>[m[1],JSON.parse(m[2])]));
@@ -43,7 +43,7 @@ test('independent 1.0 desktop covers fixed UI, workflow outcomes and placeholder
   const slots=translations.map(value=>{assert.ok(value.trim(),id);return [...value.matchAll(/\{([0-9]+)\}/g)].map(m=>m[1]).sort().join(',');});
   assert.equal(slots[0],slots[1],id);assert.equal(slots[0],slots[2],id);
  }
- const files=['Client/MainWindow.cs','Client/Coordinator.cs','Client/Journal.cs','Client/OfficePlatform.cs','Client/ActivationSource.cs','Core/Models.cs','Core/Workflow.cs','Core/ExecutionSafety.cs','Core/InstallerSafety.cs'];
+ const files=['Core','Client'].flatMap(dir=>readdirSync(base+dir).filter(name=>name.endsWith('.cs')).map(name=>dir+'/'+name));
  const source=files.map(f=>readFileSync(base+f,'utf8')).join('\n');
  for(const match of source.matchAll(/(?:OfficeFailure|T|Label|Button)\("([A-Z_a-z0-9]+)"/g))if(!['Stage_','Status_'].includes(match[1]))assert.ok(messages[match[1]],match[1]);
  const model=readFileSync(base+'Core/Models.cs','utf8');
@@ -52,18 +52,18 @@ test('independent 1.0 desktop covers fixed UI, workflow outcomes and placeholder
   for(const key of declaration.split(',').map(s=>s.trim()))assert.ok(messages[prefix+key],prefix+key);
  }
 });
-test('public 1.1.0 downloads use the approved architecture assets and exact binary checksums',()=>{
- const base='https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v1.1.0';
- assert.equal(officeDesktopRelease.version,'1.1.0');
+test('public 1.2.0 downloads use the approved architecture assets and exact binary checksums',()=>{
+ const base='https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v1.2.0';
+ assert.equal(officeDesktopRelease.version,'1.2.0');
  assert.deepEqual(officeDesktopRelease.files,[
-  {architecture:'x64',bytes:64931240,sha256:'2f40e78c84ae04a3d2b718abe483f8253e6acf0016ab4c8655856dcd09383641',href:base+'/ChinaTech-Office-Assistant-x64.exe'},
-  {architecture:'ARM64',bytes:61084575,sha256:'92cdb413043874d630e13f04c85950173e87c2600bd2730c19ae7e3d5c1aed53',href:base+'/ChinaTech-Office-Assistant-ARM64.exe'},
+  {architecture:'x64',bytes:64971136,sha256:'e47013ff8f07492e875462159f3e54955b0fccd6783c248a50646a2dbcf1904d',href:base+'/ChinaTech-Office-Assistant-x64.exe'},
+  {architecture:'ARM64',bytes:61124479,sha256:'baf2862f093c5ad9cbf2c2474198a199c8e54db598ad01cf836485752d4386be',href:base+'/ChinaTech-Office-Assistant-ARM64.exe'},
  ]);
  assert.equal(officeDesktopRelease.instructions,base+'/README.txt');
  assert.equal(officeDesktopRelease.checksums,base+'/SHA256SUMS.txt');
 });
-test('public 1.0 copy identifies a test release and the full replacement scope without old admission claims',()=>{
+test('public copy identifies selected installation and removal with explicit unsupported boundaries',()=>{
  const source=readFileSync('components/toolbox/office-desktop-download.tsx','utf8');
- for(const fact of ['测试版','独立运行','无需网站登录','八项应用全选','OneDrive','Skype for Business','语言跟随 Windows','全部旧 Office，包括 Visio 和 Project','保留个人文档','仍待 Windows 验收','尚未数字签名'])assert.ok(source.includes(fact),fact);
- for(const obsolete of ['打开后自动联网检查','通过检查后','六个应用','激活只检查和使用已有有效许可'])assert.ok(!source.includes(obsolete),obsolete);
+ for(const fact of ['测试版','独立运行','无需网站登录','八项应用默认全选','可单独选择安装','OneDrive','Skype for Business','语言跟随 Windows','全部 Office（包括 Visio 和 Project）','个人文档保留','MSI 产品须整项卸载','OneDrive 仅支持当前账户卸载','仍待 Windows 验收','尚未数字签名'])assert.ok(source.includes(fact),fact);
+ for(const obsolete of ['打开后自动联网检查','通过检查后','六个应用','激活只检查和使用已有有效许可','安装替换全部旧 Office'])assert.ok(!source.includes(obsolete),obsolete);
 });

@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0-windows</TargetFramework><UseWPF>true</UseWPF><EnableWindowsTargeting>true</EnableWindowsTargeting><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><TreatWarningsAsErrors>true</TreatWarningsAsErrors><SelfContained>true</SelfContained></PropertyGroup>
+ <ItemGroup><ProjectReference Include="../Client/ChinaTech.OfficeAssistant.csproj"/></ItemGroup>
+</Project>

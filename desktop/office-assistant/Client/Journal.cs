@@ -63,8 +63,9 @@ public sealed class Journal(Guid id) : IJobStore {
   var path = Path.Combine(DirectoryPath, "job.json"); RejectReparse(path);
   if (new FileInfo(path).Length > 4 * 1024 * 1024) throw new OfficeFailure("JOURNAL_INVALID");
   var job = JsonSerializer.Deserialize<JobRecord>(File.ReadAllText(path), Reports.Json) ?? throw new OfficeFailure("JOURNAL_INVALID");
-  if (job.Schema != 1 || job.Id != id || !Enum.IsDefined(job.Stage) || !Enum.IsDefined(job.Status)) throw new OfficeFailure("JOURNAL_INVALID");
-  Policy.Validate(new(job.Id, job.Action, job.Language, job.Server, job.ExpectedFingerprint));
+  if (job.Schema is not (1 or 2) || job.Id != id || !Enum.IsDefined(job.Stage) || !Enum.IsDefined(job.Status)) throw new OfficeFailure("JOURNAL_INVALID");
+  Policy.Validate(new(job.Id, job.Action, job.Language, job.Server, job.ExpectedFingerprint) { SelectedComponents = job.SelectedComponents, RemovalMode = job.RemovalMode, RemovalTargets = job.RemovalTargets });
+  if (job.Schema == 2 && job.SelectionPlan != null) OfficeSelection.ValidatePlan(job);
   if (job.Progress != null) {
    ProgressPolicy.Validate(job.Progress);
    if (job.Status != JobStatus.Running) job.Progress = null;

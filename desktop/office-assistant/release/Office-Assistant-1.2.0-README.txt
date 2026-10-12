@@ -1,0 +1,19 @@
+ChinaTech Office Assistant 1.2.0 — test release
+
+中文
+Intel/AMD 的 64 位 Windows 选择 x64；Windows ARM 选择 ARM64。八项应用默认全选，可单独勾选安装。兼容的已有 Office 应用、版本和全部语言保留；不兼容或配置无法核验时会停止并给出提示。
+卸载可选择检测到的应用与产品，或全部 Office（含 Visio、Project），全部卸载默认保留 OneDrive。旧 MSI 须整项卸载；配置冲突或未知不能单项修改。OneDrive 只支持原 Windows 账户卸载，不删除本地或云端文件；先下载仅在线文件并关闭 OneDrive。机器级 OneDrive 请用 Windows 设置处理。
+主界面无滚动条，其他操作为独立菜单，详情在弹窗查看。恢复保持原选择；旧任务仍明确使用原全量范围。进度只展示真实可测数字，未知进度展示阶段与用时。使用本人管理员账号、适用微软条款及有效许可证。
+本版未签名。下载后核对 SHA256 并保持系统防护。真实 Windows 界面、UAC、完整 Office/OneDrive 操作及文档保留仍待验收；先备份重要文件。
+
+Italiano
+Scegli x64 per Windows Intel/AMD a 64 bit o ARM64 per Windows ARM. Le otto app sono preselezionate e selezionabili singolarmente. Le installazioni compatibili mantengono app, versione e tutte le lingue; configurazioni non verificate fermano le modifiche.
+Rimuovi elementi rilevati selezionati o tutto Office, inclusi Visio e Project; tutto Office mantiene OneDrive. I prodotti MSI si rimuovono per intero. OneDrive si rimuove solo per l’account originale senza eliminare file locali o nel cloud: scarica prima i file solo online e chiudi OneDrive. Per tutti gli account usa le impostazioni Windows.
+La pagina principale non scorre; menu e dettagli sono separati. La ripresa mantiene la selezione originale; i task precedenti indicano il vecchio ambito completo. Solo misure reali mostrano percentuali. Usa il tuo account amministratore, le condizioni Microsoft applicabili e una licenza valida.
+Versione non firmata. Verifica SHA256 e mantieni attive le protezioni. Windows reale, UAC, flussi Office/OneDrive e conservazione documenti restano da validare. Esegui prima il backup.
+
+English
+Choose x64 for 64-bit Intel/AMD Windows or ARM64 for Windows ARM. All eight apps are selected by default and individually selectable. Compatible installations retain existing apps, version and all languages; unverified configurations stop changes.
+Remove selected detected items or all Office, including Visio and Project; all Office retains OneDrive. MSI products require whole-product removal. OneDrive removal supports only the original account without deleting local or cloud files. Download online-only files first and close OneDrive. Use Windows Settings for all-account installations.
+The main page does not scroll; actions and details are separate. Resume retains the original selection; legacy tasks show their original full scope. Only real measurements show percentages. Use your own administrator account, applicable Microsoft terms and a valid licence.
+This release is unsigned. Verify SHA256 and keep system protections enabled. Real Windows UI, UAC, complete Office/OneDrive flows and document preservation remain pending. Back up important files first.
