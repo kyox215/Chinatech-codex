@@ -78,6 +78,7 @@ public sealed partial class MainWindow : Window
     private readonly Grid _intro = new();
     private readonly StackPanel _actions = new();
     private readonly StackPanel _progress = new();
+    private readonly Border _progressCard;
     private readonly Grid _footer = new();
     private readonly TextBlock _edition = new() { FontSize = 12, Foreground = Muted };
     private readonly TextBlock _productName = new() { Text = "Office LTSC 2024", FontSize = 18, FontWeight = FontWeights.SemiBold };
@@ -284,7 +285,7 @@ public sealed partial class MainWindow : Window
         var metric = new StackPanel { Orientation = Orientation.Horizontal }; metric.Children.Add(_elapsed); metric.Children.Add(_progressMetric);
         Grid.SetColumn(metric, 1); progressLine.Children.Add(metric); progress.Children.Add(progressLine);
         progress.Children.Add(_progressBar); progress.Children.Add(_progressCaption);
-        var progressCard = Card(progress); progressCard.Padding = new Thickness(14, 8, 14, 10); progressCard.Margin = new Thickness(0); progressCard.VerticalAlignment = VerticalAlignment.Bottom; Grid.SetRow(progressCard, 3); root.Children.Add(progressCard);
+        _progressCard = Card(progress); _progressCard.Padding = new Thickness(14, 8, 14, 10); _progressCard.Margin = new Thickness(0); _progressCard.VerticalAlignment = VerticalAlignment.Bottom; Grid.SetRow(_progressCard, 3); root.Children.Add(_progressCard);
         var footer = _footer; footer.Margin = new Thickness(0, 8, 0, 0); footer.VerticalAlignment = VerticalAlignment.Bottom;
         footer.ColumnDefinitions.Add(new ColumnDefinition()); footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         footer.Children.Add(Label("ProtectionShort", 11, color: Muted)); var version = new TextBlock { Text = Policy.Version, Foreground = Muted, FontSize = 11 }; Grid.SetColumn(version, 1); footer.Children.Add(version); Grid.SetRow(footer, 4); root.Children.Add(footer);
@@ -320,6 +321,7 @@ public sealed partial class MainWindow : Window
         _cards.ColumnDefinitions[0].Width = new GridLength(compact ? 2.7 : 1.65, GridUnitType.Star);
         _cards.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
         _actions.Margin = new Thickness(0, compact ? 6 : 10, 0, compact ? 6 : 10);
+        _progressCard.Padding = compact ? new Thickness(14, 1, 14, 1) : new Thickness(14, 8, 14, 10);
         _productName.FontSize = compact ? 16 : 18;
         _productRow.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         _compactProductName.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
