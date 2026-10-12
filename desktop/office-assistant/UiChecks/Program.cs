@@ -15,7 +15,7 @@ internal static class Program
     private static int _count;
     private static readonly BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     private static readonly DateTimeOffset ObservedAt = new(2026, 10, 12, 12, 0, 0, TimeSpan.Zero);
-    private sealed record Viewport(string Name, Size Window, Size Client);
+    private sealed record Viewport(string Name, Size Requested, Size Window, Size Client);
     private sealed record Fixture(string Name, Inventory? Inventory, JobStatus? Status = null, bool Busy = false, bool Refreshing = false);
     private static FieldInfo FindField(string name) => typeof(MainWindow).GetField(name, Private) ?? throw new InvalidOperationException("Missing fixture field: " + name);
     private static T Field<T>(MainWindow window, string name) => (T)FindField(name).GetValue(window)!;
@@ -23,6 +23,14 @@ internal static class Program
     private static void Call(MainWindow window, string name) => (typeof(MainWindow).GetMethod(name, Private) ?? throw new InvalidOperationException("Missing fixture method: " + name)).Invoke(window, null);
     private static void Check(bool passed, string label) { if (!passed) throw new InvalidOperationException(label); _count++; }
     private static bool Near(double actual, double expected) => Math.Abs(actual - expected) <= Tolerance;
+    private static Viewport ViewportFixture(string name, Size requested)
+    {
+        var workArea = SystemParameters.WorkArea;
+        var window = new Size(Math.Min(requested.Width, workArea.Width), Math.Min(requested.Height, workArea.Height));
+        // Match MainWindow's initial work-area clamp. Client dimensions stay explicit
+        // synthetic fixtures, reserving 16 DIP horizontally and 40 DIP vertically.
+        return new(name, requested, window, new Size(window.Width - 16, window.Height - 40));
+    }
     private static string Translation(string method, string key, string locale)
     {
         var text = typeof(MainWindow).Assembly.GetType("ChinaTech.OfficeAssistant.Text", throwOnError: true)!;
@@ -85,7 +93,8 @@ internal static class Program
         window.Width = viewport.Window.Width; window.Height = viewport.Window.Height;
         window.Measure(viewport.Window); window.Arrange(new Rect(viewport.Window));
         Check(Near(window.ActualWidth, viewport.Window.Width) && Near(window.ActualHeight, viewport.Window.Height),
-            viewport.Name + " must select the real compact/normal branch: " + window.RenderSize);
+            viewport.Name + " requested=" + viewport.Requested + ", work-area-clamped=" + viewport.Window
+                + " must select the real compact/normal branch; actual=" + window.RenderSize);
         Call(window, "ArrangeCards");
         var root = Field<Grid>(window, "_root");
         // The client viewport is explicit and synthetic; the hidden HWND only gives
@@ -164,7 +173,13 @@ internal static class Program
     {
         if (viewport.Name is not ("minimum" or "default") || fixture.Name is not ("partial" or "running")) return;
         var root = Field<Grid>(window, "_root");
-        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(root.ActualWidth), (int)Math.Ceiling(root.ActualHeight), 96, 96, PixelFormats.Pbgra32);
+        // Root's visual offset includes its margins. Use the entire synthetic client
+        // viewport so that offset cannot crop the right/bottom controls, and draw the
+        // actual parent Window background behind the otherwise transparent root.
+        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(viewport.Client.Width), (int)Math.Ceiling(viewport.Client.Height), 96, 96, PixelFormats.Pbgra32);
+        var background = new DrawingVisual();
+        using (var drawing = background.RenderOpen()) drawing.DrawRectangle(window.Background, null, new Rect(viewport.Client));
+        bitmap.Render(background);
         bitmap.Render(root);
         var pixels = new byte[bitmap.PixelWidth * bitmap.PixelHeight * 4];
         bitmap.CopyPixels(pixels, bitmap.PixelWidth * 4, 0);
@@ -185,6 +200,7 @@ internal static class Program
         // WPF Window min/max measurement requires a valid hidden HWND; EnsureHandle
         // creates it without Show or connecting MainWindow as its RootVisual.
         Console.WriteLine("Native WPF synthetic control fixtures only; Office inspection and operations are not invoked.");
+        Console.WriteLine("WorkArea=" + SystemParameters.WorkArea.Size + " DIP; requested window sizes are clamped to the work area; synthetic client reserves 16x40 DIP for chrome.");
         var window = new MainWindow(); window.Hide();
         var handle = new WindowInteropHelper(window).EnsureHandle();
         Check(handle != IntPtr.Zero && HwndSource.FromHwnd(handle)?.RootVisual == null && !window.IsLoaded,
@@ -194,15 +210,16 @@ internal static class Program
         var fixtures = new[] { new Fixture("unknown", null), new("detecting", null, Refreshing: true), new("empty", empty), new("partial", partial),
             new("running", partial, JobStatus.Running, Busy: true), new("completed", InventoryFixture(complete: true), JobStatus.Completed),
             new("failed", partial, JobStatus.Failed), new("missing", partial, JobStatus.ComponentMissing), new("restart", partial, JobStatus.AwaitingRestart) };
-        var viewports = new[] { new Viewport("minimum", new(680, 520), new(664, 480)), new("default", new(980, 800), new(964, 760)),
-            new("short", new(1024, 600), new(1008, 560)), new("desktop", new(1024, 768), new(1008, 728)) };
+        var viewports = new[] { ViewportFixture("minimum", new(680, 520)), ViewportFixture("default", new(980, 800)),
+            ViewportFixture("short", new(1024, 600)), ViewportFixture("desktop", new(1024, 768)) };
         foreach (var locale in Policy.Languages) foreach (var viewport in viewports) foreach (var fixture in fixtures)
         {
             ApplyFixture(window, fixture); Field<ComboBox>(window, "_uiLanguage").SelectedIndex = Array.IndexOf(Policy.Languages, locale);
             Check(Field<string>(window, "_locale") == locale, "real interface selector applies " + locale); Measure(window, viewport);
             var prefix = locale + "/" + viewport.Name + "/" + fixture.Name; CheckLayout(window, viewport, prefix); CheckMenu(window, prefix);
             SaveProof(window, locale, viewport, fixture);
-            Console.WriteLine("PASS " + prefix + " (synthetic window=" + viewport.Window + "; client=" + viewport.Client + ")");
+            Console.WriteLine("PASS " + prefix + " (requested=" + viewport.Requested + "; work-area-clamped window=" + viewport.Window
+                + "; actual=" + window.RenderSize + "; synthetic client=" + viewport.Client + ")");
         }
         CheckSelection(window, partial);
         Check(!window.IsLoaded && !window.IsVisible && PresentationSource.FromVisual(window) == null && !Field<System.Windows.Threading.DispatcherTimer>(window, "_timer").IsEnabled, "fixture never loads/shows main GUI or starts inspection timer");
