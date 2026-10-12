@@ -195,6 +195,44 @@ internal static class Program
             && !headline.Contains("Office", StringComparison.OrdinalIgnoreCase), prefix + " completion headline applies to selected apps");
         Check(outcome == Translation("Get", "OFFICE_READY", locale) && outcome.Contains(applicablePhrase, StringComparison.OrdinalIgnoreCase)
             && !outcome.Contains("Office", StringComparison.OrdinalIgnoreCase), prefix + " completion outcome limits licensing to applicable apps");
+        string[] TaskLines() => Field<StackPanel>(window, "_task").Children.OfType<TextBlock>().Select(t => t.Text).ToArray();
+        var actionText = Translation("Get", "InstallSelected", locale);
+        var stagePrefix = actionText + " · " + Translation("Get", "Stage", locale) + ": ";
+        Check(TaskLines().Contains(stagePrefix + Translation("Get", "Stage_Finished", locale)),
+            prefix + " completed OneDrive-only task details report installation without activation");
+        Check(!TaskLines().Any(t => t.StartsWith(Translation("Get", "InitialServer", locale) + ":", StringComparison.Ordinal)),
+            prefix + " OneDrive-only task details omit an inapplicable activation server");
+        var originalStage = job.Stage; var originalEvents = job.Events; var originalStatus = job.Status; var originalCode = job.Code;
+        try
+        {
+            job.Events = [new(Stage.Download, "PREPARING_MEDIA", ObservedAt), new(Stage.Components, "CHECKING_COMPONENTS", ObservedAt)];
+            foreach (var stage in new[] { Stage.Download, Stage.Components })
+            {
+                job.Stage = stage; Call(window, "ApplyState");
+                var lines = TaskLines(); var stageText = Translation("Get", "Stage_" + stage, locale);
+                Check(lines.Contains(stagePrefix + stageText), prefix + " OneDrive-only " + stage + " task details retain the selected-app operation");
+                Check(!stageText.Contains("Office", StringComparison.OrdinalIgnoreCase)
+                    && !lines.Any(t => t.Contains("八项应用", StringComparison.Ordinal) || t.Contains("otto applicazioni", StringComparison.OrdinalIgnoreCase)
+                        || t.Contains("eight applications", StringComparison.OrdinalIgnoreCase) || t.Contains("Office", StringComparison.OrdinalIgnoreCase)),
+                    prefix + " OneDrive-only " + stage + " task details do not claim Office or all eight apps");
+            }
+            var eventLines = TaskLines();
+            foreach (var entry in job.Events)
+                Check(eventLines.Any(t => t.EndsWith(Translation("Get", "Stage_" + entry.Stage, locale) + " · " + Translation("Get", entry.Code, locale), StringComparison.Ordinal)),
+                    prefix + " OneDrive-only history displays the neutral " + entry.Stage + " stage");
+            var primary = Field<Dictionary<ActionKind, Button>>(window, "_actionButtons")[ActionKind.InstallActivate];
+            foreach (var status in new[] { JobStatus.Failed, JobStatus.Cancelled, JobStatus.ComponentMissing })
+            {
+                job.Status = status; job.Stage = Stage.Components;
+                job.Code = status == JobStatus.Failed ? "ONEDRIVE_INSTALL_FAILED" : status == JobStatus.Cancelled ? "CANCELLED_SAFE" : "COMPONENT_MISSING";
+                Call(window, "ApplyState");
+                var resume = Translation("Get", "Resume", locale);
+                Check(job.Installed && Field<string>(window, "_actorSid") == job.ActorSid
+                    && ((TextBlock)primary.Content).Text == resume && AutomationProperties.GetName(primary) == resume,
+                    prefix + " " + status + " OneDrive-only task resumes without claiming Office activation");
+            }
+        }
+        finally { job.Stage = originalStage; job.Events = originalEvents; job.Status = originalStatus; job.Code = originalCode; Call(window, "ApplyState"); }
     }
     private static void CheckActorWindowRequirement(MainWindow window)
     {
@@ -209,12 +247,20 @@ internal static class Program
         }
         var own = new JobRecord { Id = requestId, ActorSid = Field<string>(window, "_actorSid"), Action = ActionKind.Uninstall, Status = JobStatus.Running };
         Check(Required(true, true, false, null), "original user-OneDrive launcher stays open during worker handshake");
+        Set(window, "_errorCode", "ONEDRIVE_WINDOW_REQUIRED"); Call(window, "ApplyState");
+        Check(Field<string>(window, "_errorCode") == "ONEDRIVE_WINDOW_REQUIRED", "active original launcher retains the window-required notice");
         Check(Required(true, false, true, own), "original user-OneDrive launcher stays open while its worker is active");
+        Call(window, "ApplyState");
+        Check(Field<string>(window, "_errorCode") == "ONEDRIVE_WINDOW_REQUIRED", "active matching worker retains the window-required notice");
         foreach (var status in new[] { JobStatus.Completed, JobStatus.Failed, JobStatus.Cancelled })
         {
             own.Status = status;
             Check(!Required(true, false, false, own), status + " original user-OneDrive task permits ordinary closing once inactive");
+            Set(window, "_errorCode", "ONEDRIVE_WINDOW_REQUIRED"); Call(window, "ApplyState");
+            Check(Field<string>(window, "_errorCode") == "", status + " inactive task clears the temporary window-required notice");
         }
+        Set(window, "_errorCode", "EXECUTION_FAILED"); Call(window, "ApplyState");
+        Check(Field<string>(window, "_errorCode") == "EXECUTION_FAILED", "inactive task does not clear unrelated execution errors");
         own.Status = JobStatus.Running;
         Check(!Required(false, false, true, own), "a viewer window is not required to stay open for another launcher");
         Check(!Required(false, true, true, own), "ordinary or machine-scoped operations retain existing closing behavior");
@@ -222,6 +268,7 @@ internal static class Program
         Check(!Required(true, false, true, null), "an unknown unrelated worker does not match the original request");
         Set(window, "_requestedUserOneDriveRemoval", false); Set(window, "_requestedJobId", null);
         Set(window, "_executing", false); Set(window, "_workerActive", false); Set(window, "_job", null);
+        Set(window, "_errorCode", "");
     }
     private static void SaveProof(MainWindow window, string locale, Viewport viewport, Fixture fixture)
     {

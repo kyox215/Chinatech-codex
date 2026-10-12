@@ -431,6 +431,7 @@ public sealed partial class MainWindow : Window
 
     private void ApplyState()
     {
+        if (_errorCode == "ONEDRIVE_WINDOW_REQUIRED" && !RequiresOpenActorWindow) _errorCode = "";
         var selectionLocked = _executing || _workerActive || _dialogOpen || _refreshing || _inventory == null;
         _updating = true;
         foreach (var (id, choice) in _componentChoices)
@@ -517,12 +518,13 @@ public sealed partial class MainWindow : Window
             if (_job.Action == ActionKind.Uninstall && _job.RemovalTargets is { Length: > 0 })
                 AddText(_task, T("WillRemove") + ": " + string.Join(" · ", _job.RemovalTargets.Select(id => RemovalName(id, _job.SelectionPlan?.Baseline ?? _inventory))), size: 13);
             if (_job.Schema == 1) AddText(_task, T("LegacyTaskScope"), WarningColor, 13);
-            if (_job.Action != ActionKind.Uninstall)
+            if (_job.Action != ActionKind.Uninstall && (_job.Schema == 1 || OfficeSelection.RequiredProducts(OfficeSelection.Selected(_job)).Length != 0))
             {
                 AddText(_task, T("InitialServer") + ": " + _job.Server, Muted, 13);
                 if (!string.IsNullOrEmpty(_job.ActivationServer)) AddText(_task, T("ActualServer") + ": " + _job.ActivationServer, Muted, 13);
             }
-            AddText(_task, T(_job.Action.ToString()) + " · " + T("Stage") + ": " + T("Stage_" + _job.Stage));
+            AddText(_task, T(_job.Action == ActionKind.InstallActivate && _job.Schema == 2 && OfficeSelection.RequiredProducts(OfficeSelection.Selected(_job)).Length == 0
+                ? "InstallSelected" : _job.Action.ToString()) + " · " + T("Stage") + ": " + T("Stage_" + _job.Stage));
             var interrupted = !_workerActive && !_executing && _job.Status == JobStatus.Running;
             var restartVerified = _job.Status == JobStatus.AwaitingRestart && _job.RestartBoot == null && _job.RestartVerifiedBoot != null;
             AddText(_task, T("Status") + ": " + T(interrupted ? "Status_Interrupted" : restartVerified ? "Status_ReadyToResume" : "Status_" + _job.Status), interrupted || _job.Status is JobStatus.Failed or JobStatus.NeedsReview or JobStatus.ComponentMissing ? ErrorColor : Ink);
@@ -585,7 +587,8 @@ public sealed partial class MainWindow : Window
         _statusBadge.Background = new SolidColorBrush(busy ? Color.FromRgb(239, 237, 255) : attention ? Color.FromRgb(255, 248, 233) : Color.FromRgb(237, 248, 243));
 
         var primary = _actionButtons[ActionKind.InstallActivate];
-        var primaryKey = SuggestedOperation == PrimaryOperation.Resume ? _job?.Status == JobStatus.ComponentMissing ? "RepairComponents" : "ResumeActivation"
+        var primaryKey = SuggestedOperation == PrimaryOperation.Resume ? _job?.Schema == 2 && OfficeSelection.RequiredProducts(OfficeSelection.Selected(_job)).Length == 0
+                ? "Resume" : _job?.Status == JobStatus.ComponentMissing ? "RepairComponents" : "ResumeActivation"
             : CurrentSelectionReady ? "CheckSelected" : PrimaryAction == ActionKind.Activate ? "RetryActivation"
             : selected.Length == 0 ? "SelectPrompt" : selected.All(id => id == "OneDrive") ? "InstallSelected"
             : !unknown && inventory!.HasOffice ? "AddSelected" : "InstallActivate";
