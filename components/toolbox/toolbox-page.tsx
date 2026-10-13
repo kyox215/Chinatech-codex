@@ -10,7 +10,7 @@ import styles from "./toolbox.module.css";
 
 const categories = [
   { id: "windows", title: "Windows 安装", description: "Windows 11 Pro 升级检测与安装条件。", topics: ["保留文件与应用", "升级检测"], icon: Laptop, tone: "primary" },
-  { id: "office", title: "Office 安装与激活", description: "安装、卸载、激活与完整重装的终端命令。", topics: ["CMD", "PowerShell"], icon: FileText, tone: "info" },
+  { id: "office", title: "Office 安装与激活", description: "选择应用、管理安装，在一个窗口里完成。", topics: ["组件逐项选择", "Windows 助手"], icon: FileText, tone: "info" },
   { id: "phone", title: "手机刷机", description: "手机固件、刷机工具与系统恢复资料。", topics: ["固件与驱动", "系统恢复"], icon: Smartphone, tone: "success" },
   { id: "transfer", title: "数据传输", description: "设备间传输、数据备份与迁移工具。", topics: ["备份与迁移", "跨设备传输"], icon: Cable, tone: "warning" },
 ] as const;
@@ -47,11 +47,11 @@ export function ToolboxPage() {
         </div>
         <div className={styles.grid}>
           {categories.map(({ id, title, description, topics, icon: Icon, tone }) => <article className={styles.card} data-tone={tone} key={id} aria-labelledby={`${id}-title`}>
-            <div className={styles.cardTop}><span className={styles.categoryIcon}><Icon size={26} strokeWidth={1.7} aria-hidden="true" /></span><span className={styles.pending}>{t(id === "office" ? "命令参考" : id === "windows" ? "检测版" : id === "transfer" ? "扫描传输测试包" : "待添加")}</span></div>
+            <div className={styles.cardTop}><span className={styles.categoryIcon}><Icon size={26} strokeWidth={1.7} aria-hidden="true" /></span><span className={styles.pending}>{t(id === "office" ? "桌面助手" : id === "windows" ? "检测版" : id === "transfer" ? "扫描传输测试包" : "待添加")}</span></div>
             <h3 id={`${id}-title`}>{t(title)}</h3>
             <p>{t(description)}</p>
             <ul className={styles.topics}>{topics.map(topic => <li key={topic}>{t(topic)}</li>)}</ul>
-            {id === "office" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/office">{t("查看安装与激活命令")}<ArrowRight size={17} aria-hidden="true" /></Link> : id === "windows" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/windows">{t("查看 Windows 升级工具")}<ArrowRight size={17} aria-hidden="true" /></Link> : id === "transfer" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/transfer">{t("查看数据传输工具")}<ArrowRight size={17} aria-hidden="true" /></Link> : <div className={styles.cardFoot}><FolderOpen size={17} aria-hidden="true" /><span>{t("工具与下载链接准备中")}</span></div>}
+            {id === "office" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/office">{t("查看 Office 助手")}<ArrowRight size={17} aria-hidden="true" /></Link> : id === "windows" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/windows">{t("查看 Windows 升级工具")}<ArrowRight size={17} aria-hidden="true" /></Link> : id === "transfer" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/transfer">{t("查看数据传输工具")}<ArrowRight size={17} aria-hidden="true" /></Link> : <div className={styles.cardFoot}><FolderOpen size={17} aria-hidden="true" /><span>{t("工具与下载链接准备中")}</span></div>}
           </article>)}
         </div>
       </section>

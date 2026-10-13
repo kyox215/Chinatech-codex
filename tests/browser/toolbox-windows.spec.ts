@@ -35,9 +35,9 @@ test("Windows entry, real ZIP download and all public files match pinned bytes",
   }
   await page.getByRole("link", { name: "工具箱", exact: true }).click();
   await expect(page).toHaveURL(/\/toolbox$/);
-  await page.getByRole("link", { name: "查看安装与激活命令", exact: true }).click();
+  await page.getByRole("link", { name: "查看 Office 助手", exact: true }).click();
   await expect(page).toHaveURL(/\/toolbox\/office$/);
-  await expect(page.getByRole("heading", { name: "Office 安装与激活", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "ChinaTech Office 助手", exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
