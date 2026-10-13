@@ -1,62 +1,132 @@
-import {test,expect,type Locator,type Page} from '@playwright/test';
-import {createHash} from 'node:crypto';
-import {buildOfficeCommand,signOfficeToken,type OfficeToken} from '../../lib/toolbox/office-token';
-const actions={install:'仅安装',activate:'仅激活',uninstall:'仅卸载',reinstall:'完整重装'} as const;
-async function activate(locator:Locator){if(test.info().project.use.hasTouch)await locator.tap();else await locator.click();}
-async function gateway(page:Page){
- const state={enabled:true,version:'1',fail:false,delay:0};
- await page.route('**/api/toolbox/office',async route=>{
-  if(state.delay)await new Promise(resolve=>setTimeout(resolve,state.delay));
-  if(state.fail)return route.fulfill({status:503,json:{message:'Office 服务暂不可用，请稍后重试。'}});
-  if(!state.enabled)return route.fulfill({status:403,json:{message:'Office 命令已停用。'}});
-  const {action,terminal,language}=route.request().postDataJSON();
-  const p:OfficeToken={v:1,action,epoch:state.version,digest:createHash('sha256').update('Fixture only').digest('hex')};
-  const token=signOfficeToken(p,Buffer.alloc(32,29));
-  await route.fulfill({json:{action,terminal,version:state.version,command:buildOfficeCommand('https://www.chinatech.in',token,p.digest,terminal,language),sourceUrl:'/api/toolbox/office/script?token='+token}});
- });return state;
+import { test, expect, type Locator, type Page } from "@playwright/test";
+import { officeDesktopRelease } from "../../lib/toolbox/office-desktop-release";
+import { translate } from "../../lib/i18n/translate";
+import type { Locale } from "../../lib/i18n/locale";
+
+const locales = ["zh-CN", "it", "en"] as const;
+async function activate(target: Locator) { if (test.info().project.use.hasTouch) await target.tap(); else await target.click(); }
+async function language(page: Page, locale: Locale) {
+  await page.getByLabel("语言 / Lingua / Language", { exact: true }).selectOption(locale);
+  await expect(page.locator("html")).toHaveAttribute("lang", locale);
 }
-test('eight controlled Office commands copy and download identical text without embedded payload',async({page})=>{
- await gateway(page);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(text:string)=>{(window as unknown as {officeCopied:string}).officeCopied=text;}}}));
- await page.goto('/toolbox');await activate(page.getByRole('link',{name:'查看安装与激活命令',exact:true}));await expect(page).toHaveURL(/\/toolbox\/office$/);
- for(const [action,label]of Object.entries(actions)){
-  await activate(page.getByRole('button',{name:new RegExp('^'+label)}));
-  for(const terminal of ['powershell','cmd']){
-   await activate(page.getByRole('button',{name:terminal==='cmd'?'CMD':'PowerShell',exact:true}));
-   await expect(page.locator('pre code')).toContainText('powershell.exe');
-   const command=(await page.locator('pre code').textContent())!;
-   const loader=Buffer.from(command.split(' ').at(-1)!,'base64').toString('utf16le');
-   expect(loader).toContain('/api/toolbox/office/script?token=');expect(loader).not.toContain('s1.kms.cx');expect(loader).not.toContain('FromBase64String');
-   await expect(page.locator('.segmented-control__active')).toHaveText(terminal==='cmd'?'CMD':'PowerShell');
-   await activate(page.getByRole('button',{name:'复制完整命令',exact:true}));await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('status')).toHaveText('命令已复制，请在所选管理员终端中粘贴。');
-   expect(await page.evaluate(()=>(window as unknown as {officeCopied:string}).officeCopied)).toBe(command);
-   const waiting=page.waitForEvent('download');await activate(page.getByRole('button',{name:'下载命令文本',exact:true}));const download=await waiting;
-   expect(download.suggestedFilename()).toBe(`office-${action}-${terminal}.txt`);const stream=(await download.createReadStream())!;const parts:Buffer[]=[];for await(const part of stream)parts.push(Buffer.from(part));expect(Buffer.concat(parts).toString('utf8')).toBe(command+'\n');
-   await expect(page.getByRole('link',{name:'查看当前操作脚本源码',exact:true})).toHaveAttribute('href',/\/api\/toolbox\/office\/script\?token=/);
+async function fits(page: Page) {
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1 && document.body.scrollWidth <= innerWidth + 1)).toBe(true);
+}
+async function touchTarget(target: Locator) {
+  const box = await target.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.width).toBeGreaterThanOrEqual(44);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+}
+
+test("product introduction uses three languages at four widths without commands, configuration or legacy requests", async ({ page }) => {
+  test.setTimeout(120_000);
+  const legacyRequests: string[] = [], errors: string[] = [];
+  page.on("request", request => { if (/\/api\/toolbox\/office(?:[/?]|$)|\/tutorials\/office\//.test(request.url())) legacyRequests.push(request.url()); });
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/toolbox/office");
+  await expect(page.locator("main h1")).toHaveText(translate("ChinaTech Office 助手", "zh-CN"));
+  for (const locale of locales) {
+    await language(page, locale);
+    for (const width of [1440, 1024, 390, 375]) {
+      await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
+      await fits(page);
+      const main = page.locator("main");
+      await expect(main.locator("ul > li")).toHaveCount(8);
+      await expect(main.locator("ol > li")).toHaveCount(3);
+      await expect(main.getByRole("checkbox")).toHaveCount(0);
+      await expect(main.locator("button[aria-pressed], pre, [id^=command-], #office-tutorials")).toHaveCount(0);
+      await expect(main).not.toContainText(/CMD|PowerShell|EncodedCommand|完整重装|Full reinstall|Reinstallazione completa/);
+      await expect(main.getByRole("link", { name: translate("下载桌面程序", locale), exact: true })).toHaveAttribute("href", "#office-desktop");
+      await touchTarget(main.getByRole("link", { name: translate("下载桌面程序", locale), exact: true }));
+      if (locale !== "zh-CN") expect((await main.innerText()).replaceAll("中文", "")).not.toMatch(/[\u3400-\u9fff]/u);
+      const headings = await main.locator("ul h3").allTextContents();
+      expect(headings).toEqual(["Word", "Excel", "PowerPoint", "Outlook", "OneNote", "Access", "OneDrive", "Skype for Business"]);
+      await page.evaluate(() => scrollTo(0, 0));
+      if (test.info().project.name === "chromium-desktop") await page.screenshot({ path: `.local/ui-proof/office-product-intro/screenshots/${locale}-${width}.png`, fullPage: true });
+    }
   }
- }
- await activate(page.locator('header').getByRole('link',{name:'工具箱',exact:true}));await expect(page).toHaveURL(/\/toolbox$/);expect(errors).toEqual([]);
-});
-test('disabled or unavailable gateway hides old command and supports regeneration',async({page})=>{
- const state=await gateway(page);state.enabled=false;await page.goto('/toolbox/office');await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('alert')).toHaveText('Office 命令已停用。');await expect(page.getByRole('button',{name:'复制完整命令',exact:true})).toBeDisabled();await expect(page.locator('pre')).toHaveCount(0);
- state.enabled=true;await activate(page.getByRole('button',{name:'重新生成命令',exact:true}));await expect(page.locator('pre code')).toContainText('powershell.exe');
- const old=(await page.locator('pre code').textContent())!;state.version='3';await activate(page.getByRole('button',{name:'重新生成命令',exact:true}));await expect(page.locator('pre code')).not.toHaveText(old);
- state.fail=true;await activate(page.getByRole('button',{name:'重新生成命令',exact:true}));await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('alert')).toHaveText('Office 服务暂不可用，请稍后重试。');await expect(page.locator('pre')).toHaveCount(0);await expect(page.getByRole('button',{name:'下载命令文本',exact:true})).toBeDisabled();
- state.fail=false;await activate(page.getByRole('button',{name:'重新生成命令',exact:true}));await expect(page.locator('pre code')).toContainText('powershell.exe');
-});
-test('clipboard denial, missing API and delayed copy never claim success for another operation',async({page})=>{
- await gateway(page);await page.addInitScript(()=>{const state={reject:true,delayed:false,resolve:()=>{}};(window as unknown as {officeClipboard:typeof state}).officeClipboard=state;Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{if(state.reject)throw new DOMException('Denied','NotAllowedError');if(state.delayed)await new Promise<void>(r=>{state.resolve=r;});}}});});
- await page.goto('/toolbox/office');const copy=page.getByRole('button',{name:'复制完整命令',exact:true});await expect(copy).toBeEnabled();await activate(copy);await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('alert')).toContainText('复制失败');
- await page.evaluate(()=>{const s=(window as unknown as {officeClipboard:{reject:boolean;delayed:boolean}}).officeClipboard;s.reject=false;});await activate(copy);await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('status')).toContainText('命令已复制');
- await page.evaluate(()=>{(window as unknown as {officeClipboard:{delayed:boolean}}).officeClipboard.delayed=true;});await activate(page.getByRole('button',{name:'已复制完整命令',exact:true}));await expect(page.getByRole('button',{name:'正在复制…',exact:true})).toBeDisabled();
- await activate(page.getByRole('button',{name:/^仅卸载/}));await expect(copy).toBeEnabled();await page.evaluate(()=>{(window as unknown as {officeClipboard:{resolve:()=>void}}).officeClipboard.resolve();});await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('status')).toHaveCount(0);
- await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:undefined}));await activate(copy);await expect(page.locator('section[aria-labelledby="operation-title"]').getByRole('alert')).toContainText('复制失败');
+  expect(legacyRequests).toEqual([]);
+  expect(errors).toEqual([]);
 });
 
-test('late generation response cannot replace the current action or terminal',async({page})=>{
- const state=await gateway(page);state.delay=150;await page.goto('/toolbox/office');
- await activate(page.getByRole('button',{name:/^仅卸载/}));await activate(page.getByRole('button',{name:'CMD',exact:true}));
- await expect(page.locator('pre code')).toContainText('powershell.exe');const command=(await page.locator('pre code').textContent())!;
- const source=Buffer.from(command.split(' ').at(-1)!,'base64').toString('utf16le');const token=source.match(/\?token=([^']+)'/)![1];
- expect(JSON.parse(Buffer.from(token.split('.')[0],'base64url').toString('utf8')).action).toBe('uninstall');await expect(page.locator('.segmented-control__active')).toHaveText('CMD');
+test("download anchor clears the public header and retains approved 1.3 architecture assets and SHA256", async ({ page }) => {
+  await page.goto("/toolbox/office");
+  for (const locale of locales) {
+    await language(page, locale);
+    await activate(page.getByRole("link", { name: translate("下载桌面程序", locale), exact: true }));
+    await expect(page).toHaveURL(/#office-desktop$/);
+    await expect(page.locator("#office-desktop-title")).toBeInViewport();
+    const header = await page.locator("header").boundingBox(), heading = await page.locator("#office-desktop-title").boundingBox();
+    expect(heading!.y).toBeGreaterThanOrEqual(header!.y + header!.height + 8);
+    const section = page.locator("#office-desktop");
+    await expect(section).toContainText(officeDesktopRelease.version);
+    await expect(section.locator('a[href$=".exe"]')).toHaveCount(2);
+    for (const file of officeDesktopRelease.files) {
+      const link = section.getByRole("link", { name: translate("下载 {architecture} 程序", locale, { architecture: file.architecture }), exact: true });
+      await expect(link).toHaveAttribute("href", file.href);
+      await touchTarget(link);
+      await expect(section.locator("code").filter({ hasText: file.sha256 })).toBeHidden();
+    }
+    const details = section.locator("details");
+    await expect(details).not.toHaveAttribute("open", "");
+    await activate(details.locator("summary"));
+    for (const file of officeDesktopRelease.files) await expect(details.locator("code").filter({ hasText: file.sha256 })).toBeVisible();
+    await expect(details.getByRole("link", { name: translate("下载 SHA256 校验清单", locale), exact: true })).toHaveAttribute("href", officeDesktopRelease.checksums);
+    await expect(details.getByRole("link", { name: translate("使用说明", locale), exact: true })).toHaveAttribute("href", officeDesktopRelease.instructions);
+    await expect(details.getByRole("link", { name: translate("查看此版本源码", locale), exact: true })).toHaveAttribute("href", "https://github.com/kyox215/Chinatech-codex/tree/office-assistant-v1.3.0/desktop/office-assistant");
+    await activate(details.locator("summary"));
+  }
+});
+
+test("FAQ disclosures preserve license, documents, OneDrive and real Windows acceptance boundaries", async ({ page }) => {
+  await page.goto("/toolbox/office");
+  const faq = page.locator('section[aria-labelledby="office-faq-title"]');
+  for (const locale of locales) {
+    await language(page, locale);
+    await expect(faq.locator("details")).toHaveCount(5);
+    for (const details of await faq.locator("details").all()) {
+      await expect(details).not.toHaveAttribute("open", "");
+      await touchTarget(details.locator("summary"));
+      if (test.info().project.use.hasTouch) await details.locator("summary").tap();
+      else { await details.locator("summary").focus(); await page.keyboard.press("Enter"); }
+      await expect(details).toHaveAttribute("open", "");
+      await expect(details.locator("p").first()).toBeVisible();
+      await fits(page);
+      await activate(details.locator("summary"));
+      await expect(details).not.toHaveAttribute("open", "");
+    }
+    const documents = faq.locator("details").nth(2);
+    await activate(documents.locator("summary"));
+    await expect(documents).toContainText(translate("兼容的已有应用、Office 版本和语言会保留。卸载可选择检测到的项目，或移除全部 Office（包括 Visio 和 Project）；全部卸载默认保留 OneDrive。个人文档保留。", locale));
+    await expect(documents).toContainText(translate("旧版 MSI 产品须整项卸载；配置未知时不修改单个应用。OneDrive 仅支持当前账户卸载，所有账户安装请用 Windows 设置处理。", locale));
+    await activate(documents.locator("summary"));
+    const license = faq.locator("details").nth(3);
+    await activate(license.locator("summary"));
+    await expect(license).toContainText(translate("激活不能替代有效的 Office 许可证，请确认持有相应授权。", locale));
+    await expect(license).toContainText("kms.cx");
+    await activate(license.locator("summary"));
+    const acceptance = faq.locator("details").nth(4);
+    await activate(acceptance.locator("summary"));
+    await expect(acceptance).toContainText(translate("本版实际界面、UAC、安装、激活、卸载及文档与 OneDrive 保留仍待 Windows 验收。", locale));
+    await activate(acceptance.locator("summary"));
+  }
+});
+
+test("legacy command hashes remain inert and public navigation still works after refresh", async ({ page }) => {
+  const officeRequests: string[] = [];
+  page.on("request", request => { if (request.url().includes("/api/toolbox/office")) officeRequests.push(request.url()); });
+  await page.goto("/toolbox/office#command-reinstall");
+  await language(page, "en");
+  await page.reload();
+  await expect(page.locator("main h1")).toHaveText(translate("ChinaTech Office 助手", "en"));
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.locator("main [id^=command-], main pre")).toHaveCount(0);
+  await activate(page.locator("header").getByRole("link", { name: translate("工具箱", "en"), exact: true }));
+  await expect(page).toHaveURL(/\/toolbox$/);
+  const officeLink = page.locator('a[href="/toolbox/office"]').last();
+  await activate(officeLink);
+  await expect(page).toHaveURL(/\/toolbox\/office$/);
+  await expect(page.locator("main h1")).toHaveText(translate("ChinaTech Office 助手", "en"));
+  expect(officeRequests).toEqual([]);
 });
