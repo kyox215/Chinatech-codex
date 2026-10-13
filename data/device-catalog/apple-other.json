@@ -1,0 +1,4552 @@
+[
+  {
+    "id": "apple-laptop-macbook-pro-14-inch-m5-pro-or-m5-max-2026-8ea44cbc",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (14-inch, M5 Pro or M5 Max) (2026)",
+    "releasedAt": null,
+    "year": 2026,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M5 Pro / M5 Max",
+    "modelCodes": [
+      "Mac17,7",
+      "Mac17,9"
+    ],
+    "aliases": [
+      "MacBook Pro (14-inch, M5 Pro or M5 Max)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-16-inch-m5-pro-or-m5-max-2026-0a10cddf",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (16-inch, M5 Pro or M5 Max) (2026)",
+    "releasedAt": null,
+    "year": 2026,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M5 Pro / M5 Max",
+    "modelCodes": [
+      "Mac17,6",
+      "Mac17,8"
+    ],
+    "aliases": [
+      "MacBook Pro (16-inch, M5 Pro or M5 Max)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-14-inch-m5-2025-6d1377bc",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (14-inch, M5) (2025)",
+    "releasedAt": null,
+    "year": 2025,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M5",
+    "modelCodes": [
+      "Mac17,2"
+    ],
+    "aliases": [
+      "MacBook Pro (14-inch, M5)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-14-inch-2024-m4-9d4b75a0",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (14-inch, 2024) · M4",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M4",
+    "modelCodes": [
+      "Mac16,1"
+    ],
+    "aliases": [
+      "MacBook Pro (14-inch, 2024)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-14-inch-2024-m4-pro-m4-max-c7ee78c1",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (14-inch, 2024) · M4 Pro / M4 Max",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M4 Pro / M4 Max",
+    "modelCodes": [
+      "Mac16,6",
+      "Mac16,8"
+    ],
+    "aliases": [
+      "MacBook Pro (14-inch, 2024)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-16-inch-2024-m4-pro-m4-max-4f382081",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (16-inch, 2024) · M4 Pro / M4 Max",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M4 Pro / M4 Max",
+    "modelCodes": [
+      "Mac16,7",
+      "Mac16,5"
+    ],
+    "aliases": [
+      "MacBook Pro (16-inch, 2024)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-14-inch-nov-2023-m3-5a8aae97",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (14-inch, Nov 2023) · M3",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M3",
+    "modelCodes": [
+      "Mac15,3"
+    ],
+    "aliases": [
+      "MacBook Pro (14-inch, Nov 2023)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-14-inch-nov-2023-m3-pro-m3-max-80a6bf02",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (14-inch, Nov 2023) · M3 Pro / M3 Max",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M3 Pro / M3 Max",
+    "modelCodes": [
+      "Mac15,6",
+      "Mac15,8",
+      "Mac15,10"
+    ],
+    "aliases": [
+      "MacBook Pro (14-inch, Nov 2023)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-16-inch-nov-2023-m3-pro-m3-max-bd79e417",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (16-inch, Nov 2023) · M3 Pro / M3 Max",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M3 Pro / M3 Max",
+    "modelCodes": [
+      "Mac15,7",
+      "Mac15,9",
+      "Mac15,11"
+    ],
+    "aliases": [
+      "MacBook Pro (16-inch, Nov 2023)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-14-inch-2023-cf9a4a5f",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (14-inch, 2023)",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac14,5",
+      "Mac14,9"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-16-inch-2023-f54fec22",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (16-inch, 2023)",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac14,6",
+      "Mac14,10"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-m2-2022-402aaa2e",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, M2, 2022)",
+    "releasedAt": null,
+    "year": 2022,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M2",
+    "modelCodes": [
+      "Mac14,7"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-14-inch-2021-b6bd3ca9",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (14-inch, 2021)",
+    "releasedAt": null,
+    "year": 2021,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro18,3",
+      "MacBookPro18,4"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-16-inch-2021-5e6879b2",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (16-inch, 2021)",
+    "releasedAt": null,
+    "year": 2021,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro18,1",
+      "MacBookPro18,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-m1-2020-6c59c0fa",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, M1, 2020)",
+    "releasedAt": null,
+    "year": 2020,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M1",
+    "modelCodes": [
+      "MacBookPro17,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-2020-two-thunderbolt-3-ports-a1504c4e",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, 2020, Two Thunderbolt 3 ports)",
+    "releasedAt": null,
+    "year": 2020,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro16,3"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-2020-four-thunderbolt-3-ports-8128db46",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, 2020, Four Thunderbolt 3 ports)",
+    "releasedAt": null,
+    "year": 2020,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro16,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-16-inch-2019-5c84f55b",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (16-inch, 2019)",
+    "releasedAt": null,
+    "year": 2019,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro16,1",
+      "MacBookPro16,4"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-2019-two-thunderbolt-3-ports-05e8abd1",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, 2019, Two Thunderbolt 3 ports)",
+    "releasedAt": null,
+    "year": 2019,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro15,4"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-15-inch-2019-69b85eb0",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (15-inch, 2019)",
+    "releasedAt": null,
+    "year": 2019,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro15,1",
+      "MacBookPro15,3"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-2019-four-thunderbolt-3-ports-02ffa6f7",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, 2019, Four Thunderbolt 3 ports)",
+    "releasedAt": null,
+    "year": 2019,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro15,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-15-inch-2018-969dd875",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (15-inch, 2018)",
+    "releasedAt": null,
+    "year": 2018,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro15,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-2018-four-thunderbolt-3-ports-774e32be",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, 2018, Four Thunderbolt 3 ports)",
+    "releasedAt": null,
+    "year": 2018,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro15,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-15-inch-2017-c538a183",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (15-inch, 2017)",
+    "releasedAt": null,
+    "year": 2017,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro14,3"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-2017-four-thunderbolt-3-ports-52bd062f",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, 2017, Four Thunderbolt 3 ports)",
+    "releasedAt": null,
+    "year": 2017,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro14,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-2017-two-thunderbolt-3-ports-0c4ce906",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, 2017, Two Thunderbolt 3 ports)",
+    "releasedAt": null,
+    "year": 2017,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro14,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-15-inch-2016-ffdb86d0",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (15-inch, 2016)",
+    "releasedAt": null,
+    "year": 2016,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro13,3"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-2016-four-thunderbolt-3-ports-3fc908af",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, 2016, Four Thunderbolt 3 ports)",
+    "releasedAt": null,
+    "year": 2016,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro13,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-2016-two-thunderbolt-3-ports-735b1b2a",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, 2016, Two Thunderbolt 3 ports)",
+    "releasedAt": null,
+    "year": 2016,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro13,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-retina-15-inch-mid-2015-5d1ec47a",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (Retina, 15-inch, Mid 2015)",
+    "releasedAt": null,
+    "year": 2015,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro11,4",
+      "MacBookPro11,5"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-retina-13-inch-early-2015-95a6ff9f",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (Retina, 13-inch, Early 2015)",
+    "releasedAt": null,
+    "year": 2015,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro12,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-retina-15-inch-mid-2014-d746c8d6",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (Retina, 15-inch, Mid 2014)",
+    "releasedAt": null,
+    "year": 2014,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro11,2",
+      "MacBookPro11,3"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-retina-13-inch-mid-2014-67d2cc24",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (Retina, 13-inch, Mid 2014)",
+    "releasedAt": null,
+    "year": 2014,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro11,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-retina-15-inch-late-2013-8f7487d9",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (Retina, 15-inch, Late 2013)",
+    "releasedAt": null,
+    "year": 2013,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro11,2",
+      "MacBookPro11,3"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-retina-13-inch-late-2013-16535435",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (Retina, 13-inch, Late 2013)",
+    "releasedAt": null,
+    "year": 2013,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro11,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-retina-15-inch-early-2013-33400176",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (Retina, 15-inch, Early 2013)",
+    "releasedAt": null,
+    "year": 2013,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro10,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-retina-13-inch-early-2013-1f14752f",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (Retina, 13-inch, Early 2013)",
+    "releasedAt": null,
+    "year": 2013,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro10,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-retina-13-inch-late-2012-72aac654",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (Retina, 13-inch, Late 2012)",
+    "releasedAt": null,
+    "year": 2012,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro10,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-retina-15-inch-mid-2012-4188ac86",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (Retina, 15-inch, Mid 2012)",
+    "releasedAt": null,
+    "year": 2012,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro10,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-15-inch-mid-2012-fa0e6b76",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (15-inch, Mid 2012)",
+    "releasedAt": null,
+    "year": 2012,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro9,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-mid-2012-e9639241",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, Mid 2012)",
+    "releasedAt": null,
+    "year": 2012,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro9,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-17-inch-late-2011-35064a1f",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (17-inch, Late 2011)",
+    "releasedAt": null,
+    "year": 2011,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro8,3"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-15-inch-late-2011-450d1816",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (15-inch, Late 2011)",
+    "releasedAt": null,
+    "year": 2011,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro8,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-late-2011-e4e6f382",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, Late 2011)",
+    "releasedAt": null,
+    "year": 2011,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro8,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-17-inch-early-2011-03356eb7",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (17-inch, Early 2011)",
+    "releasedAt": null,
+    "year": 2011,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro8,3"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-15-inch-early-2011-b9a84be0",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (15-inch, Early 2011)",
+    "releasedAt": null,
+    "year": 2011,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro8,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-early-2011-9db0db34",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, Early 2011)",
+    "releasedAt": null,
+    "year": 2011,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro8,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-17-inch-mid-2010-9b155aca",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (17-inch, Mid 2010)",
+    "releasedAt": null,
+    "year": 2010,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro6,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-15-inch-mid-2010-2507ca47",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (15-inch, Mid 2010)",
+    "releasedAt": null,
+    "year": 2010,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro6,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-mid-2010-e105ae63",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, Mid 2010)",
+    "releasedAt": null,
+    "year": 2010,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro7,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-17-inch-mid-2009-b237f3a4",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (17-inch, Mid 2009)",
+    "releasedAt": null,
+    "year": 2009,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro5,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-15-inch-mid-2009-b610c19c",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (15-inch, Mid 2009)",
+    "releasedAt": null,
+    "year": 2009,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro5,3"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-15-inch-2-53ghz-mid-2009-91bb8429",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (15-inch, 2.53GHz, Mid 2009)",
+    "releasedAt": null,
+    "year": 2009,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro5,3"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-13-inch-mid-2009-d150b186",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (13-inch, Mid 2009)",
+    "releasedAt": null,
+    "year": 2009,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro5,5"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-17-inch-early-2009-2ad4a602",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (17-inch, Early 2009)",
+    "releasedAt": null,
+    "year": 2009,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro5,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-15-inch-late-2008-60655e0e",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (15-inch, Late 2008)",
+    "releasedAt": null,
+    "year": 2008,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro5,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-17-inch-early-2008-189e3fbb",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (17-inch, Early 2008)",
+    "releasedAt": null,
+    "year": 2008,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro4,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-pro-15-inch-early-2008-273c8f29",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "name": "MacBook Pro (15-inch, Early 2008)",
+    "releasedAt": null,
+    "year": 2008,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookPro4,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-15-inch-m5-2026-5298cbe0",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (15-inch, M5) (2026)",
+    "releasedAt": null,
+    "year": 2026,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac17,4"
+    ],
+    "aliases": [
+      "MacBook Air (15-inch, M5)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-13-inch-m5-2026-db8f7af6",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (13-inch, M5) (2026)",
+    "releasedAt": null,
+    "year": 2026,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac17,3"
+    ],
+    "aliases": [
+      "MacBook Air (13-inch, M5)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-15-inch-m4-2025-a606b73c",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (15-inch, M4, 2025)",
+    "releasedAt": null,
+    "year": 2025,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac16,13"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-13-inch-m4-2025-d5c0eea1",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (13-inch, M4, 2025)",
+    "releasedAt": null,
+    "year": 2025,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac16,12"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-15-inch-m3-2024-34e970f0",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (15-inch, M3, 2024)",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac15,13"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-13-inch-m3-2024-91315916",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (13-inch, M3, 2024)",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac15,12"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-15-inch-m2-2023-0cca1e3b",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (15-inch, M2, 2023)",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac14,15"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-m2-2022-1336bbbf",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (M2, 2022)",
+    "releasedAt": null,
+    "year": 2022,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac14,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-m1-2020-4bcb03aa",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (M1, 2020)",
+    "releasedAt": null,
+    "year": 2020,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M1",
+    "modelCodes": [
+      "MacBookAir10,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-retina-13-inch-2020-f803b47b",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (Retina, 13-inch, 2020)",
+    "releasedAt": null,
+    "year": 2020,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir9,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-retina-13-inch-2019-417ffc23",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (Retina, 13-inch, 2019)",
+    "releasedAt": null,
+    "year": 2019,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir8,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-retina-13-inch-2018-a16d9329",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (Retina, 13-inch, 2018)",
+    "releasedAt": null,
+    "year": 2018,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir8,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-13-inch-2017-2c830842",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (13-inch, 2017)",
+    "releasedAt": null,
+    "year": 2017,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir7,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-13-inch-early-2015-0f770e4a",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (13-inch, Early 2015)",
+    "releasedAt": null,
+    "year": 2015,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir7,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-11-inch-early-2015-5ff01d82",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (11-inch, Early 2015)",
+    "releasedAt": null,
+    "year": 2015,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir7,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-13-inch-early-2014-97494ea3",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (13-inch, Early 2014)",
+    "releasedAt": null,
+    "year": 2014,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir6,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-11-inch-early-2014-ff6e171d",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (11-inch, Early 2014)",
+    "releasedAt": null,
+    "year": 2014,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir6,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-13-inch-mid-2013-befc1b1a",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (13-inch, Mid 2013)",
+    "releasedAt": null,
+    "year": 2013,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir6,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-11-inch-mid-2013-90fcc3b2",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (11-inch, Mid 2013)",
+    "releasedAt": null,
+    "year": 2013,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir6,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-13-inch-mid-2012-f267b83a",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (13-inch, Mid 2012)",
+    "releasedAt": null,
+    "year": 2012,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir5,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-11-inch-mid-2012-478fd9d9",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (11-inch, Mid 2012)",
+    "releasedAt": null,
+    "year": 2012,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir5,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-13-inch-mid-2011-1e6da31f",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (13-inch, Mid 2011)",
+    "releasedAt": null,
+    "year": 2011,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir4,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-11-inch-mid-2011-13547819",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (11-inch, Mid 2011)",
+    "releasedAt": null,
+    "year": 2011,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir4,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-13-inch-late-2010-bc0b03b3",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (13-inch, Late 2010)",
+    "releasedAt": null,
+    "year": 2010,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir3,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-11-inch-late-2010-bcdd5e82",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (11-inch, Late 2010)",
+    "releasedAt": null,
+    "year": 2010,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir3,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-laptop-macbook-air-mid-2009-ec9b2ac8",
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "name": "MacBook Air (Mid 2009)",
+    "releasedAt": null,
+    "year": 2009,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacBookAir2,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-24-inch-2024-four-ports-3a9a0b20",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (24-inch, 2024, Four ports)",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac16,3"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-24-inch-2024-two-ports-be65007e",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (24-inch, 2024, Two ports)",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac16,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-24-inch-2023-four-ports-b6c6d9c7",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (24-inch, 2023, Four ports)",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac15,5"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-24-inch-2023-two-ports-aca12cd9",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (24-inch, 2023, Two ports)",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac15,4"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-24-inch-m1-2021-f0d44c4f",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (24-inch, M1, 2021)",
+    "releasedAt": null,
+    "year": 2021,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac21,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-24-inch-m1-2021-f8349329",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (24-inch, M1, 2021)",
+    "releasedAt": null,
+    "year": 2021,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M1",
+    "modelCodes": [
+      "iMac21,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-retina-5k-27-inch-2020-6f1144bc",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (Retina 5K, 27-inch, 2020)",
+    "releasedAt": null,
+    "year": 2020,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac20,1",
+      "iMac20,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-retina-5k-27-inch-2019-c00b1507",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (Retina 5K, 27-inch, 2019)",
+    "releasedAt": null,
+    "year": 2019,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac19,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-retina-4k-21-5-inch-2019-85dc769e",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (Retina 4K, 21.5-inch, 2019)",
+    "releasedAt": null,
+    "year": 2019,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac19,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-pro-2017-2ffe5662",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac Pro (2017)",
+    "releasedAt": null,
+    "year": 2017,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMacPro1,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-retina-5k-27-inch-2017-4ecc5409",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (Retina 5K, 27-inch, 2017)",
+    "releasedAt": null,
+    "year": 2017,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac18,3"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-retina-4k-21-5-inch-2017-09c2d098",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (Retina 4K, 21.5-inch, 2017)",
+    "releasedAt": null,
+    "year": 2017,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac18,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-21-5-inch-2017-24b32089",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (21.5-inch, 2017)",
+    "releasedAt": null,
+    "year": 2017,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac18,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-retina-5k-27-inch-late-2015-43137c64",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (Retina 5K, 27-inch, Late 2015)",
+    "releasedAt": null,
+    "year": 2015,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac17,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-retina-4k-21-5-inch-late-2015-928cd440",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (Retina 4K, 21.5-inch, Late 2015)",
+    "releasedAt": null,
+    "year": 2015,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac16,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-21-5-inch-late-2015-26d12490",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (21.5-inch, Late 2015)",
+    "releasedAt": null,
+    "year": 2015,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac16,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-retina-5k-27-inch-mid-2015-674d1764",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (Retina 5K, 27-inch, Mid 2015)",
+    "releasedAt": null,
+    "year": 2015,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac15,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-retina-5k-27-inch-late-2014-41644ec1",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (Retina 5K, 27-inch, Late 2014)",
+    "releasedAt": null,
+    "year": 2014,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac15,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-21-5-inch-mid-2014-4a1e89a4",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (21.5-inch, Mid 2014)",
+    "releasedAt": null,
+    "year": 2014,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac14,4"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-27-inch-late-2013-ec23b6ff",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (27-inch, Late 2013)",
+    "releasedAt": null,
+    "year": 2013,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac14,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-21-5-inch-late-2013-6bbd1b14",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (21.5-inch, Late 2013)",
+    "releasedAt": null,
+    "year": 2013,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac14,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-27-inch-late-2012-19d5b94b",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (27-inch, Late 2012)",
+    "releasedAt": null,
+    "year": 2012,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac13,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-21-5-inch-late-2012-aa0d8d52",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (21.5-inch, Late 2012)",
+    "releasedAt": null,
+    "year": 2012,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac13,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-27-inch-mid-2011-d7e0e258",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (27-inch, Mid 2011)",
+    "releasedAt": null,
+    "year": 2011,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac12,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-21-5-inch-mid-2011-a7abb5ce",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (21.5-inch, Mid 2011)",
+    "releasedAt": null,
+    "year": 2011,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac12,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-27-inch-mid-2010-add1a2bb",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (27-inch, Mid 2010)",
+    "releasedAt": null,
+    "year": 2010,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac11,3"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-21-5-inch-mid-2010-2ee2192d",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (21.5-inch, Mid 2010)",
+    "releasedAt": null,
+    "year": 2010,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac11,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-27-inch-late-2009-e0840948",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (27-inch, Late 2009)",
+    "releasedAt": null,
+    "year": 2009,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac10,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-21-5-inch-late-2009-6bfb48d7",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (21.5-inch, Late 2009)",
+    "releasedAt": null,
+    "year": 2009,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac10,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-24-inch-early-2009-243f9861",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (24-inch, Early 2009)",
+    "releasedAt": null,
+    "year": 2009,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac9,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-imac-20-inch-early-2009-63f590e0",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "name": "iMac (20-inch, Early 2009)",
+    "releasedAt": null,
+    "year": 2009,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "iMac9,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-mini-m6-2026-7879e174",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac mini",
+    "name": "Mac mini (M6) (2026)",
+    "releasedAt": null,
+    "year": 2026,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M6",
+    "modelCodes": [
+      "Mac18,5"
+    ],
+    "aliases": [
+      "Mac mini (M6)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-mini-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-mini-m5-pro-2026-c843cd58",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac mini",
+    "name": "Mac mini (M5 Pro) (2026)",
+    "releasedAt": null,
+    "year": 2026,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M5 Pro",
+    "modelCodes": [
+      "Mac17,16"
+    ],
+    "aliases": [
+      "Mac mini (M5 Pro)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-mini-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-mini-2024-1bd1f3e2",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac mini",
+    "name": "Mac mini (2024)",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac16,10",
+      "Mac16,11"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-mini-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-mini-2023-m2-7f57b886",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac mini",
+    "name": "Mac mini (2023) · M2",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M2",
+    "modelCodes": [
+      "Mac14,3"
+    ],
+    "aliases": [
+      "Mac mini (2023)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-mini-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-mini-2023-m2-pro-325f0c67",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac mini",
+    "name": "Mac mini (2023) · M2 Pro",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M2 Pro",
+    "modelCodes": [
+      "Mac14,12"
+    ],
+    "aliases": [
+      "Mac mini (2023)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-mini-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-mini-m1-2020-b2d57d21",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac mini",
+    "name": "Mac mini (M1, 2020)",
+    "releasedAt": null,
+    "year": 2020,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M1",
+    "modelCodes": [
+      "Macmini9,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-mini-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-mini-2018-fc147b38",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac mini",
+    "name": "Mac mini (2018)",
+    "releasedAt": null,
+    "year": 2018,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Macmini8,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-mini-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-mini-late-2014-16910b81",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac mini",
+    "name": "Mac mini (Late 2014)",
+    "releasedAt": null,
+    "year": 2014,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Macmini7,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-mini-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-mini-late-2012-a2271854",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac mini",
+    "name": "Mac mini (Late 2012)",
+    "releasedAt": null,
+    "year": 2012,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Macmini6,1",
+      "Macmini6,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-mini-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-mini-mid-2011-fbdbc892",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac mini",
+    "name": "Mac mini (Mid 2011)",
+    "releasedAt": null,
+    "year": 2011,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Macmini5,1",
+      "Macmini5,2"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-mini-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-mini-mid-2010-ff911cd0",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac mini",
+    "name": "Mac mini (Mid 2010)",
+    "releasedAt": null,
+    "year": 2010,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Macmini4,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-mini-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-mini-late-2009-60b097b7",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac mini",
+    "name": "Mac mini (Late 2009)",
+    "releasedAt": null,
+    "year": 2009,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Macmini3,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-mini-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-mini-early-2009-01ba34ce",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac mini",
+    "name": "Mac mini (Early 2009)",
+    "releasedAt": null,
+    "year": 2009,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Macmini3,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-mini-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-pro-2023-55108e53",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Pro",
+    "name": "Mac Pro (2023)",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac14,8"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-pro-rack-2023-f7e34d44",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Pro",
+    "name": "Mac Pro (Rack, 2023)",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "Mac14,8"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-pro-2019-66646a53",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Pro",
+    "name": "Mac Pro (2019)",
+    "releasedAt": null,
+    "year": 2019,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacPro7,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-pro-rack-2019-d2236d33",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Pro",
+    "name": "Mac Pro (Rack, 2019)",
+    "releasedAt": null,
+    "year": 2019,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacPro7,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-pro-late-2013-2cc76eb9",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Pro",
+    "name": "Mac Pro (Late 2013)",
+    "releasedAt": null,
+    "year": 2013,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacPro6,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-pro-mid-2012-2adb6401",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Pro",
+    "name": "Mac Pro (Mid 2012)",
+    "releasedAt": null,
+    "year": 2012,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacPro5,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-pro-server-mid-2012-7abf26d4",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Pro",
+    "name": "Mac Pro Server (Mid 2012)",
+    "releasedAt": null,
+    "year": 2012,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacPro5,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-pro-mid-2010-397f29a6",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Pro",
+    "name": "Mac Pro (Mid 2010)",
+    "releasedAt": null,
+    "year": 2010,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacPro5,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-pro-server-mid-2010-edc9863b",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Pro",
+    "name": "Mac Pro Server (Mid 2010)",
+    "releasedAt": null,
+    "year": 2010,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacPro5,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-pro-early-2009-e8a80831",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Pro",
+    "name": "Mac Pro (Early 2009)",
+    "releasedAt": null,
+    "year": 2009,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "MacPro4,1"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-pro-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-studio-m5-max-2026-1ed9b36e",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Studio",
+    "name": "Mac Studio (M5 Max) (2026)",
+    "releasedAt": null,
+    "year": 2026,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M5 Max",
+    "modelCodes": [
+      "Mac17,14"
+    ],
+    "aliases": [
+      "Mac Studio (M5 Max)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-studio-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-studio-m5-ultra-2026-4752e6fc",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Studio",
+    "name": "Mac Studio (M5 Ultra) (2026)",
+    "releasedAt": null,
+    "year": 2026,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M5 Ultra",
+    "modelCodes": [
+      "Mac17,15"
+    ],
+    "aliases": [
+      "Mac Studio (M5 Ultra)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-studio-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-studio-2025-m4-max-4e6443ab",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Studio",
+    "name": "Mac Studio (2025) · M4 Max",
+    "releasedAt": null,
+    "year": 2025,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M4 Max",
+    "modelCodes": [
+      "Mac16,9"
+    ],
+    "aliases": [
+      "Mac Studio (2025)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-studio-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-studio-2025-m3-ultra-f0791075",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Studio",
+    "name": "Mac Studio (2025) · M3 Ultra",
+    "releasedAt": null,
+    "year": 2025,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M3 Ultra",
+    "modelCodes": [
+      "Mac15,14"
+    ],
+    "aliases": [
+      "Mac Studio (2025)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-studio-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-studio-2023-m2-max-0b5ad9b0",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Studio",
+    "name": "Mac Studio (2023) · M2 Max",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M2 Max",
+    "modelCodes": [
+      "Mac14,13"
+    ],
+    "aliases": [
+      "Mac Studio (2023)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-studio-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-studio-2023-m2-ultra-40aa3366",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Studio",
+    "name": "Mac Studio (2023) · M2 Ultra",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M2 Ultra",
+    "modelCodes": [
+      "Mac14,14"
+    ],
+    "aliases": [
+      "Mac Studio (2023)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-studio-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-studio-2022-m1-max-f35ab905",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Studio",
+    "name": "Mac Studio (2022) · M1 Max",
+    "releasedAt": null,
+    "year": 2022,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M1 Max",
+    "modelCodes": [
+      "Mac13,1"
+    ],
+    "aliases": [
+      "Mac Studio (2022)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-studio-archive"
+    ]
+  },
+  {
+    "id": "apple-desktop-mac-studio-2022-m1-ultra-eb728420",
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Studio",
+    "name": "Mac Studio (2022) · M1 Ultra",
+    "releasedAt": null,
+    "year": 2022,
+    "generation": "",
+    "network": "unknown",
+    "platform": "M1 Ultra",
+    "modelCodes": [
+      "Mac13,2"
+    ],
+    "aliases": [
+      "Mac Studio (2022)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-mac-studio-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-13-inch-m5-2025-wi-fi-b95552b5",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 13-inch (M5) (2025) Wi-Fi",
+    "releasedAt": null,
+    "year": 2025,
+    "generation": "",
+    "network": "Wi-Fi",
+    "platform": "M5",
+    "modelCodes": [
+      "A3360"
+    ],
+    "aliases": [
+      "iPad Pro 13-inch (M5)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-13-inch-m5-2025-wi-fi-cellular-1b40e2c4",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 13-inch (M5) (2025) Wi-Fi + Cellular",
+    "releasedAt": null,
+    "year": 2025,
+    "generation": "",
+    "network": "Wi-Fi + Cellular",
+    "platform": "M5",
+    "modelCodes": [
+      "A3361",
+      "A3362"
+    ],
+    "aliases": [
+      "iPad Pro 13-inch (M5)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-11-inch-m5-2025-wi-fi-94c9b110",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 11-inch (M5) (2025) Wi-Fi",
+    "releasedAt": null,
+    "year": 2025,
+    "generation": "",
+    "network": "Wi-Fi",
+    "platform": "M5",
+    "modelCodes": [
+      "A3357"
+    ],
+    "aliases": [
+      "iPad Pro 11-inch (M5)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-11-inch-m5-2025-wi-fi-cellular-d7ca1f17",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 11-inch (M5) (2025) Wi-Fi + Cellular",
+    "releasedAt": null,
+    "year": 2025,
+    "generation": "",
+    "network": "Wi-Fi + Cellular",
+    "platform": "M5",
+    "modelCodes": [
+      "A3358",
+      "A3359"
+    ],
+    "aliases": [
+      "iPad Pro 11-inch (M5)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-13-inch-m4-2024-wi-fi-4f950da5",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 13-inch (M4) (2024) Wi-Fi",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "Wi-Fi",
+    "platform": "M4",
+    "modelCodes": [
+      "A2925"
+    ],
+    "aliases": [
+      "iPad Pro 13-inch (M4)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-13-inch-m4-2024-wi-fi-cellular-76533946",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 13-inch (M4) (2024) Wi-Fi + Cellular",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "Wi-Fi + Cellular",
+    "platform": "M4",
+    "modelCodes": [
+      "A2926",
+      "A3007"
+    ],
+    "aliases": [
+      "iPad Pro 13-inch (M4)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-11-inch-m4-2024-wi-fi-56d95fda",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 11-inch (M4) (2024) Wi-Fi",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "Wi-Fi",
+    "platform": "M4",
+    "modelCodes": [
+      "A2836"
+    ],
+    "aliases": [
+      "iPad Pro 11-inch (M4)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-11-inch-m4-2024-wi-fi-cellular-34981be6",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 11-inch (M4) (2024) Wi-Fi + Cellular",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "Wi-Fi + Cellular",
+    "platform": "M4",
+    "modelCodes": [
+      "A2837",
+      "A3006"
+    ],
+    "aliases": [
+      "iPad Pro 11-inch (M4)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-12-9-inch-6th-generation-2022-1855d2f9",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 12.9-inch (6th generation) (2022)",
+    "releasedAt": null,
+    "year": 2022,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2436",
+      "A2437",
+      "A2764",
+      "A2766"
+    ],
+    "aliases": [
+      "iPad Pro 12.9-inch (6th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-11-inch-4th-generation-2022-7ede9f23",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 11-inch (4th generation) (2022)",
+    "releasedAt": null,
+    "year": 2022,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2759",
+      "A2761",
+      "A2435",
+      "A2762"
+    ],
+    "aliases": [
+      "iPad Pro 11-inch (4th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-12-9-inch-5th-generation-2021-2cf1f47f",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 12.9-inch (5th generation) (2021)",
+    "releasedAt": null,
+    "year": 2021,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2378",
+      "A2461",
+      "A2379",
+      "A2462"
+    ],
+    "aliases": [
+      "iPad Pro 12.9-inch (5th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-11-inch-3rd-generation-2021-08153816",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 11-inch (3rd generation) (2021)",
+    "releasedAt": null,
+    "year": 2021,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2377",
+      "A2459",
+      "A2301",
+      "A2460"
+    ],
+    "aliases": [
+      "iPad Pro 11-inch (3rd generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-12-9-inch-4th-generation-2020-f755b7ef",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 12.9-inch (4th generation) (2020)",
+    "releasedAt": null,
+    "year": 2020,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2229",
+      "A2069",
+      "A2232",
+      "A2233"
+    ],
+    "aliases": [
+      "iPad Pro 12.9-inch (4th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-11-inch-2nd-generation-2020-0916e383",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 11-inch (2nd generation) (2020)",
+    "releasedAt": null,
+    "year": 2020,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2228",
+      "A2068",
+      "A2230",
+      "A2231"
+    ],
+    "aliases": [
+      "iPad Pro 11-inch (2nd generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-12-9-inch-3rd-generation-2018-9e385f94",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 12.9-inch (3rd generation) (2018)",
+    "releasedAt": null,
+    "year": 2018,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A1876",
+      "A2014",
+      "A1895",
+      "A1983"
+    ],
+    "aliases": [
+      "iPad Pro 12.9-inch (3rd generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-11-inch-2018-a13ae578",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 11-inch (2018)",
+    "releasedAt": null,
+    "year": 2018,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A1980",
+      "A2013",
+      "A1934",
+      "A1979"
+    ],
+    "aliases": [
+      "iPad Pro 11-inch"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-12-9-inch-2nd-generation-2017-6d09f1fa",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro 12.9-inch (2nd generation) (2017)",
+    "releasedAt": null,
+    "year": 2017,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A1670",
+      "A1671",
+      "A1821"
+    ],
+    "aliases": [
+      "iPad Pro 12.9-inch (2nd generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-10-5-inch-2017-bb969192",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro (10.5-inch) (2017)",
+    "releasedAt": null,
+    "year": 2017,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A1701",
+      "A1709",
+      "A1852"
+    ],
+    "aliases": [
+      "iPad Pro (10.5-inch)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-9-7-inch-2016-08ebd1b4",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro (9.7-inch) (2016)",
+    "releasedAt": null,
+    "year": 2016,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A1673",
+      "A1674",
+      "A1675"
+    ],
+    "aliases": [
+      "iPad Pro (9.7-inch)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-pro-12-9-inch-2015-dff4cfdd",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad Pro (12.9-inch) (2015)",
+    "releasedAt": null,
+    "year": 2015,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A1584",
+      "A1652"
+    ],
+    "aliases": [
+      "iPad Pro (12.9-inch)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-13-inch-m4-2026-wi-fi-6fa6b3c7",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air 13‑inch (M4) (2026) Wi-Fi",
+    "releasedAt": null,
+    "year": 2026,
+    "generation": "",
+    "network": "Wi-Fi",
+    "platform": "M4",
+    "modelCodes": [
+      "A3461"
+    ],
+    "aliases": [
+      "iPad Air 13‑inch (M4)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-13-inch-m4-2026-wi-fi-cellular-e14abeea",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air 13‑inch (M4) (2026) Wi-Fi + Cellular",
+    "releasedAt": null,
+    "year": 2026,
+    "generation": "",
+    "network": "Wi-Fi + Cellular",
+    "platform": "M4",
+    "modelCodes": [
+      "A3462",
+      "A3464"
+    ],
+    "aliases": [
+      "iPad Air 13‑inch (M4)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-11-inch-m4-2026-wi-fi-a770d562",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air 11‑inch (M4) (2026) Wi-Fi",
+    "releasedAt": null,
+    "year": 2026,
+    "generation": "",
+    "network": "Wi-Fi",
+    "platform": "M4",
+    "modelCodes": [
+      "A3459"
+    ],
+    "aliases": [
+      "iPad Air 11‑inch (M4)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-11-inch-m4-2026-wi-fi-cellular-ea5ad8ac",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air 11‑inch (M4) (2026) Wi-Fi + Cellular",
+    "releasedAt": null,
+    "year": 2026,
+    "generation": "",
+    "network": "Wi-Fi + Cellular",
+    "platform": "M4",
+    "modelCodes": [
+      "A3460",
+      "A3463"
+    ],
+    "aliases": [
+      "iPad Air 11‑inch (M4)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-13-inch-m3-2025-wi-fi-065387ba",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air 13-inch (M3) (2025) Wi-Fi",
+    "releasedAt": null,
+    "year": 2025,
+    "generation": "",
+    "network": "Wi-Fi",
+    "platform": "M3",
+    "modelCodes": [
+      "A3268"
+    ],
+    "aliases": [
+      "iPad Air 13-inch (M3)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-13-inch-m3-2025-wi-fi-cellular-6517e94c",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air 13-inch (M3) (2025) Wi-Fi + Cellular",
+    "releasedAt": null,
+    "year": 2025,
+    "generation": "",
+    "network": "Wi-Fi + Cellular",
+    "platform": "M3",
+    "modelCodes": [
+      "A3269",
+      "A3271"
+    ],
+    "aliases": [
+      "iPad Air 13-inch (M3)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-11-inch-m3-2025-wi-fi-10fac87d",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air 11-inch (M3) (2025) Wi-Fi",
+    "releasedAt": null,
+    "year": 2025,
+    "generation": "",
+    "network": "Wi-Fi",
+    "platform": "M3",
+    "modelCodes": [
+      "A3266"
+    ],
+    "aliases": [
+      "iPad Air 11-inch (M3)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-11-inch-m3-2025-wi-fi-cellular-809a024d",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air 11-inch (M3) (2025) Wi-Fi + Cellular",
+    "releasedAt": null,
+    "year": 2025,
+    "generation": "",
+    "network": "Wi-Fi + Cellular",
+    "platform": "M3",
+    "modelCodes": [
+      "A3267",
+      "A3270"
+    ],
+    "aliases": [
+      "iPad Air 11-inch (M3)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-13-inch-m2-2024-wi-fi-d840b5c5",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air 13-inch (M2) (2024) Wi-Fi",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "Wi-Fi",
+    "platform": "M2",
+    "modelCodes": [
+      "A2898"
+    ],
+    "aliases": [
+      "iPad Air 13-inch (M2)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-13-inch-m2-2024-wi-fi-cellular-3a696159",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air 13-inch (M2) (2024) Wi-Fi + Cellular",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "Wi-Fi + Cellular",
+    "platform": "M2",
+    "modelCodes": [
+      "A2899",
+      "A2900"
+    ],
+    "aliases": [
+      "iPad Air 13-inch (M2)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-11-inch-m2-2024-wi-fi-fea062dd",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air 11-inch (M2) (2024) Wi-Fi",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "Wi-Fi",
+    "platform": "M2",
+    "modelCodes": [
+      "A2902"
+    ],
+    "aliases": [
+      "iPad Air 11-inch (M2)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-11-inch-m2-2024-wi-fi-cellular-025a493e",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air 11-inch (M2) (2024) Wi-Fi + Cellular",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "Wi-Fi + Cellular",
+    "platform": "M2",
+    "modelCodes": [
+      "A2903",
+      "A2904"
+    ],
+    "aliases": [
+      "iPad Air 11-inch (M2)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-5th-generation-2022-eaadcf09",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air (5th generation) (2022)",
+    "releasedAt": null,
+    "year": 2022,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2588",
+      "A2589",
+      "A2591"
+    ],
+    "aliases": [
+      "iPad Air (5th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-4th-generation-2020-0dfb1830",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air (4th generation) (2020)",
+    "releasedAt": null,
+    "year": 2020,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2316",
+      "A2324",
+      "A2325",
+      "A2072"
+    ],
+    "aliases": [
+      "iPad Air (4th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-air-3rd-generation-2019-8c74d19a",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Air",
+    "name": "iPad Air (3rd generation) (2019)",
+    "releasedAt": null,
+    "year": 2019,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2152",
+      "A2123",
+      "A2153",
+      "A2154"
+    ],
+    "aliases": [
+      "iPad Air (3rd generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-mini-a17-pro-2024-33593954",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad Pro",
+    "name": "iPad mini (A17 Pro) (2024)",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2993",
+      "A2995",
+      "A2996"
+    ],
+    "aliases": [
+      "iPad mini (A17 Pro)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-mini-6th-generation-2021-c196719b",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad mini",
+    "name": "iPad mini (6th generation) (2021)",
+    "releasedAt": null,
+    "year": 2021,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2567",
+      "A2568",
+      "A2569"
+    ],
+    "aliases": [
+      "iPad mini (6th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-mini-5th-generation-2019-1720ecba",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad mini",
+    "name": "iPad mini (5th generation) (2019)",
+    "releasedAt": null,
+    "year": 2019,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2133",
+      "A2124",
+      "A2126",
+      "A2125"
+    ],
+    "aliases": [
+      "iPad mini (5th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-a16-2025-bd5eebae",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad",
+    "name": "iPad (A16) (2025)",
+    "releasedAt": null,
+    "year": 2025,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A3354",
+      "A3355",
+      "A3356"
+    ],
+    "aliases": [
+      "iPad (A16)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-10th-generation-2022-fb58df21",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad",
+    "name": "iPad (10th generation) (2022)",
+    "releasedAt": null,
+    "year": 2022,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2696",
+      "A2757",
+      "A2777",
+      "A3162"
+    ],
+    "aliases": [
+      "iPad (10th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-9th-generation-2021-3d43642e",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad",
+    "name": "iPad (9th generation) (2021)",
+    "releasedAt": null,
+    "year": 2021,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2602",
+      "A2604",
+      "A2603",
+      "A2605"
+    ],
+    "aliases": [
+      "iPad (9th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-8th-generation-2020-74d62029",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad",
+    "name": "iPad (8th generation) (2020)",
+    "releasedAt": null,
+    "year": 2020,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A2270",
+      "A2428",
+      "A2429",
+      "A2430"
+    ],
+    "aliases": [
+      "iPad (8th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-7th-generation-2019-wi-fi-8f0768c1",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad",
+    "name": "iPad (7th generation) (2019) Wi-Fi",
+    "releasedAt": null,
+    "year": 2019,
+    "generation": "",
+    "network": "Wi-Fi",
+    "platform": "",
+    "modelCodes": [
+      "A2197"
+    ],
+    "aliases": [
+      "iPad (7th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-7th-generation-2019-wi-fi-cellular-c60af2dc",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad",
+    "name": "iPad (7th generation) (2019) Wi-Fi + Cellular",
+    "releasedAt": null,
+    "year": 2019,
+    "generation": "",
+    "network": "Wi-Fi + Cellular",
+    "platform": "",
+    "modelCodes": [
+      "A2200",
+      "A2198"
+    ],
+    "aliases": [
+      "iPad (7th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-6th-generation-2018-wi-fi-da740f5d",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad",
+    "name": "iPad (6th generation) (2018) Wi-Fi",
+    "releasedAt": null,
+    "year": 2018,
+    "generation": "",
+    "network": "Wi-Fi",
+    "platform": "",
+    "modelCodes": [
+      "A1893"
+    ],
+    "aliases": [
+      "iPad (6th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-6th-generation-2018-wi-fi-cellular-fe6e8c98",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad",
+    "name": "iPad (6th generation) (2018) Wi-Fi + Cellular",
+    "releasedAt": null,
+    "year": 2018,
+    "generation": "",
+    "network": "Wi-Fi + Cellular",
+    "platform": "",
+    "modelCodes": [
+      "A1954"
+    ],
+    "aliases": [
+      "iPad (6th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-5th-generation-2017-wi-fi-6bcc1b89",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad",
+    "name": "iPad (5th generation) (2017) Wi-Fi",
+    "releasedAt": null,
+    "year": 2017,
+    "generation": "",
+    "network": "Wi-Fi",
+    "platform": "",
+    "modelCodes": [
+      "A1822"
+    ],
+    "aliases": [
+      "iPad (5th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-5th-generation-2017-wi-fi-cellular-8d981342",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad",
+    "name": "iPad (5th generation) (2017) Wi-Fi + Cellular",
+    "releasedAt": null,
+    "year": 2017,
+    "generation": "",
+    "network": "Wi-Fi + Cellular",
+    "platform": "",
+    "modelCodes": [
+      "A1823"
+    ],
+    "aliases": [
+      "iPad (5th generation)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-2-2011-7a7a07b9",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad",
+    "name": "iPad 2 (2011)",
+    "releasedAt": null,
+    "year": 2011,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A1395",
+      "A1396",
+      "A1397"
+    ],
+    "aliases": [
+      "iPad 2"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  },
+  {
+    "id": "apple-tablet-ipad-2010-f8bc8b4b",
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad",
+    "name": "iPad (2010)",
+    "releasedAt": null,
+    "year": 2010,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A1219",
+      "A1337"
+    ],
+    "aliases": [
+      "iPad"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  }
+]

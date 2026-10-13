@@ -1,8 +1,20 @@
-import { test, expect, type Page } from "@playwright/test";
-import { currentRetailSale, type RetailUnit } from "../../lib/retail";
+import { test, expect, type Locator, type Page } from "@playwright/test";
+import { currentRetailSale, retailPaidCents, type RetailUnit } from "../../lib/retail";
 import { previewRetailHistoryKey } from "../../lib/retail-record";
 import type { RetailHistoryRecord } from "../../lib/retail-history";
 import { customerId } from "../../lib/customers";
+
+async function clickWhenStable(locator: Locator) {
+  await locator.evaluate(element => element.scrollIntoView({ block: "center", behavior: "instant" }));
+  await expect.poll(() => locator.evaluate(async element => {
+    const before = element.getBoundingClientRect();
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    const after = element.getBoundingClientRect();
+    const hit = document.elementFromPoint(after.left + after.width / 2, after.top + after.height / 2);
+    return Math.abs(before.top - after.top) < 0.5 && Math.abs(before.left - after.left) < 0.5 && !!hit && (hit === element || element.contains(hit));
+  })).toBe(true);
+  await locator.click();
+}
 
 const source: RetailHistoryRecord = { id: "00000000-0000-5000-8000-000000000051", source: "seatable", sourceSnapshot: "a".repeat(64), sourceRow: 52, sourceStatus: "在售", condition: "翻新机", customerName: "DEMO 原候选买家", customerPhone: "+393200009800", category: "手机", brand: "Apple", model: "DEMO 在售样机", color: "NERO", memory: "128GB", paymentMethod: null, askingPriceCents: 22000, salePriceCents: null, depositCents: null, costCents: 12000, notes: "DEMO 原资料内部备注", batteryPercent: 78, identifier: "000000000000051", intakeAt: "2026-09-02T09:00:00Z", pickupDate: null, sourceUpdatedAt: "2026-09-03T10:00:00Z", importedAt: "2026-10-02T10:00:00Z", reviewReasons: ["DEMO 身份待实物核对"] };
 const oldSale: RetailHistoryRecord = { ...source, id: "00000000-0000-5000-8000-000000000052", sourceRow: 53, sourceStatus: "以售", model: "DEMO 原已售商品", identifier: "ORIGINAL-OLD-SN", customerName: "DEMO 原买家", customerPhone: "+393200009899", salePriceCents: 23000, depositCents: 5000, pickupDate: "2026-09-30", reviewReasons: [] };
@@ -46,7 +58,10 @@ test("原在售商品同页核对→明确可售→新买家→实际收款交�
   let unit = await savedUnit(page); const sale = currentRetailSale(unit)!; const card = page.locator(`[id="sale-${sale.id}"]`); await expect(card).toBeVisible();
   expect(unit.id).toBe(source.id); expect(unit.code).toBe("ST-0051"); expect(unit.imei1).toBe(source.identifier); expect(unit.bodyStorage).toBeNull(); expect(sale.customerPhone).toBe(phone); expect(sale.paidCents).toBe(0);
   await card.getByRole("button", { name: "登记收款", exact: true }).click(); const payment = card.getByRole("region", { name: "登记收款", exact: true }); await payment.getByLabel("本次实际收款", { exact: true }).fill("220"); await payment.getByRole("radio", { name: "现金", exact: true }).locator("..").click(); await payment.getByText("收款备注（选填）", { exact: true }).click(); await payment.getByLabel("收款备注与核对依据", { exact: true }).fill("DEMO 实际现金收款"); await payment.getByRole("button", { name: "继续核对", exact: true }).click(); await card.getByRole("button", { name: "确认保存业务记录", exact: true }).click();
-  await card.getByRole("button", { name: "确认交付", exact: true }).click(); await card.getByRole("button", { name: "继续核对", exact: true }).click(); await card.getByRole("button", { name: "确认保存业务记录", exact: true }).click(); await expect(card).toContainText("销售已结清并交付");
+  await expect.poll(async()=>retailPaidCents(currentRetailSale(await savedUnit(page))!)).toBe(22000);
+  await expect(card).toContainText("收款已结清");
+  await card.getByRole("button", { name: "确认交付", exact: true }).click(); await card.getByRole("button", { name: "继续核对", exact: true }).click();
+  await clickWhenStable(card.getByRole("button", { name: "确认保存业务记录", exact: true })); await expect(card).toContainText("销售已结清并交付");
   await card.getByRole("button", { name: "打印销售与保修单", exact: true }).click(); const print = page.locator(".intake-receipt-dialog"); await print.locator(".intake-receipt-options select").nth(1).selectOption("zh"); await expect(print).toContainText("DEMO 新买家"); await expect(print).toContainText("ST-0051"); await expect(print).not.toContainText(source.notes!); await expect(print).not.toContainText("€120.00"); await print.locator(".intake-receipt-toolbar button.icon-button").click();
   unit = await savedUnit(page); expect(currentRetailSale(unit)!.delivered).toBe(true); expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).records[0], previewRetailHistoryKey)).toEqual(source);
   await page.goto("/app/retail?view=sold"); await expect(page.getByRole("region", { name: "整机商品表格", exact: true }).getByRole("link")).toHaveCount(2);

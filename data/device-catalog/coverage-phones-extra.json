@@ -1,0 +1,101 @@
+[
+  {
+    "category": "phone",
+    "brand": "Alcatel",
+    "verifiedCount": 5,
+    "scope": "欧洲官方当前产品页或历史目录中可确认的机型原名。",
+    "scopeIt": "Nomi di modelli identificabili in prodotti europei attuali o archivi ufficiali.",
+    "scopeEn": "Model names identifiable in current European products or official archives.",
+    "gaps": [
+      "历史、地区硬件和型号代码有缺漏；无明确证据的网络和日期保留未知。",
+      "地区目录用于确认型号，不作为热销排名或门店实测参数。"
+    ],
+    "gapsIt": [
+      "Lacune storiche, regionali e nei codici; reti e date senza prove esplicite restano sconosciute.",
+      "Cataloghi regionali confermano modelli, non classifiche di vendita o parametri misurati in negozio."
+    ],
+    "gapsEn": [
+      "Historical, regional hardware and code gaps remain; unproven networks and dates stay unknown.",
+      "Regional directories confirm names, not sales rankings or store-measured parameters."
+    ],
+    "sourceIds": [
+      "europe-reviewed-457875380a"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "Fairphone",
+    "verifiedCount": 8,
+    "scope": "欧洲官方当前产品页或历史目录中可确认的机型原名。",
+    "scopeIt": "Nomi di modelli identificabili in prodotti europei attuali o archivi ufficiali.",
+    "scopeEn": "Model names identifiable in current European products or official archives.",
+    "gaps": [
+      "历史、地区硬件和型号代码有缺漏；无明确证据的网络和日期保留未知。",
+      "地区目录用于确认型号，不作为热销排名或门店实测参数。"
+    ],
+    "gapsIt": [
+      "Lacune storiche, regionali e nei codici; reti e date senza prove esplicite restano sconosciute.",
+      "Cataloghi regionali confermano modelli, non classifiche di vendita o parametri misurati in negozio."
+    ],
+    "gapsEn": [
+      "Historical, regional hardware and code gaps remain; unproven networks and dates stay unknown.",
+      "Regional directories confirm names, not sales rankings or store-measured parameters."
+    ],
+    "sourceIds": [
+      "europe-fairphone",
+      "europe-reviewed-7c0f08b865",
+      "europe-reviewed-f55717df87"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "HMD",
+    "verifiedCount": 16,
+    "scope": "欧洲官方当前产品页或历史目录中可确认的机型原名。",
+    "scopeIt": "Nomi di modelli identificabili in prodotti europei attuali o archivi ufficiali.",
+    "scopeEn": "Model names identifiable in current European products or official archives.",
+    "gaps": [
+      "历史、地区硬件和型号代码有缺漏；无明确证据的网络和日期保留未知。",
+      "地区目录用于确认型号，不作为热销排名或门店实测参数。"
+    ],
+    "gapsIt": [
+      "Lacune storiche, regionali e nei codici; reti e date senza prove esplicite restano sconosciute.",
+      "Cataloghi regionali confermano modelli, non classifiche di vendita o parametri misurati in negozio."
+    ],
+    "gapsEn": [
+      "Historical, regional hardware and code gaps remain; unproven networks and dates stay unknown.",
+      "Regional directories confirm names, not sales rankings or store-measured parameters."
+    ],
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "Wiko",
+    "verifiedCount": 14,
+    "scope": "欧洲官方当前产品页或历史目录中可确认的机型原名。",
+    "scopeIt": "Nomi di modelli identificabili in prodotti europei attuali o archivi ufficiali.",
+    "scopeEn": "Model names identifiable in current European products or official archives.",
+    "gaps": [
+      "历史、地区硬件和型号代码有缺漏；无明确证据的网络和日期保留未知。",
+      "地区目录用于确认型号，不作为热销排名或门店实测参数。"
+    ],
+    "gapsIt": [
+      "Lacune storiche, regionali e nei codici; reti e date senza prove esplicite restano sconosciute.",
+      "Cataloghi regionali confermano modelli, non classifiche di vendita o parametri misurati in negozio."
+    ],
+    "gapsEn": [
+      "Historical, regional hardware and code gaps remain; unproven networks and dates stay unknown.",
+      "Regional directories confirm names, not sales rankings or store-measured parameters."
+    ],
+    "sourceIds": [
+      "europe-reviewed-677f6b9640",
+      "europe-reviewed-861a0654ed",
+      "europe-reviewed-958caaaa62",
+      "europe-reviewed-d3e4fdd029",
+      "europe-reviewed-e86a6e7c4d",
+      "europe-wiko-history"
+    ]
+  }
+]

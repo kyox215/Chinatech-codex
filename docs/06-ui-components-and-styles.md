@@ -29,7 +29,7 @@ SearchCombobox增加opt-in `optionDetailsAsDescription`，设备目录选择器�
 
 ## 2026-10-07 共享设备目录候选
 
-DeviceCatalogControl 复用 SearchCombobox，商品新建／就地编辑／维修接机共享；默认其他用途仍12项，本目录扩50项、按需加载、可选系列与分页。公共 opt-in optionLimit、menuHeader／menuFooter、menuClassName、onOpenChange／loading 不混入权限或业务写入；目录私有CSS固定页码操作，16px输入和44px触控保持。管理页复用AppShell／PageTitle／InputControl／TextareaControl／SelectControl、已有按钮与token，不增加全局导航或新主题。用途、三语及验证见[共享目录32](32-shared-device-catalog.md)。
+DeviceCatalogControl 复用 SearchCombobox，商品新建／就地编辑／维修接机共享；默认其他用途仍12项，本目录扩50项、按需加载、可选系列与分页。公共 opt-in optionLimit、menuHeader／menuFooter、menuClassName、onOpenChange／loading 不混入权限或业务写入；目录私有CSS固定页码操作；手机候选在输入框下方限高滚动，系列单行横向滚动，分页使用带三语可访问名称的44px图标按钮，品牌清空和表单“下一步”均保持可点击，16px输入和44px触控保持。管理页复用AppShell／PageTitle／InputControl／TextareaControl／SelectControl、已有按钮与token，不增加全局导航或新主题。用途、三语及验证见[共享目录32](32-shared-device-catalog.md)。
 
 
 LanguageSwitcher复用useFormReady：服务端/初始化期间禁用选择，准备后保留第一笔语言选择及刷新偏好；防止未接事件时原生下拉值被保存偏好覆盖。所有现有使用方共用，无新样式/主题。

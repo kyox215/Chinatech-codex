@@ -1,0 +1,74 @@
+[
+  {
+    "id": "europe-wiko-history",
+    "url": "https://fr.wikomobile.com/shop/mobiles/smartphones/",
+    "title": "Wiko official European phone archive",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "europe-alcatel-legacy",
+    "url": "https://www.alcatelmobile.com/legacy/product/smartphone/",
+    "title": "Alcatel official European phone archive",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "europe-hmd",
+    "url": "https://www.hmd.com/en_gb/all-phones",
+    "title": "HMD official European phone archive",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "europe-fairphone",
+    "url": "https://www.fairphone.com/smartphones",
+    "title": "Fairphone official European phone archive",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "europe-reviewed-e86a6e7c4d",
+    "url": "https://fr.wikomobile.com/p-wiko-smartphones",
+    "title": "Wiko official model reference",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "europe-reviewed-677f6b9640",
+    "url": "https://fr.wikomobile.com/shop/view5",
+    "title": "Wiko official model reference",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "europe-reviewed-958caaaa62",
+    "url": "https://data.wikomobile.com/documents/fichiers/8225bd8ab37242cd2b2b6bf16ad0823b.pdf",
+    "title": "Wiko official model reference",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "europe-reviewed-d3e4fdd029",
+    "url": "https://fr.wikomobile.com/shop/mobiles/autres-mobiles/",
+    "title": "Wiko official model reference",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "europe-reviewed-861a0654ed",
+    "url": "https://fr.wikomobile.com/shop/media/wysiwyg/wim/techsheet_wim.pdf",
+    "title": "Wiko official model reference",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "europe-reviewed-457875380a",
+    "url": "https://www.alcatelmobile.com/legacy/home/",
+    "title": "Alcatel official model reference",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "europe-reviewed-f55717df87",
+    "url": "https://support.fairphone.com/hc/en-us/articles/10489814539409-How-to-find-Fairphone-Quick-Start-guides-and-support-resources",
+    "title": "Fairphone official model reference",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "europe-reviewed-7c0f08b865",
+    "url": "https://www.fairphone.com/wp-content/uploads/2021/09/Fairphones-modular-5G-smartphone-proves-the-latest-tech-can-be-made-sustainably.pdf",
+    "title": "Fairphone official model reference",
+    "checkedAt": "2026-10-07"
+  }
+]

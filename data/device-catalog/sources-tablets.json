@@ -1,0 +1,50 @@
+[
+  {
+    "id": "more-xiaomi-eos",
+    "url": "https://trust.mi.com/bff/eos-products/phones?type=Xiaomi-Redmi-POCO",
+    "title": "Xiaomi official end-of-support model list",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "more-xiaomi-sitemap-more",
+    "url": "https://www.mi.com/global/sitemap/",
+    "title": "Xiaomi global official sitemap",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "more-xiaomi-italy-sitemap-more",
+    "url": "https://www.mi.com/it/sitemap/",
+    "title": "Xiaomi Italy official sitemap",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "more-samsung-security",
+    "url": "https://security.samsungmobile.com/workScope.smsb",
+    "title": "Samsung official security update scope",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "root-surface-tablets",
+    "title": "Microsoft official tablet model archive",
+    "url": "https://learn.microsoft.com/en-us/surface/surface-driver-firmware-lifecycle-support",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "root-honor-tablets",
+    "title": "Honor official tablet model archive",
+    "url": "https://www.honor.com/it/tablets/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "root-huawei-tablets",
+    "title": "Huawei official tablet model archive",
+    "url": "https://consumer.huawei.com/it/tablets/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "root-lenovo-tablets",
+    "title": "Lenovo official tablet model archive",
+    "url": "https://psref.lenovo.com/api/ph/ProductCategoryTree",
+    "checkedAt": "2026-10-07"
+  }
+]

@@ -56,9 +56,11 @@ test("keyboard selection, IME confirmation, free text and dismissal", async ({ p
   await deviceStep(page);
   const brand = page.getByRole("combobox", { name: "品牌" });
   await brand.focus();
+  await brand.fill("App");
+  await expect(page.getByRole("option", { name: "Apple", exact: true })).toBeVisible();
   await brand.press("ArrowDown");
   await brand.dispatchEvent("keydown", { key: "Enter", code: "Enter", isComposing: true, keyCode: 229 });
-  await expect(brand).toHaveValue("");
+  await expect(brand).toHaveValue("App");
   await expect(brand).toHaveAttribute("aria-expanded", "true");
   await brand.press("Enter");
   await expect(brand).toHaveValue("Apple");
@@ -92,9 +94,9 @@ test("pressing a candidate does not commit before click or block list scrolling"
   expect(canceled).toBe(false);
   await expect(brand).toHaveValue("");
   await apple.dispatchEvent("pointercancel", { pointerType: "touch" });
-  const menu = page.locator(".search-combobox__menu");
-  await menu.evaluate(element => { element.scrollTop = element.scrollHeight; });
-  expect(await menu.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  const list = page.getByRole("listbox", { name: "品牌候选" });
+  await list.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  expect(await list.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
   await activate(page, page.getByRole("option", { name: "Google", exact: true }));
   await expect(brand).toHaveValue("Google");
 });
@@ -162,9 +164,9 @@ test("customer selection fills linked fields and category changes clear dependen
   await expect(brand).toHaveValue("");
   await activate(page, brand);
   await activate(page, page.getByRole("option", { name: "Lenovo", exact: true }));
-  await activate(page, model);
-  await activate(page, page.getByRole("option", { name: "ThinkPad T14", exact: true }));
-  await expect(model).toHaveValue("ThinkPad T14");
+  await model.fill("ThinkPad T14 Gen 1 (Intel)");
+  await activate(page, page.getByRole("option", { name: "ThinkPad T14 Gen 1 (Intel)", exact: true }));
+  await expect(model).toHaveValue("ThinkPad T14 Gen 1 (Intel)");
 });
 
 test("colors close on repeat selection and preserve custom text", async ({ page }) => {

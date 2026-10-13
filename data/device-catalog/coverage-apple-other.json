@@ -1,0 +1,149 @@
+[
+  {
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Pro",
+    "verifiedCount": 58,
+    "scope": "官方型号识别档案中的明确型号、年份和机型码。",
+    "scopeIt": "Modelli, anni e codici espliciti nell'archivio ufficiale di identificazione.",
+    "scopeEn": "Explicit models, years and identifiers in the official identification archive.",
+    "gaps": [
+      "地区销售状态和未列出的早期型号仍待核验；不按配置组合补造型号。"
+    ],
+    "gapsIt": [
+      "Disponibilità regionale e modelli iniziali non elencati da verificare; nessuna combinazione inventata."
+    ],
+    "gapsEn": [
+      "Regional availability and unlisted early models still need verification; no invented configuration combinations."
+    ],
+    "sourceIds": [
+      "apple-macbook-pro-archive"
+    ]
+  },
+  {
+    "category": "laptop",
+    "brand": "Apple",
+    "family": "MacBook Air",
+    "verifiedCount": 26,
+    "scope": "官方型号识别档案中的明确型号、年份和机型码。",
+    "scopeIt": "Modelli, anni e codici espliciti nell'archivio ufficiale di identificazione.",
+    "scopeEn": "Explicit models, years and identifiers in the official identification archive.",
+    "gaps": [
+      "地区销售状态和未列出的早期型号仍待核验；不按配置组合补造型号。"
+    ],
+    "gapsIt": [
+      "Disponibilità regionale e modelli iniziali non elencati da verificare; nessuna combinazione inventata."
+    ],
+    "gapsEn": [
+      "Regional availability and unlisted early models still need verification; no invented configuration combinations."
+    ],
+    "sourceIds": [
+      "apple-macbook-air-archive"
+    ]
+  },
+  {
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "iMac",
+    "verifiedCount": 31,
+    "scope": "官方型号识别档案中的明确型号、年份和机型码。",
+    "scopeIt": "Modelli, anni e codici espliciti nell'archivio ufficiale di identificazione.",
+    "scopeEn": "Explicit models, years and identifiers in the official identification archive.",
+    "gaps": [
+      "地区销售状态和未列出的早期型号仍待核验；不按配置组合补造型号。"
+    ],
+    "gapsIt": [
+      "Disponibilità regionale e modelli iniziali non elencati da verificare; nessuna combinazione inventata."
+    ],
+    "gapsEn": [
+      "Regional availability and unlisted early models still need verification; no invented configuration combinations."
+    ],
+    "sourceIds": [
+      "apple-imac-archive"
+    ]
+  },
+  {
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac mini",
+    "verifiedCount": 13,
+    "scope": "官方型号识别档案中的明确型号、年份和机型码。",
+    "scopeIt": "Modelli, anni e codici espliciti nell'archivio ufficiale di identificazione.",
+    "scopeEn": "Explicit models, years and identifiers in the official identification archive.",
+    "gaps": [
+      "地区销售状态和未列出的早期型号仍待核验；不按配置组合补造型号。"
+    ],
+    "gapsIt": [
+      "Disponibilità regionale e modelli iniziali non elencati da verificare; nessuna combinazione inventata."
+    ],
+    "gapsEn": [
+      "Regional availability and unlisted early models still need verification; no invented configuration combinations."
+    ],
+    "sourceIds": [
+      "apple-mac-mini-archive"
+    ]
+  },
+  {
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Pro",
+    "verifiedCount": 10,
+    "scope": "官方型号识别档案中的明确型号、年份和机型码。",
+    "scopeIt": "Modelli, anni e codici espliciti nell'archivio ufficiale di identificazione.",
+    "scopeEn": "Explicit models, years and identifiers in the official identification archive.",
+    "gaps": [
+      "地区销售状态和未列出的早期型号仍待核验；不按配置组合补造型号。"
+    ],
+    "gapsIt": [
+      "Disponibilità regionale e modelli iniziali non elencati da verificare; nessuna combinazione inventata."
+    ],
+    "gapsEn": [
+      "Regional availability and unlisted early models still need verification; no invented configuration combinations."
+    ],
+    "sourceIds": [
+      "apple-mac-pro-archive"
+    ]
+  },
+  {
+    "category": "desktop",
+    "brand": "Apple",
+    "family": "Mac Studio",
+    "verifiedCount": 8,
+    "scope": "官方型号识别档案中的明确型号、年份和机型码。",
+    "scopeIt": "Modelli, anni e codici espliciti nell'archivio ufficiale di identificazione.",
+    "scopeEn": "Explicit models, years and identifiers in the official identification archive.",
+    "gaps": [
+      "地区销售状态和未列出的早期型号仍待核验；不按配置组合补造型号。"
+    ],
+    "gapsIt": [
+      "Disponibilità regionale e modelli iniziali non elencati da verificare; nessuna combinazione inventata."
+    ],
+    "gapsEn": [
+      "Regional availability and unlisted early models still need verification; no invented configuration combinations."
+    ],
+    "sourceIds": [
+      "apple-mac-studio-archive"
+    ]
+  },
+  {
+    "category": "tablet",
+    "brand": "Apple",
+    "family": "iPad",
+    "verifiedCount": 50,
+    "scope": "官方型号识别档案中的明确型号、年份和机型码。",
+    "scopeIt": "Modelli, anni e codici espliciti nell'archivio ufficiale di identificazione.",
+    "scopeEn": "Explicit models, years and identifiers in the official identification archive.",
+    "gaps": [
+      "地区销售状态和未列出的早期型号仍待核验；不按配置组合补造型号。"
+    ],
+    "gapsIt": [
+      "Disponibilità regionale e modelli iniziali non elencati da verificare; nessuna combinazione inventata."
+    ],
+    "gapsEn": [
+      "Regional availability and unlisted early models still need verification; no invented configuration combinations."
+    ],
+    "sourceIds": [
+      "apple-ipad-archive"
+    ]
+  }
+]

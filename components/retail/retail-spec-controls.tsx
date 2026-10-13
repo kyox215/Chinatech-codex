@@ -8,6 +8,8 @@ import { RetailNumberControl } from "./retail-input-controls";
 import { retailDraftNumber } from "@/lib/retail-input";
 import { SelectControl } from "@/components/select-control";
 import { SearchCombobox } from "@/components/search-combobox";
+import { DeviceCatalogControl } from "@/components/catalog/device-catalog-control";
+import { canonicalCatalogBrand, catalogNormalize } from "@/lib/device-catalog";
 import { retailCatalogOptions, retailRamPresets, retailStoragePresets, type RetailCatalogField } from "@/lib/retail-catalog";
 import type { Capacity, RetailCategory, RetailDisk, RetailUnit } from "@/lib/retail";
 import styles from "./retail-spec-controls.module.css";
@@ -16,8 +18,13 @@ export function RetailCatalogControl({ field, category, brand, units, value, onC
   field: RetailCatalogField; category: RetailCategory; brand?: string; units: RetailUnit[]; value: string; onChange: (value: string) => void; label: string; required?: boolean;
 }) {
   const { t } = useLanguage();
+  if (field === "brand" || field === "model") {
+    const recorded = units.filter(unit => unit.category === category && (field === "brand" || !brand || canonicalCatalogBrand(unit.brand) === canonicalCatalogBrand(brand))).map(unit => unit[field]).filter(value => value.trim());
+    const unique = new Map(recorded.map(value => [catalogNormalize(value),value]));
+    return <DeviceCatalogControl field={field} category={category} brand={brand} label={label} value={value} onChange={onChange} required={required} historicalOptions={[...unique.values()].map(value=>({value,label:value}))} />;
+  }
   return <SearchCombobox validate={text => required && !text.trim() ? "请选择或填写实物型号。" : ""} label={t(label)} value={value} onChange={onChange} options={retailCatalogOptions(field, category, brand, units)}
-    required={required} maxLength={field === "brand" ? 60 : field === "model" ? 120 : 300} placeholder={t("搜索或手动填写{v0}", { v0: t(label) })} />;
+    required={required} maxLength={300} placeholder={t("搜索或手动填写{v0}", { v0: t(label) })} />;
 }
 
 export function RetailStorageControl({ category, value, onChange, label = "机身存储", disk = false }: {

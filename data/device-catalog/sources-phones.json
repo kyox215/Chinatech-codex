@@ -1,0 +1,986 @@
+[
+  {
+    "id": "apple-identify-iphone",
+    "title": "Apple Support — Identify your iPhone model",
+    "url": "https://support.apple.com/en-us/108044",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "asus-rog",
+    "title": "ASUS — official global phone/product archive",
+    "url": "https://rog.asus.com/phones-group/allmodels/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "asus-rog-phone-7",
+    "title": "ASUS ROG — ROG Phone 7 official historical product page",
+    "url": "https://rog.asus.com/phones/rog-phone-7/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "asus-rog-phone-7-ultimate",
+    "title": "ASUS ROG — ROG Phone 7 Ultimate official historical product page",
+    "url": "https://rog.asus.com/phones/rog-phone-7-ultimate/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "asus-zenfone",
+    "title": "ASUS — official global phone/product archive",
+    "url": "https://www.asus.com/mobile-handhelds/phones/zenfone/filter?Series=Zenfone",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "google-hardware-archive",
+    "title": "Google — official global phone/product archive",
+    "url": "https://support.google.com/pixelphone/answer/7158570?hl=en",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "google-pixel-update-history",
+    "title": "Google Pixel Help — official current and historical phone update list",
+    "url": "https://support.google.com/pixelphone/answer/4457705?hl=en",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "honor-global",
+    "title": "Honor — official global phone/product archive",
+    "url": "https://www.honor.com/global/phones/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "honor-it",
+    "title": "Honor — official Italy phone/product archive",
+    "url": "https://www.honor.com/it/phones/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "huawei-europe-historical-battery",
+    "title": "HUAWEI Germany — historical official battery service eligible phones",
+    "url": "https://consumer.huawei.com/de/support/huawei-care/battery-replacement-service/terms-and-conditions-old/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "huawei-global",
+    "title": "Huawei — official global phone/product archive",
+    "url": "https://consumer.huawei.com/en/phones/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "huawei-it",
+    "title": "Huawei — official Italy phone/product archive",
+    "url": "https://consumer.huawei.com/it/phones/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "huawei-official-phone-eos",
+    "title": "HUAWEI — End of Service for Obsolete products (phone section)",
+    "url": "https://consumer.huawei.com/sa-en/support/obsolete-products/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "motorola-it",
+    "title": "Motorola — official Italy phone/product archive",
+    "url": "https://www.motorola.it/smartphones",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "motorola-spec-edge-50",
+    "title": "Motorola Support — edge 50 official specifications",
+    "url": "https://en-in.support.motorola.com/app/answers/detail/a_id/183654/~/specifications---motorola-edge-50",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "motorola-spec-edge-50-fusion",
+    "title": "Motorola Support — edge 50 fusion official specifications",
+    "url": "https://en-in.support.motorola.com/app/answers/detail/a_id/187366/~/specifications---motorola-edge-50-fusion",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "motorola-spec-moto-g54-5g",
+    "title": "Motorola Support — moto g54 5G official specifications",
+    "url": "https://es-es.support.motorola.com/app/answers/detail/a_id/176649/~/especificaciones---moto-g54-5g",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "nokia-hmd-archive",
+    "title": "Nokia — official global phone/product archive",
+    "url": "https://www.hmd.com/en_int/nokia-smartphones-and-tablets",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "nothing-it",
+    "title": "Nothing — official Italy phone/product archive",
+    "url": "https://it.nothing.tech/collections/phones",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oneplus-global",
+    "title": "OnePlus — official global phone/product archive",
+    "url": "https://www.oneplus.com/global",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oneplus-it",
+    "title": "OnePlus — official Italy phone/product archive",
+    "url": "https://www.oneplus.com/it/phone",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oneplus-software-archive",
+    "title": "OnePlus — official global phone/product archive",
+    "url": "https://www.oneplus.com/global/support/softwareupgrade",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-products-en",
+    "title": "OPPO Global — official smartphone archive",
+    "url": "https://www.oppo.com/en/smartphones/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-products-it",
+    "title": "OPPO Italia — official smartphone archive",
+    "url": "https://www.oppo.com/it/smartphones/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a16",
+    "title": "OPPO official hardware specifications — A16 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a16/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a16k",
+    "title": "OPPO official hardware specifications — A16k (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a16k/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a17",
+    "title": "OPPO official hardware specifications — A17 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a17/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a17k",
+    "title": "OPPO official hardware specifications — A17k (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a17k/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a18",
+    "title": "OPPO official hardware specifications — A18 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a18/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a3",
+    "title": "OPPO official hardware specifications — A3 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a3/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a3-pro-5g",
+    "title": "OPPO official hardware specifications — A3 Pro 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a3-pro-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a38",
+    "title": "OPPO official hardware specifications — A38 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a38/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a3x",
+    "title": "OPPO official hardware specifications — A3x (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a3x/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a5",
+    "title": "OPPO official hardware specifications — A5 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a5/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a5-5g",
+    "title": "OPPO official hardware specifications — A5 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a5-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a5-pro",
+    "title": "OPPO official hardware specifications — A5 Pro (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a5-pro/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a5-pro-5g",
+    "title": "OPPO official hardware specifications — A5 Pro 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a5-pro-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a57",
+    "title": "OPPO official hardware specifications — A57 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a57/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a57s",
+    "title": "OPPO official hardware specifications — A57s (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a57s/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a58",
+    "title": "OPPO official hardware specifications — A58 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a58/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a5i",
+    "title": "OPPO official hardware specifications — A5i (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a5i/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a5i-pro",
+    "title": "OPPO official hardware specifications — A5i Pro (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a5i-pro/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a5i-pro-5g",
+    "title": "OPPO official hardware specifications — A5i Pro 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a5i-pro-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a5x",
+    "title": "OPPO official hardware specifications — A5x (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a5x/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a6",
+    "title": "OPPO official hardware specifications — A6 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a6/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a6-5g",
+    "title": "OPPO official hardware specifications — A6 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a6-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a6-pro",
+    "title": "OPPO official hardware specifications — A6 Pro (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a6-pro/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a6-pro-5g",
+    "title": "OPPO official hardware specifications — A6 Pro 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a6-pro-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a60",
+    "title": "OPPO official hardware specifications — A60 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a60/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a6c",
+    "title": "OPPO official hardware specifications — A6c (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a6c/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a6k",
+    "title": "OPPO official hardware specifications — A6k (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a6k/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a6s",
+    "title": "OPPO official hardware specifications — A6s (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a6s/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a6s-5g",
+    "title": "OPPO official hardware specifications — A6s 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a6s-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a6t",
+    "title": "OPPO official hardware specifications — A6t (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a6t/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a6t-5g",
+    "title": "OPPO official hardware specifications — A6t 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a6t-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a6t-pro",
+    "title": "OPPO official hardware specifications — A6t Pro (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a6t-pro/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a6t-pro-5g",
+    "title": "OPPO official hardware specifications — A6t Pro 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a6t-pro-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a6x",
+    "title": "OPPO official hardware specifications — A6x (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a6x/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a6x-5g",
+    "title": "OPPO official hardware specifications — A6x 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a6x-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a7-pro-5g",
+    "title": "OPPO official hardware specifications — A7 Pro 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a7-pro-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a7-pro-max-5g",
+    "title": "OPPO official hardware specifications — A7 Pro Max 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a7-pro-max-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a76",
+    "title": "OPPO official hardware specifications — A76 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a76/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a77-5g",
+    "title": "OPPO official hardware specifications — A77 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a77-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a78",
+    "title": "OPPO official hardware specifications — A78 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a78/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a78-5g",
+    "title": "OPPO official hardware specifications — A78 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a78-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a79-5g",
+    "title": "OPPO official hardware specifications — A79 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a79-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a96",
+    "title": "OPPO official hardware specifications — A96 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a96/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-a98-5g",
+    "title": "OPPO official hardware specifications — A98 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-a/a98-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-find-n6",
+    "title": "OPPO official hardware specifications — Find N6 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-find-n/find-n6/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-find-x3-pro",
+    "title": "OPPO official hardware specifications — Find X3 Pro (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-find-x/find-x3-pro/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-find-x9",
+    "title": "OPPO official hardware specifications — Find X9 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-find-x/find-x9/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-find-x9-pro",
+    "title": "OPPO official hardware specifications — Find X9 Pro (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-find-x/find-x9-pro/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-find-x9-ultra",
+    "title": "OPPO official hardware specifications — Find X9 Ultra (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-find-x/find-x9-ultra/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-find-x9s",
+    "title": "OPPO official hardware specifications — Find X9s (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-find-x/find-x9s/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-reno10-5g",
+    "title": "OPPO official hardware specifications — Reno10 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-reno/reno10/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-reno10-pro-5g",
+    "title": "OPPO official hardware specifications — Reno10 Pro 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-reno/reno10-pro/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-reno10-pro-plus-5g",
+    "title": "OPPO official hardware specifications — Reno10 Pro+ 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-reno/reno10-pro-plus/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-reno7",
+    "title": "OPPO official hardware specifications — Reno7 (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-reno/reno7/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-reno7-z-5g",
+    "title": "OPPO official hardware specifications — Reno7 Z 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-reno/reno7-z-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-reno8-t",
+    "title": "OPPO official hardware specifications — Reno8 T (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-reno/reno8-t/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-en-reno8-t-5g",
+    "title": "OPPO official hardware specifications — Reno8 T 5G (en)",
+    "url": "https://www.oppo.com/en/smartphones/series-reno/reno8-t-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a16",
+    "title": "OPPO official hardware specifications — A16 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a16/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a18",
+    "title": "OPPO official hardware specifications — A18 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a18/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a38",
+    "title": "OPPO official hardware specifications — A38 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a38/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a40",
+    "title": "OPPO official hardware specifications — A40 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a40/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a40m",
+    "title": "OPPO official hardware specifications — A40m (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a40m/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a5",
+    "title": "OPPO official hardware specifications — A5 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a5/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a5-pro-5g",
+    "title": "OPPO official hardware specifications — A5 Pro 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a5-pro-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a54s",
+    "title": "OPPO official hardware specifications — A54s (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a54s/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a57",
+    "title": "OPPO official hardware specifications — A57 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a57/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a57s",
+    "title": "OPPO official hardware specifications — A57s (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a57s/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a58",
+    "title": "OPPO official hardware specifications — A58 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a58/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a5x",
+    "title": "OPPO official hardware specifications — A5x (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a5x/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a6",
+    "title": "OPPO official hardware specifications — A6 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a6/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a6-5g",
+    "title": "OPPO official hardware specifications — A6 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a6-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a6-pro-5g",
+    "title": "OPPO official hardware specifications — A6 Pro 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a6-pro-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a60",
+    "title": "OPPO official hardware specifications — A60 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a60/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a6k",
+    "title": "OPPO official hardware specifications — A6k (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a6k/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a6x",
+    "title": "OPPO official hardware specifications — A6x (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a6x/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a76",
+    "title": "OPPO official hardware specifications — A76 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a76/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a77-5g",
+    "title": "OPPO official hardware specifications — A77 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a77-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a78",
+    "title": "OPPO official hardware specifications — A78 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a78/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a78-5g",
+    "title": "OPPO official hardware specifications — A78 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a78-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a79-5g",
+    "title": "OPPO official hardware specifications — A79 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a79-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a80-5g",
+    "title": "OPPO official hardware specifications — A80 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a80-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a96",
+    "title": "OPPO official hardware specifications — A96 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a96/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-a98-5g",
+    "title": "OPPO official hardware specifications — A98 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-a/a98-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-find-n2-flip",
+    "title": "OPPO official hardware specifications — Find N2 Flip (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-find-n/find-n2-flip/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-find-x3-lite",
+    "title": "OPPO official hardware specifications — Find X3 Lite (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-find-x/find-x3-lite/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-find-x3-neo",
+    "title": "OPPO official hardware specifications — Find X3 Neo (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-find-x/find-x3-neo/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-find-x3-pro",
+    "title": "OPPO official hardware specifications — Find X3 Pro (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-find-x/find-x3-pro/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-find-x5-lite",
+    "title": "OPPO official hardware specifications — Find X5 Lite (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-find-x/find-x5-lite/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-find-x8-pro",
+    "title": "OPPO official hardware specifications — Find X8 Pro (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-find-x/find-x8-pro/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-find-x9",
+    "title": "OPPO official hardware specifications — Find X9 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-find-x/find-x9/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-find-x9-pro",
+    "title": "OPPO official hardware specifications — Find X9 Pro (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-find-x/find-x9-pro/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-find-x9-ultra",
+    "title": "OPPO official hardware specifications — Find X9 Ultra (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-find-x/find-x9-ultra/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno10-5g",
+    "title": "OPPO official hardware specifications — Reno10 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno10/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno10-pro-5g",
+    "title": "OPPO official hardware specifications — Reno10 Pro 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno10-pro/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno12",
+    "title": "OPPO official hardware specifications — Reno12 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno12/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno12-f-5g",
+    "title": "OPPO official hardware specifications — Reno12 F 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno12-f-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno12-fs-5g",
+    "title": "OPPO official hardware specifications — Reno12 FS 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno12-fs-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno12-pro",
+    "title": "OPPO official hardware specifications — Reno12 Pro (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno12-pro/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno13-5g",
+    "title": "OPPO official hardware specifications — Reno13 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno13/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno13-f-5g",
+    "title": "OPPO official hardware specifications — Reno13 F 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno13-f-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno13-fs-5g",
+    "title": "OPPO official hardware specifications — Reno13 FS 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno13-fs-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno13-pro-5g",
+    "title": "OPPO official hardware specifications — Reno13 Pro 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno13-pro/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno14",
+    "title": "OPPO official hardware specifications — Reno14 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno14/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno14-f",
+    "title": "OPPO official hardware specifications — Reno14 F (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno14-f-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno14-fs",
+    "title": "OPPO official hardware specifications — Reno14 FS (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno14-fs-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno16-f",
+    "title": "OPPO official hardware specifications — Reno16 F (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno16-f/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno6-5g",
+    "title": "OPPO official hardware specifications — Reno6 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno6-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno6-pro-5g",
+    "title": "OPPO official hardware specifications — Reno6 Pro 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno6-pro-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno7",
+    "title": "OPPO official hardware specifications — Reno7 (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno7-4g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno8-5g",
+    "title": "OPPO official hardware specifications — Reno8 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno8-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno8-lite-5g",
+    "title": "OPPO official hardware specifications — Reno8 Lite 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno8-lite-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno8-pro-5g",
+    "title": "OPPO official hardware specifications — Reno8 Pro 5G (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno8-pro-5g/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "oppo-spec-it-reno8-t",
+    "title": "OPPO official hardware specifications — Reno8 T (it)",
+    "url": "https://www.oppo.com/it/smartphones/series-reno/reno8-t/specs/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "poco-official-products",
+    "title": "POCO Global — official current and historical product list",
+    "url": "https://www.po.co/global/list",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "realme-it",
+    "title": "realme — official Italy phone/product archive",
+    "url": "https://www.realme.com/it/realme-phones",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "samsung-j-2017-europe",
+    "title": "Samsung Newsroom Germany — Galaxy J (2017) European launch",
+    "url": "https://news.samsung.com/de/alles-andere-als-alltaglich-und-doch-fur-j-edermann",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "samsung-knox-a-hardware",
+    "title": "Samsung Knox — A13/A12/A52 hardware model-code table",
+    "url": "https://www.samsungknox.com/ko/knox-platform/supported-devices",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "samsung-knox-partial-devices",
+    "title": "Samsung Knox Documentation — official device/model-number table",
+    "url": "https://docs.samsungknox.com/admin/knox-asset-intelligence/kbas/data-features-not-supported-on-certain-samsung-devices/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "samsung-note-history",
+    "title": "Samsung Vietnam — official Galaxy Note historical overview",
+    "url": "https://www.samsung.com/vn/explore/entertainment/samsung-galaxy-note-history/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "samsung-s-history",
+    "title": "Samsung Global Newsroom — Galaxy S history 2010–2021",
+    "url": "https://news.samsung.com/global/from-amoled-to-space-zoom-looking-back-at-the-galaxy-s-series-history-of-innovation",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "samsung-s-uk-guide",
+    "title": "Samsung UK — Galaxy S series published release guide",
+    "url": "https://www.samsung.com/uk/mobile-phone-buying-guide/best-samsung-s-series-phone/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "samsung-security-scope",
+    "title": "Samsung Mobile Security — official current model scope",
+    "url": "https://security.samsungmobile.com/workScope.smsb",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "samsung-support-sm-a125f",
+    "title": "Samsung Support — Galaxy A12 (SM-A125)",
+    "url": "https://www.samsung.com/it/support/model/SM-A125FZWKEUE/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "samsung-support-sm-a530f",
+    "title": "Samsung Support — Galaxy A8 (SM-A530)",
+    "url": "https://www.samsung.com/uk/support/model/SM-A530FZDA3IE/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "samsung-support-sm-a600f",
+    "title": "Samsung Support — Galaxy A6 (SM-A600)",
+    "url": "https://www.samsung.com/uk/support/model/SM-A600FZKIBTU/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "samsung-support-sm-a750fn",
+    "title": "Samsung Support — Galaxy A7 (SM-A750)",
+    "url": "https://www.samsung.com/uk/support/model/SM-A750FZBNBTU/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "samsung-support-sm-a920f",
+    "title": "Samsung Support — Galaxy A9 (SM-A920)",
+    "url": "https://www.samsung.com/uk/support/model/SM-A920FZBAXEU/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "samsung-uk-historical-phones",
+    "title": "Samsung UK — official historical phone SD/SIM model table",
+    "url": "https://www.samsung.com/uk/support/mobile-devices/what-size-memory-card-does-my-smartphone-accept/jcr:content/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "sony-xperia-historical-overview",
+    "title": "Sony Support — official historical Xperia model overview",
+    "url": "https://www.sony.com/electronics/support/articles/SX243901",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "sony-xperia-oreo-archive",
+    "title": "Sony Support — official Xperia Android 8 historical models",
+    "url": "https://www.sony.com/electronics/support/mobile-phones-tablets-mobile-phones/xperia-x-compact/articles/SX605401",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "sony-xperia-uk-overview",
+    "title": "Sony UK Support — Xperia model/release-year overview",
+    "url": "https://www.sony.co.uk/electronics/support/articles/SX243901",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "tcl-it",
+    "title": "TCL — official Italy phone/product archive",
+    "url": "https://www.tcl.com/it/it/mobile",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "vivo-global",
+    "title": "vivo — official global phone/product archive",
+    "url": "https://www.vivo.com/en/products",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "vivo-it",
+    "title": "vivo — official Italy phone/product archive",
+    "url": "https://www.vivo.com/it/products",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "xiaomi-security-aer",
+    "title": "Xiaomi Security Center — Android Enterprise Recommended device archive",
+    "url": "https://trust.mi.com/bff/aer-certifications/findAll",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "xiaomi-security-eos",
+    "title": "Xiaomi Security Center — official EOS phone archive",
+    "url": "https://trust.mi.com/bff/eos-products/phones?type=Xiaomi-Redmi-POCO",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "xiaomi-sitemap-global",
+    "title": "Xiaomi global — official product sitemap",
+    "url": "https://www.mi.com/global/sitemap/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "xiaomi-sitemap-it",
+    "title": "Xiaomi it — official product sitemap",
+    "url": "https://www.mi.com/it/sitemap/",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "zte-axon-archive",
+    "title": "ZTE — official global phone/product archive",
+    "url": "https://global.ztedevices.com/collections/all-smartphones",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "zte-global",
+    "title": "ZTE — official global phone/product archive",
+    "url": "https://www.ztedevices.com/en/products/",
+    "checkedAt": "2026-10-07"
+  }
+]
