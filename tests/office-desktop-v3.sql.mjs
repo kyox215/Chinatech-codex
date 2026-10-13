@@ -28,6 +28,7 @@ try{
  grant usage on schema auth,chinatech_v2,chinatech_v2_private to chinatech_runtime;
  grant select on all tables in schema chinatech_v2,chinatech_v2_private to chinatech_runtime;
  grant execute on function auth.jwt(),auth.uid(),chinatech_v2_private.live_user(),chinatech_v2_private.office_desktop_admin() to chinatech_runtime;`);
+ if(runtimeUrl.password){const [fixture]=await owner`select format('alter role chinatech_runtime password %L',${decodeURIComponent(runtimeUrl.password)}) as sql`;await owner.unsafe(fixture.sql);}
  const version=readFileSync('supabase/migrations/20261010105755_office_desktop_public_sessions.sql','utf8').split('alter table')[0];await owner.unsafe(version);
  await owner.unsafe(readFileSync('supabase/migrations/20261013072029_office_desktop_v3.sql','utf8'));
  await owner.unsafe(readFileSync('supabase/migrations/20261013094116_office_desktop_v3_candidate_admission.sql','utf8'));

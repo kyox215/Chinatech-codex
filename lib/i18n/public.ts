@@ -1,6 +1,7 @@
 // Auth and public website copy. Customer text and stored business values are never translated here.
 export const publicMessages: Record<string, readonly [string, string]> = {
 // Office v3 management copy.
+"CANDIDATE_DENIED": ["Questo programma non ha un permesso di test per l’attività richiesta.", "This app has no candidate permission for the requested task."],
 "新版任务时间": ["Tempi attività", "Task times"],
 "任务已暂停，恢复资格待核对": ["Attività sospesa; ripresa da verificare", "Task paused; resume eligibility needs verification"],
 "任务已取消，恢复资格待核对": ["Attività annullata; ripresa da verificare", "Task cancelled; resume eligibility needs verification"],
