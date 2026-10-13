@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {readFileSync,writeFileSync,mkdirSync,readdirSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,existsSync} from 'node:fs';
 import {createHash,createDecipheriv,randomUUID} from 'node:crypto';
 import ts from 'typescript';
 const moduleUrl=(file)=>'data:text/javascript;base64,'+Buffer.from(ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64');
@@ -33,24 +33,10 @@ test('AES GCM authenticates action, epoch, expiry, job and script; randomized no
  for(const patch of [{action:'uninstall'},{version:'5'},{jobId:randomUUID()},{expiresAt:new Date(now+250000).toISOString()},{digest:'f'.repeat(64)},{tag:Buffer.alloc(16).toString('base64')}])assert.throws(()=>decode({...pkg,...patch}));assert.throws(()=>decode(pkg,'another session'));
  mkdirSync('.local/office-desktop/proof',{recursive:true});writeFileSync('.local/office-desktop/proof/protocol-fixture.json',JSON.stringify({package:pkg,token,clock:new Date(now).toISOString()}));
 });
-test('independent desktop covers selected UI, workflow outcomes and placeholders in three languages',()=>{
- const base='desktop/office-assistant/';
- const text=readFileSync(base+'Client/Text.cs','utf8');
- const messages=Object.fromEntries([...text.matchAll(/\["([A-Za-z_0-9]+)"\]\s*=\s*(\[[^\n]+\]),/g)].map(m=>[m[1],JSON.parse(m[2])]));
- assert.ok(Object.keys(messages).length>100,'complete UI dictionary');
- for(const [id,translations]of Object.entries(messages)){
-  assert.equal(translations.length,3,id);
-  const slots=translations.map(value=>{assert.ok(value.trim(),id);return [...value.matchAll(/\{([0-9]+)\}/g)].map(m=>m[1]).sort().join(',');});
-  assert.equal(slots[0],slots[1],id);assert.equal(slots[0],slots[2],id);
- }
- const files=['Core','Client'].flatMap(dir=>readdirSync(base+dir).filter(name=>name.endsWith('.cs')).map(name=>dir+'/'+name));
- const source=files.map(f=>readFileSync(base+f,'utf8')).join('\n');
- for(const match of source.matchAll(/(?:OfficeFailure|T|Label|Button)\("([A-Z_a-z0-9]+)"/g))if(!['Stage_','Status_'].includes(match[1]))assert.ok(messages[match[1]],match[1]);
- const model=readFileSync(base+'Core/Models.cs','utf8');
- for(const [kind,prefix]of [['ActionKind',''],['Stage','Stage_'],['JobStatus','Status_']]){
-  const declaration=model.match(new RegExp('enum '+kind+' \{([^}]+)\}'))[1];
-  for(const key of declaration.split(',').map(s=>s.trim()))assert.ok(messages[prefix+key],prefix+key);
- }
+test('public website excludes private native sources and retains protocol and release validation',()=>{
+ assert.ok(!existsSync('desktop/office-assistant/Client/MainWindow.cs'));
+ const workflow=readFileSync('.github/workflows/ci.yml','utf8');assert.ok(!workflow.includes('desktop/office-assistant/'));
+ assert.ok(readFileSync('desktop/README.md','utf8').includes('private'));
 });
 test('public 1.3.0 downloads use the approved architecture assets and exact binary checksums',()=>{
  const base='https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v1.3.0';

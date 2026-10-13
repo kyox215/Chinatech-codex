@@ -1,5 +1,6 @@
 "use client";
 import { OfficeDesktopControl } from "./office-desktop-control";
+import { OfficeDesktopV3Control } from "./office-desktop-v3-control";
 import { LoginDevicesPanel } from "./login-devices";
 
 import { OfficeToolboxControl } from "./office-toolbox-control";
@@ -178,6 +179,7 @@ function AccountForms({ data, refreshing, refresh }: { data: AccountOverview; re
       </section>
       {data.capabilities?.canManageOffice ? <OfficeToolboxControl /> : null}
       {data.capabilities?.canManageOffice ? <OfficeDesktopControl /> : null}
+      {data.capabilities?.canManageOffice ? <OfficeDesktopV3Control accountId={account.id} sessionId={data.sessionId} /> : null}
     </div>
   </div>;
 }
