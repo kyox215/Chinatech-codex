@@ -113,9 +113,22 @@ test("请求中锁定所有登录草稿，失败保留输入且可重试", async
   await expect(page.locator("form")).toHaveAttribute("aria-busy", "false");
   const retrySubmit = page.getByRole("button", { name: "登录工作台" });
   await expect(retrySubmit).toBeEnabled();
-  await retrySubmit.evaluate(element => element.scrollIntoView({ block: "center", behavior: "instant" }));
-  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-  await retrySubmit.click();
+  await retrySubmit.scrollIntoViewIfNeeded();
+  await retrySubmit.evaluate(async element => {
+    let previousTop = Number.NaN, previousScroll = Number.NaN, stableFrames = 0;
+    const deadline = performance.now() + 5000;
+    while (stableFrames < 4) {
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      const bounds = element.getBoundingClientRect();
+      const scroll = document.scrollingElement?.scrollTop ?? window.scrollY;
+      const fullyVisible = bounds.top >= 0 && bounds.bottom <= window.innerHeight;
+      stableFrames = fullyVisible && Math.abs(bounds.top - previousTop) < 0.1 && Math.abs(scroll - previousScroll) < 0.1 ? stableFrames + 1 : 0;
+      previousTop = bounds.top; previousScroll = scroll;
+      if (performance.now() > deadline) throw new Error("Login retry button did not settle inside the viewport");
+    }
+  });
+  if (test.info().project.use.hasTouch) await retrySubmit.tap();
+  else await retrySubmit.click();
   await expect.poll(() => posts).toBe(2);
   await expect(page.locator("#login-error")).toBeVisible();
 });

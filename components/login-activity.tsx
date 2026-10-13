@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { clearBackend } from "@/lib/backend/client";
+import { subscribeAuthChanged } from "@/lib/auth-events";
 
 export function LoginActivity({ enabled }: { enabled: boolean }) {
   const pathname = usePathname();
@@ -32,12 +33,19 @@ export function LoginActivity({ enabled }: { enabled: boolean }) {
     // writes finish across navigation; late responses cannot update client state.
     queueMicrotask(() => { if (alive) void report(); });
     document.addEventListener("pointerdown", interacted); document.addEventListener("keydown", interacted); document.addEventListener("visibilitychange", foreground); window.addEventListener("focus", foreground);
+    // A different tab changed the cookie identity. Reloading discards in-memory
+    // account/store drafts before rendering the newly authenticated route.
+    let changeTimer: number | undefined;
+    const unsubscribe = subscribeAuthChanged(() => {
+      window.clearTimeout(changeTimer);
+      changeTimer = window.setTimeout(() => { if (alive) { clearBackend(); window.location.reload(); } }, 80);
+    }, false);
     // A read-only check observes remote logout without renewing inactivity.
     const timer = window.setInterval(async () => {
       if (!alive || document.visibilityState !== "visible" || !navigator.onLine || !pathname.startsWith("/account/")) return;
       try { const response = await fetch("/api/auth/account/sessions", { cache: "no-store", signal: controller.signal }); if (alive && response.status === 401) { clearBackend(); router.replace("/login"); router.refresh(); } } catch { /* Transient failures do not destroy drafts. */ }
     }, 30000);
-    return () => { alive = false; controller.abort(); window.clearInterval(timer); document.removeEventListener("pointerdown", interacted); document.removeEventListener("keydown", interacted); document.removeEventListener("visibilitychange", foreground); window.removeEventListener("focus", foreground); };
+    return () => { alive = false; controller.abort(); unsubscribe(); window.clearTimeout(changeTimer); window.clearInterval(timer); document.removeEventListener("pointerdown", interacted); document.removeEventListener("keydown", interacted); document.removeEventListener("visibilitychange", foreground); window.removeEventListener("focus", foreground); };
   }, [enabled, pathname, router]);
   return null;
 }

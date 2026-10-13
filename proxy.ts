@@ -13,7 +13,6 @@ export async function proxy(request: NextRequest) {
     if(flowId !== null) target.searchParams.set("sb_flow_id",flowId);
     return preventAuthCaching(NextResponse.redirect(target));
   }
-  if(path==="/") return NextResponse.next();
   return updateSupabaseSession(request);
 }
-export const config = { matcher: ["/", "/app/:path*", "/account/:path*", "/api/:path*", "/auth/:path*", "/login", "/register"] };
+export const config = { matcher: ["/", "/toolbox/:path*", "/app/:path*", "/account/:path*", "/api/:path*", "/auth/:path*", "/login", "/register"] };

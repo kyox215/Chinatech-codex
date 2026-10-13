@@ -180,7 +180,7 @@ test("all twelve real Office videos play with captions and chapter seeking, rele
   await activate(section(page).getByRole("button", { name: translate("播放教程：{title}", "zh-CN", { title: getOfficeTutorials("zh-CN")[3].title }), exact: true }));
   await expectPlaying(video(page));
   const leaving = await video(page).elementHandle();
-  await activate(page.locator("header").getByRole("link", { name: "返回工具箱", exact: true }));
+  await activate(page.locator("header").getByRole("link", { name: "工具箱", exact: true }));
   await expect(page).toHaveURL(/\/toolbox$/);
   await expect.poll(() => leaving!.evaluate(element => (element as HTMLVideoElement).paused && !element.hasAttribute("src") && !element.isConnected)).toBe(true);
   await leaving!.dispose();
@@ -189,7 +189,7 @@ test("all twelve real Office videos play with captions and chapter seeking, rele
 test("tutorial action links and direct hashes select the matching command without executing or copying it", async ({ page }) => {
   test.setTimeout(90_000);
   const backendRequests: string[] = [];
-  page.on("request", request => { if (/\/api\/(?:backend|preview-session|auth)(?:\/|$)/.test(request.url())) backendRequests.push(request.url()); });
+  page.on("request", request => { if (/\/api\/(?:backend|preview-session|auth)(?:\/|$)/.test(request.url()) && new URL(request.url()).pathname !== "/api/auth/status") backendRequests.push(request.url()); });
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { throw new Error("Tutorial action must not copy commands"); } } });
   });

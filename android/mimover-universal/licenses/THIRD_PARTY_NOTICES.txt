@@ -1,0 +1,5 @@
+ZXing core 3.5.3, Apache License 2.0.
+Official release: https://github.com/zxing/zxing/releases/tag/zxing-3.5.3
+Maven artifact: https://repo.maven.apache.org/maven2/com/google/zxing/core/3.5.3/core-3.5.3.jar
+SHA-256: 8d8064c1636fdaef7189dd9055c7d59950a8940a12f2293956446ec3c109fd82
+Original LICENSE is included as assets/ZXING-LICENSE.txt. No Google Play services dependency.

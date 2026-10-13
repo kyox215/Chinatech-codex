@@ -1,0 +1,63 @@
+{
+  "status": "native_verified_website_pending",
+  "artifacts": [
+    {
+      "file": "SmartSwitch-3.7.73.4-original-ui-coexist-lab4.apk",
+      "apkSha256": "6115198b29ec3b67be59459ffca86a47f9804ef49b8e2baabbf2a5dbcc635a20",
+      "bytes": 42761166,
+      "versionCode": 377304135,
+      "originalLauncher": true,
+      "originalResourceLayouts": true,
+      "actualTransferVerified": true,
+      "published": false,
+      "verificationScope": "Android16 API36 ARM64 owned emulators, synthetic data"
+    },
+    {
+      "file": "SmartSwitch-3.7.73.4-original-ui-lab4.apk",
+      "apkSha256": "9f68089caf3c694beeefcf200348727892307a4d167db48e6eab7e2bf5c72ce0",
+      "bytes": 42761166,
+      "versionCode": 377304135,
+      "originalLauncher": true,
+      "originalResourceLayouts": true,
+      "actualTransferVerified": true,
+      "published": false,
+      "verificationScope": "Android16 API36 ARM64 owned emulators, synthetic data"
+    }
+  ],
+  "versionName": "3.7.73.4-lab4",
+  "versionCode": 377304135,
+  "signerSha256": "22e7f48efb1f168f67886a617b83af67885a233b6a1c6f16428f138f5b367dab",
+  "native": {
+    "pairSource": 8,
+    "pairReceiver": 17,
+    "selectedItems": 3,
+    "catalogItems": 4,
+    "transferredBytes": 2162690,
+    "unselectedItemSent": false,
+    "sessionNotificationAndActualBackCancellation": 9,
+    "frozenChoiceAndFinalReceiptRecovery": 46,
+    "originalLayoutInflation": 15,
+    "catalogDatabase": 5,
+    "systemHotspotQr": 3
+  },
+  "exactFinalApkProofs": [
+    "accepted-pair.log",
+    "runtime/accepted-states.txt",
+    "runtime/accepted-fault.txt"
+  ],
+  "reusedUnchangedSubsystemProofs": [
+    "runtime/hotspot-exact.txt",
+    "runtime/views-test3.txt",
+    "runtime/catalog-test.txt"
+  ],
+  "actualTransferNetwork": "existing Wi-Fi",
+  "originalUiResources": true,
+  "physicalPhoneTested": false,
+  "automaticHotspotJoiningTested": false,
+  "opticalQrTested": false,
+  "appInstallation": false,
+  "privateAppAndLoginRestore": false,
+  "realCustomerDataUsed": false,
+  "published": false,
+  "preservedOriginalResourceAndNativeEntries": 1381
+}

@@ -1,49 +1,303 @@
 # 决策与真实进度
 
+## 2026-10-12 Office 1.2 选择安装、卸载及界面
+
+用户确认完整预览后授权实施并上线。选择组件、兼容补装、按实际检测逐项/全部卸载；主区无滚动容器，菜单独立、按钮固定高度。恢复冻结原范围，旧任务保留明确的旧全量范围。机器级 OneDrive 不支持；真实 Windows 全流程和签名边界保留。实现与发行证据见 [1.2 记录](Office助手1.2选择安装卸载与界面20261012.md)。
+
+## 2026-10-12 Office 1.1 界面与流程候选
+
+先完整交互预览，后制作原生 WPF。保留实际安装器门禁并明确五分钟收尾／继续激活／缺组件修复；安装和移除不显示微软完成窗口。底部只显示可测量操作百分比，未知安装进度显示阶段／用时；三语简化界面。93核心替身、32Node、双架构严格构建、20输入核对和Chrome45状态／12布局验证通过；原生Windows1.1／真实全流程待验，未签名、未公开1.1或切官网。详[报告](Office助手1.1流程与界面优化20261012.md)与[完整预览](previews/office-assistant-ui.html)。
+
+## 2026-10-11 Office 1.0.1 修复候选与远程实测
+
+指定Win10 Home x64测试机用户先发起1.0.0安装，真实微软完成对话框及新鲜双SKU/意语/17932.21000/八程序检测已观察；原任务激活被安装器收尾占用阻止，后续刷新解除。Word启动及打开时阻止操作、关闭刷新解除实测；许可当时ProPlus状态2，未激活。用户已当次明确接受适用条款并授权恢复；同任务23:35:18 Completed，未重放Remove/Install，实际服务器s1.kms.cx，两SKU均已授权259200分钟；最终保存JSON读回OFFICE_READY/三个目标布尔true/许可错误为空，唯一ActivationAttempts服务器s1.kms.cx/Licensed=true/21:35:14UTC。不能将初始无Office的Removed算作卸载，也不搬用其他VM许可。
+
+1.0.1修复安装收尾、MSI空闲服务PID有限识别、超时、失联／真实重启／未知结果恢复、窗口工作区、移除跳过及报告事实；卸载只保留范围确认及UAC，安装激活条款保持。补许可检测失败门禁，72核心替身、32Node、最新版ARM64检查器编译及双RID构建通过，18源/PE/SHA已独立复核通过，当前真实1.0.1 Windows GUI／全操作待验、未签名、未公开更新。候选PR46已draft/attach，HEAD35d51b12，同SHA push38178137643／PR38178148934完整CI均success：72Core/18发行准备/438Node零skip/320浏览器；fresh main及正式两域仍deeb/原生产。授权仅公开prerelease六测试资产供新VM运输，main/官网暂不切换，Windows验收仍pending。详[开发与虚拟机记录](Office助手1.0.1开发与虚拟机测试20261011.md)。
+
+2026-10-12 00:16八项启动检查：Word/Excel/PPT保存三合成文档；Access主页、OneNote实际编辑器通过，Outlook classic邮箱设置／Skype企业登录／OneDrive未连接面板均实际显示。未使用个人账号，不当邮件／通讯／同步验收。Skype关闭窗口仍lync后台，托盘Esci已正常退出，fresh Refresh四操作按钮实际解除。两次自动审批拒绝不明确坐标（Skype设置菜单、OneDrive面板外点击）均未执行，已用明确退出／Esc安全替代。详 `.local/office-remote-test-1.0/eight-app-startup-evidence.json`。
+
+2026-10-12 00:25：仅公开1.0.1 prerelease/latest=false，tag35d51，六资产公网HTTP200/大小/SHA6/6与原字节匹配；现有Latest仍0.2.1，main/官网仍deeb/1.0。tag38180056603成功、完整38180056650运行中。客机用Edge准确下载1.0.1，今日文件ChinaTech-Office-Assistant-x64 (1).exe被浏览器“可能损害设备”拦截；按电脑操作规则已markHandoff并一次async请用户亲自处理警告、确认新版首次运行及新卸载／安装／激活／重装和适用条款，尚无答复。根未点击保留／绕过、未执行新版、未在客机核新EXE SHA。详 `.local/office-remote-test-1.0/new-candidate-handoff.json` 与发布侧 `public-release/notes/published-release.json`。
+
+## 2026-10-11 Office 1.0 公开测试版上线
+
+用户明确“上线”，已公开1.0源码与双架构EXE，官网切换新版下载。main正常FF同两完整CI已验deebc7b、PR45 MERGED；Release office-assistant-v1.0.0为prerelease/latest=false，六文件公开完整下载SHA均匹配。生产dpl_4QXVDBvRKWTvgdip3Uhsc8eHgdg5为同SHA/Git/main/READY，两正式域名alias通过，10只读HTTP检查过。两个发布前CI各438 Node零skip/320浏览器/34模拟Core/双RID及Windows检查器编译/PS5.1解析/三语3663/类型/lint/build成功，main第三次完整成功；tag初轮319/320，旧零售WebKit交付用例失败，原用例独立repeat3全过后仅失败job重试一次且完整成功320（22.3min）。四相关CI最终success，初轮trace/log/state保留；14相关旧业务/test blob与生产基线相同，滚动点击时序方向未定性为根因。
+
+发布范围31路径、806原blob保持，其他未发布Android改动未夹带；旧后台/API/catalog/SQL及准入0.2.1保持，无业务写入。软件未签名、releaseReady=false、实际Windows验收pending，本轮没有运行新版GUI/Office操作/系统重启。正式浏览器首次21场景及4次下载过后WebKit账号状态请求报错，保留失败；干净375三语3/3及真实锚点通过，24唯一场景已覆盖、4实际下载全匹配，首次错误根因未确定；最终CI结果见[上线记录](Office助手1.0上线记录20261011.md)与.local/office-1.0-release/。
+
+## 2026-10-11 Office 助手 1.0 全面重构候选
+
+最新用户选择全面替换旧桌面实现。已完成独立 WPF/本机提权 worker、固定 ProPlus2024Volume+SkypeforBusiness2024Volume/64位/八项应用、独立安装语言、微软 ODT/签名 OneDrive/固定媒体及哈希、本机受保护日志与锁、取消/失败/重启恢复和实际产品/组件/许可核验；三语174词条。网站服务器选择在确认与执行之间冻结，默认值由网站公开接口读取，备用k.302.pub。替换全部旧Office含Visio/Project，文档及OneDrive账户不列入移除范围。注册表重启标志仅建议，实际安装器重启检查点须Windows重启后恢复，不能新任务绕过。
+
+双RID严格构建及PE/EXE/输入一致性通过；34核心模拟、30 Office Node、18旧发布工具回归、SYSTEM身份的Windows原生15检查通过。独立确认/执行与恢复接线只读复核完成。当前真实VM LYNC仍缺，检测没有伪报八项完成；不属于本轮安装或用户实体机证明。0新版GUI/UAC/Office操作/系统重启/生产写入，3261临时传输已停止。交付包未签名、releaseReady=false，完整Windows验收待首次运行和条款的当次确认；官网仍0.2.1。旧30源码本地归档，不参与新程序；既有生产后台保持。详[交付报告](Office助手1.0重构交付报告20261011.md)和[本次验证](../.local/office-rebuild-1.0/verification.json)。
+
+## 2026-10-11 Office报告与验收条件复核
+
+更新[Office功能与操作优化报告](Office桌面助手下一步优化报告-20261011.md)，以当前0.2.2本地候选为范围，区别已有能力、实际待验和建议功能。48源输入与已验冻结相同，没有软件源码变化或新测试/构建。新鲜普通用户诊断仍六程序存在、Skype LYNC缺；只读许可states=[1]、已许可且keyPresent，0调用激活/权益证明。独立限定复核无新mustfix；同一Skype修复范围、客体输入和合法未许可测试条件连续待答，核心准备/实现已完成，当前完整实际验收无可安全推进的下一步。持续迭代目标未完成，阻塞条件满足；本轮无Office操作、生产写入、发布或恢复。[当前复核证据](../.local/office-iterations-20261011/round29/verification.json)。
+
+## 2026-10-11 Office独立附加应用文件基线 Round23
+
+修正已登记Skype/Visio/Project缺文件却被过滤出保留清单的问题：安装/卸载/重装的GUI预检与runner独立基线门禁、匹配位数双目录/根到叶路径、原全部present路径保护及操作前重查；activate原范围保持，三语同步。38输入冻结与根一致，候选runner7a47e216…647117、旧7f040/已发布65061保持；双正式各909 macOS CLR/PE、30Node/静态三语、实际Windows88过。当前VM缺Lync的最新候选诊断/新旧CLR对照/冻结主流程两场景inspect阻止、禁止Setup替身0，非Office或UAC执行证明；六EXE/三测试文档SHA及实际SKU/语言/文件观察保持。独立复核通过，测试入口重复类型失败保留后修正。08:54:31UTC健康无Office任务/marker、防护开/传输停，仅旧GUI；CUA输入未改变窗口，没有UIA输入或新会话网关。Skype仍未修复，完整语言与实际恢复待验，未签名发布/生产变更，goal active。详[报告](Office桌面助手优化报告-20261011.md#独立附加应用文件基线round23)。
+
+## 2026-10-11 Office独立安装语言 Round21/22
+
+本地候选新增独立安装语言，确认清单/任务/历史同一捕获值，界面语言切换不改变选择；三语同步。历史是确认请求，不表示实际安装，旧字段未知、非法导出值安全投影。36输入冻结与根一致，双正式各803 macOS CLR/PE（RID重叠）、30Node/3829三语静态过；Windows实际九组XML语言计划及最新候选只读诊断过，未执行GUI/UAC或ODT。仍单选ProPlus语言，完整既有语言/附加产品/组件计划待做；Skype缺失未修复。runner7f040不变、R15证据复用，未签名发布。R21安全日志进一步定位条件包/配置转换但根因仍未知；长传输失败保留，文件SHA调用成功。08:30:59UTC健康无Office任务/marker、防护开，传输停、旧GUI保留；本轮Office操作0，生产未变，goal active。见[报告](Office桌面助手优化报告-20261011.md#独立安装语言与请求闭环round2122)、[验收](../.local/office-iterations-20261011/round22/verification.json)。
+
+## 2026-10-11 共同语言实际实验 Round20
+
+有独立计划复核及微软ExcludeApp语言规则依据，将两个现有SKU都明确en-us/zh-cn；实际给ProPlus增加中文，版本/位数/首语言/产品范围/不激活设置保持。新快照ca6dc317…bcc74，原快照保留。两ODT exit0/212.9s，但新活动排除仍含Lync、文件缺失，整体failed；205前置/媒体/保留断言不能代替成功。语言补齐不足以解释唯一根因，停止重复XML。
+
+测试器补独立finally保留核验，主断言失败仍核六签名EXE/SHA、三冻文档、OneDrive及R16/17原结果/32媒体，全部过；真实普通用户三Office只读内容/SHA与最新冻结候选未提权双语言刷新过。服务安全投影定位Descriptor::GetApps排除，旧disabled-by是TeamsAddon，不可误归Skype/ARM。34源码/7f040保持，未发布。08:06:53UTC健康无Office任务/marker、防护开启、3259停/3258无，仅旧GUI4880。详[报告](Office桌面助手优化报告-20261011.md#共同语言受控实验round20)、[验收](../.local/office-iterations-20261011/round20/verification.json)。
+
+## 2026-10-11 Office真实产品诊断
+
+本地Round19新增只读产品/文件诊断，三语区分登记与实际文件、空列表与读取失败；根/活动排除差异显示，数据变化作废，无权限/runner扩大。34输入与根一致，双正式各355（含96新反例，macOS CLR+PE）、30Node/三语静态过。真实ARM64 VM最新候选SYSTEM12核对与同账户未提权检测过，六文件存在、Skype Lync缺失准确；不当GUI、启动、签名或权益验收。R18只读日志/媒体根因尚未定位，无第三次安装。原失败保留，收尾无Office任务/marker，防护开，私有传输停；只保留旧GUI4880，未发布。见[最新报告](Office桌面助手优化报告-20261011.md#本轮真实产品诊断验证)。
+
+## 2026-10-11 Office真实ODT保留复查
+
+Round16/17实际微软同版本ODT：Skype-only及完整语言双Product两方案/download和/configure均exit0，但实际LYNC仍缺失，原门禁判失败。六原EXE、三冻文档、OneDrive保持，真实Word/Excel/PowerPoint只读内容读回过；这不是新助手操作或Skype可用证明。ActiveConfiguration真实切换，观察改为动态GUID；根排除与活动SKU排除不同。测试器独立复核修文档锚定/证据所有权/配置复核/持久化错误，旧失败及媒体不覆盖。助手R15/30输入保持；停重复XML，先研究实际应用选择/固定媒体，不定性ARM不支持。未发布，goal active，见最新报告。
+
+## 2026-10-11 Office取消结果持续迭代
+
+本地Round15明确可选布尔卸载检查点、历史/当前检测分开、新任务隐藏旧提示及MSI兼容提示，报告新增历史结果摘要。候选022 runner7f040…0cb1，已发布/v1仍65061，b532旧归档不覆盖。30输入冻结与根一致，双正式各259（macOS CLR+PE）、30Node/三语/类型/lint、实际提示/导出26过；Windows71及实际PS流程8组+C#同组读回过，Office边界替身，真实取消后卸载状态未验。首次排序夹具失败与健康固定文件名问题记录保留并修正，不改环境保护。无本轮Office操作/发布；后续实际保留应用基线、ODT故障及系统恢复仍待完成，见最新报告。
+
+## 2026-10-11 Office系统恢复持续迭代
+
+本地Round13/27输入：系统恢复只读三态衔接GUI、本地归档确认前后复查、报告状态/时间、执行器标记CreateNew取得所有权后才清理。防止系统保护被漏查和准备期间新记录被覆盖/误删；不加自动系统删除或重装。双正式各231（macOS CLR及PE）、30Node/三语/类型/翻译lint、导出20、真实Windows文件权限/junction及提取归档方法22exit0通过；确认是合成，真实界面仍待验。两次探针夹具失败保留并定向修正，不提权、不改系统安全设置。最终DEV自身普通令牌只读固定系统路径返回absent，Office操作0；生产0.2.1未变。详[最新报告](Office桌面助手优化报告-20261011.md#最新系统恢复迭代)。
+
+## 2026-10-11 Office诊断与报告持续迭代
+
+本地0.2.2、生产仍0.2.1。最终Round9/26输入与根一致，runner b532不变；同源双正式RID各218CLR/元数据/开发类排除、30Node通过。新增首次失败/服务失败/恢复状态统一导出条件、时间与错误记录；历史/当前事件仅导出已知stage/code/time，8合成秘密投影反例通过且不改原历史。只读许可查询真实暴露模块加载顺序失败，按固定Management→Utility→CimCmdlets修正；最终候选自身在专用VM当前用户返回licensed/keyPresent=true，无激活/安装/卸载，不证明权益。
+
+实际首次失败GUI导出按钮启用，但CUA未触发保存；原生UIA测试方式待用户回复，新许可GUI/三语未验。故障测试器PS5.1解析及20原子替换通过，三文档数组处理修正；真实预检发现既定路径无LYNC，保持门禁停下，没有真实ODT故障注入。历史“Skype保留”只可认作SKU保留，缺失时点未知；后续需真实文件/启动基线。外层wrapper不传播失败exit的问题已修正。没有发布/数据库/保护策略变更，见[最新Office报告](Office桌面助手优化报告-20261011.md#最新诊断与报告迭代)。
+
+## 2026-10-11 Office 0.2.1 正式发布
+
+未提权管理员误判已修复并上线，执行权限/UAC/同账户绑定仍保持。main67b81c3、原生构建9270de7，双EXE完整官方与官网下载SHA通过；生产启动允许、verified/minimum均021，真实管理员暂停恢复/保存刷新通过，旧有效会话保留原到期。436单元/320浏览器完整CI、23实际SQL、42真实HTTPS及正式VM双RID启动/三语/取消/报告/单实例和冻结020更新页通过；Office操作0，实体x64/标准账号/真实Office及许可未验，EXE无签名。新.vercelignore排除本地测试和缓存，实际811源文件核对通过，错误候选已移除。证据PROJECT_MEMORY与交付/Office桌面助手-0.2.1-20261010/正式发布验证.json。
+
+## 2026-10-10 Mi Mover 原版热点与公开读写候选（本地）
+
+保留原UI/四分类/安全/协议/恢复，45712 SHA `de8b0c24d755477fd5362f396e524da1904c7747226d689bf1e42b13fe320a71`。非MIUI/API26+真实公开热点/AP地址/手动Wi-Fi网关/SSID端口种子适配；原Os.splice被系统拒绝已确认，成对选择原公开read/write支路。45711小图双AVD原完成/DCIM SHA/图库通过；45712实际旧进程停止后同AP保留并原103重监听，冷首页恢复仍未通过、原120s状态9已观察。29原方法/2930其他payload保持独立审查；最终同SHA正常100677700B图完整原发送/DCIM SHA/双完成/图库9项、原UI12/真实热点9/WiFi失联15/受控缺回调5、Apple真实绘制/内存解码/AP地址端口均通过。STA开启另次健康，竞态未重现，缺地址reservation超时仅静态。23品牌系统研究环境实体均未验，不替换公共45708、不宣称全部品牌可用。详[原版记录](mimover-original-restriction.md)及[品牌矩阵](mimover-brand-system-matrix.md)。
+
+## 2026-10-09 Mi Mover 原版入口解限（已上架修正）
+
+用户纠正只开放原版新机入口，原lab2公共入口/文件已撤回。新包仅原h2局部指令与安装清单两属性修改，无新增DEX/自有页面/分类/协议/恢复；原系统权限与热点/还原限制保留。原Android16入口11项通过，完整原协议迁移和品牌真机未验。
+
+正式main正常FF至0ef3db8958fdf205fef17bb04b6237e55a7bedc0／PR41 MERGED，精确完整CI37951217886 success；production dpl_5ipMmXa5xezZdNXCVHTT7nBJxSzy READY且两域同SHA。正式30双浏览器三语四宽/全文APK/Range/无JS键盘与28两域HTTP通过，旧lab2全URL404、3其他工具代表下载原hash保持。29限定路径/774无关blob/25其他资产保留，不写业务DB；静态与原入口冻结公开证明保持原内容，正式验收独立记录.local/mimover-original-only/published-verification.json。入口https://www.chinatech.in/toolbox/transfer#mimover-original；详[原版最小修正规格](mimover-original-restriction.md)。
+
+
+## 2026-10-09 Mi Mover lab2跨品牌传输（历史已撤回，超出用户范围）
+
+用户已要求继续实现并上架工具箱。保留原实际页面，以公开网络/SAF/TLS/双确认/持久回执驱动真实选择、传输与恢复，不使用厂商私有备份权限或品牌身份伪装。支持同lab2两台Android8+选择新/旧，媒体、VCF、普通ICS及base+split安装确认；私库/登录/聊天/短信/通话/完整重复日历不支持。双Android16 ARM64合成网络/provider/系统安装与选择状态已实测，精确范围/失败与真机限制见[兼容研究](mimover-universal-compatibility.md)。网站ready下载候选/三语/哈希/原页面、说明与恢复结果一起验收，旧包与其他候选保留；发布和现场手机结果分别记录。
+
+
+正式入口：https://www.chinatech.in/toolbox/transfer#mimover-universal 。main正常快进1009049ea644855cf494cfc75523afa23c40bb34／PR40 MERGED，93限定路径、697无关blob及25旧工具资产保持。精确两次完整CI37928959933与37928966550 success：420业务零skip、318双浏览器、3627三语、TS/lint0错1旧warn/正式build。production dpl_H5mQziPwSg8ELUWmVy2TFTp1eTBL READY，两域alias及HTML部署ID一致；正式28三语四宽双浏览器、完整下载/SHA/Range/无JS原生键盘与14两域HTTP通过，代表中桌面/意手机图已看，原Smart Switch lab4与ChinaTech0.3实际下载原字节保留。自用5590/5592已精确停止，3227也已按工作目录精确停止并核实端口无监听；没有正式业务写入。此前缓存旧预览5失败、最初无JS点击2失败与旧PR零售WebKit1失败均保留，未放宽断言。网站和模拟器通过不证明品牌真机，LOHS本轮SYSTEM_2限制继续有效。
+
+## 2026-10-09 ChinaTech助手0.4接收提速与恢复（本地，未发布）
+
+按用户最新选择取消正常文件保存后的整文件重读，保留流式完整性、写入关闭和持久回执；新机一次选择后接续媒体/本地联系人/普通ICS/APP系统确认队列，已有或编辑数据不覆盖。部分、失败和仅存档分别报告，私有应用/登录/聊天/完整重复日历仍不支持。原生验证、平台边界与交付见[0.4规格](android-assistant-v4-restoration.md)和PROJECT_MEMORY；本轮无网站部署/客户手机/后台写入。
+
+## 2026-10-09 Mi Mover 原新机入口开放（本地实验，完整通用未实现）
+
+用户要求 OPPO／Motorola／Samsung 等均可作新机。4.5.7.5 原 APK 的 MainActivity.h2局部MIUI分支已改为原双卡入口，全局系统身份／权限／原引擎保持；原资源和native／其他DEX原字节，自主Application补受影响两页中意显示与无障碍。原包名与并存独立签名lab1均构建，只有并存精确APK在非MIUI Android16 ARM64实际安装，且保留官方样本同机。13三语入口／新机导航／返回／冷重开检查通过，v1/v2/v3／ZIP对齐／原payload与9165类比较通过。没有品牌真机、ARM32／旧API或完整迁移证明。
+
+原接收引擎已实际复现系统热点配置SecurityException和Wi-Fi切换拒绝，深层接收权限／厂商还原／并存硬编码仍未适配，所以只交付入口实验版，不上线或标为全品牌通用完整版。范围、当前证据和下一步见[Mi Mover兼容研究](mimover-universal-compatibility.md)与交付/MiMover新机入口开放实验版-20261009；工作证据.local/mimover-universal/verification.json。原公开APK／网站／业务数据库未修改。
+
+## 2026-10-08 Smart Switch lab3已发布（真机待验）
+
+三星APK内自有通用通道，标准/并存两版本保持旧3APK与README/SHA字节，原资源与厂商APK研究不冒称品牌实机。Android16严格TLS/两端文件/最终回执/相机帧/启动实测与86JVM分别记；LOHS SYSTEM_2失败保留，HONOR实机未验。规则/能力详[兼容报告](smart-switch-compatibility.md)与.local/smartswitch-universal/frozen-artifacts.json；下载三语/版本/SHA/文件/README与操作边界一起发布，不接业务数据库。
+
+正式main695f6c612b09aaa496f982d66fd71534e6593659／PR35 MERGED；同SHA两完整CI37821567640与37821574208成功：417unit零skip、290 Linux双浏览器、3590三语、TS／lint0错1旧warn／正式build。production dpl_Ha2r2oeatNwTnbWqLwWAq9Br3AGk READY／main，两域alias及HTML部署ID匹配；正式14HTTP＋30双浏览器三语四宽／双APK真实完整SHA＋Range、旧5文件原字节通过，代表截图已看。11限定路径（原9发布路径＋2夹具）／其他563blob保留；认证生产源码未改。早期截图尺寸、滚动重试、冻结／真实时钟测试失败保留并分别修复，未放宽断言。入口 https://www.chinatech.in/toolbox/transfer#smart-switch-experiment 。源／原生／预览／正式证据 .local/smartswitch-universal/published-verification.json；自己3211／3212及2AVD均停。HONOR真机、光学扫码和全部品牌恢复仍未验。
+
+## 2026-10-08 荣耀二维码：lab2已上线，真机配对／恢复待验
+
+HONOR Magic8 Pro BKQ-N49／MagicOS11现场QR等待，源码确认真实P2P MAC依赖与无截止、另三星私有设置action无反馈。lab2有限前台回退原MANUAL流程＋标准设置／三语提示，同View／成功／生命周期旧timer保护，保持MAC／权限／协议及三星原Intent行为。实际候选SHAc5e60fd／PR34，7路径与其他563blob保留；APK41941787B／SHA69156181…df1ac8，同lab1签名／build+1。76策略／24接口、独立审查／签名／DEX、28本地网页／无JS下载、23保护预览验证已过，完整同SHA CI37777684864通过417unit／288Linux浏览器21.3m／strict三语类型lintbuild；正式main c5e60fd／PR34合并／production dpl_2T6R9FZFUfjdXspSVBZ9tWrFT3gb READY与两域匹配，正式28浏览器＋8HTTP下载SHA／Range／旧包／三语说明通过。重复PR CI旧站恢复失败，原代码保留，同case成功CI与Mac3/3通过，Linux原因未明，失败证据保留。自己3210已停。不能称QR已能跨品牌扫码或原生恢复已验。详见[兼容报告](smart-switch-compatibility.md)与安卓规格第15节。
+
+
+## 2026-10-08 数据传输下载入口正式上线
+
+按网站发布要求及用户确认的三星修改版分发许可，main a65df1c／PR33 MERGED，17路径快进保留552其他blob；两同SHA CI全部success（417单元／288 Linux双浏览器／3558词条／TS／lint／正式build）。Vercel dpl_7nii34dzFkP15J9wRXayPiJNYn5V READY，两域及HTML部署ID匹配；官网28三语四宽度／锚点／实际下载和7HTTP／全文SHA／Range通过。仅发布软件及公开页面，未运行手机软件或迁移客户资料。入口[工具箱数据传输](https://www.chinatech.in/toolbox/transfer#smart-switch-experiment)，完整证据.local/smartswitch-web-release/published-verification.json；原生状态仍见第13节。
+
+## 2026-10-08 Smart Switch 接收入口 lab1（本地交付，未运行）
+
+用户“开始反编译 制作”授权后，已制作3.7.73.4局部接收入口实验APK。仅h0一条UI选择指令原布局替换；真实品牌／launch_mode20／权限签名配套服务保留，listener4/5与Sender/Receiver、来源选择已静态核对。DEX同宽／长度／其他字节、最终6894类反汇编、1738payload、v1/v2/v3独立实验签名／16KiB对齐／Manifest原字节通过；两轮独立补丁复核通过。
+
+交付`交付/SmartSwitch接收入口实验版-20261008/`，41708257B／SHA7daa79ef…697de1，三语说明／验证／SHA／自主补丁脚本。它不是官方包或完整跨品牌迁移版；同包名异签不能覆盖官方，尚无安装／运行／客户资料迁移／部署，ChinaTech0.2包未变。细节[第13节](android-phone-assistant.md)，证据`.local/smart-switch-experiment/verification.json`；下一步待两机信息后合成资料分层验证。
+
+## 2026-10-08 Smart Switch 下载与静态可行性研究
+
+用户要求尽量仿三星，研究拆包取消品牌限制。已下载官方商店列示3.7.73.4对应的公开镜像并核对41683681B／SHA、v1/v2/v3签名；不是第一方二进制证明。JADX官方工具哈希核对；批量反编译52错误，关键f1／MainActivity定向simple成功。独立只读复核品牌参与主界面／默认角色及助手包条件，系统权限／签名／可选库的证据范围；取消应用分支不继承系统授权，完整非三星接收未实测。
+
+详细事实、证据局限和P0–P3跨品牌自行实现计划见[安卓助手第12节](android-phone-assistant.md)；研究证据`.local/smart-switch-research/analysis/findings.json`与verification.json。当前只完成研究／规划，没有修改、重签、安装或运行三星APK，没有改0.2交付、迁移客户资料或发布。普通资料恢复与APP安装是后续实施，不能当成本次已有能力。
+
+## 2026-10-08 安卓0.2扫描与持续传输（本地完成，未发布）
+
+按最新用户决定，新机创建热点／接收，旧机先扫描授权资料、分类或分页选择再加入发送；去10000总数和已批准2h截止。SQLite磁盘索引／回执、原字节、不覆盖、目标重读hash／最终count+digest；已完成对象可重验跳过，未完从头，无字节续传。APP仅所选base/split自定义ZIP，contacts基本VCF，calendar非重复ICS＋原字段JSONL，安装／复杂还原与私库未实现，scope不足明确保留。
+
+独立审查的pending永久阻塞、tree中断假完整已修并复核；持久residual保留未知不假删除，新写安全继续；scope原子begin/finish及手机重扫重置。SDK实际构建、168JVM／30桌面SQLite（10017项分页选择迁移回滚）／134资源，417单测416通过1旧环境跳过，3705三语，lint0错1旧warning、隔离正式严格构建、最终26双浏览器三语四宽度和APK字节下载通过；实体Android未验，没有发布／客户操作。交付50源码文件、389823B APK，汇总`.local/android-assistant-v2/verification.json`；详规[安卓助手第11节](android-phone-assistant.md)。旧0.1仅历史。
+
+## 2026-10-08 安卓手机助手本地热点 alpha（本地完成，未发布）
+
+接受用户最新要求：APP在两机局域网传输，源机创建LocalOnlyHotspot，目标助手请求加入；API29起系统确认＋指定Network，旧版手动Wi-Fi备用。公开网站提供下载和兼容／权限规划，不接收手机资料。三星Wi-Fi Direct为官方参考，第三方不能保证静默首次连接；原生HarmonyOS NEXT不支持当前APK。
+
+已编译0.1.0-alpha真实APK并提供源码与三语说明，SAF原文件＋基本联系人VCF、TLS pin／两端确认／目标新建不覆盖／重读hash。独立审查缺口已修，父核差异补旧版配对位置权限及普通网络权限。115纯JVM断言、95原生词条；网站415单测通过／1旧环境跳过，26双浏览器三语四宽度与字节下载通过，三语检查／lint0错1旧warning／隔离正式模式严格构建通过。证据`.local/android-assistant/verification.json`，详规[安卓手机助手](android-phone-assistant.md)。
+
+尚无Android运行／实体手机验证，无生产或客户操作；本版10000对象／批、会话2h，无字节断点或退出恢复。全媒体／完整结构化资料／APP／SMS等按B–F分阶段；实机热点、生命周期、SAF、系统导入与跨品牌必须验后发布。安装包只用本地候选签名，不作生产更新身份。
+
+## 2026-10-08 UI 状态与操作闭环（本地完成，未上线）
+
+研究三篇笔记并修复公共按钮／候选／空态、后台等待与手机菜单、错误／离线／404恢复；照片、商品确认、设备保管、售后建单和采购弹层补齐提交互斥及失败重试；到货成功清本次事实、只读客户入口门控、缺值／照片错误三语。全部沿原provider／API／权限／版本及原请求恢复，不改变财务、库存、签署／销售快照或数据源。
+
+隔离Node24：409业务通过／1原PowerShell跳过；264唯一浏览器用例通过（完整首轮＋必要定向复验合并）、48状态专项通过；3600词条、TS、lint0错误／1原warning、preview及formal配置生产build通过。正式配置仅无效占位凭据，本地公开404实际两浏览器三语四宽／HTTP404／返回首页通过；没有生产认证DB闭环或部署。六个本地性能样本与限制见[审查33](33-ui-states-and-closure.md)。证据.local/ui-state-audit/verification.json、source-manifest.json及日志／截图；先前失败保留。源码根无Git，同期设备目录／Office改动保留。真机相机／签名／物理打印／真实业务写入未验。
+
+
 ## 2026-10-07 共享品牌型号目录候选
 
 用户批准全站公用、后台维护＋Excel导入导出、全部现有类别、电脑按系列／代际／机型码、欧洲优先与历史保留，仅指定目录管理员。普通成员可查／手填。API／RLS／Excel及共享选择器已实施，本地合成端到端已验；原业务快照保持。当前仍在冻结数据、独立审查及发布验证；未绑定管理账号、未上线。详细证据和边界见[共享目录32](32-shared-device-catalog.md)。
 
 
+## 2026-10-07 Office 桌面助手第一版（本地候选）
 
-## 2026-10-07 Windows工具箱执行驱动与检测发布
+按“开始实现”完成Windows11 x64/ARM64自包含EXE、在线使用密钥与后台管理、AES-GCM任务包、四动作分阶段执行、三语报错建议和脱敏报告。专用VM真实ODT安装6应用通过，正确INSTALLED_UNLICENSED；使用密钥与Office许可证分开，未设置第三方KMS。真实本地Auth/API/RLS8组、双浏览器三语四宽28项、5加密/21跨语言/20PS反例及Windows原生执行器保护通过。正式二进制固定官方服务且排除DEV类，未数字签名；交付在交付/Office桌面助手-20261007，网站新授权后台/迁移未上线。同期工作使当前全仓词条门禁未过（最新账号状态模块2项）；保留其他执行者改动，不宣称全仓CI或生产闭环。详情见[桌面助手规格](office-desktop-assistant.md)。
 
-用户授权保留文件应用升级Win11Pro并发布。新增公开Windows入口与三语实际ZIP下载，驱动已接入固定同字节loader／UAC／DPAPI-HMAC／精确版本媒体／InteractiveToken恢复任务；公开inspection-only、空路线与媒体、编译false，未进行Windows安装／激活／桥接或硬件绕过。完整自动化未完成，不能以检测入口发布代表实现全部目标。已校验官方26H2Pro目标ISO，Windows真实文件／应用／设置／Office及中断恢复验收仍缺。
+## 2026-10-07 Parallels Office四流程修复（候选，未发布）
 
-386Node、3365三语键、strictTS、lint0错1既有warning、正式构建及34Windows／Office双浏览器通过；独立专项审查修复未取得锁仍删除active恢复任务及完整政策证据绑定缺口，当前公开可达检测无未修复阻断。发布采用最新main167b766隔离限定候选，不混入Office整体开关候选和私有Windows媒体。详细范围和证据见[Windows工具箱31](31-windows-toolbox-upgrade.md)。
+重复“需要重启”误报已定位并修复：保留真实Windows更新／Office替换的重启检查，无关文件清理队列不拦截、不删除。指定隔离ARM64 Windows副本有38条队列时，签名CMD与PowerShell入口均exit0，原队列不变；45原生无害断言、8实际下载／哈希／撤销拒绝分支通过。旧VSTO Runtime误识别和原生退出码句柄问题也已修复；真实首次卸载3010保持success:false，没有把第二次幂等exit0冒充第一次成功。
 
-## 2026-10-07 登录设备发布候选
+Word／Excel／PowerPoint通过真实COM创建、保存、重读；两终端实际激活及独立ProPlus／Skype许可状态1已验证，LYNC仍缺，不是完整成功。默认八组件保留，网页新增显式不含Skype变体，ARM含Skype在下载／卸载前停止。七组件实装与新激活复测被自动审批拒绝，副本另有桌面助手审计恢复，无Office现状及保存快照已核对；待用户确认独占、副本七组件及具体KMS信息传输。
 
-默认临时登录、勾选后持久保存，前台30天闲置；个人会话退出与老板本店访问撤销隔离。复核修复和16组本地API/双浏览器验收已完成，本次基于最新main隔离发布，不包含根目录其他任务。生产状态须待当次CI/兼容迁移/应用核验/严格启用后的实际证据；详见[登录设备29](29-login-session-devices.md)。
+启动器TEMP校验／执行竞态改为同一内存byte[]校验、解析和执行；19Windows无害回归、独立只读复核、Office9实际路由、395Node／1既有skip、三语／类型／lint和正式构建通过。GUI、正向完整双终端矩阵、重启后许可、最新main融合和旧视频同步尚未闭环。按用户要求未提交／推送／部署。详细证据见[Office控制与实测](31-office-command-control.md)，执行状态见PROJECT_MEMORY。
 
+## 2026-10-07 Office 命令整体开关（已上线）
 
-## 2026-10-07 Office微信推广与三语使用视频（候选验收）
+公开Office改为签名联网启动器，指定管理员在账号设置管理全站开关；关闭后拒绝获取，重开必须生成新命令。保留原四脚本字节和现有视频／登录设备。服务器实时验证会话/管理员/同源/身份范围/revision/幂等，私有表强制RLS，运行角色不能改管理员绑定。已复制旧静态命令和已下载/执行脚本不能召回。
+
+main f8ffa230cbd6fdde7545cd697e8b9803eb2b14ad、PR27 merged、Vercel dpl_Fyq1u8buZ4ZtLce2RUFUAQUpWsLo READY/双域名；同SHA完整CI37642982270成功（384unit/216双浏览器/3371键/类型/lint/正式build）。独立权限/融合复核通过。本地真实Auth/API/SQL/会话反例、48三语布局、54相关UI、24PS语法与无害脚本检查通过；线上真实管理员开→关→开及122HTTP已验证旧403/重开旧410/新200及脚本SHA、跨源/篡改、静态404/no-store。当前开启version4/revision3。未执行Office/Windows/KMS，无业务记录或外部消息写入。详细行为见docs31，当前证据与限制见PROJECT_MEMORY及.local/office-control。
+
+## 2026-10-07 Windows工具箱检测候选（完整升级未完成、未发布）
+
+用户选下载启动器、包含不受官方支持的硬件、覆盖7／8／8.1／10／11含Home、原KMS本地模拟和核对后确认一次。新增公开 `/toolbox/windows`、三语检测ZIP／源码／哈希与分类入口；只读检测无系统写入／远程执行，执行门禁固定关闭。
+
+AveYo最高23H2且auto不等待安装结果；KMS `/m /w`仍涉及授权hook、安全排除及可能影响已有Office清理，不能直接串成保留数据万能升级器。完整媒体、Pro转换／桥接、重启恢复驱动和Windows验收未完成，Mac parser与网页测试不是完整实施证据。详见[Windows检测与升级边界](31-windows-toolbox-upgrade.md)。无发布／生产业务写入，保留其他任务修改。
+
+## 2026-10-07 Office微信推广与三语使用视频（已上线）
 
 用户确认1中文竖屏推广＋4横屏教程，交付文件并同步网站三语。四操作各提供中／意／英，共12网站视频及36媒体资产；另有1080×1920中文推广片（约33秒）、5中文微信成品／封面／二维码／文案。共享播放器可选目录／16:9，同ID关联命令hash、刷新／前后返回与原Copy状态；原首页4:3、15媒体目录／业务／Office命令不变，无Office执行或微信发送。
 
-13成片全解码、H.264／AAC／固定24fps／faststart／非静音声轨、字幕与讲稿、78鼠标步骤及原图／成片／JPEG二维码一致通过；终端为明确示意，无虚构成功。366业务与媒体／3298键三语／strict TS／lint0错误1旧warning／正式build、最终10双浏览器Office与24原命令／首页回归通过；线上与完整CI回执待核对。基于正式main4d3a8ec2隔离候选，保护登录设备未发布任务。源码scripts/office-tutorials，证据candidate/.local/office-videos，交付根交付目录。
+13成片全解码、H.264／AAC／固定24fps／faststart／非静音声轨、字幕与讲稿、78鼠标步骤及原图／成片／JPEG二维码一致通过；终端为明确示意，无虚构成功。366业务与媒体／3298键三语／strict TS／lint0错误1旧warning／正式build、最终10双浏览器Office与24原命令／首页回归通过；同SHA完整CI37625170845已success：366业务、212 Linux双浏览器（14.7m）及三语／TS／lint／build通过。main06ba753、Vercel dpl_2vMnGSLWJGqsWnCKPwbR37T4RyQG READY／production／双域名一致；最新线上16双浏览器、36媒体及12文本字节、Range206／匿名401通过。main重复CI仍运行，按相同SHA成功门禁复用。基于正式main4d3a8ec2隔离候选，保护登录设备未发布任务。源码scripts/office-tutorials，证据candidate/.local/office-videos，交付根交付目录。
 
-## 2026-10-06 全站三语与排版闭环（当前候选验收）
+## 已完成并上线：Office 命令工具（2026-10-07）
+
+已读取用户指定对话“解释安装脚本并禁用网站弹窗”，只复用获授权的命令／可读脚本。公开 `/toolbox/office` 提供安装、激活、卸载、完整重装及 CMD／PowerShell 两种格式，完整复制、纯文本下载、可读源码及三语提示。沿用 PublicHeader／Brand／LanguageSwitcher／button／segmented-control／token；仅工具箱私有布局，无新增后台／依赖。复制异常和迟到结果不假报成功。
+
+三种独立操作改为唯一 TEMP 文件、固定上游 SHA256；安装取消网页弹窗、进程关闭限定 Office 路径；卸载失败不深清并恢复 Explorer；激活逐项核对 cscript 退出码与 ProPlus2024VL／LICENSED／GCVGB，7种合成授权文本反例通过；最终独立专项复核无新确认缺陷。完整重装保留原脚本 SHA256 f476281a…及配置预检。配置主／备接口本次只读返回403，Windows 安装／卸载／激活均未执行；公开 GVLK 不是个人密钥。
+
+基于 main6725612 的隔离候选 `.local/office-toolbox/candidate`，24限定路径、399其他Git blob不变，保留根目录登录设备未发布任务。最终SHA `4d3a8ec2ed02d4346ddf8b3cd74bd703b4e57e9d`。本地364业务、8启动器＋4源码真实 PowerShell parser、3脚本变换语法、6 Chromium／WebKit复制／下载／字节／失败／迟到结果及48三语四宽度布局通过；电脑／手机截图已查看，3295键三语、strict TS、lint0错1旧warning、正式模式build通过。浏览器 Clipboard 使用替身，仅证明复制调用及状态；零 Office 执行／后台生产业务写入。首轮云CI37595032705为201/202（Office6/6），原商品WebKit检测checkbox点击失败；trace表明保存已完成但取点后28.5ms滚26px，无草稿重置证据，原生事件是否错失未确认。仅测试补保存UI／字段启用／instant居中与两帧稳定，保留原生check及状态／售价／历史／刷新断言，Mac双浏览器6次通过。原用例Mac5次通过；本地Linux代理原登录初始化未完成，2次hook超时后已停、临时容器已移除，不计产品结果。最终同SHA CI37598240463 completed/success：202 Linux双浏览器（13.8m）、3295键、strict TS、lint0错1旧warning、业务及正式build通过。正式main 4d3a8ec2ed02d4346ddf8b3cd74bd703b4e57e9d；Vercel dpl_7UUZmYjJdGSxuww4dyEQH1eeaJnA READY/production/main/双域名及HTML部署ID一致。线上6复制／下载／失败状态、48三语四宽度、4首页工具箱Office往返及17匿名HTTP（12文本raw SHA256、后台401、apex308）均通过，电脑／手机截图已查看。补验导航脚本先等实际首页和GET完成，保留原断言，原脚本两个导航冲突记录保留，网站源码未变。匿名Chromium单样本DCL342.4ms、加载464.9ms、25资源／398591B、切换两帧24.7ms，无弱网，非性能保证。main重复CI37600477199最后读取in_progress，复用同SHA成功门禁，不冒称重复完成。最终配置主／备GET仍403，0 Windows执行／生产业务写入。证据 .local/office-toolbox/published-verification.json、production-proof和日志。本轮3146预览、Linux49561/49562浏览器及49563代理均已停，临时容器已移除；其他服务保留，正式Office页已请求在本任务打开（queued）。本轮完成。详见 docs04／06；证据 `.local/office-toolbox/`。
+
+
+## 2026-10-07 公开工具箱（已上线）
+
+首页顶部及页脚增加 `/toolbox` 入口，手机直接可见，保留左上登录／注册。公开页用浅灰底、白色卡片和紫色主操作，预留 Windows／Office 安装、手机刷机、数据传输四类，具体工具和下载链接明确待添加。共用 PublicHeader、Brand、语言控件与原语义 token；中／意／英及标题同步，刷新保留语言。无需登录，不进入后台布局，未改proxy／认证／API／数据库。
+
+正式main **60fdbc59e1c73d4bfde640aa3077acc4f6b123d0**，仅7个公开源码文件，其他392个基线文件保留；根6源文件和25个工具箱词条匹配，其他登录／商品任务保留。Vercel **dpl_FhxznGqBsHwRZYaRCHcGRo7boHMP** READY／production／main／两正式域名，首页及工具箱HTML部署标识一致。www首页／工具箱200，apex工具箱308到www，匿名backend/state401。
+
+同SHA发布前完整CI **37541934653** completed／success：353业务、184 Linux Chromium／WebKit（13.6m）、3184键check:i18n、strict TS、lint0错1原warning、正式build全部通过。main自动重复CI37543641808仍在运行，复用已通过同SHA门禁，不冒称重复完成。初版3367dba云CI37541042214因最终CSS修正取消；最终候选重新通过完整门禁。首次候选推送被自动审批拒绝后核对当前GitHub账号、公开仓库归属及用户本轮AGENTS明确既有发布授权，同一推送审批通过；未绕过。
+
+本地预览、最终Supabase-mode构建及正式站分别检查；正式站48项双浏览器布局（3语×4宽度×2浏览器×首页／工具箱）、匿名直达、44px控件、首页往返／锚点／语言刷新及登录注册导航均通过，0横溢／最终JS错误／后台API请求／初始MP4，截图已查看。WebKit手机及中宽屏径向渐变杂点已全宽改为线性渐变；连续缩放截图补两个绘制帧，鲜开页面图标正常。首轮正式WebKit快速离开登录页时记录忘记密码预取网络错误；保留原记录，脚本仅等待GET完成再返回，原全部断言通过，运行时代码未改。
+
+正式站匿名Mac Chromium单样本DOMContentLoaded336.1ms、语言切换7.7ms、分类定位42.4ms，首个内容可见时10资源／JS263504B；本地最终构建27.5／11.6／34.9ms，14资源／JS259172B。操作时间含自动化开销，资源数为测量时快照，单样本不代表性能保证。0生产业务写入，实体手机／弱网未验。本次3136已停止，其他服务保留。证据 `.local/toolbox/published-verification.json`、source-manifest、ci-final.json／log、production-http／browser／measure、production-proof及final-proof；首次诊断production-browser-first.log保留。
+
+## 2026-10-07 保持登录与设备管理（已上线）
+
+默认不勾选，前台实际使用滚动30天；个人管理浏览器会话，老板只撤销本店访问。OAuth用途/nonce隔离、绑定DB政策继承、跨会话清草稿/确认、两身份header、退出Cookie兜底、审计竞争/未知结果幂等及老板自撤销actor最后提交均已修复。复用控件/三语/权限及业务事实保持。
+
+正式main167b7668447950f3038ddddfd9df900a2116893b，46路径/442其他blob保留；Vercel dpl_7DwAxNvmSZrquPu3FcJZ3xsf3iNL READY/production/main/双域及HTML一致。CI37636374252与main重复37639686937均success：378业务、212 Linux双浏览器、3337键/TS/lint0错1旧warning/build过。生产兼容迁移20261007131534→新应用核验→管理员严格enable已执行，四表FORCE RLS、runtime无enable、匿名零新表/内部函数授权、缺记录0、1账号1店保持，共享Auth配置/业务未改。
+
+17本地API双浏览器＋独立自撤销反例、正式36匿名浏览器＋11HTTP通过，三语四宽/0JS/截图已验；严格后现有Chrome个人设备20/当前1/单一表单和老板本店设备入口正常，未撤销真实设备。合成账号/门店0，3148已停，其他服务保留。真实外部OAuth/短信、实体设备与物理重开未验；详细规格/回退边界docs29，证据.local/login-devices-release/published-verification.json与相关日志。本轮完成。
+
+## 2026-10-06 商品详情高密度排版（已上线）
+
+基础信息多列、摘要与金额紧凑、核验横排、保修就地预览，原资料／历史单按钮展开。手机原分组、字段草稿、44px目标和16px输入保留；原照片不降质，长资料自然增高，API／权限／字段与快照不变。复用与模块内compact变体详见docs06。
+
+正式main a36e7d7628f784a4666e19600c2049aa50d04421，13冻结blob一致、382其他blob保留；Vercel dpl_8GqT4NScRgHetzL3d42Z5o8t3Ky7 READY／production／main／两正式域名及HTML一致。同SHA发布前CI37451900716 completed／success：353业务、184 Linux双浏览器（13.4m）、3159键check:i18n、TS、lint0错1旧warning、正式build。main重复CI37453676193仍运行，复用同SHA成功结果，不报告它已完成。
+
+首次CI181/184，手机Avanzamento规则补到全部宽度；单次原WebKit折叠点击失败4次Linux未复现，原代码／断言保留，最终完整CI全过。修复后Mac2长词、Linux限1CPU6密度、原折叠1和事件诊断3、最终正式build通过；20本地流程、2金融词、2全15集播放原结果仍适用。三语教程第5／6步同步，47PCM和音轨不变，45媒体36,938,054B完整媒体／播放通过；生产三MP4哈希及Range206一致。
+
+生产同一真实商品1440×900高度1518→846px（减少44.3%）、摘要299→152px，日常信息首屏可见；1024为1109px，390／375为815px，长资料不保证一屏。四宽度无横溢，手机操作组实际展开／收起、按钮54px，0JS错误，匿名state401。0生产业务写入。模拟截图与保存均合成资料；实体手机／相机／物理打印／弱网未验。本轮3121、Docker／代理已停、Chrome viewport已恢复，临时tab关闭。证据.local/retail-density/published-verification.json及ci-final／production-http／ui／source-manifest／visual-failure，截图ui-proof/retail-density。
+
+## 2026-10-06 全站三语与排版闭环（已上线）
 
 基于最新已上线 main `2cc6c2a` 合入本轮翻译修复，保留统一商品列表、同页核对、原资料只读、权限／事务／幂等和所有保存行为。修复手机工作台标题竖排、四个正式状态说明、故障及配件摘要、成色、缺值占位、动态错误／恢复消息、账号国家选项、图片alt、加载／无权限及操作历史代码；金融长词按容器适配，字号不变。已知结构与客户原文分开，签署及销售快照不改写。
 
 字典3159键；新增静态门禁与系统句式回归，冲突／缺译为0。353业务及翻译、严格TS、lint0错误（1既有导航warning）、完整174项Mac Chromium/WebKit通过；23正式路径×3语×4宽度共552布局通过，额外金额断词2项覆盖5宽度；商品颜色等三语显示词可直接搜索，原值不变，双浏览器2项通过。接机配件规格按结构逐项翻译，432有限组合与双浏览器保存／刷新回归覆盖。正式流程使用localhost独立门店与虚构账号，保存／刷新／冲突重试、客户／配件／历史回链、三语打印、只读与待授权已实际操作；最终汇总仍以本轮证据为准。未发生生产业务写入、真实消息或新增语音API调用。
 
-教程87目标场景重测并用当前三语画面重渲15集，配音／讲稿复用，保留六章／字幕与鼠标运动。最终媒体45资产完整解码／哈希／字幕及90鼠标步骤通过，218原配音不变；最终18项双浏览器播放／清理／字幕通过，正式后台模式build通过。发布时须核对同源码SHA的完整CI、main与正式域名回执，具体状态记录于本轮published-verification.json及项目连续记忆。后续强制三语与闭环规则已提交AGENTS并同步06／16，详见[维护规则28](28-i18n-maintenance.md)。证据 `.local/i18n-audit/`、`scripts/tutorials/.work/evidence/`；实体手机、物理相机／打印与弱网未验，不将模拟或本地正式分支当作生产账号保存证明。
+教程87目标场景重测并用当前三语画面重渲15集，配音／讲稿复用，保留六章／字幕与鼠标运动。最终媒体45资产完整解码／哈希／字幕及90鼠标步骤通过，218原配音不变；最终18项双浏览器播放／清理／字幕通过，正式后台模式build通过。main 039c0bf已上线，Vercel dpl_BB8oM7PmxP1a3Lr35g5srGU8joZb READY／production／两正式域名及HTML一致。完整CI37401548200同SHA：353业务、178 Linux双浏览器（13.2m）、翻译门禁／TS／lint及正式build全部通过。最新生产公开8项双浏览器三语四宽度及15段播放／字幕／清理通过，45资产哈希一致，匿名state401。main自动重复CI仍运行，复用相同SHA的成功门禁，不冒称它已完成。具体回执见published-verification.json及项目连续记忆。后续强制三语与闭环规则已提交AGENTS并同步06／16，详见[维护规则28](28-i18n-maintenance.md)。证据 `.local/i18n-audit/`、`scripts/tutorials/.work/evidence/`；实体手机、物理相机／打印与弱网未验，不将模拟或本地正式分支当作生产账号保存证明。
 
-## 2026-10-05 鼠标动画教程与网站三语（本轮实施与验收）
+## 2026-10-06 在售商品与可视化档案合并（已上线）
 
-用户要求视频通过鼠标移动、目标轮廓、点击脉冲和局部放大清楚指向操作，并随中文、意大利语、英语网站选择切换。已实现整站共享语言显示、偏好记忆、稳定表单与三套教程目录，复用现有控件／token／原生video。15段实际页面动画采用虚构资料及各语言自然语音，保留六章跳转、硬字幕／VTT、懒加载、失败重试和旧媒体释放。
+按用户纠正删除独立“单机管理”入口；原商品、新商品、旧详情链接共用图形详情，列表／工作台同源去重，旧客户定位原资料。本页明确核对旧未售实物及检测后进入原销售、实际收款交付、客户与三语打印，保存不自动可售。导入原文和旧买家／成交／定金保持，未知规格／付款不倒填；严格拒绝分类数组和客户端金额／来源伪造，成本由服务器取源且按权限投影。
 
-基于最新商品main649f0fa整合，不覆盖商品手机折叠、销售／交付／原saleId回链或原冻结打印。canonical选项、客户自由原文、业务金额／数量、权限／API／schema及签名／政策／销售快照保持原事实。客户签署和打印语言继续独立选择；本轮无生产业务写入、真实消息或付费API。
+正式main **2cc6c2a8f3ae1a514594162734c91d0991353a34**，28源码／测试Git blob一致，360其他blob保留。Vercel **dpl_3SRUauWSPZgG8RELSXhqTW46grC1** READY／production／main／双正式域名及SHA一致。两域login200，HTML部署ID一致，匿名state401；正式Chrome只读确认入口消失、81在售／48其他、商品直接打开图形详情、手机核对操作同页单组展开，四宽度无横溢。生产业务写入0。
 
-327项业务／翻译检查、strict TS、lint（0错误、1既有warning）、正式后台构建、三语四宽度公开页与40个后台布局状态、账号草稿切换以及Chrome／WebKit的15段实际播放已通过。错误译文保留所有数字约束；未识别的自由文本和对象原型同名文字原样保留。外语更正未知成本为0的浏览器用例核对原中文事件历史，客户签署阅读仍独立选择。独立AST复核未发现译文进入保存、搜索或快照；原中文JSX拼接空格已按基线恢复，原业务断言不放宽。跨系统预览代理发生脚本加载等待，改用原生Linux；首个原生验证因系统OOM终止预览，已停止本轮失效容器并限制运行内存，完整162项及云端验证继续。尚未发布正式域名。证据在 `.local/tutorials/release/.local/tutorials-v2/` 与 `scripts/tutorials/.work/evidence/`；实体手机和真实云业务保存未测。
+同SHA发布前完整CI **37394528634** completed／success：335业务、168 Linux Chromium／WebKit（12.5m）、严格TS、lint零错误1既有warning、正式build。main自动重复CI37395917038尚in_progress，按同源码／配置／环境复用已成功结果，不报告重复运行成功。12组真实隔离API／正式浏览器覆盖权限、跨店、伪造、冲突、并发、幂等、回滚、撤权、实际核对保存及明确可售；原JSON未变，必要独立专项审查完成。新增容量浏览器断言首次误用region，定位器纠正后完整售卖／旧客户回链及最终全CI通过；未放宽数据或流程断言。
 
-2026-10-04 首页教程：用户选择中文配音＋中文字幕并要求类似小红书的语音。新增 5 集自然中文女声教程及首页分集播放器／六个章节，真实正式界面与虚构资料，初始不请求 MP4，选集停止旧媒体，失败可重试且文字可用。复用既有 token、按钮与原生媒体，不改变业务事实、权限或数据。隔离 main 副本 292 业务、8 项 Chromium／WebKit 四宽度及播放／字幕／跳转／失败恢复、TS／lint零错误／正式构建通过；5 集完整解码和时间对齐通过。素材源 `scripts/tutorials/`；正式发布与线上回执见 PROJECT_MEMORY。
+证据.local/retail-unified/published-verification.json、source-manifest、ci-final、production-http-verification、api-verification及.local/ui-proof/retail-unified截图；本地正式3117和预览3121已停，临时Chromeviewport已恢复，其他线程修改保留。实体手机／弱网、真实生产交易及物理打印机未验收。
 
-2026-10-04 最新决定与实现：用户接受推荐并要求美化按钮，正式源码采用手机连续两行93px（旧257px）、去掉每单卡片，配件浅紫／跟进浅灰／阶段沿状态色，桌面完整六列保留。跟进短文案与所有适用事实在真实控件内排列，多状态自然增高，只读仍显示事实；供应商手机省略、真实窗口完整读取。22项定向及完整84双浏览器、三种手机宽度、两种桌面宽度、44px／五点命中／行内边界／焦点及返回状态通过；292业务、严格TS、lint0错误和正式build通过。无业务结构或后台规则修改；发布与线上版本见PROJECT_MEMORY，[docs09](09-repair-table-layout-plan.md)保留早前预览和当前实现。
+## 2026-10-06 鼠标动画教程与网站三语（已上线并完成验收）
 
-2026-10-04 云端WebKit窄桌面补充：长供应商按钮曾高于所在工单行，底部点击误命中下一单。仅改flex为grid曾无法修复，已在官方同版本Linux WebKit环境复现。配件入口增加普通`.repair-row-parts-cell`，内层按钮宽度100%、图标／文字使用明确网格列，手机行列定位归单元格；普通单元格让完整按钮高度参与本行布局。相同Linux环境原用例失败→包裹后通过，不断言未证实的引擎内部原因；两端沿用同一入口、token和44px目标。保留五点命中要求，补按钮必须完全位于本条工单范围的断言；诊断记录具体坐标、命中元素及裁切祖先。同一Linux环境完整82项及Mac20项定向浏览器检查通过，严格TS、lint零错误和正式构建通过；最终发布后的云端结果仍须另核对。
+用户要求教程用鼠标移动、目标轮廓、点击脉冲和局部放大清楚指向操作，并随中文、意大利语、英语选择切换。整站共享语言、偏好记忆与草稿保留已实现，复用现有控件、token与原生video。15段实际界面动画使用虚构资料和自然女声，保留六章定位、画面字幕／VTT、懒加载、失败重试和旧媒体释放。
+
+基于商品正式main649f0fa，不覆盖手机折叠、销售／交付／原saleId回链及冻结打印。canonical选项、客户原文、金额／数量、权限／API／schema及签名／政策／销售快照保持原事实，签署阅读和打印语言独立选择。未知自由文本与对象原型同名文字保持原样，错误译文保留数值约束；独立AST复核未见译文进入业务保存、搜索或快照。本轮无生产业务写入、真实消息或付费API。
+
+最终main `85fce8b423b928c539402862dea2f897bbb2ed06`，冻结165文件／Git blob一致，根162源码／资产匹配，其他本地修改保留。Vercel `dpl_2nirDHk43E1UX51RokTdwn3DvycT` READY／production／两域名／main SHA一致。同SHA门禁CI `37384789427` completed／success：327业务／翻译、162 Linux Chromium／WebKit（11.6m）、strict TS、lint0错误1既有warning、正式后台build。此前Mac完整162（ac266f1）与c2最终16项、四宽度／40后台状态／草稿与视频验收保留。main自动重复CI37386423678当前in_progress／未出结论，与已完成候选同SHA、配置和测试环境，按规范复用成功结果，未冒称该重复运行成功。
+
+Safari语言选择器复用公共.module-select达到44px；售出表单自动定位已设instant。首次c2发布完整候选CI通过，main重复37381489687为159／162，独立trace区分三项：来源继续确认期间滚动28px、身份加载时照片isVisible false直接跳过展开、现金点击期间滚动46px未选中而被正确校验拒绝。只将RetailFieldEditor与TransactionForm自动定位设instant，照片测试等待gallery可见；原click、校验和业务断言保持。原3流程各重复5次／15项、双浏览器6项及现金事件1项全部通过；19组mouse down-up滚动与目标位移0，随后完整CI162通过。旧失败、代理等待、Linux OOM及媒体瞬态诊断保留，未把首次失败当成功。
+
+最新生产6项双浏览器通过（35.8s）：三语公开页四宽度、账号草稿／显隐／验证、15段实际播放／字幕／语言切换清理旧媒体。两域login200且部署HTML一致，匿名state401；45资产共36,238,246字节全部SHA匹配，Range206正常。此前同首页源码c2匿名Mac单样本DOMContentLoaded771ms、切换7–12ms、初始MP4请求0；仅样本，非性能保证。375 WebKit和1440 Chromium可见海报／鼠标目标截图已查看。实体手机、弱网和真实云保存未测，0生产业务写入。
+
+证据 `.local/tutorials/release/.local/tutorials-v2/`（published-verification、main-fix-source-manifest、ci-main-fix-final-result／log、production-final-deployment／http／browser.log、production-browser-result、root-sync-main-fix、main-ci-review、main-gesture-evidence及proof），创作证据scripts/tutorials/.work/evidence/。3123预览已停，临时Linux容器自动移除，诊断测试移出测试目录保存；其他服务、源码与规范修改保留。本轮完成。
+
+## 2026-10-05 商品手机折叠、买家与销售打印闭环（已上线，独立完整验收通过）
+
+采用分组折叠：84px实物缩略图、摘要及已知问题直接可见，检测／销售优先，其余资料、成本、保修与打印、结算售后、历史按需展开；换组不丢未提交输入。电脑完整双栏保留。已有客户可明确带入当前称呼／邮箱及最新已知销售地址，手填值与候选值分别清理；销售冻结本次买家资料，客户编辑不回写历史。销售卡串联登记→逐笔实际收款→实际交付→集中打印，客户记录精准回到原saleId、展开并聚焦，复售后仍能印原买家／原商品／原保修。
+
+复用既有字段编辑、输入／候选、RetailGallery、销售命令、RetailSaleCard、RetailReceipt与token；无新UI框架、schema、请求协议或授权能力。三语打印补充本笔买家备注，成本／利润及长期客户备注不打印；触摸关闭焦点指定回到实际打印按钮。售后历史白名单与RepairActivity穷尽对齐，兼容联系／需求／跟进，仍核对唯一来源、完成状态、事件序列和实际日期；独立审查通过，本地及正式命令共用同一校验。
+
+Node24.19：322业务测试、22项相关Chromium／WebKit浏览器回归通过；最终另复验8档案与2完整销售／打印样式用例。四宽度1440／1024／390／375实际截图已查看，覆盖字段保存刷新、折叠草稿／键盘／44px、六照片放大、缺项可售拒绝、客户带入／更换／取消、两次实际收款、未结清交付拒绝、交付后保修起算、客户更新不改快照、复售原销售回链、三语／双联打印与关闭焦点。print媒体核对仅单据可见，后台页面和工具栏不打印。strict TS、lint0错误1既有warning、默认Turbopack生产build通过。
+
+375×812预热本地单次档案内容872px，进入119ms／打开检测43ms；上一版375截图约2867px，不视为真实线上性能或所有资料长度的保证。初轮照片工具折叠定位和放大CSS已修复；新销售测试必填星号定位及重复IMEI的合成夹具已纠正，保留身份与业务断言。实体手机／物理打印机／弱网／真实后台写入未测；所有读写与截图为本地合成资料，0生产业务写入。证据.local/retail-mobile-closure/、.local/ui-proof/retail-sales-flow/及retail-visual-detail/，上述为上线前验证，随后发布见下段；3121已停。规则docs05／11、复用06和联动16同步。
+
+
+最终main `649f0fafd0dfb0ba68a8ec394a2715aa98efc510`，基于维修版 `0fa8c86`。累计20代码／测试与冻结Git blob一致，其他308跟踪文件保留。Vercel `dpl_44nVqqT3tFPQb9RRZRM4k7ezCoDQ` READY／production／双域名及SHA一致；两域名login200、HTML部署ID一致，匿名backend/state401。
+
+官方Playwright1.63.0 Linux arm64／Node24.20.0／1CPU独立完整检查通过：322业务、152 Chromium／WebKit（11.9m）、strict TS、lint0错误1既有warning、默认Turbopack正式后台build；另24项定向复核通过（2.3m）。本轮源代码与Linux被测20文件一致。
+
+云端首轮CI `37361865766` 148／152，4项WebKit测试缺少加载等待／折叠操作；修正3测试文件，保留原业务断言，运行时未改。最终CI `37364428122` attempt1没有分配到hosted runner、0步骤，被取消；公开注释已保存。一次重试attempt2已完成并为success；2026-10-05本轮读取确认，不以旧in_progress记录替代当前证据。
+
+正式Chrome只读验证单机全部记录0台、新建入口375宽正常无横溢；现有导入商品仍为原历史页面。详情、实际销售／收款／交付与打印业务以合成测试验收，0生产业务写入；实体手机、弱网和物理打印机未测。本地375单次预热内容872px／进入119ms／检测打开43ms，不作为线上性能保证。
+
+证据 `.local/retail-mobile-closure/published-verification.json`、published-source-manifest.json、linux-full.log、linux-targeted.log、ci-first-failure.log、ci-runner-error.json、production-ui-verification.json／production-http-verification.json及相关合成截图。3121预览已停，Linux容器自动移除；候选依赖与构建缓存已清理。
+
+## 2026-10-05 商品单机档案可视化（本地完成，未上线）
+
+按用户提供的单机档案参考图改为大图／型号／售价／分类标签和圆环概览，下方为基础信息、随件与已知问题、适用规格、销售与成本及检测与销售。电脑保持双栏，手机单栏并将检测／销售动作优先放在摘要后。来源和日期归基础信息，照片仍为本台真实记录；无照片显示图标占位，不使用产品图冒充实物。商家保修、销售结算与售后、历史继续保留。
+
+复用 `RetailGallery`、`RetailFieldButton`／`RetailFieldEditor`、`PageTitle`、`ColorSwatch`、`UnitIcon`、既有销售／检测／保修能力及公共 token／按钮／输入；只调整整机模块布局与样式，没有新增 UI 框架、数据请求、后台协议或写入权限。成本／毛利继续受 `financial.read` 控制；未知整备成本时毛利待确认，负毛利用警示色，检测圆环和“已保存”只读已保存核验。检测草稿不会自动增加进度，记录检测与设为可售仍分开。字段更正沿原核对／版本／保存和刷新恢复；已售／预留编辑保护不变。
+
+Node24.19：89项定向整机规则、14项相关 Chromium／WebKit 浏览器回归通过；其中最终6项档案回归全部通过，8项原列表回归复用同一未改列表源码的成功结果。1440／1024／390／375实际截图已查看，覆盖金额单行、44px目标、六张照片切换／放大、字段保存／刷新及键盘焦点返回、检测保存／缺项可售拒绝和已售锁定。严格TS、lint0错误1既有warning、默认Turbopack生产build通过。本地预热开发预览单次进入104ms／打开售价编辑45ms，仅实验室样本；实体手机、弱网和正式后台／线上UI未测。生产构建登录页正常且按原规则禁用演示账号，因此内部页面的浏览器验收来自开发预览。所有测试使用合成资料，无生产写入。证据 `.local/retail-visual-detail/`，截图 `.local/ui-proof/retail-visual-detail/`。源码在本地，未提交或部署。
+
+## 2026-10-05 四个日常分组（已上线）
+
+按用户授权执行返修、处理中、等配件、等取机；选择供应商／加车不移组，实际下单才等配件，分次到货按必需采购核对，到齐回原处理组。等取机未通知／已通知子筛选与真实联系、新周期独立；结束／作废／实际交还进历史，欠款待收尾仍工作台可见。返修专用新单明确来源／原因、复用原实物关联，双向追溯且原采购／签名／销售保留。列表、详情、客户、工作台共享规则，旧配置只读规范／四组固定名可排序。新增项目／新采购在等取机和历史须明确恢复；实际到货及报价更正保留。完整规格见[计划22](22-repair-supplier-batch-notification-plan.md)。
+
+319业务、20组真实隔离后台API（权限／门店／双版本／幂等并发／失败回滚／来源防篡改）、68相关Chromium／WebKit和四宽度、strict TS、lint0错误1既有warning、正式后台build通过。独立关键规则审查完成；手机成功提示拦截触控已修复并回归。仅合成写入，实体iPhone／弱网未测；正式发布与完整CI另记PROJECT_MEMORY。仅同步38个获授权代码／测试路径，本地商品未上线任务保留。
+
+正式main **0fa8c86fe3b30df0d41e7e95c549ca39cacd1090**、38 Git blob与冻结源码一致，其他288路径保留；Vercel **dpl_J9S19zouZYJocjRYVcHntoU5YtN1** READY／production／两域名。CI **37326963799** attempt2 completed／success：319业务、138 Linux Chromium／WebKit（9.4m）、lint、strict TS和正式build通过。首轮137／138，原有旧站fallback快跳转发生一次net::ERR_ABORTED；原测试及运行时代码未改，官方Playwright1.63 Linux arm64／1CPU重复6项通过，再同SHA完整复跑通过。正式Chrome只读核对四组设置、3工单归属／通知计数、筛选／历史和阶段下单入口，以及四宽度44px／无整页横溢。login200部署匹配／匿名state401；无生产业务写入，实体iPhone／弱网未测。证据.local/repair-four-groups/；另一本地客户销售改动保留，未随本轮发布。
+
+<a id="2026-10-05-当前决定维修阶段与分组逐一对应"></a>
+
+## 2026-10-05 历史实现：维修阶段与分组逐一对应（四组已覆盖）
+
+九个可选维修阶段分别进入同名分组，保存成功后展开／恢复焦点并调整会隐藏该单的筛选；统一旧分组名称，保留顺序调整和独立配件分组。实际采购／通知／欠款与交还不覆盖阶段，旧跟进只投影已确定事实。详细映射和旧配置兼容见[维修与客户闭环](10-work-order-customer-loop.md#2026-10-05-当前决定维修阶段与分组逐一对应)，本轮验收及发布见PROJECT_MEMORY最新节；下方旧映射仅历史。
 
 ## 2026-10-04 工单简化、报价跟进与返回恢复
 
@@ -90,7 +344,7 @@
 
 用户要求优化至本轮计划完成并推测试分支。P1/P2/P3工程范围完成：鉴权轻量核对、页面摘要/全部计数/稳定分页/跨页候选、详情/原图/历史按需读取、请求隔离SSR、正式/预览拆分及最小命令依赖/回执/关联补查。保留最新main的账号与维修项目批次，权限、事务、幂等、历史和图片质量不降级。后续规范写入AGENTS、docs06/16及公开PERFORMANCE.md。详细实现、测试条件与目标状态见[计划20第二批](20-performance-optimization-plan.md#第二批页面读取与最小命令2026-10-03)。
 
-以main bedc26e为基线，30暖样本5,000工单响应5,362,541→117,321B（-97.81%），请求P95 969.0→79.5ms；普通保存P95 1837.5→76.4ms。各30浏览器样本，正常/弱网打开并展开P95 9951.1→564.3ms / 41212.0→856.2ms；弱网候选首次浏览器缓存冷2,303.1ms。实验室LCP/EventTiming不能替代真实用户P75/INP，首次摘要缓存未命中2.9秒与脚本量+4.6%保留限制，不宣称所有目标达标。
+以main bedc26e为基线，30样本5,000工单响应5,362,541→117,321B（-97.81%），请求P95 969.0→79.5ms；普通保存P95 1837.5→76.4ms。各30浏览器样本，正常/弱网打开并展开P95 9951.1→564.3ms / 41212.0→856.2ms；弱网候选首次浏览器缓存冷2,303.1ms。实验室LCP/EventTiming不能替代真实用户P75/INP，首次摘要缓存未命中2.9秒与脚本量+4.6%保留限制，不宣称所有目标达标。
 
 283业务PASS/1私有导入skip、严格TS、lint0错误/1既有warning、正式build；44真实本地API、26恢复、54公共双浏览器、18页面/并发/权限/原图场景及12组正式页面功能/性能通过。独立专项审查发现项均已修复。分支`codex/performance-optimization-20261003`最终04eb5a5ea9deb43750c6c067992e08945e29ded1、[PR26](https://github.com/kyox215/Chinatech-codex/pull/26)，289公开文件字节一致，push37082771997/PR37082775265 CI均success。main bedc26e和生产未改；测试副本原3117与其他业务fixture保留，本轮3151/3152/3153已关闭，专属合成门店及Auth/accounts已清理。证据`.local/performance-p2/verification-summary.json`。真实线上P75/CLS、函数冷启动及实体设备仍需部署后测量。
 
@@ -757,6 +1011,166 @@ Google后续选择：用户明确复用ChinaTech OS原入口、确认同一个Go
 
 维修采购本地收尾：35文件已安全合回root，保留并行账号／性能代码；分页前联系筛选、跨页采购候选和回执／临时scope兼容已补。root TS／282单元PASS+1opt-in skip／lint0err1warning，冻结273文件20组真实API通过。其他线程后续4个列表UI／性能集成改动未纳入本轮UI证据，未回退或夹带35文件正式发布。本轮3144／3145已停止，原3117保留。完整边界见计划22。
 
+## 2026-10-04 商品名称／售出排序与简化列表
+
+按本轮截图要求，在售默认名称A–Z，已售默认售卖时间倒序；旧历史沿已有拿走日期，未知末尾，正式销售用登记时间。列表删除重复分类／ST等编号／类型行及空字段“未记录”，有值号码、识别码、日期与价格保留；真实零金额不丢，编号搜索和详情完整资料可追溯。共享列表索引在分页前完成排序，其他状态与原显式排序保留；规格见[历史整机21](21-seatable-retail-history.md#2026-10-04-商品排序与列表精简)。
+
+仅本轮5个代码／测试文件发布，规格及执行记录保留项目内；排除已有本地InputControl改动，保护其他main路径。独立候选296业务、8双浏览器、四宽度和排序／筛选／搜索／刷新／详情返回通过，strict TS／lint零错误1既有warning／正式build通过。截图已查看，均合成数据，无生产业务写入，实体iPhone未测。正式发布与CI结果见下文，证据`.local/retail-sort-simplify/`。
+
+正式闭环：基于教程更新main e63ddf62保留其他300路径，仅5源码／测试文件发布 **74eeeb572457869fac0a83eed1904e6d4609896a**，Git blob与冻结验收内容一致；合入后正式build再次通过。测试经自动审批提示后改用页面演示登录，未上传认证字面值；内部文档和执行记忆按审批结果仅保留本地。CI **37208912406** completed/success，所有门禁通过；Vercel **dpl_8GLPfPAgt5357B8zzcqVEJVFaiVw** READY/production/两域名，login200部署匹配、匿名state401。正式Chrome只读确认81／1264／48和在售50条名称升序／已售50条原拿走日期倒序、空标注及重复分类标签已移除；未存客户号码或识别码，无生产业务写入。3126已自动停止，原3121保留；实体iPhone未测。本轮完成。
+
+
+## 2026-10-04：全项目输入框状态与维护声明
+
+依据用户给定的输入框四态参考，普通输入统一默认、聚焦、错误和已填，补齐禁用、只读与提交状态。新增 `InputControl`／`TextareaControl` 与 `control-feedback`，原 `SearchCombobox`、`SelectControl`、`IdentifierField`／`IdentifierScanner` 内部复用；账号、客户／客户设备、维修、采购、整机、供应商／收支／员工设置迁移。当前静态索引42个使用文件、146处共享控件引用（不等于运行时字段数）；业务组件无绕过公共实现的原生文本输入。标签与具体示例保留、紫色聚焦、字段下方原因／改法、关联 aria、原更新入口清空、提交时锁住草稿和失败重试一致；已填不伪称保存成功。金额／数量／规格范围、未知 null 与实测0、候选关联、权限和服务写入边界沿原领域规则。
+
+独立只读审查发现隐藏扫码必填会拦父表单，已按打开状态禁用并补维修、整机建档、识码查询反例。实际浏览器另修复新错误行改变按钮位置导致 Safari 显隐点击丢失；原生气泡改为就地反馈、首个错误聚焦。既有总错误断言改为具体字段关联断言，仍核对不发生部分保存、失败输入保留及成功刷新。维护要求已写入根／组件 AGENTS、[组件规范06](06-ui-components-and-styles.md#输入框状态与维护声明2026-10-04后续功能必须遵守)和联动规范16；ESLint拒绝新增文本类 input／textarea／select 绕过共享控件，专用类型例外。故意违规样例4处被拒绝的检查通过。错误文字提取既有深红为 `--danger-text`，边框仍沿原危险色；末次4项双浏览器／四宽度定向检查验证小字号错误文字对白底对比度至少4.5，布局与点击继续通过。
+
+验证：Node24.19.0 下296业务测试、118完整 Chromium／WebKit 浏览器用例全部通过（无跳过或重试），strict TS、lint零错误／1既有导航 warning、Supabase-mode 正式构建通过。1440／1024／390／375 的账号及维修／采购／整机／门店设置共40组视口检查；代表模块补32组真实输入点击，关闭瞬时菜单并待侧栏退场后截图，2个补验用例通过，已查看电脑与手机截图。手机输入16px、主要目标44px、无页面横溢；空登录0 POST、提交锁定期间仅1 POST、503后保留原输入且可发第2次重试。仅本地开发预览与虚构数据／受控失败响应，这些是请求与布局证据，不是线上INP指标。未操作真实账号、外部消息或生产业务数据，未测实体iPhone／第三方输入法；上述为发布前本地验收；后续上线见下文。证据 `.local/input-states/verification.json`、`browser-results.json`、截图和日志；修改前快照与验证源码摘要也在该目录。
+
+
+最终发布闭环（输入框）：用户明确“推送上线”后，以最新教程main5d362eba为父基线，只合入46个源码／测试／公共规范文件，保留其他262个跟踪路径；首批2381809、初始化补丁595c958，最终main **595c95846a24726ecb9ce3d207a3586e9ded68e2**，Git树与冻结验收内容一致。输入状态维护规范06／16及ESLint门禁随源码发布；执行记忆与本进度结果仅在项目内补记。
+
+首轮云端117/118：注册页在React事件接管前即允许填值，失焦时空的受控草稿覆盖第一次输入。4类公开账号表单共用 `useFormReady`，初始化前锁住输入、显隐和提交，准备后才启用；新增延迟脚本与首次输入保留反例，原密码错误／确认不一致／修正断言不放宽。补验44项双浏览器、strict TS、lint和正式模式构建通过。
+
+最终CI **37232434099** completed／success：296业务、120完整Linux Chromium／WebKit（无重试或跳过）、lint／TS／正式构建全部通过，既有1条导航warning保留。Vercel **dpl_4mTt1Hz6mpMUuH3CXhKgZTqy7KWf** READY／production／chinatech.in和www；官网HTML部署ID与main匹配，8组双浏览器四宽度四态／清空／显隐及注册共享输入通过；登录、注册、找回密码、验证邮箱8组延迟脚本检查验证初始化锁定和第一次输入保留。login200、匿名state401、主域308正确，电脑与手机模拟截图已查看。请求保护记录0生产写入，未创建账号、发送邮件／短信或修改真实业务；实体iPhone／第三方输入法及线上性能未测。证据 `.local/input-states/published-verification.json`、`release-manifest.json`、`ci-final.log`、`production-checks.json`、`production-proof/`及原失败trace；3121已自动停止，本轮完成。
+
 ## 2026-10-06 商品少步骤闭环
 
 用户批准实施：单页新建默认待检测、已实检可建档可售；检测可合并上架；客户／实际收款／交付同表一次成交；未知成本、所有权、子权限、保修冻结和客户／打印／售后关联保留。现场已检并结清交付的正常路径两次保存、三个推进按钮，事实输入另计。独立后端与前端交叉审查，正式本地16组已验，最终发布候选结果见docs/30。
+
+
+### 2026-10-07 商品少步骤闭环发布验收
+
+商品单页建档／检测可售合并／客户实收交付一次成交及原打印回链已发布main672561217ed723f945d13fa6f469e1c185bb87d7，Vercel dpl_FNY8X5dAkW9MjMNFZAvZdzpMWnWn READY及双域名；保留工具箱，未合入登录设备。46限定路径／359其他blob保留。CI37546513630同SHA全部success：364业务、196 Linux双浏览器、3250键、TS／lint0错1旧warning／正式build；main重复37547878460未完成，不误报。
+
+正式本地17组及商品布局／三语教程通过；线上14HTTP／9媒体哈希与Range／现有Chrome四宽度只读入口均通过。自动审批限制正式选分类与打开售出表单，完整保存只在本地正式后台验证，无生产测试成交。原旧缓存测试两轮超时原因未确认，新增上游就绪准备，原断言保留；官方Linux30重复及最终全CI通过。零迁移／生产业务写入；实体硬件／真实弱网未验。详见[流程及思维导图](30-retail-simplified-workflow.md)、PROJECT_MEMORY与.local/retail-workflow-release/published-verification.json。
+
+2026-10-07 Windows preview.2 启动器修复已上线 main887c1e6 / PR29 merged：ASCII CMD、编码启动/Console三语、缺文件明确要求全部解压。两环境各18真实CMD、完整392unit/244浏览器CI、生产28浏览器/7filehash/Windows真实下载通过；dpl_FkS2iXnwTN4sfBB7mUG93Hb59ZtY READY，两域与现有IAB版本已核对。完整自动升级仍未开放；关联事实与证据见docs31及.local/windows-toolbox/launcher-fix。
+
+## 2026-10-07 登录状态闭环修复
+
+已登录保留公开首页，入口按实际账号/项目会话/门店状态切换；首页各CTA及工具箱同源。已登录登录/注册分流、待授权重核与撤销反例、服务故障重试、跨标签与迟到结果隔离、只读无Cookie/不续期一并处理。复用及接口见docs06/16/29；真实本地与浏览器证据.local/auth-loop/。发布需当前main祖先、同SHA CI与正式状态验收，不能把本地成功当上线完成。
+
+正式发布补记：main49c0d5f／PR30 MERGED，同SHA CI37682861546成功401单测＋252 Linux双浏览器、类型/i18n/lint/build；Vercel dpl_H8PRerP3CzUzf8Xkbpgy81t3q1TS READY生产两域。当前Chrome真实会话返回首页及工具箱三入口正确，登录/注册直达工作台；正式匿名HTTP与三语四宽度通过。证据.local/auth-loop/published-verification.json，完整限制见PROJECT_MEMORY。未撤销真实设备或修改业务数据。
+
+
+### 2026-10-08 Office桌面助手VM测试
+
+用户要求专用VM尽可能找问题，并允许仅该VM使用Windows UI Automation；修复版0.1.1、实际四流程及13项WPF反例/布局/导出、5文件保留、51项C#与29PS反例记录见[VM审查报告](office-desktop-vm-audit-20261008.md)。后台仍未发布、EXE未签名；不复用本轮证据冒充网站全仓发布门禁。
+
+
+2026-10-08 Office桌面助手发布准备：36文件隔离候选7f36421，新增下载卡及SHA/三语说明。本地正式build/TS/lint/i18n/405单测、下载面板24布局通过，独立权限复核通过。生产仅新增4私有FORCE RLS表与独立production签名变量，正式网站尚未部署。公开仓库push遭自动审批拒绝，源码公开授权已询问待答；不把准备状态当上线。详PROJECT_MEMORY及.local/office-desktop/release/release-prepared.json。
+
+## 2026-10-08 Office命令实测继续（本地候选）
+
+Office候选已合入main49c0d5f；三语教程、Skype选项录制和实际播放同步，20双浏览器、404单测／1既有skip、三语／类型／lint／正式构建通过。实际用户Word／Excel／PPT样本及六应用启动通过，SYSTEM失败记录保留；OneDrive已配置账号，未新启动同步。无Skype重装仍被自动审批拒绝，0次执行，待完整直接授权句。两终端实装／重启／正式命令矩阵未全验，未推送部署。UI继续复用原segmented-control／button／PublicHeader，无新主题／公共控件。详细证据见docs31与PROJECT_MEMORY，不能以视频图示或接口替身替代实装。
+
+
+## 2026-10-08 公开首页具名账号菜单
+
+用户要求看见当前账号，点击展开资料／设置并保留工作台、退出。已增加同源具名菜单，展示本人canonical姓名／真实主邮箱／有效门店角色，未获权和故障状态正确隔离；账号设置与登录设备复用既有入口，异步定位补齐。身份通知立即清资料并隔离迟到旧请求，手机44px及三语长文已核。源码、闭环和验收见docs06/16/29；本地隔离405单元（1既有skip）、16＋58双浏览器、真实Auth十组及TS／i18n／lint／正式build通过，证据.local/account-menu/。发布状态另记，不能把本地测试当线上结果。
+
+
+2026-10-08正式发布：main7f36421、PR31 MERGED、完整CI37701448779 success（406单测/252浏览器/3444词条）及Vercel dpl_Cz8rWWszug5uVSFp3jjw5DZYk6Np READY，两域和实际下载通过。Office页新增三语0.1.1 x64/ARM64入口；账号设置由既有指定管理员生成/停用/重开，Native加密/并发/幂等和重开后旧token仍401闭环通过。4测试key均停用、无本轮Office执行/业务写入，全局Officeepoch4保持。签名变量服务器私有，EXE未数字签名。重复CI的一次既有WebKit点击时序失败及测试harness误差证据保留，详情PROJECT_MEMORY与.local/office-desktop/release/published-verification.json。
+
+
+正式发布补记（2026-10-08具名菜单）：main82f9b4b／PR32 MERGED，19限定路径正常FF保留Office；精确SHA CI37704855734 success（410单元零skip、260 Linux双浏览器16.0m、3451三语键、TS／lint／正式build）。Vercel dpl_G1f1fL3zqwDCvixXT1rFB7z9riZm READY/production/两域；正式anonymous五字段、formal:true、零Cookie／个人资料已核。生产10HTTP与96公共布局零实际异常，现有Chrome真实账号的首页／工具箱具名菜单、详细资料、设置和设备hash定位通过；未记录个人值、未退出或撤销真实设备。12次本地HTTPS状态样本中位130ms／最大161ms仅为本地实验条件。实体iPhone未测；本次无迁移／生产业务写入。证据.local/account-menu/published-verification.json；测试账号／店剩0，自建3181/3182/3183已停。
+
+
+## 2026-10-09 公开导航工具箱与退出位置
+
+按用户截图要求，右侧统一工具箱图标及可见文字，独立退出收进既有账号详情，左侧具名账号／工作台继续保留。手机语言不再挤顶行账号；1024长导航另排，品牌可返回首页。只调整公共UI和相关回归，未改认证／权限／数据协议。隔离候选基于正式main695f6c6，根未上线UI状态／目录／Office等工作保护。验证与发布状态见PROJECT_MEMORY及.local/public-header-menu/；详见docs06／16。
+
+
+正式发布补记（2026-10-09公开导航）：main5c2ea59／PR36 MERGED／CI37860235875 success（417业务、290浏览器、3590词条及TS／lint／build），Vercel dpl_AmNR4A1kM6GhwsXzMVWfBTb7Q6cD READY/production/两域。正式11HTTP和120三语四宽双浏览器布局通过；现有Chrome真实账号菜单内退出1、菜单外0，资料／设置／设备／工作台、工具箱实际导航及返回刷新登录通过。未执行真实退出／撤销或写业务数据，实体iPhone未测。保留此前Linux布局／测试滚动失败及最终修复证据；详.local/public-header-menu/published-verification.json。
+
+## 2026-10-09 ChinaTech通用安卓助手0.3
+
+按用户要求研究5厂商家族7个既有代表APK及LocalSend/Syncthing公开协议，复核摘要与定向反编译网络类，借鉴公开机制；闭源源码未复制或分发。自主客户端双向可授权资料迁移、真实网关/网络句柄、实时扫码及回退、系统VCF完整字段、图库独立账本与未公开副本安全恢复；修复批量选择与界面勾选不一致。没有总10000项/批准2h上限，有限自动重试保留。
+
+最终APK0326b05a…20da2、204 JVM/216 Android16模拟器/161三语键通过；网站复用公开导航与下载语义，三语同步，旧APK保留。全品牌真机、旧API/光学QR/自动热点加入、系统联系人实际导入未验，私库/安装/块级续传未实现。详[研究与实施](android-assistant-v3-research.md)及PROJECT_MEMORY发布事实。
+
+正式完成补记：2026-10-09 main52d47cb／PR37 MERGED，CI37864254780完整success（417业务零skip、290浏览器14.8m、3601词条、TS/lint/正式build）；production dpl_Hot8xtJvjeHLpA9GHKkf6sHKmKzR READY，两域/HTML与同SHA核对；正式30双浏览器+2无JS真实下载、8HTTP/最新APK全SHA/Range206/说明原字节/旧资产通过。无生产业务写入，真机与原生未实现范围保留。证据.local/android-assistant-v3/published-verification.json；本轮3213和两AVD已停。
+
+## 2026-10-09 Smart Switch lab4原版界面
+
+恢复原Launcher／首页／无线阶段原布局，接入CTSS5/6真实目录选择和发送确认、通知／取消／冻结选择重连。最终两APK及两模拟器真实传输／回执通过；物理HONOR与其他品牌、热点自动加入／光学QR待验。已上线main a9572de／PR39，精确CI417业务／290浏览器和正式30浏览器／2无JS下载／20HTTP通过；两版本独立原界面两机传输已验。详[规格](smart-switch-original-ui.md)及本轮published-verification.json。
+
+
+### 2026-10-10 Office 桌面助手准入开关（本地候选）
+
+暂停仅拒绝新会话，旧会话按原期限继续；不改旧Office总开关epoch/密钥revision。复用account panel/form/button/token及原账户身份边界，新增独立OfficeDesktopControl，不引入主题或控件库。后台真实本地Auth/API与双浏览器保存/刷新/丢失响应恢复/三语四宽32项通过，实际WPF联网检查与断网恢复11项、SQL10组、HTTP8组和C#56项通过；不代表物理x64或本轮Office安装验收。源码79836d0/21限定文件已备，783其他blob保留，自动审批要求明确本轮新增源码公开授权，尚未迁移或发布。详docs/office-desktop-assistant.md和.local/office-admission/prepared-verification.json。
+
+
+## 2026-10-10 Office0.2免输入联网准入（本地候选）
+
+用户选择无密钥、登录和验证码，启动联网后展示工具；网站暂停新启动或最低版本拒绝旧版，已有会话保持原expiry最长1h且已开始任务完成。手动官网下载更新；0.1.1需一次人工更新，旧v1会话仍受旧总开关／密钥控制。0.2保留AES包／runner指纹、原安全操作和恢复报告，后台移除密钥生成入口。只有具体版本完成两文件完整SHA才可设置最低版本，发布标记由受信任管道持有。实际本地Auth／RLS／HTTP、双浏览器与WPF证据分开，未写生产／公开源码／发布Release。最终记录见[规范](office-desktop-assistant.md)、[发布交接](office-desktop-0.2.0-release.md)及PROJECT_MEMORY；不是Office安装／许可验收。
+
+
+## 2026-10-10 Office0.2已正式发布
+
+本日随后VM复验发现管理员资格误判，修复仅本地候选：同管理员账户普通启动的UAC limited token允许进入确认，Worker仍需真实提权。独立审查、严格双架构/80协议、实际2000次资格/句柄216→216通过。继续测试已实过联网、检测/按钮、三操作确认语义No取消、真实脱敏JSON保存核对、中意英、意大利语页尾滚动、跨架构重复exit3、x64兼容层联网检测及正常关闭/ARM64重开；初次坐标审批拒绝已由公开代理初始化与可验证控件解决，不再等手工取消。Office操作0/两记录保持不存在，公开0.2.0字节未换；标准/提升账号、实体x64和实际Office操作许可仍待验。最新证据、截图与候选见PROJECT_MEMORY和Office规范。
+
+用户已明确确认公开本轮30路径与上线。main正常FF d2f53bf／PR42 MERGED，原两完整CI成功433unit／320浏览器；生产限定两迁移经SQL摘要／权限独立复核通过，旧总开关epoch4/rev3及旧数据保持。GitHub双EXE首次及官网实际按钮二次全文SHA/大小通过，24三语四宽布局及生产HTTPS准入／最低版本426／暂停403／旧会话原期限和AES任务／恢复200通过；受信任放行verified0.2后由真实管理员UI设min0.2并恢复开启，刷新保持同一事实。最终Git main生产dpl_9wfCqD8gwFs6QQCtJ5bL8HiuSuy7 READY／两域。
+
+专用Windows ARM64原生及x64兼容层正式EXE均真实无参数自动联网进入，两记录原本不存在，启动保持未创建；已有记录保护另有本地合成测试，未点Office动作；无实体x64／重复Office实装许可验收，仍未数字签名。main38066278657与tag38065326528自动CI均success，连同PR/push共四次完整同SHA成功（433unit零skip／320浏览器）；Release已稳定，三语README从实际地址下载字节一致；证据.local/office-public及[发布记录](office-desktop-0.2.0-release.md)。
+
+
+## 2026-10-11 Office0.2.2持续迭代（本地未发布）
+
+用户授权持续改进及专用VM测试。已修正常用预检/错误恢复/会话时间边界、大小写及附加应用文件保护，并新增按已验证客户端版本固定runner归档及SHA，保持旧会话/UUID/原期限、不扩大移除范围。0.2.1生产与下载保持；0.2.2未发布、正式准入未扩。根30 Node、第二轮176 C#/57 Windows AST与双RID构建/正式元数据通过；后台真实受限SQL/HTTP及精确清理通过。
+
+首轮00b061冻结包实际SYSTEM执行器完成许可核验、卸载、安装、重装；安装/重装明确未激活，Skype与合成文档保留，真实三应用只读读回通过。最新89dc包仅构建/逻辑反例与GUI可读性检查，尚未重复完整实装。普通GUI→UAC全链没有启动，不算通过；标准账号、真实许可、实体x64及中断/重启恢复待验。详[专项报告](Office桌面助手优化报告-20261011.md)、PROJECT_MEMORY及 `.local/office-iterations-20261011/`。持续goal active，后续按真实反例迭代，不自动发布或恢复旧网页KMS路径。
+
+
+## 2026-10-11 续迭代：任务恢复与取消句柄（本地未发布）
+
+0.2.2最新runner b532c8d4…b32d70，24输入冻结round5，与根一致；Formal ARM6473d49e…cd5/x64b50e752…044，DEV6b1db696…4b7。RequiresRecovery三类未知/系统保护统一保留记录；取消事件及原工作进程同一SafeHandle持有至结束，PID/创建ticks核对，失联或句柄关闭停止下一安全边界，等待当前ODT结束。089bb的disposed-owner实际反例失败保留，未改原断言，b532的57+14真实Windows检查71通过。实际RecordResult六态、30Node、双RID183CLR/正式元数据/无开发类及定向lint通过。
+
+旧89dc实卸载67s/无套件许可拒绝/安装172s完成；最新b532实SYSTEM worker/DPAPI/管道/PS/官方ODT完整重装241s，任务收口INSTALLED_UNLICENSED，Skype及合成docx/xlsx/pptx SHA保留，当前用户真实三应用只读读回内容通过。另当前用户Word占用诊断与完整脚本预置取消/ODT0通过；SYSTEM COM失败、测试器.txt后缀/传输回执/编码失败保留而非通过。最终无Office/setup/候选进程/unfinished/3258/主机3259，自有服务已停，防护与共享不改。后续只读许可查询licensed=true，但未执行activate，状态变化来源及权益未验，任务历史原false保留。
+
+普通GUI/UAC及界面结果记录、最新候选另外独立三操作、真实ODT取消/断网/进程失联/重启恢复、实体x64/x86/许可权益/代码签名未通过。正式0.2.1/catalog/最低版/SQL上限/生产不改；旧版本和v1固定65061…7cad，未发布022显式固定b532，不能自动跟current。报告与证据：docs/Office桌面助手优化报告-20261011.md、.local/office-iterations-20261011/verification.json及round5/。持续goal active。
+
+
+## 2026-10-11 Office0.2.1主流浏览器与Windows启动复验
+
+专用Win11 ARM64：Edge154双包不常见下载信誉警告；Chrome155/Firefox157官方签名ARM64浏览器真实官网四下载完成、SHA/大小/MOTW正确，无浏览器拦截。正常Explorer首次打开，两ARM64实显SmartScreen未知发布者并选择不运行；两x64通过兼容层实际启动、联网进入操作页，随后正常关闭。IE入口转Edge，Win11独立IE不可验，IE mode未测。
+
+Defender/实时/三防火墙与默认下载保护保持，相关检测记录为空；未绕过、无Office操作/源码或生产变更。已有VM不是新系统信誉基线、实体x64/第三方杀毒未验；未签名仍是分发风险，后续优先可信签名但不保证即时消警。保留另一任务DEV4880及原窗口，自己的3247服务已停。详细证据和限制见[浏览器报告](Office浏览器验证-20261011.md)及PROJECT_MEMORY。
+
+## 2026-10-11 Office代码签名接入准备（本地，未签名发布）
+
+新增独立release工具，冻结双架构正式构建与SHA，拒绝旧版本/开发包/变化输入；传统证书与Artifact PublicTrust配置、SHA256/RFC3161签名、完整预期发布者/EKU/可信时间戳/WinTrust/微软SignTool严格验证，全部原始程序内容绑定和最终签后SHA。双包通过才写结果，releaseReady=false，仍须真实应用与浏览器验收。独立审查的内容替换及提交后清理误报两项已修，最终复核无新实质绕过。
+
+Python18、实际Windows三源解析/13拒绝/20模拟证书区载荷检查通过；原文件SHA不变。执行策略Restricted未改，AST源码测试不能当正常ps1链或真实证书签名通过。最终防护开启，双证书库可用私钥0/SignTool空，无签名输出；自己的3267已停，另一任务DEV4880保留。未购证/云登录/信任根写入/Office操作/生产更新，正式021与并行022不改。等待实名证书或已验证服务配置及受控签名机，详细[接入记录](Office代码签名接入-20261011.md)与.local/office-signing-20261011/verification.json。
+
+
+### Office完整计划与边界验收 2026-10-11
+
+本地0.2.2接入确认快照、完整语言媒体与最终核验、确认后会话和卸载后媒体复查、已知失败的移除检查点；每SKU与目标容量一致，严格JSON/深拷贝及三语同步。43冻结输入与根一致，双正式各1310CLR/PE、30Node、类型/定向lint/三语、Windows89+80范围及5真实Native拒绝/3PS结果读回通过，范围重叠；媒体/移除边界为替身，未算真实Office/GUI/UAC。当前LYNC缺失门禁保留，六程序/三合成文档保持，0生产/Office写入。夹具PSObject排序失败保留，修类型后原断言过；构建来源及复用见[验证](../.local/office-iterations-20261011/round24/verification.json)，详细[规格](office-desktop-assistant.md#完整确认计划与媒体边界-round24)。原UIA请求待答复，实际Skype/语言保留及真实恢复仍未齐。
+
+
+### Office ARM媒体与架构失败闭环 Round25 2026-10-11
+
+本地0.2.2从可信CIM区分原生ARM与x64 Office，ARM三文件必需，未知架构拒绝；移除后该错误继续保留明确未安装检查点，三语不再误称未开始。44冻结输入与根一致，f264新档/正式65061旧档保持；双RID各1315CLR/PE、30Node/类型/lint/三语、最终101PS、8实际微软媒体副本检查过，89未变执行器证据复用；移除是替身，不当真实Office验收。最终候选实际诊断Skype缺/许可只读licensed，未激活或验证权益。真实媒体18文件和六程序/三文档保持，0生产/Office动作。下一步完整基线/最新GUI与真实四操作/恢复及合法测试许可。详[验证](../.local/office-iterations-20261011/round25/verification.json)、[面向用户的报告](Office桌面助手下一步优化报告-20261011.md)。
+
+## 2026-10-11 Office签名工具源码发布
+
+用户明确授权发布上线。10路径工具/说明/CI白名单，813原blob保持，main正常FF775b673、PR44 MERGED；同SHA两完整CI38133446378/38133464425 success（Python18、PS5.1三源解析、436Node零skip、320浏览器、3656词条/strictTS/lint/build）。main第三次同源CI取消并复用既有成功，不当第三成功。正式Vercel dpl_7KZY6UidZkWb5poBNMNjS1p1zCoT READY/同SHA/两域；5公开GET、双下载链接/控制状态、五旧Release资产记录与公开README字节核对通过。
+
+发布是签名工具源码与说明，不是新的可信签名EXE；0.2.1仍未签名、022候选不合入，无证书办理/Office操作/数据库变更。预览READY但正文未取得，临时分享旁路fetch被自动审批以可能暴露保护内容拒绝，未绕过/改保护；CI与公开正式验证分开记录。详[接入记录](Office代码签名接入-20261011.md)、[PR44](https://github.com/kyox215/Chinatech-codex/pull/44)与.local/office-signing-publication/published-verification.json。
+
+
+### Office Skype 修复准备复核 2026-10-11
+
+同版本官方索引与原件摘要相同，完整描述器未揭唯一排除条件。独立复核修准备包目的setup验签/SHA与末尾9文件核验，fresh目录实际VM预检过；18媒体/9文件保持，修复前快照实时确认，未调用ODT。候选44输入/R25证据继续适用，不新增构建或全测。已请求仅移除重加缺文件Skype的范围确认，默认保留策略不变；移除后原ProPlus/语言/文件检查不过不得Add。0新Office动作/激活/生产变更，实际四操作、最新GUI/UAC仍未齐，goal active。[证据](../.local/office-iterations-20261011/round26/verification.json)。
+
+
+### Office 重装衔接独立激活 2026-10-11
+
+未发布候选接两个既有动作：保存重装→新鲜状态/许可→新UUID/独立activate授权，失败仅重试激活，不重放卸载。UI锁/取消/两步骤历史与三语同步；三独立复核缺口已修，原7矛盾复现全拒。48源码冻结，双RID各1450CLR/PE、30Node、Windows135纯输入模块及当前DEV只读诊断过，范围重叠；9文件保持、LYNC缺，新GUI/UAC和实际四操作仍未齐。runner/Native/API与生产未改。初始测试与RID/restore失败保留修后过。[验证](../.local/office-iterations-20261011/round28/verification.json)。
+
+### Office 1.3 Fluent界面（2026-10-13）
+
+按用户推荐实施，先预览再原生，内置Fluent控件/应用选中卡/独立管理/固定底部进度。执行器与范围守卫不变；当前预览198组与严格编译通过，真实Windows合成布局/完整CI及发布待完成。详[1.3记录](Office助手1.3Fluent界面与上线20261013.md)。

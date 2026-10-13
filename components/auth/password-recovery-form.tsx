@@ -1,4 +1,5 @@
 "use client";
+import { notifyAuthChanged } from "@/lib/auth-events";
 
 import { useLanguage } from "@/components/language-provider";
 import Link from "next/link";
@@ -51,6 +52,7 @@ export function PasswordRecoveryForm({ reset = false, supabaseMode }: { reset?: 
       const response = await fetch(reset ? "/api/auth/reset-password" : "/api/auth/forgot-password", { method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store", body: JSON.stringify(reset ? { password } : { email: form.get("email") }) });
       const payload = await response.json() as { message?: string };
       if (!response.ok) throw new Error(payload.message || "请求未完成，请稍后重试。");
+      if (reset) notifyAuthChanged();
       setPassword(""); setConfirmPassword(""); setPasswordChecked(false); setConfirmChecked(false); setComplete(true);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "网络连接失败，请稍后重试。"); }
     finally { setSubmitting(false); }

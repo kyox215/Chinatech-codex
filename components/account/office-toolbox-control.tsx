@@ -41,7 +41,7 @@ export function OfficeToolboxControl(){
   return <section id="office-toolbox" className={`panel ${styles.card}`} aria-labelledby="office-management-title" aria-busy={loading||saving}>
     <div className={styles.cardHead}><h2 id="office-management-title">{t('网站工具箱管理')}</h2></div>
     <div className={styles.form}>
-      <p className={styles.muted}>{t('此开关控制全站 Office 命令，仅网站管理员可操作。')}</p>
+      <p className={styles.muted}>{t('此总开关控制网站 Office 命令和桌面助手授权；关闭会禁止已有会话的新操作。')}</p>
       {loading&&!data?<p role="status">{t('正在读取工具箱状态…')}</p>:null}
       {data?<><p>{t('Office 命令状态')}：<strong>{t(data.enabled?'已开启':'已关闭')}</strong></p><p className={styles.muted}>{t('关闭后当前全部新版命令失效，重新开启需要生成新命令。已开始的操作不会被强制中断。')}</p>{!data.keyConfigured?<p role="alert">{t('签名服务尚未配置，不能开启命令。')}</p>:null}
       <button type="button" className="button button--primary" disabled={loading||saving||!!error||(!data.enabled&&!data.keyConfigured)} onClick={()=>setIntent({enabled:!data.enabled,revision:data.revision,requestId:crypto.randomUUID(),scope:data.accountId+':'+data.sessionId})}>{t(data.enabled?'关闭并作废当前命令':'开启 Office 命令')}</button></>:null}

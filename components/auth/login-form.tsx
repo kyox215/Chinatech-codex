@@ -8,6 +8,7 @@ import { AlertCircle, Check, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from
 import { InputControl } from "@/components/input-control";
 import { useFormReady } from "@/components/control-feedback";
 
+import { notifyAuthChanged } from "@/lib/auth-events";
 import { SocialSignIn } from "./social-sign-in";
 import styles from "./auth-experience.module.css";
 
@@ -68,6 +69,7 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
         setError(payload.message ?? "登录失败，请稍后重试。");
         return;
       }
+      notifyAuthChanged();
       router.replace(supabaseMode ? "/account/pending" : "/app/dashboard");
       router.refresh();
     } catch {

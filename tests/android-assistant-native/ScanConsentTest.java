@@ -1,0 +1,4 @@
+package in.chinatech.phoneassistant;
+public final class ScanConsentTest {
+ public static void main(String[] args){int n=0;ScanConsent a=new ScanConsent();if(a.consume()!=null)throw new AssertionError();n++;boolean[] selected={true,false,false};a.request(selected);selected[1]=true;boolean[] state=a.saved();if(state[1])throw new AssertionError("copied choice");n++;ScanConsent recreated=new ScanConsent();recreated.restore(state);state[2]=true;boolean[] consumed=recreated.consume();if(!consumed[0]||consumed[1]||consumed[2])throw new AssertionError("recreation widened scope");n++;if(recreated.consume()!=null)throw new AssertionError("callback replay");n++;recreated.restore(new boolean[]{true});if(recreated.consume()!=null)throw new AssertionError("invalid saved state");n++;recreated.restore(null);if(recreated.saved()!=null)throw new AssertionError();n++;System.out.println("{\"kind\":\"scan consent state reconstruction\",\"assertions\":"+n+",\"status\":\"passed\"}");}
+}

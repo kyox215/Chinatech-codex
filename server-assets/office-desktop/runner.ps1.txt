@@ -1,0 +1,188 @@
+param([ValidateSet('install','activate','uninstall','reinstall')][string]$Action,[string]$JobDirectory)
+$ErrorActionPreference='Stop'
+$PSModuleAutoLoadingPreference='None'
+foreach($module in @('Microsoft.PowerShell.Management','Microsoft.PowerShell.Utility','Microsoft.PowerShell.Security','CimCmdlets')){Import-Module -Name ($PSHOME+'\Modules\'+$module+'\'+$module+'.psd1') -ErrorAction Stop}
+Set-StrictMode -Version 2
+[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
+$script:phase='inspect'
+$script:result=[ordered]@{status='error';code='UNEXPECTED_ERROR';stage='inspect';exitCode=$null;licensed=$null;startedAt=[DateTime]::UtcNow.ToString('o');finishedAt=$null}
+$utf8=New-Object Text.UTF8Encoding($false)
+function Event([string]$Stage,[string]$Code='RUNNING') {
+ $script:phase=$Stage
+ $row=@{stage=$Stage;code=$Code;time=[DateTime]::UtcNow.ToString('o')}|ConvertTo-Json -Compress
+ [IO.File]::AppendAllText((Join-Path $JobDirectory 'events.jsonl'),$row+"`n",$utf8)
+}
+function Fail([string]$Code){throw [InvalidOperationException]::new($Code)}
+function Products {
+ $p=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration' -ErrorAction SilentlyContinue
+ if(-not $p){return @()}
+ $value=$p.PSObject.Properties['ProductReleaseIds']
+ if(-not $value){return @()}
+ return @($value.Value -split ','|ForEach-Object{$_.Trim()}|Where-Object{$_}|Sort-Object -Unique)
+}
+function SuiteProducts($Ids){return @($Ids|Where-Object{$_ -match '^(ProPlus|Standard|O365ProPlus|O365Business|O365HomePrem|O365SmallBusPrem|O365EduCloud|Professional|HomeBusiness|HomeStudent|Personal)[A-Za-z0-9]*$'})}
+function VerifyRetainedProducts {
+ $current=@(Products)
+ foreach($id in $retainedProducts){if($id -notin $current){Fail 'PRESERVATION_VERIFY_FAILED'}}
+ foreach($path in $retainedFiles){if(-not(Test-Path -LiteralPath $path -PathType Leaf)){Fail 'PRESERVATION_VERIFY_FAILED'}}
+}
+function PendingRestart {
+ if(Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'){return $true}
+ if(Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'){return $true}
+ $p=Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue
+ if(-not $p){return $false}
+ $value=$p.PSObject.Properties['PendingFileRenameOperations'];if(-not $value){return $false}
+ $renames=@($value.Value);$roots=@()
+ foreach($folder in @($env:ProgramFiles,${env:ProgramFiles(x86)})){if($folder){$roots+=@((Join-Path $folder 'Microsoft Office'),(Join-Path $folder 'Common Files\Microsoft Shared\ClickToRun'))}}
+ for($i=0;$i -lt $renames.Count;$i+=2){
+  $source=[string]$renames[$i];if($source.StartsWith('\??\') -or $source.StartsWith('\\?\')){$source=$source.Substring(4)}
+  $target='';if($i+1 -lt $renames.Count){$target=([string]$renames[$i+1]).TrimStart('!');if($target.StartsWith('\??\') -or $target.StartsWith('\\?\')){$target=$target.Substring(4)}}
+  foreach($path in @($source,$target)){foreach($root in $roots){if(($path.Equals($root.TrimEnd('\'),[StringComparison]::OrdinalIgnoreCase) -or $path.StartsWith($root.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)) -and ((Test-Path -LiteralPath $source -PathType Leaf) -or ($target -and (Test-Path -LiteralPath $source -PathType Container)))){return $true}}}
+ }
+ return $false
+}
+function OfficeBusy {
+ foreach($name in @('WINWORD','EXCEL','POWERPNT','OUTLOOK','MSACCESS','ONENOTE','VISIO','WINPROJ','LYNC')){
+  if(Get-Process -Name $name -ErrorAction SilentlyContinue){return $true}
+ }
+ return $false
+}
+function Cancelled {
+ try{$e=[Threading.EventWaitHandle]::OpenExisting('Global\ChinaTech.OfficeAssistant.Cancel.'+$job.id);try{return $e.WaitOne(0)}finally{$e.Dispose()}}catch{return $false}
+}
+function CheckCancel {if(Cancelled){Fail 'CANCELLED'}}
+function MicrosoftSigned([string]$Path){
+ $sig=Get-AuthenticodeSignature -LiteralPath $Path
+ if($sig.Status -ne 'Valid' -or -not $sig.SignerCertificate -or ($sig.SignerCertificate.Subject -notmatch '(^|,\s*)O=Microsoft Corporation(,|$)' -or $sig.SignerCertificate.Subject -notmatch '(^|,\s*)CN=Microsoft (Corporation|Windows)(,|$)')){Fail 'SOURCE_INVALID'}
+}
+function RunSetup([string]$Mode,[string]$Config){
+ MicrosoftSigned $setup
+ $p=Start-Process -FilePath $setup -ArgumentList @($Mode,('"'+$Config+'"')) -PassThru
+ $slow=$false;$started=[DateTime]::UtcNow
+ try{
+  while(-not $p.WaitForExit(500)){
+   if(-not $slow -and ([DateTime]::UtcNow-$started).TotalMinutes -gt 30){Event $script:phase 'SLOW_STEP';$slow=$true}
+  }
+  $code=$p.ExitCode;$script:result.exitCode=$code
+ }finally{
+  # A progress/error exception must never leave ODT running after the task lock is released.
+  if(-not $p.HasExited){$p.WaitForExit()};$p.Dispose()
+ }
+ if($code -eq 3010 -or $code -eq 1641){Fail 'RESTART_REQUIRED'}
+ if($code -ne 0){Fail 'SETUP_FAILED'}
+}
+function NewOfficeConfiguration([string]$Name,[string[]]$RemoveIds=@(),[switch]$Install){
+ $doc=New-Object Xml.XmlDocument;$root=$doc.CreateElement('Configuration');[void]$doc.AppendChild($root)
+ if($RemoveIds.Count -gt 0){
+  $remove=$doc.CreateElement('Remove');[void]$root.AppendChild($remove)
+  foreach($id in $RemoveIds){$product=$doc.CreateElement('Product');$product.SetAttribute('ID',$id);[void]$remove.AppendChild($product)}
+ }
+ if($Install){
+  $add=$doc.CreateElement('Add');$add.SetAttribute('OfficeClientEdition','64');$add.SetAttribute('Channel','PerpetualVL2024');$add.SetAttribute('SourcePath',(Join-Path $JobDirectory 'media'));$add.SetAttribute('AllowCdnFallback','FALSE');[void]$root.AppendChild($add)
+  $product=$doc.CreateElement('Product');$product.SetAttribute('ID','ProPlus2024Volume');[void]$add.AppendChild($product)
+  $language=$doc.CreateElement('Language');$language.SetAttribute('ID',@{'zh-CN'='zh-cn';it='it-it';en='en-us'}[$job.language]);[void]$product.AppendChild($language)
+  foreach($id in @('Lync','Groove','Teams')){$exclude=$doc.CreateElement('ExcludeApp');$exclude.SetAttribute('ID',$id);[void]$product.AppendChild($exclude)}
+ }
+ $display=$doc.CreateElement('Display');$display.SetAttribute('Level','None');$display.SetAttribute('AcceptEULA','TRUE');[void]$root.AppendChild($display)
+ $shutdown=$doc.CreateElement('Property');$shutdown.SetAttribute('Name','FORCEAPPSHUTDOWN');$shutdown.SetAttribute('Value','FALSE');[void]$root.AppendChild($shutdown)
+ $path=Join-Path $JobDirectory $Name;$doc.Save($path);return $path
+}
+function Prepare([bool]$Download=$true) {
+ Event 'prepare';CheckCancel
+ $drive=New-Object IO.DriveInfo([IO.Path]::GetPathRoot($JobDirectory));if($drive.AvailableFreeSpace -lt $(if($Download){12884901888}else{1073741824})){Fail 'DISK_SPACE'}
+ $installer=Join-Path $JobDirectory 'odt.exe'
+ $source='https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_20326-20112.exe'
+ try{Invoke-WebRequest -UseBasicParsing -MaximumRedirection 0 -Uri $source -OutFile $installer -TimeoutSec 120}catch{Fail 'DOWNLOAD_FAILED'}
+ CheckCancel
+ if((Get-Item $installer).Length -gt 10485760){Fail 'SOURCE_INVALID'}
+ MicrosoftSigned $installer
+ $extract=Start-Process -FilePath $installer -ArgumentList @('/quiet',('/extract:"'+$JobDirectory+'"')) -PassThru -Wait
+ if($extract.ExitCode -ne 0){Fail 'SOURCE_INVALID'};$extract.Dispose()
+ CheckCancel
+ $script:setup=Join-Path $JobDirectory 'setup.exe';MicrosoftSigned $setup
+ if(-not $Download){return}
+ $script:installConfig=NewOfficeConfiguration 'install.xml' -Install
+ CheckCancel;Event 'download';RunSetup '/download' $installConfig;CheckCancel
+ $files=@(Get-ChildItem (Join-Path $JobDirectory 'media\Office\Data') -Recurse -File -ErrorAction SilentlyContinue)
+ if($files.Count -eq 0 -or ($files|Measure-Object Length -Sum).Sum -lt 104857600){Fail 'SOURCE_INVALID'}
+ # Protected working folder plus immutable local download manifest. No arbitrary scripts are fetched.
+ $script:mediaHashes=@{};foreach($f in $files){$mediaHashes[$f.FullName]=(Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash}
+}
+function VerifyMedia {
+ foreach($path in $mediaHashes.Keys){if(-not(Test-Path -LiteralPath $path) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $mediaHashes[$path]){Fail 'SOURCE_INVALID'}}
+}
+function LicenseStatus([switch]$Activate){
+ $targets=@(Get-CimInstance -ClassName SoftwareLicensingProduct -Filter "ApplicationID='0ff1ce15-a989-479d-af46-f275c6370663'" -ErrorAction Stop|Where-Object{$_.Name -match 'Office24ProPlus2024VL'})
+ if($targets.Count -eq 0){Fail 'LICENSE_CHECK_FAILED'}
+ if($Activate){$targets=@($targets|Where-Object{$_.PartialProductKey});if($targets.Count -eq 0){Fail 'LICENSE_REQUIRED'};foreach($target in $targets){if($target.LicenseStatus -ne 1){$activated=Invoke-CimMethod -InputObject $target -MethodName Activate -ErrorAction Stop;if($activated.ReturnValue -ne 0){Fail 'ACTIVATION_FAILED'}}}}
+ $verified=@(Get-CimInstance -ClassName SoftwareLicensingProduct -Filter "ApplicationID='0ff1ce15-a989-479d-af46-f275c6370663'" -ErrorAction Stop|Where-Object{$_.Name -match 'Office24ProPlus2024VL' -and $_.PartialProductKey -and $_.LicenseStatus -eq 1})
+ return $verified.Count -gt 0
+}
+function Preconditions([switch]$CompareInventory){
+ CheckCancel;if(PendingRestart){Fail 'RESTART_REQUIRED'};if(OfficeBusy){Fail 'SAVE_DOCUMENTS'}
+ if($CompareInventory -and (@(Products) -join ',') -ne (@($job.products|Sort-Object -Unique) -join ',')){Fail 'ENVIRONMENT_CHANGED'}
+}
+
+try{
+ if(-not([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){Fail 'ADMIN_REQUIRED'}
+ $leasePath=Join-Path (Split-Path -Parent (Split-Path -Parent $JobDirectory)) 'runner.lock'
+ try{$script:lease=[IO.File]::Open($leasePath,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)}catch{Fail 'ANOTHER_TASK'}
+ $job=Get-Content -LiteralPath (Join-Path $JobDirectory 'job.json') -Raw|ConvertFrom-Json
+ if($job.action -ne $Action -or $job.id -notmatch '^[a-f0-9-]{36}$' -or $job.language -notin @('zh-CN','it','en') -or [DateTime]::Parse($job.packageExpiresAt).ToUniversalTime() -le [DateTime]::UtcNow){Fail 'PACKAGE_EXPIRED'}
+ $before=@(Products);$script:result.productsBefore=$before
+ $retainedProducts=@($before|Where-Object{$_ -match '^(Visio|Project)[A-Za-z0-9]+$'})
+ $retainedFiles=@();foreach($name in @('VISIO.EXE','WINPROJ.EXE')){$path=Join-Path $env:ProgramFiles ('Microsoft Office\root\Office16\'+$name);if(Test-Path -LiteralPath $path -PathType Leaf){$retainedFiles+=,$path}}
+ if(($before -join ',') -ne (@($job.products|Sort-Object -Unique) -join ',')){Fail 'ENVIRONMENT_CHANGED'}
+ if(PendingRestart){Fail 'RESTART_REQUIRED'}
+ if(OfficeBusy){Fail 'SAVE_DOCUMENTS'}
+ if([Environment]::OSVersion.Version.Build -lt 22000 -or -not [Environment]::Is64BitProcess){Fail 'UNSUPPORTED_SYSTEM'}
+ $suites=@(SuiteProducts $before)
+ $unknown=@($before|Where-Object{$_ -notin $suites -and $_ -notmatch '^(Visio|Project)[A-Za-z0-9]+$'})
+ if($unknown.Count -gt 0){Fail 'UNSUPPORTED_PRODUCT'}
+ $msi=@(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue|Where-Object{$_.PSObject.Properties['DisplayName'] -and $_.DisplayName -match '^Microsoft (Office|Visio|Project)( |$)' -and $_.PSObject.Properties['WindowsInstaller'] -and $_.WindowsInstaller -eq 1})
+ if($msi.Count -gt 0){Fail 'MSI_UNSUPPORTED'}
+ CheckCancel
+ if($Action -eq 'activate'){
+  if('ProPlus2024Volume' -notin $before){Fail 'PRODUCT_NOT_FOUND'}
+  Event 'activate';$script:result.licensed=LicenseStatus -Activate
+  if(-not $script:result.licensed){Fail 'ACTIVATION_FAILED'}
+ }elseif($Action -eq 'uninstall'){
+  if($suites.Count -eq 0){Fail 'PRODUCT_NOT_FOUND'}
+  Event 'uninstall';$setup=$null;Prepare $false;Preconditions -CompareInventory
+  $removeConfig=NewOfficeConfiguration 'remove.xml' -RemoveIds $suites;Event 'uninstall';RunSetup '/configure' $removeConfig
+  Event 'verify';if(@(SuiteProducts @(Products)).Count -gt 0){Fail 'REMOVAL_INCOMPLETE'};VerifyRetainedProducts
+ }else{
+  if($Action -eq 'install' -and $suites.Count -gt 0){Fail 'PRODUCT_CONFLICT'}
+  $cfg=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration' -ErrorAction SilentlyContinue
+  if($cfg -and $cfg.PSObject.Properties['Platform'] -and $cfg.Platform -eq 'x86'){Fail 'ARCHITECTURE_CONFLICT'}
+  Prepare;VerifyMedia;Preconditions -CompareInventory
+  if($Action -eq 'reinstall' -and $suites.Count -gt 0){
+   Preconditions -CompareInventory
+   $removeConfig=NewOfficeConfiguration 'remove.xml' -RemoveIds $suites;Event 'uninstall';RunSetup '/configure' $removeConfig
+   if(@(SuiteProducts @(Products)).Count -gt 0){Fail 'REMOVAL_INCOMPLETE'}
+   VerifyRetainedProducts
+   CheckCancel
+  }
+  Preconditions
+  Event 'install';RunSetup '/configure' $installConfig
+  Event 'verify';if('ProPlus2024Volume' -notin @(Products)){Fail 'INSTALL_VERIFY_FAILED'}
+  foreach($name in @('WINWORD.EXE','EXCEL.EXE','POWERPNT.EXE','OUTLOOK.EXE','MSACCESS.EXE','ONENOTE.EXE')){if(-not(Test-Path (Join-Path $env:ProgramFiles ('Microsoft Office\root\Office16\'+$name)))){Fail 'INSTALL_VERIFY_FAILED'}}
+  $script:result.licensed=LicenseStatus
+ }
+ VerifyRetainedProducts;if(PendingRestart){Fail 'RESTART_REQUIRED'}
+ $script:result.status='success';$script:result.code='COMPLETED'
+ if($Action -in @('install','reinstall') -and -not $script:result.licensed){$script:result.status='installed_unlicensed';$script:result.code='INSTALLED_UNLICENSED'}
+}catch{
+ $known=@('DISK_SPACE','ANOTHER_TASK','ADMIN_REQUIRED','PACKAGE_EXPIRED','ENVIRONMENT_CHANGED','RESTART_REQUIRED','SAVE_DOCUMENTS','UNSUPPORTED_SYSTEM','MSI_UNSUPPORTED','CANCELLED','DOWNLOAD_FAILED','SOURCE_INVALID','SETUP_FAILED','PRODUCT_NOT_FOUND','PRODUCT_CONFLICT','UNSUPPORTED_PRODUCT','ARCHITECTURE_CONFLICT','REMOVAL_INCOMPLETE','PRESERVATION_VERIFY_FAILED','INSTALL_VERIFY_FAILED','LICENSE_CHECK_FAILED','LICENSE_REQUIRED','ACTIVATION_FAILED')
+ if($_.Exception.Message -in $known){$script:result.code=$_.Exception.Message}
+ if($script:result.code -eq 'CANCELLED'){$script:result.status='cancelled'}
+ if($script:result.code -eq 'RESTART_REQUIRED'){$script:result.status='restart_required'}
+}finally{
+ $script:result.stage=$script:phase;$script:result.finishedAt=[DateTime]::UtcNow.ToString('o')
+ try{$script:result.productsAfter=@(Products)}catch{}
+ [IO.File]::WriteAllText((Join-Path $JobDirectory 'result.json'),($script:result|ConvertTo-Json -Depth 5),$utf8)
+ if(Get-Variable lease -Scope Script -ErrorAction SilentlyContinue){$script:lease.Dispose()}
+}
+if($script:result.status -in @('success','installed_unlicensed')){exit 0}
+if($script:result.status -eq 'restart_required'){exit 3010}
+exit 1

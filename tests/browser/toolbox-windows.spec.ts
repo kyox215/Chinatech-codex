@@ -33,7 +33,7 @@ test("Windows entry, real ZIP download and all public files match pinned bytes",
       expect(sha(await response.body())).toBe(metadata.sha256);
     }
   }
-  await page.getByRole("link", { name: "返回工具箱", exact: true }).click();
+  await page.getByRole("link", { name: "工具箱", exact: true }).click();
   await expect(page).toHaveURL(/\/toolbox$/);
   await page.getByRole("link", { name: "查看安装与激活命令", exact: true }).click();
   await expect(page).toHaveURL(/\/toolbox\/office$/);

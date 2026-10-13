@@ -16,7 +16,7 @@
 .document { top: 33px; right: 8px; color: var(--info); transform: rotate(10deg); }
 .phone { bottom: 20px; left: 4px; color: var(--success); transform: rotate(-6deg); }
 .usb { bottom: 8px; right: 43px; color: var(--text-secondary); transform: rotate(8deg); }
-.categories { padding-top: 42px; scroll-margin-top: 140px; }
+.categories { padding-top: 42px; scroll-margin-top: var(--public-header-offset, 140px); }
 .sectionHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 .sectionHeading h2 { margin: 0; font-size: 23px; font-weight: 600; }
 .sectionHeading > span { color: var(--text-secondary); font-size: 13px; }

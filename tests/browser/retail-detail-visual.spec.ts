@@ -6,7 +6,23 @@ async function openGroup(page: Page, id: string) {
   const group = page.locator(`[data-retail-group="${id}"]`);
   await expect(group).toBeVisible();
   if (await toggle.isVisible()) {
-    if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+    if (await toggle.getAttribute("aria-expanded") === "false") {
+      // Smooth document scrolling can still move a mobile WebKit click target.
+      // Settle its position before the single native click; keep every assertion.
+      await toggle.evaluate(async element => {
+        element.scrollIntoView({ block: "center", behavior: "instant" });
+        let previous = element.getBoundingClientRect(); let stable = 0;
+        for (let frame = 0; frame < 60; frame++) {
+          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+          const current = element.getBoundingClientRect();
+          stable = Math.abs(current.top - previous.top) < 0.1 && Math.abs(current.left - previous.left) < 0.1 ? stable + 1 : 0;
+          if (stable >= 2) return;
+          previous = current;
+        }
+        throw new Error("Click target did not settle before the native click");
+      });
+      await toggle.click();
+    }
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
   }
   await expect(group.locator(":scope > div[id]")).toBeVisible();
