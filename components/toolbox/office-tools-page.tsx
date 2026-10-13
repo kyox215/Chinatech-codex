@@ -43,7 +43,7 @@ export function OfficeToolsPage() {
   useEffect(() => {
     const element = video.current;
     return () => {
-      if (element?.hasAttribute("src")) {
+      if (element && !element.isConnected && element.hasAttribute("src")) {
         element.pause();
         element.removeAttribute("src");
         element.load();

@@ -119,7 +119,18 @@ test("portrait card fits desktop and phone widths without cropping or expanding 
 
 test("real product video plays, seeks and pauses while keeping the same Chinese media across languages", async ({ page }) => {
   test.setTimeout(90_000);
-  await page.goto("/toolbox/office");
+  let releaseScripts!: () => void;
+  const scriptsReady = new Promise<void>(resolve => { releaseScripts = resolve; });
+  await page.route("**/_next/static/**", async route => {
+    if (route.request().resourceType() === "script") await scriptsReady;
+    await route.continue();
+  });
+  try {
+    await page.goto("/toolbox/office", { waitUntil: "commit" });
+    await expect(video(page)).toBeVisible();
+    expect(await video(page).getAttribute("src")).toBeNull();
+  } finally { releaseScripts(); }
+  await page.waitForLoadState("load");
   await activate(section(page).getByRole("button", { name: translate("播放产品介绍视频", "zh-CN"), exact: true }));
   await expectPlaying(video(page));
   await expect(video(page)).toHaveAttribute("controls", "");
