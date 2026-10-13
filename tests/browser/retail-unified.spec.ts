@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { currentRetailSale, type RetailUnit } from "../../lib/retail";
+import { currentRetailSale, retailPaidCents, type RetailUnit } from "../../lib/retail";
 import { previewRetailHistoryKey } from "../../lib/retail-record";
 import type { RetailHistoryRecord } from "../../lib/retail-history";
 import { customerId } from "../../lib/customers";
@@ -46,6 +46,8 @@ test("原在售商品同页核对→明确可售→新买家→实际收款交�
   let unit = await savedUnit(page); const sale = currentRetailSale(unit)!; const card = page.locator(`[id="sale-${sale.id}"]`); await expect(card).toBeVisible();
   expect(unit.id).toBe(source.id); expect(unit.code).toBe("ST-0051"); expect(unit.imei1).toBe(source.identifier); expect(unit.bodyStorage).toBeNull(); expect(sale.customerPhone).toBe(phone); expect(sale.paidCents).toBe(0);
   await card.getByRole("button", { name: "登记收款", exact: true }).click(); const payment = card.getByRole("region", { name: "登记收款", exact: true }); await payment.getByLabel("本次实际收款", { exact: true }).fill("220"); await payment.getByRole("radio", { name: "现金", exact: true }).locator("..").click(); await payment.getByText("收款备注（选填）", { exact: true }).click(); await payment.getByLabel("收款备注与核对依据", { exact: true }).fill("DEMO 实际现金收款"); await payment.getByRole("button", { name: "继续核对", exact: true }).click(); await card.getByRole("button", { name: "确认保存业务记录", exact: true }).click();
+  await expect.poll(async()=>retailPaidCents(currentRetailSale(await savedUnit(page))!)).toBe(22000);
+  await expect(card).toContainText("收款已结清");
   await card.getByRole("button", { name: "确认交付", exact: true }).click(); await card.getByRole("button", { name: "继续核对", exact: true }).click(); await card.getByRole("button", { name: "确认保存业务记录", exact: true }).click(); await expect(card).toContainText("销售已结清并交付");
   await card.getByRole("button", { name: "打印销售与保修单", exact: true }).click(); const print = page.locator(".intake-receipt-dialog"); await print.locator(".intake-receipt-options select").nth(1).selectOption("zh"); await expect(print).toContainText("DEMO 新买家"); await expect(print).toContainText("ST-0051"); await expect(print).not.toContainText(source.notes!); await expect(print).not.toContainText("€120.00"); await print.locator(".intake-receipt-toolbar button.icon-button").click();
   unit = await savedUnit(page); expect(currentRetailSale(unit)!.delivered).toBe(true); expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).records[0], previewRetailHistoryKey)).toEqual(source);
