@@ -85,8 +85,8 @@ export function compareCatalogRows(a: CatalogEntry, b: CatalogEntry) {
 export function catalogQueryPage(rows: readonly CatalogRow[], query: CatalogQuery, revision: string): CatalogPage {
   const categories = query.category ? catalogQueryCategories(query.category) : [];
   const brand = query.brand ? canonicalCatalogBrand(query.brand) : '';
-  const terms = catalogSearchTerms(query.q ?? ''); const page = Math.max(1, query.page ?? 1);
-  const matched = rows.filter(row => (query.includeDisabled || row.enabled) && (!categories.length || categories.includes(row.category)) && (!brand || row.brand === brand) && (!query.family || row.family === query.family) && terms.every(term => catalogSearchText(row).includes(term))).sort(compareCatalogRows);
+  const phrase = catalogNormalize(query.q ?? ''); const page = Math.max(1, query.page ?? 1);
+  const matched = rows.filter(row => (query.includeDisabled || row.enabled) && (!categories.length || categories.includes(row.category)) && (!brand || row.brand === brand) && (!query.family || row.family === query.family) && catalogSearchText(row).includes(phrase)).sort(compareCatalogRows);
   return { rows: matched.slice((page-1)*50, page*50), total: matched.length, page, pageSize: 50, revision };
 }
 export function catalogEntryEqual(a: CatalogEntry, b: CatalogEntry) {

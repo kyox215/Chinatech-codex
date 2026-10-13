@@ -35,7 +35,7 @@ try{
  const state=await json(await req(m,'/api/catalog?kind=state'));assert.equal(state.canManage,true);assert.equal((await json(await req(o,'/api/catalog?kind=state'))).canManage,false);
  assert.equal((await req(new Map(),'/api/catalog')).status,401);assert.equal((await req(x,'/api/catalog')).status,403);assert.equal((await req(o,'/api/catalog?kind=history')).status,403);assert.equal((await req(o,'/api/catalog?disabled=true')).status,403);assert.equal((await req(o,'/api/catalog/workbook')).status,403);
  const reference=JSON.parse(readFileSync(resolve(root,'data/device-catalog/catalog.json'),'utf8')).filter(r=>r.brand==='Samsung'&&/Galaxy A13/.test(r.name));
- const initial=[...Array.from({length:130},(_,i)=>({entry:base(i),expectedVersion:0})),...reference.map((entry,i)=>({entry:{...entry,id:prefix+'-official-'+i},expectedVersion:0}))];
+ const initial=[...Array.from({length:130},(_,i)=>({entry:base(i,i===18?{modelCodes:['00018','M16']}:{}),expectedVersion:0})),...reference.map((entry,i)=>({entry:{...entry,id:prefix+'-official-'+i},expectedVersion:0}))];
  const previewBody={action:'preview',revision:lastRevision,rows:initial};
  assert.equal((await req(o,'/api/catalog',previewBody,owner)).status,403);assert.equal((await req(m,'/api/catalog',previewBody,manager,{Origin:'https://foreign.invalid'})).status,403);assert.equal((await req(m,'/api/catalog',previewBody,manager,{'X-CT-Account-ID':owner.id})).status,409);assert.equal((await req(m,'/api/catalog',previewBody,manager,{'X-CT-Session-ID':randomUUID()})).status,409);assert.equal((await req(m,'/api/catalog',previewBody,manager,{'X-CT-Store-ID':stores[1]})).status,403);
  pass('anonymous, outsider, ordinary owner, stale identity/session, foreign origin and wrong store fail closed');
@@ -45,6 +45,8 @@ try{
  const replay=await json(await req(m,'/api/catalog',applyBody,manager));assert.equal(replay.replayed,true);assert.equal(replay.revision,lastRevision);
  const page=await json(await req(o,'/api/catalog?category=phone&brand=SyntheticCatalog&page=3'));assert.equal(page.total,130);assert.equal(page.rows.length,30);
  const found=await json(await req(o,'/api/catalog?q=000129'));assert.equal(found.rows[0].id,base(129).id);const groups=await json(await req(o,'/api/catalog?kind=groups&category=phone&brand=SyntheticCatalog'));assert.equal(groups.families.length,2);
+ const exactSearch=await json(await req(o,'/api/catalog?category=phone&brand=SyntheticCatalog&q=Synthetic%2016'));
+ assert.deepEqual(exactSearch.rows.map(row=>row.name),['Synthetic 16'],'A model-code fragment on Synthetic 18 must not make a phrase search for Synthetic 16 match it');
  assert.equal((await sql`select count(*)::int n from chinatech_v2_private.device_catalog_history where actor_id=${manager.id}`)[0].n,1);assert.equal((await req(m,'/api/catalog',previewBody,manager)).status,409);
  pass('real 130-row preview is read-only; apply commits once with history/receipt, total-aware paging, codes and series');
  const changed={entry:base(0,{notes:'confirmed update'}),expectedVersion:1};

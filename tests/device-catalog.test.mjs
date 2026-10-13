@@ -33,6 +33,10 @@ test('query covers all results and supports old models beyond the first page',()
  const unknownNames=[9,24,25].map(n=>row({id:'s-series-'+n,name:'Galaxy S'+n,year:null,releasedAt:null}));assert.deepEqual(d.catalogQueryPage(unknownNames,{},'1').rows.map(r=>r.name),['Galaxy S25','Galaxy S24','Galaxy S9']);
  const filtered=d.catalogQueryPage([...rows,row({id:'disabled-model',enabled:false})],{},'7');assert.equal(filtered.total,130);
  assert.equal(d.catalogQueryPage([...rows,row({id:'disabled-model',enabled:false})],{includeDisabled:true},'7').total,131);
+ const exact=row({id:'iphone-16',brand:'Apple',family:'iPhone',name:'iPhone 16 Pro',releasedAt:null,year:2024,modelCodes:['A3101']});
+ const misleading=row({id:'iphone-18',brand:'Apple',family:'iPhone',name:'iPhone 18 Pro Max',releasedAt:null,year:2026,modelCodes:['A3716']});
+ assert.deepEqual(d.catalogQueryPage([exact,misleading],{q:'iPhone 16'},'7').rows.map(item=>item.name),['iPhone 16 Pro']);
+ assert.deepEqual(d.catalogQueryPage([exact,misleading],{q:'A3716'},'7').rows.map(item=>item.name),['iPhone 18 Pro Max']);
 });
 test('preview changes no source rows; omission is not deletion, invalid row blocks confirmation',()=>{
  const current=[row(),row({id:'other-model',name:'Galaxy A13 5G',network:'5G',platform:'SM-A136'})];const original=JSON.stringify(current);
