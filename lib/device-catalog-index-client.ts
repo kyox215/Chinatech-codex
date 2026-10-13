@@ -1,4 +1,4 @@
-import { catalogPickerScopeKey, type CatalogPickerResponse } from './device-catalog';
+import { CatalogError, catalogPickerScopeKey, type CatalogPickerResponse } from './device-catalog';
 
 export type PickerQuery = { category: string; brand?: string; family?: string };
 export type PickerData = Extract<CatalogPickerResponse, { unchanged: false }>;
@@ -26,6 +26,7 @@ export function createCatalogIndexClient(env: Environment) {
   const publish = () => listeners.forEach(listener => listener());
   const read = (q: PickerQuery): PickerRead => blocked?.scope===env.scope()?blocked.snapshot:entries.get(key(q))?.snapshot ?? empty;
   function invalidate(clear = true) {
+    if(!clear&&blocked?.scope===env.scope())return;
     generation++;
     blocked=null;
     flights.forEach(controller => controller.abort()); flights.clear();
@@ -56,20 +57,22 @@ export function createCatalogIndexClient(env: Environment) {
     let authorizationFailure = false;
     try {
       const response = await env.fetch('/api/catalog?' + params, { credentials: 'same-origin', cache: 'no-store', headers, signal: controller.signal });
-      const result = await response.json();
+      const result = await response.json().catch(()=>null);
       if (!current()) return;
       if (!response.ok) {
         if ([401,403,409].includes(response.status)) { authorizationFailure = true; invalidate(); }
-        throw new Error(typeof result.message === 'string' ? result.message : '设备目录暂不可用，请稍后重试。');
+        const fallback=response.status===401?'请先登录后查看设备目录。':response.status===403?'当前账号没有获授权的门店。':response.status===409?'登录会话已变化，请刷新后重试。':'设备目录暂不可用，请稍后重试。';
+        throw new CatalogError(typeof result?.message === 'string' ? result.message : fallback,response.status);
       }
+      if(!result||typeof result!=='object'||Array.isArray(result))throw new CatalogError('设备目录暂不可用，请稍后重试。');
       const value = result as CatalogPickerResponse;
-      if (value.scope && !env.matches(value)) { authorizationFailure = true; invalidate(); throw new Error('登录会话已变化，请刷新后重试。'); }
-      if (value.formatVersion !== 1 || !value.scope || value.category !== query.category || value.brand !== (query.brand ?? '') || value.family !== (query.family ?? '') || typeof value.revision !== 'string') throw new Error('登录会话已变化，请刷新后重试。');
+      if (value.scope && !env.matches(value)) { authorizationFailure = true; invalidate(); throw new CatalogError('登录会话已变化，请刷新后重试。'); }
+      if (value.formatVersion !== 1 || !value.scope || value.category !== query.category || value.brand !== (query.brand ?? '') || value.family !== (query.family ?? '') || typeof value.revision !== 'string') throw new CatalogError('登录会话已变化，请刷新后重试。');
       const unchanged = value.unchanged === true;
       const serverScope=catalogPickerScopeKey(value.scope);
-      if(authorizedScope?.client===scope&&authorizedScope.server!==serverScope){authorizationFailure=true;invalidate();throw new Error('登录会话已变化，请刷新后重试。');}
-      if (unchanged && (!cached || cached.revision !== value.revision || catalogPickerScopeKey(cached.scope) !== catalogPickerScopeKey(value.scope))) throw new Error('目录已变化，请刷新后重新核对。');
-      if (!unchanged && (typeof value.complete!=='boolean' || !Array.isArray(value.models) || value.models.length > 3000 || !Array.isArray(value.brands) || !Array.isArray(value.families))) throw new Error('设备目录暂不可用，请稍后重试。');
+      if(authorizedScope?.client===scope&&authorizedScope.server!==serverScope){authorizationFailure=true;invalidate();throw new CatalogError('登录会话已变化，请刷新后重试。');}
+      if (unchanged && (!cached || cached.revision !== value.revision || catalogPickerScopeKey(cached.scope) !== catalogPickerScopeKey(value.scope))) throw new CatalogError('目录已变化，请刷新后重新核对。');
+      if (!unchanged && (typeof value.complete!=='boolean' || !Array.isArray(value.models) || value.models.length > 3000 || !Array.isArray(value.brands) || !Array.isArray(value.families))) throw new CatalogError('设备目录暂不可用，请稍后重试。');
       if(catalogRevision!==null&&catalogRevision!==value.revision){generation++;for(const [other,flight] of flights)if(other!==cacheKey){flight.abort();flights.delete(other);}for(const other of entries.keys())if(other!==cacheKey)entries.delete(other);}
       catalogRevision=value.revision;
       entry.snapshot = { data: unchanged ? cached! : value, loading: false, error: '', ready: true };
@@ -80,7 +83,7 @@ export function createCatalogIndexClient(env: Environment) {
       while (entries.size > 12 && idle.length) entries.delete(idle.shift()![0]);
     } catch (reason) {
       if (scope !== env.scope() || (ticket !== generation && !authorizationFailure) || flights.get(cacheKey)!==controller&&!authorizationFailure) return;
-      entry.snapshot = { data: null, loading: false, ready: false, error: controller.signal.aborted&&!authorizationFailure ? '设备目录查询超时，请重试或手动填写。' : reason instanceof Error ? reason.message : '设备目录暂不可用，请稍后重试。' };
+      entry.snapshot = { data: null, loading: false, ready: false, error: controller.signal.aborted&&!authorizationFailure ? '设备目录查询超时，请重试或手动填写。' : reason instanceof CatalogError ? reason.message : '设备目录暂不可用，请稍后重试。' };
       if(authorizationFailure)blocked={scope,snapshot:entry.snapshot};
       entries.set(cacheKey, entry);
     } finally {
