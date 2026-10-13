@@ -43,7 +43,7 @@ test('preview changes no source rows; omission is not deletion, invalid row bloc
  const duplicate=d.previewCatalogImport([],Array.from({length:2},()=>({entry:base(),expectedVersion:0})),'0');assert.equal(duplicate.errors.length,1);
 });
 test('real xlsx export/import is lossless in three languages, including leading zeros and original notes',()=>{
- const entry=row({modelCodes:['000123','SM-A137F'],notes:'中文原文 & <tag>\nRiga originale',aliases:['A13 LTE','unusual + code']});
+ const entry=row({modelCodes:['000123','SM-A137F'],notes:'中文原文 & <tag>\nRiga originale',aliases:['A13 LTE','ProArt PX13 | HN7306']});
  for(const locale of ['zh-CN','it','en']) {
   const bytes=x.writeCatalogWorkbook([entry],'12',locale);assert.equal(bytes[0],0x50);const parsed=x.readCatalogWorkbook(bytes);assert.deepEqual(parsed.errors,[]);assert.deepEqual(parsed.rows,[{entry:plain(entry),expectedVersion:1}]);
   const files=unzipSync(bytes);const name=strFromU8(files['xl/workbook.xml']);assert.ok(name.includes(locale==='it'?'Modelli':locale==='en'?'Models':'型号主表'));

@@ -120,7 +120,7 @@ export function readCatalogWorkbook(bytes:Uint8Array): { rows:CatalogImportRow[]
   const rows:CatalogImportRow[]=[];const errors:{row:number;message:string}[]=[];
   values.forEach((cells,index)=>{if(cells.every(value=>!value?.trim()))return;try {
     const raw:Record<string,unknown>={};catalogColumns.forEach(([key],col)=>{const value=cells[positions[col]]??'';
-      raw[key]=lists.has(key)?value.split(/\r?\n|\s*\|\s*/u).map(item=>item.trim()).filter(Boolean):value;
+      raw[key]=lists.has(key)?value.split(/\r?\n/u).map(item=>item.trim()).filter(Boolean):value;
     });
     raw.category=catalogCategory(String(raw.category))??raw.category;
     raw.status=raw.status==='已核验'?'verified':raw.status==='待核对'?'review':raw.status;
