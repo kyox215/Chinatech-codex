@@ -1,0 +1,179 @@
+[
+  {
+    "category": "tablet",
+    "brand": "POCO",
+    "verifiedCount": 3,
+    "scope": "官方型号识别、停止支持与当前产品目录中的明确型号；不是销量排名。",
+    "scopeIt": "Modelli espliciti negli archivi ufficiali di identificazione, fine supporto e prodotti attuali; non una classifica di vendite.",
+    "scopeEn": "Explicit models in official identification, end-of-support and current product directories; not a sales ranking.",
+    "gaps": [
+      "历史、地区修订与其他品牌尚有缺漏；目录未说明的年份、网络代际及机型码保持未知。",
+      "三星安全名单按官方原名保留，未证明 Wi-Fi／蜂窝版本的条目不猜测；小米项目代码不是 IMEI。"
+    ],
+    "gapsIt": [
+      "Restano lacune storiche, regionali e di altri marchi; anno, rete e codici non indicati restano sconosciuti.",
+      "La lista Samsung conserva i nomi originali, senza presumere Wi-Fi o rete cellulare; i codici progetto Xiaomi non sono IMEI."
+    ],
+    "gapsEn": [
+      "Historical, regional and other-brand gaps remain; unstated year, network generation and codes stay unknown.",
+      "Samsung scope preserves official names without guessing Wi-Fi/cellular variants; Xiaomi project codes are not IMEI."
+    ],
+    "sourceIds": [
+      "more-xiaomi-italy-sitemap-more",
+      "more-xiaomi-sitemap-more"
+    ]
+  },
+  {
+    "category": "tablet",
+    "brand": "Redmi",
+    "verifiedCount": 10,
+    "scope": "官方型号识别、停止支持与当前产品目录中的明确型号；不是销量排名。",
+    "scopeIt": "Modelli espliciti negli archivi ufficiali di identificazione, fine supporto e prodotti attuali; non una classifica di vendite.",
+    "scopeEn": "Explicit models in official identification, end-of-support and current product directories; not a sales ranking.",
+    "gaps": [
+      "历史、地区修订与其他品牌尚有缺漏；目录未说明的年份、网络代际及机型码保持未知。",
+      "三星安全名单按官方原名保留，未证明 Wi-Fi／蜂窝版本的条目不猜测；小米项目代码不是 IMEI。"
+    ],
+    "gapsIt": [
+      "Restano lacune storiche, regionali e di altri marchi; anno, rete e codici non indicati restano sconosciuti.",
+      "La lista Samsung conserva i nomi originali, senza presumere Wi-Fi o rete cellulare; i codici progetto Xiaomi non sono IMEI."
+    ],
+    "gapsEn": [
+      "Historical, regional and other-brand gaps remain; unstated year, network generation and codes stay unknown.",
+      "Samsung scope preserves official names without guessing Wi-Fi/cellular variants; Xiaomi project codes are not IMEI."
+    ],
+    "sourceIds": [
+      "more-xiaomi-eos",
+      "more-xiaomi-italy-sitemap-more",
+      "more-xiaomi-sitemap-more"
+    ]
+  },
+  {
+    "category": "tablet",
+    "brand": "Samsung",
+    "verifiedCount": 24,
+    "scope": "官方型号识别、停止支持与当前产品目录中的明确型号；不是销量排名。",
+    "scopeIt": "Modelli espliciti negli archivi ufficiali di identificazione, fine supporto e prodotti attuali; non una classifica di vendite.",
+    "scopeEn": "Explicit models in official identification, end-of-support and current product directories; not a sales ranking.",
+    "gaps": [
+      "历史、地区修订与其他品牌尚有缺漏；目录未说明的年份、网络代际及机型码保持未知。",
+      "三星安全名单按官方原名保留，未证明 Wi-Fi／蜂窝版本的条目不猜测；小米项目代码不是 IMEI。"
+    ],
+    "gapsIt": [
+      "Restano lacune storiche, regionali e di altri marchi; anno, rete e codici non indicati restano sconosciuti.",
+      "La lista Samsung conserva i nomi originali, senza presumere Wi-Fi o rete cellulare; i codici progetto Xiaomi non sono IMEI."
+    ],
+    "gapsEn": [
+      "Historical, regional and other-brand gaps remain; unstated year, network generation and codes stay unknown.",
+      "Samsung scope preserves official names without guessing Wi-Fi/cellular variants; Xiaomi project codes are not IMEI."
+    ],
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "verifiedCount": 15,
+    "scope": "官方型号识别、停止支持与当前产品目录中的明确型号；不是销量排名。",
+    "scopeIt": "Modelli espliciti negli archivi ufficiali di identificazione, fine supporto e prodotti attuali; non una classifica di vendite.",
+    "scopeEn": "Explicit models in official identification, end-of-support and current product directories; not a sales ranking.",
+    "gaps": [
+      "历史、地区修订与其他品牌尚有缺漏；目录未说明的年份、网络代际及机型码保持未知。",
+      "三星安全名单按官方原名保留，未证明 Wi-Fi／蜂窝版本的条目不猜测；小米项目代码不是 IMEI。"
+    ],
+    "gapsIt": [
+      "Restano lacune storiche, regionali e di altri marchi; anno, rete e codici non indicati restano sconosciuti.",
+      "La lista Samsung conserva i nomi originali, senza presumere Wi-Fi o rete cellulare; i codici progetto Xiaomi non sono IMEI."
+    ],
+    "gapsEn": [
+      "Historical, regional and other-brand gaps remain; unstated year, network generation and codes stay unknown.",
+      "Samsung scope preserves official names without guessing Wi-Fi/cellular variants; Xiaomi project codes are not IMEI."
+    ],
+    "sourceIds": [
+      "more-xiaomi-eos",
+      "more-xiaomi-italy-sitemap-more",
+      "more-xiaomi-sitemap-more"
+    ]
+  },
+  {
+    "category": "tablet",
+    "brand": "Microsoft",
+    "verifiedCount": 31,
+    "scope": "官方当前平板产品或支持生命周期档案；按明确型号记录。",
+    "scopeIt": "Prodotti tablet attuali o ciclo di supporto ufficiale; solo modelli espliciti.",
+    "scopeEn": "Official current tablet products or support lifecycle archives; explicit models only.",
+    "gaps": [
+      "历史、地区和蜂窝硬件修订仍有缺漏；未知时间及网络不猜测。"
+    ],
+    "gapsIt": [
+      "Restano lacune storiche, regionali e di hardware cellulare; date e reti sconosciute non sono presunte."
+    ],
+    "gapsEn": [
+      "Historical, regional and cellular hardware gaps remain; unknown dates and networks are not guessed."
+    ],
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "category": "tablet",
+    "brand": "Honor",
+    "verifiedCount": 15,
+    "scope": "官方当前平板产品或支持生命周期档案；按明确型号记录。",
+    "scopeIt": "Prodotti tablet attuali o ciclo di supporto ufficiale; solo modelli espliciti.",
+    "scopeEn": "Official current tablet products or support lifecycle archives; explicit models only.",
+    "gaps": [
+      "历史、地区和蜂窝硬件修订仍有缺漏；未知时间及网络不猜测。"
+    ],
+    "gapsIt": [
+      "Restano lacune storiche, regionali e di hardware cellulare; date e reti sconosciute non sono presunte."
+    ],
+    "gapsEn": [
+      "Historical, regional and cellular hardware gaps remain; unknown dates and networks are not guessed."
+    ],
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "category": "tablet",
+    "brand": "Huawei",
+    "verifiedCount": 1,
+    "scope": "官方当前平板产品或支持生命周期档案；按明确型号记录。",
+    "scopeIt": "Prodotti tablet attuali o ciclo di supporto ufficiale; solo modelli espliciti.",
+    "scopeEn": "Official current tablet products or support lifecycle archives; explicit models only.",
+    "gaps": [
+      "历史、地区和蜂窝硬件修订仍有缺漏；未知时间及网络不猜测。"
+    ],
+    "gapsIt": [
+      "Restano lacune storiche, regionali e di hardware cellulare; date e reti sconosciute non sono presunte."
+    ],
+    "gapsEn": [
+      "Historical, regional and cellular hardware gaps remain; unknown dates and networks are not guessed."
+    ],
+    "sourceIds": [
+      "root-huawei-tablets"
+    ]
+  },
+  {
+    "category": "tablet",
+    "brand": "Lenovo",
+    "verifiedCount": 59,
+    "scope": "官方当前平板产品或支持生命周期档案；按明确型号记录。",
+    "scopeIt": "Prodotti tablet attuali o ciclo di supporto ufficiale; solo modelli espliciti.",
+    "scopeEn": "Official current tablet products or support lifecycle archives; explicit models only.",
+    "gaps": [
+      "历史、地区和蜂窝硬件修订仍有缺漏；未知时间及网络不猜测。"
+    ],
+    "gapsIt": [
+      "Restano lacune storiche, regionali e di hardware cellulare; date e reti sconosciute non sono presunte."
+    ],
+    "gapsEn": [
+      "Historical, regional and cellular hardware gaps remain; unknown dates and networks are not guessed."
+    ],
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  }
+]

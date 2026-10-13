@@ -1,5 +1,10 @@
 # 公共组件与样式复用规范
 
+## 2026-10-07 共享设备目录候选
+
+DeviceCatalogControl 复用 SearchCombobox，商品新建／就地编辑／维修接机共享；默认其他用途仍12项，本目录扩50项、按需加载、可选系列与分页。公共 opt-in optionLimit、menuHeader／menuFooter、menuClassName、onOpenChange／loading 不混入权限或业务写入；目录私有CSS固定页码操作，16px输入和44px触控保持。管理页复用AppShell／PageTitle／InputControl／TextareaControl／SelectControl、已有按钮与token，不增加全局导航或新主题。用途、三语及验证见[共享目录32](32-shared-device-catalog.md)。
+
+
 ## 2026-10-07 Windows 检测候选
 
 `/toolbox/windows` 复用 PublicHeader、Brand、LanguageProvider、LanguageSwitcher、公共 button 与 token；PublicHeader 仅扩展 `page="windows"`，与 Office 共用返回工具箱。下载／条件面板使用工具箱私有 CSS Module，无新主题或依赖。核心说明与下载由 SSR 输出；无 JavaScript 仍可看默认中文说明并下载包含三语入口的ZIP。

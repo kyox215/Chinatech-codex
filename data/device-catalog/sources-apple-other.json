@@ -1,0 +1,44 @@
+[
+  {
+    "id": "apple-macbook-pro-archive",
+    "title": "Apple MacBook Pro model identification archive",
+    "url": "https://support.apple.com/en-us/108052",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "apple-macbook-air-archive",
+    "title": "Apple MacBook Air model identification archive",
+    "url": "https://support.apple.com/en-us/102869",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "apple-imac-archive",
+    "title": "Apple iMac model identification archive",
+    "url": "https://support.apple.com/en-us/108054",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "apple-mac-mini-archive",
+    "title": "Apple Mac mini model identification archive",
+    "url": "https://support.apple.com/en-us/102852",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "apple-mac-pro-archive",
+    "title": "Apple Mac Pro model identification archive",
+    "url": "https://support.apple.com/en-us/102887",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "apple-mac-studio-archive",
+    "title": "Apple Mac Studio model identification archive",
+    "url": "https://support.apple.com/en-us/102231",
+    "checkedAt": "2026-10-07"
+  },
+  {
+    "id": "apple-ipad-archive",
+    "title": "Apple iPad model identification archive",
+    "url": "https://support.apple.com/en-us/108043",
+    "checkedAt": "2026-10-07"
+  }
+]

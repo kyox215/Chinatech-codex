@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/components/language-provider";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Search, Check } from "lucide-react";
 import { InputControl } from "./input-control";
 
@@ -11,12 +11,14 @@ type Props = {
   options: readonly ComboboxOption[]; onSelect?: (option: ComboboxOption) => void;
   placeholder?: string; inputMode?: "text" | "tel"; emptyText?: string;
   filterOptions?: boolean; required?: boolean; autoFocus?: boolean; maxLength?: number;
-  displaySelectedLabel?: boolean;
+  displaySelectedLabel?: boolean; optionDetailsAsDescription?: boolean;
+  optionLimit?: number; menuClassName?: string; menuHeader?: ReactNode; menuFooter?: ReactNode;
+  onOpenChange?: (open: boolean) => void; loading?: boolean;
   disabled?: boolean; readOnly?: boolean; error?: string; hint?: string; validate?: (value: string) => string;
 };
 
 /** Editable search: custom text remains valid; choosing a candidate is always explicit. */
-export function SearchCombobox({ label, value, onChange, options, onSelect, placeholder, inputMode = "text", emptyText = "没有匹配，可保留手动输入", filterOptions = true, displaySelectedLabel = false, required, autoFocus, maxLength, disabled, readOnly, error, hint, validate }: Props) {
+export function SearchCombobox({ label, value, onChange, options, onSelect, placeholder, inputMode = "text", emptyText = "没有匹配，可保留手动输入", filterOptions = true, displaySelectedLabel = false, optionDetailsAsDescription = false, optionLimit = 12, menuClassName, menuHeader, menuFooter, onOpenChange, loading = false, required, autoFocus, maxLength, disabled, readOnly, error, hint, validate }: Props) {
   const { t } = useLanguage();
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
@@ -26,7 +28,8 @@ export function SearchCombobox({ label, value, onChange, options, onSelect, plac
   const [active, setActive] = useState(-1);
   const expanded = open && !disabled && !readOnly;
   const displayedValue = displaySelectedLabel ? options.find(option => option.value === value)?.label ?? value : value;
-  const matches = (filterOptions ? options.filter(option => `${option.value} ${option.label} ${option.detail ?? ""}`.toLowerCase().includes(value.trim().toLowerCase())) : options).slice(0, 12);
+  const matches = (filterOptions ? options.filter(option => `${option.value} ${option.label} ${option.detail ?? ""}`.toLowerCase().includes(value.trim().toLowerCase())) : options).slice(0, Math.min(50, Math.max(1,optionLimit)));
+  useEffect(() => { onOpenChange?.(expanded); }, [expanded,onOpenChange]);
   useEffect(() => { if (open && active >= 0) list.current?.children[active]?.scrollIntoView({ block: "nearest" }); }, [active,open]);
   useEffect(() => {
     if (!open) return;
@@ -46,6 +49,6 @@ export function SearchCombobox({ label, value, onChange, options, onSelect, plac
       if (event.key === "Escape") { event.preventDefault(); setOpen(false); setActive(-1); }
       if (event.key === "Enter" && expanded && active >= 0 && matches[active]) { event.preventDefault(); select(matches[active]); }
     }} />
-    {expanded ? <div className="search-combobox__menu"><ul ref={list} role="listbox" id={`${id}-list`} aria-label={t("{v0}候选", { v0: t(label) })}>{matches.map((option,index) => <li key={option.value} role="presentation"><button className="search-combobox__option" type="button" tabIndex={-1} id={`${id}-option-${index}`} role="option" aria-selected={value === option.value} data-active={index === active} onMouseDown={event => event.preventDefault()} onClick={() => select(option)}><span><strong>{option.label}</strong>{option.detail ? <small>{option.detail}</small> : null}</span>{value === option.value ? <Check size={16} /> : null}</button></li>)}</ul>{!matches.length ? <p role="status">{t(emptyText)}</p> : null}</div> : null}
+    {expanded ? <div className={["search-combobox__menu",menuClassName].filter(Boolean).join(" ")}>{menuHeader}<ul ref={list} role="listbox" id={`${id}-list`} aria-label={t("{v0}候选", { v0: t(label) })} aria-busy={loading}>{matches.map((option,index) => <li key={option.value} role="presentation"><button className="search-combobox__option" type="button" tabIndex={-1} id={`${id}-option-${index}`} role="option" aria-label={optionDetailsAsDescription ? option.label : undefined} aria-describedby={optionDetailsAsDescription && option.detail ? `${id}-detail-${index}` : undefined} aria-selected={value === option.value} data-active={index === active} onMouseDown={event => event.preventDefault()} onClick={() => select(option)}><span><strong>{option.label}</strong>{option.detail ? <small id={`${id}-detail-${index}`}>{option.detail}</small> : null}</span>{value === option.value ? <Check size={16} /> : null}</button></li>)}</ul>{loading ? <p role="status">{t("正在查询设备目录…")}</p> : !matches.length ? <p role="status">{t(emptyText)}</p> : null}{menuFooter}</div> : null}
   </div>;
 }

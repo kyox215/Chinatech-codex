@@ -1,0 +1,25 @@
+[
+  {
+    "category": "other",
+    "brand": "Apple",
+    "verifiedCount": 62,
+    "scope": "官方型号识别、停止支持与当前产品目录中的明确型号；不是销量排名。",
+    "scopeIt": "Modelli espliciti negli archivi ufficiali di identificazione, fine supporto e prodotti attuali; non una classifica di vendite.",
+    "scopeEn": "Explicit models in official identification, end-of-support and current product directories; not a sales ranking.",
+    "gaps": [
+      "仅覆盖官方可识别的 Apple Watch 机型码与尺寸；其他品牌手表、音频和配件档案仍待收集。",
+      "发布日期保持未知；表壳材质与颜色不排列成独立硬件 SKU。"
+    ],
+    "gapsIt": [
+      "Solo codici e dimensioni di Apple Watch identificabili ufficialmente; altri marchi, audio e accessori da raccogliere.",
+      "Date di uscita sconosciute; materiali e colori non generano SKU hardware separati."
+    ],
+    "gapsEn": [
+      "Only officially identifiable Apple Watch model codes and sizes; other watch brands, audio and accessories remain to collect.",
+      "Release dates stay unknown; case materials and colours do not generate separate hardware SKUs."
+    ],
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  }
+]

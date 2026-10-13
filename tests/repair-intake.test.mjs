@@ -12,7 +12,7 @@ test("客户实时电话候选支持格式化/国际拨号前缀，短值不返�
  for(const q of ["123","hello@example.com","+393200001029x","1".repeat(16)]) assert.equal(validIntakePhone(q),false);
 });
 test("品牌型号关联只给候选，不把未知手填值当成已知型号",()=>{
- assert.ok(modelsFor("手机","apple").includes("iPhone 15 Pro"));
+ assert.deepEqual(modelsFor("手机","apple"),[]); // No second static model authority.
  assert.deepEqual(modelsFor("电脑","Samsung"),[]);
  assert.deepEqual(modelsFor("手机","手动品牌"),[]);
 });
