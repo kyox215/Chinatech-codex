@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { openCatalogPicker,choosePickerFamily,choosePickerModel,pickerText } from './catalog-picker';
+import { openCatalogPicker,choosePickerFamily,choosePickerModel,pickerText,manuallyChooseDevice } from './catalog-picker';
 
 async function setup(page: import('@playwright/test').Page) {
   const response=await page.request.post('/api/preview-session',{data:{email:'demo@chinatech.local',password:'Preview2026!'}});expect(response.status()).toBe(200);
@@ -103,4 +103,15 @@ test('periodic authorization reuses the version and clears candidates after deni
   await page.route('**/api/catalog?kind=picker-index*',route=>route.fulfill({status:401,contentType:'application/json',body:JSON.stringify({message:'请先登录后查看设备目录。'})}));
   const denied=page.waitForResponse(response=>response.url().includes('kind=picker-index')&&response.status()===401);await page.clock.fastForward(30000);await denied;
   await expect(dialog.getByRole('alert')).toContainText('请先登录后查看设备目录。');await expect(dialog.getByRole('option',{name:'Apple',exact:true})).toHaveCount(0);expect(requests).toBe(2);
+  await page.clock.fastForward(30000);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(dialog.getByRole('alert')).toContainText('请先登录后查看设备目录。');expect(requests).toBe(2);
+});
+
+test('historical raw models stay in manual entry and do not mix into another series',async({page})=>{
+  const login=await page.request.post('/api/preview-session',{data:{email:'demo@chinatech.local',password:'Preview2026!'}});expect(login.status()).toBe(200);
+  await page.goto('/app/retail/new');await page.getByRole('radio',{name:'新机',exact:true}).locator('..').click();
+  const raw='Galaxy A13 legacy-original';await manuallyChooseDevice(page,page.getByRole('combobox',{name:'型号 / 商品名称',exact:true}),raw,'Samsung');
+  await page.getByRole('checkbox',{name:/我确认这是门店自有/}).check();await page.getByRole('button',{name:'创建独立档案',exact:true}).click();await page.waitForURL('**/app/retail/units/**');
+  await page.goto('/app/retail/new');await page.getByRole('radio',{name:'新机',exact:true}).locator('..').click();
+  const dialog=await openCatalogPicker(page,page.getByRole('combobox',{name:'品牌',exact:true}));await dialog.getByRole('combobox').fill('Samsung');await dialog.getByRole('option',{name:'Samsung',exact:true}).click();await choosePickerFamily(page,dialog,'Galaxy S');await dialog.getByRole('combobox').fill(raw);await expect(dialog.getByRole('option',{name:raw,exact:true})).toHaveCount(0);
+  await dialog.getByRole('button',{name:'系列 · Galaxy S',exact:true}).click();await dialog.getByRole('button',{name:'未收录系列 / 手动填写',exact:true}).click();await dialog.getByRole('combobox').fill(raw);await expect(dialog.getByRole('option',{name:raw,exact:true})).toBeVisible();await dialog.getByRole('option',{name:raw,exact:true}).click();await expect(page.getByRole('combobox',{name:'型号 / 商品名称',exact:true})).toHaveValue(raw);
 });
