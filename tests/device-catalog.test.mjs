@@ -83,5 +83,5 @@ test('Excel date-typed ISO cells preserve the source calendar date',()=>{
 });
 test('published domain has no measured configuration or business write coupling',()=>{
  const source=readFileSync('lib/device-catalog.ts','utf8');assert.doesNotMatch(source,/RetailUnit|RepairWorkflow|backendCommand|batteryPercent|imei1|costCents/);
- const migration=readFileSync('supabase/migrations/20261007223500_device_catalog.sql','utf8');assert.equal((migration.match(/force row level security/g)||[]).length,4);assert.doesNotMatch(migration,/grant.*admin_user_id.*to chinatech_runtime/i);assert.doesNotMatch(migration,/delete on|bypassrls|security definer/i);
+ const migration=readFileSync('supabase/migrations/20261013095303_device_catalog.sql','utf8');assert.equal((migration.match(/force row level security/g)||[]).length,4);assert.doesNotMatch(migration,/grant.*admin_user_id.*to chinatech_runtime/i);assert.doesNotMatch(migration,/delete on|bypassrls|security definer/i);
 });
