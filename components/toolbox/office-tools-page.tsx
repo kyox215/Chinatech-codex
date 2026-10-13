@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { ArrowDown, Download, Play, RotateCcw } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { PublicHeader } from "@/components/home/public-header";
@@ -36,27 +37,34 @@ export function OfficeToolsPage() {
   const video = useRef<HTMLVideoElement>(null);
   const attempt = useRef(0);
   const playPending = useRef(false);
+  const [videoRevision, setVideoRevision] = useState(0);
   const [videoPhase, setVideoPhase] = useState<VideoPhase>("idle");
 
   useEffect(() => {
     const element = video.current;
     return () => {
-      attempt.current += 1;
-      playPending.current = false;
       if (element?.hasAttribute("src")) {
         element.pause();
         element.removeAttribute("src");
         element.load();
       }
     };
-  }, []);
+  }, [videoRevision]);
 
   function startVideo() {
-    const element = video.current;
-    if (!element || playPending.current) return;
-    const currentAttempt = ++attempt.current;
+    const previous = video.current;
+    if (!previous || playPending.current) return;
     playPending.current = true;
-    setVideoPhase("loading");
+    if (previous.hasAttribute("src")) {
+      previous.pause();
+      previous.removeAttribute("src");
+      previous.load();
+      // A retry needs a fresh media resource while preserving this user gesture.
+      flushSync(() => { setVideoRevision(value => value + 1); setVideoPhase("loading"); });
+    } else setVideoPhase("loading");
+    const element = video.current;
+    if (!element) { playPending.current = false; setVideoPhase("failed"); return; }
+    const currentAttempt = ++attempt.current;
     function failed(error: unknown) {
       if (currentAttempt !== attempt.current || video.current !== element) return;
       playPending.current = false;
@@ -108,12 +116,12 @@ export function OfficeToolsPage() {
         <div className={styles.videoCopy}><h2 id="office-video-title">{t("约 40 秒了解桌面程序")}</h2><p>{t("中文解说与字幕，展示组件选择与应用管理。")}</p><p className={styles.muted}>{t("界面演示；不代表实际安装或激活已完成验收。")}</p><a className={styles.inlineLink} href="#office-desktop">{t("选择下载版本")}<ArrowDown size={16} aria-hidden="true" /></a></div>
         <div className={styles.videoCard}>
           <div className={styles.videoStage}>
-            <video ref={video} controls={videoPhase !== "idle"} playsInline preload="none" poster="/media/office-product-intro-zh-poster.jpg" aria-label={t("ChinaTech Office 助手产品介绍视频（中文）")} onError={event => {
-              if (!attempt.current || !event.currentTarget.error) return;
+            <video key={videoRevision} ref={video} controls={videoPhase !== "idle"} playsInline preload="none" poster="/media/office-product-intro-zh-poster.jpg" aria-label={t("ChinaTech Office 助手产品介绍视频（中文）")} onError={event => {
+              if (event.currentTarget !== video.current || !attempt.current || !event.currentTarget.error) return;
               playPending.current = false;
               setVideoPhase("failed");
             }} onPlaying={event => {
-              if (!attempt.current || event.currentTarget.paused || event.currentTarget.error) return;
+              if (event.currentTarget !== video.current || !attempt.current || event.currentTarget.paused || event.currentTarget.error) return;
               playPending.current = false;
               setVideoPhase("ready");
             }} />

@@ -34,9 +34,19 @@ test.afterEach(async ({ page }, info) => {
   if (info.status === info.expectedStatus || page.isClosed()) return;
   const state = await video(page).evaluateAll(elements => elements.map(element => {
     const current = element as HTMLVideoElement;
-    return { src: current.getAttribute("src"), readyState: current.readyState, networkState: current.networkState, paused: current.paused, error: current.error?.code ?? null };
+    const rect = current.getBoundingClientRect();
+    const quality = current.getVideoPlaybackQuality?.();
+    const ranges = (range: TimeRanges) => Array.from({ length: range.length }, (_, index) => [range.start(index), range.end(index)]);
+    return {
+      src: current.getAttribute("src"), currentSrc: current.currentSrc, readyState: current.readyState, networkState: current.networkState,
+      currentTime: current.currentTime, duration: Number.isFinite(current.duration) ? current.duration : null, paused: current.paused,
+      ended: current.ended, seeking: current.seeking, error: current.error?.code ?? null, buffered: ranges(current.buffered), played: ranges(current.played), seekable: ranges(current.seekable),
+      playbackRate: current.playbackRate, muted: current.muted, volume: current.volume, frames: quality?.totalVideoFrames ?? null, droppedFrames: quality?.droppedVideoFrames ?? null,
+      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }, viewport: { width: innerWidth, height: innerHeight }, visibility: document.visibilityState,
+    };
   }));
-  await info.attach("office-product-media-state", { body: Buffer.from(JSON.stringify(state)), contentType: "application/json" });
+  const events = await page.evaluate(() => (window as unknown as { officeMediaEvents?: unknown[] }).officeMediaEvents ?? []);
+  await info.attach("office-product-media-state", { body: Buffer.from(JSON.stringify({ state, events })), contentType: "application/json" });
 });
 
 test("portrait product media is idle on initial load and language changes do not download or auto-play it", async ({ page }) => {
@@ -122,8 +132,11 @@ test("real product video plays, seeks and pauses while keeping the same Chinese 
   expect(state.height).toBe(1920);
   expect(state.duration).toBeGreaterThan(35);
   expect(state.duration).toBeLessThan(50);
+  const originalVideo = await video(page).elementHandle();
+  expect(originalVideo).not.toBeNull();
   for (const locale of locales) {
     await language(page, locale);
+    expect(await video(page).evaluate((element, original) => element === original, originalVideo!)).toBe(true);
     await expect(video(page)).toHaveAttribute("src", "/media/office-product-intro-zh.mp4");
     await video(page).evaluate(element => { const current = element as HTMLVideoElement; current.pause(); current.currentTime = 20; });
     await expect.poll(() => video(page).evaluate(element => (element as HTMLVideoElement).currentTime)).toBeGreaterThanOrEqual(19.8);
@@ -132,6 +145,7 @@ test("real product video plays, seeks and pauses while keeping the same Chinese 
   }
   await video(page).evaluate(element => (element as HTMLVideoElement).pause());
   await expect(section(page).getByRole("alert")).toHaveCount(0);
+  await originalVideo!.dispose();
 });
 
 test("media failure reports the current language and retries the same video without any Office action", async ({ page }) => {
@@ -140,11 +154,21 @@ test("media failure reports the current language and retries the same video with
   let releaseResponse!: () => void;
   const responseReady = new Promise<void>(resolve => { releaseResponse = resolve; });
   await page.addInitScript(() => {
-    const fixture: { mode: "real" | "blocked" | "deferred"; calls: number; rejectOld?: (reason: unknown) => void } = { mode: "real", calls: 0 };
+    const beforePlay: { currentSrc: string; readyState: number; currentTime: number; error: number | null; paused: boolean; buffered: number[][] }[] = [];
+    const fixture: { mode: "real" | "blocked" | "deferred"; calls: number; beforePlay: typeof beforePlay; rejectOld?: (reason: unknown) => void } = { mode: "real", calls: 0, beforePlay };
     (window as unknown as { officeMediaFixture: typeof fixture }).officeMediaFixture = fixture;
+    const events: unknown[] = [];
+    (window as unknown as { officeMediaEvents: typeof events }).officeMediaEvents = events;
+    for (const type of ["loadstart", "abort", "emptied", "loadedmetadata", "canplay", "playing", "pause", "stalled", "waiting", "suspend", "timeupdate", "error", "ended"]) document.addEventListener(type, event => {
+      if (!(event.target instanceof HTMLVideoElement)) return;
+      const media = event.target;
+      events.push({ type, at: performance.now(), currentTime: media.currentTime, readyState: media.readyState, networkState: media.networkState, paused: media.paused, error: media.error?.code ?? null, buffered: Array.from({ length: media.buffered.length }, (_, index) => [media.buffered.start(index), media.buffered.end(index)]) });
+      if (events.length > 200) events.shift();
+    }, true);
     const originalPlay = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function () {
       fixture.calls += 1;
+      beforePlay.push({ currentSrc: this.currentSrc, readyState: this.readyState, currentTime: this.currentTime, error: this.error?.code ?? null, paused: this.paused, buffered: Array.from({ length: this.buffered.length }, (_, index) => [this.buffered.start(index), this.buffered.end(index)]) });
       if (fixture.mode === "blocked") return Promise.reject(new DOMException("Synthetic playback blocked", "NotAllowedError"));
       if (fixture.mode === "deferred") {
         void originalPlay.call(this).catch(() => {});
@@ -204,11 +228,26 @@ test("media failure reports the current language and retries the same video with
   // A late old play rejection/error cannot replace a successful retry.
   fail = false; holdResponse = false;
   await page.evaluate(() => { (window as unknown as { officeMediaFixture: { mode: string } }).officeMediaFixture.mode = "real"; });
+  const previousVideo = await video(page).elementHandle();
+  expect(previousVideo).not.toBeNull();
   await activate(section(page).getByRole("button", { name: translate("重新加载视频", "en"), exact: true }));
+  expect(await video(page).evaluate((element, previous) => element === previous, previousVideo!)).toBe(false);
+  expect(await previousVideo!.evaluate(element => ({ connected: element.isConnected, hasSource: element.hasAttribute("src"), paused: (element as HTMLVideoElement).paused }))).toEqual({ connected: false, hasSource: false, paused: true });
+  const beforeFinalPlay = await page.evaluate(() => (window as unknown as { officeMediaFixture: { beforePlay: unknown[] } }).officeMediaFixture.beforePlay.at(-1));
+  expect(beforeFinalPlay).toEqual({ currentSrc: "", readyState: 0, currentTime: 0, error: null, paused: true, buffered: [] });
   await expectPlaying(video(page));
   await page.evaluate(() => { (window as unknown as { officeMediaFixture: { rejectOld: (reason: unknown) => void } }).officeMediaFixture.rejectOld(new DOMException("Synthetic old attempt rejected", "NotSupportedError")); });
+  await previousVideo!.dispatchEvent("error");
+  await previousVideo!.dispatchEvent("playing");
   await video(page).dispatchEvent("error");
   await expectPlaying(video(page));
   await expect(section(page).getByRole("alert")).toHaveCount(0);
+  await previousVideo!.dispose();
+  const latestVideo = await video(page).elementHandle();
+  expect(latestVideo).not.toBeNull();
+  await activate(page.locator("header").getByRole("link", { name: translate("工具箱", "en"), exact: true }));
+  await expect(page).toHaveURL(/\/toolbox$/);
+  await expect.poll(() => latestVideo!.evaluate(element => ({ connected: element.isConnected, hasSource: element.hasAttribute("src"), paused: (element as HTMLVideoElement).paused, loading: (element as HTMLVideoElement).networkState === 2 }))).toEqual({ connected: false, hasSource: false, paused: true, loading: false });
+  await latestVideo!.dispose();
   expect(officeActions).toEqual([]);
 });
