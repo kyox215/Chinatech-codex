@@ -11,10 +11,11 @@ type InputProps = ComponentPropsWithRef<"input"> & ControlFeedbackProps & {
   leading?: ReactNode;
   trailing?: ReactNode;
   shell?: boolean;
+  selectionOnly?: boolean;
 };
 
 /** Text-like inputs only. Checkboxes, radios, ranges and file pickers retain their own controls. */
-export function InputControl({ error, hint, validationMessage, validate, onClear, clearLabel = "清空输入", leading, trailing, shell = false, ref, onBlur, onInvalid, onChange, className, ...props }: InputProps) {
+export function InputControl({ error, hint, validationMessage, validate, onClear, clearLabel = "清空输入", leading, trailing, shell = false, selectionOnly = false, ref, onBlur, onInvalid, onChange, className, ...props }: InputProps) {
   const { t } = useLanguage();
   const input = useRef<HTMLInputElement | null>(null);
   const [uncontrolledValue, setUncontrolledValue] = useState(props.defaultValue ?? "");
@@ -35,7 +36,7 @@ export function InputControl({ error, hint, validationMessage, validate, onClear
   return <span className="input-control" data-filled={filled} data-invalid={invalid}>
     <span className={`input-control__body${shell ? " input-shell" : ""}`} data-actions={actions} data-leading={Boolean(leading)}>
       {leading ? <span className="input-control__leading" aria-hidden="true">{leading}</span> : null}
-      <input {...props} ref={element => { input.current = element; if (typeof ref === "function") return ref(element); if (ref) ref.current = element; }}
+      <input {...props} readOnly={props.readOnly||selectionOnly} ref={element => { input.current = element; if (typeof ref === "function") return ref(element); if (ref) ref.current = element; }}
         className={["input-control__native", className].filter(Boolean).join(" ")}
         aria-invalid={invalid || undefined} aria-describedby={externalFeedback ? props["aria-describedby"] : feedback.describedBy(props["aria-describedby"])}
         onBlur={event => { feedback.blur(event); onBlur?.(event); }}
@@ -43,7 +44,7 @@ export function InputControl({ error, hint, validationMessage, validate, onClear
         onChange={event => { event.currentTarget.setCustomValidity(validate?.(event.currentTarget.value) ?? ""); if (props.value === undefined) setUncontrolledValue(event.currentTarget.value); feedback.change(event.currentTarget); onChange?.(event); }} />
       {actions ? <span className="input-control__actions">
         {clearable ? <button type="button" className="input-control__clear" aria-label={t(clearLabel)} hidden={!filled} onClick={() => {
-          if (!input.current || input.current.matches(":disabled") || input.current.readOnly) return;
+          if (!input.current || input.current.matches(":disabled") || input.current.readOnly&&!selectionOnly) return;
           onClear?.(); feedback.clear(); input.current.focus({ preventScroll: true });
         }}><X size={16} aria-hidden="true" /></button> : null}
         {trailing}

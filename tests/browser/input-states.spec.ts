@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { retailUnits } from "../../lib/retail-fixtures";
+import { chooseCatalogDevice, manuallyChooseDevice } from "./catalog-picker";
 
 async function preview(page: Page) {
   const response = await page.request.post("/api/preview-session", { data: { email: "demo@chinatech.local", password: "Preview2026!" } });
@@ -18,8 +19,7 @@ async function device(page: Page) {
   await page.getByRole("combobox", { name: /^联系电话/ }).fill("+393200001234");
   await page.getByRole("button", { name: "下一步", exact: true }).click();
   await expect(page.getByRole("heading", { name: "送修设备" })).toBeVisible();
-  await page.getByRole("combobox", { name: /^品牌/ }).fill("Apple");
-  await page.getByRole("combobox", { name: /^型号/ }).fill("iPhone 16");
+  await chooseCatalogDevice(page, "Apple", "iPhone", "iPhone 16");
 }
 
 test("登录默认、聚焦、错误、已填与清空在四个宽度保持一致", async ({ page }, info) => {
@@ -195,8 +195,7 @@ test("组合框清空沿用客户及型号联动并返回输入焦点", async ({
   await expect(page.getByLabel("电子邮件（选填）", { exact: true })).toHaveValue("");
   await phone.fill("+393200001234");
   await page.getByRole("button", { name: "下一步", exact: true }).click();
-  await page.getByRole("combobox", { name: /^品牌/ }).fill("Apple");
-  await page.getByRole("combobox", { name: /^型号/ }).fill("iPhone 16");
+  await chooseCatalogDevice(page, "Apple", "iPhone", "iPhone 16");
   await page.getByRole("button", { name: "清空品牌", exact: true }).click();
   await expect(page.getByRole("combobox", { name: /^品牌/ })).toBeFocused();
   await expect(page.getByRole("combobox", { name: /^型号/ })).toHaveValue("");
@@ -265,8 +264,7 @@ test("整机建档数字、未知与零、日期及金额继续使用领域规�
   await preview(page);
   await page.goto("/app/retail/new");
   await page.getByRole("radio", { name: "翻新机", exact: true }).locator("..").click();
-  await page.getByRole("combobox", { name: /^品牌/ }).fill("Apple");
-  await page.getByRole("combobox", { name: /^型号 \/ 商品名称/ }).fill("DEMO Input States");
+  await manuallyChooseDevice(page, page.getByRole("combobox", { name: /^型号 \/ 商品名称/ }), "DEMO Input States", "Apple");
   await page.getByRole("heading", { name: "新建商品", exact: true }).click();
   const battery = page.getByRole("textbox", { name: "电池健康", exact: true });
   await battery.fill("101");

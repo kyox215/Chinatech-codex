@@ -11,11 +11,27 @@ export type CatalogRow = CatalogEntry & { version: number };
 export type CatalogCoverage = { category: string; brand: string; verifiedCount: number; scope: string; gaps: string[]; sourceIds: string[] };
 export type CatalogSource = { id: string; title: string; url: string; checkedAt: string };
 export type CatalogState = { revision: string; canManage: boolean; accountId: string; sessionId: string; storeId: string };
-export type CatalogQuery = { category?: string; brand?: string; family?: string; q?: string; page?: number; includeDisabled?: boolean };
+export type CatalogQuery = { category?: string; brand?: string; family?: string; familyExact?: boolean; q?: string; page?: number; includeDisabled?: boolean };
 export type CatalogPage = { rows: CatalogRow[]; total: number; page: number; pageSize: number; revision: string };
 export type CatalogImportRow = { entry: CatalogEntry; expectedVersion: number };
 export type CatalogChange = { id: string; kind: 'add' | 'update' | 'disable' | 'unchanged'; name: string };
 export type CatalogPreview = { revision: string; rows: CatalogImportRow[]; changes: CatalogChange[]; errors: { row: number; message: string }[]; digest: string };
+export type CatalogPickerScope = { accountId: string; sessionId: string; storeId: string; memberId: string; memberRevision: number };
+export type CatalogPickerModel = Pick<CatalogEntry, 'id' | 'category' | 'brand' | 'family' | 'name' | 'releasedAt' | 'year' | 'network' | 'platform' | 'modelCodes' | 'aliases' | 'status'>;
+export type CatalogPickerResponse = {
+  formatVersion: 1; scope: CatalogPickerScope; revision: string; category: string; brand: string; family: string;
+} & ({ unchanged: true } | {
+  unchanged: false; complete: boolean; brands: { value: string; total: number }[];
+  families: { brand: string; value: string; total: number }[]; models: CatalogPickerModel[];
+});
+export function catalogPickerScopeKey(scope: CatalogPickerScope): string {
+  return JSON.stringify([1, scope.accountId, scope.sessionId, scope.storeId, scope.memberId, scope.memberRevision]);
+}
+export function catalogPickerModel(entry: CatalogEntry): CatalogPickerModel {
+  return { id: entry.id, category: entry.category, brand: entry.brand, family: entry.family, name: entry.name,
+    releasedAt: entry.releasedAt, year: entry.year, network: entry.network, platform: entry.platform,
+    modelCodes: entry.modelCodes, aliases: entry.aliases, status: entry.status };
+}
 export class CatalogError extends Error { constructor(message: string, public status = 400) { super(message); } }
 const brandAliases: Record<string, readonly string[]> = {
   Apple: ['苹果'], Samsung: ['三星'], Xiaomi: ['小米', 'Mi'], Redmi: ['红米', 'REDMI'],
@@ -86,7 +102,7 @@ export function catalogQueryPage(rows: readonly CatalogRow[], query: CatalogQuer
   const categories = query.category ? catalogQueryCategories(query.category) : [];
   const brand = query.brand ? canonicalCatalogBrand(query.brand) : '';
   const phrase = catalogNormalize(query.q ?? ''); const page = Math.max(1, query.page ?? 1);
-  const matched = rows.filter(row => (query.includeDisabled || row.enabled) && (!categories.length || categories.includes(row.category)) && (!brand || row.brand === brand) && (!query.family || row.family === query.family) && catalogSearchText(row).includes(phrase)).sort(compareCatalogRows);
+  const matched = rows.filter(row => (query.includeDisabled || row.enabled) && (!categories.length || categories.includes(row.category)) && (!brand || row.brand === brand) && ((!query.family && !query.familyExact) || row.family === (query.family ?? '')) && catalogSearchText(row).includes(phrase)).sort(compareCatalogRows);
   return { rows: matched.slice((page-1)*50, page*50), total: matched.length, page, pageSize: 50, revision };
 }
 export function catalogEntryEqual(a: CatalogEntry, b: CatalogEntry) {

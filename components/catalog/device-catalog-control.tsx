@@ -11,7 +11,7 @@ type Props={category:string;brand?:string;field:'brand'|'model';label:string;val
 export function DeviceCatalogControl(props:Props){return <CatalogControl key={props.category+':'+(props.field==='model'?canonicalCatalogBrand(props.brand??''):'')} {...props}/>;}
 function CatalogControl({category,brand='',field,label,value,onChange,required=false,maxLength,disabled=false,historicalOptions=[]}:Props){
   const {t,systemText}=useLanguage();const [open,setOpen]=useState(false);const [family,setFamily]=useState('');const [page,setPage]=useState(1);
-  const canonical=canonicalCatalogBrand(brand);const selectedCategory=category==='电脑'?'computer':catalogCategory(category)??'other';
+  const canonical=canonicalCatalogBrand(brand);const selectedCategory=category==='all'?'':category==='电脑'?'computer':catalogCategory(category)??'other';
   const groups=useCatalogRead<Groups>({kind:'groups',category:selectedCategory,brand:field==='model'?canonical:'',q:field==='brand'?value:''},open&&!disabled);
   const models=useCatalogRead<CatalogPage>({kind:'models',category:selectedCategory,brand:canonical,family,q:value,page:String(page)},open&&!disabled&&field==='model');
   const loading=field==='brand'?groups.loading:models.loading;const error=groups.error||models.error;
