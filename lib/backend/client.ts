@@ -20,6 +20,8 @@ export function subscribeRecovery(listener:()=>void){recoveryListeners.add(liste
 function recoveryUpdate(next:RecoveryStatus){recovery=next;recoveryListeners.forEach(listener=>listener());}
 export function isBackendClient(){return configured;}
 export function backendSnapshot(){return snapshot;}
+// A document-local generation, never an authentication credential.
+export function backendReadGeneration(){return generation;}
 export function subscribeBackend(listener:()=>void){listeners.add(listener);return()=>{listeners.delete(listener);};}
 function publish(next:BackendSnapshot|null){snapshot=next;listeners.forEach(listener=>listener());}
 export function configureBackend(initial:BackendSnapshot){generation++;configured=true;refreshFlight=null;publish(initial);recoveryUpdate({busy:false,pending:null,message:""});void loadRecovery();}

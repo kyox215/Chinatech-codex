@@ -1,6 +1,19 @@
 /** Static display messages. Do not use these translations as business values. */
 export const interfaceMessages: Record<string, readonly [string, string]> = {
   // Shared device catalog interface.
+  "选择设备": ["Seleziona dispositivo", "Choose device"],
+  "选择设备品牌": ["Seleziona marca", "Choose device brand"],
+  "选择设备型号": ["Seleziona modello", "Choose device model"],
+  "关闭设备选择": ["Chiudi selezione dispositivo", "Close device selection"],
+  "品牌系列型号选择步骤": ["Passaggi marca, serie e modello", "Brand, series and model selection steps"],
+  "搜索系列": ["Cerca serie", "Search series"],
+  "共 {v0} 个型号": ["{v0} modelli", "{v0} models"],
+  "未分组系列": ["Serie non classificata", "Unclassified series"],
+  "未收录系列 / 手动填写": ["Serie non elencata / inserimento manuale", "Unlisted series / manual entry"],
+  "使用手填品牌": ["Usa la marca inserita", "Use entered brand"],
+  "使用手填型号": ["Usa il modello inserito", "Use entered model"],
+  "设备目录查询超时，请重试或手动填写。": ["La ricerca nel catalogo è scaduta. Riprova o inserisci manualmente.", "Catalog search timed out. Retry or enter manually."],
+  "目录授权范围已变化，请刷新后重试。": ["L’accesso al catalogo è cambiato. Aggiorna e riprova.", "Catalog access has changed. Refresh and retry."],
   "请先登录后查看设备目录。": ["Accedi prima di consultare il catalogo dispositivi.", "Sign in before viewing the device catalog."],
   "此操作仅在正式后台开放。": ["Questa operazione richiede il backend ufficiale.", "This operation requires the formal backend."],
   "你没有设备目录维护权限。": ["Non hai il permesso di modificare il catalogo dispositivi.", "You do not have device catalog management permission."],

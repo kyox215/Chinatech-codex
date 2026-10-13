@@ -3,6 +3,8 @@ import { getTutorials } from "../../lib/tutorials";
 import { translate } from "../../lib/i18n/translate";
 import type { Locale } from "../../lib/i18n/locale";
 
+import { chooseCatalogDevice } from "./catalog-picker";
+
 const languageLabel = "语言 / Lingua / Language";
 async function activate(locator: Locator) {
   if (test.info().project.use.hasTouch) await locator.tap();
@@ -138,8 +140,7 @@ test("changing the backend language keeps drafts and saves canonical facts with 
   await page.getByLabel(translate("客户称呼（选填）", "en"), { exact: true }).fill("教程客户原名");
   await activate(page.getByRole("button", { name: "Next", exact: true }));
   await expect(page.getByRole("heading", { name: translate("送修设备", "en"), exact: true })).toBeVisible();
-  await page.getByRole("combobox", { name: /^Brand/ }).fill("Apple");
-  await page.getByRole("combobox", { name: /^Model/ }).fill("iPhone 16");
+  await chooseCatalogDevice(page, "Apple", "iPhone", "iPhone 16", page.getByRole("combobox", { name: /^Brand/ }));
   await page.getByRole("textbox", { name: "SN / IMEI", exact: true }).fill("DEMO-LANGUAGE-001");
   await changeLanguage(page, "it");
   await expect(page.getByRole("combobox", { name: /^Marca/ })).toHaveValue("Apple");

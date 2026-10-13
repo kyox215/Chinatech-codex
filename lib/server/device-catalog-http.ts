@@ -1,11 +1,12 @@
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAccountSession } from './account-auth';
+import { requireAccountIdentity, requireAccountSession } from './account-auth';
 import { copyAuthCookies } from './auth-flows';
 import { AuthRequestError, requireSameOrigin } from '@/lib/supabase/server';
 import { withDatabase, BackendError } from '@/lib/backend/database';
-import { CatalogError, catalogQueryCategories, type CatalogQuery } from '@/lib/device-catalog';
+import { CatalogError, catalogCategories, catalogQueryCategories, catalogPickerScopeKey, type CatalogQuery } from '@/lib/device-catalog';
 import { isSupabaseMode } from '@/lib/supabase/config';
+import { withCatalogRead, catalogReadScope } from './device-catalog';
 export function catalogResponse<T extends NextResponse>(response: T): T {
   response.headers.set('Cache-Control','private, no-store, max-age=0'); response.headers.set('CDN-Cache-Control','no-store'); response.headers.set('Vercel-CDN-Cache-Control','no-store'); response.headers.set('X-Content-Type-Options','nosniff'); return response;
 }
@@ -30,10 +31,35 @@ export async function catalogAccess(request: NextRequest, response: NextResponse
   if (!storeId) throw new CatalogError('当前账号没有获授权的门店。',403);
   return { identity, storeId: storeId as string };
 }
+export async function catalogReadAccess<T>(request: NextRequest, response: NextResponse, run: Parameters<typeof withCatalogRead<T>>[2]): Promise<T> {
+  if (!isSupabaseMode()) throw new CatalogError('此操作仅在正式后台开放。',404);
+  const started = performance.now(); let identityFinished: number | undefined; let databaseStarted: number | undefined;
+  try {
+    const { identity } = await requireAccountIdentity(request, response, request.headers.has('x-ct-account-id'));
+    identityFinished = performance.now();
+    if (request.headers.has('x-ct-session-id') && request.headers.get('x-ct-session-id') !== identity.sessionId) throw new CatalogError('登录会话已变化，请刷新后重试。',409);
+    const selected = request.headers.get('x-ct-store-id') ?? request.cookies.get('ct_store')?.value;
+    if (selected && !/^[a-f0-9-]{36}$/i.test(selected)) throw new CatalogError('目录门店范围无效。');
+    databaseStarted = performance.now();
+    return await withCatalogRead(identity, selected, async access => {
+      const scope = request.headers.get('x-ct-catalog-scope');
+      if (scope !== null && scope !== catalogPickerScopeKey(catalogReadScope(access))) throw new CatalogError('目录授权范围已变化，请刷新后重试。',409);
+      return run(access);
+    });
+  } finally {
+    const ended = performance.now();
+    response.headers.set('Server-Timing', `auth;dur=${((identityFinished ?? ended)-started).toFixed(1)}, catalog;dur=${(databaseStarted === undefined ? 0 : ended-databaseStarted).toFixed(1)}`);
+  }
+}
 export function readCatalogQuery(url: URL): CatalogQuery {
   const q=url.searchParams.get('q') ?? ''; const brand=url.searchParams.get('brand') ?? ''; const family=url.searchParams.get('family') ?? ''; const category=url.searchParams.get('category') ?? ''; const page=Number(url.searchParams.get('page') ?? 1);
   if(q.length>160 || brand.length>60 || family.length>100 || (category && !catalogQueryCategories(category).length) || !Number.isSafeInteger(page) || page<1 || page>2000) throw new CatalogError('目录查询条件无效。');
-  return { q,brand,family,category,page,includeDisabled:url.searchParams.get('disabled')==='true' };
+  return { q,brand,family,category,page,familyExact:url.searchParams.get('familyExact')==='1',includeDisabled:url.searchParams.get('disabled')==='true' };
+}
+export function readCatalogPickerQuery(url: URL): CatalogQuery {
+  const query = readCatalogQuery(url);
+  if (![...catalogCategories, 'computer'].includes(query.category as typeof catalogCategories[number] | 'computer') || query.includeDisabled || query.q || query.page !== 1) throw new CatalogError('目录查询条件无效。');
+  return query;
 }
 export async function boundedCatalogBody(request: NextRequest, max = 12*1024*1024) {
   const reader=request.body?.getReader(); if(!reader) throw new CatalogError('请求内容为空。');

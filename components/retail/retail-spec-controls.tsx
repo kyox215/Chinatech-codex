@@ -8,23 +8,31 @@ import { RetailNumberControl } from "./retail-input-controls";
 import { retailDraftNumber } from "@/lib/retail-input";
 import { SelectControl } from "@/components/select-control";
 import { SearchCombobox } from "@/components/search-combobox";
-import { DeviceCatalogControl } from "@/components/catalog/device-catalog-control";
+import { DeviceIdentityPicker } from "@/components/catalog/device-identity-picker";
 import { canonicalCatalogBrand, catalogNormalize } from "@/lib/device-catalog";
 import { retailCatalogOptions, retailRamPresets, retailStoragePresets, type RetailCatalogField } from "@/lib/retail-catalog";
 import type { Capacity, RetailCategory, RetailDisk, RetailUnit } from "@/lib/retail";
 import styles from "./retail-spec-controls.module.css";
 
-export function RetailCatalogControl({ field, category, brand, units, value, onChange, label, required = false }: {
-  field: RetailCatalogField; category: RetailCategory; brand?: string; units: RetailUnit[]; value: string; onChange: (value: string) => void; label: string; required?: boolean;
+export function RetailCatalogControl({ field, category, brand, units, value, onChange, label, required = false, validationError=false }: {
+  field: RetailCatalogField; category: RetailCategory; brand?: string; units: RetailUnit[]; value: string; onChange: (value: string) => void; label: string; required?: boolean; validationError?:boolean;
 }) {
   const { t } = useLanguage();
   if (field === "brand" || field === "model") {
     const recorded = units.filter(unit => unit.category === category && (field === "brand" || !brand || canonicalCatalogBrand(unit.brand) === canonicalCatalogBrand(brand))).map(unit => unit[field]).filter(value => value.trim());
     const unique = new Map(recorded.map(value => [catalogNormalize(value),value]));
-    return <DeviceCatalogControl field={field} category={category} brand={brand} label={label} value={value} onChange={onChange} required={required} historicalOptions={[...unique.values()].map(value=>({value,label:value}))} />;
+    return <DeviceIdentityPicker mode={field} category={category} brand={field==='brand'?value:brand??''} model={field==='model'?value:''} brandLabel={label} modelLabel={label} modelRequired={required} validationError={validationError} onCommit={next=>onChange(next[field])} historicalBrands={field==='brand'?[...unique.values()].map(value=>({value,label:value})):[]} historicalModels={field==='model'?[...unique.values()].map(value=>({value,label:value})):[]} />;
   }
   return <SearchCombobox validate={text => required && !text.trim() ? "请选择或填写实物型号。" : ""} label={t(label)} value={value} onChange={onChange} options={retailCatalogOptions(field, category, brand, units)}
     required={required} maxLength={300} placeholder={t("搜索或手动填写{v0}", { v0: t(label) })} />;
+}
+
+export function RetailIdentityPicker({category,brand,model,units,onCommit,disabled=false,validationError=false,modelClassName}:{category:RetailCategory;brand:string;model:string;units:RetailUnit[];onCommit:(value:{brand:string;model:string})=>void;disabled?:boolean;validationError?:boolean;modelClassName?:string}){
+  const {t}=useLanguage();
+  const recorded=units.filter(unit=>unit.category===category);
+  const brands=[...new Set(recorded.map(unit=>unit.brand).filter(Boolean))].map(value=>({value,label:value}));
+  const byBrand:Record<string,{value:string;label:string}[]>={};for(const unit of recorded){const key=canonicalCatalogBrand(unit.brand);if(unit.model&&!byBrand[key]?.some(row=>row.value===unit.model))(byBrand[key]??=[]).push({value:unit.model,label:unit.model});}
+  return <DeviceIdentityPicker category={category} brand={brand} model={model} onCommit={onCommit} modelLabel={t("型号 / 商品名称")} brandClassName={modelClassName} modelClassName={modelClassName} historicalBrands={brands} historicalModelsByBrand={byBrand} disabled={disabled} validationError={validationError}/>;
 }
 
 export function RetailStorageControl({ category, value, onChange, label = "机身存储", disk = false }: {
