@@ -125,6 +125,7 @@ test("public account menu preserves pending feedback through Escape and outside 
   const gate = new Promise<void>(resolve => { release = resolve; });
   await page.route("**/app/dashboard?*", async route => { const response = await route.fetch(); await gate; await route.fulfill({ response }); });
   const details = page.locator("header details");
+  await expect(details.locator("summary")).toHaveAccessibleName("账号菜单 Synthetic owner");
   await details.locator("summary").click();
   const link = details.getByRole("link", { name: "工作台", exact: true });
   await link.press("Enter");
