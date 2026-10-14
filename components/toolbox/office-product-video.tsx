@@ -12,6 +12,7 @@ type VideoPhase = "idle" | "loading" | "ready" | "failed" | "blocked";
 export function OfficeProductVideo() {
   const { t } = useLanguage();
   const dialog = useRef<HTMLDialogElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const attempt = useRef(0);
   const playPending = useRef(false);
@@ -22,7 +23,7 @@ export function OfficeProductVideo() {
     const element = video.current;
     return () => { if (element && !element.isConnected && element.hasAttribute("src")) { element.pause(); element.removeAttribute("src"); element.load(); } };
   }, [revision]);
-  function stop() { attempt.current++; playPending.current = false; video.current?.pause(); video.current?.removeAttribute("src"); video.current?.load(); setPhase("idle"); scrollLock.unlock(); }
+  function stop() { attempt.current++; playPending.current = false; video.current?.pause(); video.current?.removeAttribute("src"); video.current?.load(); setPhase("idle"); scrollLock.unlock(); requestAnimationFrame(() => { if (!dialog.current?.open) trigger.current?.focus({ preventScroll: true }); }); }
   function start() {
     const previous = video.current;
     if (!previous || playPending.current) return;
@@ -33,19 +34,20 @@ export function OfficeProductVideo() {
     } else setPhase("loading");
     const element = video.current;
     if (!element) { playPending.current = false; setPhase("failed"); return; }
+    element.focus({ preventScroll: true });
     const current = ++attempt.current;
     const failed = (error: unknown) => { if (current !== attempt.current || video.current !== element) return; playPending.current = false; setPhase(error instanceof Error && error.name === "NotAllowedError" ? "blocked" : "failed"); };
     try { element.src = "/media/office-public-access-zh.mp4"; void element.play().then(() => { if (current === attempt.current && video.current === element) { playPending.current = false; setPhase("ready"); } }, failed); } catch (error) { failed(error); }
   }
   return <section id="office-product-video" aria-labelledby="office-video-title" className={styles.videoSection}>
-    <button type="button" className={styles.videoEntry} onClick={() => { scrollLock.lock(); dialog.current?.showModal(); start(); }}>
+    <button ref={trigger} type="button" className={styles.videoEntry} disabled={phase === "loading"} onClick={() => { scrollLock.lock(); dialog.current?.showModal(); start(); }}>
       <span className={styles.videoThumb}><Image src="/media/office-public-access-zh-poster.jpg" width={144} height={88} loading="eager" alt="" /><Play size={22} aria-hidden="true" /></span>
       <span className={styles.videoEntryCopy}><strong id="office-video-title">{t("观看使用演示")}</strong><span>{t("中文女声讲解与字幕")}</span></span><ChevronRight size={20} aria-hidden="true" />
     </button>
     <dialog ref={dialog} className={styles.videoDialog} aria-label={t("ChinaTech Office 助手产品介绍视频（中文）")} onCancel={event => { event.preventDefault(); dialog.current?.close(); }} onClose={stop}>
       <div className={styles.dialogHeading}><h2>{t("观看使用演示")}</h2><button type="button" className="icon-button" aria-label={t("关闭视频")} onClick={() => dialog.current?.close()}><X size={20} aria-hidden="true" /></button></div>
       <div className={styles.videoStage}>
-        <video key={revision} ref={video} controls playsInline preload="none" poster="/media/office-public-access-zh-poster.jpg" aria-label={t("ChinaTech Office 助手产品介绍视频（中文）")} onError={event => {
+        <video key={revision} ref={video} tabIndex={0} controls playsInline preload="none" poster="/media/office-public-access-zh-poster.jpg" aria-label={t("ChinaTech Office 助手产品介绍视频（中文）")} onError={event => {
           if (event.currentTarget !== video.current || !attempt.current || !event.currentTarget.error) return;
           playPending.current = false; setPhase("failed");
         }} onPlaying={event => {

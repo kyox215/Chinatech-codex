@@ -5,6 +5,9 @@ import type { Locale } from "../../lib/i18n/locale";
 const locales = ["zh-CN", "it", "en"] as const;
 const section = (page: Page) => page.locator("#office-product-video");
 const video = (page: Page) => section(page).locator("video");
+const entry = (page: Page) => section(page).locator(":scope > button");
+const dialog = (page: Page) => section(page).locator("dialog");
+async function closeVideo(page: Page) { await page.keyboard.press("Escape"); await expect(dialog(page)).toBeHidden(); }
 async function activate(target: Locator) { if (test.info().project.use.hasTouch) await target.tap(); else await target.click(); }
 async function language(page: Page, locale: Locale) {
   await page.getByLabel("语言 / Lingua / Language", { exact: true }).selectOption(locale);
@@ -52,7 +55,7 @@ test.afterEach(async ({ page }, info) => {
 test("portrait product media is idle on initial load and language changes do not download or auto-play it", async ({ page }) => {
   const requests: string[] = [], legacy: string[] = [];
   page.on("request", request => {
-    if (request.url().includes("/media/office-product-intro-zh.mp4")) requests.push(request.url());
+    if (request.url().includes("/media/office-public-access-zh.mp4")) requests.push(request.url());
     if (request.url().includes("/tutorials/office/")) legacy.push(request.url());
   });
   let releaseScripts!: () => void;
@@ -61,10 +64,11 @@ test("portrait product media is idle on initial load and language changes do not
     if (route.request().resourceType() === "script") await scriptsReady;
     await route.continue();
   });
-  await page.route("**/media/office-product-intro-zh.mp4", route => route.fulfill({ status: 503, contentType: "text/plain", body: "Synthetic pre-hydration media unavailable" }));
+  await page.route("**/media/office-public-access-zh.mp4", route => route.fulfill({ status: 503, contentType: "text/plain", body: "Synthetic pre-hydration media unavailable" }));
   await page.goto("/toolbox/office", { waitUntil: "commit" });
   try {
-    await expect(video(page)).toBeVisible();
+    await expect(video(page)).toBeHidden();
+    await expect(entry(page)).toBeVisible();
     expect(await video(page).getAttribute("src")).toBeNull();
     expect(await video(page).evaluate(element => (element as HTMLVideoElement).currentSrc)).toBe("");
     expect(requests).toEqual([]);
@@ -73,8 +77,8 @@ test("portrait product media is idle on initial load and language changes do not
   await expect(video(page)).toHaveCount(1);
   await expect(section(page).getByText(translate("产品介绍视频制作中", "zh-CN"), { exact: true })).toHaveCount(0);
   expect(await video(page).getAttribute("src")).toBeNull();
-  await expect(video(page)).toHaveAttribute("poster", "/media/office-product-intro-zh-poster.jpg");
-  expect(await video(page).getAttribute("controls")).toBeNull();
+  await expect(video(page)).toHaveAttribute("poster", "/media/office-public-access-zh-poster.jpg");
+  await expect(video(page)).toHaveAttribute("controls", "");
   await expect(video(page)).toHaveAttribute("playsinline", "");
   await expect(video(page)).toHaveAttribute("preload", "none");
   expect(await video(page).getAttribute("autoplay")).toBeNull();
@@ -82,9 +86,9 @@ test("portrait product media is idle on initial load and language changes do not
   for (const locale of locales) {
     await language(page, locale);
     await expect(video(page)).toHaveAttribute("aria-label", translate("ChinaTech Office 助手产品介绍视频（中文）", locale));
-    await expect(section(page)).toContainText(translate("中文解说与字幕，展示组件选择与应用管理。", locale));
-    await expect(section(page)).toContainText(translate("界面演示；不代表实际安装或激活已完成验收。", locale));
-    const start = section(page).getByRole("button", { name: translate("播放产品介绍视频", locale), exact: true });
+    await expect(section(page)).toContainText(translate("中文女声讲解与字幕", locale));
+    await expect(section(page)).toContainText(translate("流程示意；不代表实际安装或激活已经完成。", locale));
+    const start = entry(page);
     await expect(start).toBeEnabled();
     const box = await start.boundingBox();
     expect(box!.width).toBeGreaterThanOrEqual(44);
@@ -97,21 +101,27 @@ test("portrait product media is idle on initial load and language changes do not
   expect(legacy).toEqual([]);
 });
 
-test("portrait card fits desktop and phone widths without cropping or expanding the video above 320 pixels", async ({ page }) => {
+test("compact entry and portrait modal fit desktop and phone viewports without cropping", async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto("/toolbox/office");
   for (const locale of locales) {
     await language(page, locale);
     for (const width of [1440, 1024, 390, 375]) {
       await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
+      const entryBox = await entry(page).boundingBox();
+      expect(entryBox!.height).toBeGreaterThanOrEqual(44);
+      expect(entryBox!.x).toBeGreaterThanOrEqual(0);
+      expect(entryBox!.x + entryBox!.width).toBeLessThanOrEqual(width);
+      await activate(entry(page));
+      await expectPlaying(video(page));
       const box = await video(page).boundingBox();
-      expect(box!.width).toBeLessThanOrEqual(320);
       expect(box!.x).toBeGreaterThanOrEqual(0);
       expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      expect(box!.y).toBeGreaterThanOrEqual(0);
+      expect(box!.y + box!.height).toBeLessThanOrEqual(width < 768 ? 844 : 1000);
       expect(box!.width / box!.height).toBeCloseTo(9 / 16, 2);
       expect(await video(page).evaluate(element => getComputedStyle(element).objectFit)).toBe("contain");
-      await activate(section(page).getByRole("link", { name: translate("选择下载版本", locale), exact: true }));
-      await expect(page.locator("#office-desktop-title")).toBeInViewport();
+      await closeVideo(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     }
   }
@@ -127,14 +137,15 @@ test("real product video plays, seeks and pauses while keeping the same Chinese 
   });
   try {
     await page.goto("/toolbox/office", { waitUntil: "commit" });
-    await expect(video(page)).toBeVisible();
+    await expect(video(page)).toBeHidden();
+    await expect(entry(page)).toBeVisible();
     expect(await video(page).getAttribute("src")).toBeNull();
   } finally { releaseScripts(); }
   await page.waitForLoadState("load");
-  await activate(section(page).getByRole("button", { name: translate("播放产品介绍视频", "zh-CN"), exact: true }));
+  await activate(entry(page));
   await expectPlaying(video(page));
   await expect(video(page)).toHaveAttribute("controls", "");
-  await expect(section(page).getByRole("button", { name: translate("播放产品介绍视频", "zh-CN"), exact: true })).toHaveCount(0);
+  await expect(dialog(page)).toBeVisible();
   const state = await video(page).evaluate(element => {
     const current = element as HTMLVideoElement;
     return { width: current.videoWidth, height: current.videoHeight, duration: current.duration };
@@ -146,9 +157,9 @@ test("real product video plays, seeks and pauses while keeping the same Chinese 
   const originalVideo = await video(page).elementHandle();
   expect(originalVideo).not.toBeNull();
   for (const locale of locales) {
-    await language(page, locale);
+    await closeVideo(page); await language(page, locale); await activate(entry(page)); await expectPlaying(video(page));
     expect(await video(page).evaluate((element, original) => element === original, originalVideo!)).toBe(true);
-    await expect(video(page)).toHaveAttribute("src", "/media/office-product-intro-zh.mp4");
+    await expect(video(page)).toHaveAttribute("src", "/media/office-public-access-zh.mp4");
     await video(page).evaluate(element => { const current = element as HTMLVideoElement; current.pause(); current.currentTime = 20; });
     await expect.poll(() => video(page).evaluate(element => (element as HTMLVideoElement).currentTime)).toBeGreaterThanOrEqual(19.8);
     expect(await video(page).evaluate(element => (element as HTMLVideoElement).paused)).toBe(true);
@@ -190,7 +201,7 @@ test("media failure reports the current language and retries the same video with
   });
   const officeActions: string[] = [];
   page.on("request", request => { if (request.url().includes("/api/toolbox/office")) officeActions.push(request.url()); });
-  await page.route("**/media/office-product-intro-zh.mp4", async route => {
+  await page.route("**/media/office-public-access-zh.mp4", async route => {
     requests += 1;
     if (holdResponse) await responseReady;
     if (fail) await route.fulfill({ status: 503, contentType: "text/plain", body: "Synthetic media unavailable", headers: { "cache-control": "no-store" } });
@@ -198,11 +209,11 @@ test("media failure reports the current language and retries the same video with
   });
   await page.goto("/toolbox/office");
   expect(requests).toBe(0);
-  await activate(section(page).getByRole("button", { name: translate("播放产品介绍视频", "zh-CN"), exact: true }));
+  await activate(entry(page));
   await expect(section(page).getByRole("alert")).toContainText(translate("视频暂时无法播放，请稍后重试。", "zh-CN"));
   expect(requests).toBeGreaterThan(0);
   for (const locale of locales) {
-    await language(page, locale);
+    await closeVideo(page); await language(page, locale); await activate(entry(page));
     await expect(section(page).getByRole("alert")).toContainText(translate("视频暂时无法播放，请稍后重试。", locale));
     await expect(section(page).getByRole("button", { name: translate("重新加载视频", locale), exact: true })).toBeEnabled();
   }
@@ -215,10 +226,10 @@ test("media failure reports the current language and retries the same video with
   // Playback rejection must report feedback even when no native error fires.
   await page.reload();
   await page.evaluate(() => { (window as unknown as { officeMediaFixture: { mode: string } }).officeMediaFixture.mode = "blocked"; });
-  await activate(section(page).getByRole("button", { name: translate("播放产品介绍视频", "en"), exact: true }));
+  await activate(entry(page));
   await expect(section(page).getByRole("alert")).toContainText(translate("浏览器阻止了视频播放，请点击重试。", "en"));
   for (const locale of locales) {
-    await language(page, locale);
+    await closeVideo(page); await language(page, locale); await activate(entry(page));
     await expect(section(page).getByRole("alert")).toContainText(translate("浏览器阻止了视频播放，请点击重试。", locale));
   }
 
@@ -226,13 +237,16 @@ test("media failure reports the current language and retries the same video with
   await page.evaluate(() => { (window as unknown as { officeMediaFixture: { mode: string } }).officeMediaFixture.mode = "deferred"; });
   fail = true; holdResponse = true;
   const beforeRequests = requests;
+  const beforeCalls = await page.evaluate(() => (window as unknown as { officeMediaFixture: { calls: number } }).officeMediaFixture.calls);
   await activate(section(page).getByRole("button", { name: translate("重新加载视频", "en"), exact: true }));
-  const pendingStart = section(page).getByRole("button", { name: translate("播放产品介绍视频", "en"), exact: true });
+  const pendingStart = entry(page);
+  await expect(dialog(page)).toBeVisible();
+  expect(await dialog(page).evaluate(element => element.contains(document.activeElement))).toBe(true);
   await expect(pendingStart).toBeDisabled();
   await expect(section(page).getByRole("status")).toHaveText(translate("正在加载视频…", "en"));
   await expect.poll(() => requests).toBeGreaterThan(beforeRequests);
   await pendingStart.evaluate(element => { element.dispatchEvent(new MouseEvent("click", { bubbles: true })); element.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
-  expect(await page.evaluate(() => (window as unknown as { officeMediaFixture: { calls: number } }).officeMediaFixture.calls)).toBe(2);
+  expect(await page.evaluate(() => (window as unknown as { officeMediaFixture: { calls: number } }).officeMediaFixture.calls)).toBe(beforeCalls + 1);
   releaseResponse();
   await expect(section(page).getByRole("alert")).toContainText(translate("视频暂时无法播放，请稍后重试。", "en"));
 
@@ -256,6 +270,7 @@ test("media failure reports the current language and retries the same video with
   await previousVideo!.dispose();
   const latestVideo = await video(page).elementHandle();
   expect(latestVideo).not.toBeNull();
+  await closeVideo(page);
   await activate(page.locator("header").getByRole("link", { name: translate("工具箱", "en"), exact: true }));
   await expect(page).toHaveURL(/\/toolbox$/);
   await expect.poll(() => latestVideo!.evaluate(element => ({ connected: element.isConnected, hasSource: element.hasAttribute("src"), paused: (element as HTMLVideoElement).paused, loading: (element as HTMLVideoElement).networkState === 2 }))).toEqual({ connected: false, hasSource: false, paused: true, loading: false });
