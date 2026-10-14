@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdirSync,writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {chromium,webkit,expect} from '@playwright/test';
-const nativeBackendCancellation=(e,origin)=>/^(?:EventSource|Fetch API) cannot load http$/.test(e.name)&&new RegExp('^/'+new URL(origin).host.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'/api/backend/(?:events|state\\?known=[a-f0-9]{64}) due to access control checks\\.$').test(e.message);
+const nativeBackendCancellation=(e,origin)=>['EventSource cannot load '+new URL(origin).protocol.slice(0,-1),'Fetch API cannot load '+new URL(origin).protocol.slice(0,-1)].includes(e.name)&&new RegExp('^/'+new URL(origin).host.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'/api/backend/(?:events|state\\?known=[a-f0-9]{64}) due to access control checks\\.$').test(e.message);
 export async function browserCatalog({manager,owner,storeId,prefix,pass,origin,root,proof=resolve(root,'.local/device-catalog')}){
  const out=resolve(proof,'browser');mkdirSync(out,{recursive:true});const results=[],diagnostics=[];
  for(const [name,engine]of [['chromium',chromium],['webkit',webkit]]){
