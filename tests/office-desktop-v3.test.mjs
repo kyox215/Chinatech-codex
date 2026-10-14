@@ -144,3 +144,11 @@ test('Executable activity HTTP boundary rejects leaked fields, wrong origin and 
  const response=await send(tokens.v3Origin+tokens.pathV3('activity'),signed(proof(fields),'activity'),{origin:'https://other.test'});assert.equal(response.status,403);
  assert.equal(transactions,0);delete env.VERCEL;
 });
+
+test('component uninstall freezes media and whole-product removal stays media-free',()=>{
+ const removal={...plan,removalMode:'selected',removalTargets:['c2r-app:ProPlus2024Volume:Excel']};
+ assert.equal(tokens.planV3(removal,'uninstall').mediaVersion,plan.mediaVersion);
+ fails(()=>tokens.planV3({...removal,mediaVersion:''},'uninstall'),'PLAN_INVALID');
+ assert.equal(tokens.planV3({...removal,removalMode:'all',removalTargets:['c2r-product:ProPlus2024Volume'],mediaVersion:''},'uninstall').mediaVersion,'');
+ assert.notEqual(tokens.hashV3(JSON.stringify(tokens.planV3(removal,'uninstall'))),tokens.hashV3(JSON.stringify(tokens.planV3({...removal,mediaVersion:'16.0.17932.21001'},'uninstall'))));
+});

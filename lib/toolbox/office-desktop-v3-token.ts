@@ -60,6 +60,7 @@ export function planV3(value: unknown, action: string): V3Plan {
   if (typeof p.server !== 'string' || p.server.length > 253 || !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*kms\.cx(?::[0-9]{1,5})?$|^k\.302\.pub(?::[0-9]{1,5})?$/i.test(p.server)) throw new DesktopError('PLAN_INVALID');
   const port = p.server.split(':')[1]; if (port && (Number(port) < 1 || Number(port) > 65535)) throw new DesktopError('PLAN_INVALID');
   if (['install', 'reinstall'].includes(action) && p.components.length === 0 || action === 'uninstall' && p.removalTargets.length === 0) throw new DesktopError('PLAN_INVALID');
+  if (action === 'uninstall' && p.removalTargets.some(target => target.startsWith('c2r-app:')) && p.mediaVersion === '') throw new DesktopError('PLAN_INVALID');
   if (typeof p.mediaVersion !== 'string' || (p.mediaVersion === '' ? ['install', 'reinstall'].includes(action) && p.components.some(component => component !== 'OneDrive')
     : !/^16\.0\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$/.test(p.mediaVersion) || p.mediaVersion.split('.').slice(2).some(part => Number(part) > 65535))) throw new DesktopError('PLAN_INVALID');
   return { target: 'LTSC2024', bitness: 64, language: String(p.language), components: [...p.components].sort(), server: p.server.toLowerCase(), expectedFingerprint: p.expectedFingerprint.toLowerCase(), removalTargets: [...p.removalTargets].sort(), removalMode: p.removalMode as 'selected' | 'all', mediaVersion: p.mediaVersion };
