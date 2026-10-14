@@ -47,6 +47,43 @@ test('focus during the first index request restarts the query and opens independ
   await expect(page.getByRole('dialog', { name: '选择设备', exact: true })).toHaveCount(0);
 });
 
+test('directory pending belongs to the open field; background preload and closed fields stay idle', async ({ page }) => {
+  const session = await page.request.post('/api/preview-session', { data: { email: 'demo@chinatech.local', password: 'Preview2026!' } });
+  expect(session.status()).toBe(200);
+  let release!: () => void, calls = 0;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/catalog?kind=picker-index*', async route => { calls++; await held; await route.continue().catch(() => undefined); });
+  try {
+    await page.goto('/app/repairs/new');
+    await page.getByRole('combobox', { name: '联系电话' }).fill('+393200001234');
+    await page.getByRole('button', { name: '下一步', exact: true }).click();
+    const brand = repairBrand(page), root = pickerRoot(brand);
+    const toggle = root.getByRole('button', { name: '显示品牌候选', exact: true });
+    const progress = page.locator('[data-content-progress]');
+    test.info().annotations.push({ type: 'shared-progress-instances', description: String(await progress.count()) });
+    await expect.poll(() => calls).toBeGreaterThan(0);
+    await expect(toggle).not.toHaveAttribute('aria-busy', 'true');
+    if (await progress.count()) await expect(progress).toHaveAttribute('data-active', 'false');
+    await brand.click();
+    await expect(toggle).toHaveAttribute('aria-busy', 'true');
+    await expect(toggle.locator('svg.spin')).toHaveCount(1);
+    expect(await toggle.evaluate(node => getComputedStyle(node, '::before').content)).toBe('none');
+    if (await progress.count()) await expect(progress).toHaveAttribute('data-active', 'true');
+    await brand.press('Escape');
+    await expect(toggle).not.toHaveAttribute('aria-busy', 'true');
+    await expect(toggle.locator('svg.spin')).toHaveCount(0);
+    if (await progress.count()) await expect(progress).toHaveAttribute('data-active', 'false');
+    const loaded = page.waitForResponse(response => response.url().includes('kind=picker-index') && response.status() === 200);
+    release();
+    await loaded;
+    await brand.click();
+    await expect(root.getByRole('option', { name: 'Apple', exact: true })).toBeVisible();
+    await expect(toggle).not.toHaveAttribute('aria-busy', 'true');
+    await expect(toggle.locator('svg.spin')).toHaveCount(0);
+    if (await progress.count()) await expect(progress).toHaveAttribute('data-active', 'false');
+  } finally { release(); }
+});
+
 test('brand commits independently, query Escape preserves identity and a new canonical brand clears the new model', async ({ page }) => {
   await setup(page);
   let queries = 0;

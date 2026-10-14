@@ -2,7 +2,7 @@
 
 import { useLanguage } from "@/components/language-provider";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Search, Check } from "lucide-react";
+import { ChevronDown, Search, Check, LoaderCircle } from "lucide-react";
 import { InputControl } from "./input-control";
 
 export type ComboboxOption = { value: string; label: string; detail?: string; key?: string };
@@ -163,8 +163,8 @@ export function SearchCombobox({
     <InputControl validate={displaySelectedLabel && validate ? () => validate(value) : validate}
       leading={<Search size={16} aria-hidden="true" />} error={error} hint={hint} disabled={disabled} readOnly={readOnly}
       clearLabel={t("清空{v0}", { v0: t(label) })} onClear={() => { resetQuery(); onChange(""); setOpen(true); }}
-      trailing={<button type="button" disabled={disabled || readOnly} aria-label={t("显示{v0}候选", { v0: t(label) })} aria-expanded={expanded}
-        onClick={() => { input.current?.focus({ preventScroll: true }); setOpen(!expanded); }}><ChevronDown size={17} aria-hidden="true" /></button>}
+      trailing={<button type="button" disabled={disabled || readOnly} aria-label={t("显示{v0}候选", { v0: t(label) })} aria-expanded={expanded} aria-busy={expanded && loading || undefined}
+        onClick={() => { input.current?.focus({ preventScroll: true }); setOpen(!expanded); }}>{expanded && loading ? <LoaderCircle className="spin" size={17} aria-hidden="true" /> : <ChevronDown size={17} aria-hidden="true" />}</button>}
       id={id} ref={input} role="combobox" aria-label={inputLabel} aria-autocomplete="list" aria-expanded={expanded}
       aria-controls={expanded ? id + "-list" : undefined}
       aria-activedescendant={expanded && active >= 0 && active < matches.length ? id + "-option-" + active : undefined}

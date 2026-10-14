@@ -4,9 +4,9 @@
 
 用户确认实施并上线；候选codex/catalog-separated-20261014从fresh main d32dafc2起。当前已落独立SearchCombobox、保留useCatalogIndex预取/合并/授权失效、可选系列/跨系列代码搜索、手填Enter/Tab/blur与Esc、窗口化/移动定位；新建同次清型号/核验、即时撤销不恢复签名/同意/授权，已有单字段规则保留。手机自定义颜色不自动折叠；仅草稿签名失效，存储签名/销售快照不改。无DB迁移/生产业务写入。详docs35。
 
-真实本地组件108不同用例通过（主106=104过+定向修复/签名补12过）；30原生样本各阶段Chrome P95 32.3/32.2/24.7ms、WebKit35/31/33ms，0额外目录GET。491 unit=490过+1既有PS环境skip，4107三语/TS/lint/正式build过，原导航warning保留。证据.local/catalog-separated与.local/device-catalog/separated-performance；首次网络/实体键盘非本指标。
+真实本地组件108不同用例通过（主106=104过+定向修复/签名补12过）；30原生样本各阶段最终Chrome P95 32.4/33.1/26.2ms、WebKit32/31/33ms，0额外目录GET。491 unit=490过+1既有PS环境skip，4107三语/TS/lint/正式build过，原导航warning保留。证据.local/catalog-separated与.local/device-catalog/separated-performance；首次网络/实体键盘非本指标。
 
-新本地Colima/Supabase与同一production build通过18组真实Auth/RLS/API＋双引擎保存刷新/三语打印/反向关联/账号切换，loopback TLS验证原Secure Cookie；15组合成数据残留0、admin null/rev0。30次130型号目录API本机P95 220.3ms，非公网冷启动。未用旧云runtime脚本；CLI2.101兼容只在忽略副本，不改tracked Auth/RLS配置。远程精确SHA CI与发布尚未完成；实际回滚alias dpl_6c8DTE8jrTgUKmm63V9g7uDPdWfy/正确project已只读核过。3191/3177/3178仅本候选，不停其他服务。详.local/catalog-separated/formal；早期HTTP Secure Cookie环境失败与精确TLS取消消息测试适配保留，不放宽业务断言。
+目录pending已补单SVG/aria-busy可见按钮，兼容B共享单线；source双引擎2＋rootB组合2＋最终native性能2通过。后台预取/关闭不busy，未改hook/读取/权限。新本地Colima/Supabase与同一production build通过18组真实Auth/RLS/API＋双引擎保存刷新/三语打印/反向关联/账号切换，loopback TLS验证原Secure Cookie；15组合成数据残留0、admin null/rev0。30次130型号目录API本机P95 220.3ms，非公网冷启动。未用旧云runtime脚本；CLI2.101兼容只在忽略副本，不改tracked Auth/RLS配置。远程精确SHA CI与发布尚未完成；实际回滚alias dpl_6c8DTE8jrTgUKmm63V9g7uDPdWfy/正确project已只读核过。3191/3177/3178仅本候选，不停其他服务。详.local/catalog-separated/formal；早期HTTP Secure Cookie环境失败与精确TLS取消消息测试适配保留，不放宽业务断言。
 
 ## 当前 Figma 操作反馈修复与上线（2026-10-14，候选）
 
