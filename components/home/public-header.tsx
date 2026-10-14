@@ -24,10 +24,10 @@ export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" | "o
     return () => { observer.disconnect(); parent.style.removeProperty("--public-header-offset"); };
   }, []);
 
-  return <header ref={header} className={styles.header} data-signed-in={status.state === "workspace" || status.state === "account" || status.state === "unverified"}><div className={styles.headerInner}>
+  return <header ref={header} className={`${styles.header} ${page === "office" ? styles.officeHeader : ""}`} data-signed-in={status.state === "workspace" || status.state === "account" || status.state === "unverified"}><div className={styles.headerInner}>
     <div className={styles.headerLeft}>
       <nav className={styles.authNav} aria-label={t("账户入口")}>
-        <AccountActions />
+        <AccountActions compact={page === "office"} />
       </nav>
       <span className={styles.divider} />
       <Brand compact />

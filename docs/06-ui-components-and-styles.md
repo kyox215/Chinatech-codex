@@ -1,5 +1,11 @@
 # 公共组件与样式复用规范
 
+## 2026-10-14 Office 公开产品页
+
+Office 产品页沿用 PublicHeader、Brand、LanguageSwitcher、SingleChoice、InputControl 和语义按钮/token。PublicHeader 的 Office compact 变体只在 page=office 启用：已登录账户头像保留完整可访问名称，工作台在账号详情中；匿名登录/注册保持直接可见，其他公开路由不变。应用 SKU 的局部色标仅用于区分产品，未建立第二套主题。
+
+下载弹窗用原生 dialog 与 SingleChoice 选择冻结的 x64/ARM64 文件；手机为底部面板，复制失败用 InputControl 展示只读链接。视频采用紧凑入口与按用户点击加载的原生 dialog；关闭释放媒体并恢复滚动，短屏关闭入口保持可见。三语、焦点、触控、失败/重试、旧异步结果隔离与减少动画必须实际验证。界面示意不作为 Windows 安装成功证据。
+
 ## 2026-10-12 Office 1.1 原生界面
 
 桌面 WPF 继续复用既有三语 Text、检测／确认／UAC／取消／恢复入口；仅客户端私有卡片、圆角按钮模板、折叠详情和固定进度区，不新增网页公共控件／UI框架。颜色沿用 ChinaTech 紫色与白色面板语义。进度与主操作投影归Core纯策略，权限和实际操作仍由原执行器检查。HTML完整预览为独立示例，Chrome三语与代表宽度交互已验；不作为原生运行证明。详[本轮报告](Office助手1.1流程与界面优化20261012.md)。
