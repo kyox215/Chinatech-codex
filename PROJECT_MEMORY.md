@@ -2,7 +2,7 @@
 
 ## B方案正式改造进行中（2026-10-15）
 
-用户已授权B方案实施、后续维护规则、验证与正式上线。基于fresh main d32dafc创建项目内独立发布检出`.local/loading-b-release/source`，branch codex/loading-b-20261014；未混入根并行Office工作。已移除5 route loading/3整机骨架，真实导航原位+2px线、作用域bootstrap、旧查询保留/权限清理、账号状态和维护契约。独立审查修两个bootstrap反例；Node24 498(497过/1缺PS环境)、导航22、实际组件SSR/水合20＋目录10过；初104相关浏览器102过/2WebKit失败保留；目录性能冻结后3过，409账号恢复修latch并加强请求反例后双浏览器repeat3共6过。真实Auth/DB不由合成壳证明；尚未发布，完整新head CI/候选/双域验收仍必需。详docs/35-loading-feedback-b.md。
+用户已授权B方案实施、后续维护规则、验证与正式上线。基于fresh main d32dafc创建项目内独立发布检出`.local/loading-b-release/source`，branch codex/loading-b-20261014；未混入根并行Office工作。已移除5 route loading/3整机骨架，真实导航原位+2px线、作用域bootstrap、旧查询保留/权限清理、账号状态和维护契约。独立审查修两个bootstrap反例；Node24 498(497过/1缺PS环境)、导航22、实际组件SSR/水合20＋目录10过；初104相关浏览器102过/2WebKit失败保留；目录性能冻结后3过，409账号恢复修latch并加强请求反例后双浏览器repeat3共6过。补真实表单/IndexedDB合成4过：未知显示待核对，busy锁/原ID恢复不变；cf12164/5mq旧候选已过期，不晋升，双域仍旧6c8/d32。真实Auth/DB不由合成壳证明；尚未发布，完整新head CI/候选/双域验收仍必需。详docs/35-loading-feedback-b.md。
 
 
 ## 当前 Figma 操作反馈修复与上线（2026-10-14，候选）
