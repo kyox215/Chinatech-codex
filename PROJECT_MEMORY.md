@@ -2,6 +2,8 @@
 
 ## 独立品牌/型号实施候选（2026-10-15）
 
+组合289e/iS5真实18组已过（最终独立cleanup另核）；新增20定向/2native过，Cr32.0/32.2/26.2、WK36/31/35ms、0GET。498本机497过/1PS环境skip，4108i18n/类型/lint/build过。首次组合中断证据确认为helper等待全页无限动画，非商品权限/业务失败；已只修菜单有限动画同步与30s限时，原断言保留。最终此测试/文档commit不改产品源，精确head CI/双域门槛继续。
+
 当前新增B组合候选：仅在本分支合入PR58的4751cf5d提前验收；正式必须PR58已MERGED且fresh main合并tree等于已测试tree，不能提前发布并行未准入代码。七冲突只保留双方新增及processing/data-step-number；组合完整CI/生产构建/API复验另记，原gr1与995e的18组成功分别归档。
 
 用户确认实施并上线；候选codex/catalog-separated-20261014从fresh main d32dafc2起。当前已落独立SearchCombobox、保留useCatalogIndex预取/合并/授权失效、可选系列/跨系列代码搜索、手填Enter/Tab/blur与Esc、窗口化/移动定位；新建同次清型号/核验、即时撤销不恢复签名/同意/授权，已有单字段规则保留。手机自定义颜色不自动折叠；仅草稿签名失效，存储签名/销售快照不改。无DB迁移/生产业务写入。详docs35。
