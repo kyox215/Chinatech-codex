@@ -48,7 +48,7 @@ export function RetailRecordPreparation({ record }: { record: RetailHistoryRecor
       if (!pending) { setPending(structuredClone(draft)); return; }
       busy.current = true; setSubmitting(true);
       const saved = await dispatch({ type: "prepare", id: record.id, sourceSnapshot: record.sourceSnapshot, settingsRevision: revision, draft: pending, event: audit }, {requestId});
-      if (saved) void deviceDraft.clear().catch(() => undefined); else receipt.watch(requestId, () => { setPending(null); setError(""); void deviceDraft.clear().catch(() => undefined); }, () => setError(""));
+      if (saved) void deviceDraft.clear().catch(() => undefined); else receipt.watch(requestId, async isCurrent => { await deviceDraft.clear(); if (isCurrent()) { setPending(null); setError(""); } }, () => setError(""));
     } catch (reason) { setError(reason instanceof Error ? reason.message : "请核对商品资料。"); }
     finally { busy.current = false; setSubmitting(false); }
   }

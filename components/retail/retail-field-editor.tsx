@@ -100,7 +100,7 @@ export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { 
     const requestId = crypto.randomUUID();
     const detail = `${label}：${retailFieldText(field, original[field])} → ${retailFieldText(field, candidate[field])}；${note.trim() || "逐项资料更正"}`;
     const saved = await dispatch({ type: "command", id: original.id, version: original.version, command: { type: "edit", change: { field, value: candidate[field] } }, event: { id: crypto.randomUUID(), title: `更正${label}`, detail, time: intakeRecordTime() } }, {requestId});
-    if (saved) {await deviceDraft.clear().catch(() => undefined);onClose();} else { receipt.watch(requestId, () => { void deviceDraft.clear().catch(() => undefined).then(onClose); }, () => setError("")); busy.current = false; setSubmitting(false); }
+    if (saved) {await deviceDraft.clear().catch(() => undefined);onClose();} else { receipt.watch(requestId, async isCurrent => { await deviceDraft.clear(); if (isCurrent()) onClose(); }, () => setError("")); busy.current = false; setSubmitting(false); }
   }
   const textControl = <label className="field"><span>{t(label)}</span><InputControl validate={text => controlError(() => validateRetailFieldEdit(original, { field, value: text }, units))} onClear={() => setValue("")} clearLabel={t("清空{v0}", { v0: t(label) })} aria-label={t(label)} value={String(value ?? "")} maxLength={field === "model" ? 120 : field === "brand" || field === "color" ? 60 : 300} type={field === "intakeDate" ? "date" : "text"} onInput={field === "intakeDate" ? event => setValue(event.currentTarget.value) : undefined} onChange={event => setValue(event.target.value)} /></label>;
   let control: ReactNode = textControl;

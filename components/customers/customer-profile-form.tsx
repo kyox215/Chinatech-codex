@@ -37,7 +37,7 @@ export function CustomerProfileForm({ customer, onSaved, onCancel }: { customer?
       if (!customer && customers.some(item => item.phone === normalized)) throw new Error("该手机号已有客户档案，请打开现有档案。");
       await saveCustomerProfile({ phone: normalized, name, email, note, updatedAt: intakeRecordTime() }, version, {requestId});
       await deviceDraft.clear();onSaved(normalized);
-    } catch (error) { receipt.watch(requestId, () => { void deviceDraft.clear().catch(() => undefined).then(() => onSaved(normalizeCustomerPhone(phone))); }, () => setError("")); setError(error instanceof Error ? error.message : "客户资料保存失败，请重试。"); }
+    } catch (error) { receipt.watch(requestId, async isCurrent => { await deviceDraft.clear(); if (isCurrent()) onSaved(normalizeCustomerPhone(phone)); }, () => setError("")); setError(error instanceof Error ? error.message : "客户资料保存失败，请重试。"); }
     finally { busy.current = false; setSubmitting(false); }
   }
   return <form className={`panel ${styles.profileForm}`} aria-busy={submitting} onSubmit={submit}>

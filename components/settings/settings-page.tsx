@@ -66,7 +66,7 @@ function useSettingsSubmission({ save, onPendingChange, onReceiptChange }: Omit<
     const settle = () => { if (!ownsAttempt()) return; onReceiptChange(requestId, "settled"); onSettled?.(); release(); };
     try {
       if (await save(update, revision, { requestId })) { await finish(); return "confirmed"; }
-      if (ownsAttempt() && receipt.watch(requestId, () => void finish(), settle)) return "waiting";
+      if (ownsAttempt() && receipt.watch(requestId, () => finish(), settle)) return "waiting";
       release(); return "failed";
     } finally { if (alive.current) setSubmitting(false); }
   }

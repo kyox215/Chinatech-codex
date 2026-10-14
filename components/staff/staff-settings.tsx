@@ -66,7 +66,7 @@ export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending:
       await savePreviewMember(editing, openedRevision, { requestId });
       await finish();
     } catch (reason) {
-      if (ownsAttempt() && !receipt.watch(requestId, () => void finish(), settle)) setError(reason instanceof Error ? reason.message : "保存失败，输入已保留，请重试。");
+      if (ownsAttempt() && !receipt.watch(requestId, () => finish(), settle)) setError(reason instanceof Error ? reason.message : "保存失败，输入已保留，请重试。");
     } finally {
       if (alive.current) { if (!receipt.isWaiting()) release(); setSubmitting(false); }
     }

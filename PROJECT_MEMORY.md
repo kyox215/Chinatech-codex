@@ -2,7 +2,7 @@
 
 ## 当前 Figma 操作反馈修复与上线（2026-10-14，候选）
 
-最新用户已授权按原Figma补全缺失组件、相关操作状态与逻辑闭环并上线。独立发布树 `.local/ui-feedback-release/source`／分支 `codex/ui-feedback-20261014`，基线main5826131；公开Office1.3资产保持原字节。Figma按钮／焦点／错误输入已读取，扩展真实导航等待、加载恢复、原requestId回执、草稿锁、客户分页及下载请求提示，不修改Figma文件。474/475本地Node（1Mac无PowerShell跳过）、3953三语键、类型／lint零错误、正式build；原360浏览器323过37失败，修正后96相关回归过。采购20私有／6预览／54领域、签名返修草稿8两浏览器增量通过。未部署；须最终源码完整CI、独立审查与候选→正式只读验收。详[报告34](docs/34-figma-interaction-feedback-release.md)，没有生产业务写入。
+最新用户已授权按原Figma补全缺失组件、相关操作状态与逻辑闭环并上线。独立发布树 `.local/ui-feedback-release/source`／分支 `codex/ui-feedback-20261014`，基线main5826131；公开Office1.3资产保持原字节。Figma按钮／焦点／错误输入已读取，扩展真实导航等待、加载恢复、原requestId回执、草稿锁、客户分页及下载请求提示，不修改Figma文件。474/475本地Node（1Mac无PowerShell跳过）、3953三语键、类型／lint零错误、正式build；原360浏览器323过37失败，修正后96相关回归过。采购20私有／6预览／54领域、签名返修草稿8两浏览器增量通过。新增采购本次成功信号、分组原回执恢复、confirmed Promise收尾锁与isCurrent；相关34浏览器及私有慢清理/卸载反例已通过。旧0f／740候选不晋升，PR56最终SHA须完整CI、独立审查与候选→正式只读验收。详[报告34](docs/34-figma-interaction-feedback-release.md)，没有生产业务写入。
 
 
 ## 目录三级选择与读取提速（2026-10-13候选）

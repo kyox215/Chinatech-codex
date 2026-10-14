@@ -39,26 +39,28 @@ export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "
   const [confirmedProject, setConfirmedProject] = useState<RepairProjectConfirmation | null>(null);
   const busy = useRef(false);
   const owner = useRef<string | null>(null);
+  const retainOwner = useRef(false);
   const projectOwner = useRef<RepairProjectConfirmation | null>(null);
   const { watch: watchReceipt } = useOperationReceipt();
   const selected = rows.find(row => row.id === selectedId) ?? rows.find(isPreorder) ?? rows[0];
   const releaseOwner = useCallback((requestId: string, confirmed = false) => {
     if (owner.current !== requestId) return;
     if (confirmed && projectOwner.current?.requestId === requestId) setConfirmedProject(projectOwner.current);
-    projectOwner.current = null;
+    projectOwner.current = null; retainOwner.current = false;
     owner.current = null; busy.current = false; setPending(false); setRecoveryRequestId(null);
   }, []);
-  const setOperationPending = (value: boolean, requestId?: string, project?: RepairProjectConfirmation) => {
+  const setOperationPending = (value: boolean, requestId?: string, project?: RepairProjectConfirmation, retainUntilReleased = false) => {
     if (!requestId) return false;
     if (value) {
       if (owner.current && owner.current !== requestId) return false;
       projectOwner.current = project?.requestId === requestId && project.repairId === repairId ? project : null;
-      owner.current = requestId; busy.current = true; setPending(true); setRecoveryRequestId(requestId);
+      owner.current = requestId; retainOwner.current = retainUntilReleased; busy.current = true; setPending(true); setRecoveryRequestId(requestId);
       if (selected) setSelectedId(selected.id);
       return true;
     }
     if (owner.current !== requestId) return false;
-    if (project && projectOwner.current === project) releaseOwner(requestId, true);
+    if (retainOwner.current) releaseOwner(requestId, true);
+    else if (project && projectOwner.current === project) releaseOwner(requestId, true);
     else if (!watchReceipt(requestId, () => releaseOwner(requestId, true), () => releaseOwner(requestId))) releaseOwner(requestId);
     return true;
   };
@@ -66,7 +68,7 @@ export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "
     // The modal owns the original observer even when saved data removes a child control.
     const observe = () => {
       const requestId = owner.current;
-      if (requestId) watchReceipt(requestId, () => releaseOwner(requestId, true), () => releaseOwner(requestId));
+      if (requestId) watchReceipt(requestId, () => { if (retainOwner.current) setRecoveryRequestId(null); else releaseOwner(requestId, true); }, () => releaseOwner(requestId));
     };
     observe();
     return subscribeRecovery(observe);

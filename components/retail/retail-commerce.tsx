@@ -127,7 +127,7 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
     if (busy.current||receipt.isWaiting()) return;
     setError("");
     const requestId=crypto.randomUUID();
-    const finish=()=>{busy.current=false;setError("");void deviceDraft.clear().then(onClose);};
+    const finish=async (isCurrent:()=>boolean)=>{await deviceDraft.clear();if(isCurrent()){busy.current=false;setError("");onClose();}};
     try {
       if (conflict) throw new Error("单机已变化，请取消后重新核对。");
       if (!pending) {

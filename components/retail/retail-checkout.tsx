@@ -97,7 +97,7 @@ export function RetailCheckoutForm({ unit, onClose, restoreFocusRef }: { unit: R
       applyRetailWorkflow(workflow,[unit],retailEvent,settings);
       busy.current=true;setSubmitting(true);
       const saved=await dispatch({type:"workflow",workflow,event:retailEvent},{requestId});
-      if(!saved){receipt.watch(requestId, () => { void draft.clear().catch(() => undefined).then(onClose); }, () => { setFailed(false); setError(""); });setFailed(true);setError("未保存售出登记，请核对页面上的提交恢复状态。");return;}
+      if(!saved){receipt.watch(requestId, async isCurrent => { await draft.clear(); if (isCurrent()) onClose(); }, () => { setFailed(false); setError(""); });setFailed(true);setError("未保存售出登记，请核对页面上的提交恢复状态。");return;}
       try {await draft.clear();} catch { /* A draft cleanup failure does not undo the committed sale. */ }
       onClose();
     } catch(reason) {setError(reason instanceof Error?reason.message:"请核对售出资料。");}

@@ -80,7 +80,7 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
       submitting.current = true; setSaving(true);
       const event = { id: operationId.current, title: "新建商品", detail: note, time: intakeRecordTime() };
       const saved = goal === "available" ? await dispatch({ type: "workflow", workflow: { type: "create_ready", unit, photos, checks, note, settingsRevision: settings.revision }, event }, {requestId}) : await dispatch({ type: "create", unit, photos, event: { ...event, detail: "门店自有实物，待检测。" } }, {requestId});
-      if (!saved) { receipt.watch(requestId, () => { void deviceDraft.clear().catch(() => undefined).then(() => router.push("/app/retail/units/" + creationId)); }); submitting.current = false; setSaving(false); return; }
+      if (!saved) { receipt.watch(requestId, async isCurrent => { await deviceDraft.clear(); if (isCurrent()) router.push("/app/retail/units/" + creationId); }); submitting.current = false; setSaving(false); return; }
       await deviceDraft.clear().catch(() => undefined); router.push("/app/retail/units/" + creationId);
     } catch (reason) {
       submitting.current = false; setSaving(false); setError(reason instanceof Error ? reason.message : "请核对单机资料。");

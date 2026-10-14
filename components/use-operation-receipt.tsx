@@ -21,9 +21,22 @@ export function useLocalRecoveryControls(requestId?: string) {
 /** Only an exact original request receipt can finish a retained operation draft. */
 export function useOperationReceipt() {
   const active = useRef(true);
-  const tracked = useRef<{ requestId: string; confirmed: () => void; settled?: () => void } | null>(null);
+  type Tracked = { requestId: string; confirmed: (isCurrent: () => boolean) => void | Promise<void>; settled?: () => void; finishing: boolean };
+  const tracked = useRef<Tracked | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [requestId, setRequestId] = useState<string | null>(null);
+  const finish = useCallback((own: Tracked) => {
+    if (!active.current || tracked.current !== own || own.finishing) return;
+    own.finishing = true;
+    setWaiting(true); setRequestId(null);
+    const isCurrent = () => active.current && tracked.current === own;
+    const release = () => { if (isCurrent()) { tracked.current = null; setWaiting(false); } };
+    try {
+      const result = own.confirmed(isCurrent);
+      if (result && typeof result.then === "function") void Promise.resolve(result).catch(() => undefined).finally(release);
+      else release();
+    } catch { release(); }
+  }, []);
   useEffect(() => {
     active.current = true;
     const stop = subscribeRecovery(() => {
@@ -31,21 +44,24 @@ export function useOperationReceipt() {
       if (!own) return;
       const recovery = backendRecovery();
       if (recovery.receipt?.requestId === own.requestId) {
-        tracked.current = null; setWaiting(false); setRequestId(null); own.confirmed();
+        finish(own);
       } else if (recovery.resolution?.requestId === own.requestId) {
         tracked.current = null; setWaiting(false); setRequestId(null); own.settled?.();
       }
     });
     return () => { active.current = false; tracked.current = null; stop(); };
-  }, []);
-  function watch(requestId: string, confirmed: () => void, settled?: () => void) {
+  }, [finish]);
+  const watch = useCallback((requestId: string, confirmed: Tracked["confirmed"], settled?: () => void) => {
     if (!active.current) return false;
+    if (tracked.current) return tracked.current.requestId === requestId;
     const recovery = backendRecovery();
-    if (recovery.receipt?.requestId === requestId) { confirmed(); return true; }
-    if (recovery.pending?.command.requestId !== requestId) return false;
-    tracked.current = { requestId, confirmed, settled }; setWaiting(true); setRequestId(requestId); return true;
-  }
-  return { waiting, requestId, watch, isWaiting: () => tracked.current !== null };
+    if (recovery.receipt?.requestId !== requestId && recovery.pending?.command.requestId !== requestId) return false;
+    const own = { requestId, confirmed, settled, finishing: false }; tracked.current = own;
+    setWaiting(true); setRequestId(requestId);
+    if (recovery.receipt?.requestId === requestId) finish(own);
+    return true;
+  }, [finish]);
+  return { waiting, requestId, watch, isWaiting: () => tracked.current !== null, isActive: () => active.current };
 }
 
 /** Place outside any disabled fieldset, including a containing modal's fieldset. */

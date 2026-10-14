@@ -1,5 +1,7 @@
 # 公共组件与样式复用规范
 
+2026-10-14 收尾补充：confirmed 回调可返回 Promise；设备草稿清理等异步收尾完成前保持同步原请求锁。await 后必须核对同 tracked token 的 isCurrent，已卸载／新编辑器不得接收旧关闭／导航回调。稳定采购子表单的父 owner 保留至子表单显式释放；条件消失子组件仍由父消费原回执。
+
 ## 2026-10-14 操作反馈与原提交恢复
 
 新增 `NavigationLink`（替代普通内部 Next Link，用真实 useLinkStatus；默认不预取，支持原生键盘／新标签行为）、`ReadFailure`、`ListPagination`（完整授权结果过滤后每页50条）、`DownloadLink`／`DownloadFeedbackProvider`（只表示浏览器已发起请求）。`PageLoading` 复用标题／手机菜单／骨架，首启动可回首页；公开工具页保留SSR与无JS下载，不增加公共流式 loading 边界。

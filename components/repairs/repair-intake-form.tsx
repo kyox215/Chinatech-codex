@@ -113,7 +113,7 @@ export function RepairIntakeForm() {
       const saved = await saveLocalIntake(attachments ? {...data, photos:attachments.map(({id,slot})=>({id,slot}))} : data,savedRevision,signature??undefined,signatureCount,attachments,{requestId});
       await deviceDraft.clear();setSavedRevision(saved.revision!); setSavedPolicy(saved.policy!); setSignature(null); setSubmitted(saved);
     }
-    catch (error) { receipt.watch(requestId, () => { const saved = backendSnapshot()?.intakes.find(row => row.id === data.id); if (!saved) { setError("保存结果暂不可用，请重新读取工单后核对。"); return; } void deviceDraft.clear().catch(() => undefined); setSavedRevision(saved.revision!); setSavedPolicy(saved.policy!); setSignature(null); setError(""); setSubmitted(saved); }, () => setError("")); setError(error instanceof Error ? error.message : "保存失败，请重试。"); }
+    catch (error) { receipt.watch(requestId, async isCurrent => { const saved = backendSnapshot()?.intakes.find(row => row.id === data.id); if (!saved) { setError("保存结果暂不可用，请重新读取工单后核对。"); return; } await deviceDraft.clear(); if (!isCurrent()) return; setSavedRevision(saved.revision!); setSavedPolicy(saved.policy!); setSignature(null); setError(""); setSubmitted(saved); }, () => setError("")); setError(error instanceof Error ? error.message : "保存失败，请重试。"); }
     finally { busy.current = false; setSubmitting(false); }
   };
   const reset = () => { setSubmitted(null); setStep(0); setForm(initialForm); setCustomer(null); recordIdentity.current = {id:`LOCAL-${crypto.randomUUID().replaceAll("-", "").slice(0,16).toUpperCase()}`,createdAt:intakeRecordTime()};setDraftIdentity(recordIdentity.current);void deviceDraft.clear(); setError(""); photos.clear(); setSignature(null);setSigning(false);setSavedRevision(0);setSavedPolicy(null); };

@@ -33,7 +33,7 @@ const moneyInput = (value: number | null | undefined) => value == null ? "" : (v
 
 /** Intake projects are the rows: there is no second item picker or procurement wizard. */
 export function RepairItemsForm({ repairId, confirmedProject, onSaved, onCancel, onPendingChange }: {
-  repairId: string; onSaved: () => void; onCancel: () => void; onPendingChange: (pending: boolean, requestId?: string) => boolean | void;
+  repairId: string; onSaved: () => void; onCancel: () => void; onPendingChange: (pending: boolean, requestId?: string, project?: undefined, retainUntilReleased?: boolean) => boolean | void;
   confirmedProject?: RepairProjectConfirmation | null;
 }) {
   const { t, locale, systemText } = useLanguage();
@@ -125,10 +125,10 @@ export function RepairItemsForm({ repairId, confirmedProject, onSaved, onCancel,
     const requestId = crypto.randomUUID();
     event.preventDefault();
     if (busy.current || receipt.isWaiting() || !canEdit || !dirty) return;
-    if (onPendingChange(true, requestId) === false) return;
+    if (onPendingChange(true, requestId, undefined, true) === false) return;
     busy.current = true; setPending(true); setError("");
     const release = () => { busy.current = false; onPendingChange(false, requestId); };
-    const confirmed = () => { release(); setError(""); void deviceDraft.clear().catch(() => undefined).then(onSaved); };
+    const confirmed = async (isCurrent: () => boolean) => { await deviceDraft.clear(); if (isCurrent()) { release(); setError(""); onSaved(); } };
     const settled = () => { release(); setError(""); };
     try {
       if (changed) throw new Error("工单或配件已变化，请核对最新资料；输入已保留。");
@@ -151,7 +151,7 @@ export function RepairItemsForm({ repairId, confirmedProject, onSaved, onCancel,
         items.push(item);
       }
       await dispatch({ type: "save-items", repairId, intakeRevision: draft.intakeRevision, workflowRevision: draft.workflowRevision, items }, {requestId});
-      await deviceDraft.clear(); release(); onSaved();
+      await deviceDraft.clear(); if (receipt.isActive()) { release(); onSaved(); }
     } catch (reason) { if (!receipt.watch(requestId, confirmed, settled)) setError(reason instanceof Error ? reason.message : "保存失败，输入已保留。"); }
     finally { if (!receipt.isWaiting()) release(); setPending(false); }
   }

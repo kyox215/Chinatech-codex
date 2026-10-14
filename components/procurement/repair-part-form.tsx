@@ -16,7 +16,7 @@ import { saveRepairItemQuote, useLocalIntakes, useRepairDirectory } from "@/comp
 import { useRepairWorkflows } from "@/components/repairs/repair-workflow-store";
 import { useProcurement } from "./procurement-provider";
 import { useStaff } from "@/components/staff/use-staff";
-export function RepairPartForm({repairId,record,requirement,onSaved,onCancel,onPendingChange}:{repairId:string;record?:ProcurementRecord;requirement?:RepairRequirement;onSaved:(id:string)=>void;onCancel:()=>void;onPendingChange?:(pending:boolean,requestId?:string)=>boolean|void}) {
+export function RepairPartForm({repairId,record,requirement,onSaved,onCancel,onPendingChange}:{repairId:string;record?:ProcurementRecord;requirement?:RepairRequirement;onSaved:(id:string)=>void;onCancel:()=>void;onPendingChange?:(pending:boolean,requestId?:string,project?:undefined,retainUntilReleased?:boolean)=>boolean|void}) {
   const { t, locale , systemText } = useLanguage();
   const receipt=useOperationReceipt();
   const staff=useStaff();const canEdit=staff.can("repairs.edit");const canCost=staff.can("financial.read")&&staff.can("financial.edit");
@@ -38,21 +38,21 @@ export function RepairPartForm({repairId,record,requirement,onSaved,onCancel,onP
   async function submit(event:React.FormEvent){
     event.preventDefault();if(!canEdit||busy.current||receipt.isWaiting())return;
     const requestId=crypto.randomUUID();
-    if(onPendingChange?.(true,requestId)===false)return;
+    if(onPendingChange?.(true,requestId,undefined,true)===false)return;
     busy.current=true;setPending(true);setError("");
     const savedId=quoteOnly?record!.id:noProcurement?"":identity;
     const release=()=>{busy.current=false;onPendingChange?.(false,requestId);};
-    const finish=()=>{release();setError("");void deviceDraft.clear().then(()=>onSaved(savedId));};
+    const finish=async(isCurrent:()=>boolean)=>{await deviceDraft.clear();if(isCurrent()){release();setError("");onSaved(savedId);}};
     try{
       if(changed)throw new Error("工单或配件已变化，请重新打开并核对；输入已保留。");
-      if(quoteOnly){await saveRepairItemQuote(repairId,linked?.title??record!.item,parseItemMoney(quote),intakeRevision,{requestId});await deviceDraft.clear();onSaved(record!.id);return;}
+      if(quoteOnly){await saveRepairItemQuote(repairId,linked?.title??record!.item,parseItemMoney(quote),intakeRevision,{requestId});await deviceDraft.clear();if(receipt.isActive()){release();onSaved(record!.id);}return;}
       if(!item.trim())throw new Error("请选择或填写维修项。");
       const matches=settings.suppliers.filter(row=>row.active&&row.name.trim()===supplier.trim());
       if(!noProcurement&&matches.length!==1)throw new Error("请选择已登记的门店供应商。");
       const next:ProcurementRecord={id:identity,repairId,item:record?.item??item.trim(),supplier:noProcurement?"":matches[0].name,...(!noProcurement?{supplierId:matches[0].id}:{}),specification:record?.specification??selectedRequirement?.request??"",quantity:record?.quantity??1,unitCostCents:canCost&&!noProcurement?parseItemMoney(cost):null,required:record?.required??true,expectedAt:record?.expectedAt??"",reference:record?.reference??"",events:[],...(selectedRequirement?{requirementId:selectedRequirement.id,requirementRevision:selectedRequirement.revision}:record?.requirementId?{requirementId:record.requirementId,requirementRevision:record.requirementRevision}:{})};
       if(!noProcurement)validateProcurementDraft(next);
       await dispatch({type:"save-item",record:next,revision,workflowRevision,intakeRevision,quoteCents:parseItemMoney(quote),noProcurement},{requestId});
-      await deviceDraft.clear();onSaved(noProcurement?"":next.id);
+      await deviceDraft.clear();if(receipt.isActive()){release();onSaved(noProcurement?"":next.id);}
     }catch(reason){if(!receipt.watch(requestId,finish,release))setError(reason instanceof Error?reason.message:"保存失败。");}finally{if(!receipt.isWaiting())release();setPending(false);}
   }
   if(!canEdit)return <div className="section-empty"><strong>{t("当前账号没有配件操作权限")}</strong></div>;
