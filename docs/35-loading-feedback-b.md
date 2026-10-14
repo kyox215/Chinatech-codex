@@ -4,7 +4,7 @@
 
 ## 实现
 
-- 根OperationFeedbackProvider按实例token登记真实活动；NavigationLink使用Next真实pending、固定单一svg.spin和原生hash/键盘/新tab语义。ContentProgress在公开header下沿、账号和后台内容上沿显示2px紫色不定进度线，无百分比、遮罩和布局位移。旧任务只能清自己的token，后台轮询不登记；兼容现有可见button/form的aria-busy，后台区域明确排除。
+- 根OperationFeedbackProvider按实例token登记真实活动；NavigationLink由真实onNavigate登记最新实例token，仅当前owner结合Next真实pending显示固定单一svg.spin；旧完成/卸载只清自身，保留原生hash/键盘/新tab语义。ContentProgress在公开header下沿、账号和后台内容上沿显示2px紫色不定进度线，无百分比、遮罩和布局位移。旧任务只能清自己的token，后台轮询不登记；兼容现有可见button/form的aria-busy，后台区域明确排除。
 - 移除5个route loading和3个整机显式骨架Suspense；PageLoading退役，首访/区域读取用真实标题及ReadPending，错误紧凑就地恢复。没有AppShell的根级PageRecovery自行提供进度宿主；内部错误继续复用AppShell，避免重试缺线或重复细线。手机菜单和账号菜单在实际路由提交后关闭。同步交互不制造等待。
 - BackendProvider组件树内持有逐请求授权initial，通过各领域hook提供SSR/首次水合，不调用服务端全局configure。正式分支不读fixture/localStorage。客户端activate、显式owner release/adopt、clear后的generation隔离，以及readFor首个render的新权限投影共同保护身份变化；同scope server refresh不清原提交回执。
 - 目录按身份/门店/成员版本/可见性保存旧结果，新条件等待明确标记；首次尚未activate只等待，不误报无权。订阅树内和全局scope变化，权限版更新无需focus即可重新读取。viewer state401/403/409立即撤下旧行/计数；503保留同范围已确认结果。
@@ -26,3 +26,9 @@ AGENTS.md已要求后续新增、修改与扩展采用B方案；接口及状态�
 - 静态三语通过4103键，当前类型与lint零错误（保留原client location.assign建议警告）。正式构建及新head远程CI、候选READY/来源、双域上线、实际账号只读导航需要本轮最终回执。
 
 证据根：`.local/loading-b-release/proof`；源码内Node日志和导航截图在`.local`。本地组件壳与预览不进入发布源码，不接真实业务接口；本轮无schema/迁移/业务数据写入。
+
+## 第二轮远程反例与修复
+
+4751的PR完整成功，push为390/392，仍未发布。导航trace确认旧toolbox RSC完成后登录与工具箱仍各显示pending，属于真实显示缺陷，不能放松单实例断言；新增最新onNavigate owner约束并对同一链接连续点击补反例。目录采样90次真实点击耗时30.584秒，P95为103/173/91ms均过；唯一额外请求恰在30.006秒，是同scope、knownRevision=seed且unchanged=true的授权核对。性能脚本必须逐一验证该类响应，另严格断言点击触发新数据请求0，保留native RAF/30样本/200ms与独立撤权场景。最终修复仍待定向、独立审查、新完整CI及同源候选，旧绿灯不替代。
+
+本轮最新owner修复定向验证：完整导航24过、竞争/同链接双引擎repeat5共20过；目录性能及撤权双引擎repeat3共12过，性能真实观测30秒窗口、原P95/两帧/30样本保持。独立导航CODE_GO；类型/lint/4103三语过，Node24全498为497过/0失败/1本机PS缺环境skip；正式构建通过。源码待新head完整CI及同源候选，尚未发布。

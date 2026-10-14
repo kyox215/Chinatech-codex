@@ -55,6 +55,7 @@ test("an old navigation finishing cannot clear a newer pending route", async ({ 
   const latest = page.locator("header").getByRole("link", { name: "登录", exact: true });
   await latest.click();
   await expect(latest.locator(".navigation-feedback")).toHaveAttribute("data-pending", "true");
+  await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(1);
   releaseFirst();
   await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(1);
   await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(1);
@@ -62,6 +63,23 @@ test("an old navigation finishing cannot clear a newer pending route", async ({ 
   releaseSecond();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(0);
+});
+
+test("repeated clicks on the same pending link retain one current navigation", async ({ page }) => {
+  await page.goto("/");
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/toolbox?*", async route => { const response = await route.fetch(); await gate; await route.fulfill({ response }).catch(() => {}); });
+  const link = page.locator("header").getByRole("link", { name: "工具箱", exact: true });
+  await link.click();
+  await expect(link.locator(".navigation-feedback")).toHaveAttribute("data-pending", "true");
+  await link.click();
+  await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(1);
+  await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(1);
+  release();
+  await expect(page).toHaveURL(/\/toolbox$/);
+  await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(0);
+  await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
 });
 
 test("mobile drawer keeps its pending link and closes only after commit; Escape and outside remain usable", async ({ page }) => {
