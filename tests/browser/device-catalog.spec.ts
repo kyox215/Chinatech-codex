@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page, type Request } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { activatePicker, openCatalogPicker, chooseCatalogDevice, choosePickerFamily, choosePickerModel, pickerRoot, pickerText, manuallyChooseDevice } from './catalog-picker';
 
@@ -7,9 +7,10 @@ async function setup(page: Page) {
   expect(response.status()).toBe(200);
   const index = page.waitForResponse(response => response.url().includes('/api/catalog?kind=picker-index') && response.status() === 200);
   await page.goto('/app/repairs/new');
-  await index;
+  const indexResponse = await index;
   await page.getByRole('combobox', { name: '联系电话' }).fill('+393200001234');
   await page.getByRole('button', { name: '下一步', exact: true }).click();
+  return { response: indexResponse, data: await indexResponse.json() };
 }
 function repairBrand(page: Page) { return page.locator('form.intake-form').getByRole('combobox', { name: '品牌', exact: true }); }
 function repairModel(page: Page) { return page.locator('form.intake-form').getByRole('combobox', { name: '型号', exact: true }); }
@@ -208,12 +209,36 @@ type PickerTier = 'brand' | 'series' | 'model';
 type PickerPaint = { start: number; firstVisible: number; frame1: number; frame2: number; ms: number; trusted: boolean; event: string };
 type PickerArm = { tier: PickerTier; event: 'pointerdown' | 'click' | 'input'; source: HTMLElement; root: HTMLElement; target: string; count?: number; query?: string; pressed?: string };
 type PickerProbe = { catalogArmed: PickerArm | null; catalogSamples: Record<PickerTier, PickerPaint[]> };
+type AuthorizationTick = { timerId: number; sequence: number; registeredAt: number; at: number };
+type AuthorizationProbe = { catalogAuthorizationTimers: { id: number; registeredAt: number }[]; catalogAuthorizationTicks: AuthorizationTick[] };
 
-test('preloaded independent open, series filter and native model search paint within 200ms without new directory GETs', async ({ page }, info) => {
+test('preloaded independent choices paint within 200ms with zero new-data GETs and only verified native authorization ticks', async ({ page }, info) => {
   test.setTimeout(120000);
-  await setup(page);
-  let requests = 0;
-  page.on('request', request => { if (request.method() === 'GET' && request.url().includes('/api/catalog?')) requests++; });
+  // Observe the actual catalog interval without moving Date, performance or RAF.
+  await page.addInitScript(() => {
+    const probe = window as unknown as AuthorizationProbe;
+    probe.catalogAuthorizationTimers = []; probe.catalogAuthorizationTicks = [];
+    const nativeInterval = window.setInterval.bind(window);
+    let sequence = 0;
+    window.setInterval = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      if (timeout !== 30000 || typeof handler !== 'function' || handler.name !== 'revalidate') return nativeInterval(handler, timeout, ...args);
+      const registeredAt = Date.now(); let timerId = 0;
+      timerId = nativeInterval(function(this: unknown, ...values: unknown[]) {
+        probe.catalogAuthorizationTicks.push({ timerId, sequence: ++sequence, registeredAt, at: Date.now() });
+        return Reflect.apply(handler, this, values);
+      }, timeout, ...args);
+      probe.catalogAuthorizationTimers.push({ id: timerId, registeredAt });
+      return timerId;
+    }) as typeof window.setInterval;
+  });
+  const observationStarted = Date.now(); const warmed = await setup(page);
+  expect(warmed.data.revision).toBe('seed'); expect(warmed.data.complete).toBe(true);
+  const currentScope = [1, warmed.data.scope.accountId, warmed.data.scope.sessionId, warmed.data.scope.storeId, warmed.data.scope.memberId, warmed.data.scope.memberRevision];
+  expect(currentScope).toEqual([1, 'preview', 'preview', 'preview', 'preview', 0]);
+  expect((await page.evaluate(() => (window as unknown as AuthorizationProbe).catalogAuthorizationTimers)).length).toBeGreaterThan(0);
+  const requests: Request[] = [];
+  const observe = (request: Request) => { if (request.method() === 'GET' && new URL(request.url()).pathname === '/api/catalog') requests.push(request); };
+  page.on('request', observe);
   await page.evaluate(() => {
     const probe = window as unknown as PickerProbe;
     probe.catalogArmed = null; probe.catalogSamples = { brand: [], series: [], model: [] };
@@ -299,7 +324,32 @@ test('preloaded independent open, series filter and native model search paint wi
   const samples = Object.fromEntries(Object.entries(points).map(([tier, values]) => [tier, values.map(value => value.ms)]));
   const p95 = (values: number[]) => [...values].sort((a, b) => a - b)[Math.ceil(values.length * .95) - 1];
   const results = Object.fromEntries(Object.entries(samples).map(([name, values]) => [name, { n: values.length, p95: p95(values), max: Math.max(...values) }]));
-  const evidence = JSON.stringify({ network: 'local preview, no throttling', metric: 'browser-native trusted pointerdown/click/input to unobscured visible target retained across two native animation frames; excludes test RPC tail', points, samples, results, requests }, null, 2);
+  await expect.poll(() => requests.filter(request => new URL(request.url()).searchParams.has('knownRevision')).length, { timeout: 45000 }).toBeGreaterThanOrEqual(1);
+  let newDataRequests = 0;
+  const authorizationChecks = [];
+  for (let index = 0; index < requests.length; index++) {
+    const request = requests[index], url = new URL(request.url());
+    if (!url.searchParams.has('knownRevision')) { newDataRequests++; continue; }
+    expect([...url.searchParams.entries()].sort()).toEqual([['category', warmed.data.category], ['kind', 'picker-index'], ['knownRevision', 'seed']].sort());
+    const requestScope = JSON.parse(request.headers()['x-ct-catalog-scope']); expect(requestScope).toEqual(currentScope);
+    const response = await request.response(); expect(response).not.toBeNull(); expect(response!.status()).toBe(200);
+    const body = await response!.json();
+    expect(body.unchanged).toBe(true); expect(body.revision).toBe('seed'); expect(body.scope).toEqual(warmed.data.scope);
+    expect(body.formatVersion).toBe(1); expect(body.category).toBe(warmed.data.category); expect(body.brand).toBe(''); expect(body.family).toBe('');
+    authorizationChecks.push({ url: url.pathname + url.search, requestScope, status: response!.status(), revision: body.revision, unchanged: body.unchanged, startedAt: request.timing().startTime });
+  }
+  page.off('request', observe);
+  const nativeAuthorization = await page.evaluate(() => ({ timers: (window as unknown as AuthorizationProbe).catalogAuthorizationTimers, ticks: (window as unknown as AuthorizationProbe).catalogAuthorizationTicks }));
+  const consumedTicks = new Set<number>();
+  for (const check of authorizationChecks) {
+    const tick = nativeAuthorization.ticks.find(tick => !consumedTicks.has(tick.sequence) && check.startedAt >= tick.at && check.startedAt - tick.at <= 1000);
+    expect(tick, 'Each authorization GET must consume one real 30-second catalog tick; clicks cannot create extras').toBeDefined();
+    expect(tick!.at - tick!.registeredAt).toBeGreaterThanOrEqual(29500);
+    consumedTicks.add(tick!.sequence);
+  }
+  expect(consumedTicks.size).toBe(authorizationChecks.length);
+  const observationWindowMs = Date.now() - observationStarted; expect(observationWindowMs).toBeGreaterThanOrEqual(30000);
+  const evidence = JSON.stringify({ network: 'local preview, no throttling', metric: 'browser-native trusted pointerdown/click/input to unobscured visible target retained across two native animation frames; excludes test RPC tail', points, samples, results, requests: requests.length, newDataRequests, authorizationChecks, nativeAuthorization, observationWindowMs }, null, 2);
   mkdirSync('.local/device-catalog', { recursive: true });
   writeFileSync('.local/device-catalog/separated-performance-' + info.project.name + '.json', evidence);
   await info.attach('catalog-native-performance', { body: evidence, contentType: 'application/json' });
@@ -308,7 +358,8 @@ test('preloaded independent open, series filter and native model search paint wi
     for (const value of values) { expect(value.trusted).toBe(true); expect(value.start).toBeLessThanOrEqual(value.firstVisible); expect(value.firstVisible).toBeLessThanOrEqual(value.frame1); expect(value.frame1).toBeLessThanOrEqual(value.frame2); }
   }
   for (const result of Object.values(results)) expect(result.p95).toBeLessThanOrEqual(200);
-  expect(requests).toBe(0);
+  expect(newDataRequests).toBe(0);
+  expect(authorizationChecks).toHaveLength(requests.length);
 });
 
 test('periodic authorization reuses the version and clears independent candidates after denial', async ({ page }) => {

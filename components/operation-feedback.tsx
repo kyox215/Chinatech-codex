@@ -9,6 +9,8 @@ type Activity = { kind: ActivityKind; scope?: string };
 type Registry = { add: (token: symbol, activity: Activity) => void; remove: (token: symbol) => void };
 const RegistryContext = createContext<Registry | null>(null);
 const ActivitiesContext = createContext<ReadonlyMap<symbol, Activity>>(new Map());
+type NavigationIntent = { current: symbol | null; start: (token: symbol) => void; finish: (token: symbol) => void };
+const NavigationIntentContext = createContext<NavigationIntent | null>(null);
 
 function isVisibleControl(element: HTMLElement) {
   if (element.closest('[hidden], [aria-hidden="true"], [data-operation-feedback="background"]')) return false;
@@ -37,6 +39,9 @@ function BusyControlFeedback() {
 
 export function OperationFeedbackProvider({ children }: { children: ReactNode }) {
   const [activities, setActivities] = useState<ReadonlyMap<symbol, Activity>>(() => new Map());
+  const [navigation, setNavigation] = useState<symbol | null>(null);
+  const startNavigation = useCallback((token: symbol) => setNavigation(token), []);
+  const finishNavigation = useCallback((token: symbol) => setNavigation(current => current === token ? null : current), []);
   const add = useCallback((token: symbol, activity: Activity) => {
     setActivities(current => {
       const previous = current.get(token);
@@ -51,8 +56,12 @@ export function OperationFeedbackProvider({ children }: { children: ReactNode })
     });
   }, []);
   const registry = useMemo(() => ({ add, remove }), [add, remove]);
-  return <RegistryContext.Provider value={registry}><ActivitiesContext.Provider value={activities}><BusyControlFeedback />{children}</ActivitiesContext.Provider></RegistryContext.Provider>;
+  const navigationIntent = useMemo(() => ({ current: navigation, start: startNavigation, finish: finishNavigation }), [navigation, startNavigation, finishNavigation]);
+  return <RegistryContext.Provider value={registry}><ActivitiesContext.Provider value={activities}><NavigationIntentContext.Provider value={navigationIntent}><BusyControlFeedback />{children}</NavigationIntentContext.Provider></ActivitiesContext.Provider></RegistryContext.Provider>;
 }
+
+/** The latest real navigation owns visible feedback; finishing an old one is a no-op. */
+export function useNavigationIntent() { return useContext(NavigationIntentContext); }
 
 /** Each pending lifetime owns a token, so old cleanup cannot clear newer work. */
 export function useActivityFeedback(pending: boolean, { kind = "read", scope }: ActivityOptions = {}) {
