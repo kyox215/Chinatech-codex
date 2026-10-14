@@ -1,8 +1,9 @@
 "use client";
+import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 import { useLanguage } from "@/components/language-provider";
 import { repairItemText } from "@/lib/i18n/repair-display";
 import { InputControl } from "@/components/input-control";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
@@ -20,7 +21,9 @@ export function SupplierBatchDialog({action,onClose,repairId,onSaved}:{action:"o
   const staff=useStaff();const canEdit=staff.can("repairs.edit");const {records,dispatch}=useProcurement();const {settings}=useStoreSettings();const orders=useRepairDirectory();
   const {workflows}=useRepairWorkflows();
   const [supplierId,setSupplierId]=useState("");const [selected,setSelected]=useState<Record<string,{revision:number;quantity:string}>>({});
-  const [confirming,setConfirming]=useState(false);const [error,setError]=useState("");const [pending,setPending]=useState(false);const [success,setSuccess]=useState("");const busy=useRef(false);
+  const [confirming,setConfirming]=useState(false);const [error,setError]=useState("");const receipt = useOperationReceipt();
+  const [pendingBase, setPending] = useState(false);
+  const pending = pendingBase || receipt.waiting;const [success,setSuccess]=useState("");const busy=useRef(false);
   const dialog=useRef<HTMLDialogElement>(null);const titleId=useId();
   useEffect(()=>{dialog.current?.showModal();},[]);
   const eligible=records.filter(row=>{
@@ -36,14 +39,14 @@ export function SupplierBatchDialog({action,onClose,repairId,onSaved}:{action:"o
   const chosen=rows.filter(row=>selected[row.id]);const changed=chosen.some(row=>row.events.length!==selected[row.id].revision)||Object.keys(selected).some(id=>!chosen.some(row=>row.id===id));
   const supplier=settings.suppliers.find(row=>row.id===supplierId);
   function switchSupplier(id:string){setSupplierId(id);setSelected({});setConfirming(false);setError("");setSuccess("");}
-  async function save(){if(busy.current||!canEdit)return;busy.current=true;setPending(true);setError("");try{
+  async function save(){const requestId=crypto.randomUUID();if(busy.current||receipt.isWaiting()||!canEdit)return;busy.current=true;setPending(true);setError("");try{
     if(changed)throw new Error("采购条目已变化，请重新核对整批。");
-    await dispatch({type:"batch",action,supplierId,items:chosen.map(row=>({id:row.id,revision:selected[row.id].revision,...(action==="arrival"?{quantity:Number(selected[row.id].quantity)}:{})}))});
+    await dispatch({type:"batch",action,supplierId,items:chosen.map(row=>({id:row.id,revision:selected[row.id].revision,...(action==="arrival"?{quantity:Number(selected[row.id].quantity)}:{})}))},{requestId});
     onSaved?.([...new Set(chosen.map(row=>row.repairId))]);
     setSelected({});setConfirming(false);setSuccess(action==="ordered"?"本供应商所选条目已记录实际下单。":"本批实际到货已保存。");
-  }catch(reason){setError(reason instanceof Error?reason.message:"保存失败，清单已保留。");}finally{busy.current=false;setPending(false);}}
+  }catch(reason){receipt.watch(requestId,()=>{onSaved?.([...new Set(chosen.map(row=>row.repairId))]);setSelected({});setConfirming(false);setError("");setSuccess(action==="ordered"?"本供应商所选条目已记录实际下单。":"本批实际到货已保存。");},()=>setError(""));setError(reason instanceof Error?reason.message:"保存失败，清单已保留。");}finally{busy.current=false;setPending(false);}}
   const total=chosen.reduce((sum,row)=>sum+(action==="ordered"?row.quantity:Number(selected[row.id].quantity)||0),0);
-  return createPortal(<dialog className="repair-parts-dialog supplier-batch-dialog" ref={dialog} aria-labelledby={titleId} onCancel={event=>{if(busy.current)event.preventDefault();}} onClose={onClose}>
+  return createPortal(<dialog className="repair-parts-dialog supplier-batch-dialog" ref={dialog} aria-labelledby={titleId} onCancel={event=>{if(busy.current || receipt.isWaiting())event.preventDefault();}} onClose={onClose}>
     <header><h2 id={titleId}>{action==="ordered"?t("采购车 · 按供应商下单"):t("按供应商登记实际到货")}</h2><button className="icon-button" type="button" aria-label={t("关闭供应商批量操作")} disabled={pending} onClick={onClose}><X size={20}/></button></header>
     <label className="field"><span>{t("本次供应商")}</span><SelectControl aria-label={t("批量操作供应商")} value={supplierId} disabled={pending||confirming} onChange={event=>switchSupplier(event.target.value)}><option value="">{t("请选择供应商")}</option>{suppliers.map(row=><option key={row.id} value={row.id}>{row.name} · {eligible.filter(record=>resolveSupplierId(record,settings.suppliers)===row.id).length}{t("条")}{!row.active?t("（已停用）"):""}</option>)}</SelectControl></label>
     {unresolved.length?<p className="repair-stage-note">{unresolved.length}{t("条供应商待核对，暂不进入批量清单。请打开对应配件核对供应商。")}</p>:null}
@@ -55,5 +58,5 @@ export function SupplierBatchDialog({action,onClose,repairId,onSaved}:{action:"o
     {changed?<p role="alert" className="form-error">{t("清单已变化，请返回重新选择，避免更新未核对的条目。")}</p>:null}
     {error?<p role="alert" className="form-error">{systemText(error)}</p>:null}{success?<p role="status">{systemText(success)}</p>:null}
     <footer><button type="button" className="button button--secondary" disabled={pending} onClick={()=>confirming?setConfirming(false):onClose()}>{confirming?t("返回核对"):t("关闭")}</button>{canEdit?<button type="button" className="button button--primary" disabled={pending||!chosen.length||changed||(action==="ordered"&&!supplier?.active)} onClick={()=>{if(confirming){void save();return;}if(action==="arrival"){const inputs=Array.from(dialog.current?.querySelectorAll<HTMLInputElement>('input[type="number"]')??[]);const invalid=inputs.filter(input=>!input.checkValidity());if(invalid.length){invalid[0].reportValidity();return;}}if(action==="arrival"&&chosen.some(row=>!/^\d+$/.test(selected[row.id].quantity)||Number(selected[row.id].quantity)<1||Number(selected[row.id].quantity)>row.quantity-arrivedQuantity(row))){setError("请逐条填写不超过待到货数量的正整数。");return;}setError("");setConfirming(true);}}>{pending?t("正在保存…"):confirming?t("确认保存实际事实"):t("核对所选清单")}</button>:null}</footer>
-  </dialog>,document.body);
+  <OperationRecoveryControls requestId={receipt.requestId}/></dialog>,document.body);
 }

@@ -1,5 +1,5 @@
 "use client";
-import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
+import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand, backendRecovery, subscribeRecovery } from "@/lib/backend/client";
 import { requirePreviewPermission } from "@/lib/staff-client";
 import { createContext, useContext, useSyncExternalStore } from "react";
 import { procurementRecords } from "@/lib/procurement-fixtures";
@@ -17,7 +17,7 @@ import { parseLocalIntakes, fixtureIntakeReceipt, intakeDirectoryEntry } from "@
 import { getRepairOrder } from "@/lib/repair-fixtures";
 import { previewRepairWorkflow } from "@/components/repairs/repair-workflow-store";
 
-type Feedback = { recordId: string; error: boolean; message: string } | null;
+type Feedback = { recordId: string; requestId?: string; error: boolean; message: string } | null;
 export type ProcurementListView = { query: string; filter: "all" | "draft" | "cart" | "open" | "complete"; repairId: string; groupBy: string };
 type State = { storageError?: string; records: ProcurementRecord[]; feedback: Feedback; listView: ProcurementListView; repairUpdates: RepairUpdates };
 export type ProcurementAction = { type:"save-items";repairId:string;intakeRevision:number;workflowRevision:number;items:RepairItemEdit[] } | { type:"save-item";record:ProcurementRecord;revision:number;workflowRevision:number;intakeRevision:number;quoteCents:number|null;noProcurement?:boolean } | { type: "create"; record: ProcurementRecord } | { type: "create-cart"; record: ProcurementRecord; workflowRevision: number; intakeRevision: number } | { type: "edit"; record: ProcurementRecord; revision: number } | { type: "append"; id: string; event: ProcurementEvent; revision: number } | { type: "link_requirement"; id: string; revision: number; requirementId: string; requirementRevision: number; note: string } | { type: "batch"; action: "ordered" | "arrival"; supplierId: string; items: ProcurementBatchItem[] } | { type: "list-view"; view: ProcurementListView } | { type: "clear-feedback" };
@@ -168,13 +168,14 @@ function savePreviewItems(current:State, action:Extract<ProcurementAction,{type:
   if(prepared.workflow)window.dispatchEvent(new Event("chinatech-repair-workflow-change"));
   window.dispatchEvent(new Event("chinatech-local-intake-change"));
 }
-async function dispatchAction(action: ProcurementAction) {
+async function dispatchAction(action: ProcurementAction, options?: { requestId?: string }) {
   const current=read();if(action.type==="list-view"||action.type==="clear-feedback"){store={...current,...(action.type==="list-view"?{listView:action.view}:{feedback:null})};window.dispatchEvent(new Event(changed));return;}
   const recordId=recordIdOf(action);
+  const requestId=options?.requestId??crypto.randomUUID();
   try {
     if(isBackendClient()) {
-      if(action.type==="batch") {const {type:_type,...payload}=action;void _type;await backendCommand("procurement.batch",payload);} else await backendCommand("procurement",action);
-      read();store={...store,feedback:{recordId,error:false,message:action.type==="create-cart"?"已加购物车 · 未下单。":action.type==="save-items"?action.items.some(row=>row.purchase)?"报价及供应商已保存 · 未下单。":"报价已保存。":"配件事实已保存。"}};
+      if(action.type==="batch") {const {type:_type,...payload}=action;void _type;await backendCommand("procurement.batch",payload,requestId);} else await backendCommand("procurement",action,requestId);
+      read();store={...store,feedback:{recordId,requestId,error:false,message:action.type==="create-cart"?"已加购物车 · 未下单。":action.type==="save-items"?action.items.some(row=>row.purchase)?"报价及供应商已保存 · 未下单。":"报价已保存。":"配件事实已保存。"}};
     } else {
       const actor=requirePreviewPermission("repairs.edit");if(current.storageError)throw new Error(current.storageError);
       const time=new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Rome",dateStyle:"short",timeStyle:"medium"}).format(new Date());
@@ -183,9 +184,9 @@ async function dispatchAction(action: ProcurementAction) {
       const next=mutate(current,action,time,actor.id);const raw=JSON.stringify({version:1,records:next.records,repairUpdates:next.repairUpdates});parseProcurementState(raw);
       window.localStorage.setItem(storageKey,raw);cachedRaw=raw;store=next;
     }
-  } catch(reason){store={...read(),feedback:{recordId,error:true,message:reason instanceof Error?reason.message:"保存失败。"}};window.dispatchEvent(new Event(changed));throw reason;}
+  } catch(reason){store={...read(),feedback:{recordId,requestId,error:true,message:reason instanceof Error?reason.message:"保存失败。"}};window.dispatchEvent(new Event(changed));throw reason;}
   window.dispatchEvent(new Event(changed));
 }
-const ProcurementContext=createContext<State & {dispatch:(action:ProcurementAction)=>Promise<void>}|null>(null);
-export function ProcurementProvider({children}:{children:React.ReactNode}){const state=useSyncExternalStore(subscribe,read,()=>initialState);return <ProcurementContext.Provider value={{...state,dispatch:dispatchAction}}>{children}</ProcurementContext.Provider>;}
+const ProcurementContext=createContext<State & {dispatch:(action:ProcurementAction,options?:{requestId?:string})=>Promise<void>}|null>(null);
+export function ProcurementProvider({children}:{children:React.ReactNode}){const state=useSyncExternalStore(subscribe,read,()=>initialState);const recovery=useSyncExternalStore(subscribeRecovery,backendRecovery,backendRecovery);const feedback=state.feedback?.requestId&&recovery.receipt?.requestId===state.feedback.requestId?{...state.feedback,error:false,message:"配件事实已保存。"}:state.feedback?.requestId&&recovery.pending?.command.requestId===state.feedback.requestId?null:state.feedback?.requestId&&recovery.resolution?.requestId===state.feedback.requestId?recovery.resolution.status==="cancelled"?null:{...state.feedback,error:true,message:recovery.message||state.feedback.message}:state.feedback;return <ProcurementContext.Provider value={{...state,feedback,dispatch:dispatchAction}}>{children}</ProcurementContext.Provider>;}
 export function useProcurement(){const context=useContext(ProcurementContext);if(!context)throw new Error("采购上下文缺失。");return context;}

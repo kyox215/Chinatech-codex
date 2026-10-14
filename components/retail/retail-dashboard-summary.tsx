@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { buildRetailListIndex } from "@/lib/retail-list-model";
 import { useRetailHistory } from "./retail-history-store";
 import { useLanguage } from "@/components/language-provider";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { Boxes, CheckCircle2, Clock3 } from "lucide-react";
 import { useRetail } from "./retail-provider";
 

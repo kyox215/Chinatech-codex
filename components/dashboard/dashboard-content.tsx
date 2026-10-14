@@ -1,7 +1,8 @@
 "use client";
 
+import { ReadFailure } from "@/components/page-recovery";
 import { useLanguage } from "@/components/language-provider";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { AppNavigationContext, PageTitle } from "@/components/page-title";
 import { useContext } from "react";
 import { retailEventTitle } from "@/lib/i18n/retail-display";
@@ -63,7 +64,7 @@ export function DashboardContent() {
 }
 
 function RealDashboardContent() {
-  const { t, locale , systemText } = useLanguage();
+  const { t, locale } = useLanguage();
   const { settings } = useStoreSettings();
   const orders = useRepairDirectory();
   const { records, storageError } = useProcurement();
@@ -91,7 +92,7 @@ function RealDashboardContent() {
   ].filter(event => event.time).sort((left, right) => right.time.localeCompare(left.time) || left.id.localeCompare(right.id)).slice(0, 5);
   const heading = <DashboardHeading canScan={canRepairs} canCreate={staff.can("repairs.edit")} />;
   if (!workflowReady || !retailReady || !staff.ready) return <div className="dashboard">{heading}<div className="panel module-empty" role="status">{t("正在读取门店概况…")}</div></div>;
-  if (error) return <div className="dashboard">{heading}<div className="panel module-empty" role="alert">{systemText(error)}</div></div>;
+  if (error) return <div className="dashboard">{heading}<ReadFailure message={error} /></div>;
 
   return <div className="dashboard">
     {heading}

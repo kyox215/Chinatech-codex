@@ -1,9 +1,9 @@
 "use client";
 
 import { useLanguage } from "@/components/language-provider";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useTransition } from "react";
 import { AlertCircle, Check, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 import { InputControl } from "@/components/input-control";
 import { useFormReady } from "@/components/control-feedback";
@@ -21,6 +21,7 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
   const { t , systemText } = useLanguage();
   const ready = useFormReady();
   const router = useRouter();
+  const [navigating, startNavigation] = useTransition();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -29,7 +30,7 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [oauthBusy, setOAuthBusy] = useState(false);
-  const busy = !ready || isSubmitting || oauthBusy;
+  const busy = !ready || isSubmitting || navigating || oauthBusy;
   const unavailable = !supabaseMode && !previewAvailable;
 
   function fillDemoCredentials() {
@@ -61,7 +62,7 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
       const response = await fetch(supabaseMode ? "/api/auth/login" : "/api/preview-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        cache: "no-store",
+        cache: "no-store", signal: AbortSignal.timeout(20000),
         body: JSON.stringify({ email, password, remember }),
       });
       const payload = (await response.json()) as { message?: string };
@@ -70,10 +71,9 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
         return;
       }
       notifyAuthChanged();
-      router.replace(supabaseMode ? "/account/pending" : "/app/dashboard");
-      router.refresh();
+      startNavigation(() => { router.replace(supabaseMode ? "/account/pending" : "/app/dashboard"); router.refresh(); });
     } catch {
-      setError(supabaseMode ? "无法连接认证服务，请稍后重试。" : "无法连接本地预览服务，请确认开发服务器仍在运行。");
+      setError(supabaseMode ? "请求结果尚未确认。请核对账号状态后重试，输入已保留。" : "无法连接本地预览服务，请确认开发服务器仍在运行。");
     } finally {
       setIsSubmitting(false);
     }

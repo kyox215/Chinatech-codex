@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/components/language-provider";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { FormEvent, useRef, useState } from "react";
 import { Check, CheckCircle2, Circle, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, UserRound } from "lucide-react";
 import { InputControl } from "@/components/input-control";
@@ -49,12 +49,12 @@ export function RegisterForm({ supabaseMode = false, previewAvailable = true }: 
     setIsSubmitting(true);
     try {
       if (supabaseMode) {
-        const response = await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store", body: JSON.stringify({ displayName: form.get("displayName"), email, password }) });
+        const response = await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store", signal: AbortSignal.timeout(20000), body: JSON.stringify({ displayName: form.get("displayName"), email, password }) });
         const payload = await response.json() as { message?: string };
         if (!response.ok) { setError(payload.message ?? "无法完成注册，请稍后重试。"); return; }
       }
       setPassword(""); setConfirmPassword(""); setPasswordChecked(false); setConfirmChecked(false); setIsComplete(true);
-    } catch { setError("无法连接注册服务，请稍后重试。"); }
+    } catch { setError("请求结果尚未确认。请核对账号状态后重试，输入已保留。"); }
     finally { setIsSubmitting(false); }
   }
   if (isComplete) return supabaseMode ? <VerificationSent email={email} onEdit={() => setIsComplete(false)} /> : <div className="auth-form auth-success" role="status"><span className="auth-form__icon"><CheckCircle2 size={28} /></span><h1>{t("申请流程样板已完成")}</h1><p>{t("当前没有创建真实账号，也没有发送验证邮件。正式注册后仍需门店授权。")}</p><Link className="button button--primary" href="/login">{t("返回登录")}</Link></div>;

@@ -5,7 +5,7 @@ import { RetailRecordSourceFacts } from "./retail-record-preparation";
 import { retailEventTitle, retailEventDetail } from "@/lib/i18n/retail-display";
 import { useLanguage } from "@/components/language-provider";
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { BadgeCheck, Barcode, CalendarDays, ChevronDown, CircleEuro, CircleAlert, Copy, Cpu, FileClock, HardDrive, MapPin, Package, Plug, ShoppingBag, Tag, TrendingUp, UserRound, Wrench } from "lucide-react";
 import { PageTitle } from "@/components/page-title";
 import { ColorSwatch } from "@/components/color-picker";

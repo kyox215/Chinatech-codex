@@ -1,5 +1,7 @@
 "use client";
 
+import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
+import { backendRecovery } from "@/lib/backend/client";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
@@ -10,7 +12,7 @@ import { defaultRepairGroups, parseRepairGroups, moveRepairGroup, visibleRepairG
 import type { StoreSettings } from "@/lib/store-settings";
 import styles from "./repair-group-editor.module.css";
 
-export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settings: StoreSettings; kind: RepairGroupKind; onClose: () => void; onSaved: () => void }) {
+export function RepairGroupEditor({ settings, kind, onClose, onSaved, onPendingChange }: { settings: StoreSettings; kind: RepairGroupKind; onClose: () => void; onSaved: () => void; onPendingChange?: (pending: boolean) => void }) {
   const { t, systemText } = useLanguage();
   const dialog = useRef<HTMLDialogElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -19,7 +21,9 @@ export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settin
   const [rows, setRows] = useState<RepairGroupItem[]>(() => visibleRepairGroups(initial, kind));
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [saving, setSaving] = useState(false);
+  const receipt = useOperationReceipt();
+  const [savingBase, setSaving] = useState(false);
+  const saving = savingBase || receipt.waiting;
   const busy = useRef(false);
   type DragPosition = { key: string; top: number; height: number };
   type DragSession = { id: number; key: string; target: string; startY: number; y: number; startScroll: number; moved: boolean; positions: DragPosition[]; from: number };
@@ -52,7 +56,7 @@ export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settin
     return new Map(Array.from(list.current?.querySelectorAll<HTMLElement>("[data-repair-group]") ?? []).map(element => [element.dataset.repairGroup!, element.getBoundingClientRect().top]));
   }
   function move(key: string, target: string) {
-    if (key === target) return;
+    if (busy.current || receipt.isWaiting() || key === target) return;
     settle.current = capturePositions();
     setRows(current => moveRepairGroup(current, key, target));
     setMessage("分组顺序已调整，保存后对全店生效。");
@@ -107,23 +111,26 @@ export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settin
   async function save() {
     const invalid = Array.from(dialog.current?.querySelectorAll<HTMLInputElement>("input") ?? []).filter(input => !input.checkValidity());
     if (invalid.length) { invalid[0].reportValidity(); return; }
-    if (busy.current) return;
-    busy.current = true; setSaving(true); setError("");
+    if (busy.current || receipt.isWaiting()) return;
+    const requestId = crypto.randomUUID();
+    const confirmed = () => { setError(""); onPendingChange?.(false); onSaved(); };
+    const settled = () => { setError(backendRecovery().resolution?.status === "rejected" ? backendRecovery().message : ""); onPendingChange?.(false); };
+    busy.current = true; setSaving(true); onPendingChange?.(true); setError("");
     try {
       const repairGroups = mergeVisibleRepairGroups(initial, kind, rows);
-      await saveStoreSettings(revision, current => ({ ...current, repairGroups }));
-      onSaved();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败，请重试。"); }
-    finally { busy.current = false; setSaving(false); }
+      await saveStoreSettings(revision, current => ({ ...current, repairGroups }), {requestId});
+      confirmed();
+    } catch (reason) { if (!receipt.watch(requestId, confirmed, settled)) setError(reason instanceof Error ? reason.message : "保存失败，请重试。"); }
+    finally { busy.current = false; setSaving(false); if (!receipt.isWaiting()) onPendingChange?.(false); }
   }
-  return createPortal(<dialog ref={dialog} className={`repair-parts-dialog ${styles.dialog}`} aria-label={t("管理维修分组")} onCancel={event => { event.preventDefault(); if (pointer.current) { settle.current = capturePositions(); stopFrame(); pointer.current = null; setDrag(null); } else if (!busy.current) onClose(); }} onClose={event => { if (!event.currentTarget.open) onClose(); }}>
+  return createPortal(<dialog ref={dialog} className={`repair-parts-dialog ${styles.dialog}`} aria-label={t("管理维修分组")} onCancel={event => { event.preventDefault(); if (pointer.current) { settle.current = capturePositions(); stopFrame(); pointer.current = null; setDrag(null); } else if (!busy.current && !receipt.isWaiting()) onClose(); }} onClose={event => { if (!event.currentTarget.open) onClose(); }}>
     <header><h2>{t("管理")}{kind === "workflow" ? t("维修状态") : t("配件")}{t("分组")}</h2><button className="icon-button" type="button" disabled={saving} aria-label={t("关闭分组管理")} onClick={onClose}><X size={18} /></button></header>
     <p className={styles.hint}>{kind === "workflow" ? t("日常分组名称统一，拖动手柄调整顺序。") : t("拖动手柄调整顺序，修改名称后保存。")}{t("更改对全店生效。")}</p>
     <div className={styles.list} ref={list} data-dragging={Boolean(drag)}>
       {drag ? <div className={styles.placeholder} aria-hidden="true" style={{ top: drag.positions[drag.to].top, height: drag.positions[drag.from].height }} /> : null}
       {rows.map((row, index) => <div className={`${styles.row}${drag?.key === row.key ? ` ${styles.dragging}` : ""}`} style={{ transform: `translateY(${rowOffset(index, row.key)}px)` }} key={row.key} data-repair-group={row.key}>
         <button className={`icon-button ${styles.handle}`} type="button" disabled={saving} aria-label={t("拖动分组 {v0}", { v0: kind === "workflow" ? t(row.label) : row.label })} title={t("拖动排序，也可按方向键上下移动")} onPointerDown={event => {
-          if (!event.isPrimary || event.button !== 0 || busy.current || pointer.current || !list.current) return;
+          if (!event.isPrimary || event.button !== 0 || busy.current || receipt.isWaiting() || pointer.current || !list.current) return;
           for (const element of list.current.querySelectorAll<HTMLElement>("[data-repair-group]")) element.getAnimations().forEach(animation => animation.cancel());
           const bounds = list.current.getBoundingClientRect();
           const positions = Array.from(list.current.querySelectorAll<HTMLElement>("[data-repair-group]")).map(element => { const rect = element.getBoundingClientRect(); return { key: element.dataset.repairGroup!, top: rect.top - bounds.top + list.current!.scrollTop, height: rect.height }; });
@@ -131,7 +138,7 @@ export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settin
           pointer.current = { id: event.pointerId, key: row.key, target: row.key, startY: event.clientY, y: event.clientY, startScroll: list.current.scrollTop, moved: false, positions, from: index };
           frame.current = requestAnimationFrame(scrollDrag);
         }} onPointerMove={pointerMove} onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)} onLostPointerCapture={event => finish(event, true)} onKeyDown={event => {
-          if (pointer.current) return;
+          if (busy.current || receipt.isWaiting() || pointer.current) return;
           const next = event.key === "ArrowUp" ? index - 1 : event.key === "ArrowDown" ? index + 1 : -1;
           if (["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); if (rows[next]) move(row.key, rows[next].key); }
         }}><GripVertical size={20} /></button>
@@ -143,5 +150,6 @@ export function RepairGroupEditor({ settings, kind, onClose, onSaved }: { settin
     <span className={styles.srOnly} role="status">{systemText(message)}</span>
     {error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}
     <footer><button className="button button--secondary" type="button" disabled={saving} onClick={onClose}>{t("取消")}</button><button className="button button--primary" type="button" disabled={saving || Boolean(drag) || !changed} onClick={save}><Check size={17} />{saving ? t("正在保存…") : t("保存分组")}</button></footer>
+    <OperationRecoveryControls requestId={receipt.requestId}/>
   </dialog>, document.body);
 }

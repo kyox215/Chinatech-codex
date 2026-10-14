@@ -1,5 +1,15 @@
 /** Static display messages. Do not use these translations as business values. */
 export const interfaceMessages: Record<string, readonly [string, string]> = {
+  "请填写有效的员工账号邮箱，例如 name@example.com。": ["Inserisci un’email valida per l’account del membro, ad esempio name@example.com.", "Enter a valid staff account email, such as name@example.com."],
+  "员工资料或登录身份已变化，请取消后重新核对。": ["I dati del membro o l’identità di accesso sono cambiati. Annulla e ricontrolla.", "Staff details or the signed-in identity changed. Cancel and review again."],
+
+  "正式门店权限保存在服务器；只能关联已注册并验证邮箱的账号，不创建账号或发送邀请。": ["Le autorizzazioni del punto vendita sono salvate sul server. Si possono collegare solo account registrati con email verificata; non vengono creati account né inviati inviti.", "Store permissions are saved on the server. Only registered accounts with verified email can be linked; no accounts are created or invitations sent."],
+  "姓名由已验证账号提供": ["Nome dall’account verificato", "Name from the verified account"],
+  "确认后保存本门店的成员状态与权限；账号身份由服务器核对，业务操作仍检查当前权限。": ["La conferma salva stato e permessi del membro per questo punto vendita. Il server verifica l’identità dell’account e ogni operazione controlla i permessi correnti.", "Confirmation saves member status and permissions for this store. The server checks account identity, and business actions still check current access."],
+  "账号姓名（核对用）": ["Nome dell’account (da controllare)", "Account name (for review)"],
+  "员工账号邮箱 *": ["Email dell’account del membro *", "Staff account email *"],
+  "保存时使用已验证账号的身份资料；此处填写不会修改账号姓名或邮箱。": ["Il salvataggio usa l’identità dell’account verificato. Questi campi non modificano il nome o l’email dell’account.", "Saving uses identity details from the verified account. These fields do not change the account name or email."],
+
   // Shared device catalog interface.
   "选择设备": ["Seleziona dispositivo", "Choose device"],
   "选择设备品牌": ["Seleziona marca", "Choose device brand"],

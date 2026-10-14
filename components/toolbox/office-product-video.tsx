@@ -50,7 +50,7 @@ export function OfficeProductVideo() {
         <video key={revision} ref={video} tabIndex={0} controls playsInline preload="none" poster="/media/office-public-access-zh-poster.jpg" aria-label={t("ChinaTech Office 助手产品介绍视频（中文）")} onError={event => {
           if (event.currentTarget !== video.current || !attempt.current || !event.currentTarget.error) return;
           playPending.current = false; setPhase("failed");
-        }} onPlaying={event => {
+        }} onWaiting={event => { if (event.currentTarget === video.current && dialog.current?.open && event.currentTarget.hasAttribute("src")) setPhase("loading"); }} onPlaying={event => {
           if (event.currentTarget !== video.current || !attempt.current || event.currentTarget.paused || event.currentTarget.error) return;
           playPending.current = false; setPhase("ready");
         }} />

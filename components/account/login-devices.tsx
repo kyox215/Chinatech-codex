@@ -42,7 +42,7 @@ export function LoginDevicesPanel({ storeMode = false }: { storeMode?: boolean }
     setLoading(true);
     try {
       const params = new URLSearchParams({ offset: String(offset), ...(storeMode ? { memberId: selected } : {}) });
-      const response = await fetch(endpoint + "?" + params, { cache: "no-store", signal: controller.signal });
+      const response = await fetch(endpoint + "?" + params, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) });
       const payload = await response.json();
       if (controller.signal.aborted) return;
       if (response.status === 401) { retry.current = null; setConfirmation(null); dialog.current?.close(); setData(null); clearBackend(); router.replace("/login"); router.refresh(); return; }
@@ -55,7 +55,7 @@ export function LoginDevicesPanel({ storeMode = false }: { storeMode?: boolean }
       }
       identityScope.current = nextScope;
       setData(payload); setError("");
-    } catch (reason) { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "登录设备暂不可用，请稍后重试。"); }
+    } catch (reason) { if (!controller.signal.aborted) setError(reason instanceof Error && reason.name !== "TimeoutError" ? reason.message : "登录设备暂不可用，请稍后重试。"); }
     finally { if (!controller.signal.aborted) setLoading(false); }
   }, [allowed, endpoint, offset, selected, storeMode, router]);
   useEffect(() => {

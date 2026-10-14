@@ -1,6 +1,8 @@
 import { AuthStatusProvider } from "@/components/auth-status-provider";
-import { getAuthStatus } from "@/lib/server/auth-status";
+import { getPublicAuthBootstrap } from "@/lib/server/auth-status";
+import { DownloadFeedbackProvider } from "@/components/download-link";
 export const dynamic = "force-dynamic";
 export default async function ToolboxLayout({ children }: { children: React.ReactNode }) {
-  return <AuthStatusProvider initial={await getAuthStatus()}>{children}</AuthStatusProvider>;
+  const initial = await getPublicAuthBootstrap();
+  return <AuthStatusProvider initial={initial.status} initialChecking={initial.checking}><DownloadFeedbackProvider>{children}</DownloadFeedbackProvider></AuthStatusProvider>;
 }

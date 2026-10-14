@@ -34,8 +34,8 @@ test("named account disclosure shows own facts and settings/device links", async
     const header = page.locator("header"), toolbox = header.getByRole("link", { name: "工具箱", exact: true });
     await expect(toolbox).toHaveText("工具箱"); await expect(toolbox).toHaveAttribute("href", "/toolbox");
     await expect(toolbox).toHaveAccessibleName("工具箱");
-    if (compact && (page.viewportSize()?.width ?? 1440) < 768) await expect(toolbox.locator("span")).toBeHidden();
-    else await expect(toolbox.locator("span")).toBeVisible();
+    if (compact && (page.viewportSize()?.width ?? 1440) < 768) await expect(toolbox.locator("[data-public-link-label]")).toBeHidden();
+    else await expect(toolbox.locator("[data-public-link-label]")).toBeVisible();
     for (const target of [summary, toolbox]) {
       const box = await target.boundingBox(); expect(box).not.toBeNull();
       expect(box!.width).toBeGreaterThanOrEqual(44); expect(box!.height).toBeGreaterThanOrEqual(44);
@@ -75,7 +75,7 @@ test("full long account and email remain readable at four widths in three langua
     for (const width of [1440, 1024, 390, 375]) {
       await page.setViewportSize({ width, height: 1000 });
       const toolbox = page.locator("header").getByRole("link", { name: translate("工具箱", locale), exact: true });
-      const label = toolbox.locator("span"); await expect(label).toHaveText(translate("工具箱", locale));
+      const label = toolbox.locator("[data-public-link-label]"); await expect(label).toHaveText(translate("工具箱", locale));
       expect(await label.evaluate(element => getComputedStyle(element).clipPath)).toBe("none");
       const linkBox = await toolbox.boundingBox(), labelBox = await label.boundingBox();
       expect(linkBox!.height).toBeGreaterThanOrEqual(44); expect(labelBox!.width).toBeGreaterThan(20); expect(labelBox!.height).toBeGreaterThan(10);

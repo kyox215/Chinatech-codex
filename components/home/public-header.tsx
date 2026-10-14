@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { PanelsTopLeft } from "lucide-react";
 import { AccountActions } from "./account-actions";
 import { useEffect, useRef } from "react";
@@ -41,7 +41,7 @@ export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" | "o
     <LanguageSwitcher />
     <Link className={styles.publicLink} href="/toolbox" aria-label={t("工具箱")} aria-current={page === "toolbox" ? "page" : undefined}>
       <PanelsTopLeft size={17} aria-hidden="true" />
-      <span className={styles.publicLinkLabel}>{t("工具箱")}</span>
+      <span data-public-link-label className={styles.publicLinkLabel}>{t("工具箱")}</span>
     </Link>
   </div></header>;
 }

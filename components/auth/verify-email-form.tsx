@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/components/language-provider";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { FormEvent, useState } from "react";
 import { LoaderCircle, Mail } from "lucide-react";
 import { InputControl } from "@/components/input-control";

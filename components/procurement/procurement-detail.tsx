@@ -1,9 +1,11 @@
 "use client";
+import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 
 import { useLanguage } from "@/components/language-provider";
 import { repairItemText } from "@/lib/i18n/repair-display";
 import { InputControl, TextareaControl } from "@/components/input-control";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
+import { ReadFailure } from "@/components/page-recovery";
 import { PageTitle } from "@/components/page-title";
 import { SelectControl } from "@/components/select-control";
 import { useRef, useState } from "react";
@@ -18,7 +20,7 @@ function previewTime() {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome", dateStyle: "short", timeStyle: "short" }).format(new Date());
 }
 
-export function ProcurementActions({ record, embedded = false }: { record: ProcurementRecord; embedded?: boolean }) {
+export function ProcurementActions({ record, embedded = false, onPendingChange }: { record: ProcurementRecord; embedded?: boolean; onPendingChange?: (pending: boolean, requestId?: string) => boolean | void }) {
   const { t } = useLanguage();
   const canEdit = useStaff().can("repairs.edit");
   const { dispatch } = useProcurement();
@@ -29,28 +31,39 @@ export function ProcurementActions({ record, embedded = false }: { record: Procu
   const [arrivalId, setArrivalId] = useState(arrivals[0]?.id ?? "");
   const preorder = isPreorder(record);
   const remaining = record.quantity - arrivedQuantity(record);
+  const receipt = useOperationReceipt();
   const busy = useRef(false);
+  const quantityInput = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function append(type: "arrival" | "correction") {
-    if (!canEdit || busy.current) return;
+    if (!canEdit || busy.current || receipt.isWaiting() || !quantity.trim()) return;
+    const requestId=crypto.randomUUID();
+    if (onPendingChange?.(true, requestId) === false) return;
     busy.current = true;
     setSubmitting(true);
-    try {await dispatch({ type: "append", id: record.id, revision: record.events.length, event: { id: crypto.randomUUID(), type, time: previewTime(), quantity: quantity.trim() ? Number(quantity) : Number.NaN, note, arrivalId: type === "correction" ? arrivalId : undefined } });} catch { /* Provider retains operation failure feedback. */ }
-    finally { busy.current = false; setSubmitting(false); }
+    const release=()=>{busy.current=false;onPendingChange?.(false,requestId);};
+    const finish=()=>{release();setQuantity("");setNote("");requestAnimationFrame(()=>quantityInput.current?.focus({preventScroll:true}));};
+    try {
+      await dispatch({ type: "append", id: record.id, revision: record.events.length, event: { id: crypto.randomUUID(), type, time: previewTime(), quantity: quantity.trim() ? Number(quantity) : Number.NaN, note, arrivalId: type === "correction" ? arrivalId : undefined } },{requestId});
+      finish();
+    } catch { receipt.watch(requestId,finish,release); }
+    finally {if(!receipt.isWaiting())release();setSubmitting(false);}
   }
 
   if (!canEdit) return <section className={`panel procurement-actions${embedded ? " procurement-actions--embedded" : ""}`}><div className="detail-section__head"><div><span><PackageCheck size={18} /></span><h3>{t("配件进度")}</h3></div></div><div className="procurement-actions__body"><p className="procurement-action-hint">{t(procurementStatuses[procurementStatus(record)].label)} · {arrivedQuantity(record)} / {record.quantity} {t(" 件已到货")}</p></div></section>;
   return <section className={`panel procurement-actions${embedded ? " procurement-actions--embedded" : ""}`}>
     <div className="detail-section__head"><div><span><PackageCheck size={18} /></span><div><h3>{preorder ? t("配件标记") : t("登记到货")}</h3></div></div></div>
-    {preorder ? <div className="procurement-actions__body"><ProcurementPreparation key={record.id} record={record} /></div> : <div className="procurement-actions__body">
+    {preorder ? <div className="procurement-actions__body"><ProcurementPreparation key={record.id} record={record} onPendingChange={onPendingChange} /></div> : <div className="procurement-actions__body">
       <ProcurementFeedback recordId={record.id} />
-      <div className="segmented-control procurement-mode" aria-label={t("到货操作")}><button type="button" disabled={submitting} className={mode === "arrival" ? "segmented-control__active" : ""} aria-pressed={mode === "arrival"} onClick={() => { setMode("arrival"); setQuantity(""); setNote(""); }}>{t("本次到货")}</button><button type="button" className={mode === "correction" ? "segmented-control__active" : ""} aria-pressed={mode === "correction"} onClick={() => { setMode("correction"); setQuantity(""); setNote(""); setArrivalId(arrivals[0]?.id ?? ""); }} disabled={submitting || !arrivals.length}>{t("更正历史")}</button></div>
+      <OperationRecoveryControls requestId={onPendingChange?null:receipt.requestId}/>
+      {receipt.waiting?<p role="status">{t("提交结果待核对，请处理原提交，勿重复新建。")}</p>:null}
+      <div className="segmented-control procurement-mode" aria-label={t("到货操作")}><button type="button" disabled={submitting||receipt.waiting} className={mode === "arrival" ? "segmented-control__active" : ""} aria-pressed={mode === "arrival"} onClick={() => { setMode("arrival"); setQuantity(""); setNote(""); }}>{t("本次到货")}</button><button type="button" className={mode === "correction" ? "segmented-control__active" : ""} aria-pressed={mode === "correction"} onClick={() => { setMode("correction"); setQuantity(""); setNote(""); setArrivalId(arrivals[0]?.id ?? ""); }} disabled={submitting || receipt.waiting || !arrivals.length}>{t("更正历史")}</button></div>
       {mode === "arrival" && remaining === 0 ? <div className="section-empty"><CheckCircle2 size={24} /><div><strong>{t("本条采购已到齐")}</strong><p>{t("如有误记，使用“更正历史”追加调整。")}</p></div></div> : <form aria-busy={submitting} onSubmit={(event) => { event.preventDefault(); void append(mode); }}>
-        {mode === "correction" ? <label className="field"><span>{t("原到货批次")}</span><SelectControl disabled={submitting} aria-label={t("原到货批次")} value={arrivalId} onChange={(event) => setArrivalId(event.target.value)}>{arrivals.map((event, index) => <option value={event.id} key={event.id}>{t("第 ")}{index + 1} {t(" 批 · ")}{event.time} {t(" · 当前 ")}{arrivalBalance(record, event.id)} {t(" 件")}</option>)}</SelectControl></label> : null}
-        <label className="field"><span>{mode === "arrival" ? t("本次到货数量（剩余 {v0} 件）", { v0: remaining }) : t("调整数量（增加填正数，减少填负数）")}</span><InputControl required min={mode === "arrival" ? 1 : -arrivalBalance(record, arrivalId)} max={remaining} validate={value => mode === "correction" && value.trim() && Number(value) === 0 ? "更正数量不能为零，请填写实际增加或减少的数量。" : ""} disabled={submitting} aria-label={mode === "arrival" ? t("本次到货数量") : t("调整数量")} type="number" inputMode={mode === "arrival" ? "numeric" : undefined} step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder={mode === "arrival" ? t("例如 1") : t("例如 -1")} /></label>
-        <label className="field"><span>{mode === "correction" ? t("更正原因（必填）") : t("到货备注（选填）")}</span><TextareaControl required={mode === "correction"} validate={value => mode === "correction" && !value.trim() ? "请说明更正原因，例如误记了到货数量。" : ""} disabled={submitting} aria-label={mode === "correction" ? t("更正原因") : t("到货备注")} value={note} onChange={(event) => setNote(event.target.value)} maxLength={300} placeholder={mode === "correction" ? t("说明误记原因，原记录不会被删除") : t("包裹、型号或核对情况")} /></label>
-        <button className="button button--primary" type="submit" disabled={submitting}>{mode === "arrival" ? <PackageCheck size={17} /> : <PencilLine size={17} />}{submitting ? t("正在保存…") : mode === "arrival" ? t("追加本次到货") : t("追加更正记录")}</button>
+        {mode === "correction" ? <label className="field"><span>{t("原到货批次")}</span><SelectControl disabled={submitting||receipt.waiting} aria-label={t("原到货批次")} value={arrivalId} onChange={(event) => setArrivalId(event.target.value)}>{arrivals.map((event, index) => <option value={event.id} key={event.id}>{t("第 ")}{index + 1} {t(" 批 · ")}{event.time} {t(" · 当前 ")}{arrivalBalance(record, event.id)} {t(" 件")}</option>)}</SelectControl></label> : null}
+        <label className="field"><span>{mode === "arrival" ? t("本次到货数量（剩余 {v0} 件）", { v0: remaining }) : t("调整数量（增加填正数，减少填负数）")}</span><InputControl ref={quantityInput} required min={mode === "arrival" ? 1 : -arrivalBalance(record, arrivalId)} max={remaining} validate={value => mode === "correction" && value.trim() && Number(value) === 0 ? "更正数量不能为零，请填写实际增加或减少的数量。" : ""} disabled={submitting||receipt.waiting} aria-label={mode === "arrival" ? t("本次到货数量") : t("调整数量")} type="number" inputMode={mode === "arrival" ? "numeric" : undefined} step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder={mode === "arrival" ? t("例如 1") : t("例如 -1")} /></label>
+        <label className="field"><span>{mode === "correction" ? t("更正原因（必填）") : t("到货备注（选填）")}</span><TextareaControl required={mode === "correction"} validate={value => mode === "correction" && !value.trim() ? "请说明更正原因，例如误记了到货数量。" : ""} disabled={submitting||receipt.waiting} aria-label={mode === "correction" ? t("更正原因") : t("到货备注")} value={note} onChange={(event) => setNote(event.target.value)} maxLength={300} placeholder={mode === "correction" ? t("说明误记原因，原记录不会被删除") : t("包裹、型号或核对情况")} /></label>
+        <button className="button button--primary" type="submit" disabled={submitting||receipt.waiting}>{mode === "arrival" ? <PackageCheck size={17} /> : <PencilLine size={17} />}{submitting ? t("正在保存…") : receipt.waiting ? t("待核对") : mode === "arrival" ? t("追加本次到货") : t("追加更正记录")}</button>
       </form>}
     </div>}
   </section>;
@@ -59,9 +72,10 @@ export function ProcurementActions({ record, embedded = false }: { record: Procu
 export function ProcurementDetail({ id }: { id: string }) {
   const { t, locale } = useLanguage();
   const canCost=useStaff().can("financial.read");
-  const { records } = useProcurement();
+  const { records, storageError } = useProcurement();
   const repairOrders = useRepairDirectory();
   const record = records.find((row) => row.id === id);
+  if (storageError) return <main className="module-page"><header className="module-heading"><PageTitle title={t("采购记录")} backHref="/app/procurement" backLabel={t("返回采购列表")} /></header><ReadFailure message={storageError} /></main>;
   if (!record) return <main className="module-page"><header className="module-heading"><PageTitle title={t("采购记录")} backHref="/app/procurement" backLabel={t("返回采购列表")} /></header><div className="panel module-empty"><PackageSearch size={28} /><strong>{t("没有找到采购记录")}</strong><p>{t("请在创建记录的浏览器查看，或返回关联工单核对。")}</p><Link className="button button--primary" href="/app/procurement">{t("返回采购列表")}</Link></div></main>;
   const repair = repairOrders.find(repair => repair.id === record.repairId);
   const arrived = arrivedQuantity(record);

@@ -43,6 +43,17 @@ export async function resolveAuthStatus(client: SupabaseClient, selectedStore?: 
   }
 }
 
+/** Cookie presence only selects a loading state; the status API verifies identity. */
+export async function getPublicAuthBootstrap(): Promise<{ status: AuthStatus; checking: boolean }> {
+  if (!isSupabaseMode()) return { status: await getAuthStatus(), checking: false };
+  const unknown: AuthStatus = { state: "unavailable", scope: null, formal: true, account: null, store: null };
+  try {
+    const jar = await cookies();
+    const checking = jar.getAll().some(cookie => /^ct_rebuild_auth(?:\.\d+)?$/.test(cookie.name) && cookie.value);
+    return { status: checking ? unknown : { ...unknown, state: "anonymous" }, checking };
+  } catch { return { status: unknown, checking: true }; }
+}
+
 export async function getAuthStatus(): Promise<AuthStatus> {
   try {
     const jar = await cookies();

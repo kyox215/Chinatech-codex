@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { useState } from "react";
 import { ScanLine, X, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
