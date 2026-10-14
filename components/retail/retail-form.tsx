@@ -1,4 +1,5 @@
 "use client";
+import { ReadPending } from "@/components/page-recovery";
 import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl, TextareaControl } from "@/components/input-control";
@@ -38,7 +39,7 @@ function Section({ title, children, id }: { title: string; children: ReactNode; 
 type RetailFormProps = { copyId?: string; identifier?: string; kind?: string };
 export function RetailForm(props: RetailFormProps) {
   const { t, systemText } = useLanguage(); const staff = useStaff(); const { ready, error, returnTo } = useRetail(); const store = useStoreSettings();
-  if (!staff.ready || !ready || !store.ready) return <main className={"module-page " + surface.page}><PageTitle title={t("新建商品")} backHref={returnTo} backLabel={t("返回商品列表")} /><section className="panel module-empty" role="status">{t("正在读取单机资料…")}</section></main>;
+  if (!staff.ready || !ready || !store.ready) return <main className={"module-page " + surface.page}><PageTitle title={t("新建商品")} backHref={returnTo} backLabel={t("返回商品列表")} /><ReadPending label="正在读取单机资料…" /></main>;
   if (!staff.can("retail.edit")) return <AccessPanel />;
   if (error || store.error) return <main className={"module-page " + surface.page}><PageTitle title={t("新建商品")} backHref={returnTo} backLabel={t("返回商品列表")} /><section className="panel module-empty" role="alert">{systemText(error || store.error)}</section></main>;
   return <RetailFormContent key={staff.member?.id + ":" + staff.member?.revision} {...props} />;

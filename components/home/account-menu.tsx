@@ -34,9 +34,9 @@ export function AccountMenu({ status, compact = false }: { status: AuthStatus; c
         {status.store && <><div><dt>{t("当前门店")}</dt><dd>{status.store.name}</dd></div><div><dt>{t("角色")}</dt><dd>{status.store.role ? t(staffRoles[status.store.role]) : t("门店成员")}</dd></div></>}
       </dl>
       <div className={styles.accountLinks}>
-        {compact && <Link href={authDestination(status.state)} prefetch={false} onClick={close}><MonitorSmartphone size={18} aria-hidden="true" />{t(status.state === "workspace" ? "工作台" : status.state === "unverified" ? "验证邮箱后继续" : "账号状态")}</Link>}
-        {status.formal && status.state !== "unverified" && <><Link href="/account/settings" prefetch={false} onClick={close}><Settings size={18} aria-hidden="true" />{t("账号设置")}</Link><Link href="/account/settings#login-devices" prefetch={false} onClick={close}><MonitorSmartphone size={18} aria-hidden="true" />{t("登录设备")}</Link></>}
-        {status.state === "unverified" && <Link href="/verify-email" prefetch={false} onClick={close}><Mail size={18} aria-hidden="true" />{t("重新验证邮箱")}</Link>}
+        {compact && <Link href={authDestination(status.state)} prefetch={false} onNavigationComplete={close}><MonitorSmartphone size={18} aria-hidden="true" />{t(status.state === "workspace" ? "工作台" : status.state === "unverified" ? "验证邮箱后继续" : "账号状态")}</Link>}
+        {status.formal && status.state !== "unverified" && <><Link href="/account/settings" prefetch={false} onNavigationComplete={close}><Settings size={18} aria-hidden="true" />{t("账号设置")}</Link><Link href="/account/settings#login-devices" prefetch={false} onNavigationComplete={close}><MonitorSmartphone size={18} aria-hidden="true" />{t("登录设备")}</Link></>}
+        {status.state === "unverified" && <Link href="/verify-email" prefetch={false} onNavigationComplete={close}><Mail size={18} aria-hidden="true" />{t("重新验证邮箱")}</Link>}
         <LogoutButton supabaseMode={status.formal} className={styles.accountPanelLogout} />
       </div>
     </div>

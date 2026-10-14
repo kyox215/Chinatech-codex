@@ -1,4 +1,6 @@
 "use client";
+import { useBackendStore } from "@/components/backend-snapshot";
+import { useStaff } from "@/components/staff/use-staff";
 import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand, backendRecovery, subscribeRecovery } from "@/lib/backend/client";
 
 import { createContext, useContext, useReducer, useSyncExternalStore } from "react";
@@ -8,7 +10,7 @@ import { parsePreviewRetailHistory, prepareRetailRecord, previewRetailHistoryKey
 import { applyRetailWorkflow, retailWorkflowPermissions, type RetailWorkflow } from "@/lib/retail-workflow";
 import { applyRetailCommand, createRetailUnit, validateRetailPhotos, parseStoredRetailUnits, type RetailCommand, type RetailEvent, type RetailUnit } from "@/lib/retail";
 
-import { readStaffSnapshot, staffServerSnapshot, subscribeStaff, requirePreviewPermission } from "@/lib/staff-client";
+import { requirePreviewPermission } from "@/lib/staff-client";
 import { parseLocalIntakes } from "@/lib/repair-intake-record";
 import { projectRetailForStaff, requireRetailAfterSaleRepair, retailCommandPermission } from "@/lib/retail-access";
 
@@ -43,8 +45,8 @@ function uiReducer(state: UiState, action: UiAction): UiState { return action.ty
 
 const RetailContext = createContext<State & { dispatch: (action: Action, options?: { requestId?: string }) => boolean | Promise<boolean> } | null>(null);
 export function RetailProvider({ children }: { children: React.ReactNode }) {
-  const stored = useSyncExternalStore(subscribe, read, () => server);
-  const staff = useSyncExternalStore(subscribeStaff, readStaffSnapshot, () => staffServerSnapshot);
+  const stored = useBackendStore(subscribe,read,server,current=>({units:current?.retail??[],ready:true,error:current?"":"后台资料暂不可用。"}));
+  const staff = useStaff();
   const [ui, uiDispatch] = useReducer(uiReducer, { returnTo: "/app/retail", returnScroll: 0, feedback: null });
   const recovery = useSyncExternalStore(subscribeRecovery, backendRecovery, backendRecovery);
   const feedback = ui.feedback?.requestId && recovery.receipt?.requestId === ui.feedback.requestId ? { ...ui.feedback, error: false, message: "已保存并追加到历史。" } : ui.feedback?.requestId && recovery.pending?.command.requestId === ui.feedback.requestId ? null : ui.feedback?.requestId && recovery.resolution?.requestId === ui.feedback.requestId ? recovery.resolution.status === "cancelled" ? null : {...ui.feedback,error:true,message:recovery.message||ui.feedback.message} : ui.feedback;

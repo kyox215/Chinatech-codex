@@ -12,6 +12,9 @@ const source = readFileSync(new URL("../lib/backend/client.ts", import.meta.url)
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
+const bootstrapCompiled = ts.transpileModule(readFileSync(new URL("../lib/backend/bootstrap.ts", import.meta.url), "utf8"), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText;
 
 const storeId = "00000000-0000-4000-8000-000000000001";
 const ownerId = "00000000-0000-4000-8000-000000000002";
@@ -139,9 +142,154 @@ function harness({requestDeadline}={}) {
   });
   runInContext(compiled, context, { filename: "lib/backend/client.ts" });
   const client = context.exports;
+  const bootstrapExports = {};
+  runInContext(`(function(exports){${bootstrapCompiled}\n})`, context, { filename: "lib/backend/bootstrap.ts" })(bootstrapExports);
+  const bootstrap = initial => bootstrapExports.createBackendBootstrap(initial, {
+    generation: client.backendReadGeneration, read: client.backendSnapshot, subscribe: client.subscribeBackend,
+    configure: client.configureBackend, reconcile: client.reconcileBackendInitial,
+    release: client.releaseBackendBootstrap, canAdoptRelease: client.canAdoptBackendBootstrap,
+  });
   client.subscribeBackend(() => publications.push(client.backendSnapshot()));
-  return { client, requests, redirects, publications, operations, navigator, storage };
+  return { client, bootstrap, requests, redirects, publications, operations, navigator, storage };
 }
+
+test("两个请求各自保留服务端initial，render/read不写共享客户端状态", () => {
+  const h = harness();
+  const first = mockSnapshot({ memberId: ownerId, costCents: 12000 });
+  const second = mockSnapshot({ revision: 2 });
+  second.storeId = "synthetic-other-store";
+  const one = h.bootstrap(first), two = h.bootstrap(second);
+  assert.equal(one.server(), first); assert.equal(two.server(), second);
+  assert.equal(one.read(), first); assert.equal(two.read(), second);
+  assert.equal(one.isActive(), false); assert.equal(two.isActive(), false);
+  assert.equal(h.client.backendSnapshot(), null); assert.equal(h.client.backendReadGeneration(), 0);
+  assert.equal(h.publications.length, 0);
+});
+
+test("新key可接管正常前任cleanup，旧owner晚cleanup不能清新账号", () => {
+  const h = harness();
+  const first = mockSnapshot({ memberId: ownerId, costCents: 12000 });
+  const second = mockSnapshot({ revision: 2 });
+  const one = h.bootstrap(first); assert.equal(one.activate(first), true);
+  const two = h.bootstrap(second), discarded = h.bootstrap(first);
+  const baseline = h.client.backendReadGeneration();
+  one.dispose();
+  assert.equal(h.client.canAdoptBackendBootstrap(baseline), true);
+  assert.equal(two.activate(second), true); assert.equal(two.isActive(), true);
+  assert.equal(two.read(), second); assert.equal(one.read(), null);
+  const generation = h.client.backendReadGeneration(), publications = h.publications.length;
+  one.dispose();
+  assert.equal(h.client.backendReadGeneration(), generation);
+  assert.equal(h.client.backendSnapshot(), second); assert.equal(h.publications.length, publications);
+  assert.equal(one.activate(first), false); assert.equal(discarded.activate(first), false);
+  assert.equal(h.client.backendSnapshot(), second);
+});
+
+test("StrictMode只允许自己的release重放，身份clear和第三方configure撤销重放授权", () => {
+  const h = harness(), initial = mockSnapshot();
+  const scope = h.bootstrap(initial); assert.equal(scope.activate(initial), true);
+  scope.dispose(); assert.equal(scope.read(), null);
+  assert.equal(scope.activate(initial), true); assert.equal(scope.read(), initial);
+  scope.dispose(); h.client.clearBackend();
+  assert.equal(scope.activate(initial), false); assert.equal(scope.readFor(initial), null);
+  assert.equal(h.client.backendSnapshot(), null);
+  const owner = mockSnapshot({ memberId: ownerId, revision: 2 });
+  const live = h.bootstrap(owner); assert.equal(live.activate(owner), true);
+  const candidate = h.bootstrap(initial), baseline = h.client.backendReadGeneration();
+  live.dispose(); assert.equal(h.client.canAdoptBackendBootstrap(baseline), true);
+  h.client.configureBackend(owner);
+  assert.equal(h.client.canAdoptBackendBootstrap(baseline), false);
+  assert.equal(candidate.activate(initial), false); assert.equal(h.client.backendSnapshot(), owner);
+});
+
+test("clear后旧initial和迟到API都不能复活正式快照", async () => {
+  const h = harness(), initial = mockSnapshot({ memberId: ownerId, costCents: 12000 });
+  const scope = h.bootstrap(initial); assert.equal(scope.activate(initial), true);
+  const candidate = h.bootstrap(initial);
+  const pending = h.client.refreshBackend();
+  h.client.clearBackend(); const publications = h.publications.length;
+  assert.equal(scope.read(), null); assert.equal(scope.readFor(initial), null);
+  assert.equal(scope.activate(initial), false); assert.equal(candidate.activate(initial), false);
+  h.requests[0].resolve(response(200, mockSnapshot({ memberId: ownerId, revision: 2, costCents: 12500 })));
+  await pending;
+  assert.equal(h.client.backendSnapshot(), null); assert.equal(scope.readFor(initial), null);
+  assert.equal(h.publications.length, publications); assert.deepEqual(h.redirects, []);
+});
+
+test("同scope服务端刷新保留正在发送与失败待核对的同一unknown请求", async () => {
+  const h = harness(), initial = mockSnapshot(), scope = h.bootstrap(initial);
+  assert.equal(scope.activate(initial), true); await h.client.loadRecovery();
+  const requestId = randomUUID(), command = h.client.backendCommand("synthetic.command", {}, requestId);
+  const failed = assert.rejects(command, /Synthetic temporary failure/);
+  await setImmediate();
+  const inflight = h.client.backendRecovery();
+  assert.equal(inflight.busy, true); assert.equal(inflight.pending.phase, "unknown");
+  assert.equal(inflight.pending.command.requestId, requestId);
+  const next = mockSnapshot({ revision: 2 }); assert.equal(scope.activate(next), true);
+  assert.equal(h.client.backendRecovery(), inflight); assert.equal(h.requests.length, 1);
+  assert.equal(JSON.parse(h.requests[0].options.body).requestId, requestId);
+  h.requests[0].resolve(response(503, { message: "Synthetic temporary failure" })); await failed;
+  const unknown = h.client.backendRecovery();
+  assert.equal(unknown.busy, false); assert.equal(unknown.pending.phase, "unknown");
+  assert.equal(unknown.pending.command.requestId, requestId);
+  assert.equal(scope.activate(mockSnapshot({ revision: 3 })), true);
+  assert.equal(h.client.backendRecovery(), unknown);
+  assert.equal([...h.operations.values()][0].command.requestId, requestId);
+});
+
+test("新权限投影在passive reconcile前生效，陈旧成员版本不能借较高业务版回显成本", () => {
+  const h = harness(), initial = mockSnapshot({ memberId: ownerId, revision: 5, costCents: 12000 });
+  const scope = h.bootstrap(initial); assert.equal(scope.activate(initial), true);
+  const revoked = mockSnapshot({ memberId: ownerId, revision: 5, memberRevision: 2 });
+  revoked.staff.members[0].permissions = [];
+  assert.equal(scope.readFor(revoked), revoked);
+  assert.equal(scope.readFor(revoked).retail[0].costCents, null);
+  assert.equal(h.client.backendSnapshot(), initial, "render must not mutate the global client");
+  assert.equal(scope.activate(revoked), true); assert.equal(h.client.backendSnapshot(), revoked);
+  const stalePermission = mockSnapshot({ memberId: ownerId, revision: 6, memberRevision: 1, costCents: 12500 });
+  assert.equal(scope.readFor(stalePermission), revoked);
+  assert.equal(scope.activate(stalePermission), true); assert.equal(h.client.backendSnapshot(), revoked);
+});
+
+test("采购旧搜索和反馈在权限/身份变化清除，未激活新scope不借用旧UI", async () => {
+  const h = harness(), first = mockSnapshot({ memberId: ownerId });
+  let activeScope = h.bootstrap(first), initial = first;
+  assert.equal(activeScope.activate(first), true);
+  // Exercise the actual procurement UI store and actual command client. The
+  // display-hook adapter is separate from the real React hydration harness.
+  const procurementSource = readFileSync(new URL("../components/procurement/procurement-provider.tsx", import.meta.url), "utf8") + "\nexport {readUi as readUiTest, dispatchAction as dispatchTest};";
+  const code = ts.transpileModule(procurementSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  const state = () => ({ formal: true, snapshot: activeScope.readFor(initial), active: activeScope.isActive() });
+  const hooks = { useBackendState: state, useBackendStore: (_subscribe, _read, _server, project) => project(state().snapshot) };
+  const react = { createContext: () => ({ Provider: "provider" }), useSyncExternalStore: (_subscribe, read) => read() };
+  const context = createContext({ exports: {}, Event, crypto: { randomUUID }, window: { dispatchEvent() {} }, require: name => {
+    if (name === "react") return react;
+    if (name === "react/jsx-runtime") return { jsx: (_type, props) => props.value };
+    if (name === "@/components/backend-snapshot") return hooks;
+    if (name === "@/lib/backend/client") return h.client;
+    if (name === "@/lib/procurement-fixtures") return { procurementRecords: [] };
+    return new Proxy({}, { get: (_target, key) => () => { throw new Error(`Unexpected domain call ${name}.${String(key)}`); } });
+  } });
+  runInContext(code, context, { filename: "components/procurement/procurement-provider.tsx" });
+  const provider = context.exports;
+  provider.readUiTest();
+  const action = provider.dispatchTest({ type: "create", record: { id: "synthetic-old-record" } });
+  await setImmediate(); h.requests[0].resolve(response(200, mockSnapshot({ memberId: ownerId, revision: 2 }))); await action;
+  await provider.dispatchTest({ type: "list-view", view: { query: "Synthetic private search", filter: "open", repairId: "synthetic-repair", groupBy: "supplier" } });
+  assert.equal(provider.readUiTest().feedback.recordId, "synthetic-old-record");
+  assert.equal(provider.readUiTest().listView.query, "Synthetic private search");
+  const next = mockSnapshot({ memberId: ownerId, revision: 2, memberRevision: 2 }); next.staff.members[0].permissions = [];
+  assert.equal(activeScope.activate(next), true); initial = next;
+  assert.equal(provider.readUiTest().feedback, null); assert.equal(provider.readUiTest().listView.query, "");
+  await provider.dispatchTest({ type: "list-view", view: { query: "Second private search", filter: "open", repairId: "synthetic-repair", groupBy: "supplier" } });
+  const second = mockSnapshot({ revision: 3 }); activeScope = h.bootstrap(second); initial = second;
+  const preActivation = provider.ProcurementProvider({ children: null });
+  assert.equal(preActivation.listView.query, ""); assert.equal(preActivation.feedback, null);
+  h.client.clearBackend();
+  assert.equal(provider.readUiTest().listView.query, ""); assert.equal(provider.readUiTest().feedback, null);
+  h.client.configureBackend(second);
+  assert.equal(provider.readUiTest().listView.query, ""); assert.equal(provider.readUiTest().feedback, null);
+});
 
 test("同店老板旧命令响应不能替换随后登录的员工身份或恢复成本", async () => {
   const h = harness();

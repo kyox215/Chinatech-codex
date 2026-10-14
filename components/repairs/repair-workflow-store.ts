@@ -1,7 +1,7 @@
 "use client";
+import { useBackendStore } from "@/components/backend-snapshot";
 import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 import { requirePreviewPermission } from "@/lib/staff-client";
-import { useSyncExternalStore } from "react";
 import { parseLocalIntakes, intakeRecordTime, type RepairDirectoryEntry } from "@/lib/repair-intake-record";
 import { appendProcurementEvent } from "@/lib/procurement";
 import { parseProcurementState } from "@/lib/procurement-storage";
@@ -34,7 +34,7 @@ function read() {if(isBackendClient()){const current=backendSnapshot();if(curren
   return snapshot;
 }
 function subscribe(listener: () => void) {const stop=subscribeBackend(listener); const storage = (event: StorageEvent) => { if (event.key === key || event.key === null) listener(); }; window.addEventListener("storage", storage); window.addEventListener(change, listener); return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); }; }
-export function useRepairWorkflows() { return useSyncExternalStore(subscribe, read, () => server); }
+export function useRepairWorkflows() { return useBackendStore(subscribe,read,server,current=>({workflows:current?.workflows??{},ready:true,error:current?"":"后台资料暂不可用。"})); }
 export function updateRepairWorkflow(order: RepairDirectoryEntry, command: WorkflowCommand, records: ProcurementRecord[], revision: number, options?: { requestId?: string }) {
   if(isBackendClient()) return backendCommand("repair.workflow",{id:order.id,command,revision},options?.requestId);
   requirePreviewPermission("repairs.edit");

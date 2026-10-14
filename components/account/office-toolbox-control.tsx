@@ -1,4 +1,6 @@
 "use client";
+import { ReadPending } from "@/components/page-recovery";
+import { useActivityFeedback } from "@/components/operation-feedback";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/components/language-provider';
 import styles from "./account-settings.module.css";
@@ -7,6 +9,8 @@ import type { OfficeAdminState } from '@/lib/toolbox/office-server';
 class OfficeControlRequestError extends Error {}
 
 export function OfficeToolboxControl(){
+  const [manualRead,setManualRead]=useState(false);
+  useActivityFeedback(manualRead,{kind:"read"});
   const {t,systemText}=useLanguage();
   const [data,setData]=useState<OfficeAdminState|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[allowed,setAllowed]=useState(true);
   const [intent,setIntent]=useState<{enabled:boolean;revision:string;requestId:string;scope:string}|null>(null);
@@ -42,12 +46,12 @@ export function OfficeToolboxControl(){
     <div className={styles.cardHead}><h2 id="office-management-title">{t('旧协议 Office 命令管理')}</h2></div>
     <div className={styles.form}>
       <p className={styles.muted}>{t('此开关管理旧网站 Office 命令和旧协议 0.2.1 客户端的新操作。1.0 至 1.3 为本地执行，1.4 起由新版任务开关管理。')}</p>
-      {loading&&!data?<p role="status">{t('正在读取工具箱状态…')}</p>:null}
+      {loading&&!data?<ReadPending label="正在读取工具箱状态…" />:null}
       {data?<><p>{t('Office 命令状态')}：<strong>{t(data.enabled?'已开启':'已关闭')}</strong></p><p className={styles.muted}>{t('关闭后当前旧协议命令失效，重新开启需要生成新命令。已开始的操作不会被强制中断。')}</p>{!data.keyConfigured?<p role="alert">{t('签名服务尚未配置，不能开启命令。')}</p>:null}
       <button type="button" className="button button--primary" disabled={loading||saving||!!error||(!data.enabled&&!data.keyConfigured)} onClick={()=>setIntent({enabled:!data.enabled,revision:data.revision,requestId:crypto.randomUUID(),scope:data.accountId+':'+data.sessionId})}>{t(data.enabled?'关闭并作废当前命令':'开启 Office 命令')}</button></>:null}
       {error?<p role="alert" className="form-error">{systemText(error)}</p>:null}
-      <button type="button" className="button button--secondary" disabled={saving||loading} onClick={()=>void load()}>{t('刷新状态')}</button>
-      {intent?<div role="group" aria-label={t('确认工具箱开关变更')}><p>{t(intent.enabled?'开启后可生成新命令，旧命令不会恢复。':'将关闭旧协议 Office 命令，并作废当前旧协议命令。')}</p><button type="button" className="button button--primary" disabled={saving} onClick={()=>void save()}>{t(saving?'正在保存…':'确认变更')}</button><button type="button" className="button button--secondary" disabled={saving} onClick={()=>setIntent(null)}>{t('取消')}</button></div>:null}
+      <button type="button" className="button button--secondary" disabled={saving||loading} aria-busy={manualRead} onClick={()=>{setManualRead(true);void load().finally(()=>setManualRead(false));}}>{t('刷新状态')}</button>
+      {intent?<div role="group" aria-label={t('确认工具箱开关变更')}><p>{t(intent.enabled?'开启后可生成新命令，旧命令不会恢复。':'将关闭旧协议 Office 命令，并作废当前旧协议命令。')}</p><button type="button" className="button button--primary" disabled={saving} aria-busy={saving} onClick={()=>void save()}>{t(saving?'正在保存…':'确认变更')}</button><button type="button" className="button button--secondary" disabled={saving} onClick={()=>setIntent(null)}>{t('取消')}</button></div>:null}
     </div>
   </section>;
 }

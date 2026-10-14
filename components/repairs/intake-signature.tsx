@@ -3,7 +3,7 @@ import { OperationRecoveryControls, useOperationReceipt } from "@/components/use
 import { useLanguage } from "@/components/language-provider";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 import { useEffect, useId, useRef, useState } from "react";
-import { isBackendClient } from "@/lib/backend/client";
+import { useBackendMode } from "@/components/backend-snapshot";
 import { Check, PenLine, RotateCcw, Trash2, X } from "lucide-react";
 import { SelectControl } from "@/components/select-control";
 import { useStoreSettings } from "@/components/settings/settings-store";
@@ -20,6 +20,7 @@ export function SignatureImage({strokes,label,aspectRatio=800/240}:{strokes:Sign
   return <svg className={styles.image} role="img" aria-label={t(label)} viewBox={`0 0 800 ${height}`}>{strokes.map((stroke,index)=><polyline key={index} points={stroke.map(point=>`${point.x*800},${point.y*height}`).join(" ")} fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/>)}</svg>;
 }
 function SignaturePad({strokes,onChange,aspectRatio,onAspectRatio,disabled=false}:{strokes:SignatureStrokes;onChange:(strokes:SignatureStrokes)=>void;aspectRatio:number|null;onAspectRatio:(ratio:number)=>void;disabled?:boolean}) {
+  const formal = useBackendMode();
   const { t , systemText } = useLanguage();
   const svg=useRef<SVGSVGElement>(null);
   const active=useRef<number|null>(null);
@@ -61,7 +62,7 @@ function SignaturePad({strokes,onChange,aspectRatio,onAspectRatio,disabled=false
       <circle cx={cursor.x*800} cy={cursor.y*height} r={keyboardDrawing?4:3} className={styles.cursor}/>
     </svg>
     <div className={styles.tools}><span>{t("手指 · 触笔 · 鼠标")}</span><button className="button button--secondary button--compact" type="button" disabled={disabled || !strokes.length} onClick={()=>{end();publish(strokes.slice(0,-1));setError("");}}><RotateCcw size={16}/>{t("撤销一笔")}</button><button className="button button--secondary button--compact" type="button" disabled={disabled || !strokes.length} onClick={()=>{end();publish([]);setError("");}}><Trash2 size={16}/>{t("清除")}</button></div>
-    <details className={styles.help}><summary>{t("键盘签字方式")}</summary><p id={description}>{t("聚焦签字区域后按空格开始或结束一笔，方向键移动和绘制。")}{isBackendClient()?t("签名随工单保存。"):t("签名保存在当前浏览器。")}</p></details>{error?<p className="form-error" role="alert">{systemText(error)}</p>:null}
+    <details className={styles.help}><summary>{t("键盘签字方式")}</summary><p id={description}>{t("聚焦签字区域后按空格开始或结束一笔，方向键移动和绘制。")}{formal?t("签名随工单保存。"):t("签名保存在当前浏览器。")}</p></details>{error?<p className="form-error" role="alert">{systemText(error)}</p>:null}
   </div>;
 }
 export function IntakeSignatureEditor({data,policy,onConfirm,onCancel,locked=false,onDraftClear}:{data:IntakeReceiptData;policy:IntakePolicy;onConfirm:(draft:IntakeSignatureDraft)=>void|Promise<void>;onCancel:()=>void;locked?:boolean;onDraftClear?:(clear:()=>Promise<void>)=>void}) {

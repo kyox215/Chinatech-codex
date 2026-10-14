@@ -1,10 +1,23 @@
 # 公共组件与样式复用规范
 
+## 2026-10-14 B方案：新增组件与维护扩展的操作状态契约
+
+本节取代旧条目中推荐整页PageLoading/骨架的行为，适用于后续新增、维护和扩展。
+
+- `OperationFeedbackProvider`在根LanguageProvider内共享活动；`useActivityFeedback(pending,{kind,scope})`按实例登记真实navigation/read/submit/retry，卸载只清自身活动；`ContentProgress`在公开页/账号页/后台内容上沿显示2px紫色不定进度线。没有Provider的独立组件测试安全no-op。后台轮询不登记；已有可见button/form的真实aria-busy通过兼容桥聚合，后台区域标data-operation-feedback="background"。
+- 导航统一`NavigationLink`，使用Next真实pending、固定单个SVG圈和aria-live；保留键盘/hash/新标签行为。手机抽屉和账号菜单在实际路由提交后关闭，失败可继续选择/重试。一般路由保留旧页直到目标可提交，不新增整页loading.tsx或包裹全业务的骨架Suspense。
+- 首访无旧页时，保留真实页面框架、业务标题和工具栏，数据区域用`ReadPending`短提示。后台通过逐请求initial快照context提供SSR/首次水合数据；不得在服务端配置模块全局store，不得在clear后fallback旧initial或进入fixture分支。
+- 同范围刷新保留已确认内容与计数。新条件等待时明确提示“暂显示上次结果，当前条件尚未确认。”；响应完成再更新当前结果和分页。身份/门店/权限/可见性范围变化立即隐藏旧资料。读失败提供就地重试，有旧内容则保留；无数据、无权限与读取失败分开表达。
+- 保存只在原按钮/表单表达等待，锁定草稿，明确成功才清理；失败保留输入。冲突保留人工核对，未知提交沿原requestId/回执恢复，不自动重发新命令。读取重试不重放保存。
+- Spinner统一现有`svg.spin`，它会抑制公共按钮自动圈；不得同时画CSS border圈或多个SVG。所有状态标签、动态消息、aria名称中/意/英同步，减少动画时保留静态状态语义。
+- 每个新增或调整交互核对适用的默认、pending、success、error/retry、empty、offline、no-access、conflict、unknown，记录不适用原因；同步交互只需即时选择/展开反馈，不制造异步等待。受影响流程验证实际请求/回执、失败输入、旧响应、身份隔离、375/390/1024/1440及键盘/触控；公共组件回归代表使用方。只能报告实际运行的证据。
+
+
 2026-10-14 收尾补充：confirmed 回调可返回 Promise；设备草稿清理等异步收尾完成前保持同步原请求锁。await 后必须核对同 tracked token 的 isCurrent，已卸载／新编辑器不得接收旧关闭／导航回调。稳定采购子表单的父 owner 保留至子表单显式释放；条件消失子组件仍由父消费原回执。
 
 ## 2026-10-14 操作反馈与原提交恢复
 
-新增 `NavigationLink`（替代普通内部 Next Link，用真实 useLinkStatus；默认不预取，支持原生键盘／新标签行为）、`ReadFailure`、`ListPagination`（完整授权结果过滤后每页50条）、`DownloadLink`／`DownloadFeedbackProvider`（只表示浏览器已发起请求）。`PageLoading` 复用标题／手机菜单／骨架，首启动可回首页；公开工具页保留SSR与无JS下载，不增加公共流式 loading 边界。
+新增 `NavigationLink`（替代普通内部 Next Link，用真实 useLinkStatus；默认不预取，支持原生键盘／新标签行为）、`ReadFailure`、`ListPagination`（完整授权结果过滤后每页50条）、`DownloadLink`／`DownloadFeedbackProvider`（只表示浏览器已发起请求）。`PageLoading` 已由B方案退役：使用真实标题、保留内容、`ReadPending`及共享细线，首访不铺整页骨架；公开工具页保留SSR与无JS下载，不增加公共流式 loading 边界。
 
 按钮／骨架／错误沿Figma文件 nhZ37YLOUVP8zpDBBGihhS 的按钮、焦点与错误输入视觉，复用语义token与CSS，不新增主题。`useOperationReceipt` 精确绑定本次requestId；`OperationRecoveryControls` 在disabled fieldset外；局部与全局通过当前 `RecoveryPresentationProvider` 去重。临时pending缺失不得解锁，提供只读恢复记录重载。`DeviceDraftNotice.disabled` 约束选择／恢复／删除，调用方传真实提交或待核对状态。
 
@@ -37,7 +50,7 @@ Office 产品页沿用 PublicHeader、Brand、LanguageSwitcher、SingleChoice、
 
 按钮继续使用既有 `.button`／`.icon-button`，增加按下、键盘焦点、可操作条件下的悬停；普通禁用用不可操作光标，`aria-busy`与提交中form的submit按钮显示转圈。空态简易按钮不再覆盖公共按钮。业务同步ref锁、fieldset、失败草稿和原提交恢复仍由调用方维护，CSS不能代替写入门控。
 
-新增稳定公共展示 `PageRecovery`／`PageLoading`，复用panel、module-empty、module-skeleton、PageTitle和token；根／后台错误及后台等待使用；公开页面保留无JavaScript的服务端内容，不铺设全局loading边界。`PageRecovery.retry`仅重新读取路由，`internal`保留后台手机菜单；服务异常／离线分开，内部异常文本不展示。BackendSyncNotice沿既有provider增加重试读取入口，不重放业务POST。无新主题、依赖或万能业务组件。
+错误恢复沿用 `PageRecovery`；后台等待现由B方案 `ReadPending` 与 `ContentProgress` 接管，保留PageTitle和token，禁止恢复旧整页骨架；公开页面保留无JavaScript的服务端内容，不铺设全局loading边界。`PageRecovery.retry`仅重新读取路由，`internal`保留后台手机菜单；服务异常／离线分开，内部异常文本不展示。BackendSyncNotice沿既有provider增加重试读取入口，不重放业务POST。无新主题、依赖或万能业务组件。
 
 SearchCombobox增加opt-in `optionDetailsAsDescription`，设备目录选择器将品牌／型号标签作为名称，别名／年款等说明仍完整显示并由aria-describedby关联；客户手机号＋姓名等默认候选保持原命名。普通SelectControl的空值以data-empty表达未选样式，不改业务默认或canonical值。当前候选有持续选中高亮。
 

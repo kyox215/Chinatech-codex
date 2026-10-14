@@ -1,8 +1,8 @@
 "use client";
+import { useBackendStore, useBackendMode } from "@/components/backend-snapshot";
 import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 import { requirePreviewPermission } from "@/lib/staff-client";
 
-import { useSyncExternalStore } from "react";
 import { buildCustomerDirectory, parseCustomerProfiles, updateCustomerProfile, type CustomerProfile } from "@/lib/customers";
 import { intakeCustomers } from "@/lib/repair-intake";
 import { useLocalIntakes, useRepairDirectory } from "@/components/repairs/local-intake-store";
@@ -32,12 +32,13 @@ function subscribe(listener: () => void) {const stop=subscribeBackend(listener);
   return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); };
 }
 export function useCustomerDirectory() {
-  const profiles = useSyncExternalStore(subscribe, read, () => server);
+  const profiles = useBackendStore(subscribe,read,server,current=>({profiles:current?.customers??[],ready:true,error:current?"":"后台资料暂不可用。"}));
+  const formal = useBackendMode();
   const repairs = useRepairDirectory();
   const local = useLocalIntakes();
   const retail = useRetail();
   const history = useRetailHistory();
-  const seeds = [...(isBackendClient()?[]:intakeCustomers), ...local.records.map(record => ({ phone: record.phone, name: record.customerName, email: record.email }))];
+  const seeds = [...(formal?[]:intakeCustomers), ...local.records.map(record => ({ phone: record.phone, name: record.customerName, email: record.email }))];
   return { customers: buildCustomerDirectory(repairs, retail.units, profiles.profiles, seeds, history.records), ready: profiles.ready && local.ready && retail.ready && history.ready, error: [profiles.error, local.error, retail.error, history.error].filter(Boolean).join(" ") };
 }
 export function saveCustomerProfile(draft: Omit<CustomerProfile, "version">, expectedVersion: number, options?: {requestId?:string}) {

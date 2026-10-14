@@ -1,5 +1,6 @@
 "use client";
-import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand, backendRecovery, subscribeRecovery } from "@/lib/backend/client";
+import { useBackendStore, useBackendState } from "@/components/backend-snapshot";
+import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand, backendRecovery, subscribeRecovery, backendReadGeneration } from "@/lib/backend/client";
 import { requirePreviewPermission } from "@/lib/staff-client";
 import { createContext, useContext, useSyncExternalStore } from "react";
 import { procurementRecords } from "@/lib/procurement-fixtures";
@@ -93,6 +94,8 @@ function read() {
   try {const raw=window.localStorage.getItem(storageKey);if(raw!==cachedRaw||store.storageError){const saved=parseProcurementState(raw);cachedRaw=raw;store={...store,records:saved?.records??procurementRecords,repairUpdates:saved?.repairUpdates??{},storageError:""};}}
   catch {if(!store.storageError)store={...store,storageError:"本地配件记录无法读取，现有记录未被覆盖。"};}return store;
 }
+let uiScope="";
+function readUi(){if(isBackendClient()){const current=backendSnapshot();const key=JSON.stringify([backendReadGeneration(),current?.storeId,current?.staff.currentId,current?.staff.members.find(row=>row.id===current.staff.currentId)?.revision]);if(key!==uiScope){uiScope=key;store={...store,feedback:null,listView:initialState.listView};}}return store;}
 export function currentProcurementRecords() { return read().records; }
 function subscribe(listener:()=>void){const stop=subscribeBackend(listener);const storage=(event:StorageEvent)=>{if(event.key===storageKey||event.key===null)listener();};window.addEventListener("storage",storage);window.addEventListener(changed,listener);return()=>{stop();window.removeEventListener("storage",storage);window.removeEventListener(changed,listener);};}
 function savePreviewItem(current:State, action:Extract<ProcurementAction,{type:"save-item"}>, time:string) {
@@ -188,5 +191,5 @@ async function dispatchAction(action: ProcurementAction, options?: { requestId?:
   window.dispatchEvent(new Event(changed));
 }
 const ProcurementContext=createContext<State & {dispatch:(action:ProcurementAction,options?:{requestId?:string})=>Promise<void>}|null>(null);
-export function ProcurementProvider({children}:{children:React.ReactNode}){const state=useSyncExternalStore(subscribe,read,()=>initialState);const recovery=useSyncExternalStore(subscribeRecovery,backendRecovery,backendRecovery);const feedback=state.feedback?.requestId&&recovery.receipt?.requestId===state.feedback.requestId?{...state.feedback,error:false,message:"配件事实已保存。"}:state.feedback?.requestId&&recovery.pending?.command.requestId===state.feedback.requestId?null:state.feedback?.requestId&&recovery.resolution?.requestId===state.feedback.requestId?recovery.resolution.status==="cancelled"?null:{...state.feedback,error:true,message:recovery.message||state.feedback.message}:state.feedback;return <ProcurementContext.Provider value={{...state,feedback,dispatch:dispatchAction}}>{children}</ProcurementContext.Provider>;}
+export function ProcurementProvider({children}:{children:React.ReactNode}){const backend=useBackendState();const ui=useSyncExternalStore(subscribe,readUi,()=>initialState);const ownUi=backend.active?ui:initialState;const state=useBackendStore(subscribe,read,initialState,current=>({...ownUi,records:current?.procurement??[],repairUpdates:Object.fromEntries((current?.intakes??[]).map(row=>[row.id,row.updatedAt])),storageError:current?"":"后台资料暂不可用。"}));const recovery=useSyncExternalStore(subscribeRecovery,backendRecovery,backendRecovery);const feedback=state.feedback?.requestId&&recovery.receipt?.requestId===state.feedback.requestId?{...state.feedback,error:false,message:"配件事实已保存。"}:state.feedback?.requestId&&recovery.pending?.command.requestId===state.feedback.requestId?null:state.feedback?.requestId&&recovery.resolution?.requestId===state.feedback.requestId?recovery.resolution.status==="cancelled"?null:{...state.feedback,error:true,message:recovery.message||state.feedback.message}:state.feedback;return <ProcurementContext.Provider value={{...state,feedback,dispatch:dispatchAction}}>{children}</ProcurementContext.Provider>;}
 export function useProcurement(){const context=useContext(ProcurementContext);if(!context)throw new Error("采购上下文缺失。");return context;}

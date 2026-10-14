@@ -2,7 +2,8 @@
 
 import { NavigationLink as Link } from "@/components/navigation-link";
 import { useSyncExternalStore, useTransition } from "react";
-import { AlertCircle, WifiOff } from "lucide-react";
+import { AlertCircle, LoaderCircle, WifiOff } from "lucide-react";
+import { useActivityFeedback } from "./operation-feedback";
 import { PageTitle } from "./page-title";
 import { useLanguage } from "./language-provider";
 import { useRouter } from "next/navigation";
@@ -22,7 +23,7 @@ export function ReadFailure({ message }: { message: string }) {
   const router = useRouter();
   const online = useOnline();
   const [pending, startTransition] = useTransition();
-  return <section className="panel module-empty" role="alert" aria-busy={pending}><AlertCircle size={28} aria-hidden="true" /><strong>{t("资料暂时无法读取")}</strong><p>{systemText(message)}</p><button type="button" className="button button--secondary" disabled={!online || pending} aria-busy={pending} onClick={() => startTransition(() => router.refresh())}>{pending ? t("正在重新读取…") : t("重试加载")}</button></section>;
+  return <section className="panel read-failure" role="alert" aria-busy={pending}><AlertCircle size={18} aria-hidden="true" /><strong>{t("资料暂时无法读取")}</strong><p>{systemText(message)}</p><button type="button" className="button button--secondary" disabled={!online || pending} aria-busy={pending} onClick={() => startTransition(() => router.refresh())}>{pending ? t("正在重新读取…") : t("重试加载")}</button></section>;
 }
 
 /** Error recovery only re-reads the route; it never repeats a business submission. */
@@ -41,7 +42,8 @@ export function PageRecovery({ retry, internal = false }: { retry: () => void; i
   </main>;
 }
 
-export function PageLoading({ internal = false, label = "正在加载…", backHref }: { internal?: boolean; label?: string; backHref?: string }) {
+export function ReadPending({ label = "正在处理…" }: { label?: string }) {
   const { t } = useLanguage();
-  return <main className="module-page" aria-busy="true">{internal ? <header className="module-heading"><PageTitle title={t(label)} backHref={backHref} backLabel={t("返回首页")} /></header> : <div className="module-skeleton module-skeleton--heading" aria-hidden="true" />}<p role="status">{t(label)}</p><div className="module-skeleton module-skeleton--cards" aria-hidden="true" /><div className="module-skeleton module-skeleton--list" aria-hidden="true" /></main>;
+  useActivityFeedback(true,{kind:"read"});
+  return <p className="read-pending" role="status"><LoaderCircle className="spin" size={16} aria-hidden="true" />{t(label)}</p>;
 }

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import ts from "typescript";
+import { adaptPreviewHookImports } from "./helpers/preview-hook-loader.mjs";
 
 const urls = new Map();
 const overrides = {
@@ -12,6 +13,7 @@ const overrides = {
 function moduleUrl(name) {
   if (urls.has(name)) return urls.get(name);
   let code = overrides[name] ?? ts.transpileModule(readFileSync(new URL(`../${name}.ts`, import.meta.url), "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
+  code = adaptPreviewHookImports(code, { compile: file => ts.transpileModule(readFileSync(new URL(`../${file}`, import.meta.url), "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText, library: dependency => moduleUrl(`lib/${dependency}`), dataUrl: source => "data:text/javascript;base64," + Buffer.from(source).toString("base64") });
   code = code.replace(/import \{[^}]+\} from "react";/g, 'const useSyncExternalStore=(_subscribe,getSnapshot)=>getSnapshot();');
   code = code.replace(/from "(@\/lib\/[^\"]+|\.\.?\/[^\"]+)"/g, (_match, dependency) => {
     const key = dependency.startsWith("@/") ? dependency.slice(2) : path.posix.normalize(path.posix.join(path.posix.dirname(name), dependency));

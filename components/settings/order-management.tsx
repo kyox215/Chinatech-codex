@@ -1,11 +1,11 @@
 "use client";
+import { useBackendState } from "@/components/backend-snapshot";
 
 import { useLanguage } from "@/components/language-provider";
 import { useState } from "react";
 import { Check, ClipboardList, PackageSearch } from "lucide-react";
 import { RepairGroupEditor } from "@/components/repairs/repair-group-editor";
 import { useStaff } from "@/components/staff/use-staff";
-import { backendSnapshot, isBackendClient } from "@/lib/backend/client";
 import { defaultRepairGroups, visibleRepairGroups, type RepairGroupKind } from "@/lib/repair-groups";
 import type { StoreSettings } from "@/lib/store-settings";
 
@@ -17,7 +17,8 @@ const kinds = [
 export function OrderManagement({ settings, disabled = false, onPendingChange }: { settings: StoreSettings; disabled?: boolean; onPendingChange?: (pending: boolean) => void }) {
   const { t } = useLanguage();
   const staff = useStaff();
-  const scope = JSON.stringify([isBackendClient() ? backendSnapshot()?.storeId : "preview", staff.member?.id, staff.member?.revision, staff.member?.permissions.toSorted()]);
+  const backend=useBackendState();
+  const scope = JSON.stringify([backend.formal ? backend.snapshot?.storeId : "preview", staff.member?.id, staff.member?.revision, staff.member?.permissions.toSorted()]);
   const [editing, setEditing] = useState<{ kind: RepairGroupKind; scope: string } | null>(null);
   const [saved, setSaved] = useState("");
   const groups = settings.repairGroups ?? defaultRepairGroups();
