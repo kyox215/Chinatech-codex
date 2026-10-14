@@ -19,6 +19,7 @@ import { parseItemMoney } from "@/lib/repair-item-pricing";
 import type { RepairItemEdit } from "@/lib/repair-item-editor";
 import { formatCost, isPreorder, procurementStatus, procurementStatuses } from "@/lib/procurement";
 import { useProcurement } from "./procurement-provider";
+import type { RepairProjectConfirmation } from "./repair-project-controls";
 
 type ItemInput = {
   requirementId: string; requirementRevision: number; title: string; request: string;
@@ -31,8 +32,9 @@ type ItemsDraft = { rows: ItemInput[]; intakeRevision: number; workflowRevision:
 const moneyInput = (value: number | null | undefined) => value == null ? "" : (value / 100).toFixed(2);
 
 /** Intake projects are the rows: there is no second item picker or procurement wizard. */
-export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }: {
+export function RepairItemsForm({ repairId, confirmedProject, onSaved, onCancel, onPendingChange }: {
   repairId: string; onSaved: () => void; onCancel: () => void; onPendingChange: (pending: boolean, requestId?: string) => boolean | void;
+  confirmedProject?: RepairProjectConfirmation | null;
 }) {
   const { t, locale, systemText } = useLanguage();
   const staff = useStaff();
@@ -64,6 +66,7 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
     };
   }
   const [draft, setDraft] = useState<ItemsDraft>(currentDraft);
+  const [observedProject, setObservedProject] = useState(confirmedProject);
   const [error, setError] = useState("");
   const receipt = useOperationReceipt();
   const [pendingBase, setPending] = useState(false);
@@ -76,14 +79,24 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
       || value.rows.some(row => !row || ![row.requirementId, row.title, row.request, row.supplier, row.quote, row.cost, row.beforeSupplier, row.beforeQuote, row.beforeCost, row.purchaseId].every(field => typeof field === "string") || !Number.isSafeInteger(row.requirementRevision) || !Number.isSafeInteger(row.purchaseRevision) || !Array.isArray(row.linkedVersions) || row.linkedVersions.some(link => typeof link.id !== "string" || !Number.isSafeInteger(link.revision)))) throw new Error("设备草稿格式无效。");
     setDraft({ ...value, rows: value.rows.map(row => ({ ...row, cost: canReadCost ? row.cost : "", beforeCost: canReadCost ? row.beforeCost : "" })) });
   }, canEdit);
-  const changed = draft.intakeRevision !== (order?.intakeRevision ?? 1) || draft.workflowRevision !== (workflows[repairId]?.revision ?? 0)
-    || requirements.length !== draft.rows.length || draft.rows.some(row => {
+  const rowsChanged = draft.rows.some(row => {
       const requirement = requirements.find(item => item.id === row.requirementId);
       const linked = purchases.filter(item => item.requirementId === row.requirementId);
       return !requirement || requirement.revision !== row.requirementRevision || linked.length !== row.linkedVersions.length
         || linked.some(item => !row.linkedVersions.some(link => link.id === item.id && link.revision === item.events.length));
     });
+  const changed = draft.intakeRevision !== (order?.intakeRevision ?? 1) || draft.workflowRevision !== (workflows[repairId]?.revision ?? 0)
+    || requirements.length !== draft.rows.length || rowsChanged;
   const dirty = draft.rows.some(row => row.quote !== row.beforeQuote || row.supplier !== row.beforeSupplier || (canEditCost && row.cost !== row.beforeCost));
+  if (confirmedProject !== observedProject) {
+    setObservedProject(confirmedProject);
+    // Only the original successful project submission can refresh an untouched form.
+    if (confirmedProject?.repairId === repairId && !dirty && !rowsChanged && !pending
+      && draft.intakeRevision === confirmedProject.intakeRevision && (order?.intakeRevision ?? 1) === confirmedProject.intakeRevision
+      && draft.workflowRevision === confirmedProject.beforeWorkflowRevision && (workflows[repairId]?.revision ?? 0) === confirmedProject.workflowRevision
+      && requirements.length === draft.rows.length + 1 && requirements.some(row => row.id === confirmedProject.requirementId)
+      && !purchases.some(row => row.requirementId === confirmedProject.requirementId)) setDraft(currentDraft());
+  }
   function update(id: string, field: "supplier" | "quote" | "cost", value: string) {
     setDraft(previous => ({ ...previous, rows: previous.rows.map(row => row.requirementId === id ? {
       ...row, [field]: value,
@@ -138,7 +151,7 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
         items.push(item);
       }
       await dispatch({ type: "save-items", repairId, intakeRevision: draft.intakeRevision, workflowRevision: draft.workflowRevision, items }, {requestId});
-      await deviceDraft.clear(); onSaved();
+      await deviceDraft.clear(); release(); onSaved();
     } catch (reason) { if (!receipt.watch(requestId, confirmed, settled)) setError(reason instanceof Error ? reason.message : "保存失败，输入已保留。"); }
     finally { if (!receipt.isWaiting()) release(); setPending(false); }
   }

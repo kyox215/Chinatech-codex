@@ -53,8 +53,9 @@ test("failed project keeps its inputs and settled retry releases the modal after
   await dialog.getByRole("button", { name: "添加维修项目", exact: true }).click();
   await expect(dialog.getByRole("button", { name: "添加维修项目", exact: true })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "关闭配件操作", exact: true })).toBeEnabled();
-  await dialog.getByRole("button", { name: "核对最新资料后重试", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "核对最新资料后重试", exact: true })).toHaveCount(0);
   await expect(dialog.getByRole("heading", { name: "DEMO 手工检测", exact: true })).toBeVisible();
+  await expect(dialog.getByRole("group", { name: "DEMO 手工检测", exact: true }).getByRole("combobox", { name: "供应商（选填）" })).toBeEnabled();
   const requirements = await page.evaluate(({ key, id }) => JSON.parse(localStorage.getItem(key)!).workflows[id].requirements, { key: workflowKey, id: repairId });
   expect(requirements).toHaveLength(1);
   await dialog.getByRole("button", { name: "关闭配件操作", exact: true }).click();
@@ -91,4 +92,15 @@ test("project changes retain the existing item draft until explicit review merge
   await expect(quote).toHaveValue("12.34");
   await expect(dialog.getByLabel("电池报价", { exact: true })).toHaveValue("");
   await expect(dialog.getByRole("button", { name: "保存", exact: true })).toBeEnabled();
+});
+
+test("external project changes still require review when the item draft is untouched", async ({ page }) => {
+  const dialog = await openDialog(page);
+  await page.evaluate(key => {
+    const data = JSON.parse(localStorage.getItem(key)!); data.records[0].faults.push("屏幕：碎裂"); data.records[0].issueNote = ""; data.records[0].issue = data.records[0].faults.join("、"); data.records[0].revision++;
+    localStorage.setItem(key, JSON.stringify(data)); window.dispatchEvent(new Event("chinatech-local-intake-change"));
+  }, intakeKey);
+  await expect(dialog.getByRole("heading", { name: "屏幕", exact: true })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "核对最新资料后重试", exact: true }).click();
+  await expect(dialog.getByRole("group", { name: "屏幕", exact: true }).getByRole("combobox", { name: "供应商（选填）" })).toBeEnabled();
 });

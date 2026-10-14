@@ -11,7 +11,10 @@ import { currentRepairRequirements, type RepairRequirement } from "@/lib/repair-
 import type { RepairDirectoryEntry } from "@/lib/repair-intake-record";
 import type { ProcurementRecord } from "@/lib/procurement";
 
-export function RepairProjectControls({ order, records, onPendingChange }: { order: RepairDirectoryEntry; records: ProcurementRecord[]; onPendingChange: (value: boolean, requestId?: string) => boolean | void }) {
+export type RepairProjectConfirmation = Readonly<{ requestId: string; repairId: string; requirementId: string; intakeRevision: number; beforeWorkflowRevision: number; workflowRevision: number }>;
+type ProjectPendingChange = (value: boolean, requestId?: string, project?: RepairProjectConfirmation) => boolean | void;
+
+export function RepairProjectControls({ order, records, onPendingChange }: { order: RepairDirectoryEntry; records: ProcurementRecord[]; onPendingChange: ProjectPendingChange }) {
   const { t } = useLanguage();
   const staff = useStaff();
   const { workflows } = useRepairWorkflows();
@@ -22,7 +25,7 @@ export function RepairProjectControls({ order, records, onPendingChange }: { ord
   const unresolved = requirements.filter(row => (row.mode === "pending" || !row.confirmed) && !records.some(record => record.repairId === order.id && record.requirementId === row.id && record.required !== false));
   return unresolved.length ? <details className="repair-workflow-history"><summary>{t("维修项目核对")}</summary>{unresolved.map(item => <NoPurchaseProject key={`${item.id}:${staff.member?.id}:${staff.member?.revision}`} order={order} item={item} records={records} onPendingChange={onPendingChange}/>)}</details> : null;
 }
-function AddProject({ order, records, onPendingChange }: { order: RepairDirectoryEntry; records: ProcurementRecord[]; onPendingChange: (value: boolean, requestId?: string) => boolean | void }) {
+function AddProject({ order, records, onPendingChange }: { order: RepairDirectoryEntry; records: ProcurementRecord[]; onPendingChange: ProjectPendingChange }) {
   const { t , systemText } = useLanguage();
   const { workflows, error: storageError } = useRepairWorkflows();
   const [opened] = useState(() => ({ revision: workflows[order.id]?.revision ?? 0, id: `project:${crypto.randomUUID()}` }));
@@ -33,10 +36,11 @@ function AddProject({ order, records, onPendingChange }: { order: RepairDirector
   async function save() {
     if (busy.current || receipt.isWaiting() || !title.trim()) return;
     const requestId = crypto.randomUUID();
-    if (onPendingChange(true, requestId) === false) return;
+    const project: RepairProjectConfirmation = { requestId, repairId: order.id, requirementId: opened.id, intakeRevision: order.intakeRevision ?? 1, beforeWorkflowRevision: opened.revision, workflowRevision: opened.revision + 1 };
+    if (onPendingChange(true, requestId, project) === false) return;
     busy.current = true; setPending(true); setError("");
     const release = () => { busy.current = false; setError(""); onPendingChange(false, requestId); };
-    try { await updateRepairWorkflow(order, { type: "requirement", item: { id: opened.id, title: title.trim(), request, revision: 1, mode: "pending", confirmed: false, deviceFingerprint: order.deviceFingerprint }, note: "登记本次维修项目。" }, records, opened.revision, { requestId }); }
+    try { await updateRepairWorkflow(order, { type: "requirement", item: { id: opened.id, title: title.trim(), request, revision: 1, mode: "pending", confirmed: false, deviceFingerprint: order.deviceFingerprint }, note: "登记本次维修项目。" }, records, opened.revision, { requestId }); onPendingChange(false, requestId, project); }
     catch (failure) { if (!receipt.watch(requestId, release, release)) setError(failure instanceof Error ? failure.message : "项目未保存。"); }
     finally { if (!receipt.isWaiting()) { busy.current = false; onPendingChange(false, requestId); } setPending(false); }
   }

@@ -31,3 +31,11 @@ useOperationReceipt 精确匹配本次 requestId；Provider dispatch 可选 UI o
 设置专项：8/8实际预览、10/10私有原回执反例通过（五类表单×Chrome1440/WebKit375）；503未知、IDB只读重载、取消保留、新nonce、旧receipt拒绝与exactreceipt清/close。没有生产写入。证据 settings-proof/recovery-results.json，产品4文件SHA冻结。
 
 剩余：源码冻结后的本地必要检查、远程完整CI、独立delta审查、production候选READY／来源核对、主域与www发布及只读线上验收。实际业务数据库事务、本轮生产业务写入、实体手机／相机／签字硬件／物理打印分别记录，不能以合成API或截图替代。
+
+## 最终增量冻结前复验
+
+初次冻结0f04c385后的代表30项：28通过、2返修全链失败。原因是稳定子表单在本次成功添加维修项目后仍保留空旧表，需多做人工核对。现用精确requestId／新增requirement／原现版本确认信号：只对本次已确认添加且没有未保存输入的表单更新；dirty与外部变化保留人工核对。直接保存先释放本次父owner再收窗，未知锁保留。新12/12双浏览器原返修／采购归属检查与59领域通过；原失败日志保留，本地首轮trace被后续默认输出清理，不声称仍保留。
+
+额外库存发现分组编辑的原回执归属缺失，已补本次nonce、未知编辑／关闭／上层分类锁、精确回执完成及安全取消保留。4/4 Chrome／WebKit合成原回执反例、分组与设置30/30实际预览通过；登录设备只读查询15秒超时可恢复。settings明确拒绝另6/6，仍不改变金额、角色或权限规则。
+
+0f04c385旧production候选 `dpl_CScGvuDdgWqv8GCJQLsL6dhh5JVu` READY，但因上述增量已过期，不晋升。使用既有Vercel身份只读HTTP200；来源gitCommitSha0f04c385／项目prj_FZoMRZoHsRNALz4ahEVGaXAxHOFS已核验；没有改变保护规则。正式www仍以独立fresh检查为准。新源码须重新完整CI和新production候选。

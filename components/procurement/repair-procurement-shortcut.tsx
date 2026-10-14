@@ -6,7 +6,7 @@ import { repairItemText } from "@/lib/i18n/repair-display";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { History, PackageSearch, Pencil, X } from "lucide-react";
-import { RepairProjectControls } from "./repair-project-controls";
+import { RepairProjectControls, type RepairProjectConfirmation } from "./repair-project-controls";
 import { RepairItemsForm } from "./repair-items-form";
 import { useRepairDirectory } from "@/components/repairs/local-intake-store";
 import { reconfirmRepairParts, useRepairWorkflows } from "@/components/repairs/repair-workflow-store";
@@ -36,31 +36,37 @@ export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "
   const [legacyEdit, setLegacyEdit] = useState(false);
   const [pending, setPending] = useState(false);
   const [recoveryRequestId,setRecoveryRequestId]=useState<string|null>(null);
+  const [confirmedProject, setConfirmedProject] = useState<RepairProjectConfirmation | null>(null);
   const busy = useRef(false);
   const owner = useRef<string | null>(null);
+  const projectOwner = useRef<RepairProjectConfirmation | null>(null);
   const { watch: watchReceipt } = useOperationReceipt();
   const selected = rows.find(row => row.id === selectedId) ?? rows.find(isPreorder) ?? rows[0];
-  const releaseOwner = useCallback((requestId: string) => {
+  const releaseOwner = useCallback((requestId: string, confirmed = false) => {
     if (owner.current !== requestId) return;
+    if (confirmed && projectOwner.current?.requestId === requestId) setConfirmedProject(projectOwner.current);
+    projectOwner.current = null;
     owner.current = null; busy.current = false; setPending(false); setRecoveryRequestId(null);
   }, []);
-  const setOperationPending = (value: boolean, requestId?: string) => {
+  const setOperationPending = (value: boolean, requestId?: string, project?: RepairProjectConfirmation) => {
     if (!requestId) return false;
     if (value) {
       if (owner.current && owner.current !== requestId) return false;
+      projectOwner.current = project?.requestId === requestId && project.repairId === repairId ? project : null;
       owner.current = requestId; busy.current = true; setPending(true); setRecoveryRequestId(requestId);
       if (selected) setSelectedId(selected.id);
       return true;
     }
     if (owner.current !== requestId) return false;
-    if (!watchReceipt(requestId, () => releaseOwner(requestId), () => releaseOwner(requestId))) releaseOwner(requestId);
+    if (project && projectOwner.current === project) releaseOwner(requestId, true);
+    else if (!watchReceipt(requestId, () => releaseOwner(requestId, true), () => releaseOwner(requestId))) releaseOwner(requestId);
     return true;
   };
   useEffect(() => {
     // The modal owns the original observer even when saved data removes a child control.
     const observe = () => {
       const requestId = owner.current;
-      if (requestId) watchReceipt(requestId, () => releaseOwner(requestId), () => releaseOwner(requestId));
+      if (requestId) watchReceipt(requestId, () => releaseOwner(requestId, true), () => releaseOwner(requestId));
     };
     observe();
     return subscribeRecovery(observe);
@@ -74,7 +80,7 @@ export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "
     <fieldset className="form-fields" disabled={pending}>
     {storageError ? <p className="form-error" role="alert">{systemText(storageError)}</p> : null}
     {order ? <RepairProjectControls order={order} records={records} onPendingChange={setOperationPending}/> : null}
-    <RepairItemsForm key={repairId} repairId={repairId} onSaved={close} onCancel={close} onPendingChange={setOperationPending} />
+    <RepairItemsForm key={repairId} repairId={repairId} confirmedProject={confirmedProject} onSaved={close} onCancel={close} onPendingChange={setOperationPending} />
     {selected ? <details className="repair-workflow-history repair-existing-parts" open={initialRecordId ? true : undefined}>
       <summary><PackageSearch size={16} />{t("配件记录 ")}<small>{rows.length}</small></summary>
       {rows.length > 1 ? <label className="field"><span>{t("查看配件记录")}</span><SelectControl disabled={pending} aria-label={t("本次操作的配件")} value={selected.id} onChange={event => { if (busy.current) return; setSelectedId(event.target.value); setLegacyEdit(false); }}>{rows.map(row => <option key={row.id} value={row.id}>{repairItemText(row.item, locale)} · {row.supplier}{row.required === false ? t(" · 备选") : ""}</option>)}</SelectControl></label> : null}
