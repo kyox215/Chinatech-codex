@@ -16,6 +16,7 @@ const statusLabels={pending:"待核对",active:"有效",disabled:"停用"};
 export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending: boolean) => void } = {}) {
   const { t , systemText } = useLanguage();
   const staff = useStaff();
+  const formal = isBackendClient();
   const [editing, setEditing] = useState<StaffMember | null>(null);
   const [openedRevision, setOpenedRevision] = useState(0);
   const [review, setReview] = useState(false);
@@ -24,6 +25,9 @@ export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending:
   const busy = useRef(false);
   const receipt = useOperationReceipt();
   const pending = submitting || receipt.waiting;
+  const existing = staff.data.members.find(member => member.id === editing?.id);
+  const staleIdentity = Boolean(formal && editing?.revision && (!existing || editing.name !== existing.name || editing.email !== existing.email || editing.accountStatus !== existing.accountStatus));
+  const needsReview = openedRevision !== staff.data.revision || staleIdentity;
   const attempt = useRef<string | null>(null);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; attempt.current = null; }; }, []);
@@ -43,13 +47,14 @@ export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending:
     if (busy.current || !editing) return;
     const current = staff.data.members.find(row => row.id === editing.id);
     if (editing.revision && !current) { setError("员工已不存在，请关闭编辑。"); return; }
-    setEditing({ ...editing, revision: current?.revision ?? 0 }); setOpenedRevision(staff.data.revision); setReview(false); setError("");
+    setEditing({ ...editing, ...(formal && current ? { name: current.name, email: current.email, accountStatus: current.accountStatus } : {}), revision: current?.revision ?? 0 }); setOpenedRevision(staff.data.revision); setReview(false); setError("");
   }
   const validateName = (value: string) => value.trim() ? "" : "请填写员工称呼，例如小陈；不能只填空格。";
-  const validateEmail = (value: string) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? "请填写有效的员工账号邮箱，例如 sales@demo.chinatech.local。" : staff.data.members.some(member => member.id !== editing?.id && member.email === value.trim().toLowerCase()) ? "该账号标识已被其他员工使用，请核对邮箱或打开原员工记录。" : "";
+  const validateEmail = (value: string) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? formal ? "请填写有效的员工账号邮箱，例如 name@example.com。" : "请填写有效的员工账号邮箱，例如 sales@demo.chinatech.local。" : staff.data.members.some(member => member.id !== editing?.id && member.email === value.trim().toLowerCase()) ? "该账号标识已被其他员工使用，请核对邮箱或打开原员工记录。" : "";
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editing || busy.current || receipt.isWaiting()) return;
+    if (needsReview) { setError(formal ? "员工资料或登录身份已变化，请取消后重新核对。" : "员工资料或预览身份已变化，请取消后重新核对。"); return; }
     setError("");
     if (!review) {
       try { updateStaffMember(staff.data, editing, openedRevision, staff.member!.id, crypto.randomUUID(), intakeRecordTime()); setReview(true); }
@@ -73,22 +78,22 @@ export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending:
   }
   return <>
     <div className={"settings-section-title " + styles.sectionTitle}><UsersRound size={22}/><h3>{t("员工设置")}</h3><button className="button button--primary button--compact" disabled={pending} onClick={() => open()} type="button"><Plus size={17}/>{t("新增员工")}</button></div>
-    <p className={styles.note}>{t("本地权限演示 · 不创建真实登录或发送邀请，不保存密码。")}</p>
+    <p className={styles.note}>{t(formal ? "正式门店权限保存在服务器；只能关联已注册并验证邮箱的账号，不创建账号或发送邀请。" : "本地权限演示 · 不创建真实登录或发送邀请，不保存密码。")}</p>
     <fieldset className="form-fields" disabled={pending}><DeviceDraftNotice draft={deviceDraft} disabled={pending}/></fieldset>
-    {editing && openedRevision !== staff.data.revision ? <button type="button" className="button button--secondary" disabled={pending} onClick={reviewLatest}>{t("保留输入并核对最新版本")}</button> : null}
+    {editing && needsReview ? <button type="button" className="button button--secondary" disabled={pending} onClick={reviewLatest}>{t("保留输入并核对最新版本")}</button> : null}
     {editing ? <form className={styles.editor} onSubmit={save} aria-busy={pending}><fieldset className="form-fields" disabled={pending}>
-      <div className={styles.heading}><h4>{review ? t("核对员工与权限") : editing.revision ? t("编辑员工") : t("新增DEMO员工")}</h4><button className="icon-button" type="button" aria-label={t("关闭员工编辑")} onClick={close}><X size={18}/></button></div>
-      {review ? <div className={styles.review}><strong>{editing.name} · {t(staffRoles[editing.role])}</strong><p>{editing.email}</p><p>{t("账号：")}{t(statusLabels[editing.accountStatus])} {t(" · 门店成员：")}{t(statusLabels[editing.membershipStatus])}</p><ul>{editing.permissions.map(permission => <li key={permission}>{t(permissionLabels[permission])}</li>)}</ul><p>{t("权限立即用于当前浏览器的预览；已有业务确认页将重新核对。")}</p></div> : <>
+      <div className={styles.heading}><h4>{review ? t("核对员工与权限") : editing.revision ? t("编辑员工") : t(formal ? "新增员工" : "新增DEMO员工")}</h4><button className="icon-button" type="button" aria-label={t("关闭员工编辑")} onClick={close}><X size={18}/></button></div>
+      {review ? <div className={styles.review}><strong>{formal && !editing.revision ? t("姓名由已验证账号提供") : editing.name} · {t(staffRoles[editing.role])}</strong><p>{editing.email}</p><p>{t("账号：")}{t(formal && !editing.revision ? "待核对" : statusLabels[editing.accountStatus])} {t(" · 门店成员：")}{t(statusLabels[editing.membershipStatus])}</p><ul>{editing.permissions.map(permission => <li key={permission}>{t(permissionLabels[permission])}</li>)}</ul><p>{t(formal ? "确认后保存本门店的成员状态与权限；账号身份由服务器核对，业务操作仍检查当前权限。" : "权限立即用于当前浏览器的预览；已有业务确认页将重新核对。")}</p></div> : <>
         <div className="field-grid">
-          <label className="field"><span>{t("员工称呼 *")}</span><InputControl onClear={() => { setEditing({ ...editing, name: "" }); setError(""); }} clearLabel={t("清空员工称呼")} aria-label={t("员工称呼")} required validate={validateName} value={editing.name} maxLength={80} autoComplete="name" onChange={event => { setEditing({ ...editing, name: event.target.value }); setError(""); }} placeholder={t("例如：小陈")} /></label>
-          <label className="field"><span>{t("DEMO账号标识 *")}</span><InputControl onClear={() => { setEditing({ ...editing, email: "" }); setError(""); }} clearLabel={t("清空员工账号标识")} aria-label={t("员工账号标识")} required type="email" validate={validateEmail} value={editing.email} maxLength={160} autoComplete="email" autoCapitalize="off" onChange={event => { setEditing({ ...editing, email: event.target.value }); setError(""); }} placeholder="sales@demo.chinatech.local" /></label>
+          <label className="field"><span>{t(formal ? "账号姓名（核对用）" : "员工称呼 *")}</span><InputControl onClear={() => { setEditing({ ...editing, name: "" }); setError(""); }} clearLabel={t("清空员工称呼")} aria-label={t("员工称呼")} readOnly={formal && Boolean(editing.revision)} required validate={validateName} value={editing.name} maxLength={80} autoComplete="name" onChange={event => { setEditing({ ...editing, name: event.target.value }); setError(""); }} placeholder={t("例如：小陈")} /></label>
+          <label className="field"><span>{t(formal ? "员工账号邮箱 *" : "DEMO账号标识 *")}</span><InputControl onClear={() => { setEditing({ ...editing, email: "" }); setError(""); }} clearLabel={t("清空员工账号标识")} aria-label={t("员工账号标识")} readOnly={formal && Boolean(editing.revision)} required type="email" validate={validateEmail} value={editing.email} maxLength={160} autoComplete="email" autoCapitalize="off" onChange={event => { setEditing({ ...editing, email: event.target.value }); setError(""); }} placeholder={formal ? "name@example.com" : "sales@demo.chinatech.local"} /></label>
           <label className="field"><span>{t("角色模板")}</span><SelectControl aria-label={t("员工角色")} value={editing.role} disabled={editing.role === "owner" || editing.id === staff.member?.id} onChange={event => { const role = event.target.value as StaffRole; setEditing({ ...editing, role, permissions: rolePermissions(role) }); }}>{Object.entries(staffRoles).filter(([role]) => role !== "owner" || editing.role === "owner").map(([role, label]) => <option key={role} value={role}>{t(label)}</option>)}</SelectControl></label>
-          {(["accountStatus", "membershipStatus"] as const).map(key => <label className="field" key={key}><span>{key === "accountStatus" ? t("账号状态") : t("门店成员状态")}</span><SelectControl aria-label={key === "accountStatus" ? t("员工账号状态") : t("员工成员状态")} disabled={(isBackendClient() && key === "accountStatus") || editing.id === staff.member?.id || editing.role === "owner" && staff.member?.role !== "owner"} value={editing[key]} onChange={event => setEditing({ ...editing, [key]: event.target.value as StaffStatus })}>{Object.entries(statusLabels).map(([status, label]) => <option value={status} key={status}>{t(label)}</option>)}</SelectControl></label>)}
+          {(["accountStatus", "membershipStatus"] as const).map(key => <label className="field" key={key}><span>{key === "accountStatus" ? t("账号状态") : t("门店成员状态")}</span><SelectControl aria-label={key === "accountStatus" ? t("员工账号状态") : t("员工成员状态")} disabled={(isBackendClient() && key === "accountStatus") || editing.id === staff.member?.id || editing.role === "owner" && staff.member?.role !== "owner"} value={formal && !editing.revision && key === "accountStatus" ? "pending" : editing[key]} onChange={event => setEditing({ ...editing, [key]: event.target.value as StaffStatus })}>{Object.entries(statusLabels).map(([status, label]) => <option value={status} key={status}>{t(label)}</option>)}</SelectControl></label>)}
         </div>
         <fieldset className={styles.permissions}><legend>{t("允许的操作")}</legend>{Object.entries(permissionLabels).map(([permission, label]) => <label key={permission}><input type="checkbox" aria-label={t(label)} checked={editing.permissions.includes(permission as keyof typeof permissionLabels)} disabled={editing.id === staff.member?.id || editing.role === "owner" || !staff.can(permission as keyof typeof permissionLabels)} onChange={event => { const next = event.target.checked ? [...editing.permissions, permission as keyof typeof permissionLabels] : editing.permissions.filter(value => value !== permission); setEditing({ ...editing, permissions: next }); }}/><span>{t(label)}</span></label>)}</fieldset>
-      </>}
-      {error || openedRevision !== staff.data.revision ? <p className="form-error" role="alert">{openedRevision !== staff.data.revision ? t("员工资料或预览身份已变化，请取消后重新核对。") : systemText(error)}</p> : null}
-      <footer className={styles.footer}><button className="button button--secondary" type="button" onClick={close}>{t("取消")}</button>{review ? <button className="button button--secondary" type="button" onClick={() => { if (!busy.current) setReview(false); }}>{t("返回修改")}</button> : null}<button className="button button--primary" type="submit" disabled={openedRevision !== staff.data.revision}><Check size={17}/>{submitting ? t("正在保存…") : receipt.waiting ? t("待核对") : review ? t("确认保存员工") : t("继续核对权限")}</button></footer>
+      {formal ? <p className={styles.note}>{t("保存时使用已验证账号的身份资料；此处填写不会修改账号姓名或邮箱。")}</p> : null}</>}
+      {error || needsReview ? <p className="form-error" role="alert">{needsReview ? t(formal ? "员工资料或登录身份已变化，请取消后重新核对。" : "员工资料或预览身份已变化，请取消后重新核对。") : systemText(error)}</p> : null}
+      <footer className={styles.footer}><button className="button button--secondary" type="button" onClick={close}>{t("取消")}</button>{review ? <button className="button button--secondary" type="button" onClick={() => { if (!busy.current) setReview(false); }}>{t("返回修改")}</button> : null}<button className="button button--primary" type="submit" disabled={needsReview}><Check size={17}/>{submitting ? t("正在保存…") : receipt.waiting ? t("待核对") : review ? t("确认保存员工") : t("继续核对权限")}</button></footer>
     </fieldset></form> : null}
     <OperationRecoveryControls requestId={receipt.requestId}/>
     <div className={styles.rows}>{staff.data.members.map(member => <article key={member.id}><span className={styles.avatar}>{member.name.slice(0, 1)}</span><div><strong>{member.name}</strong><small>{member.email}</small><span>{t(staffRoles[member.role])} {t(" · 账号")}{t(statusLabels[member.accountStatus])} {t(" · 成员")}{t(statusLabels[member.membershipStatus])}</span></div><button className="button button--secondary button--compact" type="button" onClick={() => open(member)} disabled={pending || member.role === "owner" && staff.member?.role !== "owner"}>{t("编辑")}</button></article>)}</div>
