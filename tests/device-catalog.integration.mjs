@@ -15,7 +15,7 @@ const sql=postgres(config.DB_URL,{max:4,prepare:false});
 const runtime=postgres(localEnv.APP_DATABASE_URL,{max:1,prepare:false});
 const auth=createClient(config.API_URL,config.SECRET_KEY||config.SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 const origin=process.env.CATALOG_ORIGIN||'http://localhost:3177';const api=process.env.CATALOG_API||'http://127.0.0.1:3177';
-for(const target of [origin,api]){const url=new URL(target);assert.ok(['localhost','127.0.0.1'].includes(url.hostname));assert.equal(url.protocol,'http:');}
+for(const target of [origin,api]){const url=new URL(target);assert.ok(['localhost','127.0.0.1'].includes(url.hostname));assert.ok(['http:','https:'].includes(url.protocol));assert.equal(url.username,'');assert.equal(url.password,'');}
 const proof=process.env.CATALOG_PROOF_DIR?resolve(process.env.CATALOG_PROOF_DIR):resolve(root,'.local/device-catalog');mkdirSync(proof,{recursive:true});
 const domainPath=resolve(proof,'integration-domain.mjs');
 writeFileSync(domainPath,ts.transpileModule(readFileSync(fileURLToPath(new URL('../lib/device-catalog.ts',import.meta.url)),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);

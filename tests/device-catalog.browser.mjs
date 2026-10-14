@@ -7,7 +7,8 @@ export async function browserCatalog({manager,owner,storeId,prefix,pass,origin,r
  const out=resolve(proof,'browser');mkdirSync(out,{recursive:true});const results=[],diagnostics=[];
  for(const [name,engine]of [['chromium',chromium],['webkit',webkit]]){
   const browser=await engine.launch({headless:true});try{
-   const context=await browser.newContext({viewport:{width:1440,height:1000}});await context.addCookies([{name:'ct_store',value:storeId,domain:'localhost',path:'/'}]);const page=await context.newPage(),errors=[];let switching=false;page.on('pageerror',error=>errors.push({message:error.message,name:error.name,stack:error.stack,switching}));
+   const localTls=process.env.CATALOG_LOCAL_TLS==='1';if(localTls){const target=new URL(origin);assert.equal(target.protocol,'https:');assert.ok(['localhost','127.0.0.1'].includes(target.hostname));}
+   const context=await browser.newContext({viewport:{width:1440,height:1000},ignoreHTTPSErrors:localTls});await context.addCookies([{name:'ct_store',value:storeId,domain:'localhost',path:'/'}]);const page=await context.newPage(),errors=[];let switching=false;page.on('pageerror',error=>errors.push({message:error.message,name:error.name,stack:error.stack,switching}));
    await page.goto(origin+'/login');await page.locator('#email').fill(manager.email);await page.locator('#password').fill(manager.password);await page.locator('.auth-submit').click();await page.waitForURL('**/app/dashboard');
    await page.goto(origin+'/app/catalog');await expect(page.getByRole('heading',{name:'设备目录',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'新增型号',exact:true})).toBeEnabled();
    for(const locale of ['zh-CN','it','en']){
