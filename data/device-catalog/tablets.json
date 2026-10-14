@@ -1,0 +1,3277 @@
+[
+  {
+    "id": "tablet-xiaomi-mi-pad-708c216e",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Mi Pad",
+    "name": "Mi Pad",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-eos"
+    ]
+  },
+  {
+    "id": "tablet-xiaomi-mi-pad-2-90af5d75",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Mi Pad",
+    "name": "Mi Pad 2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-eos"
+    ]
+  },
+  {
+    "id": "tablet-xiaomi-mi-pad-3-d273b5bf",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Mi Pad",
+    "name": "Mi Pad 3",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-eos"
+    ]
+  },
+  {
+    "id": "tablet-xiaomi-mi-pad-4-c06adba0",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Mi Pad",
+    "name": "Mi Pad 4",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-eos"
+    ]
+  },
+  {
+    "id": "tablet-xiaomi-mi-pad-4-plus-297c24cf",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Mi Pad",
+    "name": "Mi Pad 4 Plus",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-eos"
+    ]
+  },
+  {
+    "id": "tablet-xiaomi-xiaomi-pad-5-pro-5g-1e50ca1e",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Xiaomi Pad",
+    "name": "Xiaomi Pad 5 Pro 5G",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "5G",
+    "platform": "",
+    "modelCodes": [
+      "K81"
+    ],
+    "aliases": [
+      "Xiaomi Pad 5 Pro 5G (CN)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-eos"
+    ]
+  },
+  {
+    "id": "tablet-xiaomi-xiaomi-pad-5-pro-2253749a",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Xiaomi Pad",
+    "name": "Xiaomi Pad 5 Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "K81A"
+    ],
+    "aliases": [
+      "Xiaomi Pad 5 Pro (CN)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-eos"
+    ]
+  },
+  {
+    "id": "tablet-xiaomi-xiaomi-pad-5-12ef0f6a",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Xiaomi Pad",
+    "name": "Xiaomi Pad 5",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "K82"
+    ],
+    "aliases": [
+      "Xiaomi Pad 5 (in)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-eos"
+    ]
+  },
+  {
+    "id": "tablet-xiaomi-xiaomi-pad-5-pro-12-4-03e1753c",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Xiaomi Pad",
+    "name": "Xiaomi Pad 5 Pro 12.4",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "L81A"
+    ],
+    "aliases": [
+      "Xiaomi Pad 5 Pro 12.4 (cn)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-eos"
+    ]
+  },
+  {
+    "id": "tablet-xiaomi-xiaomi-pad-6-pro-c60243cd",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Xiaomi Pad",
+    "name": "Xiaomi Pad 6 Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "M81"
+    ],
+    "aliases": [
+      "Xiaomi Pad 6 Pro (cn)"
+    ],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-eos"
+    ]
+  },
+  {
+    "id": "tablet-xiaomi-xiaomi-pad-6-78e72b8e",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Xiaomi Pad",
+    "name": "Xiaomi Pad 6",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "M82"
+    ],
+    "aliases": [
+      "Xiaomi Pad 6 (cn)"
+    ],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-eos",
+      "more-xiaomi-italy-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-redmi-redmi-pad-16b39111",
+    "category": "tablet",
+    "brand": "Redmi",
+    "family": "Redmi Pad",
+    "name": "Redmi Pad",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "L83"
+    ],
+    "aliases": [
+      "Redmi Pad (tr)",
+      "Redmi Pad (tw)",
+      "Redmi Pad (in)",
+      "Redmi Pad (id)",
+      "Redmi Pad (ru)",
+      "Redmi Pad (eea)",
+      "Redmi Pad (global)",
+      "Redmi Pad (cn)"
+    ],
+    "markets": [
+      "EEA"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-eos"
+    ]
+  },
+  {
+    "id": "tablet-redmi-redmi-pad-se-b3bef408",
+    "category": "tablet",
+    "brand": "Redmi",
+    "family": "Redmi Pad",
+    "name": "Redmi Pad SE",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "M84"
+    ],
+    "aliases": [
+      "Redmi Pad SE (cn)"
+    ],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-eos",
+      "more-xiaomi-italy-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-poco-poco-pad-m1-369491c0",
+    "category": "tablet",
+    "brand": "POCO",
+    "family": "POCO Pad",
+    "name": "POCO Pad M1",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-poco-poco-pad-x1-8009a4a7",
+    "category": "tablet",
+    "brand": "POCO",
+    "family": "POCO Pad",
+    "name": "POCO Pad X1",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-redmi-redmi-pad-2-pro-5g-cbc088f6",
+    "category": "tablet",
+    "brand": "Redmi",
+    "family": "Redmi Pad",
+    "name": "Redmi Pad 2 Pro 5G",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "5G",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more",
+      "more-xiaomi-italy-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-xiaomi-xiaomi-pad-mini-440fa4a5",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Xiaomi Pad",
+    "name": "Xiaomi Pad Mini",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-redmi-redmi-pad-2-pro-b72ffc67",
+    "category": "tablet",
+    "brand": "Redmi",
+    "family": "Redmi Pad",
+    "name": "Redmi Pad 2 Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more",
+      "more-xiaomi-italy-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-redmi-redmi-pad-2-d8f57ebf",
+    "category": "tablet",
+    "brand": "Redmi",
+    "family": "Redmi Pad",
+    "name": "Redmi Pad 2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more",
+      "more-xiaomi-italy-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-redmi-redmi-pad-2-4g-bead963f",
+    "category": "tablet",
+    "brand": "Redmi",
+    "family": "Redmi Pad",
+    "name": "Redmi Pad 2 4G",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "4G",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more",
+      "more-xiaomi-italy-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-xiaomi-xiaomi-pad-7-pro-43d252ca",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Xiaomi Pad",
+    "name": "Xiaomi Pad 7 Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more",
+      "more-xiaomi-italy-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-xiaomi-xiaomi-pad-7-d0ae2d7e",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Xiaomi Pad",
+    "name": "Xiaomi Pad 7",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more",
+      "more-xiaomi-italy-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-poco-poco-pad-8d529160",
+    "category": "tablet",
+    "brand": "POCO",
+    "family": "POCO Pad",
+    "name": "POCO Pad",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more",
+      "more-xiaomi-italy-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-redmi-redmi-pad-se-8-7-4g-58e3af3b",
+    "category": "tablet",
+    "brand": "Redmi",
+    "family": "Redmi Pad",
+    "name": "Redmi Pad SE 8.7 4G",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "4G",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more",
+      "more-xiaomi-italy-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-redmi-redmi-pad-se-8-7-1f9261e3",
+    "category": "tablet",
+    "brand": "Redmi",
+    "family": "Redmi Pad",
+    "name": "Redmi Pad SE 8.7",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more",
+      "more-xiaomi-italy-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-redmi-redmi-pad-pro-5g-0b88d945",
+    "category": "tablet",
+    "brand": "Redmi",
+    "family": "Redmi Pad",
+    "name": "Redmi Pad Pro 5G",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "5G",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more",
+      "more-xiaomi-italy-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-redmi-redmi-pad-pro-eb088d52",
+    "category": "tablet",
+    "brand": "Redmi",
+    "family": "Redmi Pad",
+    "name": "Redmi Pad Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more",
+      "more-xiaomi-italy-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-xiaomi-xiaomi-pad-6s-pro-12-4-016fc9ec",
+    "category": "tablet",
+    "brand": "Xiaomi",
+    "family": "Xiaomi Pad",
+    "name": "Xiaomi Pad 6S Pro 12.4",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-xiaomi-sitemap-more",
+      "more-xiaomi-italy-sitemap-more"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-active5-pro-9c9d06f0",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab Active",
+    "name": "Galaxy Tab Active5 Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s11-ca6da8dc",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S11",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s11-ultra-e023442c",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S11 Ultra",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s10-1f205a21",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S10+",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s10-ultra-381ff99b",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S10 Ultra",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s10-fe-57d960ea",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S10 FE",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s10-fe-8ec2341f",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S10 FE+",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s10-lite-c0c6c317",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S10 Lite",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s9-a93e9ad4",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S9",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s9-4413cbbb",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S9+",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s9-ultra-d819e2a6",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S9 Ultra",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s9-fe-9750ea3a",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S9 FE",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s9-fe-0695ea7d",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S9 FE+",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s8-2252fa10",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S8",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s8-5875f2d4",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S8+",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s8-ultra-f4e73bc3",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S8 Ultra",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-s6-lite-2024-053cd3a8",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab S",
+    "name": "Galaxy Tab S6 Lite (2024)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-a11-53dd9f78",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab A",
+    "name": "Galaxy Tab A11",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-a11-4cf445df",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab A",
+    "name": "Galaxy Tab A11+",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-a9-7c86a9e9",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab A",
+    "name": "Galaxy Tab A9",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-a9-718d8592",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab A",
+    "name": "Galaxy Tab A9+",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-a9-2025-55e3b1fb",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab A",
+    "name": "Galaxy Tab A9+(2025)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-active4-pro-53c87124",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab Active",
+    "name": "Galaxy Tab Active4 Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-samsung-galaxy-tab-active5-46ed6e15",
+    "category": "tablet",
+    "brand": "Samsung",
+    "family": "Galaxy Tab Active",
+    "name": "Galaxy Tab Active5",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-samsung-security"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-7-77bb659b",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro 7+",
+    "releasedAt": "2021-01-15",
+    "year": 2021,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-8-95d7a20c",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro 8",
+    "releasedAt": "2021-10-05",
+    "year": 2021,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-go-3-0f129b04",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Go",
+    "name": "Surface Go 3",
+    "releasedAt": "2021-10-05",
+    "year": 2021,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-x-wi-fi-48522e4c",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro X Wi-Fi",
+    "releasedAt": "2021-10-05",
+    "year": 2021,
+    "generation": "",
+    "network": "Wi-Fi",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-9-0f75b04f",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro 9",
+    "releasedAt": "2022-10-25",
+    "year": 2022,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-go-4-73b8601b",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Go",
+    "name": "Surface Go 4",
+    "releasedAt": "2023-09-21",
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-10-for-business-ac668b18",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro 10 for Business",
+    "releasedAt": "2024-04-09",
+    "year": 2024,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-11th-edition-snapdragon-38eba8be",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro 11th Edition (Snapdragon)",
+    "releasedAt": "2024-06-18",
+    "year": 2024,
+    "generation": "",
+    "network": "unknown",
+    "platform": "Snapdragon",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-with-5g-11th-edition-snapdragon-21242035",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro with 5G 11th Edition (Snapdragon)",
+    "releasedAt": "2024-09-03",
+    "year": 2024,
+    "generation": "",
+    "network": "5G",
+    "platform": "Snapdragon",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-10-with-5g-for-business-cc497eac",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro 10 with 5G for Business",
+    "releasedAt": "2024-10-11",
+    "year": 2024,
+    "generation": "",
+    "network": "5G",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-for-business-11th-edition-intel-4129d455",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro for Business 11th Edition (Intel)",
+    "releasedAt": "2025-02-18",
+    "year": 2025,
+    "generation": "",
+    "network": "unknown",
+    "platform": "Intel",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-12-inch-1st-edition-snapdragon-800a300c",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro 12-inch 1st Edition (Snapdragon)",
+    "releasedAt": "2025-05-20",
+    "year": 2025,
+    "generation": "",
+    "network": "unknown",
+    "platform": "Snapdragon",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-for-business-12th-edition-intel-f217ae0d",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro for Business 12th Edition (Intel)",
+    "releasedAt": "2026-05-19",
+    "year": 2026,
+    "generation": "",
+    "network": "unknown",
+    "platform": "Intel",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-12th-edition-snapdragon-f35982ca",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro 12th Edition (Snapdragon)",
+    "releasedAt": "2026-06-16",
+    "year": 2026,
+    "generation": "",
+    "network": "unknown",
+    "platform": "Snapdragon",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-12-inch-2nd-edition-snapdragon-c9475a42",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro 12-inch 2nd Edition (Snapdragon)",
+    "releasedAt": "2026-10-13",
+    "year": 2026,
+    "generation": "",
+    "network": "unknown",
+    "platform": "Snapdragon",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-rt-09ea3883",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface",
+    "name": "Surface RT",
+    "releasedAt": "2012-10-26",
+    "year": 2012,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-15bd8e4f",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro",
+    "releasedAt": "2013-02-09",
+    "year": 2013,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-2-fe78a9ba",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface",
+    "name": "Surface 2",
+    "releasedAt": "2013-10-22",
+    "year": 2013,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-2-eba0c097",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro 2",
+    "releasedAt": "2013-10-22",
+    "year": 2013,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-3-1126eaa0",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro 3",
+    "releasedAt": "2014-06-20",
+    "year": 2014,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-3-798c451a",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface",
+    "name": "Surface 3",
+    "releasedAt": "2015-05-05",
+    "year": 2015,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-4-179adfd5",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro 4",
+    "releasedAt": "2015-10-26",
+    "year": 2015,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-go-8d46c2aa",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Go",
+    "name": "Surface Go",
+    "releasedAt": "2018-08-02",
+    "year": 2018,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-6-461cc97f",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro 6",
+    "releasedAt": "2018-10-16",
+    "year": 2018,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-go-with-lte-advanced-9a62264d",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Go",
+    "name": "Surface Go with LTE Advanced",
+    "releasedAt": "2018-11-20",
+    "year": 2018,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-5th-gen-44475fba",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro (5th gen)",
+    "releasedAt": "2017-06-15",
+    "year": 2017,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-with-lte-advanced-5th-gen-7ae9faf7",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro with LTE Advanced (5th gen)",
+    "releasedAt": "2017-12-01",
+    "year": 2017,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-go-2-a0a3dcf0",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Go",
+    "name": "Surface Go 2",
+    "releasedAt": "2020-05-06",
+    "year": 2020,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-x-sq1-54ee7f41",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro X (SQ1)",
+    "releasedAt": "2019-11-05",
+    "year": 2019,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-x-sq2-e61d1304",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro X (SQ2)",
+    "releasedAt": "2020-10-13",
+    "year": 2020,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-microsoft-surface-pro-7-c6dbe15f",
+    "category": "tablet",
+    "brand": "Microsoft",
+    "family": "Surface Pro",
+    "name": "Surface Pro 7",
+    "releasedAt": "2019-10-22",
+    "year": 2019,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-surface-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-magicpad4-2150ffa1",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "MagicPad",
+    "name": "HONOR MagicPad4",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-magicpad2-b8261487",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "MagicPad",
+    "name": "HONOR MagicPad2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-pad-v9-731106b2",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "HONOR Pad",
+    "name": "HONOR Pad V9",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-pad-20-pro-e0908d18",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "HONOR Pad",
+    "name": "HONOR Pad 20 Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-pad-20-8bf24661",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "HONOR Pad",
+    "name": "HONOR Pad 20",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-pad-10-719dde51",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "HONOR Pad",
+    "name": "HONOR Pad 10",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-pad-9-90c3aff0",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "HONOR Pad",
+    "name": "HONOR Pad 9",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-pad-8-dc2a6326",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "HONOR Pad",
+    "name": "HONOR Pad 8",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-pad-x9-max-5d79c63f",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "HONOR Pad",
+    "name": "HONOR Pad X9 Max",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-pad-x8b-45cdcd24",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "HONOR Pad",
+    "name": "HONOR Pad X8b",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-pad-x8a-kids-edition-b9ed8971",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "HONOR Pad",
+    "name": "HONOR Pad X8a Kids Edition",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-pad-x8a-756e0824",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "HONOR Pad",
+    "name": "HONOR Pad X8a",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-pad-x9-9bf99fb7",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "HONOR Pad",
+    "name": "HONOR Pad X9",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-pad-x9a-0815f91b",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "HONOR Pad",
+    "name": "HONOR Pad X9a",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-honor-honor-pad-x8-c92db9af",
+    "category": "tablet",
+    "brand": "Honor",
+    "family": "HONOR Pad",
+    "name": "HONOR Pad X8",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-honor-tablets"
+    ]
+  },
+  {
+    "id": "tablet-huawei-huawei-matepad-air-be95caba",
+    "category": "tablet",
+    "brand": "Huawei",
+    "family": "MatePad",
+    "name": "HUAWEI MatePad Air",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "IT"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-huawei-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-thinktab-tablets-52b74e84",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "ThinkTab Tablets",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-thinktab-x11-gen-1-af57d8a3",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "ThinkTab X11 Gen 1",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-thinkpad-tablets-25e4d652",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "ThinkPad Tablet",
+    "name": "ThinkPad Tablets",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-thinkpad-x1-tablet-3rd-gen-fe8d8c58",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "ThinkPad Tablet",
+    "name": "ThinkPad X1 Tablet (3rd Gen)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-idea-tab-10183dda",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Idea Tab",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-idea-tab-plus-aa1851be",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Idea Tab Plus",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-idea-tab-pro-e543c248",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Idea Tab Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-idea-tab-pro-gen-2-97ab18a0",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Idea Tab Pro Gen 2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-one-5331db99",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab One",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-plus-dae58206",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab Plus",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-plus-gen-2-e82210b3",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab Plus Gen 2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-k10-c3d81044",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab K10",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-k10-gen-2-e5b10c4b",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab K10 Gen 2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-k11-fa73ac4b",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab K11",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-k11-enhanced-edition-b747f782",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab K11 (Enhanced Edition)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-k11-gen-2-a70c1854",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab K11 Gen 2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-k11-plus-c582a649",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab K11 Plus",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-k12-50f25330",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab K12",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-k9-4c190a93",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab K9",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m10-7dad2187",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M10",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m10-3rd-gen-3edf32ce",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M10 (3rd Gen)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m10-5g-c8ebc0d2",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M10 5G",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m10-fhd-plus-2nd-gen-0a72317a",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M10 FHD Plus (2nd Gen)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m10-fhd-plus-2nd-gen-with-the-smart-charging-station-38f7f798",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M10 FHD Plus (2nd Gen) with the Smart Charging Station",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m10-hd-2nd-gen-9d9bfd23",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M10 HD (2nd Gen)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m10-hd-2nd-gen-with-the-smart-charging-station-40849507",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M10 HD (2nd Gen) with the Smart Charging Station  ",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m10-plus-3rd-gen-951415e3",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M10 Plus (3rd Gen)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m10-plus-3rd-gen-2023-b74ca101",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M10 Plus (3rd Gen) 2023",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m11-c7095951",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M11",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m7-7bc6e0e3",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M7",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m7-3rd-gen-3f34e3c2",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M7 (3rd Gen)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m8-3rd-gen-61fc86f7",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M8 (3rd Gen)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m8-3rd-gen-with-the-smart-charging-station-3cf170d8",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M8 (3rd Gen) with the Smart Charging Station",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m8-4th-gen-49f49a1d",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M8 (4th Gen)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m8-4th-gen-2024-8243b6a0",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M8 (4th Gen) 2024",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m8-fhd-2nd-gen-f018a23b",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M8 FHD (2nd Gen)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m8-hd-2nd-gen-7f19cd6a",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M8 HD (2nd Gen)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m8-hd-for-business-d002e288",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M8 HD for Business",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m8-hd-for-business-smart-charging-station-55459cd2",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M8 HD for Business + Smart Charging Station",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-m9-47a54f53",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab M9",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-p11-afa4b66f",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab P11",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-p11-2nd-gen-1c060d20",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab P11 (2nd Gen)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-p11-smart-charging-station-2-a898e8e2",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab P11 + Smart Charging Station 2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-p11-5g-5c6f2ef7",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab P11 5G",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-p11-plus-9155dc86",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab P11 Plus",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-p11-pro-48a75e3d",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab P11 Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-p11-pro-2nd-gen-72d2a524",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab P11 Pro (2nd Gen)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-p11-pro-with-keyboard-pack-and-precision-pen-2-adf9ac79",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab P11 Pro with Keyboard Pack and Precision Pen 2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-p11-with-keyboard-pack-and-precision-pen-2-9f0e2c27",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab P11 with Keyboard Pack and Precision Pen 2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-p12-4c65f473",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab P12",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-p12-pro-eddb3969",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab P12 Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-p12-with-matte-display-5737ed5c",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab P12 with Matte Display",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-yoga-tab-11-e8b8a4e2",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Yoga Tab 11",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-yoga-tab-13-d006a212",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Yoga Tab 13",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-tab-extreme-52e00824",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Tab Extreme",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-yoga-tab-94add13f",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Yoga Tab",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-yoga-tab-gen-2-b40b813a",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Yoga Tab Gen 2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-yoga-tab-plus-c046a83c",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Yoga Tab Plus",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  },
+  {
+    "id": "tablet-lenovo-yoga-tab-plus-gen-2-8a2c1e48",
+    "category": "tablet",
+    "brand": "Lenovo",
+    "family": "Lenovo Tab",
+    "name": "Yoga Tab Plus Gen 2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "root-lenovo-tablets"
+    ]
+  }
+]

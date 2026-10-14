@@ -1,0 +1,679 @@
+[
+  {
+    "category": "phone",
+    "brand": "ASUS",
+    "verifiedCount": 8,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖当前Zenfone11/12、ROG8/9及可读取ROG7历史页；早期Zenfone/PadFone和ROG1–6未完整核验，旧页404未猜测补入。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre Zenfone11/12, ROG8/9 e pagine storiche ROG7 accessibili. I primi Zenfone/PadFone e ROG1–6 restano incompleti; le pagine 404 non sono state ricostruite per ipotesi."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers Zenfone11/12, ROG8/9 and readable ROG7 historical pages. Early Zenfone/PadFone and ROG1–6 remain incomplete; missing 404 pages were not filled by guessing."
+    ],
+    "sourceIds": [
+      "asus-rog",
+      "asus-rog-phone-7",
+      "asus-rog-phone-7-ultimate",
+      "asus-zenfone"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "Apple",
+    "verifiedCount": 54,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖官方识别档案首代至当前列出的54种商业型号；地区A编号按商业型号归组，实体SIM/eSIM与射频版本未逐项拆分。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre 54 modelli commerciali dell’archivio ufficiale, dal primo iPhone ai modelli attualmente elencati. I codici A regionali sono raggruppati; le varianti SIM/eSIM e radio non sono tutte separate."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers 54 commercial models in the official identification archive, from the first iPhone to the currently listed models. Regional A codes are grouped; physical-SIM/eSIM and radio variants are not all split."
+    ],
+    "sourceIds": [
+      "apple-identify-iphone"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "Google",
+    "verifiedCount": 38,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖官方硬件档案与Pixel1–5停更名单，Pixel4a和Pixel4a 5G分开；Nexus系列及地区射频编号未完整覆盖。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre l’archivio hardware e l’elenco ufficiale di fine aggiornamenti Pixel1–5; Pixel4a e Pixel4a 5G sono separati. Serie Nexus e codici radio regionali non sono completi."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers the official hardware archive and Pixel1–5 end-of-update list; Pixel4a and Pixel4a 5G are separate. Nexus phones and regional radio identifiers are not fully covered."
+    ],
+    "sourceIds": [
+      "google-hardware-archive",
+      "google-pixel-update-history"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "Honor",
+    "verifiedCount": 101,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖全球/意大利在站目录及Huawei时期官方旧机服务表；早期数字、Play、View与地区硬件历史仍不完整，概念Robot Phone未收录。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre cataloghi globali/italiani e tabelle ufficiali di assistenza del periodo Huawei. I primi modelli numerici, Play, View e varianti regionali restano incompleti; il concept Robot Phone è escluso."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers global/Italian catalogs and official service tables from the Huawei period. Early numbered, Play, View and regional hardware histories remain incomplete; the Robot Phone concept is excluded."
+    ],
+    "sourceIds": [
+      "honor-global",
+      "honor-it",
+      "huawei-europe-historical-battery",
+      "huawei-official-phone-eos"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "Huawei",
+    "verifiedCount": 95,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖现款与官方旧机停服/欧洲电池服务表；早期Ascend/G/GR、部分P/Mate/Y/nova和中国专款仍不完整，未从混合Mate20X表推断4G/5G型号。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre modelli attuali e tabelle ufficiali di fine assistenza e servizio batterie europeo. Ascend/G/GR, alcuni P/Mate/Y/nova e modelli cinesi restano incompleti; dalla tabella mista Mate20X non sono state dedotte varianti 4G/5G."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers current products and official end-of-service and European battery-service tables. Early Ascend/G/GR, some P/Mate/Y/nova and Chinese models remain incomplete; no 4G/5G variants were inferred from the mixed Mate20X table."
+    ],
+    "sourceIds": [
+      "huawei-europe-historical-battery",
+      "huawei-global",
+      "huawei-it",
+      "huawei-official-phone-eos"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "Motorola",
+    "verifiedCount": 17,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "以意大利现款与可核验旧款规格为主；早期Moto G/E/Z/X、edge/razr及运营商历史仍不完整，部分支持页仅官方索引可读。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Include soprattutto modelli italiani attuali e specifiche storiche verificabili. I primi Moto G/E/Z/X, edge/razr e modelli degli operatori restano incompleti; alcune pagine sono leggibili solo nell’indice ufficiale."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Primarily covers current Italian models and verifiable historical specifications. Early Moto G/E/Z/X, edge/razr and carrier models remain incomplete; some support pages are readable only in the official index."
+    ],
+    "sourceIds": [
+      "motorola-it",
+      "motorola-spec-edge-50",
+      "motorola-spec-edge-50-fusion",
+      "motorola-spec-moto-g54-5g"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "Nokia",
+    "verifiedCount": 15,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖HMD官方Nokia Android手机历史；Symbian、Series40、Lumia和大部分按键手机未覆盖。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre la cronologia Android Nokia nell’archivio ufficiale HMD. Symbian, Series40, Lumia e la maggior parte dei telefoni con tastiera non sono coperti."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers Nokia Android history in HMD’s official archive. Symbian, Series40, Lumia and most feature phones are not covered."
+    ],
+    "sourceIds": [
+      "nokia-hmd-archive"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "Nothing",
+    "verifiedCount": 11,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖意大利官方Phone1至当前在站Phone4a/4b相关型号；CMF子品牌与地区硬件编号未完整核验。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre i modelli Phone1 fino ai Phone4a/4b presenti nel catalogo italiano ufficiale. Il sub-brand CMF e i codici hardware regionali restano da verificare."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers Phone1 through the currently listed Phone4a/4b models in Italy’s official catalog. CMF and regional hardware identifiers remain incomplete."
+    ],
+    "sourceIds": [
+      "nothing-it"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "OPPO",
+    "verifiedCount": 101,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "已核验全球/意大利在站型号及可读取规格页CPH编号；早期Find/F/R/A、Reno1–4、中国专款和重定向旧页仍不完整。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Sono stati verificati modelli globali/italiani e codici CPH delle specifiche accessibili. I primi Find/F/R/A, Reno1–4, modelli cinesi e vecchie pagine reindirizzate restano incompleti."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Global/Italian listed models and CPH codes from readable specifications are verified. Early Find/F/R/A, Reno1–4, Chinese models and redirected old pages remain incomplete."
+    ],
+    "sourceIds": [
+      "oppo-products-en",
+      "oppo-products-it",
+      "oppo-spec-en-a16",
+      "oppo-spec-en-a16k",
+      "oppo-spec-en-a17",
+      "oppo-spec-en-a17k",
+      "oppo-spec-en-a18",
+      "oppo-spec-en-a3",
+      "oppo-spec-en-a3-pro-5g",
+      "oppo-spec-en-a38",
+      "oppo-spec-en-a3x",
+      "oppo-spec-en-a5",
+      "oppo-spec-en-a5-5g",
+      "oppo-spec-en-a5-pro",
+      "oppo-spec-en-a5-pro-5g",
+      "oppo-spec-en-a57",
+      "oppo-spec-en-a57s",
+      "oppo-spec-en-a58",
+      "oppo-spec-en-a5i",
+      "oppo-spec-en-a5i-pro",
+      "oppo-spec-en-a5i-pro-5g",
+      "oppo-spec-en-a5x",
+      "oppo-spec-en-a6",
+      "oppo-spec-en-a6-5g",
+      "oppo-spec-en-a6-pro",
+      "oppo-spec-en-a6-pro-5g",
+      "oppo-spec-en-a60",
+      "oppo-spec-en-a6c",
+      "oppo-spec-en-a6k",
+      "oppo-spec-en-a6s",
+      "oppo-spec-en-a6s-5g",
+      "oppo-spec-en-a6t",
+      "oppo-spec-en-a6t-5g",
+      "oppo-spec-en-a6t-pro",
+      "oppo-spec-en-a6t-pro-5g",
+      "oppo-spec-en-a6x",
+      "oppo-spec-en-a6x-5g",
+      "oppo-spec-en-a7-pro-5g",
+      "oppo-spec-en-a7-pro-max-5g",
+      "oppo-spec-en-a76",
+      "oppo-spec-en-a77-5g",
+      "oppo-spec-en-a78",
+      "oppo-spec-en-a78-5g",
+      "oppo-spec-en-a79-5g",
+      "oppo-spec-en-a96",
+      "oppo-spec-en-a98-5g",
+      "oppo-spec-en-find-n6",
+      "oppo-spec-en-find-x3-pro",
+      "oppo-spec-en-find-x9",
+      "oppo-spec-en-find-x9-pro",
+      "oppo-spec-en-find-x9-ultra",
+      "oppo-spec-en-find-x9s",
+      "oppo-spec-en-reno10-5g",
+      "oppo-spec-en-reno10-pro-5g",
+      "oppo-spec-en-reno10-pro-plus-5g",
+      "oppo-spec-en-reno7",
+      "oppo-spec-en-reno7-z-5g",
+      "oppo-spec-en-reno8-t",
+      "oppo-spec-en-reno8-t-5g",
+      "oppo-spec-it-a16",
+      "oppo-spec-it-a18",
+      "oppo-spec-it-a38",
+      "oppo-spec-it-a40",
+      "oppo-spec-it-a40m",
+      "oppo-spec-it-a5",
+      "oppo-spec-it-a5-pro-5g",
+      "oppo-spec-it-a54s",
+      "oppo-spec-it-a57",
+      "oppo-spec-it-a57s",
+      "oppo-spec-it-a58",
+      "oppo-spec-it-a5x",
+      "oppo-spec-it-a6",
+      "oppo-spec-it-a6-5g",
+      "oppo-spec-it-a6-pro-5g",
+      "oppo-spec-it-a60",
+      "oppo-spec-it-a6k",
+      "oppo-spec-it-a6x",
+      "oppo-spec-it-a76",
+      "oppo-spec-it-a77-5g",
+      "oppo-spec-it-a78",
+      "oppo-spec-it-a78-5g",
+      "oppo-spec-it-a79-5g",
+      "oppo-spec-it-a80-5g",
+      "oppo-spec-it-a96",
+      "oppo-spec-it-a98-5g",
+      "oppo-spec-it-find-n2-flip",
+      "oppo-spec-it-find-x3-lite",
+      "oppo-spec-it-find-x3-neo",
+      "oppo-spec-it-find-x3-pro",
+      "oppo-spec-it-find-x5-lite",
+      "oppo-spec-it-find-x8-pro",
+      "oppo-spec-it-find-x9",
+      "oppo-spec-it-find-x9-pro",
+      "oppo-spec-it-find-x9-ultra",
+      "oppo-spec-it-reno10-5g",
+      "oppo-spec-it-reno10-pro-5g",
+      "oppo-spec-it-reno12",
+      "oppo-spec-it-reno12-f-5g",
+      "oppo-spec-it-reno12-fs-5g",
+      "oppo-spec-it-reno12-pro",
+      "oppo-spec-it-reno13-5g",
+      "oppo-spec-it-reno13-f-5g",
+      "oppo-spec-it-reno13-fs-5g",
+      "oppo-spec-it-reno13-pro-5g",
+      "oppo-spec-it-reno14",
+      "oppo-spec-it-reno14-f",
+      "oppo-spec-it-reno14-fs",
+      "oppo-spec-it-reno16-f",
+      "oppo-spec-it-reno6-5g",
+      "oppo-spec-it-reno6-pro-5g",
+      "oppo-spec-it-reno7",
+      "oppo-spec-it-reno8-5g",
+      "oppo-spec-it-reno8-lite-5g",
+      "oppo-spec-it-reno8-pro-5g",
+      "oppo-spec-it-reno8-t"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "OnePlus",
+    "verifiedCount": 30,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖意大利/全球页面及软件升级档案；OnePlus1–7、X、部分R/T/RT与Nord N/CE地区历史仍不完整。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre pagine italiane/globali e archivio degli aggiornamenti. OnePlus1–7, X, alcune varianti R/T/RT e modelli regionali Nord N/CE restano incompleti."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers Italian/global pages and software-update archives. OnePlus1–7, X, some R/T/RT and regional Nord N/CE histories remain incomplete."
+    ],
+    "sourceIds": [
+      "oneplus-global",
+      "oneplus-it",
+      "oneplus-software-archive"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "POCO",
+    "verifiedCount": 58,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖全球产品页与EOS/AER；印度等地区C/M/GT专款仍不完整，未从规格核验制式的型号保持unknown。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre prodotti globali ed EOS/AER; modelli C/M/GT specifici per India e altre regioni restano incompleti. La rete resta unknown quando le specifiche non sono state verificate."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers global products and EOS/AER; India and other regional C/M/GT models remain incomplete. Network stays unknown where specifications were not verified."
+    ],
+    "sourceIds": [
+      "poco-official-products",
+      "xiaomi-security-aer",
+      "xiaomi-security-eos"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "Redmi",
+    "verifiedCount": 154,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖EOS/AER与全球/意大利目录；地区专属Note/K/数字/Pro/Prime及早期历史仍不完整，保留已明确的4G/5G与印度/中国同名差异。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre EOS/AER e cataloghi globali/italiani; modelli regionali Note/K/numerici/Pro/Prime e quelli più vecchi restano incompleti. Le differenze 4G/5G e indiane/cinesi già documentate sono mantenute."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers EOS/AER and global/Italian catalogs; regional Note/K/numbered/Pro/Prime and early historical models remain incomplete. Documented 4G/5G and Indian/Chinese differences are retained."
+    ],
+    "sourceIds": [
+      "xiaomi-security-aer",
+      "xiaomi-security-eos",
+      "xiaomi-sitemap-global",
+      "xiaomi-sitemap-it"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "Samsung",
+    "verifiedCount": 222,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "A13明确拆分SM-A135/SM-A137/SM-A136，A12明确拆分SM-A125/SM-A127；S/A/Z/Note/J/M早期、mini/active及其他地区专款仍不完整。",
+      "Knox部分硬件表本轮仅官方搜索索引可读，直取触发机器人核验；尚需补充直接支持档案。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "A13 separa SM-A135/SM-A137/SM-A136 e A12 separa SM-A125/SM-A127. La copertura dei primi S/A/Z/Note/J/M, mini/active e modelli regionali resta incompleta.",
+      "Alcune tabelle hardware Knox sono state leggibili solo nell’indice di ricerca ufficiale; l’accesso diretto richiede una verifica anti-bot. Servono ulteriori archivi di assistenza diretti."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "A13 separates SM-A135/SM-A137/SM-A136, and A12 separates SM-A125/SM-A127. Early S/A/Z/Note/J/M, mini/active and other regional models remain incomplete.",
+      "Some Knox hardware tables were readable only in the official search index; direct access required bot verification. Further direct support archives are needed."
+    ],
+    "sourceIds": [
+      "samsung-j-2017-europe",
+      "samsung-knox-a-hardware",
+      "samsung-knox-partial-devices",
+      "samsung-note-history",
+      "samsung-s-history",
+      "samsung-s-uk-guide",
+      "samsung-security-scope",
+      "samsung-support-sm-a125f",
+      "samsung-support-sm-a530f",
+      "samsung-support-sm-a600f",
+      "samsung-support-sm-a750fn",
+      "samsung-support-sm-a920f",
+      "samsung-uk-historical-phones"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "Sony",
+    "verifiedCount": 32,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖官方现款与部分Xperia历史；部分官方表本轮仅搜索索引可读、直取403，早期Z/Arc/neo等未完整覆盖，冲突年份保留未知。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre modelli attuali e parte della cronologia Xperia. Alcune tabelle sono leggibili solo nell’indice e restituiscono 403 direttamente; i primi Z/Arc/neo restano incompleti e gli anni discordanti restano sconosciuti."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers current models and part of Xperia history. Some tables were readable only in the official index and returned 403 directly; early Z/Arc/neo remain incomplete and conflicting years stay unknown."
+    ],
+    "sourceIds": [
+      "sony-xperia-historical-overview",
+      "sony-xperia-oreo-archive",
+      "sony-xperia-uk-overview"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "TCL",
+    "verifiedCount": 19,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖意大利当前50/60/K/P/NXTPAPER手机目录；早期10/20/30/40、欧美专款和Alcatel子品牌未完整覆盖，NXTPAPER平板已排除。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre telefoni 50/60/K/P/NXTPAPER attuali del catalogo italiano. Le prime serie10/20/30/40, varianti europee/americane e Alcatel restano incomplete; i tablet NXTPAPER sono esclusi."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers current 50/60/K/P/NXTPAPER phones in Italy’s catalog. Early10/20/30/40, European/American variants and Alcatel remain incomplete; NXTPAPER tablets are excluded."
+    ],
+    "sourceIds": [
+      "tcl-it"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "Xiaomi",
+    "verifiedCount": 99,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖EOS/AER与全球/意大利目录；部分Mi 1S/2S、Mi 9T、MIX/Note/Civi及中国专款未完整核验。AER仅年月的日期不补成具体天。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre EOS/AER e cataloghi globali/italiani; alcuni Mi 1S/2S, Mi 9T, MIX/Note/Civi e modelli cinesi restano da verificare. Le date AER con solo anno e mese non vengono trasformate in giorni precisi."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers EOS/AER and global/Italian catalogs; some Mi 1S/2S, Mi 9T, MIX/Note/Civi and Chinese models remain unverified. AER year-month dates are not expanded into exact days."
+    ],
+    "sourceIds": [
+      "xiaomi-security-aer",
+      "xiaomi-security-eos",
+      "xiaomi-sitemap-global",
+      "xiaomi-sitemap-it"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "ZTE",
+    "verifiedCount": 27,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖官方全球Blade/A系列与Axon现款/旧款商城档案；早期Blade/Axon、欧洲运营商定制及地区硬件仍不完整。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre Blade/A globali e cataloghi Axon attuali/storici dello store ufficiale. I primi Blade/Axon, modelli europei degli operatori e varianti regionali restano incompleti."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers global Blade/A models and current/historical Axon official-store archives. Early Blade/Axon, European carrier and regional hardware histories remain incomplete."
+    ],
+    "sourceIds": [
+      "zte-axon-archive",
+      "zte-global"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "nubia",
+    "verifiedCount": 27,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "保持独立品牌，覆盖ZTE官方全球目录中的nubia手机；早期Z/RedMagic与地区历史不完整，眼镜、平板和配件不归入手机。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Mantiene nubia come brand separato e copre i telefoni nel catalogo globale ufficiale ZTE. I primi Z/RedMagic e modelli regionali restano incompleti; occhiali, tablet e accessori non sono telefoni."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Keeps nubia as a separate brand and covers its phones in ZTE’s official global catalog. Early Z/RedMagic and regional histories remain incomplete; glasses, tablets and accessories are excluded."
+    ],
+    "sourceIds": [
+      "zte-axon-archive",
+      "zte-global"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "realme",
+    "verifiedCount": 53,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "覆盖意大利在站新旧产品目录；全球/印度/CN的Narzo、Q/V/X及早期GT/数字/C/P历史仍不完整，颜色联名款不另作硬件型号。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre il catalogo italiano di prodotti attuali e storici. Narzo, Q/V/X e i primi GT/numerici/C/P globali, indiani e cinesi restano incompleti; le sole edizioni estetiche non sono modelli hardware separati."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Covers Italy’s current and historical product catalog. Global/Indian/Chinese Narzo, Q/V/X and early GT/numbered/C/P histories remain incomplete; appearance-only editions are not separate hardware models."
+    ],
+    "sourceIds": [
+      "realme-it"
+    ]
+  },
+  {
+    "category": "phone",
+    "brand": "vivo",
+    "verifiedCount": 16,
+    "scope": "截至2026-10-07，本轮核验的官方欧洲/意大利、全球产品及历史支持档案；停售型号仍可选，非全球完整历史。",
+    "scopeIt": "Verificato il 7 ottobre 2026 su cataloghi ufficiali europei/italiani e globali e archivi di assistenza. I modelli fuori produzione restano selezionabili; la cronologia mondiale non è completa.",
+    "scopeEn": "Verified on 7 October 2026 against official European/Italian and global product catalogs and historical support archives. Discontinued models remain selectable; this is not a complete worldwide history.",
+    "gaps": [
+      "未核验的具体开售日、年份、蜂窝制式和硬件编号保留null、unknown或空数组。",
+      "本版不是配件兼容性数据库；地区、运营商及同名芯片/射频版本仍需逐规格核验。",
+      "以意大利/全球在站X/V/Y为主；NEX、早期X/V/Y及不同地区同名规格未完整核验。"
+    ],
+    "gapsIt": [
+      "Date precise di vendita, anni, reti cellulari e codici hardware non verificati restano null, unknown o elenchi vuoti.",
+      "Questo catalogo non è un database di compatibilità dei ricambi. Varianti regionali, degli operatori, di chipset e radio con lo stesso nome richiedono ancora una verifica delle specifiche.",
+      "Copre soprattutto X/V/Y dei cataloghi italiani/globali. NEX, i primi X/V/Y e specifiche omonime di regioni diverse restano da verificare."
+    ],
+    "gapsEn": [
+      "Unverified exact sale dates, years, cellular networks and hardware codes remain null, unknown or empty arrays.",
+      "This catalog is not a parts-compatibility database. Regional, carrier, chipset and radio variants sharing a name still require specification checks.",
+      "Primarily covers X/V/Y listed in Italian/global catalogs. NEX, early X/V/Y and same-named specifications across regions remain incomplete."
+    ],
+    "sourceIds": [
+      "vivo-global",
+      "vivo-it"
+    ]
+  }
+]

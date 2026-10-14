@@ -3,12 +3,13 @@ import Link from "next/link";
 import { useEffect, useId, useRef } from "react";
 import { ChevronDown, Mail, MonitorSmartphone, Settings, UserRound } from "lucide-react";
 import type { AuthStatus } from "@/lib/auth-status";
+import { authDestination } from "@/lib/auth-status";
 import { staffRoles } from "@/lib/staff";
 import { useLanguage } from "@/components/language-provider";
 import { LogoutButton } from "@/components/dashboard/logout-button";
 import styles from "./home.module.css";
 
-export function AccountMenu({ status }: { status: AuthStatus }) {
+export function AccountMenu({ status, compact = false }: { status: AuthStatus; compact?: boolean }) {
   const { t } = useLanguage();
   const details = useRef<HTMLDetailsElement>(null);
   const menuId = useId();
@@ -21,7 +22,7 @@ export function AccountMenu({ status }: { status: AuthStatus }) {
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("focusin", outside); document.removeEventListener("keydown", escape); };
   }, []);
   const close = () => { if (details.current) details.current.open = false; };
-  return <details ref={details} className={styles.accountMenu}>
+  return <details ref={details} className={styles.accountMenu} data-compact={compact}>
     <summary className={styles.accountTrigger} aria-label={`${t("账号菜单")} ${name}`} aria-controls={menuId} title={name}>
       <span className="profile-menu__avatar"><UserRound size={18} aria-hidden="true" /></span><span className={styles.accountName}>{name}</span><ChevronDown size={14} aria-hidden="true" />
     </summary>
@@ -33,6 +34,7 @@ export function AccountMenu({ status }: { status: AuthStatus }) {
         {status.store && <><div><dt>{t("当前门店")}</dt><dd>{status.store.name}</dd></div><div><dt>{t("角色")}</dt><dd>{status.store.role ? t(staffRoles[status.store.role]) : t("门店成员")}</dd></div></>}
       </dl>
       <div className={styles.accountLinks}>
+        {compact && <Link href={authDestination(status.state)} prefetch={false} onClick={close}><MonitorSmartphone size={18} aria-hidden="true" />{t(status.state === "workspace" ? "工作台" : status.state === "unverified" ? "验证邮箱后继续" : "账号状态")}</Link>}
         {status.formal && status.state !== "unverified" && <><Link href="/account/settings" prefetch={false} onClick={close}><Settings size={18} aria-hidden="true" />{t("账号设置")}</Link><Link href="/account/settings#login-devices" prefetch={false} onClick={close}><MonitorSmartphone size={18} aria-hidden="true" />{t("登录设备")}</Link></>}
         {status.state === "unverified" && <Link href="/verify-email" prefetch={false} onClick={close}><Mail size={18} aria-hidden="true" />{t("重新验证邮箱")}</Link>}
         <LogoutButton supabaseMode={status.formal} className={styles.accountPanelLogout} />

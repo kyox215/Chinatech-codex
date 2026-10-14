@@ -70,3 +70,20 @@
 .accountLinks > a:hover,.accountPanelLogout:hover { background: var(--surface-subtle); }
 @media(max-width:767px) { .accountMenu { min-width: 60px; } .accountTrigger :global(.profile-menu__avatar) { width: 24px; height: 24px; } .accountTrigger { gap: 5px; padding-inline: 5px; } .accountPanel { left: 0; } }
 @media(prefers-reduced-motion:reduce) { .accountTrigger > svg { transition: none; } }
+
+/* Office keeps the existing public auth actions; its signed-in phone header is compact. */
+.officeHeader .accountMenu[data-compact=true]{flex:none;max-width:none}
+.officeHeader .accountMenu[data-compact=true] .accountName{display:none}
+.officeHeader .accountTrigger{min-width:44px}
+@media(max-width:767px){
+  .officeHeader[data-signed-in=true] .headerInner{grid-template-columns:minmax(0,1fr) 44px auto 44px;gap:6px;width:calc(100% - 32px)}
+  .officeHeader[data-signed-in=true] .headerLeft{display:contents}
+  .officeHeader[data-signed-in=true] :global(.brand){grid-column:1;grid-row:1}
+  .officeHeader[data-signed-in=true] :global(.brand__copy strong){font-size:16px}
+  .officeHeader[data-signed-in=true] :global(.brand__mark){width:24px;height:24px}
+  .officeHeader[data-signed-in=true] .authNav{grid-column:4;grid-row:1;justify-self:end}
+  .officeHeader[data-signed-in=true] .headerInner>label{grid-column:3;grid-row:1;width:104px}
+  .officeHeader[data-signed-in=true] .publicLink{grid-column:2;grid-row:1;width:44px;min-width:44px;padding:0}
+  .officeHeader[data-signed-in=true] .publicLinkLabel{display:none}
+  .officeHeader[data-signed-in=true] .accountPanel{left:auto;right:0}
+}

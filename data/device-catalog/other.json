@@ -1,0 +1,1489 @@
+[
+  {
+    "id": "other-apple-apple-watch-series-12-gps-42mm-4655da38",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 12 (GPS) 42mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A3581",
+      "A3583"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-12-gps-46mm-22ae9497",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 12 (GPS) 46mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A3584",
+      "A3585"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-12-gps-cellular-42mm-81de9d2a",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 12 (GPS + Cellular) 42mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A3582",
+      "A3586"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-12-gps-cellular-46mm-931ad089",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 12 (GPS + Cellular) 46mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A3587",
+      "A3588"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-ultra-4-gps-cellular-49mm-04a22074",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Ultra 4 (GPS + Cellular) 49mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A3579",
+      "A3580"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-11-gps-42mm-d68d454a",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 11 (GPS) 42mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A3331",
+      "A3450"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-11-gps-46mm-ddbcdde2",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 11 (GPS) 46mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A3333",
+      "A3451"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-11-gps-cellular-42mm-6d65b3ab",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 11 (GPS + Cellular) 42mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A3335",
+      "A3452"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-11-gps-cellular-46mm-656c2521",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 11 (GPS + Cellular) 46mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A3337",
+      "A3453"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-se-3-gps-40mm-5d4d0b08",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch SE 3 (GPS) 40mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A3324",
+      "A3391"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-se-3-gps-44mm-cf9accb3",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch SE 3 (GPS) 44mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A3325",
+      "A3392"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-se-3-gps-cellular-40mm-7ccf2d65",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch SE 3 (GPS + Cellular) 40mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A3326",
+      "A3327"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-se-3-gps-cellular-44mm-1db0cc54",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch SE 3 (GPS + Cellular) 44mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A3328",
+      "A3329"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-ultra-3-gps-cellular-49mm-351be604",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Ultra 3 (GPS + Cellular) 49mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A3281",
+      "A3282"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-10-gps-42mm-ff1c7812",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 10 (GPS) 42mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2997",
+      "A2998"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-10-gps-46mm-17d91280",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 10 (GPS) 46mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2999",
+      "A3000"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-10-gps-cellular-42mm-0ca15ad0",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 10 (GPS + Cellular) 42mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A3001",
+      "A3002"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-10-gps-cellular-46mm-6fd87bdd",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 10 (GPS + Cellular) 46mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A3003",
+      "A3206"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-ultra-2-gps-cellular-49mm-14919e43",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Ultra 2 (GPS + Cellular) 49mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2986",
+      "A2987"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-9-gps-41mm-90457da4",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 9 (GPS) 41mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2978"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-9-gps-45mm-8df8fe46",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 9 (GPS) 45mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2980"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-9-gps-cellular-41mm-9fbe22bb",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 9 (GPS + Cellular) 41mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2982",
+      "A2983"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-9-gps-cellular-45mm-5f53f478",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 9 (GPS + Cellular) 45mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2984",
+      "A2985"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-ultra-gps-cellular-49mm-59535dea",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Ultra (GPS + Cellular) 49mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2622",
+      "A2684",
+      "A2859"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-8-gps-41mm-82c0f7c0",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 8 (GPS) 41mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2770"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-8-gps-45mm-ac79ddd7",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 8 (GPS) 45mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2771"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-8-gps-cellular-41mm-38bee569",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 8 (GPS + Cellular) 41mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2772",
+      "A2773",
+      "A2857"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-8-gps-cellular-45mm-fbef37ef",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 8 (GPS + Cellular) 45mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2774",
+      "A2775",
+      "A2858"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-se-2-gps-40mm-b57e3288",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch SE 2 (GPS) 40mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2722"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-se-2-gps-44mm-90b467ab",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch SE 2 (GPS) 44mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2723"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-se-2-gps-cellular-40mm-71181920",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch SE 2 (GPS + Cellular) 40mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2726",
+      "A2725",
+      "A2855"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-se-2-gps-cellular-44mm-718592fe",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch SE 2 (GPS + Cellular) 44mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2727",
+      "A2724",
+      "A2856"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-7-gps-41mm-18e5234c",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 7 (GPS) 41mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2473"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-7-gps-45mm-7ea82bb5",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 7 (GPS) 45mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2474"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-7-gps-cellular-41mm-403106f3",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 7 (GPS + Cellular) 41mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2475",
+      "A2476"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-7-gps-cellular-45mm-2d534a3c",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 7 (GPS + Cellular) 45mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2477",
+      "A2478"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-6-gps-40mm-9c95e965",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 6 (GPS) 40mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2291"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-6-gps-44mm-27b24ffa",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 6 (GPS) 44mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2292"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-6-gps-cellular-40mm-ac61d0b1",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 6 (GPS + Cellular) 40mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2293",
+      "A2375"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-6-gps-cellular-44mm-5b77e8ab",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 6 (GPS + Cellular) 44mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2294",
+      "A2376"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-se-gps-40mm-06582945",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch SE (GPS) 40mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2351"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-se-gps-44mm-009d229d",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch SE (GPS) 44mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2352"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-se-gps-cellular-40mm-fa09bc28",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch SE (GPS + Cellular) 40mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2353",
+      "A2355"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-se-gps-cellular-44mm-b6105fd3",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch SE (GPS + Cellular) 44mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2354",
+      "A2356"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-5-gps-40mm-a311fa3d",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 5 (GPS) 40mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2092"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-5-gps-44mm-8e52c6fb",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 5 (GPS) 44mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A2093"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-5-gps-cellular-40mm-e859298c",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 5 (GPS + Cellular) 40mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2094",
+      "A2156"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-5-gps-cellular-44mm-23d7fb7f",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 5 (GPS + Cellular) 44mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A2095",
+      "A2157"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-4-gps-40mm-c113d31f",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 4 (GPS) 40mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A1977"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-4-gps-44mm-de00bc4f",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 4 (GPS) 44mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A1978"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-4-gps-cellular-40mm-00c6ce5c",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 4 (GPS + Cellular) 40mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A1975",
+      "A2007"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-4-gps-cellular-44mm-f0e06c00",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 4 (GPS + Cellular) 44mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A1976",
+      "A2008"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-3-gps-38mm-0cc089b6",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 3 (GPS) 38mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A1858"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-3-gps-42mm-8348ce0d",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 3 (GPS) 42mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS",
+    "modelCodes": [
+      "A1859"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-3-gps-cellular-38mm-cdca0cfd",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 3 (GPS + Cellular) 38mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A1860",
+      "A1889",
+      "A1890"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-3-gps-cellular-42mm-50fb61fa",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 3 (GPS + Cellular) 42mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "GPS + Cellular",
+    "modelCodes": [
+      "A1861",
+      "A1891",
+      "A1892"
+    ],
+    "aliases": [],
+    "markets": [
+      "Europe"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-2-38mm-8d703b73",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 2 38mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A1757",
+      "A1816"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-2-42mm-76c7dc90",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 2 42mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A1758",
+      "A1817"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-1-38mm-31889fee",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 1 38mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A1802"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-series-1-42mm-62dc7fe6",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch Series 1 42mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A1803"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-1st-generation-38mm-d1e9102c",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch (1st generation) 38mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A1553"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  },
+  {
+    "id": "other-apple-apple-watch-1st-generation-42mm-7f30bb8a",
+    "category": "other",
+    "brand": "Apple",
+    "family": "Apple Watch",
+    "name": "Apple Watch (1st generation) 42mm",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [
+      "A1554"
+    ],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "more-apple-watch"
+    ]
+  }
+]

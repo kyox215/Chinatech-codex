@@ -1,5 +1,17 @@
 # ChinaTech 项目连续记忆
 
+## 目录三级选择与读取提速（2026-10-13候选）
+
+用户批准检查闭环后的实施规划：保持品牌→系列→型号，索引就绪后结果可见P95≤200ms，首次网络请求另测。隔离源当前分支codex/catalog-picker-speed-20261013，基于最新main81c4ae2f；根并行Office候选保护。无迁移或生产目录写入。新建品牌/型号原子提交与取消恢复、单字段更正边界、手填/历史、三语/44px/16px、窗口化候选及全类别品牌支持已实施；GET单事务保留原session/member/RLS事实，index≤3000与完整分支/版本/scoped失效已实现。
+
+本地466unit=465过/1既有PowerShell环境跳过，类型和三语通过，lint0错1原warning；真实本地Auth/API/RLS8组与3001边界已过且fixtures清理。既有86定向browser最终行为通过；新8双浏览器用例通过（含30次tier采样），本地未节流Chrome/WebKit品牌/系列/型号P95≤49ms，预取后0额外目录请求；不冒称公网冷启动或实体手机成绩。独立权限复核已补跨缓存scope/会话代际/全局版本与未授权系列投影反例。formal双浏览器商品保存/刷新、工单保存/三语打印/客户设备反向追溯已过；最终四宽/三语、inflight focus恢复通过，30次本地真实Auth/API index网络P95约351ms（130合成型号/dev/未节流）。正式模式生产build已过；当前SHA CI和生产核验仍在进行。证据`.local/device-catalog/picker-*`，最终发布前复查main/部署并保留回退点。
+
+## Office 产品页与微信视频（2026-10-13）
+
+`/toolbox/office` 改为精简产品介绍、八项应用、三步、43秒竖屏视频、下载与折叠FAQ；所有 CMD／PowerShell／命令复制和命令教程移出该页，旧API兼容保留且无页面调用。三语、公共组件/token复用，下载仍1.3.0测试版；1.4开发候选不属于此次页面发行。
+
+视频1080×1920/30fps/H264/AAC，18段烧录中文字幕、本地配音与原创音乐；媒体3.6MB，12帧双乱序重复一致、全解码通过；未执行微信发布或实际Office操作。详情见[说明](docs/Office助手产品介绍与微信视频20261013.md)。从正式e3067f5独立实施，发布以当次CI/来源/页面/媒体验收为准。
+
 ## 当前 Office 1.3 Fluent界面实施及上线（2026-10-13）
 
 用户授权按推荐修改并上线。先完成三语Fluent交互预览，Chrome三语×六尺寸×十一状态198组无溢出/越界，清空、Word单选移除保留其余与机器OneDrive禁用已点击。原生使用WPF自带Fluent.Light，统一控件/紫色选中卡/直接应用管理入口/44图标刷新与更多/底部进度；主区无滚动，紧凑运行中收不可用管理入口。独立只读确认新入口、选择工厂与主题不改变原卸载/许可/恢复/取消/原账户范围，Core仅Version。Client/UiChecks严格编译0警告错误；Windows144组合成运行和完整CI/双RID公开发布正在准备，尚未上线。未签名/真实Windows验收pending。详[1.3记录](docs/Office助手1.3Fluent界面与上线20261013.md)。
@@ -420,15 +432,13 @@ MediaStore授权媒体＋SAF目录／手动文件，联系人基本VCF；非重�
 
 证据.local/auth-loop/published-verification.json、ci-final.json/log、production-deployment/public、integration.json、source-manifest及截图，截图已看。合成users/stores剩0，3173/3174/3175均停；原用户页面保留，并留真实已登录首页供查看。
 
-## 进行中：统一设备品牌型号目录（2026-10-07）
+## 共享设备品牌型号目录：发布候选（2026-10-13）
 
-用户批准：全站共享目录、后台维护＋Excel导入导出、现有全部类别、电脑按系列／年款／代际／机型码，尽量全历史欧洲优先，仅指定目录管理员。具体管理账号已异步询问尚未答，生产绑定不得猜测。代码／数据／测试及最终发布仍在进行，0生产写入。
+用户指定当前网站账号为唯一全站目录维护者。正式后台已确认唯一活跃店主与现有Office管理账号一致，并完成绑定。首次目录3476条／33品牌／221官方来源，手机1220、平板208、笔记本1493、台式机431、主机62、其他62；来源和三语缺漏见data/device-catalog与docs/32，未声称全球所有型号或真实销量。
 
-根新增lib/device-catalog.ts、server/device-catalog{,-http}.ts、api/catalog/{,workbook/}、catalog页面与组件；SearchCombobox扩50项／菜单插槽／open/loading，整机及维修接机品牌型号已接共享API，旧单据不改。20261007223500_device_catalog.sql仅本地55422应用（4私有表FORCE RLS、列级管理员约束、事务／版本／回执／历史）；fflate0.8.3＋fast-xml-parser5.11.2仅服务器按需加载，用于Excel纯数据往返。API／浏览器尚未验收，不能称上线。
+共享选择器已接商品新建／编辑、维修接机；后台单项／Excel导入先预览再整批应用、历史／逆向预览、门店会话＋唯一目录管理员RLS、版本／幂等。旧商品与销售快照不回写。独立审查发现Excel ZIP计数绕过，已修复并加篡改反例；站点导入器实际解析交付Excel3476行／0错误。完整种子在项目本地Postgres一笔事务校验后回滚0留存，A13三硬件版本独立。基于main cc16e154融合候选：447单元中446通过／1原PowerShell环境跳过，strict TS、三语静态、lint0错误1旧警告、正式构建、真实本地Auth/API/RLS及双浏览器三语四宽度流程通过。原本地Realtime分区对合成写入有WARNING但事务和刷新读取成功；跨设备推送未验证。证据.local/device-catalog/。
 
-子助手device_catalog_phone_data只写phones／sources-phones／coverage-phones，约700初稿仍清理并扩品牌，未验计数不能交付。root collect-apple.py已保留7官方HTML、解析196非手机记录（84笔记本／62台式机／50平板），仍需语义校验和Windows电脑／其他平板／原主机资料。catalog／sources／coverage主种子暂空，Excel未生成。新增138三语词条；品牌别名只作精确canonical例外，Excel接locale。后续编译汇总源数据、Excelartifact_tool交付、单元／formal／双浏览器／独立权限审查。
-
-根最初TS／lint通过；目前其他任务的.next-backend/dev/build类型冲突与AuthStatusProvider5条未译保留不修、不清服务／缓存。隔离克隆.local/device-catalog/release/source当前main887c1e6a46dd20c1f80ba97693f3e6c3df408739，后续白名单overlay、新增词条／公共文件条件融合，不夹带OfficeDesktop/Auth未发布改动。本轮服务未启动；3177确认空闲，原服务保留。证据.local/device-catalog-*与.local/device-catalog/。不要以旧商品验收代替本轮。
+正式迁移20261013095303已应用，独立私有表强制RLS；受控事务从空目录导入3476条、revision1，33品牌，A13三硬件版本分开，核验来源缺漏0、历史事件0且管理员与唯一有效店主／既有Office管理员匹配。该首批种子不可重复导入。当前PR先前SHA的完整CI 38396435437 success；最新手机端三语候选高度修正及永久浏览器回归已在本地Chromium／WebKit通过，仍待新SHA的CI、主干合并和双域名运行时核验。任何这一步之前不称网站已上线。Office等并行任务的未发布改动留在其原工作树，不带入本目录候选。
 
 ## 已上线：Office 助手0.2.0自动联网与最低版本（2026-10-10）
 

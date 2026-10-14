@@ -1,11 +1,12 @@
 import { test, expect, type Page } from "@playwright/test";
 import { retailUnits } from "../../lib/retail-fixtures";
 import { currentRetailSale, retailPaidCents, type RetailUnit } from "../../lib/retail";
+import { manuallyChooseDevice } from "./catalog-picker";
 const unitKey="chinatech.m1.retail.v1";
 async function units(page:Page):Promise<RetailUnit[]> {return page.evaluate(key=>JSON.parse(localStorage.getItem(key)!).units,unitKey);}
 async function openActions(page:Page) {await expect(page.locator('[data-retail-group="actions"]')).toBeVisible();const button=page.locator('[data-retail-group="actions"] > button[aria-controls]');if(await button.isVisible() && await button.getAttribute("aria-expanded")==="false")await button.click();}
 test.beforeEach(async({page})=>{await page.addInitScript(()=>{window.print=()=>{const state=window as typeof window & {workflowPrints?:number};state.workflowPrints=(state.workflowPrints??0)+1;};});await page.goto("/login");await page.getByRole("button",{name:"填入演示账号",exact:true}).click();await page.getByRole("button",{name:"登录工作台",exact:true}).click();await expect(page).toHaveURL(/\/app\/dashboard$/);});
-async function newForm(page:Page,model:string) {await page.goto("/app/retail/new");await page.getByRole("radio",{name:"新机",exact:true}).locator("..").click();await page.getByRole("combobox",{name:"型号 / 商品名称 *",exact:true}).fill(model);}
+async function newForm(page:Page,model:string) {await page.goto("/app/retail/new");await page.getByRole("radio",{name:"新机",exact:true}).locator("..").click();await manuallyChooseDevice(page,page.getByRole("combobox",{name:"型号 / 商品名称",exact:true}),model);}
 async function checkAfterScroll(page:Page,name:string) {
  const checkbox=page.getByRole("checkbox",{name,exact:true});
  await checkbox.locator("..").evaluate(element=>element.scrollIntoView({block:"center",behavior:"instant"}));
@@ -38,7 +39,7 @@ test("实际检查不能预勾，建档可售一个提交、关键字段改动�
  await newForm(page,"DEMO Ready one submit");await page.getByRole("combobox",{name:"保存方式",exact:true}).selectOption("available");await page.getByLabel("标价",{exact:true}).fill("120");
  for(const name of ["功能检测已完成","门店自有及账号锁已核验","数据处理核验已完成"])await expect(page.getByRole("checkbox",{name,exact:true})).not.toBeChecked();
  for(const name of ["功能检测已完成","门店自有及账号锁已核验","数据处理核验已完成"])await page.getByRole("checkbox",{name,exact:true}).check();
- await page.getByRole("combobox",{name:"型号 / 商品名称 *",exact:true}).fill("DEMO Ready changed");
+ await manuallyChooseDevice(page,page.getByRole("combobox",{name:"型号 / 商品名称",exact:true}),"DEMO Ready changed");
  await expect(page.getByRole("checkbox",{name:"功能检测已完成",exact:true})).not.toBeChecked();
  for(const name of ["功能检测已完成","门店自有及账号锁已核验","数据处理核验已完成"])await page.getByRole("checkbox",{name,exact:true}).check();
  await page.locator("footer").getByRole("button",{name:"建档并设为可售",exact:true}).click();await expect(page).toHaveURL(/\/app\/retail\/units\//);

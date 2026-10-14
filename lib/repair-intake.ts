@@ -23,18 +23,8 @@ export function validIntakePhone(value: string): boolean {
   return /^[+\d\s().-]+$/.test(value.trim()) && /^[0-9]{7,15}$/.test(phoneDigits(value));
 }
 
-export const deviceCatalog: Record<string, Record<string, readonly string[]>> = {
-  手机: {
-    Apple: ["iPhone 16", "iPhone 16 Pro", "iPhone 15", "iPhone 15 Pro", "iPhone 14", "iPhone 13", "iPhone 12", "iPhone 11", "iPhone SE"],
-    Samsung: ["Galaxy S24 Ultra", "Galaxy S24", "Galaxy S23", "Galaxy A55", "Galaxy A54", "Galaxy A34", "Galaxy A13"],
-    Xiaomi: ["Xiaomi 14", "Xiaomi 13", "Mi 11 Lite"], Redmi: ["Redmi Note 14 Pro", "Redmi Note 13", "Redmi Note 12", "Redmi 9T"],
-    Huawei: ["P30", "P40", "Y6 2018"], OPPO: ["Reno 11", "A78"], Honor: ["Magic6 Lite", "90"], Motorola: ["Moto G84", "Edge 40"], Google: ["Pixel 8", "Pixel 7"],
-  },
-  电脑: { Apple: ["MacBook Air M2", "MacBook Air M1", "MacBook Pro 14", "MacBook Pro 13"], Lenovo: ["ThinkPad X1 Carbon", "ThinkPad T14", "IdeaPad 3"], HP: ["Pavilion 15", "EliteBook 840"], Dell: ["XPS 13", "Latitude 5420"], ASUS: ["VivoBook 15", "ZenBook 14"], Acer: ["Aspire 5"] },
-  平板: { Apple: ["iPad Air 5", "iPad 10", "iPad 9", "iPad Pro 11", "iPad mini 6"], Samsung: ["Galaxy Tab S9", "Galaxy Tab A9"], Lenovo: ["Tab M10", "Tab P11"], Huawei: ["MatePad 11"] },
-  游戏机: { Nintendo: ["Switch OLED", "Switch", "Switch Lite"], Sony: ["PlayStation 5", "PlayStation 4"], Microsoft: ["Xbox Series X", "Xbox Series S"] },
-  其他: {},
-};
+// Category labels remain local; all brand/model candidates come from the shared catalog API.
+export const deviceCatalog: Record<string, Record<string, readonly string[]>> = { 手机: {}, 电脑: {}, 平板: {}, 游戏机: {}, 其他: {} };
 export const intakeColors = ["黑色", "白色", "银色", "灰色", "蓝色", "深蓝色", "绿色", "紫色", "粉色", "红色", "金色", "原色钛金属", "黑色钛金属", "白色钛金属", "蓝色钛金属"];
 export function modelsFor(category: string, brand: string): readonly string[] {
   const brands = deviceCatalog[category] ?? {};

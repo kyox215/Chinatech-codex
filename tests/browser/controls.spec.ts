@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
+import { chooseCatalogDevice, openCatalogPicker, choosePickerFamily, choosePickerModel } from './catalog-picker';
 
 async function activate(page: Page, locator: Locator) {
   if (test.info().project.use.hasTouch) await locator.tap();
@@ -11,10 +12,7 @@ async function chooseRadio(page: Page, name: string, scope: Locator = page.locat
 
 async function choosePhone(page: Page) {
   await deviceStep(page);
-  await activate(page, page.getByRole("combobox", { name: "品牌" }));
-  await activate(page, page.getByRole("option", { name: "Apple", exact: true }));
-  await activate(page, page.getByRole("combobox", { name: /^型号/ }));
-  await activate(page, page.getByRole("option", { name: "iPhone 16", exact: true }));
+  await chooseCatalogDevice(page, 'Apple', 'iPhone', 'iPhone 16');
 }
 
 test.beforeEach(async ({ page }) => {
@@ -41,43 +39,55 @@ test("candidate selection survives the iOS canceled-pointer focus order", async 
     });
   });
   await deviceStep(page);
-  const brand = page.getByRole("combobox", { name: "品牌" });
-  await activate(page, brand);
-  await activate(page, page.getByRole("option", { name: "Apple", exact: true }));
+  const brand = page.getByRole("combobox", { name: "品牌" }).and(page.locator("input[readonly]"));
+  const dialog = await openCatalogPicker(page, brand);
+  await activate(page, dialog.getByRole("option", { name: "Apple", exact: true }));
+  await expect(brand).toHaveValue("");
+  await expect(brand).toHaveAttribute("aria-expanded", "true");
+  const model = page.getByRole("combobox", { name: /^型号/ });
+  await choosePickerFamily(page, dialog, 'iPhone');
+  await choosePickerModel(page, dialog, 'iPhone 16 Pro');
   await expect(brand).toHaveValue("Apple");
   await expect(brand).toHaveAttribute("aria-expanded", "false");
-  const model = page.getByRole("combobox", { name: /^型号/ });
-  await activate(page, model);
-  await activate(page, page.getByRole("option", { name: "iPhone 16 Pro", exact: true }));
   await expect(model).toHaveValue("iPhone 16 Pro");
 });
 
 test("keyboard selection, IME confirmation, free text and dismissal", async ({ page }) => {
   await deviceStep(page);
-  const brand = page.getByRole("combobox", { name: "品牌" });
-  await brand.focus();
-  await brand.press("ArrowDown");
-  await brand.dispatchEvent("keydown", { key: "Enter", code: "Enter", isComposing: true, keyCode: 229 });
-  await expect(brand).toHaveValue("");
-  await expect(brand).toHaveAttribute("aria-expanded", "true");
-  await brand.press("Enter");
+  const brand = page.getByRole("combobox", { name: "品牌" }).and(page.locator("input[readonly]"));
+  await brand.focus(); await brand.press('Enter');
+  const dialog = page.getByRole('dialog', { name: '选择设备', exact: true });
+  let search = dialog.getByRole('combobox');
+  await search.fill("App");
+  await expect(dialog.getByRole("option", { name: "Apple", exact: true })).toBeVisible();
+  await search.press("ArrowDown");
+  await search.dispatchEvent("keydown", { key: "Enter", code: "Enter", isComposing: true, keyCode: 229 });
+  await expect(search).toHaveValue("App");
+  await expect(brand).toHaveValue('');
+  await search.press("Enter");
+  await choosePickerFamily(page, dialog, 'iPhone');
+  await choosePickerModel(page, dialog, 'iPhone 16');
   await expect(brand).toHaveValue("Apple");
   await expect(brand).toHaveAttribute("aria-expanded", "false");
-  await brand.fill("手动品牌");
-  await expect(page.getByRole("status").filter({ hasText: "没有匹配" })).toBeVisible();
-  await brand.press("Escape");
-  await expect(brand).toHaveValue("手动品牌");
+  await openCatalogPicker(page, brand); search = dialog.getByRole('combobox');
+  await search.fill("手动品牌");
+  await expect(dialog.getByRole("status").filter({ hasText: "没有匹配" })).toBeVisible();
+  await dialog.getByRole('button', { name: '取消', exact: true }).focus();
+  await page.keyboard.press("Escape");
+  await expect(brand).toHaveValue("Apple");
+  await expect(page.getByRole('combobox', { name: '型号', exact: true })).toHaveValue('iPhone 16');
+  await expect(brand).toBeFocused();
   await expect(brand).toHaveAttribute("aria-expanded", "false");
-  await activate(page, page.getByRole("button", { name: "显示品牌候选" }));
+  await activate(page, page.getByRole("button", { name: "选择设备品牌" }));
   await expect(brand).toHaveAttribute("aria-expanded", "true");
-  await activate(page, page.getByRole("heading", { name: "送修设备" }));
+  await activate(page, dialog.getByRole('button', { name: '取消', exact: true }));
   await expect(brand).toHaveAttribute("aria-expanded", "false");
   await brand.focus();
   await brand.press("Tab");
   if (!test.info().project.use.hasTouch) {
     await expect(page.getByRole("button", { name: "清空品牌", exact: true })).toBeFocused();
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("button", { name: "显示品牌候选" })).toBeFocused();
+    await expect(page.getByRole("button", { name: "选择设备品牌" })).toBeFocused();
     await page.keyboard.press("Tab");
   }
   await expect(brand).toHaveAttribute("aria-expanded", "false");
@@ -85,33 +95,47 @@ test("keyboard selection, IME confirmation, free text and dismissal", async ({ p
 
 test("pressing a candidate does not commit before click or block list scrolling", async ({ page }) => {
   await deviceStep(page);
-  const brand = page.getByRole("combobox", { name: "品牌" });
-  await activate(page, brand);
-  const apple = page.getByRole("option", { name: "Apple", exact: true });
+  const brand = page.getByRole("combobox", { name: "品牌" }).and(page.locator("input[readonly]"));
+  const dialog = await openCatalogPicker(page, brand);
+  const apple = dialog.getByRole("option", { name: "Apple", exact: true });
   const canceled = await apple.evaluate(element => !element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerType: "touch" })));
   expect(canceled).toBe(false);
   await expect(brand).toHaveValue("");
   await apple.dispatchEvent("pointercancel", { pointerType: "touch" });
-  const menu = page.locator(".search-combobox__menu");
-  await menu.evaluate(element => { element.scrollTop = element.scrollHeight; });
-  expect(await menu.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
-  await activate(page, page.getByRole("option", { name: "Google", exact: true }));
+  const list = dialog.getByRole("listbox", { name: "品牌候选" });
+  await list.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  expect(await list.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  expect(await list.getByRole('option').count()).toBeLessThanOrEqual(16);
+  await dialog.getByRole('combobox').fill('Google');
+  await activate(page, dialog.getByRole("option", { name: "Google", exact: true }));
+  await expect(brand).toHaveValue('');
+  await activate(page, dialog.getByRole('button', { name: '未收录系列 / 手动填写', exact: true }));
+  await dialog.getByRole('combobox').fill('Pixel synthetic');
+  await activate(page, dialog.getByRole('button', { name: '使用手填型号', exact: true }));
   await expect(brand).toHaveValue("Google");
 });
 
 test("a focused option activates once and returns to the closed input", async ({ page }) => {
   await deviceStep(page);
-  const brand = page.getByRole("combobox", { name: "品牌" });
-  await activate(page, brand);
-  const apple = page.getByRole("option", { name: "Apple", exact: true });
+  const brand = page.getByRole("combobox", { name: "品牌" }).and(page.locator("input[readonly]"));
+  const dialog = await openCatalogPicker(page, brand);
+  const apple = dialog.getByRole("option", { name: "Apple", exact: true });
   await apple.focus();
   await apple.press("Enter");
-  await expect(brand).toHaveValue("Apple");
-  await expect(brand).toBeFocused();
+  await expect(brand).toHaveValue('');
+  await expect(dialog.getByRole('combobox', { name: '系列', exact: true })).toBeFocused();
+  await choosePickerFamily(page, dialog, 'iPhone');
+  const modelSearch = dialog.getByRole('combobox'); await modelSearch.fill('iPhone 16');
+  const option = dialog.getByRole('option', { name: 'iPhone 16', exact: true });
+  await option.focus(); await option.press('Enter');
+  await expect(dialog).not.toBeVisible();
+  await expect(brand).toHaveValue("Apple"); await expect(brand).toBeFocused();
   await expect(brand).toHaveAttribute("aria-expanded", "false");
-  await activate(page, brand);
+  await openCatalogPicker(page, brand);
   await expect(brand).toHaveAttribute("aria-expanded", "true");
-  await activate(page, page.getByRole("option", { name: "Apple", exact: true }));
+  await activate(page, dialog.getByRole("option", { name: "Apple", exact: true }));
+  await choosePickerFamily(page, dialog, 'iPhone');
+  await choosePickerModel(page, dialog, 'iPhone 16');
   await expect(brand).toHaveAttribute("aria-expanded", "false");
 });
 
@@ -149,22 +173,16 @@ test("customer selection fills linked fields and category changes clear dependen
   await expect(page.getByLabel("客户称呼（选填）", { exact: true })).toHaveValue("周先生");
   await expect(page.getByLabel("电子邮件（选填）", { exact: true })).toHaveValue("zhou@example.com");
   await activate(page, page.getByRole("button", { name: "下一步", exact: true }));
-  const brand = page.getByRole("combobox", { name: "品牌" });
+  const brand = page.getByRole("combobox", { name: "品牌" }).and(page.locator("input[readonly]"));
   const model = page.getByRole("combobox", { name: /^型号/ });
-  await activate(page, brand);
-  await activate(page, page.getByRole("option", { name: "Apple", exact: true }));
-  await activate(page, model);
-  await activate(page, page.getByRole("option", { name: "iPhone 16", exact: true }));
-  await brand.fill("");
-  await activate(page, page.getByRole("option", { name: "Samsung", exact: true }));
+  await chooseCatalogDevice(page, 'Apple', 'iPhone', 'iPhone 16');
+  await page.getByRole('button', { name: '清空品牌', exact: true }).click();
+  await expect(brand).toHaveValue('');
   await expect(model).toHaveValue("");
   await page.getByLabel("设备类别").selectOption({ label: "电脑" });
   await expect(brand).toHaveValue("");
-  await activate(page, brand);
-  await activate(page, page.getByRole("option", { name: "Lenovo", exact: true }));
-  await activate(page, model);
-  await activate(page, page.getByRole("option", { name: "ThinkPad T14", exact: true }));
-  await expect(model).toHaveValue("ThinkPad T14");
+  await chooseCatalogDevice(page, 'Lenovo', 'ThinkPad', 'ThinkPad T14 Gen 1 (Intel)');
+  await expect(model).toHaveValue("ThinkPad T14 Gen 1 (Intel)");
 });
 
 test("colors close on repeat selection and preserve custom text", async ({ page }) => {
@@ -215,9 +233,8 @@ test("screen technology repeat selection returns and multi choices toggle", asyn
 test("retail catalog and color state follow the selected category", async ({ page }) => {
   await page.goto("/app/retail/new");
   await chooseRadio(page, "翻新机");
-  const brand = page.getByRole("combobox", { name: "品牌" });
-  await activate(page, brand);
-  await activate(page, page.getByRole("option", { name: "Apple", exact: true }));
+  const brand = page.getByRole("combobox", { name: "品牌" }).and(page.locator("input[readonly]"));
+  await chooseCatalogDevice(page, 'Apple', 'iPhone', 'iPhone 16');
   await expect(brand).toHaveValue("Apple");
   await activate(page, page.getByLabel("选择设备颜色"));
   await chooseRadio(page, "其他颜色", page.locator(".color-picker details"));
@@ -231,8 +248,8 @@ test("affected choices fit desktop and phone layouts", async ({ page }) => {
   await deviceStep(page);
   for (const width of test.info().project.use.hasTouch ? [390, 375] : [1440, 1024]) {
     await page.setViewportSize({ width, height: test.info().project.use.hasTouch ? 812 : 1000 });
-    const brand = page.getByRole("combobox", { name: "品牌" });
-    await activate(page, brand);
+    const brand = page.getByRole("combobox", { name: "品牌" }).and(page.locator("input[readonly]"));
+    await openCatalogPicker(page, brand);
     await expect(page.getByRole("option", { name: "Apple", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     const bounds = await page.getByRole("option", { name: "Apple", exact: true }).boundingBox();
@@ -241,20 +258,22 @@ test("affected choices fit desktop and phone layouts", async ({ page }) => {
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
     if (width < 768) expect(await brand.evaluate(element => getComputedStyle(element).fontSize)).toBe("16px");
     await page.screenshot({ path: `.local/ui-proof/controls/${test.info().project.name}-${width}.png` });
-    await brand.press("Escape");
+    await page.getByRole('dialog', { name: '选择设备', exact: true }).getByRole('button', { name: '取消', exact: true }).focus();
+    await page.keyboard.press("Escape");
   }
   await page.goto("/app/retail/new");
   await chooseRadio(page, "翻新机");
   for (const width of test.info().project.use.hasTouch ? [390, 375] : [1440, 1024]) {
     await page.setViewportSize({ width, height: test.info().project.use.hasTouch ? 812 : 1000 });
-    const brand = page.getByRole("combobox", { name: "品牌" });
-    await activate(page, brand);
+    const brand = page.getByRole("combobox", { name: "品牌" }).and(page.locator("input[readonly]"));
+    await openCatalogPicker(page, brand);
     await expect(page.getByRole("option", { name: "Apple", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     const bounds = await page.getByRole("option", { name: "Apple", exact: true }).boundingBox();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
     await page.screenshot({ path: `.local/ui-proof/controls/retail-${test.info().project.name}-${width}.png` });
-    await brand.press("Escape");
+    await page.getByRole('dialog', { name: '选择设备', exact: true }).getByRole('button', { name: '取消', exact: true }).focus();
+    await page.keyboard.press("Escape");
   }
 });

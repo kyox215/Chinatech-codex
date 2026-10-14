@@ -1,0 +1,1242 @@
+[
+  {
+    "id": "console-sony-playstation-a0cee6",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PlayStation",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-history"
+    ]
+  },
+  {
+    "id": "console-sony-ps-one-65c449",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PS one",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-history"
+    ]
+  },
+  {
+    "id": "console-sony-playstation-2-f32e55",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PlayStation 2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-history"
+    ]
+  },
+  {
+    "id": "console-sony-playstation-2-slim-c9b97e",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PlayStation 2 Slim",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-history"
+    ]
+  },
+  {
+    "id": "console-sony-playstation-3-31aec5",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PlayStation 3",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-history"
+    ]
+  },
+  {
+    "id": "console-sony-playstation-3-slim-92be09",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PlayStation 3 Slim",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-history"
+    ]
+  },
+  {
+    "id": "console-sony-playstation-3-super-slim-264e5a",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PlayStation 3 Super Slim",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-history"
+    ]
+  },
+  {
+    "id": "console-sony-playstation-4-aeb67b",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PlayStation 4",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-manuals"
+    ]
+  },
+  {
+    "id": "console-sony-playstation-4-slim-1ad3d5",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PlayStation 4 Slim",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-manuals"
+    ]
+  },
+  {
+    "id": "console-sony-playstation-4-pro-268d5c",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PlayStation 4 Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-manuals"
+    ]
+  },
+  {
+    "id": "console-sony-playstation-5-2e1837",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PlayStation 5",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-manuals"
+    ]
+  },
+  {
+    "id": "console-sony-playstation-5-digital-edition-562ff2",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PlayStation 5 Digital Edition",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-manuals"
+    ]
+  },
+  {
+    "id": "console-sony-playstation-5-slim-0fc863",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PlayStation 5 Slim",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-manuals"
+    ]
+  },
+  {
+    "id": "console-sony-playstation-5-slim-digital-edition-118e21",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PlayStation 5 Slim Digital Edition",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-manuals"
+    ]
+  },
+  {
+    "id": "console-sony-playstation-5-pro-7cdcd2",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PlayStation",
+    "name": "PlayStation 5 Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-manuals"
+    ]
+  },
+  {
+    "id": "console-sony-psp-1000-a53ca2",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PSP",
+    "name": "PSP-1000",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-history"
+    ]
+  },
+  {
+    "id": "console-sony-psp-2000-63d246",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PSP",
+    "name": "PSP-2000",
+    "releasedAt": null,
+    "year": 2000,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-history"
+    ]
+  },
+  {
+    "id": "console-sony-psp-3000-000dc3",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PSP",
+    "name": "PSP-3000",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-history"
+    ]
+  },
+  {
+    "id": "console-sony-psp-go-8935ef",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PSP",
+    "name": "PSP Go",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-history"
+    ]
+  },
+  {
+    "id": "console-sony-ps-vita-pch-1000-47969e",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PS Vita",
+    "name": "PS Vita PCH-1000",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-history"
+    ]
+  },
+  {
+    "id": "console-sony-ps-vita-pch-2000-d032dd",
+    "category": "console",
+    "brand": "Sony",
+    "family": "PS Vita",
+    "name": "PS Vita PCH-2000",
+    "releasedAt": null,
+    "year": 2000,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "sony-history"
+    ]
+  },
+  {
+    "id": "console-microsoft-xbox-af482b",
+    "category": "console",
+    "brand": "Microsoft",
+    "family": "Xbox",
+    "name": "Xbox",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "xbox-history"
+    ]
+  },
+  {
+    "id": "console-microsoft-xbox-360-81c3e9",
+    "category": "console",
+    "brand": "Microsoft",
+    "family": "Xbox",
+    "name": "Xbox 360",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "xbox-history"
+    ]
+  },
+  {
+    "id": "console-microsoft-xbox-360-s-dd1ca7",
+    "category": "console",
+    "brand": "Microsoft",
+    "family": "Xbox",
+    "name": "Xbox 360 S",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "xbox-history"
+    ]
+  },
+  {
+    "id": "console-microsoft-xbox-360-e-27ad64",
+    "category": "console",
+    "brand": "Microsoft",
+    "family": "Xbox",
+    "name": "Xbox 360 E",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "xbox-history"
+    ]
+  },
+  {
+    "id": "console-microsoft-xbox-one-16c53b",
+    "category": "console",
+    "brand": "Microsoft",
+    "family": "Xbox",
+    "name": "Xbox One",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "xbox-history"
+    ]
+  },
+  {
+    "id": "console-microsoft-xbox-one-s-5abd0b",
+    "category": "console",
+    "brand": "Microsoft",
+    "family": "Xbox",
+    "name": "Xbox One S",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "xbox-history"
+    ]
+  },
+  {
+    "id": "console-microsoft-xbox-one-s-all-digital-edition-95abc4",
+    "category": "console",
+    "brand": "Microsoft",
+    "family": "Xbox",
+    "name": "Xbox One S All-Digital Edition",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "xbox-history"
+    ]
+  },
+  {
+    "id": "console-microsoft-xbox-one-x-350529",
+    "category": "console",
+    "brand": "Microsoft",
+    "family": "Xbox",
+    "name": "Xbox One X",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "xbox-history"
+    ]
+  },
+  {
+    "id": "console-microsoft-xbox-series-x-7679d6",
+    "category": "console",
+    "brand": "Microsoft",
+    "family": "Xbox",
+    "name": "Xbox Series X",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "xbox-current"
+    ]
+  },
+  {
+    "id": "console-microsoft-xbox-series-x-all-digital-136031",
+    "category": "console",
+    "brand": "Microsoft",
+    "family": "Xbox",
+    "name": "Xbox Series X All-Digital",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "xbox-current"
+    ]
+  },
+  {
+    "id": "console-microsoft-xbox-series-s-d52804",
+    "category": "console",
+    "brand": "Microsoft",
+    "family": "Xbox",
+    "name": "Xbox Series S",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "xbox-current"
+    ]
+  },
+  {
+    "id": "console-nintendo-nintendo-switch-e86d75",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Nintendo Switch",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-current"
+    ]
+  },
+  {
+    "id": "console-nintendo-nintendo-switch-oled-245be1",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Nintendo Switch OLED",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-current"
+    ]
+  },
+  {
+    "id": "console-nintendo-nintendo-switch-lite-cec31d",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Nintendo Switch Lite",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-current"
+    ]
+  },
+  {
+    "id": "console-nintendo-nintendo-switch-2-9e316f",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Nintendo Switch 2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-switch2"
+    ]
+  },
+  {
+    "id": "console-nintendo-nintendo-3ds-6d7023",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Nintendo 3DS",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-nintendo-3ds-xl-22f2ed",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Nintendo 3DS XL",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-new-nintendo-3ds-ae006f",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "New Nintendo 3DS",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-new-nintendo-3ds-xl-5cd6cb",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "New Nintendo 3DS XL",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-nintendo-2ds-f52f33",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Nintendo 2DS",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-new-nintendo-2ds-xl-4f3d39",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "New Nintendo 2DS XL",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-nintendo-ds-af9ea4",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Nintendo DS",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-nintendo-ds-lite-baa50e",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Nintendo DS Lite",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-nintendo-dsi-83f879",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Nintendo DSi",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-nintendo-dsi-xl-3aeecc",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Nintendo DSi XL",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-game-boy-c23b78",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Game Boy",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-game-boy-color-de9f2e",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Game Boy Color",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-game-boy-advance-1ae8d8",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Game Boy Advance",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-game-boy-advance-sp-5e1b61",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Game Boy Advance SP",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-wii-b10f51",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Wii",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-wii-mini-e4d702",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Wii Mini",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-wii-u-9c3e72",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Wii U",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-nintendo-gamecube-75b4fb",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Nintendo GameCube",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-nintendo-64-4a7f2d",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Nintendo 64",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-super-nintendo-entertainment-system-61dc71",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Super Nintendo Entertainment System",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-nintendo-nintendo-entertainment-system-0fca19",
+    "category": "console",
+    "brand": "Nintendo",
+    "family": "Nintendo legacy",
+    "name": "Nintendo Entertainment System",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "nintendo-history"
+    ]
+  },
+  {
+    "id": "console-valve-steam-deck-lcd-86901a",
+    "category": "console",
+    "brand": "Valve",
+    "family": "Steam Deck",
+    "name": "Steam Deck LCD",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "valve"
+    ]
+  },
+  {
+    "id": "console-valve-steam-deck-oled-da1a8c",
+    "category": "console",
+    "brand": "Valve",
+    "family": "Steam Deck",
+    "name": "Steam Deck OLED",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "valve"
+    ]
+  },
+  {
+    "id": "console-asus-rog-ally-2023-7ade27",
+    "category": "console",
+    "brand": "ASUS",
+    "family": "ROG Ally",
+    "name": "ROG Ally (2023)",
+    "releasedAt": null,
+    "year": 2023,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "asus-ally"
+    ]
+  },
+  {
+    "id": "console-asus-rog-ally-x-2024-70fb28",
+    "category": "console",
+    "brand": "ASUS",
+    "family": "ROG Ally",
+    "name": "ROG Ally X (2024)",
+    "releasedAt": null,
+    "year": 2024,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "asus-ally-x"
+    ]
+  },
+  {
+    "id": "console-lenovo-legion-go-e330bf",
+    "category": "console",
+    "brand": "Lenovo",
+    "family": "Legion Go",
+    "name": "Legion Go",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "lenovo-go"
+    ]
+  }
+]

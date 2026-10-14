@@ -1,0 +1,495 @@
+[
+  {
+    "category": "laptop",
+    "brand": "ASUS",
+    "verifiedCount": 18,
+    "scope": "意大利官方家庭笔记本目录中的具名Zenbook、Vivobook、ProArt和V16及页面明确的硬件代码。",
+    "scopeIt": "Zenbook, Vivobook, ProArt e V16 identificati nel catalogo italiano ufficiale dei notebook per casa, con codici hardware espliciti.",
+    "scopeEn": "Named Zenbook, Vivobook, ProArt and V16 products and explicit hardware codes in the official Italy home-laptop catalogue.",
+    "gaps": [
+      "ROG、TUF、ExpertBook、台式机与旧年款历史未系统收录。",
+      "GoPro外观版合并为PX13别名；PZ14可拆卸平板不计入电脑；未推算处理器和年份。"
+    ],
+    "gapsIt": [
+      "ROG, TUF, ExpertBook, desktop e modelli degli anni precedenti non raccolti sistematicamente.",
+      "Edizione estetica GoPro accorpata come alias PX13; tablet staccabile PZ14 escluso dai computer; CPU e anni non dedotti."
+    ],
+    "gapsEn": [
+      "ROG, TUF, ExpertBook, desktops and earlier-year history were not systematically collected.",
+      "The cosmetic GoPro edition is a PX13 alias; the detachable PZ14 tablet is excluded from computers; CPUs and years were not inferred."
+    ],
+    "sourceIds": [
+      "computer-asus-it-home"
+    ]
+  },
+  {
+    "category": "desktop",
+    "brand": "ASUS",
+    "verifiedCount": 0,
+    "scope": "意大利官方家庭笔记本目录中的具名Zenbook、Vivobook、ProArt和V16及页面明确的硬件代码。",
+    "scopeIt": "Zenbook, Vivobook, ProArt e V16 identificati nel catalogo italiano ufficiale dei notebook per casa, con codici hardware espliciti.",
+    "scopeEn": "Named Zenbook, Vivobook, ProArt and V16 products and explicit hardware codes in the official Italy home-laptop catalogue.",
+    "gaps": [
+      "ROG、TUF、ExpertBook、台式机与旧年款历史未系统收录。",
+      "GoPro外观版合并为PX13别名；PZ14可拆卸平板不计入电脑；未推算处理器和年份。",
+      "本版该类别核验数量为0，不能据此判定品牌没有此类设备。"
+    ],
+    "gapsIt": [
+      "ROG, TUF, ExpertBook, desktop e modelli degli anni precedenti non raccolti sistematicamente.",
+      "Edizione estetica GoPro accorpata come alias PX13; tablet staccabile PZ14 escluso dai computer; CPU e anni non dedotti.",
+      "Questa versione contiene 0 modelli verificati per questa categoria; ciò non dimostra che il marchio non offra tali dispositivi."
+    ],
+    "gapsEn": [
+      "ROG, TUF, ExpertBook, desktops and earlier-year history were not systematically collected.",
+      "The cosmetic GoPro edition is a PX13 alias; the detachable PZ14 tablet is excluded from computers; CPUs and years were not inferred.",
+      "This edition has 0 verified models in this category; this does not establish that the brand has no such devices."
+    ],
+    "sourceIds": [
+      "computer-asus-it-home"
+    ]
+  },
+  {
+    "category": "laptop",
+    "brand": "Acer",
+    "verifiedCount": 20,
+    "scope": "意大利官方Swift目录中逐条具名的笔记本硬件版本。",
+    "scopeIt": "Versioni hardware dei notebook identificate singolarmente nel catalogo Swift ufficiale italiano.",
+    "scopeEn": "Individually named laptop hardware versions in the official Italy Swift catalogue.",
+    "gaps": [
+      "Aspire、Nitro、Predator、TravelMate、Chromebook及台式机与旧年款尚有大量缺口。",
+      "通用系列标题及组合尺寸标题不作为型号；未推算上市年份或型号代码。"
+    ],
+    "gapsIt": [
+      "Restano ampie lacune in Aspire, Nitro, Predator, TravelMate, Chromebook, desktop e modelli precedenti.",
+      "Titoli generici di serie e titoli con dimensioni combinate non trattati come modelli; anni di lancio e codici non dedotti."
+    ],
+    "gapsEn": [
+      "Major gaps remain in Aspire, Nitro, Predator, TravelMate, Chromebook, desktops and earlier models.",
+      "Generic family headings and combined-size headings are not models; launch years and model codes were not inferred."
+    ],
+    "sourceIds": [
+      "computer-acer-it-swift"
+    ]
+  },
+  {
+    "category": "desktop",
+    "brand": "Acer",
+    "verifiedCount": 0,
+    "scope": "意大利官方Swift目录中逐条具名的笔记本硬件版本。",
+    "scopeIt": "Versioni hardware dei notebook identificate singolarmente nel catalogo Swift ufficiale italiano.",
+    "scopeEn": "Individually named laptop hardware versions in the official Italy Swift catalogue.",
+    "gaps": [
+      "Aspire、Nitro、Predator、TravelMate、Chromebook及台式机与旧年款尚有大量缺口。",
+      "通用系列标题及组合尺寸标题不作为型号；未推算上市年份或型号代码。",
+      "本版该类别核验数量为0，不能据此判定品牌没有此类设备。"
+    ],
+    "gapsIt": [
+      "Restano ampie lacune in Aspire, Nitro, Predator, TravelMate, Chromebook, desktop e modelli precedenti.",
+      "Titoli generici di serie e titoli con dimensioni combinate non trattati come modelli; anni di lancio e codici non dedotti.",
+      "Questa versione contiene 0 modelli verificati per questa categoria; ciò non dimostra che il marchio non offra tali dispositivi."
+    ],
+    "gapsEn": [
+      "Major gaps remain in Aspire, Nitro, Predator, TravelMate, Chromebook, desktops and earlier models.",
+      "Generic family headings and combined-size headings are not models; launch years and model codes were not inferred.",
+      "This edition has 0 verified models in this category; this does not establish that the brand has no such devices."
+    ],
+    "sourceIds": [
+      "computer-acer-it-swift"
+    ]
+  },
+  {
+    "category": "laptop",
+    "brand": "Dell",
+    "verifiedCount": 289,
+    "scope": "官方历史测试清单中的Alienware、G、Inspiron、XPS、Vostro、Latitude、OptiPlex和Precision机型。",
+    "scopeIt": "Modelli Alienware, G, Inspiron, XPS, Vostro, Latitude, OptiPlex e Precision nell’elenco ufficiale storico dei test.",
+    "scopeEn": "Alienware, G, Inspiron, XPS, Vostro, Latitude, OptiPlex and Precision models in the official historical testing list.",
+    "gaps": [
+      "清单以2015年前后及之后的部分硬件为主，早期历史与2025/2026新命名系列未完整覆盖。",
+      "同一型号的尺寸标题与简写已合并；未逐款补齐监管代码、上市日和欧洲配置。"
+    ],
+    "gapsIt": [
+      "L’elenco copre soprattutto parte dell’hardware dal periodo 2015 in poi; storia precedente e nuove famiglie con denominazioni 2025/2026 non complete.",
+      "Titoli con dimensioni e abbreviazioni dello stesso modello accorpati; codici normativi, date di lancio e configurazioni europee non completati per ogni modello."
+    ],
+    "gapsEn": [
+      "The list mainly covers selected hardware from around 2015 onward; earlier history and newly named 2025/2026 families are incomplete.",
+      "Size headings and abbreviated names for the same model are merged; regulatory codes, launch dates and European configurations are incomplete."
+    ],
+    "sourceIds": [
+      "computer-dell-historical-model-archive"
+    ]
+  },
+  {
+    "category": "desktop",
+    "brand": "Dell",
+    "verifiedCount": 95,
+    "scope": "官方历史测试清单中的Alienware、G、Inspiron、XPS、Vostro、Latitude、OptiPlex和Precision机型。",
+    "scopeIt": "Modelli Alienware, G, Inspiron, XPS, Vostro, Latitude, OptiPlex e Precision nell’elenco ufficiale storico dei test.",
+    "scopeEn": "Alienware, G, Inspiron, XPS, Vostro, Latitude, OptiPlex and Precision models in the official historical testing list.",
+    "gaps": [
+      "清单以2015年前后及之后的部分硬件为主，早期历史与2025/2026新命名系列未完整覆盖。",
+      "同一型号的尺寸标题与简写已合并；未逐款补齐监管代码、上市日和欧洲配置。"
+    ],
+    "gapsIt": [
+      "L’elenco copre soprattutto parte dell’hardware dal periodo 2015 in poi; storia precedente e nuove famiglie con denominazioni 2025/2026 non complete.",
+      "Titoli con dimensioni e abbreviazioni dello stesso modello accorpati; codici normativi, date di lancio e configurazioni europee non completati per ogni modello."
+    ],
+    "gapsEn": [
+      "The list mainly covers selected hardware from around 2015 onward; earlier history and newly named 2025/2026 families are incomplete.",
+      "Size headings and abbreviated names for the same model are merged; regulatory codes, launch dates and European configurations are incomplete."
+    ],
+    "sourceIds": [
+      "computer-dell-historical-model-archive"
+    ]
+  },
+  {
+    "category": "laptop",
+    "brand": "HP",
+    "verifiedCount": 111,
+    "scope": "官方Windows 11测试表中本版已核验的EliteBook、Elite x360、200笔记本及EliteBoard台式机。",
+    "scopeIt": "EliteBook, Elite x360 e notebook 200, oltre al desktop EliteBoard, verificati per questa versione nella tabella ufficiale dei test Windows 11.",
+    "scopeEn": "EliteBook, Elite x360 and 200 laptops, plus the EliteBoard desktop, verified for this edition in the official Windows 11 testing table.",
+    "gaps": [
+      "ProBook、ZBook、其他台式机／工作站、消费级Pavilion/Envy/OMEN及早期历史未完整收录，地区销售与详细硬件修订未逐款核验。",
+      "仅用该表核验设备身份，不把操作系统测试范围转成升级保证；未知年份保留空。"
+    ],
+    "gapsIt": [
+      "ProBook, ZBook, altri desktop/workstation, Pavilion/Envy/OMEN consumer e storia precedente non completi; vendita regionale e revisioni hardware non verificate per ogni modello.",
+      "La tabella verifica l’identità del dispositivo e non costituisce garanzia di aggiornamento del sistema operativo; anni ignoti lasciati vuoti."
+    ],
+    "gapsEn": [
+      "ProBook, ZBook, other desktops/workstations, consumer Pavilion/Envy/OMEN and early history remain incomplete; regional sales and hardware revisions were not checked model by model.",
+      "The table supports device identity rather than an operating-system upgrade guarantee; unknown years remain empty."
+    ],
+    "sourceIds": [
+      "computer-hp-business-model-archive"
+    ]
+  },
+  {
+    "category": "desktop",
+    "brand": "HP",
+    "verifiedCount": 1,
+    "scope": "官方Windows 11测试表中本版已核验的EliteBook、Elite x360、200笔记本及EliteBoard台式机。",
+    "scopeIt": "EliteBook, Elite x360 e notebook 200, oltre al desktop EliteBoard, verificati per questa versione nella tabella ufficiale dei test Windows 11.",
+    "scopeEn": "EliteBook, Elite x360 and 200 laptops, plus the EliteBoard desktop, verified for this edition in the official Windows 11 testing table.",
+    "gaps": [
+      "ProBook、ZBook、其他台式机／工作站、消费级Pavilion/Envy/OMEN及早期历史未完整收录，地区销售与详细硬件修订未逐款核验。",
+      "仅用该表核验设备身份，不把操作系统测试范围转成升级保证；未知年份保留空。"
+    ],
+    "gapsIt": [
+      "ProBook, ZBook, altri desktop/workstation, Pavilion/Envy/OMEN consumer e storia precedente non completi; vendita regionale e revisioni hardware non verificate per ogni modello.",
+      "La tabella verifica l’identità del dispositivo e non costituisce garanzia di aggiornamento del sistema operativo; anni ignoti lasciati vuoti."
+    ],
+    "gapsEn": [
+      "ProBook, ZBook, other desktops/workstations, consumer Pavilion/Envy/OMEN and early history remain incomplete; regional sales and hardware revisions were not checked model by model.",
+      "The table supports device identity rather than an operating-system upgrade guarantee; unknown years remain empty."
+    ],
+    "sourceIds": [
+      "computer-hp-business-model-archive"
+    ]
+  },
+  {
+    "category": "laptop",
+    "brand": "Huawei",
+    "verifiedCount": 20,
+    "scope": "全球MateBook官方目录及德国历史电池服务表中的笔记本，历史配置按官方机型参考代码合并。",
+    "scopeIt": "Notebook nel catalogo ufficiale globale MateBook e nella tabella tedesca storica del servizio batterie; configurazioni storiche accorpate per riferimenti ufficiali del modello.",
+    "scopeEn": "Laptops in the official global MateBook catalogue and Germany historical battery-service table; historical configurations are grouped by official model references.",
+    "gaps": [
+      "全球当前目录未逐款证明意大利／法国销售；台式机与更多早期年款仍缺失。",
+      "历史i5／i7与RAM／SSD配置已合并，不把容量作为型号；无法确认的上市日留空，部分参考代码为厂家内部机型名。"
+    ],
+    "gapsIt": [
+      "Il catalogo globale attuale non prova la vendita in Italia/Francia di ogni modello; desktop e ulteriori annate precedenti restano assenti.",
+      "Configurazioni storiche i5/i7, RAM e SSD accorpate, senza modelli distinti per capacità; date ignote vuote e alcuni riferimenti sono nomi interni del produttore."
+    ],
+    "gapsEn": [
+      "The current global catalogue does not prove each model was sold in Italy/France; desktops and more early-year models are missing.",
+      "Historical i5/i7, RAM and SSD configurations are grouped without capacity model rows; unknown launch dates are empty and some references are manufacturer internal model names."
+    ],
+    "sourceIds": [
+      "computer-huawei-de-historical-pcs",
+      "computer-huawei-global-laptops"
+    ]
+  },
+  {
+    "category": "desktop",
+    "brand": "Huawei",
+    "verifiedCount": 0,
+    "scope": "全球MateBook官方目录及德国历史电池服务表中的笔记本，历史配置按官方机型参考代码合并。",
+    "scopeIt": "Notebook nel catalogo ufficiale globale MateBook e nella tabella tedesca storica del servizio batterie; configurazioni storiche accorpate per riferimenti ufficiali del modello.",
+    "scopeEn": "Laptops in the official global MateBook catalogue and Germany historical battery-service table; historical configurations are grouped by official model references.",
+    "gaps": [
+      "全球当前目录未逐款证明意大利／法国销售；台式机与更多早期年款仍缺失。",
+      "历史i5／i7与RAM／SSD配置已合并，不把容量作为型号；无法确认的上市日留空，部分参考代码为厂家内部机型名。",
+      "本版该类别核验数量为0，不能据此判定品牌没有此类设备。"
+    ],
+    "gapsIt": [
+      "Il catalogo globale attuale non prova la vendita in Italia/Francia di ogni modello; desktop e ulteriori annate precedenti restano assenti.",
+      "Configurazioni storiche i5/i7, RAM e SSD accorpate, senza modelli distinti per capacità; date ignote vuote e alcuni riferimenti sono nomi interni del produttore.",
+      "Questa versione contiene 0 modelli verificati per questa categoria; ciò non dimostra che il marchio non offra tali dispositivi."
+    ],
+    "gapsEn": [
+      "The current global catalogue does not prove each model was sold in Italy/France; desktops and more early-year models are missing.",
+      "Historical i5/i7, RAM and SSD configurations are grouped without capacity model rows; unknown launch dates are empty and some references are manufacturer internal model names.",
+      "This edition has 0 verified models in this category; this does not establish that the brand has no such devices."
+    ],
+    "sourceIds": [
+      "computer-huawei-de-historical-pcs",
+      "computer-huawei-global-laptops"
+    ]
+  },
+  {
+    "category": "laptop",
+    "brand": "LG",
+    "verifiedCount": 12,
+    "scope": "意大利官方gram产品页与美国2024／2026官方规格或发布资料中的十二个基础机型代码。",
+    "scopeIt": "Dodici codici modello di base nelle pagine ufficiali gram italiane e nelle specifiche o comunicati ufficiali USA 2024/2026.",
+    "scopeEn": "Twelve base model codes in official Italy gram product pages and US 2024/2026 specifications or releases.",
+    "gaps": [
+      "美国资料中的型号仅标US，不冒称意大利在售；旧gram与台式机历史仍不完整。",
+      "同一基础代码的RAM／SSD及地区SKU后缀已合并，不按容量另建型号；不推算缺失的上市日。"
+    ],
+    "gapsIt": [
+      "Modelli documentati negli USA contrassegnati solo US, senza presumere vendita in Italia; vecchi gram e storia desktop incompleti.",
+      "Suffissi SKU regionali, RAM e SSD dello stesso codice base accorpati; nessun modello distinto per capacità e date di lancio mancanti non dedotte."
+    ],
+    "gapsEn": [
+      "US-documented models are marked only US without claiming Italy sales; older gram and desktop history remain incomplete.",
+      "Regional SKU, RAM and SSD suffixes for the same base code are grouped; capacity does not create model rows and missing launch dates were not inferred."
+    ],
+    "sourceIds": [
+      "computer-lg-it-16z90s-g",
+      "computer-lg-it-17z90r-g",
+      "computer-lg-it-17z90ru-g",
+      "computer-lg-it-17z90s-g",
+      "computer-lg-it-17z90tl-g",
+      "computer-lg-us-gram-2026",
+      "computer-lg-us-gram-pro-2024"
+    ]
+  },
+  {
+    "category": "desktop",
+    "brand": "LG",
+    "verifiedCount": 0,
+    "scope": "意大利官方gram产品页与美国2024／2026官方规格或发布资料中的十二个基础机型代码。",
+    "scopeIt": "Dodici codici modello di base nelle pagine ufficiali gram italiane e nelle specifiche o comunicati ufficiali USA 2024/2026.",
+    "scopeEn": "Twelve base model codes in official Italy gram product pages and US 2024/2026 specifications or releases.",
+    "gaps": [
+      "美国资料中的型号仅标US，不冒称意大利在售；旧gram与台式机历史仍不完整。",
+      "同一基础代码的RAM／SSD及地区SKU后缀已合并，不按容量另建型号；不推算缺失的上市日。",
+      "本版该类别核验数量为0，不能据此判定品牌没有此类设备。"
+    ],
+    "gapsIt": [
+      "Modelli documentati negli USA contrassegnati solo US, senza presumere vendita in Italia; vecchi gram e storia desktop incompleti.",
+      "Suffissi SKU regionali, RAM e SSD dello stesso codice base accorpati; nessun modello distinto per capacità e date di lancio mancanti non dedotte.",
+      "Questa versione contiene 0 modelli verificati per questa categoria; ciò non dimostra che il marchio non offra tali dispositivi."
+    ],
+    "gapsEn": [
+      "US-documented models are marked only US without claiming Italy sales; older gram and desktop history remain incomplete.",
+      "Regional SKU, RAM and SSD suffixes for the same base code are grouped; capacity does not create model rows and missing launch dates were not inferred.",
+      "This edition has 0 verified models in this category; this does not establish that the brand has no such devices."
+    ],
+    "sourceIds": [
+      "computer-lg-it-16z90s-g",
+      "computer-lg-it-17z90r-g",
+      "computer-lg-it-17z90ru-g",
+      "computer-lg-it-17z90s-g",
+      "computer-lg-it-17z90tl-g",
+      "computer-lg-us-gram-2026",
+      "computer-lg-us-gram-pro-2024"
+    ]
+  },
+  {
+    "category": "laptop",
+    "brand": "Lenovo",
+    "verifiedCount": 903,
+    "scope": "PSREF官方分类树中的在售及停售笔记本、台式机与ThinkStation；另含西欧历史档案中核验的L420/L520。",
+    "scopeIt": "Notebook, desktop e ThinkStation attuali e ritirati nell’albero ufficiale PSREF; inclusi L420/L520 verificati nell’archivio dell’Europa occidentale.",
+    "scopeEn": "Current and withdrawn laptops, desktops and ThinkStation products in the official PSREF category tree, plus L420/L520 verified in the Western Europe archive.",
+    "gaps": [
+      "全球PSREF条目不等于每款均在意大利／法国销售；古早未进入当前树的档案仍有缺口。",
+      "可拆卸平板、Miix、Legion Go不计入电脑；未逐型号补齐机器类型代码、上市日或处理器平台。"
+    ],
+    "gapsIt": [
+      "Le voci PSREF globali non provano la vendita di ogni modello in Italia/Francia; restano lacune negli archivi più antichi assenti dall’albero attuale.",
+      "Tablet staccabili, Miix e Legion Go esclusi dai computer; codici machine type, date di lancio e piattaforme CPU non completati per ogni modello."
+    ],
+    "gapsEn": [
+      "Global PSREF entries do not prove each model was sold in Italy/France; older archives absent from the current tree remain incomplete.",
+      "Detachable tablets, Miix and Legion Go are excluded from computers; machine-type codes, launch dates and CPU platforms are not complete for every model."
+    ],
+    "sourceIds": [
+      "computer-lenovo-psref-products",
+      "computer-lenovo-we-withdrawn-2012"
+    ]
+  },
+  {
+    "category": "desktop",
+    "brand": "Lenovo",
+    "verifiedCount": 269,
+    "scope": "PSREF官方分类树中的在售及停售笔记本、台式机与ThinkStation；另含西欧历史档案中核验的L420/L520。",
+    "scopeIt": "Notebook, desktop e ThinkStation attuali e ritirati nell’albero ufficiale PSREF; inclusi L420/L520 verificati nell’archivio dell’Europa occidentale.",
+    "scopeEn": "Current and withdrawn laptops, desktops and ThinkStation products in the official PSREF category tree, plus L420/L520 verified in the Western Europe archive.",
+    "gaps": [
+      "全球PSREF条目不等于每款均在意大利／法国销售；古早未进入当前树的档案仍有缺口。",
+      "可拆卸平板、Miix、Legion Go不计入电脑；未逐型号补齐机器类型代码、上市日或处理器平台。"
+    ],
+    "gapsIt": [
+      "Le voci PSREF globali non provano la vendita di ogni modello in Italia/Francia; restano lacune negli archivi più antichi assenti dall’albero attuale.",
+      "Tablet staccabili, Miix e Legion Go esclusi dai computer; codici machine type, date di lancio e piattaforme CPU non completati per ogni modello."
+    ],
+    "gapsEn": [
+      "Global PSREF entries do not prove each model was sold in Italy/France; older archives absent from the current tree remain incomplete.",
+      "Detachable tablets, Miix and Legion Go are excluded from computers; machine-type codes, launch dates and CPU platforms are not complete for every model."
+    ],
+    "sourceIds": [
+      "computer-lenovo-psref-products"
+    ]
+  },
+  {
+    "category": "laptop",
+    "brand": "MSI",
+    "verifiedCount": 6,
+    "scope": "官方COMPUTEX 2026文章正文中的六款具名游戏笔记本。",
+    "scopeIt": "Sei notebook gaming identificati nel testo dell’articolo ufficiale COMPUTEX 2026.",
+    "scopeEn": "Six named gaming laptops in the official COMPUTEX 2026 article body.",
+    "gaps": [
+      "旧版Titan、Raider、Stealth、Prestige、Modern、Creator历史及桌面电脑未系统收录。",
+      "仅有正文或官方产品链接证明的名称／代码；不按营销系列标题扩造型号。"
+    ],
+    "gapsIt": [
+      "Storia precedente di Titan, Raider, Stealth, Prestige, Modern e Creator e computer desktop non raccolti sistematicamente.",
+      "Nomi/codici sostenuti dal testo o dai collegamenti ufficiali ai prodotti; nessun modello generato dai titoli di marketing delle famiglie."
+    ],
+    "gapsEn": [
+      "Earlier Titan, Raider, Stealth, Prestige, Modern and Creator history and desktop computers were not systematically collected.",
+      "Names/codes are supported by the body or official product links; no models were generated from marketing family headings."
+    ],
+    "sourceIds": [
+      "computer-msi-computex2026"
+    ]
+  },
+  {
+    "category": "desktop",
+    "brand": "MSI",
+    "verifiedCount": 0,
+    "scope": "官方COMPUTEX 2026文章正文中的六款具名游戏笔记本。",
+    "scopeIt": "Sei notebook gaming identificati nel testo dell’articolo ufficiale COMPUTEX 2026.",
+    "scopeEn": "Six named gaming laptops in the official COMPUTEX 2026 article body.",
+    "gaps": [
+      "旧版Titan、Raider、Stealth、Prestige、Modern、Creator历史及桌面电脑未系统收录。",
+      "仅有正文或官方产品链接证明的名称／代码；不按营销系列标题扩造型号。",
+      "本版该类别核验数量为0，不能据此判定品牌没有此类设备。"
+    ],
+    "gapsIt": [
+      "Storia precedente di Titan, Raider, Stealth, Prestige, Modern e Creator e computer desktop non raccolti sistematicamente.",
+      "Nomi/codici sostenuti dal testo o dai collegamenti ufficiali ai prodotti; nessun modello generato dai titoli di marketing delle famiglie.",
+      "Questa versione contiene 0 modelli verificati per questa categoria; ciò non dimostra che il marchio non offra tali dispositivi."
+    ],
+    "gapsEn": [
+      "Earlier Titan, Raider, Stealth, Prestige, Modern and Creator history and desktop computers were not systematically collected.",
+      "Names/codes are supported by the body or official product links; no models were generated from marketing family headings.",
+      "This edition has 0 verified models in this category; this does not establish that the brand has no such devices."
+    ],
+    "sourceIds": [
+      "computer-msi-computex2026"
+    ]
+  },
+  {
+    "category": "laptop",
+    "brand": "Microsoft",
+    "verifiedCount": 23,
+    "scope": "官方Surface生命周期表中截至核验日已上市的Surface Laptop、Book、Studio及Windows Dev Kit，保留官方上市日期。",
+    "scopeIt": "Surface Laptop, Book, Studio e Windows Dev Kit già lanciati alla data di verifica nella tabella ufficiale del ciclo di vita, conservando le date ufficiali di lancio.",
+    "scopeEn": "Surface Laptop, Book, Studio and Windows Dev Kit released by the check date in the official lifecycle table, preserving official release dates.",
+    "gaps": [
+      "Surface Pro／Go平板不计入电脑；尚未上市的两条10月预告机型不纳入本版。",
+      "历史尺寸、Intel／AMD或其他平台修订未逐款穷尽；该表不等于欧洲逐型号销售证据。"
+    ],
+    "gapsIt": [
+      "Tablet Surface Pro/Go esclusi dai computer; due modelli annunciati per ottobre ma non ancora lanciati esclusi da questa versione.",
+      "Dimensioni e revisioni storiche Intel/AMD o altre piattaforme non esaustive; la tabella non prova la vendita europea di ogni modello."
+    ],
+    "gapsEn": [
+      "Surface Pro/Go tablets are excluded from computers; two announced October models not yet released are excluded from this edition.",
+      "Historical sizes, Intel/AMD and other platform revisions are not exhaustive; the table does not prove European sales for each model."
+    ],
+    "sourceIds": [
+      "computer-microsoft-surface-lifecycle"
+    ]
+  },
+  {
+    "category": "desktop",
+    "brand": "Microsoft",
+    "verifiedCount": 4,
+    "scope": "官方Surface生命周期表中截至核验日已上市的Surface Laptop、Book、Studio及Windows Dev Kit，保留官方上市日期。",
+    "scopeIt": "Surface Laptop, Book, Studio e Windows Dev Kit già lanciati alla data di verifica nella tabella ufficiale del ciclo di vita, conservando le date ufficiali di lancio.",
+    "scopeEn": "Surface Laptop, Book, Studio and Windows Dev Kit released by the check date in the official lifecycle table, preserving official release dates.",
+    "gaps": [
+      "Surface Pro／Go平板不计入电脑；尚未上市的两条10月预告机型不纳入本版。",
+      "历史尺寸、Intel／AMD或其他平台修订未逐款穷尽；该表不等于欧洲逐型号销售证据。"
+    ],
+    "gapsIt": [
+      "Tablet Surface Pro/Go esclusi dai computer; due modelli annunciati per ottobre ma non ancora lanciati esclusi da questa versione.",
+      "Dimensioni e revisioni storiche Intel/AMD o altre piattaforme non esaustive; la tabella non prova la vendita europea di ogni modello."
+    ],
+    "gapsEn": [
+      "Surface Pro/Go tablets are excluded from computers; two announced October models not yet released are excluded from this edition.",
+      "Historical sizes, Intel/AMD and other platform revisions are not exhaustive; the table does not prove European sales for each model."
+    ],
+    "sourceIds": [
+      "computer-microsoft-surface-lifecycle"
+    ]
+  },
+  {
+    "category": "laptop",
+    "brand": "Samsung",
+    "verifiedCount": 7,
+    "scope": "意大利官方Galaxy Book6购买页主目录与导航中具名的七款Galaxy Book机型。",
+    "scopeIt": "Sette modelli Galaxy Book identificati nel catalogo principale e nella navigazione della pagina ufficiale italiana di acquisto Galaxy Book6.",
+    "scopeEn": "Seven Galaxy Book models named in the main catalogue and navigation on the official Italy Galaxy Book6 buying page.",
+    "gaps": [
+      "Galaxy Book历代、Notebook／ATIV／NP旧型号、台式机、尺寸与处理器修订未完整覆盖。",
+      "不以用户评论作型号事实证据；未推算年份或NP机型码。"
+    ],
+    "gapsIt": [
+      "Generazioni Galaxy Book, vecchi Notebook/ATIV/NP, desktop, dimensioni e revisioni CPU non complete.",
+      "Recensioni degli utenti non utilizzate come prova dei modelli; anni e codici NP non dedotti."
+    ],
+    "gapsEn": [
+      "Galaxy Book generations, older Notebook/ATIV/NP models, desktops, sizes and CPU revisions are incomplete.",
+      "Customer reviews are not model evidence; years and NP model codes were not inferred."
+    ],
+    "sourceIds": [
+      "computer-samsung-it-book6"
+    ]
+  },
+  {
+    "category": "desktop",
+    "brand": "Samsung",
+    "verifiedCount": 0,
+    "scope": "意大利官方Galaxy Book6购买页主目录与导航中具名的七款Galaxy Book机型。",
+    "scopeIt": "Sette modelli Galaxy Book identificati nel catalogo principale e nella navigazione della pagina ufficiale italiana di acquisto Galaxy Book6.",
+    "scopeEn": "Seven Galaxy Book models named in the main catalogue and navigation on the official Italy Galaxy Book6 buying page.",
+    "gaps": [
+      "Galaxy Book历代、Notebook／ATIV／NP旧型号、台式机、尺寸与处理器修订未完整覆盖。",
+      "不以用户评论作型号事实证据；未推算年份或NP机型码。",
+      "本版该类别核验数量为0，不能据此判定品牌没有此类设备。"
+    ],
+    "gapsIt": [
+      "Generazioni Galaxy Book, vecchi Notebook/ATIV/NP, desktop, dimensioni e revisioni CPU non complete.",
+      "Recensioni degli utenti non utilizzate come prova dei modelli; anni e codici NP non dedotti.",
+      "Questa versione contiene 0 modelli verificati per questa categoria; ciò non dimostra che il marchio non offra tali dispositivi."
+    ],
+    "gapsEn": [
+      "Galaxy Book generations, older Notebook/ATIV/NP models, desktops, sizes and CPU revisions are incomplete.",
+      "Customer reviews are not model evidence; years and NP model codes were not inferred.",
+      "This edition has 0 verified models in this category; this does not establish that the brand has no such devices."
+    ],
+    "sourceIds": [
+      "computer-samsung-it-book6"
+    ]
+  }
+]

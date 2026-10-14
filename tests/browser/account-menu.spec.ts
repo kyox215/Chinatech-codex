@@ -26,10 +26,40 @@ test("named account disclosure shows own facts and settings/device links", async
   await page.keyboard.press("Enter"); await expect(panel).toBeVisible();
   await page.getByText("电脑与手机皆可用", { exact: true }).click(); await expect(panel).not.toBeVisible();
   for (const path of ["/toolbox", "/toolbox/office", "/toolbox/windows", "/toolbox/transfer"]) {
-    await page.goto(path); await expect(menu(page).locator("summary")).toHaveText(/Synthetic owner/);
-    const toolbox = page.locator("header").getByRole("link", { name: "工具箱", exact: true });
+    await page.goto(path);
+    const compact = path === "/toolbox/office", summary = menu(page).locator("summary");
+    await expect(summary).toHaveText(/Synthetic owner/);
+    await expect(summary).toHaveAccessibleName("账号菜单 Synthetic owner");
+    await expect(menu(page)).toHaveAttribute("data-compact", String(compact));
+    const header = page.locator("header"), toolbox = header.getByRole("link", { name: "工具箱", exact: true });
     await expect(toolbox).toHaveText("工具箱"); await expect(toolbox).toHaveAttribute("href", "/toolbox");
+    await expect(toolbox).toHaveAccessibleName("工具箱");
+    if (compact && (page.viewportSize()?.width ?? 1440) < 768) await expect(toolbox.locator("span")).toBeHidden();
+    else await expect(toolbox.locator("span")).toBeVisible();
+    for (const target of [summary, toolbox]) {
+      const box = await target.boundingBox(); expect(box).not.toBeNull();
+      expect(box!.width).toBeGreaterThanOrEqual(44); expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
+    const externalWorkspace = header.locator('nav > a[href="/app/dashboard"]');
+    if (compact) {
+      await expect(externalWorkspace).toHaveCount(0);
+      await expect(menu(page).getByRole("link", { name: "工作台", exact: true, includeHidden: true })).toHaveAttribute("href", "/app/dashboard");
+      await expect(menu(page).getByRole("link", { name: "工作台", exact: true, includeHidden: true })).toBeHidden();
+    } else await expect(externalWorkspace).toBeVisible();
     await expect(page.getByRole("button", { name: "退出登录", exact: true })).toHaveCount(0);
+    await summary.click();
+    const routePanel = page.getByRole("region", { name: "账号详情" });
+    await expect(routePanel).toBeVisible();
+    await expect(routePanel.getByText(fixture.account.email, { exact: true })).toBeVisible();
+    await expect(routePanel.getByText(fixture.store.name, { exact: true })).toBeVisible();
+    await expect(routePanel.getByRole("link", { name: "账号设置", exact: true })).toHaveAttribute("href", "/account/settings");
+    await expect(routePanel.getByRole("link", { name: "登录设备", exact: true })).toHaveAttribute("href", "/account/settings#login-devices");
+    await expect(routePanel.getByRole("button", { name: "退出登录", exact: true })).toBeVisible();
+    const workspace = compact ? routePanel.getByRole("link", { name: "工作台", exact: true }) : externalWorkspace;
+    await expect(workspace).toHaveAttribute("href", "/app/dashboard"); await expect(workspace).toBeVisible();
+    const workspaceBox = await workspace.boundingBox(); expect(workspaceBox).not.toBeNull();
+    expect(workspaceBox!.width).toBeGreaterThanOrEqual(44); expect(workspaceBox!.height).toBeGreaterThanOrEqual(44);
+    await page.keyboard.press("Escape"); await expect(routePanel).not.toBeVisible(); await expect(summary).toBeFocused();
   }
   await page.locator("header").getByRole("link", { name: "工具箱", exact: true }).click(); await page.waitForURL("**/toolbox");
   await expect(page.locator("header").getByRole("link", { name: "工具箱", exact: true })).toHaveAttribute("aria-current", "page");

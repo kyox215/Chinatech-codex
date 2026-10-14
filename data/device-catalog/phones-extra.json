@@ -1,0 +1,922 @@
+[
+  {
+    "id": "phone-wiko-power-u30-64go-586cb36",
+    "category": "phone",
+    "brand": "Wiko",
+    "family": "POWER U",
+    "name": "POWER U30 64GO",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "4G",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "FR"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-wiko-history"
+    ]
+  },
+  {
+    "id": "phone-wiko-power-u20-64go-d1f9dc9",
+    "category": "phone",
+    "brand": "Wiko",
+    "family": "POWER U",
+    "name": "POWER U20 64Go",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "4G",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "FR"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-wiko-history"
+    ]
+  },
+  {
+    "id": "phone-wiko-power-u10-a59cc80",
+    "category": "phone",
+    "brand": "Wiko",
+    "family": "POWER U",
+    "name": "POWER U10",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "FR"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-wiko-history"
+    ]
+  },
+  {
+    "id": "phone-wiko-y82-c85ef96",
+    "category": "phone",
+    "brand": "Wiko",
+    "family": "Y",
+    "name": "Y82",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "FR"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-wiko-history"
+    ]
+  },
+  {
+    "id": "phone-wiko-y62-2412546",
+    "category": "phone",
+    "brand": "Wiko",
+    "family": "Y",
+    "name": "Y62",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "FR"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-wiko-history"
+    ]
+  },
+  {
+    "id": "phone-wiko-y62-plus-05474ce",
+    "category": "phone",
+    "brand": "Wiko",
+    "family": "Y",
+    "name": "Y62 PLUS",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "FR"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-wiko-history"
+    ]
+  },
+  {
+    "id": "phone-wiko-y51-fd2f566",
+    "category": "phone",
+    "brand": "Wiko",
+    "family": "Y",
+    "name": "Y51",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "FR"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-wiko-history"
+    ]
+  },
+  {
+    "id": "phone-wiko-y52-69db49b",
+    "category": "phone",
+    "brand": "Wiko",
+    "family": "Y",
+    "name": "Y52",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "FR"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-wiko-history"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-215-4g-2nd-edition-82a7e7a",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "215",
+    "name": "HMD 215 4G 2nd Edition",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "4G",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-235-4g-2nd-edition-5f0af64",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "235",
+    "name": "HMD 235 4G 2nd Edition",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "4G",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-105-4g-school-edition-83e9fc6",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "105",
+    "name": "HMD 105 4G School Edition",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "4G",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-2660-flip-4g-7e28656",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "2660",
+    "name": "HMD 2660 Flip 4G",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "4G",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-110-4g-3d83313",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "110",
+    "name": "HMD 110 4G",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "4G",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-105-4g-992b051",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "105",
+    "name": "HMD 105 4G",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "4G",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-barbie-phone-4g-1faee9f",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "Barbie™",
+    "name": "HMD Barbie™ Phone 4G",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "4G",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-fuse-cd88f3a",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "Fuse",
+    "name": "HMD Fuse",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-fusion-x1-c5f7533",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "Fusion",
+    "name": "HMD Fusion X1",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-key-4d09692",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "Key",
+    "name": "HMD Key",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-fusion-ad4329c",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "Fusion",
+    "name": "HMD Fusion",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-skyline-57b14da",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "Skyline",
+    "name": "HMD Skyline",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-xr21-85501dc",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "XR21",
+    "name": "HMD XR21",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-pulse-4065024",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "Pulse+",
+    "name": "HMD Pulse+",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-pulse-539a86e",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "Pulse",
+    "name": "HMD Pulse",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-hmd-hmd-pulse-pro-11368ff",
+    "category": "phone",
+    "brand": "HMD",
+    "family": "Pulse",
+    "name": "HMD Pulse Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "UK"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-hmd"
+    ]
+  },
+  {
+    "id": "phone-fairphone-the-fairphone-gen-6-af7e143",
+    "category": "phone",
+    "brand": "Fairphone",
+    "family": "Fairphone",
+    "name": "The Fairphone (Gen. 6+)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-fairphone"
+    ]
+  },
+  {
+    "id": "phone-fairphone-the-fairphone-gen-6-ea1c42f",
+    "category": "phone",
+    "brand": "Fairphone",
+    "family": "Fairphone",
+    "name": "The Fairphone (Gen. 6)",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-fairphone"
+    ]
+  },
+  {
+    "id": "phone-wiko-t60-b8f678d",
+    "category": "phone",
+    "brand": "Wiko",
+    "family": "T Series",
+    "name": "T60",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "FR"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-e86a6e7c4d"
+    ]
+  },
+  {
+    "id": "phone-wiko-view5-e56bafa",
+    "category": "phone",
+    "brand": "Wiko",
+    "family": "VIEW Series",
+    "name": "VIEW5",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "FR"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-677f6b9640"
+    ]
+  },
+  {
+    "id": "phone-wiko-view5-plus-c227a4e",
+    "category": "phone",
+    "brand": "Wiko",
+    "family": "VIEW Series",
+    "name": "VIEW5 PLUS",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "FR"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-958caaaa62"
+    ]
+  },
+  {
+    "id": "phone-wiko-sunny3-dc17206",
+    "category": "phone",
+    "brand": "Wiko",
+    "family": "Sunny Series",
+    "name": "Sunny3",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "FR"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-d3e4fdd029"
+    ]
+  },
+  {
+    "id": "phone-wiko-lenny4-plus-e29436a",
+    "category": "phone",
+    "brand": "Wiko",
+    "family": "Lenny Series",
+    "name": "Lenny4 Plus",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "FR"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-d3e4fdd029"
+    ]
+  },
+  {
+    "id": "phone-wiko-wim-5cc588d",
+    "category": "phone",
+    "brand": "Wiko",
+    "family": "WIM",
+    "name": "WIM",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [
+      "FR"
+    ],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-861a0654ed"
+    ]
+  },
+  {
+    "id": "phone-alcatel-alcatel-1b-2022-c188ced",
+    "category": "phone",
+    "brand": "Alcatel",
+    "family": "Alcatel 1 Series",
+    "name": "Alcatel 1B (2022)",
+    "releasedAt": null,
+    "year": 2022,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-457875380a"
+    ]
+  },
+  {
+    "id": "phone-alcatel-alcatel-1l-pro-3b128a5",
+    "category": "phone",
+    "brand": "Alcatel",
+    "family": "Alcatel 1 Series",
+    "name": "Alcatel 1L Pro",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-457875380a"
+    ]
+  },
+  {
+    "id": "phone-alcatel-alcatel-1v-9bd95de",
+    "category": "phone",
+    "brand": "Alcatel",
+    "family": "Alcatel 1 Series",
+    "name": "Alcatel 1V",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-457875380a"
+    ]
+  },
+  {
+    "id": "phone-alcatel-alcatel-1l-2021-77c00c2",
+    "category": "phone",
+    "brand": "Alcatel",
+    "family": "Alcatel 1 Series",
+    "name": "Alcatel 1L (2021)",
+    "releasedAt": null,
+    "year": 2021,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-457875380a"
+    ]
+  },
+  {
+    "id": "phone-alcatel-alcatel-1s-2021-9e16bd6",
+    "category": "phone",
+    "brand": "Alcatel",
+    "family": "Alcatel 1 Series",
+    "name": "Alcatel 1S (2021)",
+    "releasedAt": null,
+    "year": 2021,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-457875380a"
+    ]
+  },
+  {
+    "id": "phone-fairphone-fairphone-3-0b1da48",
+    "category": "phone",
+    "brand": "Fairphone",
+    "family": "Fairphone",
+    "name": "Fairphone 3",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-f55717df87"
+    ]
+  },
+  {
+    "id": "phone-fairphone-fairphone-3-3385053",
+    "category": "phone",
+    "brand": "Fairphone",
+    "family": "Fairphone",
+    "name": "Fairphone 3+",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-f55717df87"
+    ]
+  },
+  {
+    "id": "phone-fairphone-fairphone-4-6a376b3",
+    "category": "phone",
+    "brand": "Fairphone",
+    "family": "Fairphone",
+    "name": "Fairphone 4",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-f55717df87"
+    ]
+  },
+  {
+    "id": "phone-fairphone-fairphone-5-ffe5f0b",
+    "category": "phone",
+    "brand": "Fairphone",
+    "family": "Fairphone",
+    "name": "Fairphone 5",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-f55717df87"
+    ]
+  },
+  {
+    "id": "phone-fairphone-fairphone-1-ee1ea6f",
+    "category": "phone",
+    "brand": "Fairphone",
+    "family": "Fairphone",
+    "name": "Fairphone 1",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-7c0f08b865"
+    ]
+  },
+  {
+    "id": "phone-fairphone-fairphone-2-4267883",
+    "category": "phone",
+    "brand": "Fairphone",
+    "family": "Fairphone",
+    "name": "Fairphone 2",
+    "releasedAt": null,
+    "year": null,
+    "generation": "",
+    "network": "unknown",
+    "platform": "",
+    "modelCodes": [],
+    "aliases": [],
+    "markets": [],
+    "status": "verified",
+    "enabled": true,
+    "sourceIds": [
+      "europe-reviewed-7c0f08b865"
+    ]
+  }
+]

@@ -18,7 +18,8 @@ import { changeRetailDraftCategory, copyRetailModel, emptyRetailUnit, hasBattery
 import { intakeRecordTime } from "@/lib/repair-intake-record";
 import { useRetail } from "./retail-provider";
 import { RetailWarrantyControl } from "./retail-warranty-control";
-import { RetailCatalogControl, RetailDisksControl, RetailRamControl, RetailStorageControl } from "./retail-spec-controls";
+import { RetailCatalogControl, RetailIdentityPicker, RetailDisksControl, RetailRamControl, RetailStorageControl } from "./retail-spec-controls";
+import { CatalogIndexPreload } from '@/components/catalog/device-identity-picker';
 import { RetailDateControl, RetailMoneyControl, RetailNumberControl } from "./retail-input-controls";
 import { RetailGallery } from "./retail-gallery";
 import styles from "./retail-form.module.css";
@@ -86,14 +87,14 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
     <header className="module-heading"><PageTitle title={sourceUnit ? t("同型号新建商品") : t("新建商品")} backHref={saving ? undefined : returnTo} backLabel={t("返回商品列表")} /></header>
     {sourceUnit ? <p className={"inline-notice " + styles.notice}><Copy size={17} /><span>{t("从 ")}{sourceUnit.code}{t(" 复制型号与候选规格；身份、照片、检测、电池、手柄数量、来源与金额均已清空，请逐项核对实物。")}</span></p> : identifier ? <p className={"inline-notice " + styles.notice}>{t("识别文本仅作为待核对字段，不证明机器身份或规格。")}</p> : null}
     <form className={"panel " + styles.form} aria-busy={saving} onSubmit={submit}><fieldset className="form-fields" disabled={saving}>
+      <CatalogIndexPreload category={draft.category}/>
       <DeviceDraftNotice draft={deviceDraft} />
       <div className={styles.classification}><SingleChoice label={t("商品分类 *")} value={classificationSelected ? draft.condition : ""} options={[{ value: "新机", label: "新机", icon: Package }, { value: "翻新机", label: "翻新机", icon: Sparkles }]} onChange={value => { update("condition", value as RetailUnit["condition"]); setClassificationSelected(true); setError(""); }} /></div>
       {classificationSelected ? <div className={styles.body}><div className={styles.layout}>
         <div className={styles.column}>
           <Section id="identity" title={t("商品身份")}>
             <label className="field"><span>{t("商品类型")}</span><SelectControl aria-label={t("商品类型")} value={draft.category} onChange={event => { if (draft.category !== event.target.value) setChecks(emptyChecks); setDraft(previous => changeRetailDraftCategory(previous, event.target.value as RetailCategory)); }}>{Object.entries(retailCategories).map(([value, label]) => <option value={value} key={value}>{t(label)}</option>)}</SelectControl></label>
-            <RetailCatalogControl field="brand" category={draft.category} units={units} label={t("品牌")} value={draft.brand} onChange={value => { if (value !== draft.brand) { setChecks(emptyChecks); setDraft(previous => ({ ...previous, brand: value, model: "" })); } }} />
-            <div className={styles.wide}><RetailCatalogControl field="model" category={draft.category} brand={draft.brand} units={units} label={t("型号 / 商品名称")} required value={draft.model} onChange={value => update("model", value)} /></div>
+            <RetailIdentityPicker modelClassName={styles.wide} category={draft.category} units={units} brand={draft.brand} model={draft.model} disabled={saving} validationError={Boolean(error)} onCommit={next=>{if(next.brand!==draft.brand||next.model!==draft.model)setChecks(emptyChecks);setDraft(previous=>({...previous,...next}));}}/>
             <IdentifierField label="SN" name="retail-sn" kind="serial" value={draft.serial} onChange={value => update("serial", value)} />
             {["phone", "tablet"].includes(draft.category) ? <IdentifierField label="IMEI 1" name="retail-imei1" kind="imei" value={draft.imei1} onChange={value => update("imei1", value)} /> : null}
             <details className={styles.wide}><summary>{t("更多识别码")}</summary><div className={"field-grid " + styles.extraFields}>{["phone", "tablet"].includes(draft.category) ? <IdentifierField label="IMEI 2" name="retail-imei2" kind="imei" value={draft.imei2} onChange={value => update("imei2", value)} /> : null}<IdentifierField label={t("包装条码")} name="retail-product-code" kind="serial" value={draft.productCode} onChange={value => update("productCode", value)} /></div></details>

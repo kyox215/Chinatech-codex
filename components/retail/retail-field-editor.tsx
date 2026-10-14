@@ -102,7 +102,7 @@ export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { 
   let control: ReactNode = textControl;
   if (field === "serial" || field === "imei1" || field === "imei2" || field === "productCode") control = <IdentifierField label={t(label)} value={String(value)} onChange={setValue} kind={field === "imei1" || field === "imei2" ? "imei" : "serial"} placeholder={field === "imei1" || field === "imei2" ? t("15 位数字；未知请留空") : t("未知请留空")} />;
   else if (field === "color") control = <ColorPicker value={String(value)} onChange={setValue} />;
-  else if (field === "brand" || field === "model" || field === "cpu" || field === "gpu" || field === "keyboard" || field === "edition") control = <RetailCatalogControl field={field} category={original.category} brand={original.brand} units={units} value={String(value)} onChange={setValue} label={t(label)} required={field === "model"} />;
+  else if (field === "brand" || field === "model" || field === "cpu" || field === "gpu" || field === "keyboard" || field === "edition") control = <RetailCatalogControl field={field} category={original.category} brand={original.brand} units={units} value={String(value)} onChange={setValue} label={t(label)} required={field === "model"} validationError={Boolean(error)} />;
   else if (field === "ramGb") control = <RetailRamControl value={value as number | null} onChange={setValue} />;
   else if (field === "batteryPercent" || field === "controllers") control = <RetailNumberControl label={t(label)} value={value as number | null} onChange={setValue} battery={field === "batteryPercent"} unit={field === "batteryPercent" ? "%" : "个"} />;
   else if (field === "intakeDate") control = <RetailDateControl label={t(label)} value={String(value)} onChange={setValue} clearable />;

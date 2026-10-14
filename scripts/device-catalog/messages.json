@@ -1,0 +1,562 @@
+{
+  "请先登录后查看设备目录。": [
+    "Accedi prima di consultare il catalogo dispositivi.",
+    "Sign in before viewing the device catalog."
+  ],
+  "此操作仅在正式后台开放。": [
+    "Questa operazione richiede il backend ufficiale.",
+    "This operation requires the formal backend."
+  ],
+  "你没有设备目录维护权限。": [
+    "Non hai il permesso di modificare il catalogo dispositivi.",
+    "You do not have device catalog management permission."
+  ],
+  "目录查询类型无效。": [
+    "Tipo di ricerca del catalogo non valido.",
+    "Invalid catalog query type."
+  ],
+  "请求包含未知字段。": [
+    "La richiesta contiene campi sconosciuti.",
+    "The request contains unknown fields."
+  ],
+  "导入摘要无效。": [
+    "Riepilogo di importazione non valido.",
+    "Invalid import digest."
+  ],
+  "目录操作无效。": [
+    "Operazione del catalogo non valida.",
+    "Invalid catalog operation."
+  ],
+  "门店原文 · 实物仍须核对": [
+    "Testo originale del negozio · verificare il dispositivo",
+    "Original store text · verify the physical device"
+  ],
+  "型号系列筛选": [
+    "Filtro per serie di modelli",
+    "Model series filter"
+  ],
+  "全部系列": [
+    "Tutte le serie",
+    "All series"
+  ],
+  "仍可手动填写。": [
+    "Puoi comunque inserire il testo manualmente.",
+    "You can still enter text manually."
+  ],
+  "重新查询目录": [
+    "Ripeti la ricerca nel catalogo",
+    "Retry catalog search"
+  ],
+  "第 {v0} / {v1} 页 · {v2} 个型号": [
+    "Pagina {v0} / {v1} · {v2} modelli",
+    "Page {v0} / {v1} · {v2} models"
+  ],
+  "台式机": [
+    "Computer desktop",
+    "Desktop computer"
+  ],
+  "游戏机 / 掌机": [
+    "Console / portatili da gioco",
+    "Consoles / gaming handhelds"
+  ],
+  "目录已变化，请刷新后重新核对。": [
+    "Il catalogo è cambiato. Aggiorna e ricontrolla.",
+    "The catalog changed. Refresh and review it again."
+  ],
+  "设备目录暂不可用，请稍后重试。": [
+    "Catalogo dispositivi temporaneamente non disponibile. Riprova più tardi.",
+    "The device catalog is temporarily unavailable. Try again later."
+  ],
+  "目录预览失败，请保留输入后重试。": [
+    "Anteprima del catalogo non riuscita. Mantieni i dati e riprova.",
+    "Catalog preview failed. Keep your input and retry."
+  ],
+  "请上传不超过4MB的xlsx型号主表。": [
+    "Carica la tabella modelli xlsx non superiore a 4MB.",
+    "Upload an xlsx model table no larger than 4MB."
+  ],
+  "已应用 {v0} 个目录变更。": [
+    "Applicate {v0} modifiche al catalogo.",
+    "Applied {v0} catalog changes."
+  ],
+  "目录保存结果待核对，请用原请求重试。": [
+    "Il risultato del salvataggio è da verificare. Riprova con la richiesta originale.",
+    "The catalog save result needs verification. Retry the original request."
+  ],
+  "设备目录": [
+    "Catalogo dispositivi",
+    "Device catalog"
+  ],
+  "新增型号": [
+    "Aggiungi modello",
+    "Add model"
+  ],
+  "全部类别": [
+    "Tutte le categorie",
+    "All categories"
+  ],
+  "搜索型号或机型码": [
+    "Cerca modello o codice",
+    "Search model or model code"
+  ],
+  "清空型号搜索": [
+    "Cancella ricerca modello",
+    "Clear model search"
+  ],
+  "导出Excel": [
+    "Esporta Excel",
+    "Export Excel"
+  ],
+  "导出CSV": [
+    "Esporta CSV",
+    "Export CSV"
+  ],
+  "导入Excel": [
+    "Importa Excel",
+    "Import Excel"
+  ],
+  "选择型号主表": [
+    "Seleziona la tabella modelli",
+    "Select model table"
+  ],
+  "变更历史": [
+    "Cronologia modifiche",
+    "Change history"
+  ],
+  "来源与覆盖": [
+    "Fonti e copertura",
+    "Sources and coverage"
+  ],
+  "当前账号可查看目录，维护仅限指定目录管理员。": [
+    "Questo account può consultare il catalogo. Solo l'amministratore designato può modificarlo.",
+    "This account can view the catalog. Only the designated catalog administrator can maintain it."
+  ],
+  "正在查询设备目录…": [
+    "Ricerca nel catalogo dispositivi…",
+    "Searching the device catalog…"
+  ],
+  "品牌型号目录表格": [
+    "Tabella del catalogo marche e modelli",
+    "Brand and model catalog table"
+  ],
+  "品牌 / 系列": [
+    "Marca / serie",
+    "Brand / series"
+  ],
+  "完整型号": [
+    "Modello completo",
+    "Full model name"
+  ],
+  "网络 / 年份": [
+    "Rete / anno",
+    "Network / year"
+  ],
+  "机型码": [
+    "Codice modello",
+    "Model code"
+  ],
+  "已核验": [
+    "Verificato",
+    "Verified"
+  ],
+  "没有匹配的目录型号": [
+    "Nessun modello corrispondente nel catalogo",
+    "No matching catalog models"
+  ],
+  "设备目录分页": [
+    "Paginazione del catalogo dispositivi",
+    "Device catalog pagination"
+  ],
+  "编辑目录型号": [
+    "Modifica modello del catalogo",
+    "Edit catalog model"
+  ],
+  "目录品牌": [
+    "Marca del catalogo",
+    "Catalog brand"
+  ],
+  "系列": [
+    "Serie",
+    "Series"
+  ],
+  "目录系列": [
+    "Serie del catalogo",
+    "Catalog series"
+  ],
+  "目录完整型号": [
+    "Modello completo del catalogo",
+    "Catalog full model name"
+  ],
+  "网络": [
+    "Rete",
+    "Network"
+  ],
+  "候选启用": [
+    "Abilitazione del suggerimento",
+    "Suggestion enabled"
+  ],
+  "发布日期": [
+    "Data di uscita",
+    "Release date"
+  ],
+  "目录发布日期": [
+    "Data di uscita nel catalogo",
+    "Catalog release date"
+  ],
+  "年份": [
+    "Anno",
+    "Year"
+  ],
+  "目录年份": [
+    "Anno nel catalogo",
+    "Catalog year"
+  ],
+  "代际": [
+    "Generazione",
+    "Generation"
+  ],
+  "目录代际": [
+    "Generazione nel catalogo",
+    "Catalog generation"
+  ],
+  "硬件版本": [
+    "Versione hardware",
+    "Hardware variant"
+  ],
+  "目录硬件版本": [
+    "Versione hardware nel catalogo",
+    "Catalog hardware variant"
+  ],
+  "搜索别名": [
+    "Alias di ricerca",
+    "Search aliases"
+  ],
+  "销售地区": [
+    "Mercati di vendita",
+    "Sales markets"
+  ],
+  "来源链接": [
+    "Link alle fonti",
+    "Source links"
+  ],
+  "目录机型码": [
+    "Codici modello del catalogo",
+    "Catalog model codes"
+  ],
+  "目录搜索别名": [
+    "Alias di ricerca del catalogo",
+    "Catalog search aliases"
+  ],
+  "目录销售地区": [
+    "Mercati di vendita del catalogo",
+    "Catalog sales markets"
+  ],
+  "目录来源链接": [
+    "Link alle fonti del catalogo",
+    "Catalog source links"
+  ],
+  "每项换行，未知可留空。": [
+    "Una voce per riga; lascia vuoto se sconosciuto.",
+    "One item per line; leave unknown values blank."
+  ],
+  "核验状态": [
+    "Stato di verifica",
+    "Verification status"
+  ],
+  "核验日期": [
+    "Data di verifica",
+    "Verification date"
+  ],
+  "目录核验日期": [
+    "Data di verifica del catalogo",
+    "Catalog verification date"
+  ],
+  "目录备注": [
+    "Note del catalogo",
+    "Catalog notes"
+  ],
+  "预览目录变更": [
+    "Anteprima modifiche al catalogo",
+    "Preview catalog changes"
+  ],
+  "目录变更预览": [
+    "Anteprima modifiche al catalogo",
+    "Catalog change preview"
+  ],
+  "共 {v0} 行变更，{v1} 个错误；确认前不写入目录。": [
+    "{v0} righe modificate, {v1} errori; nessuna scrittura prima della conferma.",
+    "{v0} changed rows, {v1} errors; nothing is written before confirmation."
+  ],
+  "第 {v0} 行：{v1}": [
+    "Riga {v0}: {v1}",
+    "Row {v0}: {v1}"
+  ],
+  "修改": [
+    "Modifica",
+    "Update"
+  ],
+  "无变化": [
+    "Nessuna modifica",
+    "Unchanged"
+  ],
+  "仅展示前100项；确认会应用完整的已核对变更。": [
+    "Sono mostrate solo le prime 100 voci; la conferma applica tutte le modifiche verificate.",
+    "Only the first 100 items are shown; confirmation applies all reviewed changes."
+  ],
+  "确认应用目录变更": [
+    "Conferma modifiche al catalogo",
+    "Confirm catalog changes"
+  ],
+  "版本 {v0} · {v1} 个变更": [
+    "Versione {v0} · {v1} modifiche",
+    "Version {v0} · {v1} changes"
+  ],
+  "预览撤销此版本": [
+    "Anteprima annullamento versione",
+    "Preview undoing this version"
+  ],
+  "已核验 {v0} 个型号": [
+    "{v0} modelli verificati",
+    "{v0} verified models"
+  ],
+  "目录ID": [
+    "ID catalogo",
+    "Catalog ID"
+  ],
+  "行版本": [
+    "Versione della riga",
+    "Row version"
+  ],
+  "型号主表": [
+    "Modelli",
+    "Models"
+  ],
+  "维护说明": [
+    "Istruzioni",
+    "Instructions"
+  ],
+  "目录版本": [
+    "Versione del catalogo",
+    "Catalog revision"
+  ],
+  "维护入口": [
+    "Area da modificare",
+    "Editable area"
+  ],
+  "只修改型号主表；目录ID和行版本保留，新行ID留空、行版本填0。": [
+    "Modifica solo la tabella modelli; conserva ID e versione. Per nuove righe lascia ID vuoto e imposta versione a 0.",
+    "Edit only the model table; preserve IDs and row versions. For new rows, leave ID blank and set version to 0."
+  ],
+  "1=启用；0=停用。漏掉某行不会删除该型号。": [
+    "1=abilitato; 0=disabilitato. Omettere una riga non elimina il modello.",
+    "1=enabled; 0=disabled. Omitting a row does not delete the model."
+  ],
+  "verified=已核验，需要来源和核验日期；review=待核对。": [
+    "verified=verificato, richiede fonte e data di verifica; review=da verificare.",
+    "verified=verified, requires sources and a verification date; review=needs review."
+  ],
+  "数组字段": [
+    "Campi con più valori",
+    "Multi-value fields"
+  ],
+  "机型码、别名、地区和来源每项换行；不要把多个硬件不同型号放入同一行。": [
+    "Un codice, alias, mercato o fonte per riga; non unire modelli con hardware diverso.",
+    "Put each code, alias, market or source on a new line; do not combine hardware-distinct models."
+  ],
+  "日期与代码": [
+    "Date e codici",
+    "Dates and codes"
+  ],
+  "日期YYYY-MM-DD，未知留空；所有单元格按文本保存，避免丢失代码前导零。": [
+    "Date YYYY-MM-DD; vuoto se sconosciute. Salva le celle come testo per conservare gli zeri iniziali dei codici.",
+    "Use YYYY-MM-DD dates; leave unknown dates blank. Save cells as text to preserve leading zeros in codes."
+  ],
+  "保存边界": [
+    "Limiti del salvataggio",
+    "Save boundaries"
+  ],
+  "导入后先预览，确认才整批保存；目录维护不改写旧商品、工单、销售或打印快照。": [
+    "Visualizza l'anteprima prima di confermare il salvataggio in blocco; il catalogo non riscrive vecchi prodotti, riparazioni, vendite o copie stampate.",
+    "Preview before confirming the batch save; catalog maintenance does not rewrite old products, repairs, sales or print snapshots."
+  ],
+  "Excel文件超过允许大小或格式无效。": [
+    "File Excel troppo grande o formato non valido.",
+    "Excel file exceeds the size limit or has an invalid format."
+  ],
+  "Excel压缩文件格式无效。": [
+    "Archivio Excel non valido.",
+    "Invalid Excel ZIP format."
+  ],
+  "Excel文件内容超过允许范围。": [
+    "Il contenuto Excel supera i limiti consentiti.",
+    "Excel file contents exceed the allowed limits."
+  ],
+  "不支持加密或超大Excel文件。": [
+    "File Excel cifrati o troppo grandi non supportati.",
+    "Encrypted or oversized Excel files are not supported."
+  ],
+  "Excel XML内容无效。": [
+    "Contenuto XML di Excel non valido.",
+    "Invalid Excel XML content."
+  ],
+  "Excel缺少型号主表。": [
+    "Manca la tabella modelli nel file Excel.",
+    "Excel is missing the model table."
+  ],
+  "请使用导出的型号主表模板。": [
+    "Usa il modello esportato della tabella modelli.",
+    "Use the exported model table template."
+  ],
+  "Excel型号主表位置无效。": [
+    "Posizione della tabella modelli Excel non valida.",
+    "Invalid Excel model worksheet location."
+  ],
+  "一次导入须为1至10000行。": [
+    "Ogni importazione deve contenere da 1 a 10000 righe.",
+    "Each import must contain 1 to 10000 rows."
+  ],
+  "型号主表只接受数据，不接受公式。": [
+    "La tabella modelli accetta solo dati, non formule.",
+    "The model table accepts data only, not formulas."
+  ],
+  "Excel单元格位置无效。": [
+    "Posizione di cella Excel non valida.",
+    "Invalid Excel cell position."
+  ],
+  "Excel主表列数无效。": [
+    "Numero di colonne della tabella Excel non valido.",
+    "Invalid Excel model table column count."
+  ],
+  "Excel列名缺失或重复，请使用导出的模板。": [
+    "Intestazioni Excel mancanti o duplicate. Usa il modello esportato.",
+    "Excel headers are missing or duplicated. Use the exported template."
+  ],
+  "候选启用须为1或0。": [
+    "L'abilitazione del suggerimento deve essere 1 o 0.",
+    "Suggestion enabled must be 1 or 0."
+  ],
+  "目录行版本无效。": [
+    "Versione della riga del catalogo non valida.",
+    "Invalid catalog row version."
+  ],
+  "目录行格式无效。": [
+    "Formato della riga del catalogo non valido.",
+    "Invalid catalog row format."
+  ],
+  "型号主表为空。": [
+    "La tabella modelli è vuota.",
+    "The model table is empty."
+  ],
+  "请核对目录字段内容及长度。": [
+    "Verifica contenuto e lunghezza dei campi del catalogo.",
+    "Check catalog field contents and lengths."
+  ],
+  "目录列表字段格式无效。": [
+    "Formato non valido per un campo con più valori.",
+    "Invalid catalog list field format."
+  ],
+  "目录别名、代码或地区存在重复。": [
+    "Alias, codici o mercati del catalogo duplicati.",
+    "Catalog aliases, codes or markets contain duplicates."
+  ],
+  "目录日期须为有效日期，未知请留空。": [
+    "La data deve essere valida; lascia vuoto se sconosciuta.",
+    "Catalog dates must be valid; leave unknown dates blank."
+  ],
+  "目录行包含未知字段。": [
+    "La riga del catalogo contiene campi sconosciuti.",
+    "The catalog row contains unknown fields."
+  ],
+  "目录ID格式无效。": [
+    "Formato ID catalogo non valido.",
+    "Invalid catalog ID format."
+  ],
+  "请核对目录类别、网络和状态。": [
+    "Verifica categoria, rete e stato del catalogo.",
+    "Check catalog category, network and status."
+  ],
+  "目录年份与发布日期不一致。": [
+    "Anno e data di uscita del catalogo non corrispondono.",
+    "Catalog year and release date do not match."
+  ],
+  "来源须为有效HTTPS链接。": [
+    "La fonte deve essere un link HTTPS valido.",
+    "Sources must be valid HTTPS links."
+  ],
+  "已核验型号必须填写来源与核验日期。": [
+    "Un modello verificato richiede fonte e data di verifica.",
+    "Verified models require sources and a verification date."
+  ],
+  "新目录行缺少生成的ID。": [
+    "Manca l'ID generato della nuova riga.",
+    "The new catalog row is missing its generated ID."
+  ],
+  "导入文件存在重复ID。": [
+    "Il file di importazione contiene ID duplicati.",
+    "The import file contains duplicate IDs."
+  ],
+  "目录行已变化，请重新导出并核对。": [
+    "La riga è cambiata. Esporta nuovamente e ricontrolla.",
+    "The catalog row changed. Export and review it again."
+  ],
+  "同一型号与版本已存在，请使用原目录ID。": [
+    "Questo modello e questa versione esistono già. Usa l'ID originale.",
+    "This model and variant already exist. Use the original catalog ID."
+  ],
+  "目录门店范围无效。": [
+    "Ambito del negozio per il catalogo non valido.",
+    "Invalid catalog store scope."
+  ],
+  "当前账号没有获授权的门店。": [
+    "Questo account non ha un negozio autorizzato.",
+    "This account has no authorized store."
+  ],
+  "目录查询条件无效。": [
+    "Condizioni di ricerca del catalogo non valide.",
+    "Invalid catalog query parameters."
+  ],
+  "请求内容为空。": [
+    "La richiesta è vuota.",
+    "The request body is empty."
+  ],
+  "导入文件或请求超过允许大小。": [
+    "Il file o la richiesta supera la dimensione consentita.",
+    "The import file or request exceeds the size limit."
+  ],
+  "目录版本无效。": [
+    "Versione del catalogo non valida.",
+    "Invalid catalog revision."
+  ],
+  "目录请求编号无效。": [
+    "ID della richiesta del catalogo non valido.",
+    "Invalid catalog request ID."
+  ],
+  "目录类别无效。": [
+    "Categoria del catalogo non valida.",
+    "Invalid catalog category."
+  ],
+  "导入内容已变化，请重新预览后确认。": [
+    "Il contenuto è cambiato. Ripeti l'anteprima prima di confermare.",
+    "The import contents changed. Preview again before confirming."
+  ],
+  "请求编号已被使用，请重新核对。": [
+    "ID richiesta già utilizzato. Ricontrolla.",
+    "The request ID has already been used. Review it again."
+  ],
+  "超过单次导出上限，请按类别或品牌分别导出。": [
+    "Limite di esportazione superato. Esporta separatamente per categoria o marca.",
+    "The export limit was exceeded. Export by category or brand."
+  ],
+  "目录历史不存在。": [
+    "La versione storica del catalogo non esiste.",
+    "The catalog history revision does not exist."
+  ],
+  "以下为首次资料收集的覆盖范围；后续目录修改以当前表格和版本历史为准。": [
+    "La copertura riguarda la raccolta iniziale; le modifiche successive sono nella tabella e nella cronologia attuali.",
+    "Coverage describes the initial collection; later changes are shown in the current table and version history."
+  ],
+  "不支持ZIP64格式Excel文件。": [
+    "I file Excel ZIP64 non sono supportati.",
+    "ZIP64 Excel files are not supported."
+  ]
+}
