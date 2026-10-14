@@ -1625,7 +1625,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .settings-nav { display: grid; gap: 4px; padding: 8px; }
 .settings-nav button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px; background: transparent; border: 0; border-radius: var(--radius-control); color: var(--text-secondary); text-align: left; cursor: pointer; font: inherit; font-size: 14px; }
 .settings-nav .settings-nav--active { color: var(--primary-600); background: var(--primary-50); font-weight: 700; }
-.settings-content { min-width: 0; padding: 20px; }
+.settings-content { min-width: 0; padding: 20px; overflow-anchor: none; }
 .settings-section-title { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
 .settings-section-title > svg { color: var(--primary-600); }
 .settings-section-title h3 { font-size: 20px; margin: 0; font-weight: 600; }

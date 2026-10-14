@@ -48,7 +48,7 @@ useOperationReceipt 精确匹配本次 requestId；Provider dispatch 可选 UI o
 
 ## 远程失败证据与测试顺序
 
-0f04c385远程完整374项：353通过／21失败。20项为采购编辑保存未释放父锁／本次新增空旧表（后续源码修复已通过原返修及代表闭环）；另1个WebKit财务测试未等待第一次本地保存失败实际收尾便恢复替身并再次点击，首请求busy时第二次被正确拦截。补强测试：明确断言本地保存失败及主按钮重新可操作后才恢复／重试，保留原清空、金额、条数及作废断言；两浏览器8/8通过。原失败日志与远程artifact已保存source/.local/feedback/ci-0f04c38-*。这次只修改测试与文档，已CODE_GO的8623b98产品组件字节不变。
+0f04c385远程完整374项：353通过／21失败。20项为采购编辑保存未释放父锁／本次新增空旧表（后续源码修复已通过原返修及代表闭环）；另1个WebKit财务失败当时按收尾未完成假设补强等待；后续Linux实证排除了该单因归因。补强测试：明确断言本地保存失败及主按钮重新可操作后才恢复／重试，保留原清空、金额、条数及作废断言；两浏览器8/8通过。原失败日志与远程artifact已保存source/.local/feedback/ci-0f04c38-*。这次只修改测试与文档，已CODE_GO的8623b98产品组件字节不变。
 
 财务等待补强首复验6/8，因同区域两个实际alert使新定位器严格模式失败；已按完整本地保存失败文字定位，最终8/8。原首次log/trace保留；不减少失败反馈或放松原数据断言。最终产品源码仍与8623b98 CODE_GO字节一致。
 
@@ -61,8 +61,20 @@ useOperationReceipt 精确匹配本次 requestId；Provider dispatch 可选 UI o
 c1eff04远程376项375通过、1WebKit财务重试未收尾；已保留完整失败log/trace，正在按原断言诊断，不能因其他375通过便晋升。此前“只因未等失败”的归因不充分，已明确修正；此项仍是发布门禁。
 
 
-## Linux 财务重试点击滚动根因
+## Linux 财务重试点击滚动证据
 
 bd855cd 的完整远程 CI38601903053 为375/376浏览器、1 WebKit失败，不能发布。原生诊断确认第二次down命中BUTTON、up/click命中SECTION；仅1次submit，restore引用正确、字段全部valid、busy=false、0次恢复后的Storage调用。实际trace显示重试action开始root scrollTop=467，约6.5ms后的after=504，移动37px；按钮原y513.765625/h44，抬起时已移到476.765625..520.765625，触点y535.76在按钮外。不是第二次存储调用失败；此前仅收尾时序归因已排除。原log/JSON/trace保存在source/.local/feedback/ci-bd855-*。
 
 最小公共修复：html默认scroll-behavior:auto，移除RootLayout的data-scroll-behavior=smooth；常规focus、导航与原生点击不会延续全局平滑滚动。教程播放入口自身明确请求smooth且尊重减少动画偏好，保持原行为。没有pointerdown直接提交、绕过校验、加sleep/force/skip或降低原金额/条数/作废断言。最终仍须精确新源码远程完整CI、新production候选和独立晋升门禁。
+
+
+## b8ddbc9 对照证据修正
+
+完整CI38607292941仍375/376，唯一Linux WebKit财务重试失败，build跳过。新版原生坐标日志：retry checkpoint scrollY467/button513..557；pointerdown capture时已经scrollY505/button475..519，触点535在按钮外，target仍是此前命中的BUTTON；up/click为SECTION、0第二submit/Storage、字段/restore/busy正常。全局auto与移除html smooth标记未解决，因此先前“全局平滑滚动是根因”的定论不成立，保留滚动移出触点这一事实，继续定位原生按下样式/焦点滚动。该失败候选2DJ不得晋升；不重跑无改变的整套CI，不skip/force/减少断言。下一步在Linux有界对照原按下transform/filter、移除两者、单属性后再冻结实际修复并跑完整门禁。
+
+
+## Linux 有界对照与局部修复
+
+临时诊断d414ce7/run38613305555在Linux Node24.21执行六组原4spec×Chrome/WebKit，retries0、原53操作/断言完整：both-current、transform-only、filter-only各7/8失败于原财务重试；neither静态按下填色、settings-anchor-none、root-anchor-none各8/8通过。三失败支持overflow-anchor属性，globalError实际高37.5px/localError57px，root从467到505后触点535移出button475.7656..519.7656；仅1submit/0重试Storage。两anchor-none保留原按下transform/filter仍通过，支持反馈插入、UA滚动锚定与按下样式的耦合；不再把smooth或业务保存当单因。六组日志/JSON/trace见source/.local/feedback/linux-style-ab-d414/；runner原CSS全文恢复true，临时workflow绿色只代表采集完成，不是完整发布CI成功。
+
+实际产品仅.settings-content增加overflow-anchor:none；保持按钮原视觉按下反馈，不全局禁止滚动锚定。常规滚动默认auto/教程显式动画作为既定UI选择保留，但它本身没有解决此问题。删除临时workflow与runner脚本，最终必须以实际新源码跑原完整CI和新production候选。

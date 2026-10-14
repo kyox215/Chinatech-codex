@@ -516,3 +516,6 @@ OfficeDesktopControl沿用account panel/form/button/token，最低版本复用Se
 ### 常规滚动与操作命中（2026-10-14）
 
 根html使用scroll-behavior:auto，RootLayout不声明全局smooth。表单聚焦、错误恢复、列表导航及原生按下/抬起不能被延续滚动移出触点；不得以pointerdown直接提交或跳过原生校验补偿。明确的内容引导可在所属操作使用scrollIntoView({behavior:"smooth"})并尊重prefers-reduced-motion；教程原主动滚动沿用此边界。Linux WebKit财务失败重试的37px/6.5ms滚动证据与修复验收见docs/34。
+
+
+设置面板`.settings-content`使用overflow-anchor:none，避免位于视口上方的保存错误/结果提示插入后，UA滚动锚定在按下事件中改变触点命中。该局部规则包含既有各设置分类；按钮按下样式、校验、焦点和表单提交保持原生行为，不全局禁用列表等区域的滚动锚定。六组Linux原断言对照见docs/34。
