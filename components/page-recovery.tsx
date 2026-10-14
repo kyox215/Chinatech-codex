@@ -3,7 +3,7 @@
 import { NavigationLink as Link } from "@/components/navigation-link";
 import { useSyncExternalStore, useTransition } from "react";
 import { AlertCircle, LoaderCircle, WifiOff } from "lucide-react";
-import { useActivityFeedback } from "./operation-feedback";
+import { ContentProgress, useActivityFeedback } from "./operation-feedback";
 import { PageTitle } from "./page-title";
 import { useLanguage } from "./language-provider";
 import { useRouter } from "next/navigation";
@@ -31,7 +31,7 @@ export function PageRecovery({ retry, internal = false }: { retry: () => void; i
   const { t } = useLanguage();
   const online = useOnline();
   const [pending, startTransition] = useTransition();
-  return <main className={internal ? "module-page" : "page-state"}>
+  return <>{!internal ? <ContentProgress /> : null}<main className={internal ? "module-page" : "page-state"}>
     {internal ? <header className="module-heading"><PageTitle title={t("页面暂时无法载入")} /></header> : null}
     <section className="panel module-empty" aria-busy={pending}>
       {online ? <AlertCircle size={32} aria-hidden="true" /> : <WifiOff size={32} aria-hidden="true" />}
@@ -39,7 +39,7 @@ export function PageRecovery({ retry, internal = false }: { retry: () => void; i
       <p role="alert">{online ? t("请重试加载页面；未确认的提交请先核对结果。") : t("请恢复网络连接后重试；此操作不会重新提交业务。")}</p>
       <div className="page-state__actions"><button type="button" className="button button--primary" disabled={!online || pending} aria-busy={pending} onClick={() => startTransition(retry)}>{pending ? t("正在加载…") : t("重试加载")}</button><Link className="button button--secondary" href="/">{t("返回首页")}</Link></div>
     </section>
-  </main>;
+  </main></>;
 }
 
 export function ReadPending({ label = "正在处理…" }: { label?: string }) {

@@ -5,7 +5,7 @@
 ## 实现
 
 - 根OperationFeedbackProvider按实例token登记真实活动；NavigationLink使用Next真实pending、固定单一svg.spin和原生hash/键盘/新tab语义。ContentProgress在公开header下沿、账号和后台内容上沿显示2px紫色不定进度线，无百分比、遮罩和布局位移。旧任务只能清自己的token，后台轮询不登记；兼容现有可见button/form的aria-busy，后台区域明确排除。
-- 移除5个route loading和3个整机显式骨架Suspense；PageLoading退役，首访/区域读取用真实标题及ReadPending，错误紧凑就地恢复。手机菜单和账号菜单在实际路由提交后关闭。同步交互不制造等待。
+- 移除5个route loading和3个整机显式骨架Suspense；PageLoading退役，首访/区域读取用真实标题及ReadPending，错误紧凑就地恢复。没有AppShell的根级PageRecovery自行提供进度宿主；内部错误继续复用AppShell，避免重试缺线或重复细线。手机菜单和账号菜单在实际路由提交后关闭。同步交互不制造等待。
 - BackendProvider组件树内持有逐请求授权initial，通过各领域hook提供SSR/首次水合，不调用服务端全局configure。正式分支不读fixture/localStorage。客户端activate、显式owner release/adopt、clear后的generation隔离，以及readFor首个render的新权限投影共同保护身份变化；同scope server refresh不清原提交回执。
 - 目录按身份/门店/成员版本/可见性保存旧结果，新条件等待明确标记；首次尚未activate只等待，不误报无权。订阅树内和全局scope变化，权限版更新无需focus即可重新读取。viewer state401/403/409立即撤下旧行/计数；503保留同范围已确认结果。
 - 账号及登录设备普通刷新保留资料、锁住写入；身份通知立即清理，迟到请求受abort/epoch/identity保护。Office账号卡仅补入口反馈及人工读取活动，API、开关、版本、签名、授权及清理规则不变；v3人工任务读取和60秒轮询分开，密钥反馈归实际操作行。
@@ -22,6 +22,7 @@ AGENTS.md已要求后续新增、修改与扩展采用B方案；接口及状态�
 - 本地正式组件壳直接导入发布源码，SSR/水合/换身份/撤权/clear拒绝旧initial和5领域20项通过；目录首访/水合自动读取/成员版本自动重读/viewer503保留和401撤下另10项通过。只用DEMO快照和拦截HTTP，不作为真实Auth/数据库写入证据。
 - 初轮相关104浏览器为102过/2个WebKit失败，原日志保留。目录性能用例冻结后3/3通过；账号过期提示复验暴露focus自动恢复抢走重试入口，已将409锁到显式文档刷新，并新增请求计数反例，两浏览器repeat3共6/6通过。最终新head完整远程CI单独记录，不用旧结果替代。
 - 实际CustomerProfileForm＋BackendProvider＋IndexedDB合成请求另4项双浏览器通过：hold等待、409保留后新提交、503待核对且锁输入、原ID原内容重试成功；只做本地合成POST。初次脚本控件定位与初始化inert时序失败日志保留，最终先等待真实可交互门解除再填入。
+- 根级错误重试另2项真实组件/双浏览器通过：错误标题不替换、按钮等待、唯一2px线及结束清理。
 - 静态三语通过4103键，当前类型与lint零错误（保留原client location.assign建议警告）。正式构建及新head远程CI、候选READY/来源、双域上线、实际账号只读导航需要本轮最终回执。
 
 证据根：`.local/loading-b-release/proof`；源码内Node日志和导航截图在`.local`。本地组件壳与预览不进入发布源码，不接真实业务接口；本轮无schema/迁移/业务数据写入。
