@@ -511,3 +511,8 @@ MimoverDownload为数据传输领域组件，复用PublicHeader/语言provider�
 ### 2026-10-10 Office0.2管理与更新入口
 
 OfficeDesktopControl沿用account panel/form/button/token，最低版本复用SelectControl并提供明确三语aria-label，native选择框入口至少44px，不新增控件／主题。account-settings移除旧密钥生成卡，指定管理员侧栏新增本卡锚点；Office总开关保留。OfficeDesktopDownload沿原下载卡与release metadata改自动联网说明。中意英、Chromium／WebKit及1440／1024／390／375管理42项已通过；原生base-select内部呈现button不是独立操作入口，尺寸验收覆盖外层选择框和实际动作按钮。最终公开卡与正式构建证据见.local/office-admission/source/.local/office-public，不冒称线上下载已发布。
+
+
+### 常规滚动与操作命中（2026-10-14）
+
+根html使用scroll-behavior:auto，RootLayout不声明全局smooth。表单聚焦、错误恢复、列表导航及原生按下/抬起不能被延续滚动移出触点；不得以pointerdown直接提交或跳过原生校验补偿。明确的内容引导可在所属操作使用scrollIntoView({behavior:"smooth"})并尊重prefers-reduced-motion；教程原主动滚动沿用此边界。Linux WebKit财务失败重试的37px/6.5ms滚动证据与修复验收见docs/34。

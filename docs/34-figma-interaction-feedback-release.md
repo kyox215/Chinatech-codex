@@ -59,3 +59,10 @@ useOperationReceipt 精确匹配本次 requestId；Provider dispatch 可选 UI o
 独立STAFF_DELTA_CODE_GO按实际SHA区分：24三语/四宽新建既有(d229)、4更高/同版本身份变化(9c788)、2未知新账号待核对(af159)、2新建/既有姓名projection最终(480333)均过；全部0POST/0外部/0pageerror。预览8/8、TS/3961词条/lint通过。当前staff正式边界proof在settings-proof，尚须新源码完整CI与候选。
 
 c1eff04远程376项375通过、1WebKit财务重试未收尾；已保留完整失败log/trace，正在按原断言诊断，不能因其他375通过便晋升。此前“只因未等失败”的归因不充分，已明确修正；此项仍是发布门禁。
+
+
+## Linux 财务重试点击滚动根因
+
+bd855cd 的完整远程 CI38601903053 为375/376浏览器、1 WebKit失败，不能发布。原生诊断确认第二次down命中BUTTON、up/click命中SECTION；仅1次submit，restore引用正确、字段全部valid、busy=false、0次恢复后的Storage调用。实际trace显示重试action开始root scrollTop=467，约6.5ms后的after=504，移动37px；按钮原y513.765625/h44，抬起时已移到476.765625..520.765625，触点y535.76在按钮外。不是第二次存储调用失败；此前仅收尾时序归因已排除。原log/JSON/trace保存在source/.local/feedback/ci-bd855-*。
+
+最小公共修复：html默认scroll-behavior:auto，移除RootLayout的data-scroll-behavior=smooth；常规focus、导航与原生点击不会延续全局平滑滚动。教程播放入口自身明确请求smooth且尊重减少动画偏好，保持原行为。没有pointerdown直接提交、绕过校验、加sleep/force/skip或降低原金额/条数/作废断言。最终仍须精确新源码远程完整CI、新production候选和独立晋升门禁。
