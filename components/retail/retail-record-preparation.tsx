@@ -1,6 +1,7 @@
 "use client";
+import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 import { useRef, useState } from "react";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { CheckCircle2, FileCheck } from "lucide-react";
 import { InputControl } from "@/components/input-control";
 import { IdentifierField } from "@/components/identifier-field";
@@ -27,7 +28,9 @@ export function RetailRecordPreparation({ record }: { record: RetailHistoryRecor
   const [draft, setDraft] = useState(() => initialRecordPreparation(record));
   const [pending, setPending] = useState<RetailRecordPreparation | null>(null);
   const [revision, setRevision] = useState(store.settings.revision);
-  const [error, setError] = useState(""); const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(""); const receipt = useOperationReceipt();
+  const [submittingBase, setSubmitting] = useState(false);
+  const submitting = submittingBase || receipt.waiting;
   const busy = useRef(false);
   const deviceDraft = useDeviceDraft(`retail-record:${record.id}`, { draft, sourceSnapshot: record.sourceSnapshot, revision }, value => {
     if (value.sourceSnapshot !== record.sourceSnapshot) throw new Error("商品来源已变化，请重新核对。");
@@ -36,21 +39,22 @@ export function RetailRecordPreparation({ record }: { record: RetailHistoryRecor
   const conflict = store.settings.revision !== revision || units.some(unit => unit.id === record.id);
   const change = <K extends keyof RetailRecordPreparation>(key: K, value: RetailRecordPreparation[K]) => { setDraft(previous => ({ ...previous, [key]: value })); setPending(null); setError(""); };
   async function submit(event: React.FormEvent) {
-    event.preventDefault(); if (busy.current) return; setError("");
+    const requestId = crypto.randomUUID();
+    event.preventDefault(); if (busy.current || receipt.isWaiting()) return; setError("");
     try {
       if (conflict) throw new Error("商品来源或门店约定已变化，请重新核对。");
       const audit = { id: crypto.randomUUID(), time: intakeRecordTime(), title: "商品资料已核对", detail: "原商品记录保留，实物资料已确认。" };
       prepareRetailRecord(record, draft, store.settings.retailWarrantyMonths, audit, units);
       if (!pending) { setPending(structuredClone(draft)); return; }
       busy.current = true; setSubmitting(true);
-      const saved = await dispatch({ type: "prepare", id: record.id, sourceSnapshot: record.sourceSnapshot, settingsRevision: revision, draft: pending, event: audit });
-      if (saved) deviceDraft.clear();
+      const saved = await dispatch({ type: "prepare", id: record.id, sourceSnapshot: record.sourceSnapshot, settingsRevision: revision, draft: pending, event: audit }, {requestId});
+      if (saved) void deviceDraft.clear().catch(() => undefined); else receipt.watch(requestId, () => { setPending(null); setError(""); void deviceDraft.clear().catch(() => undefined); }, () => setError(""));
     } catch (reason) { setError(reason instanceof Error ? reason.message : "请核对商品资料。"); }
     finally { busy.current = false; setSubmitting(false); }
   }
   if (!staff.can("retail.edit")) return <p className="procurement-feedback">{t("当前账号无此编辑权限")}</p>;
   return <form className="panel detail-section" aria-label={t("核对商品资料")} onSubmit={submit}><div className={`detail-section__head ${surface.sectionHead}`}><div><span><FileCheck size={18} /></span><h3>{t("核对商品资料")}</h3></div></div><div className={recordStyles.body}>{conflict ? <div className="procurement-feedback procurement-feedback--error" role="alert"><p>{t("商品来源或门店约定已变化，请重新核对。")}</p><button type="button" className="button button--secondary" disabled={submitting || !store.ready || !!store.error} onClick={() => { setRevision(store.settings.revision); setPending(null); setError(""); }}>{t("重新核对")}</button></div> : null}<fieldset className="form-fields" disabled={submitting || conflict || !ready || !store.ready || !!storageError || !!store.error}>
-    <DeviceDraftNotice draft={deviceDraft} />
+    <DeviceDraftNotice draft={deviceDraft} disabled={submitting}/>
     <p>{t("核对当前实物，原商品编号和资料继续保留。")}</p>
     {error || feedback?.id === record.id && feedback.error ? <p className="form-error" role="alert">{systemText(error || feedback?.message || "")}</p> : null}
     {pending ? <><div className="device-facts"><span><small>{t("商品类型")}</small><strong>{t(retailCategories[pending.category as RetailCategory])}</strong></span><span><small>{t("型号 / 商品名称")}</small><strong>{pending.brand} {pending.model}</strong></span><span className="device-facts__wide"><small>{t("识别码")}</small><strong>{pending.identifier || t("未记录")}</strong></span><span className="device-facts__wide"><small>{t("本次核验")}</small><strong>{Object.values(pending.checks).filter(Boolean).length}/3</strong></span></div><p>{t("已勾选的检测将保存；保存后在本页明确设为可售。")}</p><div className="module-heading__actions"><button type="button" className="button button--secondary" onClick={() => setPending(null)}>{t("返回修改")}</button><button type="submit" className="button button--primary"><CheckCircle2 size={17} />{submitting ? t("正在保存") : t("确认保存商品资料")}</button></div></> : <>
@@ -65,7 +69,7 @@ export function RetailRecordPreparation({ record }: { record: RetailHistoryRecor
       <div className="retail-inspection-checks">{checks.map(({ key, label }) => <label className="retail-check" key={key}><input type="checkbox" aria-label={t(label)} disabled={!staff.can("retail.inspect")} checked={draft.checks[key]} onChange={event => change("checks", { ...draft.checks, [key]: event.target.checked })} /><span>{t(label)}</span></label>)}</div>
       <button type="submit" className="button button--primary"><FileCheck size={17} />{t("继续核对")}</button>
     </>}
-  </fieldset></div></form>;
+  </fieldset><OperationRecoveryControls requestId={receipt.requestId}/></div></form>;
 }
 
 export function RetailRecordSourceFacts({ record }: { record: RetailHistoryRecord }) {

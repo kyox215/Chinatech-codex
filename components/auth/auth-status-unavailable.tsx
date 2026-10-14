@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { useLanguage } from "@/components/language-provider";
 export function AuthStatusUnavailable() {
   const { t } = useLanguage();

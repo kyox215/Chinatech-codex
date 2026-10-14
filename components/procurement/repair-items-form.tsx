@@ -1,4 +1,5 @@
 "use client";
+import { useOperationReceipt } from "@/components/use-operation-receipt";
 import { useLanguage } from "@/components/language-provider";
 import { repairItemText } from "@/lib/i18n/repair-display";
 import { controlError } from "@/components/control-feedback";
@@ -31,7 +32,7 @@ const moneyInput = (value: number | null | undefined) => value == null ? "" : (v
 
 /** Intake projects are the rows: there is no second item picker or procurement wizard. */
 export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }: {
-  repairId: string; onSaved: () => void; onCancel: () => void; onPendingChange: (pending: boolean) => void;
+  repairId: string; onSaved: () => void; onCancel: () => void; onPendingChange: (pending: boolean, requestId?: string) => boolean | void;
 }) {
   const { t, locale, systemText } = useLanguage();
   const staff = useStaff();
@@ -64,7 +65,9 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
   }
   const [draft, setDraft] = useState<ItemsDraft>(currentDraft);
   const [error, setError] = useState("");
-  const [pending, setPending] = useState(false);
+  const receipt = useOperationReceipt();
+  const [pendingBase, setPending] = useState(false);
+  const pending = pendingBase || receipt.waiting;
   const busy = useRef(false);
   const deviceDraft = useDeviceDraft(`repair-items:${repairId}`, {
     ...draft, rows: draft.rows.map(row => ({ ...row, cost: canReadCost ? row.cost : "", beforeCost: canReadCost ? row.beforeCost : "" })),
@@ -106,9 +109,14 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
     setError(purchaseLocked ? "采购已下单或已有多条记录，供应商和进价按最新事实保留；报价输入已保留，可继续保存。" : "");
   }
   async function submit(event: React.FormEvent) {
+    const requestId = crypto.randomUUID();
     event.preventDefault();
-    if (busy.current || !canEdit || !dirty) return;
-    busy.current = true; setPending(true); onPendingChange(true); setError("");
+    if (busy.current || receipt.isWaiting() || !canEdit || !dirty) return;
+    if (onPendingChange(true, requestId) === false) return;
+    busy.current = true; setPending(true); setError("");
+    const release = () => { busy.current = false; onPendingChange(false, requestId); };
+    const confirmed = () => { release(); setError(""); void deviceDraft.clear().catch(() => undefined).then(onSaved); };
+    const settled = () => { release(); setError(""); };
     try {
       if (changed) throw new Error("工单或配件已变化，请核对最新资料；输入已保留。");
       const items: RepairItemEdit[] = [];
@@ -129,13 +137,13 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
         }
         items.push(item);
       }
-      await dispatch({ type: "save-items", repairId, intakeRevision: draft.intakeRevision, workflowRevision: draft.workflowRevision, items });
+      await dispatch({ type: "save-items", repairId, intakeRevision: draft.intakeRevision, workflowRevision: draft.workflowRevision, items }, {requestId});
       await deviceDraft.clear(); onSaved();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败，输入已保留。"); }
-    finally { busy.current = false; setPending(false); onPendingChange(false); }
+    } catch (reason) { if (!receipt.watch(requestId, confirmed, settled)) setError(reason instanceof Error ? reason.message : "保存失败，输入已保留。"); }
+    finally { if (!receipt.isWaiting()) release(); setPending(false); }
   }
   return <form className="repair-item-editor" aria-busy={pending} onSubmit={submit}>
-    <DeviceDraftNotice draft={deviceDraft} />
+    <DeviceDraftNotice draft={deviceDraft} disabled={pending} />
     <div className="repair-item-editor__cards">{draft.rows.map(row => {
       const itemTitle = repairItemText(row.title, locale);
       const linked = purchases.filter(record => record.requirementId === row.requirementId);
@@ -158,6 +166,6 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
     {!draft.rows.length ? <div className="section-empty"><Wrench size={24} /><strong>{t("工单尚未填写维修项目")}</strong></div> : null}
     {changed ? <p role="alert" className="form-error">{t("工单或配件已变化，输入已保留。")}<button type="button" className="button button--secondary" disabled={pending} onClick={reviewLatest}>{t("核对最新资料后重试")}</button></p> : null}
     {error ? <p role="alert" className="form-error">{systemText(error)}</p> : null}
-    {canEdit && draft.rows.length ? <footer><button className="button button--secondary" type="button" disabled={pending} onClick={onCancel}>{t("取消")}</button><button className="button button--primary" type="submit" disabled={pending || changed || !dirty}><Check size={17} aria-hidden="true" />{pending ? t("正在保存…") : t("保存")}</button></footer> : null}
+    {canEdit && draft.rows.length ? <footer><button className="button button--secondary" type="button" disabled={pending} onClick={onCancel}>{t("取消")}</button><button className="button button--primary" type="submit" disabled={pending || changed || !dirty}><Check size={17} aria-hidden="true" />{pendingBase ? t("正在保存…") : receipt.waiting ? t("待核对") : t("保存")}</button></footer> : null}
   </form>;
 }

@@ -20,7 +20,7 @@ function harness(overrides = {}) {
     return require(name);
   } });
   runInContext(ts.transpileModule(readFileSync('lib/server/auth-status.ts','utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context);
-  return { state, resolve: store => exports.resolveAuthStatus(client, store), get: exports.getAuthStatus };
+  return { state, resolve: store => exports.resolveAuthStatus(client, store), get: exports.getAuthStatus, bootstrap: exports.getPublicAuthBootstrap };
 }
 test('public projection authenticates account and live project session before membership', async () => {
   const h = harness(); const result = await h.resolve(); assert.equal(result.state,'workspace'); assert.match(result.scope,/^[a-f0-9]{64}$/); assert.deepEqual(Object.keys(result).sort(),['account','formal','scope','state','store']);
@@ -41,3 +41,6 @@ test('own canonical display name and verified primary email ignore provider meta
 test('blank canonical name falls back to the actual login email',async()=>{const r=await harness({account:{display_name:'  '}}).resolve();assert.equal(r.account.name,'owner@example.test');});
 test('revoked store projection cannot reveal a store name or role',async()=>{for(const overrides of[{allowed:false},{rows:[]}]){const r=await harness(overrides).resolve();assert.equal(r.state,'account');assert.equal(r.store,null);assert.equal(r.account.name,'Canonical owner');}});
 test('anonymous, unavailable and unverified states expose no personal profile',async()=>{for(const overrides of[{user:null},{user:{id:'a'}},{databaseError:new BackendError('revoked',401)},{databaseError:new Error('offline')}]){const r=await harness(overrides).resolve();assert.equal(r.account,null);assert.equal(r.store,null);}});
+
+test('public bootstrap without a cookie stays anonymous without remote identity reads', async () => { const h=harness();const result=await h.bootstrap();assert.equal(result.status.state,'anonymous');assert.equal(result.checking,false);assert.equal(h.state.calls.length,0); });
+test('public bootstrap with a cookie waits for verified status and exposes no profile', async () => { const h=harness({cookies:[{name:'ct_rebuild_auth.0',value:'synthetic-unverified-cookie'}]});const result=await h.bootstrap();assert.equal(result.status.state,'unavailable');assert.equal(result.checking,true);assert.equal(result.status.account,null);assert.equal(result.status.store,null);assert.equal(h.state.calls.length,0); });

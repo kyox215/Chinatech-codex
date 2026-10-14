@@ -1,5 +1,14 @@
 # 公共组件与样式复用规范
 
+## 2026-10-14 操作反馈与原提交恢复
+
+新增 `NavigationLink`（替代普通内部 Next Link，用真实 useLinkStatus；默认不预取，支持原生键盘／新标签行为）、`ReadFailure`、`ListPagination`（完整授权结果过滤后每页50条）、`DownloadLink`／`DownloadFeedbackProvider`（只表示浏览器已发起请求）。`PageLoading` 复用标题／手机菜单／骨架，首启动可回首页；公开工具页保留SSR与无JS下载，不增加公共流式 loading 边界。
+
+按钮／骨架／错误沿Figma文件 nhZ37YLOUVP8zpDBBGihhS 的按钮、焦点与错误输入视觉，复用语义token与CSS，不新增主题。`useOperationReceipt` 精确绑定本次requestId；`OperationRecoveryControls` 在disabled fieldset外；局部与全局通过当前 `RecoveryPresentationProvider` 去重。临时pending缺失不得解锁，提供只读恢复记录重载。`DeviceDraftNotice.disabled` 约束选择／恢复／删除，调用方传真实提交或待核对状态。
+
+公共bootstrap仅表达无cookie／检查中，身份仍由原API核验；后台provider按身份／session／门店key重建。具体源码、失败定位、最终CI与上线证据见[本轮交付34](34-figma-interaction-feedback-release.md)。
+
+
 ## 2026-10-14 Office 公开产品页
 
 Office 产品页沿用 PublicHeader、Brand、LanguageSwitcher、SingleChoice、InputControl 和语义按钮/token。PublicHeader 的 Office compact 变体只在 page=office 启用：已登录账户头像保留完整可访问名称，工作台在账号详情中；匿名登录/注册保持直接可见，其他公开路由不变。应用 SKU 的局部色标仅用于区分产品，未建立第二套主题。

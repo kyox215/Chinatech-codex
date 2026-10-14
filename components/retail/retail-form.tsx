@@ -1,11 +1,12 @@
 "use client";
+import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl, TextareaControl } from "@/components/input-control";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 import { useStoreSettings } from "@/components/settings/settings-store";
 import { useStaff } from "@/components/staff/use-staff";
 import { AccessPanel } from "@/components/staff/access-panel";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { PageTitle } from "@/components/page-title";
 import { SelectControl } from "@/components/select-control";
 import { IdentifierField } from "@/components/identifier-field";
@@ -53,7 +54,9 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
   const [classificationSelected, setClassificationSelected] = useState(false);
   const [checks, setChecks] = useState<Inspection>(emptyChecks); const [note, setNote] = useState(""); const [photos, setPhotos] = useState<string[]>([]);
   const [cost, setCost] = useState(""); const [refurb, setRefurb] = useState(""); const [price, setPrice] = useState("");
-  const [creationId, setCreationId] = useState(() => crypto.randomUUID()); const operationId = useRef(crypto.randomUUID()); const submitting = useRef(false); const [saving, setSaving] = useState(false); const [photoBusy, setPhotoBusy] = useState(false);
+  const [creationId, setCreationId] = useState(() => crypto.randomUUID()); const operationId = useRef(crypto.randomUUID()); const submitting = useRef(false); const receipt = useOperationReceipt();
+  const [savingBase, setSaving] = useState(false);
+  const saving = savingBase || receipt.waiting; const [photoBusy, setPhotoBusy] = useState(false);
   const [error, setError] = useState(""); const checkRegion = useRef<HTMLElement>(null);
   const canPublish = staff.can("retail.inspect") && staff.can("retail.price");
   const deviceDraft = useDeviceDraft("retail-new:" + (copyId ?? "") + ":" + (identifier ?? ""), { draft, classificationSelected, goal, checks, note, photos, cost, refurb, price, creationId }, value => {
@@ -65,7 +68,8 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
     setDraft(previous => ({ ...previous, [key]: value }));
   }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (submitting.current || photoBusy) return; setError("");
+    event.preventDefault(); if (submitting.current || receipt.isWaiting() || photoBusy) return; setError("");
+    const requestId = crypto.randomUUID();
     try {
       if (!classificationSelected) throw new Error("请先选择新机或翻新机。");
       if (goal === "available" && !canPublish) throw new Error("当前账号没有此操作权限。");
@@ -75,8 +79,8 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
       if (goal === "available" && (unit.priceCents === null || unit.priceCents <= 0)) throw new Error("请先确认有效售价。");
       submitting.current = true; setSaving(true);
       const event = { id: operationId.current, title: "新建商品", detail: note, time: intakeRecordTime() };
-      const saved = goal === "available" ? await dispatch({ type: "workflow", workflow: { type: "create_ready", unit, photos, checks, note, settingsRevision: settings.revision }, event }) : await dispatch({ type: "create", unit, photos, event: { ...event, detail: "门店自有实物，待检测。" } });
-      if (!saved) { submitting.current = false; setSaving(false); return; }
+      const saved = goal === "available" ? await dispatch({ type: "workflow", workflow: { type: "create_ready", unit, photos, checks, note, settingsRevision: settings.revision }, event }, {requestId}) : await dispatch({ type: "create", unit, photos, event: { ...event, detail: "门店自有实物，待检测。" } }, {requestId});
+      if (!saved) { receipt.watch(requestId, () => { void deviceDraft.clear().catch(() => undefined).then(() => router.push("/app/retail/units/" + creationId)); }); submitting.current = false; setSaving(false); return; }
       await deviceDraft.clear().catch(() => undefined); router.push("/app/retail/units/" + creationId);
     } catch (reason) {
       submitting.current = false; setSaving(false); setError(reason instanceof Error ? reason.message : "请核对单机资料。");
@@ -88,7 +92,7 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
     {sourceUnit ? <p className={"inline-notice " + styles.notice}><Copy size={17} /><span>{t("从 ")}{sourceUnit.code}{t(" 复制型号与候选规格；身份、照片、检测、电池、手柄数量、来源与金额均已清空，请逐项核对实物。")}</span></p> : identifier ? <p className={"inline-notice " + styles.notice}>{t("识别文本仅作为待核对字段，不证明机器身份或规格。")}</p> : null}
     <form className={"panel " + styles.form} aria-busy={saving} onSubmit={submit}><fieldset className="form-fields" disabled={saving}>
       <CatalogIndexPreload category={draft.category}/>
-      <DeviceDraftNotice draft={deviceDraft} />
+      <DeviceDraftNotice draft={deviceDraft} disabled={saving}/>
       <div className={styles.classification}><SingleChoice label={t("商品分类 *")} value={classificationSelected ? draft.condition : ""} options={[{ value: "新机", label: "新机", icon: Package }, { value: "翻新机", label: "翻新机", icon: Sparkles }]} onChange={value => { update("condition", value as RetailUnit["condition"]); setClassificationSelected(true); setError(""); }} /></div>
       {classificationSelected ? <div className={styles.body}><div className={styles.layout}>
         <div className={styles.column}>
@@ -138,6 +142,6 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
         </div>
       </div></div> : null}
       <footer className={styles.footer}><Link className="button button--secondary" href={returnTo} aria-disabled={saving} onClick={event => { if (saving) event.preventDefault(); }}>{t("取消")}</Link><button className="button button--primary" type="submit" disabled={saving || photoBusy || !ready || !!storageError || !classificationSelected || goal === "available" && !canPublish}>{saving ? t("正在保存") : goal === "available" ? t("建档并设为可售") : t("创建独立档案")}</button></footer>
-    </fieldset></form>
+    </fieldset><OperationRecoveryControls requestId={receipt.requestId}/></form>
   </main>;
 }

@@ -54,8 +54,8 @@ export function intakePolicyFromSettings():IntakePolicy {
   const settings=parseStoreSettings(window.localStorage.getItem("chinatech.m1.store-settings.v1"));
   return {months:settings.repairWarrantyMonths,shopName:settings.shopName,address:settings.address,phone:settings.phone};
 }
-export function saveLocalIntake(data: IntakeReceiptData, expectedRevision=0, signature?:IntakeSignatureDraft, expectedSignatureCount=0, attachments?: IntakePhotoAttachment[]) {
-  if(isBackendClient()) return backendCommand("intake.save",{data,revision:expectedRevision,signature,signatureCount:expectedSignatureCount,...(attachments !== undefined ? {photos:attachments} : {})}).then(state=>{const saved=state.intakes.find(row=>row.id===data.id);if(!saved) throw new Error("保存结果暂不可用，请重新读取工单后核对。");return saved;});
+export function saveLocalIntake(data: IntakeReceiptData, expectedRevision=0, signature?:IntakeSignatureDraft, expectedSignatureCount=0, attachments?: IntakePhotoAttachment[], options?: {requestId?:string}) {
+  if(isBackendClient()) return backendCommand("intake.save",{data,revision:expectedRevision,signature,signatureCount:expectedSignatureCount,...(attachments !== undefined ? {photos:attachments} : {})},options?.requestId).then(state=>{const saved=state.intakes.find(row=>row.id===data.id);if(!saved) throw new Error("保存结果暂不可用，请重新读取工单后核对。");return saved;});
   const actor = requirePreviewPermission("repairs.edit");
   if(data.retailOrigin) throw new Error("销售售后来源只能通过单机档案建立。");
   return persistIntake(data, "repairs.edit", actor.id,expectedRevision,signature,expectedSignatureCount);
@@ -100,11 +100,11 @@ function persistIntake(data: IntakeReceiptData, permission: Permission, actorId:
   const nextSignatures=signature?appendIntakeSignature(signatures,saved,policy,signature,actorId,expectedSignatureCount):signatures;
   writeEnvelope(next,nextSignatures,permission,actorId); return saved;
 }
-export async function createRepairRework(input:CreateRepairReworkInput):Promise<string> {
+export async function createRepairRework(input:CreateRepairReworkInput,options?:{requestId?:string}):Promise<string> {
   validateRepairReworkInput(input);
   const submitted={...input,reason:input.reason.trim()};
   if(isBackendClient()) {
-    const state=await backendCommand("repair.rework",submitted);
+    const state=await backendCommand("repair.rework",submitted,options?.requestId);
     const saved=state.intakes.find(row=>row.id===submitted.repairId);
     if(!saved || saved.repairOrigin?.repairId!==submitted.sourceId || saved.repairOrigin.reason!==submitted.reason) throw new Error("返修保存结果暂不可用，请重新读取并核对提交回执。");
     return saved.id;
@@ -126,8 +126,8 @@ export async function createRepairRework(input:CreateRepairReworkInput):Promise<
   writeEnvelope([...records,data],signatures,"repairs.edit",actor.id,[...requests,{input:submitted,actorId:actor.id}]);
   return data.id;
 }
-export function saveIntakeSignature(data:IntakeReceiptData,policy:IntakePolicy,signature:IntakeSignatureDraft,expectedCount:number) {
-  if(isBackendClient()) return backendCommand("intake.signature",{id:data.id,revision:data.revision??1,policy,signature,count:expectedCount});
+export function saveIntakeSignature(data:IntakeReceiptData,policy:IntakePolicy,signature:IntakeSignatureDraft,expectedCount:number,options?:{requestId?:string}) {
+  if(isBackendClient()) return backendCommand("intake.signature",{id:data.id,revision:data.revision??1,policy,signature,count:expectedCount},options?.requestId);
   const actor=requirePreviewPermission("repairs.edit");
   const raw=window.localStorage.getItem(key);const records=parseLocalIntakes(raw);const signatures=parseIntakeSignatures(raw);
   const stored=records.find(item=>item.id===data.id);
@@ -141,8 +141,8 @@ export function saveIntakeSignature(data:IntakeReceiptData,policy:IntakePolicy,s
   writeEnvelope(records,next,"repairs.edit",actor.id);
 }
 
-export function createRetailAfterSaleRepair(unitId:string,saleId:string,caseId:string) {
-  if(isBackendClient()){const state=backendSnapshot();const unit=state?.retail.find(row=>row.id===unitId);if(!unit) throw new Error("单机资料尚未载入。");const previous=unit.sales.find(row=>row.id===saleId)?.afterSales?.find(row=>row.id===caseId)?.repairId;const repairId=previous??("LOCAL-"+crypto.randomUUID().replaceAll("-", "").slice(0,16).toUpperCase());return backendCommand("retail.aftersale_repair",{unitId,saleId,caseId,repairId,version:unit.version}).then(()=>repairId);}
+export function createRetailAfterSaleRepair(unitId:string,saleId:string,caseId:string,options?:{requestId?:string}) {
+  if(isBackendClient()){const state=backendSnapshot();const unit=state?.retail.find(row=>row.id===unitId);if(!unit) throw new Error("单机资料尚未载入。");const previous=unit.sales.find(row=>row.id===saleId)?.afterSales?.find(row=>row.id===caseId)?.repairId;const repairId=previous??("LOCAL-"+crypto.randomUUID().replaceAll("-", "").slice(0,16).toUpperCase());return backendCommand("retail.aftersale_repair",{unitId,saleId,caseId,repairId,version:unit.version},options?.requestId).then(()=>repairId);}
 
   const actor = requirePreviewPermission("sale.aftersales");
   const units=parseStoredRetailUnits(window.localStorage.getItem("chinatech.m1.retail.v1"),retailUnits);
@@ -164,8 +164,8 @@ export function createRetailAfterSaleRepair(unitId:string,saleId:string,caseId:s
   persistIntake(data, "sale.aftersales", actor.id);return id;
 }
 
-export async function saveRepairItemQuote(id:string,item:string,quoteCents:number|null,intakeRevision:number){
-  if(isBackendClient()){await backendCommand("repair.quote",{id,item,quoteCents,intakeRevision});return;}
+export async function saveRepairItemQuote(id:string,item:string,quoteCents:number|null,intakeRevision:number,options?:{requestId?:string}){
+  if(isBackendClient()){await backendCommand("repair.quote",{id,item,quoteCents,intakeRevision},options?.requestId);return;}
   const actor=requirePreviewPermission("repairs.edit");const raw=window.localStorage.getItem(key);const records=parseLocalIntakes(raw);const signatures=parseIntakeSignatures(raw);const intake=records.find(row=>row.id===id);
   if(!intake)throw new Error("请在新建的工单上保存报价。");if((intake.revision??1)!==intakeRevision)throw new Error("工单或报价已变化，请重新核对。");
   const order=intakeDirectoryEntry(intake);const requirements=currentRepairRequirements(order,previewRepairWorkflow(order));const quotes=[...(intake.itemQuotes??[])];for(const row of requirements)if(!quotes.some(quote=>quote.item===row.title))quotes.push({item:row.title,amountCents:null});

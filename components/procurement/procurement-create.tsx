@@ -1,8 +1,10 @@
 "use client";
+import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 
+import { backendRecovery } from "@/lib/backend/client";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { PageTitle } from "@/components/page-title";
 import { SelectControl } from "@/components/select-control";
 import { useRouter } from "next/navigation";
@@ -21,7 +23,9 @@ export function ProcurementCreate({ initialRepairId = "" }: { initialRepairId?: 
   const repairOrders = useRepairDirectory();
   const { dispatch, feedback } = useProcurement();
   const [pending, setPending] = useState("");
-  const [submitting, setSubmitting] = useState(false); const busy = useRef(false);
+  const receipt = useOperationReceipt();
+  const [submittingBase, setSubmitting] = useState(false);
+  const submitting = submittingBase || receipt.waiting; const busy = useRef(false);
   useEffect(() => { if (canEdit && pending && feedback?.recordId === pending && !feedback.error) router.push(`/app/procurement/${pending}`); }, [canEdit, pending, feedback, router]);
   const [repairId, setRepairId] = useState(initialRepairId);
   const [item, setItem] = useState("");
@@ -33,8 +37,9 @@ export function ProcurementCreate({ initialRepairId = "" }: { initialRepairId?: 
   const [error, setError] = useState("");
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
+    const requestId = crypto.randomUUID();
     event.preventDefault();
-    if (!canEdit || busy.current) return;
+    if (!canEdit || busy.current || receipt.isWaiting()) return;
     if (pending && !feedback?.error) return;
     try {
       if (!repairOrders.some((row) => row.id === repairId)) throw new Error("请选择已有的关联工单。");
@@ -42,8 +47,9 @@ export function ProcurementCreate({ initialRepairId = "" }: { initialRepairId?: 
       const record: ProcurementRecord = { id: `PO-DEMO-${crypto.randomUUID().slice(0, 8).toUpperCase()}`, repairId, required, item: item.trim(), supplier: supplier.trim(), quantity: quantity.trim() ? Number(quantity) : Number.NaN, unitCostCents: canCost && cost.trim() ? Math.round(Number(cost) * 100) : null, expectedAt, reference: "", events: [] };
       validateProcurementDraft(record);
       busy.current = true; setSubmitting(true); setError(""); setPending(record.id);
-      await dispatch({ type: "create", record });
+      await dispatch({ type: "create", record }, {requestId});
     } catch (error) {
+      receipt.watch(requestId, () => { const id = backendRecovery().receipt?.entityId; if (id) router.push(`/app/procurement/${id}`); }, () => { setPending(""); setError(""); });
       setError(error instanceof Error ? error.message : "请核对采购资料。");
     } finally { busy.current = false; setSubmitting(false); }
   }
@@ -58,5 +64,5 @@ export function ProcurementCreate({ initialRepairId = "" }: { initialRepairId?: 
       <label className="field"><span>{t("采购数量 *")}</span><InputControl required min={1} max={10000} aria-label={t("采购数量")} type="number" step="1" inputMode="numeric" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></label>
       {canCost ? <label className="field"><span>{t("采购单价（€，选填）")}</span><InputControl validate={value => !value.trim() || /^\d+(\.\d{1,2})?$/.test(value.trim()) ? "" : "单价须为非负金额，最多两位小数；未知时请留空。"} aria-label={t("采购单价")} inputMode="decimal" value={cost} onChange={(event) => setCost(event.target.value)} placeholder={t("未知请留空")} /></label> : null}
       <label className="field"><span>{t("预计到货日期（选填）")}</span><InputControl aria-label={t("预计到货日期")} type="date" value={expectedAt} onChange={(event) => setExpectedAt(event.target.value)} /></label>
-    </div><div className="procurement-create-form__footer"><Link className="button button--secondary" aria-disabled={submitting} onClick={event => { if (busy.current) event.preventDefault(); }} href="/app/procurement">{t("取消")}</Link><button className="button button--primary" type="submit"><Plus size={17} />{submitting ? t("正在保存…") : t("创建采购草稿")}</button></div></fieldset></form></main>;
+    </div><div className="procurement-create-form__footer"><Link className="button button--secondary" aria-disabled={submitting} onClick={event => { if (busy.current || receipt.isWaiting()) event.preventDefault(); }} href="/app/procurement">{t("取消")}</Link><button className="button button--primary" type="submit"><Plus size={17} />{submitting ? t("正在保存…") : t("创建采购草稿")}</button></div></fieldset><OperationRecoveryControls requestId={receipt.requestId}/></form></main>;
 }

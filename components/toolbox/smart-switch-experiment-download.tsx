@@ -1,4 +1,5 @@
 "use client";
+import { DownloadLink } from "@/components/download-link";
 
 import { Download } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
@@ -21,8 +22,8 @@ export function SmartSwitchExperimentDownload() {
       <li>{t("自动连接失败时，在“连接选项”中选择同一 Wi-Fi，或手动加入热点后继续。资料逐项保存和校验；图库与通讯录导入另行核对。")}</li>
     </ol>
     <div className={styles.downloadActions}>
-      {release.available ? <><a className="button button--primary" href={release.apkPath} download><Download size={17} aria-hidden="true" />{t("下载 lab4 原版界面并存版（推荐）")}</a><a className="button button--secondary" href={release.updateApkPath} download>{t("更新本站 lab1／lab2／lab3 原包名版")}</a></> : <p role="status">{t("lab4 安装包仍在核验，下载尚未开放。")}</p>}
-      <a className="button button--secondary" href={release.instructionsPath} download>{t("使用说明")}</a>
+      {release.available ? <><DownloadLink className="button button--primary" href={release.apkPath} download><Download size={17} aria-hidden="true" />{t("下载 lab4 原版界面并存版（推荐）")}</DownloadLink><DownloadLink className="button button--secondary" href={release.updateApkPath} download>{t("更新本站 lab1／lab2／lab3 原包名版")}</DownloadLink></> : <p role="status">{t("lab4 安装包仍在核验，下载尚未开放。")}</p>}
+      <DownloadLink className="button button--secondary" href={release.instructionsPath} download>{t("使用说明")}</DownloadLink>
     </div>
     <details className={styles.integrity}>
       <summary>{t("传输范围与限制")}</summary>
@@ -36,7 +37,7 @@ export function SmartSwitchExperimentDownload() {
     {release.available && <><p className={styles.muted}>{t("每个安装包 {size} MB", { size: (release.bytes / 1_000_000).toFixed(1) })}</p><details className={styles.integrity}>
       <summary>{t("查看 APK 校验信息")}</summary>
       <dl><dt>{t("并存版文件 SHA256")}</dt><dd><code>{release.sha256}</code></dd><dt>{t("本站原包名更新包 SHA256")}</dt><dd><code>{release.updateSha256}</code></dd><dt>{t("签名证书 SHA256")}</dt><dd><code>{release.signerSha256}</code></dd></dl>
-      <p><a href={release.checksumsPath} download>{t("下载 SHA256 校验清单")}</a></p>
+      <p><DownloadLink href={release.checksumsPath} download>{t("下载 SHA256 校验清单")}</DownloadLink></p>
     </details></>}
   </section>;
 }

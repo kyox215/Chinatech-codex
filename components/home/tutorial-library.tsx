@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { useCallback, useRef, useState } from "react";
 import { AlertCircle, ArrowRight, Captions, Clock3, LoaderCircle, Play, RotateCcw, Volume2 } from "lucide-react";
 import { getTutorials, type Tutorial } from "@/lib/tutorials";

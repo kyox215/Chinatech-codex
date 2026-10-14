@@ -1,4 +1,5 @@
 "use client";
+import { DownloadLink } from "@/components/download-link";
 
 import { useEffect, useRef, useState } from "react";
 import { Copy, Download, ExternalLink, X, ChevronDown } from "lucide-react";
@@ -31,8 +32,8 @@ export function OfficeDesktopDownload() {
   }
   return <div id="office-desktop" className={styles.downloadArea}>
     <div className={styles.downloadActions}>
-      <a className="button button--primary" href={officeDesktopRelease.files[0].href}><Download size={18} aria-hidden="true" />{t("下载 x64 版")}</a>
-      <a className={`button button--secondary ${styles.desktopArm}`} href={officeDesktopRelease.files[1].href}><Download size={18} aria-hidden="true" />{t("下载 ARM64 版")}</a>
+      <DownloadLink className="button button--primary" href={officeDesktopRelease.files[0].href}><Download size={18} aria-hidden="true" />{t("下载 x64 版")}</DownloadLink>
+      <DownloadLink className={`button button--secondary ${styles.desktopArm}`} href={officeDesktopRelease.files[1].href}><Download size={18} aria-hidden="true" />{t("下载 ARM64 版")}</DownloadLink>
       <button ref={trigger} className={styles.mobileVersions} type="button" aria-haspopup="dialog" onClick={() => { setArchitecture("ARM64"); setCopyState("idle"); scrollLock.lock(); dialog.current?.showModal(); }}>{t("其他版本 · ARM64")}<ChevronDown size={16} aria-hidden="true" /></button>
     </div>
     <p className={styles.downloadFact}>{t("Windows 11 · 64 位 · {version} 未签名测试版", { version: officeDesktopRelease.version })}</p>
@@ -47,7 +48,7 @@ export function OfficeDesktopDownload() {
       <p>{t("按 Windows 电脑的系统类型选择。")}</p>
       <SingleChoice label="电脑架构" value={architecture} options={[{ value: "x64", label: "x64 · Intel / AMD 电脑" }, { value: "ARM64", label: "ARM64 · ARM Windows 电脑" }]} onChange={value => { copyAttempt.current++; setArchitecture(value); setCopyState("idle"); }} className={styles.architectureChoices} />
       <p className={styles.architectureHelp}>{t("在 Windows 设置 → 系统 → 系统信息查看系统类型：Intel/AMD 电脑选择 x64，ARM 电脑选择 ARM64。")}</p>
-      <a className="button button--primary" href={file.href}><Download size={18} aria-hidden="true" />{t("下载 {architecture} 程序", { architecture: file.architecture })}</a>
+      <DownloadLink className="button button--primary" href={file.href}><Download size={18} aria-hidden="true" />{t("下载 {architecture} 程序", { architecture: file.architecture })}</DownloadLink>
       <button className="button button--secondary" type="button" disabled={copyState === "copying"} onClick={copy}><Copy size={18} aria-hidden="true" />{t(copyState === "copying" ? "正在复制…" : "复制下载链接")}</button>
       <p className={styles.copyFeedback} role={copyState === "failed" ? "alert" : "status"}>{copyState === "copied" ? t("下载链接已复制，可在 Windows 电脑上打开。") : copyState === "failed" ? t("无法复制，请选中下方链接手动复制。") : ""}</p>
       {copyState === "failed" && <InputControl value={file.href} readOnly aria-label={t("下载链接")} />}

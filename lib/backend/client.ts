@@ -13,7 +13,7 @@ let operationGeneration=0;
 let recoveryOperationGeneration=0;
 const listeners=new Set<()=>void>();
 const recoveryListeners=new Set<()=>void>();
-export type RecoveryStatus={busy:boolean;pending:PendingOperation|null;message:string;receipt?:OperationReceipt};
+export type RecoveryStatus={busy:boolean;pending:PendingOperation|null;message:string;receipt?:OperationReceipt;resolution?:{requestId:string;status:"rejected"|"cancelled"}};
 let recovery:RecoveryStatus={busy:false,pending:null,message:""};
 export function backendRecovery(){return recovery;}
 export function subscribeRecovery(listener:()=>void){recoveryListeners.add(listener);return()=>{recoveryListeners.delete(listener);};}
@@ -97,6 +97,7 @@ async function complete(operation:PendingOperation,next:BackendSnapshot,scope:Re
   return snapshot!;
 }
 async function send(operation:PendingOperation,scope:ReturnType<typeof requestScope>,recovering:boolean) {
+  let resolution: RecoveryStatus["resolution"];
   // Persist the unknown state BEFORE the network call, including page termination.
   await markOperationUnknown(operation.scope,operation.command.requestId);
   if(!sameScope(scope))throw new Error("身份已变化，请重新打开资料。");
@@ -107,7 +108,10 @@ async function send(operation:PendingOperation,scope:ReturnType<typeof requestSc
     if(!sameScope(scope))throw new Error("身份已变化，请重新打开资料。");
     if(redirectIdentity(response.status,data.code))throw new Error("登录身份已变化，请重新登录后核对原提交。");
     if(!response.ok){
-      if(response.status<500 && (!recovering || response.status===410))await forgetOperation(operation.scope,operation.command.requestId);
+      if(response.status<500 && (!recovering || response.status===410)){
+        await forgetOperation(operation.scope,operation.command.requestId);
+        resolution={requestId:operation.command.requestId,status:"rejected"};
+      }
       if(response.status===409 || response.status===403)await refreshBackend().catch(()=>{});
       throw new Error(data.message||"提交未完成，请核对。");
     }
@@ -115,7 +119,7 @@ async function send(operation:PendingOperation,scope:ReturnType<typeof requestSc
   } catch(error){
     if(sameScope(scope)){
       const pending=await pendingOperation(operation.scope).catch(()=>operation);
-      if(sameScope(scope))recoveryUpdate({busy:false,pending:pending??null,message:pending?"提交结果待核对，请处理原提交，勿重复新建。":error instanceof Error?error.message:"保存被拒绝，输入已保留。"});
+      if(sameScope(scope))recoveryUpdate({busy:false,pending:pending??null,message:pending?"提交结果待核对，请处理原提交，勿重复新建。":error instanceof Error?error.message:"保存被拒绝，输入已保留。",...(!pending&&resolution?{resolution}:{})});
     }
     throw new Error(error instanceof Error && error.name!=="TypeError" && error.name!=="AbortError"?error.message:"连接中断或超时，提交结果待核对，输入已保留。");
   }
@@ -135,11 +139,11 @@ export async function backendCommand(kind:string,payload:unknown,requestId=crypt
     return await send(operation,scope,false);
   } finally {writing=false;if(sameScope(scope))void loadRecovery();}
 }
-export async function recoverOperation(action:"check"|"retry"|"cancel") {
+export async function recoverOperation(action:"check"|"retry"|"cancel",expectedRequestId?:string) {
   if(writing || !snapshot)return;
   writing=true;operationGeneration++;const scope=requestScope();const key=memberScope(snapshot);
   try {
-    const operation=await pendingOperation(key);if(!operation || !sameScope(scope))return;
+    const operation=await pendingOperation(key);if(!operation || !sameScope(scope) || expectedRequestId&&operation.command.requestId!==expectedRequestId)return;
     recoveryUpdate({busy:true,pending:operation,message:action==="cancel"?"正在核对并撤销未完成提交…":"正在核对原提交…"});
     const args={storeId:operation.command.storeId,memberId:operation.command.memberId,requestId:operation.command.requestId};
     const url="/api/backend/operation";
@@ -151,7 +155,7 @@ export async function recoverOperation(action:"check"|"retry"|"cancel") {
     if(data.status==="cancelled"){
       await forgetOperation(key,operation.command.requestId);
       if(!sameScope(scope))return;
-      recoveryUpdate({busy:false,pending:null,message:"此提交已撤销，服务器不会再执行它；输入草稿仍可重新核对。"});return;
+      recoveryUpdate({busy:false,pending:null,message:"此提交已撤销，服务器不会再执行它；输入草稿仍可重新核对。",resolution:{requestId:operation.command.requestId,status:"cancelled"}});return;
     }
     if(action==="retry"){await send(operation,scope,true);return;}
     recoveryUpdate({busy:false,pending:operation,message:"尚未找到回执，原请求仍可能在处理。可重试原提交，或安全撤销后重新核对。"});

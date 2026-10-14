@@ -1,4 +1,5 @@
 "use client";
+import { DownloadLink } from "@/components/download-link";
 
 import { Download, ExternalLink, FileText, Laptop, ShieldCheck } from "lucide-react";
 import { Brand } from "@/components/brand";
@@ -32,7 +33,7 @@ export function WindowsToolsPage() {
         <p className={styles.notice} role="status">{t("目前提供只读检测：尚无 Windows 端到端升级验收，不会执行激活、安装或自动重启。")}</p>
         <ol className={styles.steps}>{stages.map((stage, index) => <li key={stage}><span aria-hidden="true">{index + 1}</span>{t(stage)}</li>)}</ol>
         <div className={styles.actions}>
-          <a className="button button--primary" href={release.archive.path} download><Download size={17} aria-hidden="true" />{t("下载检测启动器")}</a>
+          <DownloadLink className="button button--primary" href={release.archive.path} download><Download size={17} aria-hidden="true" />{t("下载检测启动器")}</DownloadLink>
           <a className="button button--secondary" href="/toolbox/windows/ChinaTech-Windows.ps1.txt" target="_blank" rel="noopener noreferrer"><FileText size={17} aria-hidden="true" />{t("查看检测脚本源码")}</a>
         </div>
         <p className={styles.instruction}>{t("解压后打开 {file}。浏览器下载不会直接运行 Windows 程序。", { file: `Start-${locale}.cmd` })}</p>

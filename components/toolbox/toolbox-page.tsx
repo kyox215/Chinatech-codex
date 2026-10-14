@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { ArrowDown, ArrowLeft, ArrowRight, Cable, FileText, FolderOpen, Laptop, PanelsTopLeft, Smartphone, Usb, Wrench } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { PublicHeader } from "@/components/home/public-header";

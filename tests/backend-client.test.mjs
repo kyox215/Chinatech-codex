@@ -279,6 +279,39 @@ test("安全撤销只有服务端确认后才释放待处理记录",async()=>{
  const cancel=h.client.recoverOperation("cancel");await setImmediate();assert.equal(h.operations.size,1);
  assert.equal(h.requests[0].options.method,"POST");h.requests[0].resolve(response(200,{status:"cancelled"}));await cancel;assert.equal(h.operations.size,0);
 });
+test("明确拒绝只在原设备登记清理成功后发布匹配requestId终态",async()=>{
+ const h=harness();h.client.configureBackend(mockSnapshot());const requestId=randomUUID();
+ const operation=h.client.backendCommand("synthetic.command",{},requestId);const rejected=assert.rejects(operation,/Synthetic rejected/);
+ await setImmediate();h.requests[0].resolve(response(400,{message:"Synthetic rejected"}));await rejected;
+ assert.equal(h.operations.size,0);assert.equal(h.client.backendRecovery().pending,null);
+ assert.equal(h.client.backendRecovery().resolution.requestId,requestId);assert.equal(h.client.backendRecovery().resolution.status,"rejected");
+});
+test("拒绝响应后设备清理失败保留原pending且不发布可解锁终态",async()=>{
+ const h=harness();h.client.configureBackend(mockSnapshot());const requestId=randomUUID();
+ h.storage.forgetOperation=async()=>{throw new Error("Synthetic cleanup failure");};
+ const operation=h.client.backendCommand("synthetic.command",{},requestId);const rejected=assert.rejects(operation,/提交结果待核对/);
+ await setImmediate();h.requests[0].resolve(response(400,{message:"Synthetic rejected"}));await rejected;
+ assert.equal(h.operations.size,1);assert.equal(h.client.backendRecovery().pending.command.requestId,requestId);
+ assert.equal(h.client.backendRecovery().resolution,undefined);
+});
+test("明确撤销发布原requestId终态而清理失败继续保留原pending",async()=>{
+ for(const cleanupFails of [false,true]){
+  const h=harness();h.client.configureBackend(mockSnapshot());h.navigator.onLine=false;const requestId=randomUUID();
+  await assert.rejects(h.client.backendCommand("synthetic.command",{},requestId));
+  if(cleanupFails)h.storage.forgetOperation=async()=>{throw new Error("Synthetic cleanup failure");};
+  const cancel=h.client.recoverOperation("cancel");await setImmediate();h.requests[0].resolve(response(200,{status:"cancelled"}));await cancel;
+  assert.equal(h.operations.size,cleanupFails?1:0);
+  if(cleanupFails){assert.equal(h.client.backendRecovery().pending.command.requestId,requestId);assert.equal(h.client.backendRecovery().resolution,undefined);}
+  else{assert.equal(h.client.backendRecovery().pending,null);assert.equal(h.client.backendRecovery().resolution.requestId,requestId);assert.equal(h.client.backendRecovery().resolution.status,"cancelled");}
+ }
+});
+test("局部恢复控件不能核对重试或撤销另一个requestId的设备登记",async()=>{
+ const h=harness();h.client.configureBackend(mockSnapshot());h.navigator.onLine=false;const requestId=randomUUID();
+ await assert.rejects(h.client.backendCommand("synthetic.command",{},requestId));
+ for(const action of ["check","retry","cancel"])await h.client.recoverOperation(action,randomUUID());
+ assert.equal(h.requests.length,0);assert.equal(h.operations.size,1);assert.equal(h.client.backendRecovery().pending.command.requestId,requestId);
+ assert.equal(h.client.backendRecovery().resolution,undefined);
+});
 test("刷新合并避免网络慢时定时查询无限堆积",async()=>{
  const h=harness();h.client.configureBackend(mockSnapshot());
  const a=h.client.refreshBackend();const b=h.client.refreshBackend();assert.equal(a,b);assert.equal(h.requests.length,1);

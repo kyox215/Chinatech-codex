@@ -1,9 +1,10 @@
 "use client";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
-import { isBackendClient } from "@/lib/backend/client";
+import { backendRecovery, isBackendClient } from "@/lib/backend/client";
+import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, History, Plus, ShieldCheck, UsersRound, X } from "lucide-react";
 import { SelectControl } from "@/components/select-control";
 import { updateStaffMember, permissionLabels, rolePermissions, staffRoles, type StaffMember, type StaffRole, type StaffStatus } from "@/lib/staff";
@@ -21,6 +22,11 @@ export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending:
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const busy = useRef(false);
+  const receipt = useOperationReceipt();
+  const pending = submitting || receipt.waiting;
+  const attempt = useRef<string | null>(null);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; attempt.current = null; }; }, []);
   const deviceDraft = useDeviceDraft("staff-editor", { editing, openedRevision }, value => {
     if (busy.current) return;
     setEditing(value.editing); setOpenedRevision(value.openedRevision); setReview(false); setError("");
@@ -43,27 +49,34 @@ export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending:
   const validateEmail = (value: string) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? "请填写有效的员工账号邮箱，例如 sales@demo.chinatech.local。" : staff.data.members.some(member => member.id !== editing?.id && member.email === value.trim().toLowerCase()) ? "该账号标识已被其他员工使用，请核对邮箱或打开原员工记录。" : "";
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!editing || busy.current) return;
+    if (!editing || busy.current || receipt.isWaiting()) return;
     setError("");
+    if (!review) {
+      try { updateStaffMember(staff.data, editing, openedRevision, staff.member!.id, crypto.randomUUID(), intakeRecordTime()); setReview(true); }
+      catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败，输入已保留，请重试。"); }
+      return;
+    }
+    const requestId = crypto.randomUUID(); attempt.current = requestId;
+    busy.current = true; setSubmitting(true); onPendingChange?.(true);
+    const ownsAttempt = () => alive.current && attempt.current === requestId;
+    const release = () => { if (!ownsAttempt()) return; attempt.current = null; busy.current = false; setSubmitting(false); onPendingChange?.(false); };
+    const finish = async () => { if (!ownsAttempt()) return; setSubmitting(true); await deviceDraft.clear(); if (!ownsAttempt()) return; setEditing(null); setReview(false); setError(""); release(); };
+    const settle = () => { if (!ownsAttempt()) return; setError(backendRecovery().resolution?.status === "rejected" ? backendRecovery().message : ""); release(); };
     try {
-      if (!review) {
-        updateStaffMember(staff.data, editing, openedRevision, staff.member!.id, crypto.randomUUID(), intakeRecordTime());
-        setReview(true); return;
-      }
-      busy.current = true; setSubmitting(true); onPendingChange?.(true);
-      await savePreviewMember(editing, openedRevision);
-      await deviceDraft.clear(); setEditing(null); setError("");
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败，输入已保留，请重试。"); }
-    finally {
-      if (busy.current) { busy.current = false; setSubmitting(false); onPendingChange?.(false); }
+      await savePreviewMember(editing, openedRevision, { requestId });
+      await finish();
+    } catch (reason) {
+      if (ownsAttempt() && !receipt.watch(requestId, () => void finish(), settle)) setError(reason instanceof Error ? reason.message : "保存失败，输入已保留，请重试。");
+    } finally {
+      if (alive.current) { if (!receipt.isWaiting()) release(); setSubmitting(false); }
     }
   }
   return <>
-    <div className={"settings-section-title " + styles.sectionTitle}><UsersRound size={22}/><h3>{t("员工设置")}</h3><button className="button button--primary button--compact" disabled={submitting} onClick={() => open()} type="button"><Plus size={17}/>{t("新增员工")}</button></div>
+    <div className={"settings-section-title " + styles.sectionTitle}><UsersRound size={22}/><h3>{t("员工设置")}</h3><button className="button button--primary button--compact" disabled={pending} onClick={() => open()} type="button"><Plus size={17}/>{t("新增员工")}</button></div>
     <p className={styles.note}>{t("本地权限演示 · 不创建真实登录或发送邀请，不保存密码。")}</p>
-    <fieldset className="form-fields" disabled={submitting}><DeviceDraftNotice draft={deviceDraft}/></fieldset>
-    {editing && openedRevision !== staff.data.revision ? <button type="button" className="button button--secondary" disabled={submitting} onClick={reviewLatest}>{t("保留输入并核对最新版本")}</button> : null}
-    {editing ? <form className={styles.editor} onSubmit={save} aria-busy={submitting}><fieldset className="form-fields" disabled={submitting}>
+    <fieldset className="form-fields" disabled={pending}><DeviceDraftNotice draft={deviceDraft} disabled={pending}/></fieldset>
+    {editing && openedRevision !== staff.data.revision ? <button type="button" className="button button--secondary" disabled={pending} onClick={reviewLatest}>{t("保留输入并核对最新版本")}</button> : null}
+    {editing ? <form className={styles.editor} onSubmit={save} aria-busy={pending}><fieldset className="form-fields" disabled={pending}>
       <div className={styles.heading}><h4>{review ? t("核对员工与权限") : editing.revision ? t("编辑员工") : t("新增DEMO员工")}</h4><button className="icon-button" type="button" aria-label={t("关闭员工编辑")} onClick={close}><X size={18}/></button></div>
       {review ? <div className={styles.review}><strong>{editing.name} · {t(staffRoles[editing.role])}</strong><p>{editing.email}</p><p>{t("账号：")}{t(statusLabels[editing.accountStatus])} {t(" · 门店成员：")}{t(statusLabels[editing.membershipStatus])}</p><ul>{editing.permissions.map(permission => <li key={permission}>{t(permissionLabels[permission])}</li>)}</ul><p>{t("权限立即用于当前浏览器的预览；已有业务确认页将重新核对。")}</p></div> : <>
         <div className="field-grid">
@@ -75,9 +88,10 @@ export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending:
         <fieldset className={styles.permissions}><legend>{t("允许的操作")}</legend>{Object.entries(permissionLabels).map(([permission, label]) => <label key={permission}><input type="checkbox" aria-label={t(label)} checked={editing.permissions.includes(permission as keyof typeof permissionLabels)} disabled={editing.id === staff.member?.id || editing.role === "owner" || !staff.can(permission as keyof typeof permissionLabels)} onChange={event => { const next = event.target.checked ? [...editing.permissions, permission as keyof typeof permissionLabels] : editing.permissions.filter(value => value !== permission); setEditing({ ...editing, permissions: next }); }}/><span>{t(label)}</span></label>)}</fieldset>
       </>}
       {error || openedRevision !== staff.data.revision ? <p className="form-error" role="alert">{openedRevision !== staff.data.revision ? t("员工资料或预览身份已变化，请取消后重新核对。") : systemText(error)}</p> : null}
-      <footer className={styles.footer}><button className="button button--secondary" type="button" onClick={close}>{t("取消")}</button>{review ? <button className="button button--secondary" type="button" onClick={() => { if (!busy.current) setReview(false); }}>{t("返回修改")}</button> : null}<button className="button button--primary" type="submit" disabled={openedRevision !== staff.data.revision}><Check size={17}/>{submitting ? t("正在保存…") : review ? t("确认保存员工") : t("继续核对权限")}</button></footer>
+      <footer className={styles.footer}><button className="button button--secondary" type="button" onClick={close}>{t("取消")}</button>{review ? <button className="button button--secondary" type="button" onClick={() => { if (!busy.current) setReview(false); }}>{t("返回修改")}</button> : null}<button className="button button--primary" type="submit" disabled={openedRevision !== staff.data.revision}><Check size={17}/>{submitting ? t("正在保存…") : receipt.waiting ? t("待核对") : review ? t("确认保存员工") : t("继续核对权限")}</button></footer>
     </fieldset></form> : null}
-    <div className={styles.rows}>{staff.data.members.map(member => <article key={member.id}><span className={styles.avatar}>{member.name.slice(0, 1)}</span><div><strong>{member.name}</strong><small>{member.email}</small><span>{t(staffRoles[member.role])} {t(" · 账号")}{t(statusLabels[member.accountStatus])} {t(" · 成员")}{t(statusLabels[member.membershipStatus])}</span></div><button className="button button--secondary button--compact" type="button" onClick={() => open(member)} disabled={submitting || member.role === "owner" && staff.member?.role !== "owner"}>{t("编辑")}</button></article>)}</div>
+    <OperationRecoveryControls requestId={receipt.requestId}/>
+    <div className={styles.rows}>{staff.data.members.map(member => <article key={member.id}><span className={styles.avatar}>{member.name.slice(0, 1)}</span><div><strong>{member.name}</strong><small>{member.email}</small><span>{t(staffRoles[member.role])} {t(" · 账号")}{t(statusLabels[member.accountStatus])} {t(" · 成员")}{t(statusLabels[member.membershipStatus])}</span></div><button className="button button--secondary button--compact" type="button" onClick={() => open(member)} disabled={pending || member.role === "owner" && staff.member?.role !== "owner"}>{t("编辑")}</button></article>)}</div>
     <details className={styles.audit}><summary><History size={17}/>{t("权限变更记录 · ")}{staff.data.audit.length}</summary>{staff.data.audit.toReversed().map(entry => <article key={entry.id}><strong>{staff.data.members.find(member => member.id === entry.targetId)?.name || t("员工")} · {entry.before ? t("权限资料更正") : t("新增成员")}</strong><small>{entry.time} · {entry.actorName}</small><p>{entry.after.permissions.map(permission => permissionLabels[permission]).join("、") || t("无业务能力")}</p></article>)}</details>
   </>;
 }

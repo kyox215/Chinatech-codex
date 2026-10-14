@@ -1,4 +1,5 @@
 "use client";
+import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 import { useLanguage } from "@/components/language-provider";
 import { controlError } from "@/components/control-feedback";
 import { InputControl, TextareaControl } from "@/components/input-control";
@@ -60,7 +61,9 @@ export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { 
   const [note, setNote] = useState("");
   const [candidate, setCandidate] = useState<RetailUnit | null>(initialCandidate ?? null);
   const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const receipt = useOperationReceipt();
+  const [submittingBase, setSubmitting] = useState(false);
+  const submitting = submittingBase || receipt.waiting;
   const [attempted, setAttempted] = useState(false);
   const region = useRef<HTMLElement>(null);
   const body = useRef<HTMLDivElement>(null);
@@ -92,11 +95,12 @@ export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { 
     } catch (reason) { setError(reason instanceof Error ? reason.message : "请核对资料。"); }
   }
   async function save() {
-    if (!candidate || busy.current) return;
+    if (!candidate || busy.current || receipt.isWaiting()) return;
     busy.current = true; setSubmitting(true); setAttempted(true); setError("");
+    const requestId = crypto.randomUUID();
     const detail = `${label}：${retailFieldText(field, original[field])} → ${retailFieldText(field, candidate[field])}；${note.trim() || "逐项资料更正"}`;
-    const saved = await dispatch({ type: "command", id: original.id, version: original.version, command: { type: "edit", change: { field, value: candidate[field] } }, event: { id: crypto.randomUUID(), title: `更正${label}`, detail, time: intakeRecordTime() } });
-    if (saved) {await deviceDraft.clear();onClose();} else { busy.current = false; setSubmitting(false); }
+    const saved = await dispatch({ type: "command", id: original.id, version: original.version, command: { type: "edit", change: { field, value: candidate[field] } }, event: { id: crypto.randomUUID(), title: `更正${label}`, detail, time: intakeRecordTime() } }, {requestId});
+    if (saved) {await deviceDraft.clear().catch(() => undefined);onClose();} else { receipt.watch(requestId, () => { void deviceDraft.clear().catch(() => undefined).then(onClose); }, () => setError("")); busy.current = false; setSubmitting(false); }
   }
   const textControl = <label className="field"><span>{t(label)}</span><InputControl validate={text => controlError(() => validateRetailFieldEdit(original, { field, value: text }, units))} onClear={() => setValue("")} clearLabel={t("清空{v0}", { v0: t(label) })} aria-label={t(label)} value={String(value ?? "")} maxLength={field === "model" ? 120 : field === "brand" || field === "color" ? 60 : 300} type={field === "intakeDate" ? "date" : "text"} onInput={field === "intakeDate" ? event => setValue(event.currentTarget.value) : undefined} onChange={event => setValue(event.target.value)} /></label>;
   let control: ReactNode = textControl;
@@ -114,10 +118,10 @@ export function RetailFieldEditor({ unit, field, onClose, initialCandidate }: { 
   else if (field === "bodyStorage") {
     control = <RetailStorageControl category={original.category} value={value as Capacity | null} onChange={setValue} />;
   } else if (field === "disks") control = <RetailDisksControl value={value as RetailDisk[]} onChange={setValue} category={original.category} />;
-  return <section ref={region} className={styles.editor} aria-label={t("编辑{v0}", { v0: t(label) })} onKeyDown={event => { if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); if (!busy.current) onClose(); } }}>
+  return <section ref={region} className={styles.editor} aria-label={t("编辑{v0}", { v0: t(label) })} onKeyDown={event => { if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); if (!(busy.current || receipt.isWaiting())) onClose(); } }}>
 
     <header><div><small>{original.code}</small><h4 ref={heading} tabIndex={-1}>{candidate ? t("确认修改") : t("编辑{v0}", { v0: t(label) })}</h4></div><button type="button" className="icon-button" aria-label={t("关闭资料编辑")} disabled={submitting} onClick={onClose}><X size={18} /></button></header>
-    <DeviceDraftNotice draft={deviceDraft}/>{conflict?<button type="button" className="button button--secondary" onClick={()=>{if(current){setOriginal(current);setCandidate(null);setError("");}}}>{t("保留输入并核对最新版本")}</button>:null}<div ref={body} className={styles.body}>{candidate ? <><dl className={styles.compare}><div><dt>{t("修改前 · ")}{t(label)}</dt><dd>{retailFieldText(field, original[field], t)}</dd></div><div><dt>{t("修改后 · ")}{t(label)}</dt><dd>{retailFieldText(field, candidate[field], t)}</dd></div></dl>{candidate.status !== original.status ? <p className={styles.impact}>{t("本次更正涉及核验资料，保存后转为待检测，三项核验将重新确认。")}</p> : null}<p className={styles.note}>{t("仅保存本次字段更正，并追加到本台单机历史。")}</p></> : <>{control}<details className={styles.noteDetails}><summary>{t("更正备注（选填）")}</summary><label className="field"><span className="visually-hidden">{t("更正备注")}</span><TextareaControl aria-label={t("更正备注")} placeholder={t("例如：核对实物后更正型号")} maxLength={300} value={note} onChange={event => setNote(event.target.value)} /></label></details></>}{conflict || error || storageError || (candidate && storedFailure) ? <p className="form-error" role="alert">{conflict ? t("单机已被其他操作更新，请关闭并重新打开编辑。") : systemText(error || storageError || storedFailure)}</p> : null}</div>
-    <footer><button type="button" className="button button--secondary" disabled={submitting} onClick={onClose}>{t("取消")}</button>{candidate ? <><button type="button" className="button button--secondary" disabled={submitting} onClick={() => { setCandidate(null); setError(""); }}>{t("返回修改")}</button><button type="button" className="button button--primary" disabled={submitting || conflict || !ready || Boolean(storageError)} onClick={save}><Check size={17} />{submitting ? t("正在保存") : t("确认保存")}</button></> : <button type="button" className="button button--primary" disabled={conflict || !ready || Boolean(storageError)} onClick={next}>{t("继续确认")}<ChevronRight size={17} /></button>}</footer>
-  </section>;
+    <DeviceDraftNotice draft={deviceDraft} disabled={submitting}/>{conflict?<button type="button" className="button button--secondary" onClick={()=>{if(current){setOriginal(current);setCandidate(null);setError("");}}}>{t("保留输入并核对最新版本")}</button>:null}<div ref={body} className={styles.body}>{candidate ? <><dl className={styles.compare}><div><dt>{t("修改前 · ")}{t(label)}</dt><dd>{retailFieldText(field, original[field], t)}</dd></div><div><dt>{t("修改后 · ")}{t(label)}</dt><dd>{retailFieldText(field, candidate[field], t)}</dd></div></dl>{candidate.status !== original.status ? <p className={styles.impact}>{t("本次更正涉及核验资料，保存后转为待检测，三项核验将重新确认。")}</p> : null}<p className={styles.note}>{t("仅保存本次字段更正，并追加到本台单机历史。")}</p></> : <>{control}<details className={styles.noteDetails}><summary>{t("更正备注（选填）")}</summary><label className="field"><span className="visually-hidden">{t("更正备注")}</span><TextareaControl aria-label={t("更正备注")} placeholder={t("例如：核对实物后更正型号")} maxLength={300} value={note} onChange={event => setNote(event.target.value)} /></label></details></>}{conflict || error || storageError || (candidate && storedFailure) ? <p className="form-error" role="alert">{conflict ? t("单机已被其他操作更新，请关闭并重新打开编辑。") : systemText(error || storageError || storedFailure)}</p> : null}</div>
+    <footer><button type="button" className="button button--secondary" disabled={submitting} onClick={onClose}>{t("取消")}</button>{candidate ? <><button type="button" className="button button--secondary" disabled={submitting} onClick={() => { setCandidate(null); setError(""); }}>{t("返回修改")}</button><button type="button" className="button button--primary" disabled={submitting || conflict || !ready || Boolean(storageError)} aria-busy={submitting} onClick={save}><Check size={17} />{submitting ? t("正在保存") : t("确认保存")}</button></> : <button type="button" className="button button--primary" disabled={conflict || !ready || Boolean(storageError)} onClick={next}>{t("继续确认")}<ChevronRight size={17} /></button>}</footer>
+  <OperationRecoveryControls requestId={receipt.requestId}/></section>;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/components/language-provider";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { Mail, ShieldCheck } from "lucide-react";
 import { AuthFrame } from "@/components/auth/auth-frame";
 import { LogoutButton } from "@/components/dashboard/logout-button";

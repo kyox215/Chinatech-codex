@@ -1,5 +1,5 @@
 "use client";
-import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
+import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand, backendRecovery, subscribeRecovery } from "@/lib/backend/client";
 
 import { createContext, useContext, useReducer, useSyncExternalStore } from "react";
 import { retailUnits } from "@/lib/retail-fixtures";
@@ -34,25 +34,28 @@ function subscribe(listener: () => void) {const stop=subscribeBackend(listener);
   window.addEventListener("storage", storage); window.addEventListener(changeEvent, listener);
   return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(changeEvent, listener); };
 }
-type Feedback = { id: string; error: boolean; message: string } | null;
+type Feedback = { id: string; requestId?: string; error: boolean; message: string } | null;
 type State = { units: RetailUnit[]; ready: boolean; error: string; returnTo: string; returnScroll: number; feedback: Feedback };
 type Action = { type: "workflow"; workflow: RetailWorkflow; event: RetailEvent } | { type: "create"; unit: RetailUnit; photos?: string[]; event: RetailEvent } | { type: "prepare"; id: string; sourceSnapshot: string; settingsRevision: number; draft: RetailRecordPreparation; event: RetailEvent } | { type: "command"; id: string; command: RetailCommand; event: RetailEvent; version: number } | { type: "remember"; url: string; scroll: number };
 type UiState = Pick<State, "returnTo" | "returnScroll" | "feedback">;
 type UiAction = { type: "remember"; url: string; scroll: number } | { type: "feedback"; feedback: Feedback };
 function uiReducer(state: UiState, action: UiAction): UiState { return action.type === "remember" ? { ...state, returnTo: action.url, returnScroll: action.scroll } : { ...state, feedback: action.feedback }; }
 
-const RetailContext = createContext<State & { dispatch: (action: Action) => boolean | Promise<boolean> } | null>(null);
+const RetailContext = createContext<State & { dispatch: (action: Action, options?: { requestId?: string }) => boolean | Promise<boolean> } | null>(null);
 export function RetailProvider({ children }: { children: React.ReactNode }) {
   const stored = useSyncExternalStore(subscribe, read, () => server);
   const staff = useSyncExternalStore(subscribeStaff, readStaffSnapshot, () => staffServerSnapshot);
   const [ui, uiDispatch] = useReducer(uiReducer, { returnTo: "/app/retail", returnScroll: 0, feedback: null });
-  function dispatch(action: Action) {
+  const recovery = useSyncExternalStore(subscribeRecovery, backendRecovery, backendRecovery);
+  const feedback = ui.feedback?.requestId && recovery.receipt?.requestId === ui.feedback.requestId ? { ...ui.feedback, error: false, message: "已保存并追加到历史。" } : ui.feedback?.requestId && recovery.pending?.command.requestId === ui.feedback.requestId ? null : ui.feedback?.requestId && recovery.resolution?.requestId === ui.feedback.requestId ? recovery.resolution.status === "cancelled" ? null : {...ui.feedback,error:true,message:recovery.message||ui.feedback.message} : ui.feedback;
+  function dispatch(action: Action, options?: { requestId?: string }) {
     if (action.type === "remember") { uiDispatch(action); return true; }
     const id = action.type === "workflow" ? (action.workflow.type === "create_ready" ? action.workflow.unit.id : action.workflow.id) : action.type === "create" ? action.unit.id : action.id;
     if (isBackendClient()) {
+      const requestId = options?.requestId ?? crypto.randomUUID();
       const command = action.type === "command" && ["inspect", "approve", "pause", "reinspect"].includes(action.command.type) ? { ...action.command, note: "note" in action.command && action.command.note !== undefined ? action.command.note : action.event.detail } : action.type === "command" ? action.command : undefined;
       const payload = action.type === "workflow" ? action.workflow : action.type === "prepare" ? { id: action.id, sourceSnapshot: action.sourceSnapshot, settingsRevision: action.settingsRevision, draft: action.draft } : action.type === "create" ? { type: action.type, unit: action.unit, ...(action.photos !== undefined ? { photos: action.photos } : {}) } : { type: action.type, id: action.id, command, version: action.version };
-      return backendCommand(action.type === "workflow" ? "retail.workflow" : action.type === "prepare" ? "retail.prepare" : "retail", payload).then(() => { uiDispatch({ type: "feedback", feedback: { id, error: false, message: "已保存并追加到历史。" } }); return true; }).catch(reason => { uiDispatch({ type: "feedback", feedback: { id, error: true, message: reason instanceof Error ? reason.message : "保存失败。" } }); return false; });
+      return backendCommand(action.type === "workflow" ? "retail.workflow" : action.type === "prepare" ? "retail.prepare" : "retail", payload, requestId).then(() => { uiDispatch({ type: "feedback", feedback: { id, requestId, error: false, message: "已保存并追加到历史。" } }); return true; }).catch(reason => { uiDispatch({ type: "feedback", feedback: { id, requestId, error: true, message: reason instanceof Error ? reason.message : "保存失败。" } }); return false; });
     }
     try {
       const authorize = () => {
@@ -113,7 +116,7 @@ export function RetailProvider({ children }: { children: React.ReactNode }) {
       return true;
     } catch (error) { uiDispatch({ type: "feedback", feedback: { id, error: true, message: error instanceof Error ? error.message : "请核对单机资料。" } }); return false; }
   }
-  return <RetailContext.Provider value={{ ...stored, units: projectRetailForStaff(stored.units, staff.error ? null : staff.member), ready: stored.ready && staff.ready, error: stored.error || staff.error, ...ui, dispatch }}>{children}</RetailContext.Provider>;
+  return <RetailContext.Provider value={{ ...stored, units: projectRetailForStaff(stored.units, staff.error ? null : staff.member), ready: stored.ready && staff.ready, error: stored.error || staff.error, ...ui, feedback, dispatch }}>{children}</RetailContext.Provider>;
 }
 export function useRetail() {
   const context = useContext(RetailContext);

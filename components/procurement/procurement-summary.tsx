@@ -2,7 +2,7 @@
 
 import { useLanguage } from "@/components/language-provider";
 import { repairItemText } from "@/lib/i18n/repair-display";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { useState } from "react";
 import { RepairProcurementDialog } from "./repair-procurement-shortcut";
 import { PackageSearch, Pencil } from "lucide-react";

@@ -1,7 +1,8 @@
 "use client";
+import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 import { useLanguage } from "@/components/language-provider";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { isBackendClient } from "@/lib/backend/client";
 import { Check, PenLine, RotateCcw, Trash2, X } from "lucide-react";
 import { SelectControl } from "@/components/select-control";
@@ -63,14 +64,14 @@ function SignaturePad({strokes,onChange,aspectRatio,onAspectRatio,disabled=false
     <details className={styles.help}><summary>{t("键盘签字方式")}</summary><p id={description}>{t("聚焦签字区域后按空格开始或结束一笔，方向键移动和绘制。")}{isBackendClient()?t("签名随工单保存。"):t("签名保存在当前浏览器。")}</p></details>{error?<p className="form-error" role="alert">{systemText(error)}</p>:null}
   </div>;
 }
-export function IntakeSignatureEditor({data,policy,onConfirm,onCancel}:{data:IntakeReceiptData;policy:IntakePolicy;onConfirm:(draft:IntakeSignatureDraft)=>void|Promise<void>;onCancel:()=>void}) {
+export function IntakeSignatureEditor({data,policy,onConfirm,onCancel,locked=false,onDraftClear}:{data:IntakeReceiptData;policy:IntakePolicy;onConfirm:(draft:IntakeSignatureDraft)=>void|Promise<void>;onCancel:()=>void;locked?:boolean;onDraftClear?:(clear:()=>Promise<void>)=>void}) {
   const { t , systemText } = useLanguage();
   const [language,setLanguage]=useState<"it"|"en"|"zh">("it");
   const [strokes,setStrokes]=useState<SignatureStrokes>([]);
   const [aspectRatio,setAspectRatio]=useState<number|null>(null);
   const [accepted,setAccepted]=useState(false);
   const [error,setError]=useState("");
-  const [submitting,setSubmitting]=useState(false);
+  const [submittingBase,setSubmitting]=useState(false);const submitting=submittingBase||locked;
   const busy=useRef(false);
   const identity=useRef("");
   const signedAt=useRef("");
@@ -79,8 +80,9 @@ export function IntakeSignatureEditor({data,policy,onConfirm,onCancel}:{data:Int
   const requests=printServiceRequests(data.services,language);
   const conflict=JSON.stringify(snapshot)!==JSON.stringify(intakeSignatureSnapshot(data,policy));
   const deviceDraft=useDeviceDraft(`signature:${data.id}`,{language,strokes,aspectRatio,snapshot},value=>{if(JSON.stringify(value.snapshot)!==JSON.stringify(snapshot))throw new Error("接机资料已变化，请重新签署。");setLanguage(value.language);setStrokes(value.strokes);setAspectRatio(value.aspectRatio);setAccepted(false);},strokes.length>0);
-  async function confirm(){if(busy.current)return;if(!accepted){setError("请让客户阅读并确认接机资料与条款。");return;}if(!validSignatureStrokes(strokes)){setError("请在签字区域完成有效笔迹，或取消跳过签名。");return;}if(conflict){setError("资料已变化，请取消并重新核对签署。");return;}if(!identity.current){identity.current=crypto.randomUUID();signedAt.current=intakeRecordTime();}busy.current=true;setSubmitting(true);setError("");try{await onConfirm({id:identity.current,signedAt:signedAt.current,language,termsVersion:repairIntakeTermsVersion,strokes:structuredClone(strokes),aspectRatio:aspectRatio??800/240,snapshot:snapshot});await deviceDraft.clear();}catch(reason){setError(reason instanceof Error?reason.message:"签名保存失败。");}finally{busy.current=false;setSubmitting(false);}}
-  return <section className={styles.editor} aria-busy={submitting} aria-label={t("客户签字")}><DeviceDraftNotice draft={deviceDraft}/><header className={styles.header}><h3><PenLine size={19}/>{t("客户签字")}</h3><button className="icon-button" type="button" aria-label={t("取消签署")} disabled={submitting} onClick={onCancel}><X size={18}/></button></header>
+  useEffect(()=>{onDraftClear?.(deviceDraft.clear);},[onDraftClear,deviceDraft.clear]);
+  async function confirm(){if(busy.current||locked)return;if(!accepted){setError("请让客户阅读并确认接机资料与条款。");return;}if(!validSignatureStrokes(strokes)){setError("请在签字区域完成有效笔迹，或取消跳过签名。");return;}if(conflict){setError("资料已变化，请取消并重新核对签署。");return;}if(!identity.current){identity.current=crypto.randomUUID();signedAt.current=intakeRecordTime();}busy.current=true;setSubmitting(true);setError("");try{await onConfirm({id:identity.current,signedAt:signedAt.current,language,termsVersion:repairIntakeTermsVersion,strokes:structuredClone(strokes),aspectRatio:aspectRatio??800/240,snapshot:snapshot});await deviceDraft.clear();}catch(reason){setError(reason instanceof Error?reason.message:"签名保存失败。");}finally{busy.current=false;setSubmitting(false);}}
+  return <section className={styles.editor} aria-busy={submitting} aria-label={t("客户签字")}><DeviceDraftNotice draft={deviceDraft} disabled={submitting}/><header className={styles.header}><h3><PenLine size={19}/>{t("客户签字")}</h3><button className="icon-button" type="button" aria-label={t("取消签署")} disabled={submitting} onClick={onCancel}><X size={18}/></button></header>
     <label className="field"><span>{t("客户阅读语言")}</span><SelectControl disabled={submitting} aria-label={t("签署阅读语言")} value={language} onChange={event=>{setLanguage(event.target.value as typeof language);setAccepted(false);setStrokes([]);setAspectRatio(null);identity.current="";}}><option value="it">Italiano</option><option value="en">English</option><option value="zh">中文</option></SelectControl></label>
     <div lang={language} className={styles.reading}><p>{repairIntakeAcknowledgement[language]}</p><dl><div><dt>{language==="it"?"Cliente":language==="en"?"Customer":"客户"}</dt><dd>{data.customerName || "—"} · {data.phone}</dd></div><div><dt>{language==="it"?"Dispositivo":language==="en"?"Device":"设备"}</dt><dd>{data.brand} {data.model} · {data.serial || "—"}</dd></div><div><dt>{language==="it"?"Garanzia commerciale":language==="en"?"Commercial warranty":"商家保修"}</dt><dd>{policy.months} {language==="it"?"mesi":language==="en"?"months":"个月"} · {policy.shopName}</dd></div></dl><details><summary>{language==="it"?"Condizioni e dati da verificare":language==="en"?"Terms and intake details":"条款与接机资料"}</summary><dl><div><dt>{printLabel("category",language)}</dt><dd>{printKnownOrOriginal(data.category,language)} · {printKnownOrOriginal(data.color,language)}</dd></div><div><dt>{printLabel("priority",language)}</dt><dd>{printKnownOrOriginal(data.priority,language)}</dd></div>{data.email?<div><dt>Email</dt><dd>{data.email}</dd></div>:null}<div><dt>{printLabel("reportedFault",language)}</dt><dd>{issue.faults.join(" · ") || "—"}</dd></div>{issue.note?<div><dt>{printLabel("originalText",language)}</dt><dd>{issue.note}</dd></div>:null}<div><dt>{printLabel("requested",language)}</dt><dd>{requests.join(" · ") || "—"}</dd></div><div><dt>{printLabel("accessories",language)}</dt><dd>{printAccessories(data.accessories,language)}</dd></div><div><dt>{printLabel("contact",language)}</dt><dd>{policy.address} · {policy.phone}</dd></div></dl><ul>{repairIntakeTerms[language].map(term=><li key={term}>{term}</li>)}</ul><p>{repairIntakeStatutoryRights[language]}</p></details></div>
     <SignaturePad disabled={submitting} strokes={strokes} aspectRatio={aspectRatio} onAspectRatio={setAspectRatio} onChange={value=>{setStrokes(value);if(!value.length)setAspectRatio(null);setError("");}}/>
@@ -96,11 +98,13 @@ export function IntakeSignatureSection({data,embedded=false}:{data:IntakeReceipt
   const history=signatures.filter(signature=>signature.orderId===data.id);
   const current=matchingIntakeSignature(signatures,data,policy);
   const [editing,setEditing]=useState<{data:IntakeReceiptData;policy:IntakePolicy;count:number}|null>(null);
+  const receipt=useOperationReceipt();
+  const clearSignatureDraft=useRef<(()=>Promise<void>)|null>(null);
   const [error,setError]=useState("");
   return <section className={`panel ${styles.section}${embedded?` ${styles.embedded}`:""}`} aria-label={t("客户签名")}><header className={styles.header}><h3><PenLine size={18}/>{t("客户签名")}</h3>{staff.can("repairs.edit")?<button className="button button--secondary button--compact" type="button" disabled={!ready || !settingsReady || !!settingsError || !!storageError || !!editing} onClick={()=>{setError("");setEditing({data:structuredClone(data),policy:structuredClone(policy),count:history.length});}}>{current?t("重新签署"):t("添加签名")}</button>:null}</header>
     {current?<><SignatureImage strokes={current.strokes} aspectRatio={current.aspectRatio} label={t("当前接机资料客户签名")}/><small className={styles.note}>{current.signedAt} · {current.language==="it"?"Italiano":current.language==="en"?"English":t("中文")} {t(" · 接机资料核对")}</small></>:<p className={styles.note}>{history.length?t("资料与历史签署内容不同，请重新核对签署。"):t("未签署 · 可在此让客户签字，也可保留纸质签名。")}</p>}
-    {editing?<IntakeSignatureEditor data={editing.data} policy={editing.policy} onCancel={()=>{setEditing(null);setError("");}} onConfirm={async draft=>{try{await saveIntakeSignature(editing.data,editing.policy,draft,editing.count);setEditing(null);setError("");}catch(reason){setError(reason instanceof Error?reason.message:"签名保存失败。");throw reason;}}}/>:null}
-    {error || settingsError || storageError?<p className="form-error" role="alert">{systemText(error || settingsError || storageError || "")}</p>:null}
+    {editing?<IntakeSignatureEditor onDraftClear={clear=>{clearSignatureDraft.current=clear;}} locked={receipt.waiting} data={editing.data} policy={editing.policy} onCancel={()=>{if(!receipt.isWaiting()){setEditing(null);setError("");}}} onConfirm={async draft=>{const requestId=crypto.randomUUID();try{await saveIntakeSignature(editing.data,editing.policy,draft,editing.count,{requestId});setEditing(null);setError("");}catch(reason){receipt.watch(requestId,()=>{void (clearSignatureDraft.current?.() ?? Promise.resolve()).catch(()=>undefined).then(()=>{setEditing(null);setError("");});},()=>setError(""));setError(reason instanceof Error?reason.message:"签名保存失败。");throw reason;}}}/>:null}
+    <OperationRecoveryControls requestId={receipt.requestId}/>{error || settingsError || storageError?<p className="form-error" role="alert">{systemText(error || settingsError || storageError || "")}</p>:null}
     {history.length?<details className={styles.history}><summary>{t("签署历史 · ")}{history.length}</summary>{history.toReversed().map(signature=><details key={signature.id}><summary>{signature.signedAt} · {signature.language} · {signature.id===current?.id?t("当前资料"):t("历史资料")}</summary><SignatureImage strokes={signature.strokes} aspectRatio={signature.aspectRatio} label={t("历史接机资料签名")}/><p>{signature.snapshot.customerName || "—"} · {signature.snapshot.brand} {signature.snapshot.model} · {signature.snapshot.serial || "—"}</p><p>{signature.snapshot.issue}</p><p>{signature.snapshot.accessories.join(" · ") || t("无随件")}</p><small>{signature.snapshot.policy.shopName} {t(" · 商家保修 ")}{signature.snapshot.policy.months} {t(" 月 · ")}{signature.termsVersion}</small></details>)}</details>:null}
   </section>;
 }

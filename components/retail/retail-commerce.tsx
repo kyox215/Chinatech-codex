@@ -1,4 +1,5 @@
 "use client";
+import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 import { useLanguage } from "@/components/language-provider";
 import { controlError } from "@/components/control-feedback";
 import { InputControl, TextareaControl } from "@/components/input-control";
@@ -6,7 +7,7 @@ import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft
 import { isBackendClient } from "@/lib/backend/client";
 
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { Banknote, Check, CreditCard, Landmark, PackageCheck, Printer, RotateCcw, ShieldCheck, ShoppingBag, Smartphone, Wallet, X } from "lucide-react";
 import { SelectControl } from "@/components/select-control";
 import { SingleChoice } from "@/components/single-choice";
@@ -35,6 +36,7 @@ const requestKey = (request: Pending) => [request.operation, request.caseId, req
 
 function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { unit: RetailUnit; sale?: RetailSale; request: Pending; onClose: () => void; restoreFocusRef: RefObject<HTMLElement | null> }) {
   const { t , systemText } = useLanguage();
+  const receipt=useOperationReceipt();
   const { dispatch, units, feedback, ready, error: storageError } = useRetail();
   const staff = useStaff();
   const { customers } = useCustomerDirectory();
@@ -122,8 +124,10 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (busy.current) return;
+    if (busy.current||receipt.isWaiting()) return;
     setError("");
+    const requestId=crypto.randomUUID();
+    const finish=()=>{busy.current=false;setError("");void deviceDraft.clear().then(onClose);};
     try {
       if (conflict) throw new Error("单机已变化，请取消后重新核对。");
       if (!pending) {
@@ -135,7 +139,8 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
       }
       busy.current = true; setSubmitting(true);
       setAttempted(true);
-      if (await dispatch({ type: "command", id: unit.id, version, command: pending.command, event: { ...pending.event, time: intakeRecordTime() } })) {await deviceDraft.clear();onClose();}
+      if (await dispatch({ type: "command", id: unit.id, version, command: pending.command, event: { ...pending.event, time: intakeRecordTime() } },{requestId})) {await deviceDraft.clear();onClose();}
+      else receipt.watch(requestId,finish);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "请核对资料。"); }
     finally { busy.current = false; setSubmitting(false); }
   }
@@ -148,9 +153,10 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
     return String(value);
   }
 
-  return <section className={styles.transaction} ref={section} role="region" aria-labelledby={titleId} onKeyDown={event => { if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); if (!busy.current) onClose(); } }}>
-    <header className={styles.transactionHead}><h4 id={titleId} ref={heading} tabIndex={-1}>{pending ? t("核对后确认 · ") : ""}{t(titles[operation])}</h4><button className="icon-button" type="button" aria-label={t("关闭业务操作")} disabled={submitting} onClick={onClose}><X size={18} /></button></header>
-    <form aria-busy={submitting} onSubmit={submit}><fieldset className="form-fields" disabled={submitting}><DeviceDraftNotice draft={deviceDraft}/>{conflict?<button type="button" className="button button--secondary" onClick={()=>{setVersion(unit.version);setPending(null);setChecked(false);setError("");}}>{t("保留输入并核对最新版本")}</button>:null}
+  return <section className={styles.transaction} ref={section} role="region" aria-labelledby={titleId} onKeyDown={event => { if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); if (!busy.current&&!receipt.isWaiting()) onClose(); } }}>
+    <header className={styles.transactionHead}><h4 id={titleId} ref={heading} tabIndex={-1}>{pending ? t("核对后确认 · ") : ""}{t(titles[operation])}</h4><button className="icon-button" type="button" aria-label={t("关闭业务操作")} disabled={submitting||receipt.waiting} onClick={onClose}><X size={18} /></button></header>
+    <OperationRecoveryControls requestId={receipt.requestId}/>
+    <form aria-busy={submitting} onSubmit={submit}><fieldset className="form-fields" disabled={submitting||receipt.waiting}><DeviceDraftNotice draft={deviceDraft} disabled={submitting||receipt.waiting}/>{receipt.waiting?<p role="status">{t("提交结果待核对，请处理原提交，勿重复新建。")}</p>:null}{conflict&&!receipt.waiting?<button type="button" className="button button--secondary" onClick={()=>{setVersion(unit.version);setPending(null);setChecked(false);setError("");}}>{t("保留输入并核对最新版本")}</button>:null}
       <div className={styles.formBody}>
         <dl className={styles.context}><div><dt>{t("本台单机")}</dt><dd>{unit.code}</dd></div>{sale ? <div><dt>{t("原销售买家")}</dt><dd>{sale.customerName || t("未填写称呼")} · {sale.customerPhone || t("号码待核对")}</dd></div> : null}{currentCase ? <div><dt>{t("原售后问题")}</dt><dd>{currentCase.date} · {currentCase.issue}</dd></div> : null}{operation === "release_reservation" && unit.reservation ? <div><dt>{t("原预留")}</dt><dd>{unit.reservation.name || t("未填写称呼")} · {unit.reservation.phone || t("号码待核对")}<br />{t("截止 ")}{unit.reservation.until}</dd></div> : null}</dl>
         {sale && ["payment", "refund", "payment_reconcile", "payment_void", "refund_void", "deliver", "return"].includes(operation) ? <dl className={styles.amountContext}><div><dt>{t("成交价")}</dt><dd>{t(retailMoney(sale.priceCents))}</dd></div><div><dt>{t("有效实收")}</dt><dd>{t(retailMoney(paid))}</dd></div><div><dt>{operation === "refund" || operation === "return" || operation === "refund_void" ? t("可退款余额") : t("待收款")}</dt><dd>{t(retailMoney(operation === "refund" || operation === "return" || operation === "refund_void" ? refundable : due))}</dd></div></dl> : null}
@@ -172,9 +178,9 @@ function TransactionForm({ unit, sale, request, onClose, restoreFocusRef }: { un
           {operation === "return" || operation === "after_sale_close" ? <label className={styles.accept}><input type="checkbox" checked={checked} required onChange={event => setChecked(event.target.checked)} />{operation === "return" ? t("已实际收到本台实物；登记后隔离，退款结清及重新检测前不能再次售卖") : t("关联维修已结束，设备已实际交还客户")}</label> : null}
           {operation === "payment_reconcile" ? <p className={styles.note}>{t("未知款项不能当作零。按原凭证核对历史实收，另记后续款项。")}</p> : null}
         </>}
-        {error || conflict || storageError || attempted && feedback?.error && feedback.id === unit.id ? <p className="form-error" role="alert">{conflict ? t("单机已变化，请取消后重新核对。") : systemText(error || storageError) || systemText(feedback?.message ?? "")}</p> : null}
+        {!receipt.waiting&&(error || conflict || storageError || attempted && feedback?.error && feedback.id === unit.id) ? <p className="form-error" role="alert">{conflict ? t("单机已变化，请取消后重新核对。") : systemText(error || storageError) || systemText(feedback?.message ?? "")}</p> : null}
       </div>
-      <footer className={styles.transactionActions}><button type="button" className="button button--secondary" onClick={onClose}>{t("取消")}</button>{pending ? <button type="button" className="button button--secondary" onClick={() => { setPending(null); setError(""); setAttempted(false); }}>{t("返回修改")}</button> : null}<button type="submit" className="button button--primary" disabled={conflict || !ready || Boolean(storageError)}><Check size={17} />{submitting ? t("正在保存…") : pending ? t("确认保存业务记录") : t("继续核对")}</button></footer>
+      <footer className={styles.transactionActions}><button type="button" className="button button--secondary" disabled={submitting||receipt.waiting} onClick={()=>{if(!busy.current&&!receipt.isWaiting())onClose();}}>{t("取消")}</button>{pending ? <button type="button" className="button button--secondary" disabled={submitting||receipt.waiting} onClick={() => { setPending(null); setError(""); setAttempted(false); }}>{t("返回修改")}</button> : null}<button type="submit" className="button button--primary" disabled={submitting||receipt.waiting||conflict||!ready||Boolean(storageError)}><Check size={17} />{submitting ? t("正在保存…") : receipt.waiting ? t("待核对") : pending ? t("确认保存业务记录") : t("继续核对")}</button></footer>
     </fieldset></form>
   </section>;
 }
@@ -190,12 +196,17 @@ export function RetailReservation({ unit }: { unit: RetailUnit }) {
 
 export function RetailSaleCard({ unit, sale }: { unit: RetailUnit; sale: RetailSale }) {
   const { t , systemText } = useLanguage();
+  const receipt=useOperationReceipt();
   const staff = useStaff();
   const { dispatch, feedback } = useRetail();
   const [request, setRequest] = useState<Pending | null>(null);
   const trigger = useRef<HTMLElement | null>(null);
   const [error, setError] = useState("");
   const [printing, setPrinting] = useState(false);
+  const linking = useRef(false);
+  const alive = useRef(true);
+  const [linkingCase, setLinkingCase] = useState<string | null>(null);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const current = currentRetailSale(unit)?.id === sale.id;
   const paid = retailPaidCents(sale);
   const refunded = retailRefundedCents(sale);
@@ -203,25 +214,33 @@ export function RetailSaleCard({ unit, sale }: { unit: RetailUnit; sale: RetailS
   const state = retailSaleState(sale);
   const profit = retailSaleGrossProfit(sale);
   const nextStep = !current ? "" : sale.returned ? paid === null ? "退回款项待核对。" : paid > refunded ? "下一步：登记实际退款并结清退回款项。" : "实物已退回并结算，原销售记录保留。" : paid === null ? "下一步：核对历史收款。" : due && due > 0 ? "下一步：登记实际收款。" : !sale.delivered ? "下一步：确认实际交付。" : "销售已结清并交付。";
-  const open = (operation: Operation, caseId?: string, entryId?: string) => { setError(""); setRequest({ operation, caseId, entryId }); };
+  const open = (operation: Operation, caseId?: string, entryId?: string) => { if (linking.current) return; setError(""); setRequest({ operation, caseId, entryId }); };
   async function linkRepair(item: RetailAfterSale) {
+    if (linking.current || request || !staff.can("sale.aftersales") || !current || sale.returned || item.closed || item.cancelled || item.repairId) return;
+    linking.current = true; setLinkingCase(item.id); setError("");
+    const requestId=crypto.randomUUID();
+    const release=()=>{linking.current=false;if(alive.current)setLinkingCase(null);};
+    const finish=()=>{release();if(alive.current)setError("");};
     try {
-      const repairId = await createRetailAfterSaleRepair(unit.id, sale.id, item.id);
-      if (!isBackendClient() && !(await dispatch({ type: "command", id: unit.id, version: unit.version, command: { type: "after_sale_link", saleId: sale.id, caseId: item.id, repairId }, event: { id: crypto.randomUUID(), time: intakeRecordTime(), title: "售后关联维修", detail: repairId } }))) setError("工单已保留，可再次点击继续关联。");
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "创建维修失败。"); }
+      const repairId = await createRetailAfterSaleRepair(unit.id, sale.id, item.id,{requestId});
+      if (!isBackendClient() && !(await dispatch({ type: "command", id: unit.id, version: unit.version, command: { type: "after_sale_link", saleId: sale.id, caseId: item.id, repairId }, event: { id: crypto.randomUUID(), time: intakeRecordTime(), title: "售后关联维修", detail: repairId } },{requestId})) && alive.current) setError("工单已保留，可再次点击继续关联。");
+    } catch (reason) { if(alive.current&&!receipt.watch(requestId,finish,release))setError(reason instanceof Error?reason.message:"创建维修失败。"); }
+    finally {if(!receipt.isWaiting())release();}
   }
   function transaction(active: Pending) { return <TransactionForm key={requestKey(active)} unit={unit} sale={sale} request={active} restoreFocusRef={trigger} onClose={() => setRequest(null)} />; }
   function ledger(entries: RetailMoneyEntry[] | undefined, refund: boolean) {
-    return entries?.length ? <details className={styles.ledger}><summary>{refund ? t("退款") : t("收款")}{t("记录 · ")}{entries.length}</summary>{entries.toReversed().map(entry => <div className={styles.ledgerItem} key={entry.id}><div className={styles.ledgerRow}><span><strong>{t(retailMoney(entry.amountCents))} · {t(methods[entry.method])}</strong><small>{entry.date} · {entry.actorName || t("原记录")} · {entry.note}</small>{entry.void ? <small>{t("已冲销 · ")}{entry.void.reason}</small> : null}</span>{!entry.void && staff.can(refund ? "sale.refund" : "sale.reconcile") ? <button className="button button--secondary button--compact" type="button" disabled={Boolean(request)} onClick={() => open(refund ? "refund_void" : "payment_void", undefined, entry.id)}>{t("冲销")}</button> : null}</div>{request?.entryId === entry.id && request.operation === (refund ? "refund_void" : "payment_void") ? transaction(request) : null}</div>)}</details> : null;
+    return entries?.length ? <details className={styles.ledger}><summary>{refund ? t("退款") : t("收款")}{t("记录 · ")}{entries.length}</summary>{entries.toReversed().map(entry => <div className={styles.ledgerItem} key={entry.id}><div className={styles.ledgerRow}><span><strong>{t(retailMoney(entry.amountCents))} · {t(methods[entry.method])}</strong><small>{entry.date} · {entry.actorName || t("原记录")} · {entry.note}</small>{entry.void ? <small>{t("已冲销 · ")}{entry.void.reason}</small> : null}</span>{!entry.void && staff.can(refund ? "sale.refund" : "sale.reconcile") ? <button className="button button--secondary button--compact" type="button" disabled={Boolean(request) || Boolean(linkingCase)} onClick={() => open(refund ? "refund_void" : "payment_void", undefined, entry.id)}>{t("冲销")}</button> : null}</div>{request?.entryId === entry.id && request.operation === (refund ? "refund_void" : "payment_void") ? transaction(request) : null}</div>)}</details> : null;
   }
   return <article id={`sale-${sale.id}`} tabIndex={-1} className={styles.sale} aria-label={t("销售结算与售后")} onClickCapture={event => { if (!request && event.target instanceof Element) { const button = event.target.closest("button"); if (button) trigger.current = button; } }}><header><div><strong>{sale.time}</strong><small>{current ? sale.returned ? t("最近销售") : t("当前销售") : t("历史销售")} · {sale.id}</small></div><span className="status-pill status-pill--info">{t(states[state])}</span></header>{sale.customerPhone ? <Link className={styles.buyer} href={"/app/customers/" + customerId(sale.customerPhone) + "?records=sales"}>{sale.customerName || t("未填写称呼")} · {sale.customerPhone}</Link> : null}{sale.customerEmail || sale.customerAddress ? <p className={styles.note}>{sale.customerEmail} {sale.customerAddress}</p> : null}{sale.customerNote ? <p className={styles.note}>{t("买家备注：")}{sale.customerNote}</p> : null}
     {!sale.returned ? <ol className={styles.steps} aria-label={t("销售完成步骤")}><li><span>{t("买家")}</span><strong>{sale.customerPhone ? t("已关联") : t("待核对")}</strong></li><li><span>{t("收款")}</span><strong>{paid === null ? t("待核对") : due === 0 ? t("已结清") : t("待收款")}</strong></li><li><span>{t("交付")}</span><strong>{sale.delivered ? sale.deliveryDate || t("已记录 · 日期待核对") : t("待确认")}</strong></li></ol> : null}{nextStep ? <p className={styles.nextStep}>{t(nextStep)}</p> : null}
     <dl className={styles.metrics}><div><dt>{t("成交")}</dt><dd>{t(retailMoney(sale.priceCents))}</dd></div><div><dt>{t("有效收款")}</dt><dd>{t(retailMoney(paid))}</dd></div><div><dt>{sale.returned ? t("待退款") : t("未收款")}</dt><dd>{t(retailMoney(sale.returned ? paid === null ? null : paid - refunded : due))}</dd></div><div><dt>{t("已退款")}</dt><dd>{t(retailMoney(refunded))}</dd></div></dl>{staff.can("financial.read") ? <p className={styles.note}>{sale.returned ? t("退回损益待核对 · 实物价值和退回费用未计入") : (refunded ? t("退款后销售差额：") : t("销售毛利：")) + t(retailMoney(profit)) + (refunded ? t(" · 净销售收入减原成本；非净利润") : t(" · 按原销售成本快照"))}</p> : null}
     {sale.debtDelivery ? <p className={styles.note}>{t("欠款放行 · ")}{sale.debtDelivery.reason} {t(" · 责任人 ")}{sale.debtDelivery.owner} {t(" · 跟进 ")}{sale.debtDelivery.followUp}</p> : null}{sale.returned ? <p className={styles.note}>{t("实物退回 ")}{sale.returned.date} · {sale.returned.reason} {t(" · 重新检测前保持隔离")}</p> : null}
-    <div className={styles.buttons}>{!sale.returned && current && unit.status === "sold" ? <>{paid === null && staff.can("sale.reconcile") ? <button type="button" className="button button--secondary" disabled={Boolean(request)} onClick={() => open("payment_reconcile")}>{t("核对历史收款")}</button> : null}{paid !== null && (due ?? 0) > 0 && staff.can("sale.payment") ? <button type="button" className="button button--primary" disabled={Boolean(request)} onClick={() => open("payment")}><CreditCard size={16} />{t("登记收款")}</button> : null}{!sale.delivered && staff.can("sale.deliver") ? <button type="button" className={"button " + (due === 0 ? "button--primary" : "button--secondary")} disabled={Boolean(request) || due === null || due > 0 && !staff.can("sale.debt")} onClick={() => open("deliver")}><PackageCheck size={16} />{t("确认交付")}</button> : null}{staff.can("sale.refund") ? <button type="button" className="button button--secondary" disabled={Boolean(request)} onClick={() => open("return")}><RotateCcw size={16} />{t("登记退回")}</button> : null}{sale.delivered && staff.can("sale.aftersales") ? <button type="button" className="button button--secondary" disabled={Boolean(request)} onClick={() => open("after_sale")}><ShieldCheck size={16} />{t("售后服务")}</button> : null}</> : null}{paid !== null && paid > refunded && staff.can("sale.refund") ? <button type="button" className="button button--secondary" disabled={Boolean(request)} onClick={() => open("refund")}>{t("登记退款")}</button> : null}<button type="button" className="button button--secondary" disabled={Boolean(request)} onClick={() => setPrinting(true)}><Printer size={16} />{t("打印销售与保修单")}</button></div>{printing ? <RetailReceipt unit={unit} sale={sale} restoreFocusRef={trigger} onClose={() => setPrinting(false)} /> : null}
+    <div className={styles.buttons}>{!sale.returned && current && unit.status === "sold" ? <>{paid === null && staff.can("sale.reconcile") ? <button type="button" className="button button--secondary" disabled={Boolean(request) || Boolean(linkingCase)} onClick={() => open("payment_reconcile")}>{t("核对历史收款")}</button> : null}{paid !== null && (due ?? 0) > 0 && staff.can("sale.payment") ? <button type="button" className="button button--primary" disabled={Boolean(request) || Boolean(linkingCase)} onClick={() => open("payment")}><CreditCard size={16} />{t("登记收款")}</button> : null}{!sale.delivered && staff.can("sale.deliver") ? <button type="button" className={"button " + (due === 0 ? "button--primary" : "button--secondary")} disabled={Boolean(request) || Boolean(linkingCase) || due === null || due > 0 && !staff.can("sale.debt")} onClick={() => open("deliver")}><PackageCheck size={16} />{t("确认交付")}</button> : null}{staff.can("sale.refund") ? <button type="button" className="button button--secondary" disabled={Boolean(request) || Boolean(linkingCase)} onClick={() => open("return")}><RotateCcw size={16} />{t("登记退回")}</button> : null}{sale.delivered && staff.can("sale.aftersales") ? <button type="button" className="button button--secondary" disabled={Boolean(request) || Boolean(linkingCase)} onClick={() => open("after_sale")}><ShieldCheck size={16} />{t("售后服务")}</button> : null}</> : null}{paid !== null && paid > refunded && staff.can("sale.refund") ? <button type="button" className="button button--secondary" disabled={Boolean(request) || Boolean(linkingCase)} onClick={() => open("refund")}>{t("登记退款")}</button> : null}<button type="button" className="button button--secondary" disabled={Boolean(request) || Boolean(linkingCase)} onClick={() => setPrinting(true)}><Printer size={16} />{t("打印销售与保修单")}</button></div>{printing ? <RetailReceipt unit={unit} sale={sale} restoreFocusRef={trigger} onClose={() => setPrinting(false)} /> : null}
     {request && !request.caseId && !request.entryId ? transaction(request) : null}
     {ledger(sale.payments, false)}{ledger(sale.refunds, true)}<RetailSaleWarranty unit={unit} sale={sale} />
-    {sale.afterSales?.map(item => <section className={styles.case} key={item.id}><header><strong>{t("售后 · ")}{item.date}</strong><span className="status-pill status-pill--info">{item.cancelled ? t("已撤销") : item.closed ? t("已交还") : t(coverageLabels[item.coverage])}</span></header><p>{item.issue}</p><small>{item.custody === "left" ? t("设备已留下") : t("设备未留下")}{item.assessmentReason ? t(" · 判定依据：") + item.assessmentReason : ""}</small>{item.closed ? <p>{t("交还 ")}{item.closed.date} · {item.closed.resolution}</p> : null}{item.cancelled ? <p>{t("撤销 ")}{item.cancelled.time} · {item.cancelled.reason}</p> : null}{item.assessments?.length ? <details className={styles.ledger}><summary>{t("保障判断历史 · ")}{item.assessments.length}</summary>{item.assessments.toReversed().map(assessment => <div className={styles.ledgerRow} key={assessment.eventId}><span><strong>{t(coverageLabels[assessment.coverage])}</strong><small>{assessment.time} · {assessment.actorName || t("原记录")}</small><small>{assessment.reason}</small></span></div>)}</details> : null}<div className={styles.buttons}>{item.repairId ? <Link className="button button--secondary" href={"/app/repairs/" + item.repairId}>{t("查看售后工单")}</Link> : null}{!item.closed && !item.cancelled && staff.can("sale.aftersales") ? <><button className="button button--secondary" type="button" disabled={Boolean(request)} onClick={() => open("after_sale_assess", item.id)}>{t("判定保障")}</button>{!item.repairId && current && !sale.returned ? <button className="button button--primary" type="button" disabled={Boolean(request)} onClick={() => linkRepair(item)}>{t("建立售后工单")}</button> : item.repairId ? <button className="button button--secondary" type="button" disabled={Boolean(request)} onClick={() => open("after_sale_close", item.id)}>{t("确认售后交还")}</button> : null}{item.custody === "not_left" && !item.repairId ? <button className="button button--secondary" type="button" disabled={Boolean(request)} onClick={() => open("after_sale_cancel", item.id)}>{t("撤销申请")}</button> : null}</> : null}</div>{request?.caseId === item.id ? transaction(request) : null}</section>)}
+    {sale.afterSales?.map(item => <section className={styles.case} key={item.id}><header><strong>{t("售后 · ")}{item.date}</strong><span className="status-pill status-pill--info">{item.cancelled ? t("已撤销") : item.closed ? t("已交还") : t(coverageLabels[item.coverage])}</span></header><p>{item.issue}</p><small>{item.custody === "left" ? t("设备已留下") : t("设备未留下")}{item.assessmentReason ? t(" · 判定依据：") + item.assessmentReason : ""}</small>{item.closed ? <p>{t("交还 ")}{item.closed.date} · {item.closed.resolution}</p> : null}{item.cancelled ? <p>{t("撤销 ")}{item.cancelled.time} · {item.cancelled.reason}</p> : null}{item.assessments?.length ? <details className={styles.ledger}><summary>{t("保障判断历史 · ")}{item.assessments.length}</summary>{item.assessments.toReversed().map(assessment => <div className={styles.ledgerRow} key={assessment.eventId}><span><strong>{t(coverageLabels[assessment.coverage])}</strong><small>{assessment.time} · {assessment.actorName || t("原记录")}</small><small>{assessment.reason}</small></span></div>)}</details> : null}<div className={styles.buttons}>{item.repairId ? <Link className="button button--secondary" href={"/app/repairs/" + item.repairId}>{t("查看售后工单")}</Link> : null}{!item.closed && !item.cancelled && staff.can("sale.aftersales") ? <><button className="button button--secondary" type="button" disabled={Boolean(request) || Boolean(linkingCase)} onClick={() => open("after_sale_assess", item.id)}>{t("判定保障")}</button>{!item.repairId && current && !sale.returned ? <button className="button button--primary" type="button" disabled={Boolean(request) || Boolean(linkingCase)} aria-busy={linkingCase === item.id} onClick={() => linkRepair(item)}>{linkingCase===item.id?t(receipt.waiting?"待核对":"正在处理…"):t("建立售后工单")}</button> : item.repairId ? <button className="button button--secondary" type="button" disabled={Boolean(request) || Boolean(linkingCase)} onClick={() => open("after_sale_close", item.id)}>{t("确认售后交还")}</button> : null}{item.custody === "not_left" && !item.repairId ? <button className="button button--secondary" type="button" disabled={Boolean(request) || Boolean(linkingCase)} onClick={() => open("after_sale_cancel", item.id)}>{t("撤销申请")}</button> : null}</> : null}</div>{request?.caseId === item.id ? transaction(request) : null}</section>)}
+    <OperationRecoveryControls requestId={receipt.requestId}/>
+    {receipt.waiting?<p role="status">{t("提交结果待核对，请处理原提交，勿重复新建。")}</p>:null}
     {error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}{feedback?.id === unit.id && feedback.error ? <p className="form-error" role="alert">{systemText(feedback.message)}</p> : null}
   </article>;
 }

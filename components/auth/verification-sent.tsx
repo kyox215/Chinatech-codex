@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/components/language-provider";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { useState } from "react";
 import { Check, LoaderCircle, Mail } from "lucide-react";
 import styles from "./auth-experience.module.css";
@@ -15,7 +15,7 @@ export function VerificationSent({ email, onEdit }: { email: string; onEdit: () 
     if (busy) return;
     setBusy(true); setMessage(""); setError("");
     try {
-      const response = await fetch("/api/auth/resend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }), cache: "no-store" });
+      const response = await fetch("/api/auth/resend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }), cache: "no-store", signal: AbortSignal.timeout(20000) });
       const payload = await response.json() as { message?: string };
       if (!response.ok) throw new Error(payload.message || "暂时无法重新发送，请稍后重试。");
       setMessage(payload.message || "如果此账号仍需验证，请查收最新的验证邮件。");

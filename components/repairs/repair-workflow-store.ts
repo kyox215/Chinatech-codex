@@ -35,8 +35,8 @@ function read() {if(isBackendClient()){const current=backendSnapshot();if(curren
 }
 function subscribe(listener: () => void) {const stop=subscribeBackend(listener); const storage = (event: StorageEvent) => { if (event.key === key || event.key === null) listener(); }; window.addEventListener("storage", storage); window.addEventListener(change, listener); return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); }; }
 export function useRepairWorkflows() { return useSyncExternalStore(subscribe, read, () => server); }
-export function updateRepairWorkflow(order: RepairDirectoryEntry, command: WorkflowCommand, records: ProcurementRecord[], revision: number) {
-  if(isBackendClient()) return backendCommand("repair.workflow",{id:order.id,command,revision});
+export function updateRepairWorkflow(order: RepairDirectoryEntry, command: WorkflowCommand, records: ProcurementRecord[], revision: number, options?: { requestId?: string }) {
+  if(isBackendClient()) return backendCommand("repair.workflow",{id:order.id,command,revision},options?.requestId);
   requirePreviewPermission("repairs.edit");
   const workflows = parse(window.localStorage.getItem(key));
   const current = workflows[order.id] ?? initialRepairWorkflow(order);
@@ -50,8 +50,8 @@ export function updateRepairWorkflow(order: RepairDirectoryEntry, command: Workf
 export function previewRepairWorkflow(order: RepairDirectoryEntry) { return parse(window.localStorage.getItem(key))[order.id] ?? initialRepairWorkflow(order); }
 export function currentRepairWorkflow(order: RepairDirectoryEntry) { return isBackendClient() ? backendSnapshot()?.workflows[order.id] ?? initialRepairWorkflow(order) : previewRepairWorkflow(order); }
 
-export async function reconfirmRepairParts(order:RepairDirectoryEntry,requirementId:string,items:{id:string;revision:number}[],workflowRevision:number,intakeRevision:number){
-  if(isBackendClient()){await backendCommand("procurement.reconfirm",{repairId:order.id,requirementId,items,workflowRevision,intakeRevision});return;}
+export async function reconfirmRepairParts(order:RepairDirectoryEntry,requirementId:string,items:{id:string;revision:number}[],workflowRevision:number,intakeRevision:number,options?:{requestId?:string}){
+  if(isBackendClient()){await backendCommand("procurement.reconfirm",{repairId:order.id,requirementId,items,workflowRevision,intakeRevision},options?.requestId);return;}
   const actor=requirePreviewPermission("repairs.edit");const workflows=parse(window.localStorage.getItem(key));const workflow=workflows[order.id]??initialRepairWorkflow(order);
   const intakeKey="chinatech.m1.local-intakes.v1",procurementKey="chinatech.m1.procurement.v1";
   const saved=parseLocalIntakes(window.localStorage.getItem(intakeKey)).find(row=>row.id===order.id);

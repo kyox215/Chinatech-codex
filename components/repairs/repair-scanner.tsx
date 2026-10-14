@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/components/language-provider";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { IdentifierScanner } from "@/components/identifier-scanner";
 import { useRepairDirectory } from "./local-intake-store";
 import { repairScanMatches } from "@/lib/repair-scan";
