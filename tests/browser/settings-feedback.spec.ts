@@ -40,10 +40,10 @@ test("financial registration and void failure retain drafts and settle once afte
   await openSettings(page, "经营收支"); await page.getByRole("button", { name: "登记", exact: true }).click();
   await page.getByRole("textbox", { name: "收支金额", exact: true }).fill("25.50"); const purpose = page.getByRole("textbox", { name: "收支用途", exact: true }); await purpose.fill("DEMO 收支恢复");
   await failWrites(page, settingsKey); await page.getByRole("button", { name: "保存登记", exact: true }).click();
-  await expect(page.locator(".settings-content").getByRole("alert")).toContainText("本地保存失败"); await expect(purpose).toHaveValue("DEMO 收支恢复"); await expect(page.getByRole("button", { name: "保存登记", exact: true })).toBeEnabled(); await restoreWrites(page); await page.getByRole("button", { name: "保存登记", exact: true }).click();
+  await expect(page.locator(".settings-content").getByRole("alert").filter({ hasText: "本地保存失败" })).toHaveText("本地保存失败，现有资料未改变。"); await expect(purpose).toHaveValue("DEMO 收支恢复"); await expect(page.getByRole("button", { name: "保存登记", exact: true })).toBeEnabled(); await restoreWrites(page); await page.getByRole("button", { name: "保存登记", exact: true }).click();
   await expect(purpose).toHaveCount(0); await expect(page.locator(".settings-finance-list article")).toHaveCount(1);
   await page.getByRole("button", { name: "作废收支 DEMO 收支恢复", exact: true }).click(); const reason = page.getByRole("textbox", { name: "收支作废原因", exact: true }); await reason.fill("DEMO 更正误记");
-  await failWrites(page, settingsKey); await page.getByRole("button", { name: "确认作废", exact: true }).click(); await expect(page.locator(".settings-content").getByRole("alert")).toContainText("本地保存失败"); await expect(reason).toHaveValue("DEMO 更正误记"); await expect(page.getByRole("button", { name: "确认作废", exact: true })).toBeEnabled();
+  await failWrites(page, settingsKey); await page.getByRole("button", { name: "确认作废", exact: true }).click(); await expect(page.locator(".settings-content").getByRole("alert").filter({ hasText: "本地保存失败" })).toHaveText("本地保存失败，现有资料未改变。"); await expect(reason).toHaveValue("DEMO 更正误记"); await expect(page.getByRole("button", { name: "确认作废", exact: true })).toBeEnabled();
   await restoreWrites(page); await page.getByRole("button", { name: "确认作废", exact: true }).click(); await expect(reason).toHaveCount(0); await expect(page.locator(".settings-finance-list article")).toHaveCount(1); await expect(page.locator(".settings-finance-list")).toContainText("已作废"); await expect(page.locator(".settings-content").getByRole("alert")).toHaveCount(0);
 });
 
