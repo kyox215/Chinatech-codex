@@ -1,0 +1,77 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { tokens, plan, proof, publicKey, env } from './office-desktop-v3.test.mjs';
+
+export async function lifecycleChecks({ owner, runtime, db, call, admin, identity, otherIdentity, pass }) {
+ const fail=(fn,code)=>assert.rejects(fn,error=>error.code===code);
+ await owner`update chinatech_v2_private.test_sessions set revoked=false where id=${identity.sessionId}`;
+ await owner`update chinatech_v2_private.office_v3_control set enabled=true,minimum_version='1.4.0',release_ready=true,verified_version='1.4.0'`;
+ const installationId=randomUUID(),source=tokens.hashV3(installationId),keyHash=tokens.hashV3(Buffer.from(publicKey,'base64url'));
+ const invoke=(fields,op,bearer)=>call(proof({installationId,...fields}),op,bearer,source);
+ const session=await invoke({publicKey},'session','');
+ const start=await invoke({jobId:randomUUID(),action:'install',architecture:'win-x64',plan},'start',session.sessionToken);
+ const permit=await invoke({jobId:start.jobId,planHash:start.planHash},'commit',start.startToken);
+ const fields={jobId:start.jobId,planHash:start.planHash,stage:'Download',errorCode:null};
+ const activityProof=proof({installationId,...fields});
+ const activity=await call(activityProof,'activity',permit.permitToken,source);assert.equal(activity.coalesced,false);assert.equal(activity.stage,'Download');
+ assert.deepEqual(await call(activityProof,'activity',permit.permitToken,source),activity);
+ const merged=await invoke({...fields,stage:'Install'},'activity',permit.permitToken);assert.equal(merged.coalesced,true);assert.equal(merged.stage,'Download');
+ assert.equal((await owner`select count(*)::integer as n from chinatech_v2_private.office_v3_activity where job_id=${start.jobId}`)[0].n,1);
+ await fail(()=>call({...activityProof,stage:'Install'},'activity',permit.permitToken,source),'REQUEST_CONFLICT');
+ await fail(()=>invoke({...fields,planHash:'e'.repeat(64)},'activity',permit.permitToken),'SESSION_INVALID');
+ await fail(()=>call(proof({...fields,installationId:randomUUID()}),'activity',permit.permitToken,source),'DEVICE_PROOF_INVALID');
+ await fail(()=>invoke({...fields,stage:'Execute'},'activity',permit.permitToken),'INVALID_REQUEST');
+ await owner`update chinatech_v2_private.office_v3_activity set last_activity_at=now()-interval '61 seconds' where job_id=${start.jobId}`;
+ const next=await invoke({...fields,stage:'Install',errorCode:'UNKNOWN_ERROR'},'activity',permit.permitToken);assert.equal(next.coalesced,false);assert.equal(next.stage,'Install');
+ await owner`update chinatech_v2_private.office_v3_activity set last_activity_at=now()-interval '4 minutes' where job_id=${start.jobId}`;
+ const listed=await admin.getJobsV3(identity),listedJob=listed.jobs.find(job=>job.jobId===start.jobId);assert.ok(listedJob);assert.equal(listedJob.status,'started');assert.equal(listedJob.waitingForReport,true);assert.equal(listedJob.errorCode,'UNKNOWN_ERROR');
+ pass('Activity binds device/permit/job/plan and request/nonce; one projection coalesces sixty-second reports; stale reports remain awaiting rather than failed');
+ await invoke({jobId:start.jobId,planHash:start.planHash,status:'completed',checkpointHash:'a'.repeat(64)},'outcome',permit.permitToken);
+ await fail(()=>call(activityProof,'activity',permit.permitToken,source),'JOB_COMPLETED');
+ await fail(()=>invoke(fields,'activity',permit.permitToken),'JOB_COMPLETED');
+ await fail(()=>db.transactionV3(proof({installationId,jobId:start.jobId}),keyHash,'activity',source,tx=>tx`update chinatech_v2_private.office_v3_activity set last_activity_at=now(),stage='Install' where job_id=${start.jobId}`),'42501');
+ await fail(()=>db.transactionV3(proof({installationId,jobId:start.jobId}),keyHash,'outcome',source,tx=>tx`insert into chinatech_v2_private.office_v3_outcomes(job_id,sequence,installation_id,key_hash,status,checkpoint_hash) values(${start.jobId},2,${installationId},${keyHash},'paused',${'b'.repeat(64)})`),'23514');
+ await fail(()=>runtime`delete from chinatech_v2_private.office_v3_activity`,'42501');
+ for(const role of ['anon','authenticated']) await fail(()=>owner.begin(async tx=>{await tx.unsafe('set local role '+role);await tx`select * from chinatech_v2_private.office_v3_activity`;}),'42501');
+ pass('Completed blocks prior activity replay and direct RLS updates; runtime/anon/Auth have no activity deletion or public table access');
+
+ // Use isolated owner fixtures to age expired records without waiting 120 days.
+ // A valid new permit protects the installation's old replay and device facts.
+ const activeStart=await invoke({jobId:randomUUID(),action:'activate',architecture:'win-x64',plan},'start',session.sessionToken);
+ const activePermit=await invoke({jobId:activeStart.jobId,planHash:activeStart.planHash},'commit',activeStart.startToken);
+ await owner`update chinatech_v2_private.office_v3_devices set created_at=now()-interval '121 days' where installation_id=${installationId}`;
+ await owner`update chinatech_v2_private.office_v3_receipts set created_at=now()-interval '121 days' where installation_id=${installationId}`;
+ const expiredInstallation=randomUUID(),expiredSource=tokens.hashV3(expiredInstallation);
+ const expiredSession=await call(proof({installationId:expiredInstallation,publicKey}),'session','',expiredSource);
+ const expiredStart=await call(proof({installationId:expiredInstallation,jobId:randomUUID(),action:'install',architecture:'win-x64',plan}),'start',expiredSession.sessionToken,expiredSource);
+ const expiredPermit=await call(proof({installationId:expiredInstallation,jobId:expiredStart.jobId,planHash:expiredStart.planHash}),'commit',expiredStart.startToken,expiredSource);
+ await call(proof({installationId:expiredInstallation,jobId:expiredStart.jobId,planHash:expiredStart.planHash,stage:'Install',errorCode:null}),'activity',expiredPermit.permitToken,expiredSource);
+ await owner`update chinatech_v2_private.office_v3_devices set created_at=now()-interval '121 days' where installation_id=${expiredInstallation}`;
+ await owner`update chinatech_v2_private.office_v3_sessions set created_at=now()-interval '121 days',expires_at=now()-interval '121 days'+interval '1 hour' where installation_id=${expiredInstallation}`;
+ await owner`update chinatech_v2_private.office_v3_intents set created_at=now()-interval '121 days',start_before=now()-interval '121 days'+interval '5 minutes' where installation_id=${expiredInstallation}`;
+ await owner`update chinatech_v2_private.office_v3_commits set created_at=now()-interval '121 days',resume_until=now()-interval '91 days' where installation_id=${expiredInstallation}`;
+ await owner`update chinatech_v2_private.office_v3_activity set last_activity_at=now()-interval '121 days' where installation_id=${expiredInstallation}`;
+ await owner`update chinatech_v2_private.office_v3_receipts set created_at=now()-interval '121 days' where installation_id=${expiredInstallation}`;
+ await fail(()=>call(proof({installationId:expiredInstallation,jobId:expiredStart.jobId,planHash:expiredStart.planHash,stage:'Install',errorCode:null}),'activity',expiredPermit.permitToken,expiredSource),'RESUME_EXPIRED');
+ await owner.unsafe('create table chinatech_v2.cleanup_business_sentinel(id integer primary key); insert into chinatech_v2.cleanup_business_sentinel values(1)');
+ const preview=await admin.cleanupAdminV3(identity);assert.equal(preview.dryRun,true);assert.equal(preview.retentionDays,90);assert.ok(preview.counts.jobs>=1);assert.ok(preview.counts.devices>=1);assert.match(preview.digest,/^[a-f0-9]{64}$/);
+ assert.equal((await owner`select count(*)::integer as n from chinatech_v2_private.office_v3_devices where installation_id=${expiredInstallation}`)[0].n,1);
+ await fail(()=>admin.cleanupAdminV3(otherIdentity),'NO_ACCESS');
+ await fail(()=>runtime`select chinatech_v2_private.office_v3_cleanup(false,null,null)`,'42501');
+ for(const role of ['anon','authenticated']) await fail(()=>owner.begin(async tx=>{await tx.unsafe('set local role '+role);await tx`select chinatech_v2_private.office_v3_cleanup(false,null,null)`;}),'42501');
+ const request={requestId:randomUUID(),expectedDigest:preview.digest};
+ await fail(()=>admin.cleanupAdminV3(identity,request),'CLEANUP_DISABLED');
+ env.OFFICE_DESKTOP_V3_CLEANUP_ENABLED='true';
+ await fail(()=>admin.cleanupAdminV3(identity,{...request,expectedDigest:'f'.repeat(64)}),'REQUEST_CONFLICT');
+ const result=await admin.cleanupAdminV3(identity,request);assert.equal(result.dryRun,false);
+ assert.deepEqual(await admin.cleanupAdminV3(identity,request),result);
+ await fail(()=>admin.cleanupAdminV3(identity,{...request,expectedDigest:'e'.repeat(64)}),'REQUEST_CONFLICT');
+ assert.equal((await owner`select count(*)::integer as n from chinatech_v2_private.office_v3_devices where installation_id=${expiredInstallation}`)[0].n,0);
+ assert.equal((await owner`select count(*)::integer as n from chinatech_v2_private.office_v3_devices where installation_id=${installationId}`)[0].n,1);
+ assert.ok((await owner`select count(*)::integer as n from chinatech_v2_private.office_v3_receipts where installation_id=${installationId}`)[0].n>0);
+ assert.deepEqual(await invoke({jobId:activeStart.jobId,planHash:activeStart.planHash},'resume',activePermit.permitToken),activePermit);
+ assert.equal((await owner`select count(*)::integer as n from chinatech_v2.cleanup_business_sentinel`)[0].n,1);
+ await fail(()=>runtime`delete from chinatech_v2_private.office_v3_devices`,'42501');
+ delete env.OFFICE_DESKTOP_V3_CLEANUP_ENABLED;
+ pass('Admin-only dry-run defaults to no writes; controlled digest/idempotent cleanup deletes only expired technical scope and preserves thirty-day recovery, replay dependencies and business data');
+}

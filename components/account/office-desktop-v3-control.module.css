@@ -1,0 +1,20 @@
+.jobs table { width: max-content; min-width: 100%; }
+.jobs table th, .jobs table td { white-space: nowrap; overflow-wrap: normal; }
+.jobs table td:first-child { max-width: none; }
+
+.keys summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+.keys code { overflow-wrap: anywhere; }
+.counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 0; }
+.counts > div { display: flex; justify-content: space-between; gap: 12px; }
+.counts dd { margin: 0; font-weight: 600; }
+
+.mobileJobs { display: none; }
+@media (max-width: 767px) {
+  .jobs { display: none; }
+  .mobileJobs { display: grid; gap: 14px; }
+  .mobileJob { min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface-subtle); }
+  .mobileJob h4, .mobileJob p { margin: 0 0 10px; }
+  .mobileJob dl { display: grid; gap: 10px; margin: 0; font-size: 14px; }
+  .mobileJob dt { color: var(--text-secondary); }
+  .mobileJob dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+}

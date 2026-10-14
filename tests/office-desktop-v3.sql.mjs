@@ -1,0 +1,115 @@
+// Empty, dedicated loopback PostgreSQL only. No production/environment credentials are read.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { randomUUID, randomBytes, generateKeyPairSync } from 'node:crypto';
+import postgres from 'postgres';
+import { env, load, tokens, publicKey, keys, plan, proof, signed } from './office-desktop-v3.test.mjs';
+import { candidateChecks } from './office-desktop-v3-candidate.sql.mjs';
+import { httpLifecycleChecks } from './office-desktop-v3-http.sql.mjs';
+import { lifecycleChecks } from './office-desktop-v3-lifecycle.sql.mjs';
+import { requestRateChecks } from './office-desktop-v3-rate.sql.mjs';
+const raw=process.env.OFFICE_V3_TEST_OWNER_URL;
+if(!raw)throw Error('Explicit dedicated OFFICE_V3_TEST_OWNER_URL required');
+const url=new URL(raw);if(url.hostname!=='127.0.0.1'||url.pathname!=='/office_v3_test'||url.username!=='postgres'||!url.port)throw Error('Dedicated loopback office_v3_test database required');
+const owner=postgres(raw,{max:3,prepare:false});
+const runtimeUrl=new URL(raw);runtimeUrl.username='chinatech_runtime';env.APP_DATABASE_URL=runtimeUrl.toString();env.SUPABASE_URL='http://localhost';
+const runtime=postgres(runtimeUrl.toString(),{max:6,prepare:false});
+const checks=[];const pass=name=>{checks.push(name);console.log('PASS '+name);};
+const fail=async(fn,code)=>assert.rejects(fn,e=>e.code===code);
+try{
+ const [empty]=await owner`select count(*)::integer as n from information_schema.tables where table_schema='chinatech_v2_private'`;assert.equal(empty.n,0,'Fresh test DB required');
+ await owner.unsafe(`create role chinatech_runtime login nosuperuser nobypassrls; create role anon; create role authenticated;
+ create schema auth; create schema chinatech_v2; create schema chinatech_v2_private;
+ create table chinatech_v2.accounts(id uuid primary key);
+ create table chinatech_v2_private.test_sessions(id uuid primary key,user_id uuid not null,revoked boolean not null default false);
+ create table chinatech_v2_private.office_command_control(singleton boolean primary key,admin_user_id uuid);
+ create function auth.jwt() returns jsonb language sql stable as $$select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb)$$;
+ create function auth.uid() returns uuid language sql stable as $$select (auth.jwt()->>'sub')::uuid$$;
+ create function chinatech_v2_private.live_user() returns boolean language sql stable security invoker set search_path='' as $$select exists(select 1 from chinatech_v2_private.test_sessions s where s.id::text=auth.jwt()->>'session_id' and s.user_id=auth.uid() and not s.revoked)$$;
+ create function chinatech_v2_private.office_desktop_admin() returns boolean language sql stable security invoker set search_path='' as $$select chinatech_v2_private.live_user() and exists(select 1 from chinatech_v2_private.office_command_control where singleton and admin_user_id=auth.uid())$$;
+ grant usage on schema auth,chinatech_v2,chinatech_v2_private to chinatech_runtime;
+ grant select on all tables in schema chinatech_v2,chinatech_v2_private to chinatech_runtime;
+ grant execute on function auth.jwt(),auth.uid(),chinatech_v2_private.live_user(),chinatech_v2_private.office_desktop_admin() to chinatech_runtime;`);
+ if(runtimeUrl.password){const [fixture]=await owner`select format('alter role chinatech_runtime password %L',${decodeURIComponent(runtimeUrl.password)}::text) as sql`;await owner.unsafe(fixture.sql);}
+ const version=readFileSync('supabase/migrations/20261010105755_office_desktop_public_sessions.sql','utf8').split('alter table')[0];await owner.unsafe(version);
+ await owner.unsafe(readFileSync('supabase/migrations/20261013072029_office_desktop_v3.sql','utf8'));
+ await owner.unsafe(readFileSync('supabase/migrations/20261013094116_office_desktop_v3_candidate_admission.sql','utf8'));
+ await owner.unsafe(readFileSync('supabase/migrations/20261013100926_office_desktop_v3_request_rate.sql','utf8'));
+ await owner.unsafe(readFileSync('supabase/migrations/20261014124342_office_desktop_v3_activity_lifecycle.sql','utf8'));
+ const db=load('lib/toolbox/office-desktop-v3-database.ts',{},env),server=load('lib/toolbox/office-desktop-v3-server.ts',{},env);
+ const call=async(body,op,bearer='',source='d'.repeat(64),deviceKeys=keys)=>{const wire=signed(body,op,bearer,deviceKeys.privateKey);const keyHash=op==='session'?tokens.hashV3(Buffer.from(body.publicKey,'base64url')):tokens.readV3(bearer,op==='start'||op==='admission'?'office-v3-session':op==='commit'?'office-v3-start':'office-v3-permit',undefined,op==='commit').keyHash;return JSON.parse(JSON.stringify(await db.transactionV3(body,keyHash,op,source,tx=>server.operationV3(tx,body,op,bearer,source,wire.payload,wire.signature))));};
+ const metadata=await owner`select relname,relrowsecurity,relforcerowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='chinatech_v2_private' and relname like 'office_v3_%' and relkind='r'`;assert.equal(metadata.length,12);assert.ok(metadata.every(x=>x.relrowsecurity&&x.relforcerowsecurity));
+ const [badGrant]=await owner`select count(*)::integer as n from information_schema.role_table_grants where table_schema='chinatech_v2_private' and table_name like 'office_v3_%' and grantee in('PUBLIC','anon','authenticated')`;assert.equal(badGrant.n,0);
+ for(const name of ['anon','authenticated'])await assert.rejects(owner.begin(async tx=>{await tx.unsafe('set local role '+name);await tx`select * from chinatech_v2_private.office_v3_devices`;}),e=>e.code==='42501');
+ await assert.rejects(runtime`update chinatech_v2_private.office_v3_control set release_ready=true`,e=>e.code==='42501');
+ await assert.rejects(runtime`delete from chinatech_v2_private.office_v3_devices`,e=>e.code==='42501');
+ pass('Twelve private tables FORCE RLS, anon/Auth denied, runtime cannot change release marker or delete devices');
+ const installationId=randomUUID();const opening=proof({installationId,publicKey});const session=await call(opening,'session');assert.deepEqual(await call(opening,'session'),session);
+ const alien=generateKeyPairSync('ec',{namedCurve:'prime256v1'});await assert.rejects(call(proof({installationId,publicKey:alien.publicKey.export({type:'spki',format:'der'}).toString('base64url')}),'session','','d'.repeat(64),alien),e=>['23505','DEVICE_KEY_CONFLICT'].includes(e.code));
+ const jobId=randomUUID(),startBody=proof({installationId,jobId,action:'install',architecture:'win-x64',plan});
+ await fail(()=>call(startBody,'start',session.sessionToken),'DESKTOP_PAUSED');
+ await owner`update chinatech_v2_private.office_v3_control set enabled=true`;await fail(()=>call(startBody,'start',session.sessionToken),'CANDIDATE_DENIED');
+ await owner`update chinatech_v2_private.office_v3_control set release_ready=true,verified_version='1.4.0'`;
+ const start=await call(startBody,'start',session.sessionToken);assert.deepEqual(await call(startBody,'start',session.sessionToken),start);
+ await fail(()=>call({...startBody,action:'activate'},'start',session.sessionToken),'REQUEST_CONFLICT');
+ const wrongNonce=proof({...startBody,nonce:randomBytes(32).toString('base64url')});await fail(()=>call(wrongNonce,'start',session.sessionToken),'REQUEST_CONFLICT');
+ const collisions=proof({installationId,nonce:startBody.nonce,jobId:randomUUID(),action:'install',architecture:'win-x64',plan});await fail(()=>call(collisions,'start',session.sessionToken),'REQUEST_CONFLICT');
+ pass('Device binding, default closed/unverified gate, idempotency and request/nonce semantic conflicts');
+ const commitBody=proof({installationId,jobId,planHash:start.planHash});const commit=await call(commitBody,'commit',start.startToken);
+ const realNow=Date.now;Date.now=()=>realNow()+301000;try{assert.deepEqual(await call({...commitBody,timestamp:Math.floor(Date.now()/1000)},'commit',start.startToken),commit);}finally{Date.now=realNow;}
+ pass('Lost committed response retries with the same request/nonce after the five-minute start ticket expires');
+ const unstartedBody=proof({installationId,jobId:randomUUID(),action:'activate',architecture:'win-x64',plan});const unstarted=await call(unstartedBody,'start',session.sessionToken);
+ await owner`update chinatech_v2_private.office_v3_control set enabled=false,minimum_version='1.5.0',revision=revision+1`;
+ await fail(()=>call(proof({installationId,jobId:unstarted.jobId,planHash:unstarted.planHash}),'commit',unstarted.startToken),'DESKTOP_PAUSED');
+ assert.deepEqual(await call(commitBody,'commit',start.startToken),commit);
+ const resume=proof({installationId,jobId,planHash:start.planHash});assert.deepEqual(await call(resume,'resume',commit.permitToken),commit);
+ await fail(()=>call(proof({installationId,jobId,planHash:'e'.repeat(64)}),'resume',commit.permitToken),'SESSION_INVALID');
+ for(const status of ['failed','cancelled','paused']){await call(proof({installationId,jobId,planHash:start.planHash,status,checkpointHash:'a'.repeat(64)}),'outcome',commit.permitToken);await call(proof({installationId,jobId,planHash:start.planHash}),'resume',commit.permitToken);}
+ const completed=proof({installationId,jobId,planHash:start.planHash,status:'completed',checkpointHash:'b'.repeat(64)});const outcome=await call(completed,'outcome',commit.permitToken);assert.deepEqual(await call(completed,'outcome',commit.permitToken),outcome);
+ await fail(()=>call(resume,'resume',commit.permitToken),'JOB_COMPLETED');await fail(()=>call(commitBody,'commit',start.startToken),'JOB_COMPLETED');
+ await fail(()=>call(proof({installationId,jobId,planHash:start.planHash,status:'paused',checkpointHash:'c'.repeat(64)}),'outcome',commit.permitToken),'JOB_COMPLETED');
+ pass('Commit and frozen recovery survive pause/minimum changes; altered scope rejected; completed blocks even prior resume/commit replay');
+ const unscoped=await runtime`select count(*)::integer as n from chinatech_v2_private.office_v3_commits`;assert.equal(unscoped[0].n,0);
+ await assert.rejects(runtime`update chinatech_v2_private.office_v3_intents set plan='{}'`,e=>e.code==='42501');
+ const other=proof({installationId:randomUUID(),publicKey});const otherSession=await call(other,'session','','f'.repeat(64));await fail(()=>call(proof({installationId:other.installationId,jobId,planHash:start.planHash}),'resume',commit.permitToken),'SESSION_INVALID');assert.ok(otherSession.sessionToken);
+ await owner`update chinatech_v2_private.office_v3_control set enabled=true,minimum_version='1.4.0'`;
+ const pendingBody=proof({installationId,jobId:randomUUID(),action:'activate',architecture:'win-x64',plan});const pending=await call(pendingBody,'start',session.sessionToken);
+ await fail(()=>call(proof({installationId,jobId:pending.jobId,planHash:pending.planHash}),'resume',pending.startToken),'SESSION_INVALID');
+ await owner`update chinatech_v2_private.office_v3_intents set start_before=now()-interval '1 second',created_at=now()-interval '301 seconds' where job_id=${pending.jobId}`;
+ await fail(()=>call(proof({installationId,jobId:pending.jobId,planHash:pending.planHash}),'commit',pending.startToken),'START_EXPIRED');
+ pass('Unscoped runtime has no capabilities; immutable plans; cross-device/unstarted/expired-ticket recovery denied');
+ const rateSource='9'.repeat(64);const races=await Promise.allSettled(Array.from({length:35},()=>call(proof({publicKey}),'session','',rateSource)));assert.equal(races.filter(x=>x.status==='fulfilled').length,30);assert.equal(races.filter(x=>x.status==='rejected'&&x.reason.code==='RATE_LIMITED').length,5);
+ pass('Concurrent source rate admits 30 total despite 35 random installation IDs');
+ const adminId=randomUUID(),sid=randomUUID(),otherId=randomUUID(),otherSid=randomUUID();await owner`insert into chinatech_v2.accounts(id) values(${adminId}),(${otherId})`;await owner`insert into chinatech_v2_private.test_sessions(id,user_id) values(${sid},${adminId}),(${otherSid},${otherId})`;await owner`insert into chinatech_v2_private.office_command_control(singleton,admin_user_id) values(true,${adminId})`;
+ const withDatabase=(identity,store,fn)=>runtime.begin('isolation level serializable',async tx=>{await tx`select set_config('request.jwt.claims',${JSON.stringify({sub:identity.userId,session_id:identity.sessionId,role:'authenticated'})},true)`;const [live]=await tx`select chinatech_v2_private.live_user() as live`;if(!live.live)throw Object.assign(Error('revoked'),{code:'SESSION_INVALID'});return fn(tx);});
+ const admin=load('lib/toolbox/office-desktop-v3-admin.ts',{'@/lib/backend/database':{withDatabase}},env),identity={userId:adminId,sessionId:sid};
+ let state=await admin.getAdminV3(identity);const change={requestId:randomUUID(),enabled:false,minimumVersion:'1.4.0',expectedRevision:state.revision};state=await admin.changeAdminV3(identity,change);assert.deepEqual(JSON.parse(JSON.stringify(await admin.changeAdminV3(identity,change))),JSON.parse(JSON.stringify(state)));
+ await fail(()=>admin.changeAdminV3({userId:otherId,sessionId:otherSid},{...change,requestId:randomUUID()}),'NO_ACCESS');
+ await fail(()=>admin.changeAdminV3(identity,{...change,requestId:randomUUID(),expectedRevision:'9999'}),'REQUEST_CONFLICT');
+ await owner`update chinatech_v2_private.test_sessions set revoked=true where id=${sid}`;await fail(()=>admin.changeAdminV3(identity,{...change,requestId:randomUUID()}),'SESSION_INVALID');
+ pass('Specified administrator, live-session check, receipt identity and stale revision enforced on actual RLS');
+ await owner`update chinatech_v2_private.test_sessions set revoked=false where id=${sid}`;
+ await owner`update chinatech_v2_private.office_v3_control set enabled=true`;
+ let release,held;const gate=new Promise(resolve=>{release=resolve;}),ready=new Promise(resolve=>{held=resolve;});
+ const closing=runtime.begin(async tx=>{await tx`select set_config('request.jwt.claims',${JSON.stringify({sub:adminId,session_id:sid,role:'authenticated'})},true)`;await db.lockV3(tx,'control');await tx`update chinatech_v2_private.office_v3_control set enabled=false,revision=revision+1,updated_by=${adminId} where singleton`;held();await gate;});
+ await ready;let settled=false;const raced=call(proof({installationId,jobId:randomUUID(),action:'activate',architecture:'win-x64',plan}),'start',session.sessionToken).then(()=>{settled=true;return 'allowed';},e=>{settled=true;return e.code;});
+ await new Promise(resolve=>setTimeout(resolve,100));assert.equal(settled,false);release();await closing;assert.equal(await raced,'DESKTOP_PAUSED');
+ pass('Admission-change and fresh-start share the transaction lock; pause wins without a task receipt');
+ const [instanceRate]=await owner`select count(*)::integer as n from chinatech_v2_private.office_v3_receipts where installation_id=${installationId} and endpoint in('session','start') and created_at>now()-interval '1 minute'`;
+ const sameInstance=await Promise.allSettled(Array.from({length:12},()=>call(proof({installationId,publicKey}),'session','','8'.repeat(64))));assert.equal(sameInstance.filter(x=>x.status==='fulfilled').length,10-instanceRate.n);assert.equal(sameInstance.filter(x=>x.status==='rejected'&&x.reason.code==='RATE_LIMITED').length,12-(10-instanceRate.n));
+ pass('Concurrent installation rate independently enforces ten new sessions/start intents per minute');
+ await owner.unsafe(`insert into chinatech_v2_private.office_v3_intents(job_id,installation_id,key_hash,session_id,action,architecture,app_version,plan,plan_hash,control_revision,token,created_at,start_before)
+ select gen_random_uuid(),i.installation_id,i.key_hash,i.session_id,i.action,i.architecture,i.app_version,i.plan,i.plan_hash,i.control_revision,i.token,i.created_at+n*interval '1 millisecond',i.start_before+n*interval '1 millisecond'
+ from (select * from chinatech_v2_private.office_v3_intents order by created_at desc limit 1) i cross join generate_series(1,25) n`);
+ const listed=await admin.getJobsV3(identity);assert.equal(listed.jobs.length,20);assert.deepEqual(Object.keys(listed),['jobs']);for(const job of listed.jobs)assert.deepEqual(Object.keys(job).sort(),['jobId','action','status','appVersion','architecture','createdAt','startedAt','updatedAt','stage','errorCode','lastActivityAt','waitingForReport','recoveryExpiresAt'].sort());
+ await fail(()=>admin.getJobsV3({userId:otherId,sessionId:otherSid}),'NO_ACCESS');
+ await owner`update chinatech_v2_private.test_sessions set revoked=true where id=${sid}`;await fail(()=>admin.getJobsV3(identity),'SESSION_INVALID');
+ pass('Actual admin RLS lists only twenty recent jobs and metadata; unrelated or revoked sessions cannot read the list');
+ await candidateChecks({owner,runtime,db,server,call,pass});
+ await requestRateChecks({owner,runtime,db,call,pass});
+ await lifecycleChecks({owner,runtime,db,call,admin,identity,otherIdentity:{userId:otherId,sessionId:otherSid},pass});
+ await httpLifecycleChecks({owner,db,call,admin,identity,otherIdentity:{userId:otherId,sessionId:otherSid},pass});
+
+
+ console.log(JSON.stringify({checks:checks.length,productionOperations:0,scope:'synthetic auth-session fixture and actual v3 SQL/RLS/protocol'}));
+} finally {await runtime.end();await owner.end();}
