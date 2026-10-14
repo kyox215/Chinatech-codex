@@ -45,3 +45,7 @@ useOperationReceipt 精确匹配本次 requestId；Provider dispatch 可选 UI o
 独立审查对74047a3复现2/2：签名committed后草稿清理延迟2秒，取消已解锁，可重新编辑后被旧回调关闭。最终修复将 useOperationReceipt.confirmed 声明为可返回Promise，Promise结束前同步ref与waiting持续锁；成功后requestId清空，不错误展示只读恢复按钮。回调获得原tracked token的isCurrent，卸载／新scope后旧异步完成无权关闭新表单；重复watch同ID不重入，不同ID不能抢占旧owner。
 
 各异步清草稿回调返回Promise并在await后核对isCurrent；设置／员工原alive与attempt保护保持。稳定采购Items／legacyPart通过retainUntilReleased明确保留父锁至本子编辑器清理完成，条件消失的项目／准备操作保持父回执恢复。normal Part成功也先release父owner再收窗。签名修复2/2、early receipt／重复watch／卸载新scope生命周期2/2私有证据在final-state-proof；相关source业务／采购／设置／返修／销售34/34真实预览通过，TS与full lint零错误／1原警告。74047a3候选同样过期，不晋升；只最终新SHA完整CI与候选可作为发布门禁。
+
+## 远程失败证据与测试顺序
+
+0f04c385远程完整374项：353通过／21失败。20项为采购编辑保存未释放父锁／本次新增空旧表（后续源码修复已通过原返修及代表闭环）；另1个WebKit财务测试未等待第一次本地保存失败实际收尾便恢复替身并再次点击，首请求busy时第二次被正确拦截。补强测试：明确断言本地保存失败及主按钮重新可操作后才恢复／重试，保留原清空、金额、条数及作废断言；两浏览器8/8通过。原失败日志与远程artifact已保存source/.local/feedback/ci-0f04c38-*。这次只修改测试与文档，已CODE_GO的8623b98产品组件字节不变。
