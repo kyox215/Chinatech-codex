@@ -3,7 +3,7 @@
 import { retailDisplaySpec, retailSearchLabels } from "@/lib/i18n/retail-display";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Archive, ChevronLeft, ChevronRight, Plus, ScanLine, Search, X } from "lucide-react";

@@ -6,9 +6,9 @@ import { subscribeAuthChanged } from "@/lib/auth-events";
 import { clearBackend } from "@/lib/backend/client";
 
 const Context = createContext<{ status: AuthStatus; checking: boolean; refresh: () => void } | null>(null);
-export function AuthStatusProvider({ initial, children }: { initial: AuthStatus; children: React.ReactNode }) {
+export function AuthStatusProvider({ initial, initialChecking = false, children }: { initial: AuthStatus; initialChecking?: boolean; children: React.ReactNode }) {
   const [status, setStatus] = useState(initial);
-  const [checking, setChecking] = useState(false);
+  const [checking, setChecking] = useState(initialChecking);
   const pathname = usePathname();
   const lastPathname = useRef(pathname);
   const control = useRef<(() => void) | null>(null);

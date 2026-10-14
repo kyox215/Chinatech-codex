@@ -1,5 +1,16 @@
 # 公共组件与样式复用规范
 
+2026-10-14 收尾补充：confirmed 回调可返回 Promise；设备草稿清理等异步收尾完成前保持同步原请求锁。await 后必须核对同 tracked token 的 isCurrent，已卸载／新编辑器不得接收旧关闭／导航回调。稳定采购子表单的父 owner 保留至子表单显式释放；条件消失子组件仍由父消费原回执。
+
+## 2026-10-14 操作反馈与原提交恢复
+
+新增 `NavigationLink`（替代普通内部 Next Link，用真实 useLinkStatus；默认不预取，支持原生键盘／新标签行为）、`ReadFailure`、`ListPagination`（完整授权结果过滤后每页50条）、`DownloadLink`／`DownloadFeedbackProvider`（只表示浏览器已发起请求）。`PageLoading` 复用标题／手机菜单／骨架，首启动可回首页；公开工具页保留SSR与无JS下载，不增加公共流式 loading 边界。
+
+按钮／骨架／错误沿Figma文件 nhZ37YLOUVP8zpDBBGihhS 的按钮、焦点与错误输入视觉，复用语义token与CSS，不新增主题。`useOperationReceipt` 精确绑定本次requestId；`OperationRecoveryControls` 在disabled fieldset外；局部与全局通过当前 `RecoveryPresentationProvider` 去重。临时pending缺失不得解锁，提供只读恢复记录重载。`DeviceDraftNotice.disabled` 约束选择／恢复／删除，调用方传真实提交或待核对状态。
+
+公共bootstrap仅表达无cookie／检查中，身份仍由原API核验；后台provider按身份／session／门店key重建。具体源码、失败定位、最终CI与上线证据见[本轮交付34](34-figma-interaction-feedback-release.md)。
+
+
 ## 2026-10-14 Office 公开产品页
 
 Office 产品页沿用 PublicHeader、Brand、LanguageSwitcher、SingleChoice、InputControl 和语义按钮/token。PublicHeader 的 Office compact 变体只在 page=office 启用：已登录账户头像保留完整可访问名称，工作台在账号详情中；匿名登录/注册保持直接可见，其他公开路由不变。应用 SKU 的局部色标仅用于区分产品，未建立第二套主题。
@@ -500,3 +511,11 @@ MimoverDownload为数据传输领域组件，复用PublicHeader/语言provider�
 ### 2026-10-10 Office0.2管理与更新入口
 
 OfficeDesktopControl沿用account panel/form/button/token，最低版本复用SelectControl并提供明确三语aria-label，native选择框入口至少44px，不新增控件／主题。account-settings移除旧密钥生成卡，指定管理员侧栏新增本卡锚点；Office总开关保留。OfficeDesktopDownload沿原下载卡与release metadata改自动联网说明。中意英、Chromium／WebKit及1440／1024／390／375管理42项已通过；原生base-select内部呈现button不是独立操作入口，尺寸验收覆盖外层选择框和实际动作按钮。最终公开卡与正式构建证据见.local/office-admission/source/.local/office-public，不冒称线上下载已发布。
+
+
+### 常规滚动与操作命中（2026-10-14）
+
+根html使用scroll-behavior:auto，RootLayout不声明全局smooth。表单聚焦、错误恢复、列表导航及原生按下/抬起不能被延续滚动移出触点；不得以pointerdown直接提交或跳过原生校验补偿。明确的内容引导可在所属操作使用scrollIntoView({behavior:"smooth"})并尊重prefers-reduced-motion；教程原主动滚动沿用此边界。Linux WebKit财务失败重试的37px/6.5ms滚动证据与修复验收见docs/34。
+
+
+设置面板`.settings-content`使用overflow-anchor:none，避免位于视口上方的保存错误/结果提示插入后，UA滚动锚定在按下事件中改变触点命中。该局部规则包含既有各设置分类；按钮按下样式、校验、焦点和表单提交保持原生行为，不全局禁用列表等区域的滚动锚定。六组Linux原断言对照见docs/34。

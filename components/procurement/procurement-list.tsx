@@ -3,7 +3,7 @@
 import { useLanguage } from "@/components/language-provider";
 import { repairItemText } from "@/lib/i18n/repair-display";
 import { InputControl } from "@/components/input-control";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { PageTitle } from "@/components/page-title";
 import { SelectControl } from "@/components/select-control";
 import { useState } from "react";

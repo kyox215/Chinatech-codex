@@ -40,8 +40,8 @@ export function useCustomerDirectory() {
   const seeds = [...(isBackendClient()?[]:intakeCustomers), ...local.records.map(record => ({ phone: record.phone, name: record.customerName, email: record.email }))];
   return { customers: buildCustomerDirectory(repairs, retail.units, profiles.profiles, seeds, history.records), ready: profiles.ready && local.ready && retail.ready && history.ready, error: [profiles.error, local.error, retail.error, history.error].filter(Boolean).join(" ") };
 }
-export function saveCustomerProfile(draft: Omit<CustomerProfile, "version">, expectedVersion: number) {
-  if(isBackendClient()) return backendCommand("customer.save",{draft,version:expectedVersion});
+export function saveCustomerProfile(draft: Omit<CustomerProfile, "version">, expectedVersion: number, options?: {requestId?:string}) {
+  if(isBackendClient()) return backendCommand("customer.save",{draft,version:expectedVersion},options?.requestId);
   requirePreviewPermission("customers.edit");
   let profiles: CustomerProfile[];
   try { profiles = parseCustomerProfiles(window.localStorage.getItem(key)); }

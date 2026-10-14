@@ -3,7 +3,7 @@
 import { useLanguage } from "@/components/language-provider";
 import { repairCustomerName, repairIssueText, repairItemText, repairKnownText } from "@/lib/i18n/repair-display";
 import { InputControl } from "@/components/input-control";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type MouseEvent } from "react";
 import {

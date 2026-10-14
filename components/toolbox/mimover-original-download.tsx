@@ -1,4 +1,5 @@
 "use client";
+import { DownloadLink } from "@/components/download-link";
 
 import { Download } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
@@ -17,8 +18,8 @@ export function MimoverOriginalDownload() {
     <p className={styles.muted}>{t("原包名独立签名，不能覆盖小米官方签名包；已安装官方版的手机请保留原版。")}</p>
     <div className={styles.downloadActions}>
       {ready ? <>
-        <a className="button button--primary" href={release.apkPath} download><Download size={17} aria-hidden="true" />{t("下载 Mi Mover 原版入口解限版")}</a>
-        <a className="button button--secondary" href={release.instructionsPath} download>{t("使用说明")}</a>
+        <DownloadLink className="button button--primary" href={release.apkPath} download><Download size={17} aria-hidden="true" />{t("下载 Mi Mover 原版入口解限版")}</DownloadLink>
+        <DownloadLink className="button button--secondary" href={release.instructionsPath} download>{t("使用说明")}</DownloadLink>
       </> : <p role="status">{t("原版入口补丁正在核验，下载尚未开放。")}</p>}
     </div>
     <details className={styles.integrity}><summary>{t("修改范围与验证")}</summary>
@@ -27,7 +28,7 @@ export function MimoverOriginalDownload() {
     </details>
     {ready && <details className={styles.integrity}><summary>{t("查看 APK 校验信息")}</summary>
       <dl><dt>{t("文件 SHA256")}</dt><dd><code>{release.sha256}</code></dd><dt>{t("签名证书 SHA256")}</dt><dd><code>{release.signerSha256}</code></dd></dl>
-      <p><a href={release.checksumsPath} download>{t("下载 SHA256 校验清单")}</a></p>
+      <p><DownloadLink href={release.checksumsPath} download>{t("下载 SHA256 校验清单")}</DownloadLink></p>
     </details>}
   </section>;
 }

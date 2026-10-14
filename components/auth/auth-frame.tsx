@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/components/language-provider";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { ArrowLeft, Check, ShieldCheck } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ProductPreview } from "@/components/home/product-preview";

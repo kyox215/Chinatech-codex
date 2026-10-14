@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/components/language-provider";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { createContext, useContext } from "react";
 import { ArrowLeft, Menu } from "lucide-react";
 export const AppNavigationContext = createContext<{ isMobile: boolean; expanded: boolean; toggle: () => void } | null>(null);

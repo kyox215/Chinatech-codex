@@ -6,7 +6,7 @@ import { LoginDevicesPanel } from "./login-devices";
 import { OfficeToolboxControl } from "./office-toolbox-control";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, CircleAlert, Link2, LoaderCircle, Mail, RefreshCw, ShieldCheck, Smartphone } from "lucide-react";
 import { SelectControl } from "@/components/select-control";
@@ -39,6 +39,7 @@ export function AccountSettings({ notice = "" }: { notice?: string }) {
   const [loading, setLoading] = useState(true);
   const request = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
+    setLoading(true);
     request.current?.abort();
     const controller = new AbortController(); request.current = controller;
     try {
@@ -65,8 +66,9 @@ export function AccountSettings({ notice = "" }: { notice?: string }) {
 
   return <>
     {notices[notice] ? <p className={notice === "account-failed" ? "form-error" : styles.notice} role={notice === "account-failed" ? "alert" : "status"}>{t(notices[notice])}</p> : null}
-    {error ? <div className={`panel ${styles.state}`} role="alert"><CircleAlert size={26} /><p>{systemText(error)}</p>{unauthorized ? <Link className="button button--primary" href="/login">{t("重新登录")}</Link> : <button className="button button--secondary" onClick={() => void load()}>{t("重新读取")}</button>}</div> : null}
+    {error ? <div className={`panel ${styles.state}`} role="alert"><CircleAlert size={26} /><p>{systemText(error)}</p>{unauthorized ? <Link className="button button--primary" href="/login">{t("重新登录")}</Link> : <button className="button button--secondary" disabled={loading} aria-busy={loading} onClick={() => void load()}>{loading ? t("正在重新读取…") : t("重新读取")}</button>}</div> : null}
     {!data && !error ? <div className={`panel ${styles.state}`} role="status"><LoaderCircle className="spin" size={25} />{t("正在读取账号…")}</div> : null}
+    {data && loading && !error ? <p role="status">{t("正在重新读取…")}</p> : null}
     {data ? <AccountForms key={`forms:${data.account.id}:${data.sessionId}`} data={data} refreshing={loading || Boolean(error)} refresh={() => { setLoading(true); return load(); }} /> : null}
     {data ? <LoginDevicesPanel key={`devices:${data.account.id}:${data.sessionId}`} /> : null}
   </>;

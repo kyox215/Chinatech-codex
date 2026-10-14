@@ -1,4 +1,5 @@
 "use client";
+import { useOperationReceipt } from "@/components/use-operation-receipt";
 import { useLanguage } from "@/components/language-provider";
 import { repairItemText } from "@/lib/i18n/repair-display";
 import { controlError } from "@/components/control-feedback";
@@ -18,6 +19,7 @@ import { parseItemMoney } from "@/lib/repair-item-pricing";
 import type { RepairItemEdit } from "@/lib/repair-item-editor";
 import { formatCost, isPreorder, procurementStatus, procurementStatuses } from "@/lib/procurement";
 import { useProcurement } from "./procurement-provider";
+import type { RepairProjectConfirmation } from "./repair-project-controls";
 
 type ItemInput = {
   requirementId: string; requirementRevision: number; title: string; request: string;
@@ -30,8 +32,9 @@ type ItemsDraft = { rows: ItemInput[]; intakeRevision: number; workflowRevision:
 const moneyInput = (value: number | null | undefined) => value == null ? "" : (value / 100).toFixed(2);
 
 /** Intake projects are the rows: there is no second item picker or procurement wizard. */
-export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }: {
-  repairId: string; onSaved: () => void; onCancel: () => void; onPendingChange: (pending: boolean) => void;
+export function RepairItemsForm({ repairId, confirmedProject, onSaved, onCancel, onPendingChange }: {
+  repairId: string; onSaved: () => void; onCancel: () => void; onPendingChange: (pending: boolean, requestId?: string, project?: undefined, retainUntilReleased?: boolean) => boolean | void;
+  confirmedProject?: RepairProjectConfirmation | null;
 }) {
   const { t, locale, systemText } = useLanguage();
   const staff = useStaff();
@@ -63,8 +66,11 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
     };
   }
   const [draft, setDraft] = useState<ItemsDraft>(currentDraft);
+  const [observedProject, setObservedProject] = useState(confirmedProject);
   const [error, setError] = useState("");
-  const [pending, setPending] = useState(false);
+  const receipt = useOperationReceipt();
+  const [pendingBase, setPending] = useState(false);
+  const pending = pendingBase || receipt.waiting;
   const busy = useRef(false);
   const deviceDraft = useDeviceDraft(`repair-items:${repairId}`, {
     ...draft, rows: draft.rows.map(row => ({ ...row, cost: canReadCost ? row.cost : "", beforeCost: canReadCost ? row.beforeCost : "" })),
@@ -73,14 +79,24 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
       || value.rows.some(row => !row || ![row.requirementId, row.title, row.request, row.supplier, row.quote, row.cost, row.beforeSupplier, row.beforeQuote, row.beforeCost, row.purchaseId].every(field => typeof field === "string") || !Number.isSafeInteger(row.requirementRevision) || !Number.isSafeInteger(row.purchaseRevision) || !Array.isArray(row.linkedVersions) || row.linkedVersions.some(link => typeof link.id !== "string" || !Number.isSafeInteger(link.revision)))) throw new Error("设备草稿格式无效。");
     setDraft({ ...value, rows: value.rows.map(row => ({ ...row, cost: canReadCost ? row.cost : "", beforeCost: canReadCost ? row.beforeCost : "" })) });
   }, canEdit);
-  const changed = draft.intakeRevision !== (order?.intakeRevision ?? 1) || draft.workflowRevision !== (workflows[repairId]?.revision ?? 0)
-    || requirements.length !== draft.rows.length || draft.rows.some(row => {
+  const rowsChanged = draft.rows.some(row => {
       const requirement = requirements.find(item => item.id === row.requirementId);
       const linked = purchases.filter(item => item.requirementId === row.requirementId);
       return !requirement || requirement.revision !== row.requirementRevision || linked.length !== row.linkedVersions.length
         || linked.some(item => !row.linkedVersions.some(link => link.id === item.id && link.revision === item.events.length));
     });
+  const changed = draft.intakeRevision !== (order?.intakeRevision ?? 1) || draft.workflowRevision !== (workflows[repairId]?.revision ?? 0)
+    || requirements.length !== draft.rows.length || rowsChanged;
   const dirty = draft.rows.some(row => row.quote !== row.beforeQuote || row.supplier !== row.beforeSupplier || (canEditCost && row.cost !== row.beforeCost));
+  if (confirmedProject !== observedProject) {
+    setObservedProject(confirmedProject);
+    // Only the original successful project submission can refresh an untouched form.
+    if (confirmedProject?.repairId === repairId && !dirty && !rowsChanged && !pending
+      && draft.intakeRevision === confirmedProject.intakeRevision && (order?.intakeRevision ?? 1) === confirmedProject.intakeRevision
+      && draft.workflowRevision === confirmedProject.beforeWorkflowRevision && (workflows[repairId]?.revision ?? 0) === confirmedProject.workflowRevision
+      && requirements.length === draft.rows.length + 1 && requirements.some(row => row.id === confirmedProject.requirementId)
+      && !purchases.some(row => row.requirementId === confirmedProject.requirementId)) setDraft(currentDraft());
+  }
   function update(id: string, field: "supplier" | "quote" | "cost", value: string) {
     setDraft(previous => ({ ...previous, rows: previous.rows.map(row => row.requirementId === id ? {
       ...row, [field]: value,
@@ -106,9 +122,14 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
     setError(purchaseLocked ? "采购已下单或已有多条记录，供应商和进价按最新事实保留；报价输入已保留，可继续保存。" : "");
   }
   async function submit(event: React.FormEvent) {
+    const requestId = crypto.randomUUID();
     event.preventDefault();
-    if (busy.current || !canEdit || !dirty) return;
-    busy.current = true; setPending(true); onPendingChange(true); setError("");
+    if (busy.current || receipt.isWaiting() || !canEdit || !dirty) return;
+    if (onPendingChange(true, requestId, undefined, true) === false) return;
+    busy.current = true; setPending(true); setError("");
+    const release = () => { busy.current = false; onPendingChange(false, requestId); };
+    const confirmed = async (isCurrent: () => boolean) => { await deviceDraft.clear(); if (isCurrent()) { release(); setError(""); onSaved(); } };
+    const settled = () => { release(); setError(""); };
     try {
       if (changed) throw new Error("工单或配件已变化，请核对最新资料；输入已保留。");
       const items: RepairItemEdit[] = [];
@@ -129,13 +150,13 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
         }
         items.push(item);
       }
-      await dispatch({ type: "save-items", repairId, intakeRevision: draft.intakeRevision, workflowRevision: draft.workflowRevision, items });
-      await deviceDraft.clear(); onSaved();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败，输入已保留。"); }
-    finally { busy.current = false; setPending(false); onPendingChange(false); }
+      await dispatch({ type: "save-items", repairId, intakeRevision: draft.intakeRevision, workflowRevision: draft.workflowRevision, items }, {requestId});
+      await deviceDraft.clear(); if (receipt.isActive()) { release(); onSaved(); }
+    } catch (reason) { if (!receipt.watch(requestId, confirmed, settled)) setError(reason instanceof Error ? reason.message : "保存失败，输入已保留。"); }
+    finally { if (!receipt.isWaiting()) release(); setPending(false); }
   }
   return <form className="repair-item-editor" aria-busy={pending} onSubmit={submit}>
-    <DeviceDraftNotice draft={deviceDraft} />
+    <DeviceDraftNotice draft={deviceDraft} disabled={pending} />
     <div className="repair-item-editor__cards">{draft.rows.map(row => {
       const itemTitle = repairItemText(row.title, locale);
       const linked = purchases.filter(record => record.requirementId === row.requirementId);
@@ -158,6 +179,6 @@ export function RepairItemsForm({ repairId, onSaved, onCancel, onPendingChange }
     {!draft.rows.length ? <div className="section-empty"><Wrench size={24} /><strong>{t("工单尚未填写维修项目")}</strong></div> : null}
     {changed ? <p role="alert" className="form-error">{t("工单或配件已变化，输入已保留。")}<button type="button" className="button button--secondary" disabled={pending} onClick={reviewLatest}>{t("核对最新资料后重试")}</button></p> : null}
     {error ? <p role="alert" className="form-error">{systemText(error)}</p> : null}
-    {canEdit && draft.rows.length ? <footer><button className="button button--secondary" type="button" disabled={pending} onClick={onCancel}>{t("取消")}</button><button className="button button--primary" type="submit" disabled={pending || changed || !dirty}><Check size={17} aria-hidden="true" />{pending ? t("正在保存…") : t("保存")}</button></footer> : null}
+    {canEdit && draft.rows.length ? <footer><button className="button button--secondary" type="button" disabled={pending} onClick={onCancel}>{t("取消")}</button><button className="button button--primary" type="submit" disabled={pending || changed || !dirty}><Check size={17} aria-hidden="true" />{pendingBase ? t("正在保存…") : receipt.waiting ? t("待核对") : t("保存")}</button></footer> : null}
   </form>;
 }

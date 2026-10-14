@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { useEffect, useId, useRef } from "react";
 import { ChevronDown, Mail, MonitorSmartphone, Settings, UserRound } from "lucide-react";
 import type { AuthStatus } from "@/lib/auth-status";

@@ -2,7 +2,7 @@
 import { useLanguage } from "@/components/language-provider";
 import { isBackendClient } from "@/lib/backend/client";
 
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { LucideIcon } from "lucide-react";

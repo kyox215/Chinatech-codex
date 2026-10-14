@@ -1,4 +1,5 @@
 "use client";
+import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { ShoppingBag, X } from "lucide-react";
@@ -39,7 +40,9 @@ export function RetailCheckoutForm({ unit, onClose, restoreFocusRef }: { unit: R
   const [deliveryChoice,setDeliveryChoice] = useState<DeliveryChoice>(""); const [deliveryDate,setDeliveryDate] = useState(today);
   const [debtReason,setDebtReason] = useState(""); const [debtOwner,setDebtOwner] = useState(""); const [followUp,setFollowUp] = useState("");
   const [version,setVersion] = useState(unit.version); const [settingsRevision,setSettingsRevision] = useState(settings.revision);
-  const [debtAccepted,setDebtAccepted] = useState(false); const [accepted,setAccepted] = useState(false); const [submitting,setSubmitting] = useState(false); const [error,setError] = useState(""); const [failed,setFailed] = useState(false);
+  const [debtAccepted,setDebtAccepted] = useState(false); const [accepted,setAccepted] = useState(false); const receipt = useOperationReceipt();
+  const [submittingBase, setSubmitting] = useState(false);
+  const submitting = submittingBase || receipt.waiting; const [error,setError] = useState(""); const [failed,setFailed] = useState(false);
   const busy = useRef(false); const operationId = useRef(crypto.randomUUID()); const [autoFilled,setAutoFilled] = useState(emptyContact);
   const form = useRef<HTMLFormElement>(null); const heading = useRef<HTMLHeadingElement>(null); const trigger = useRef<HTMLElement | null>(null); const titleId = useId();
   const draft = useDeviceDraft(`retail-checkout:${unit.id}`,{phone,name,email,address,buyerNote,price,payments,deliveryDate,debtReason,debtOwner,followUp,version,settingsRevision,autoFilled},value => {
@@ -77,6 +80,7 @@ export function RetailCheckoutForm({ unit, onClose, restoreFocusRef }: { unit: R
     return()=>{if(trigger.current?.isConnected)trigger.current.focus({preventScroll:true});};
   },[restoreFocusRef]);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
+    const requestId = crypto.randomUUID();
     event.preventDefault();if(busy.current || locked)return;setError("");setFailed(false);
     try {
       if(conflict)throw new Error("单机或门店资料已变化，请关闭并重新核对。");
@@ -92,16 +96,16 @@ export function RetailCheckoutForm({ unit, onClose, restoreFocusRef }: { unit: R
       const retailEvent={id:operationId.current,time:intakeRecordTime(),title:"登记成交",detail:"本次交易事实已核对。"};
       applyRetailWorkflow(workflow,[unit],retailEvent,settings);
       busy.current=true;setSubmitting(true);
-      const saved=await dispatch({type:"workflow",workflow,event:retailEvent});
-      if(!saved){setFailed(true);setError("未保存售出登记，请核对页面上的提交恢复状态。");return;}
+      const saved=await dispatch({type:"workflow",workflow,event:retailEvent},{requestId});
+      if(!saved){receipt.watch(requestId, async isCurrent => { await draft.clear(); if (isCurrent()) onClose(); }, () => { setFailed(false); setError(""); });setFailed(true);setError("未保存售出登记，请核对页面上的提交恢复状态。");return;}
       try {await draft.clear();} catch { /* A draft cleanup failure does not undo the committed sale. */ }
       onClose();
     } catch(reason) {setError(reason instanceof Error?reason.message:"请核对售出资料。");}
     finally {busy.current=false;setSubmitting(false);}
   }
   const failureMessage = failed && feedback?.id===unit.id && feedback.error ? feedback.message : error;
-  return <form ref={form} className={styles.form} role="region" aria-labelledby={titleId} aria-busy={submitting} onSubmit={submit} onInvalidCapture={event=>{const control=event.target;if(control instanceof HTMLElement){let details=control.closest("details");while(details){details.open=true;details=details.parentElement?.closest("details") ?? null;}control.focus({preventScroll:true});control.scrollIntoView({block:"nearest",behavior:"instant"});}}} onKeyDown={event=>{if(event.key==="Escape" && !event.defaultPrevented){event.preventDefault();if(!busy.current)onClose();}}}><fieldset className="form-fields" disabled={locked}>
-    <DeviceDraftNotice draft={draft}/>
+  return <form ref={form} className={styles.form} role="region" aria-labelledby={titleId} aria-busy={submitting} onSubmit={submit} onInvalidCapture={event=>{const control=event.target;if(control instanceof HTMLElement){let details=control.closest("details");while(details){details.open=true;details=details.parentElement?.closest("details") ?? null;}control.focus({preventScroll:true});control.scrollIntoView({block:"nearest",behavior:"instant"});}}} onKeyDown={event=>{if(event.key==="Escape" && !event.defaultPrevented){event.preventDefault();if(!(busy.current || receipt.isWaiting()))onClose();}}}><fieldset className="form-fields" disabled={locked}>
+    <DeviceDraftNotice draft={draft} disabled={submitting}/>
     <div className={styles.heading}><h4 id={titleId} ref={heading} tabIndex={-1}>{t("登记成交")}</h4><button type="button" className="icon-button" aria-label={t("关闭售出登记")} onClick={onClose}><X size={17}/></button></div>
     {conflict?<><p className="form-error" role="alert">{t("单机或门店资料已变化，请关闭并重新核对。")}</p><button type="button" className="button button--secondary" onClick={()=>{setVersion(unit.version);setSettingsRevision(settings.revision);setPaymentChoice("");setDeliveryChoice("");changed();}}>{t("保留输入并核对最新版本")}</button></>:null}
     <div className="field-grid">
@@ -123,5 +127,5 @@ export function RetailCheckoutForm({ unit, onClose, restoreFocusRef }: { unit: R
     <label className={styles.accept}><input type="checkbox" required checked={accepted} onChange={event=>setAccepted(event.target.checked)}/>{t("已核对商品、成交、实际收款、交付及保修条款")}</label>
     {failureMessage || settingsError || storageError?<p className="form-error" role="alert">{systemText(failureMessage || settingsError || storageError)}</p>:null}
     <div className={styles.actions}><button type="button" className="button button--secondary" onClick={onClose}>{t("取消")}</button><button type="submit" className="button button--primary" disabled={locked || conflict || !accepted || deliveryChoice==="delivered" && (!canDeliver || debtDelivery && !debtAccepted) || paymentChoice!=="" && paymentChoice!=="none" && !staff.can("sale.payment")}><ShoppingBag size={17}/>{submitting?t("正在保存"):t("确认登记成交")}</button></div>
-  </fieldset></form>;
+  </fieldset><OperationRecoveryControls requestId={receipt.requestId}/></form>;
 }

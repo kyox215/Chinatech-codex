@@ -1,7 +1,7 @@
 "use client";
 import { useLanguage } from "@/components/language-provider";
 import { repairCustomerName, repairIssueText, repairKnownText } from "@/lib/i18n/repair-display";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { useState } from "react";
 import { Banknote, CalendarClock, CheckCircle2, ClipboardCheck, FileClock, Flag, Gamepad2, Laptop, Package, Phone, Printer, ScanLine, Smartphone, Tablet, UserRound, Wrench, ChevronDown } from "lucide-react";
 import { IntakeReceipt } from "./intake-receipt";

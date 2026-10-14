@@ -1,7 +1,8 @@
 "use client";
+import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 
 import { useLanguage } from "@/components/language-provider";
-import Link from "next/link";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { useRef, useState } from "react";
 import { CheckCircle2, ShoppingCart, Truck } from "lucide-react";
 import { isPreorder, procurementStatus, type ProcurementRecord } from "@/lib/procurement";
@@ -19,7 +20,7 @@ export function ProcurementFeedback({ recordId }: { recordId: string }) {
 }
 
 // Shared one-click markers for work orders and procurement detail.
-export function ProcurementPreparation({ record }: { record: ProcurementRecord }) {
+export function ProcurementPreparation({ record, onPendingChange }: { record: ProcurementRecord; onPendingChange?: (pending: boolean, requestId?: string) => boolean | void }) {
   const { t } = useLanguage();
   const canEdit = useStaff().can("repairs.edit");
   const { dispatch } = useProcurement();
@@ -28,19 +29,23 @@ export function ProcurementPreparation({ record }: { record: ProcurementRecord }
   const workflow = order ? workflows[order.id] ?? initialRepairWorkflow(order) : undefined;
   const purchaseOpen = Boolean(order && workflow && !isRepairHistory(order, workflow) && !isRepairReady(workflow));
   const status = procurementStatus(record);
+  const receipt = useOperationReceipt();
   const busy = useRef(false);
   const [submitting, setSubmitting] = useState(false);
 
   async function append(type: "cart_added" | "cart_removed" | "ordered") {
-    if (!canEdit || busy.current || (type !== "cart_removed" && !purchaseOpen)) return;
+    if (!canEdit || busy.current || receipt.isWaiting() || (type !== "cart_removed" && !purchaseOpen)) return;
+    const requestId=crypto.randomUUID();
+    if(onPendingChange?.(true,requestId)===false)return;
     busy.current = true;
     setSubmitting(true);
+    const release=()=>{busy.current=false;onPendingChange?.(false,requestId);};
     const notes = { cart_added: "标记已加购物车，尚未下单。", cart_removed: "取消加车标记。", ordered: "标记实际已下单。" };
     try {await dispatch({ type: "append", id: record.id, revision: record.events.length, event: {
       id: crypto.randomUUID(), type, quantity: 0, note: notes[type],
       time: new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome", dateStyle: "short", timeStyle: "short" }).format(new Date()),
-    } });} catch { /* Provider retains operation failure feedback. */ }
-    finally { busy.current = false; setSubmitting(false); }
+    } },{requestId});} catch {receipt.watch(requestId,release,release);}
+    finally {if(!receipt.isWaiting())release();setSubmitting(false);}
   }
 
   if (!isPreorder(record)) return <div className="procurement-preparation"><ProcurementFeedback recordId={record.id} /><Link className="button button--secondary" href={`/app/procurement/${record.id}`}>{canEdit ? t("查看采购与登记到货") : t("查看采购详情")}</Link></div>;
@@ -49,9 +54,11 @@ export function ProcurementPreparation({ record }: { record: ProcurementRecord }
 
   return <div className="procurement-preparation" aria-busy={submitting}>
     <ProcurementFeedback recordId={record.id} />
+    <OperationRecoveryControls requestId={onPendingChange?null:receipt.requestId}/>
+    {submitting||receipt.waiting ? <p role="status">{t(submitting?"正在保存…":"提交结果待核对，请处理原提交，勿重复新建。")}</p> : null}
     <p className="procurement-action-hint"><ShoppingCart size={16} />{status === "cart" ? t("已加购物车 · 未下单") : t("未加购物车 · 未下单")}</p>
-    <button className="button button--secondary" type="button" disabled={submitting} aria-pressed={status === "cart"} onClick={() => void append(status === "cart" ? "cart_removed" : "cart_added")}><ShoppingCart size={17} />{status === "cart" ? t("取消加车标记") : t("标记已加购物车")}</button>
+    <button className="button button--secondary" type="button" disabled={submitting||receipt.waiting} aria-pressed={status === "cart"} onClick={() => void append(status === "cart" ? "cart_removed" : "cart_added")}><ShoppingCart size={17} />{status === "cart" ? t("取消加车标记") : t("标记已加购物车")}</button>
     <p className="procurement-action-hint">{t("加车后先做标记，真正下单后再标记已下单。")}</p>
-    <button className="button button--primary" type="button" disabled={submitting} onClick={() => void append("ordered")}><Truck size={17} />{t("标记已下单")}</button>
+    <button className="button button--primary" type="button" disabled={submitting||receipt.waiting} onClick={() => void append("ordered")}><Truck size={17} />{t("标记已下单")}</button>
   </div>;
 }
