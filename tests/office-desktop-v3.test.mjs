@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { createRequire } from 'node:module';
 import { createContext, runInContext } from 'node:vm';
-import { generateKeyPairSync, randomUUID, randomBytes, sign } from 'node:crypto';
+import { generateKeyPairSync, randomUUID, randomBytes, sign, verify } from 'node:crypto';
 import ts from 'typescript';
 const nativeRequire = createRequire(import.meta.url), modules = new Map();
 export function load(file, overrides = {}, env = process.env) {
@@ -66,11 +66,11 @@ test('Admin jobs response is limited and projects metadata without device, permi
  const identity={userId:randomUUID(),sessionId:randomUUID()},now=new Date(),jobId=randomUUID();let bounded=false;
  const tx=async(strings)=>{const query=strings.join('');if(query.includes('office_command_control'))return[{admin_user_id:identity.userId}];bounded=query.includes('limit 20');return[{job_id:jobId,action:'install',status:'completed',app_version:'1.4.0',architecture:'win-x64',created_at:now,started_at:now,updated_at:now,installation_id:randomUUID(),key_hash:'a'.repeat(64),permit_token:'synthetic-private-permit',plan:{secret:'not-projected'},session_id:identity.sessionId}];};
  const admin=load('lib/toolbox/office-desktop-v3-admin.ts',{'@/lib/backend/database':{withDatabase:(id,store,run)=>run(tx)}},env);
- const result=await admin.getJobsV3(identity);assert.ok(bounded);assert.deepEqual(Object.keys(result),['jobs']);assert.deepEqual(Object.keys(result.jobs[0]).sort(),['jobId','action','status','appVersion','architecture','createdAt','startedAt','updatedAt'].sort());
+ const result=await admin.getJobsV3(identity);assert.ok(bounded);assert.deepEqual(Object.keys(result),['jobs']);assert.deepEqual(Object.keys(result.jobs[0]).sort(),['jobId','action','status','appVersion','architecture','createdAt','startedAt','updatedAt','stage','errorCode','lastActivityAt','waitingForReport','recoveryExpiresAt'].sort());
  await assert.rejects(admin.getJobsV3({userId:randomUUID(),sessionId:randomUUID()}),e=>e.code==='NO_ACCESS');
 });
 test('The routed task endpoints and proof canonical use jobs paths exclusively',()=>{
- for(const op of ['start','commit','resume','outcome']){assert.equal(tokens.pathV3(op),'/api/toolbox/office-desktop/v3/jobs/'+op);assert.equal(existsSync('app/api/toolbox/office-desktop/v3/'+op+'/route.ts'),false);assert.ok(readFileSync('app/api/toolbox/office-desktop/v3/jobs/'+op+'/route.ts','utf8').includes("handleV3(request, '"+op+"')"));}
+ for(const op of ['start','commit','resume','outcome','activity']){assert.equal(tokens.pathV3(op),'/api/toolbox/office-desktop/v3/jobs/'+op);assert.equal(existsSync('app/api/toolbox/office-desktop/v3/'+op+'/route.ts'),false);assert.ok(readFileSync('app/api/toolbox/office-desktop/v3/jobs/'+op+'/route.ts','utf8').includes("handleV3(request, '"+op+"')"));}
  assert.equal(tokens.pathV3('session'),'/api/toolbox/office-desktop/v3/session');
  assert.equal(tokens.pathV3('admission'),'/api/toolbox/office-desktop/v3/admission');
  assert.ok(readFileSync('app/api/toolbox/office-desktop/v3/admission/route.ts','utf8').includes("handleV3(request, 'admission')"));
@@ -97,4 +97,50 @@ test('OneDrive-only install plans need no Office media while suite plans freeze 
   assert.equal(tokens.planV3({...plan,components:['OneDrive'],mediaVersion:''},action).mediaVersion,'');
   fails(()=>tokens.planV3({...plan,mediaVersion:''},action),'PLAN_INVALID');
  }
+});
+
+test('Sanitized activity accepts only known Core stages and bounded uppercase error codes',()=>{
+ for(const stage of ['Detect','Download','Remove','Install','Components','Activate','Finished','CloseApps','RestoreApps']) assert.equal(tokens.activityV3(stage,null).stage,stage);
+ assert.equal(tokens.activityV3('Install','UNKNOWN_ERROR').errorCode,'UNKNOWN_ERROR');
+ for(const pair of [['Execute','ERROR'],['Install','user@example.com'],['Install','C:\\Users\\Private'],['Install','A'.repeat(65)],['Install','lowercase'],['Install',undefined]]) fails(()=>tokens.activityV3(...pair),'INVALID_REQUEST');
+ const body=proof({jobId:randomUUID(),planHash:'a'.repeat(64),stage:'Install',errorCode:null});
+ tokens.proofV3(signed(body,'activity').payload,['jobId','planHash','stage','errorCode']);
+ fails(()=>tokens.proofV3(signed({...body,output:'private output'},'activity').payload,['jobId','planHash','stage','errorCode']),'INVALID_REQUEST');
+ const server=load('lib/toolbox/office-desktop-v3-server.ts',{},env);
+ assert.notEqual(server.fingerprintV3(body,'activity','permit'),server.fingerprintV3({...body,stage:'Download'},'activity','permit'));
+});
+test('Auditable key metadata contains only public SPKI fingerprints and updates keep embedded-root verification',()=>{
+ const metadata=tokens.publicKeysV3();assert.equal(metadata.length,1);assert.equal(metadata[0].publicKey,publicKey);assert.equal(metadata[0].sha256,tokens.hashV3(Buffer.from(publicKey,'base64url')));
+ const update=tokens.signedUpdateV3({v:3,iss:tokens.v3Origin,aud:'office-v3-update',version:'1.4.0',files:[]});
+ assert.ok(verify('sha256',Buffer.from('CT-OFFICE-V3-UPDATE\n'+update.payload),{key:keys.publicKey,dsaEncoding:'ieee-p1363'},Buffer.from(update.signature,'base64url')));
+ assert.equal(verify('sha256',Buffer.from('CT-OFFICE-V3-UPDATE\n'+update.payload+'a'),{key:keys.publicKey,dsaEncoding:'ieee-p1363'},Buffer.from(update.signature,'base64url')),false);
+ const old=generateKeyPairSync('ec',{namedCurve:'prime256v1'});
+ env.OFFICE_DESKTOP_V3_PUBLIC_KEYS=JSON.stringify({'previous-key':old.publicKey.export({format:'pem',type:'spki'})});assert.equal(tokens.publicKeysV3().length,2);
+ assert.equal(JSON.stringify(tokens.publicKeysV3()).includes('PRIVATE KEY'),false);
+ env.OFFICE_DESKTOP_V3_PUBLIC_KEYS=JSON.stringify({[env.OFFICE_DESKTOP_V3_KID]:old.publicKey.export({format:'pem',type:'spki'})});assert.equal(tokens.signingReadyV3(),false);
+ delete env.OFFICE_DESKTOP_V3_PUBLIC_KEYS;
+});
+test('Public release control and EXE signing are distinct from protocol signing readiness',async()=>{
+ const identity={userId:randomUUID(),sessionId:randomUUID()};
+ const tx=async(strings)=>strings.join('').includes('office_command_control')?[{admin_user_id:identity.userId}]:[{enabled:true,minimum_version:'1.4.0',release_ready:true,verified_version:'1.4.0',revision:'0',updated_at:null}];
+ const admin=load('lib/toolbox/office-desktop-v3-admin.ts',{'@/lib/backend/database':{withDatabase:(id,store,run)=>run(tx)},'./office-desktop-release':{officeDesktopRelease:{version:'1.3.0',websiteControlProtocol:null,authenticodeSigned:false,prerelease:true}}},env);
+ const state=await admin.getAdminV3(identity);assert.equal(state.signingReady,true);assert.equal(state.publicRelease.authenticodeSigned,false);assert.equal(state.publicRelease.websiteControlProtocol,null);assert.equal(state.publicRelease.websiteControlled,false);assert.equal(state.cleanupEnabled,false);
+ await assert.rejects(admin.cleanupAdminV3(identity,{requestId:randomUUID(),expectedDigest:'a'.repeat(64)}),e=>e.code==='CLEANUP_DISABLED');
+});
+
+test('Executable activity HTTP boundary rejects leaked fields, wrong origin and missing permits before data writes',async()=>{
+ const {NextRequest,NextResponse}=nativeRequire('next/server');
+ const office={officeResponse:response=>response};
+ const desktop=load('lib/toolbox/office-desktop-server.ts',{'./office-server':office},env);
+ let transactions=0;
+ const server=load('lib/toolbox/office-desktop-v3-server.ts',{'./office-desktop-server':{...desktop,desktopFailure:error=>NextResponse.json({code:error.code??'INVALID_REQUEST'},{status:error.status??503})},'./office-server':office,'./office-desktop-v3-database':{requestRateV3:async()=>{},transactionV3:async()=>{transactions++;throw Error('No database expected');}}},env);
+ const route=load('app/api/toolbox/office-desktop/v3/jobs/activity/route.ts',{'@/lib/toolbox/office-desktop-v3-server':server},env);
+ env.VERCEL='1';env.OFFICE_DESKTOP_V3_RATE_SECRET='a'.repeat(64);
+ const send=(url,body,headers={})=>route.POST(new NextRequest(url,{method:'POST',headers:{'Content-Type':'application/json','x-vercel-forwarded-for':'203.0.113.5',...headers},body:JSON.stringify(body)}));
+ const fields={jobId:randomUUID(),planHash:'a'.repeat(64),stage:'Install',errorCode:null};
+ for(const [url,body] of [[tokens.v3Origin+tokens.pathV3('activity'),signed(proof({...fields,output:'private path'}),'activity')],['https://other.test'+tokens.pathV3('activity'),signed(proof(fields),'activity')],[tokens.v3Origin+tokens.pathV3('activity'),signed(proof(fields),'activity')]]){
+  const response=await send(url,body);assert.ok([400,401].includes(response.status));assert.deepEqual(Object.keys(await response.json()),['code']);
+ }
+ const response=await send(tokens.v3Origin+tokens.pathV3('activity'),signed(proof(fields),'activity'),{origin:'https://other.test'});assert.equal(response.status,403);
+ assert.equal(transactions,0);delete env.VERCEL;
 });

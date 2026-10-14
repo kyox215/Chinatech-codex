@@ -5,6 +5,11 @@ import { desktopVersion } from './office-desktop-public-token';
 export const v3Origin = 'https://www.chinatech.in';
 export const v3Actions = ['install', 'activate', 'uninstall', 'close', 'reinstall'] as const;
 export const v3Components = ['Access', 'Excel', 'OneDrive', 'OneNote', 'Outlook', 'PowerPoint', 'Lync', 'Word'];
+export const v3Stages = ['Detect', 'Download', 'Remove', 'Install', 'Components', 'Activate', 'Finished', 'CloseApps', 'RestoreApps'] as const;
+export function activityV3(stage: unknown, errorCode: unknown) {
+  if (!v3Stages.includes(stage as typeof v3Stages[number]) || !(errorCode === null || typeof errorCode === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(errorCode))) throw new DesktopError('INVALID_REQUEST');
+  return { stage: stage as typeof v3Stages[number], errorCode: errorCode as string | null };
+}
 export const v3Prefix = '/api/toolbox/office-desktop/v3/';
 export const pathV3 = (operation: string) => v3Prefix + (['session', 'admission'].includes(operation) ? '' : 'jobs/') + operation;
 export const hashV3 = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
@@ -73,7 +78,34 @@ export function signV3(claims: V3Claims): string {
   const input = Buffer.from(JSON.stringify({ alg: 'ES256', typ: 'JWT', kid })).toString('base64url') + '.' + Buffer.from(JSON.stringify(claims)).toString('base64url');
   return input + '.' + sign('sha256', Buffer.from(input), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url');
 }
-export function signingReadyV3(): boolean { try { signingV3(); return true; } catch { return false; } }
+export function signingReadyV3(): boolean { try { publicKeysV3(); return true; } catch { return false; } }
+// Metadata is descriptive. Clients continue to verify with their embedded
+// keyring; an advertised key must never become a new root of trust.
+export function publicKeysV3() {
+  const current = signingV3();
+  const ring: Record<string, string> = process.env.OFFICE_DESKTOP_V3_PUBLIC_KEYS ? JSON.parse(process.env.OFFICE_DESKTOP_V3_PUBLIC_KEYS) : {};
+  if (!ring || typeof ring !== 'object' || Array.isArray(ring) || Object.keys(ring).length > 16) throw new DesktopError('SERVICE_UNAVAILABLE', 503);
+  const keys = new Map<string, KeyObject>();
+  for (const [kid, pem] of Object.entries(ring)) {
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(kid) || typeof pem !== 'string') throw new DesktopError('SERVICE_UNAVAILABLE', 503);
+    const key = createPublicKey(pem);
+    if (key.asymmetricKeyType !== 'ec' || key.asymmetricKeyDetails?.namedCurve !== 'prime256v1') throw new DesktopError('SERVICE_UNAVAILABLE', 503);
+    keys.set(kid, key);
+  }
+  const currentPublic = createPublicKey(current.key);
+  if (keys.has(current.kid) && !keys.get(current.kid)!.export({ format: 'der', type: 'spki' }).equals(currentPublic.export({ format: 'der', type: 'spki' }))) throw new DesktopError('SERVICE_UNAVAILABLE', 503);
+  keys.set(current.kid, currentPublic);
+  return [...keys.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([kid, key]) => {
+    const spki = key.export({ format: 'der', type: 'spki' }) as Buffer;
+    return { kid, algorithm: 'ES256', publicKey: spki.toString('base64url'), sha256: hashV3(spki), current: kid === current.kid };
+  });
+}
+export function signedUpdateV3(metadata: Record<string, unknown>) {
+  const { key, kid } = signingV3();
+  const payload = Buffer.from(JSON.stringify(metadata)).toString('base64url');
+  const signature = sign('sha256', Buffer.from('CT-OFFICE-V3-UPDATE\n' + payload), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url');
+  return { payload, signature, kid, algorithm: 'ES256' };
+}
 export function readV3(token: string, audience: V3Claims['aud'], now = Math.floor(Date.now() / 1000), allowExpired = false): V3Claims {
   try {
     if (token.length > 16000) throw new Error();

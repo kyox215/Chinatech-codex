@@ -39,15 +39,15 @@ export function OfficeToolboxControl(){
   }
   if(!allowed)return null;
   return <section id="office-toolbox" className={`panel ${styles.card}`} aria-labelledby="office-management-title" aria-busy={loading||saving}>
-    <div className={styles.cardHead}><h2 id="office-management-title">{t('网站工具箱管理')}</h2></div>
+    <div className={styles.cardHead}><h2 id="office-management-title">{t('旧协议 Office 命令管理')}</h2></div>
     <div className={styles.form}>
-      <p className={styles.muted}>{t('此总开关控制网站 Office 命令和桌面助手授权；关闭会禁止已有会话的新操作。')}</p>
+      <p className={styles.muted}>{t('此开关管理旧网站 Office 命令和旧协议 0.2.1 客户端的新操作。1.0 至 1.3 为本地执行，1.4 起由新版任务开关管理。')}</p>
       {loading&&!data?<p role="status">{t('正在读取工具箱状态…')}</p>:null}
-      {data?<><p>{t('Office 命令状态')}：<strong>{t(data.enabled?'已开启':'已关闭')}</strong></p><p className={styles.muted}>{t('关闭后当前全部新版命令失效，重新开启需要生成新命令。已开始的操作不会被强制中断。')}</p>{!data.keyConfigured?<p role="alert">{t('签名服务尚未配置，不能开启命令。')}</p>:null}
+      {data?<><p>{t('Office 命令状态')}：<strong>{t(data.enabled?'已开启':'已关闭')}</strong></p><p className={styles.muted}>{t('关闭后当前旧协议命令失效，重新开启需要生成新命令。已开始的操作不会被强制中断。')}</p>{!data.keyConfigured?<p role="alert">{t('签名服务尚未配置，不能开启命令。')}</p>:null}
       <button type="button" className="button button--primary" disabled={loading||saving||!!error||(!data.enabled&&!data.keyConfigured)} onClick={()=>setIntent({enabled:!data.enabled,revision:data.revision,requestId:crypto.randomUUID(),scope:data.accountId+':'+data.sessionId})}>{t(data.enabled?'关闭并作废当前命令':'开启 Office 命令')}</button></>:null}
       {error?<p role="alert" className="form-error">{systemText(error)}</p>:null}
       <button type="button" className="button button--secondary" disabled={saving||loading} onClick={()=>void load()}>{t('刷新状态')}</button>
-      {intent?<div role="group" aria-label={t('确认工具箱开关变更')}><p>{t(intent.enabled?'开启后可生成新命令，旧命令不会恢复。':'将关闭全站 Office 命令，并作废当前全部新版命令。')}</p><button type="button" className="button button--primary" disabled={saving} onClick={()=>void save()}>{t(saving?'正在保存…':'确认变更')}</button><button type="button" className="button button--secondary" disabled={saving} onClick={()=>setIntent(null)}>{t('取消')}</button></div>:null}
+      {intent?<div role="group" aria-label={t('确认工具箱开关变更')}><p>{t(intent.enabled?'开启后可生成新命令，旧命令不会恢复。':'将关闭旧协议 Office 命令，并作废当前旧协议命令。')}</p><button type="button" className="button button--primary" disabled={saving} onClick={()=>void save()}>{t(saving?'正在保存…':'确认变更')}</button><button type="button" className="button button--secondary" disabled={saving} onClick={()=>setIntent(null)}>{t('取消')}</button></div>:null}
     </div>
   </section>;
 }

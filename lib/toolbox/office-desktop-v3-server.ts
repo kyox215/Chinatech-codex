@@ -8,13 +8,14 @@ import { DesktopError, desktopUuid } from './office-desktop-token';
 import { officeResponse } from './office-server';
 import { compareDesktopVersions } from './office-desktop-public-token';
 import { lockV3, requestRateV3, transactionV3 } from './office-desktop-v3-database';
-import { base64V3, hashV3, objectV3, pathV3, planV3, proofV3, publicKeyV3, readV3, signV3, signingReadyV3, verifyProofV3, v3Actions, v3Origin, type V3Claims, type V3Proof, type V3Plan } from './office-desktop-v3-token';
+import { activityV3, base64V3, hashV3, objectV3, pathV3, planV3, proofV3, publicKeysV3, publicKeyV3, readV3, signV3, signedUpdateV3, signingReadyV3, verifyProofV3, v3Actions, v3Origin, type V3Claims, type V3Proof, type V3Plan } from './office-desktop-v3-token';
+import { officeDesktopRelease } from './office-desktop-release';
 
 type Control = { enabled: boolean; minimum_version: string; verified_version: string | null; release_ready: boolean; revision: string };
 type Intent = { job_id: string; token: string; plan_hash: string; start_before: Date; admission_mode: 'public' | 'candidate'; candidate_grant_id: string | null; candidate_revision: string | null };
 type Commit = { job_id: string; permit_token: string; plan_hash: string; resume_until: Date };
 type Candidate = { id: string; revision: string; action: string; admit_until: Date };
-const fields = { session: ['publicKey'], admission: ['architecture'], start: ['jobId', 'action', 'architecture', 'plan'], commit: ['jobId', 'planHash'], resume: ['jobId', 'planHash'], outcome: ['jobId', 'planHash', 'status', 'checkpointHash'] } as const;
+const fields = { session: ['publicKey'], admission: ['architecture'], start: ['jobId', 'action', 'architecture', 'plan'], commit: ['jobId', 'planHash'], resume: ['jobId', 'planHash'], activity: ['jobId', 'planHash', 'stage', 'errorCode'], outcome: ['jobId', 'planHash', 'status', 'checkpointHash'] } as const;
 export type V3Operation = keyof typeof fields;
 const equalV3 = (a: string, b: string) => { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); };
 export function sourceHashV3(request: NextRequest): string {
@@ -54,8 +55,18 @@ export async function statusV3() {
     return { v: 3, acceptingNewSessions: accepting, acceptingNewJobs: accepting, signingReady, minimumVersion: row.minimum_version, currentVersion: row.release_ready ? row.verified_version : null, origin: v3Origin };
   });
 }
+export async function updateV3() {
+  const status = await statusV3(), now = Math.floor(Date.now() / 1000);
+  const release = officeDesktopRelease;
+  const publisherCertificateSha256 = release.publisherCertificateSha256 ?? null;
+  if (publisherCertificateSha256 !== null && !/^[a-f0-9]{64}$/.test(publisherCertificateSha256) || release.authenticodeSigned && publisherCertificateSha256 === null) throw new DesktopError('SERVICE_UNAVAILABLE', 503);
+  if (release.files.length !== 2 || release.files.some(file => !/^[a-f0-9]{64}$/.test(file.sha256) || !Number.isSafeInteger(file.bytes) || file.bytes <= 0 || file.href !== `https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v${release.version}/ChinaTech-Office-Assistant-${file.architecture}.exe`)) throw new DesktopError('SERVICE_UNAVAILABLE', 503);
+  return signedUpdateV3({ v: 3, iss: v3Origin, aud: 'office-v3-update', issuedAt: now, expiresAt: now + 300,
+    version: release.version, websiteControlProtocol: release.websiteControlProtocol, authenticodeSigned: release.authenticodeSigned, publisherCertificateSha256, prerelease: release.prerelease,
+    files: release.files, control: status, trustedKeys: publicKeysV3(), trustPolicy: 'embedded-keyring-only' });
+}
 export function fingerprintV3(body: V3Proof, op: V3Operation, bearer: string): string {
-  const business = op === 'session' ? [body.publicKey] : op === 'admission' ? [body.architecture] : op === 'start' ? [body.jobId, body.action, body.architecture, planV3(body.plan, String(body.action))] : op === 'outcome' ? [body.jobId, body.planHash, body.status, body.checkpointHash] : [body.jobId, body.planHash];
+  const business = op === 'session' ? [body.publicKey] : op === 'admission' ? [body.architecture] : op === 'start' ? [body.jobId, body.action, body.architecture, planV3(body.plan, String(body.action))] : op === 'activity' ? [body.jobId, body.planHash, activityV3(body.stage, body.errorCode)] : op === 'outcome' ? [body.jobId, body.planHash, body.status, body.checkpointHash] : [body.jobId, body.planHash];
   return hashV3(JSON.stringify([op, body.installationId, body.appVersion, hashV3(bearer), ...business]));
 }
 async function rateV3(tx: TransactionSql, body: V3Proof, source: string, op: V3Operation) {
@@ -85,7 +96,7 @@ export async function operationV3(tx: TransactionSql, body: V3Proof, op: V3Opera
     verifyProofV3(pathV3(op), payload, body, signature, publicKeyV3(device.public_key), bearer);
   }
   const fingerprint = fingerprintV3(body, op, bearer);
-  if ((op === 'commit' || op === 'resume') && typeof body.jobId === 'string' && (await latestV3(tx, desktopUuid(body.jobId)))?.status === 'completed') throw new DesktopError('JOB_COMPLETED', 409);
+  if (['commit', 'resume', 'activity'].includes(op) && typeof body.jobId === 'string' && (await latestV3(tx, desktopUuid(body.jobId)))?.status === 'completed') throw new DesktopError('JOB_COMPLETED', 409);
   const prior = await tx<{ request_id: string; nonce: string; endpoint: string; fingerprint: string; response: Record<string, unknown> }[]>`select request_id,nonce,endpoint,fingerprint,response from chinatech_v2_private.office_v3_receipts where installation_id=${body.installationId} and (request_id=${body.requestId} or nonce=${String(body.nonce)})`;
   if (prior.length) {
     const row = prior[0];
@@ -175,6 +186,16 @@ export async function operationV3(tx: TransactionSql, body: V3Proof, op: V3Opera
       if (latest?.status === 'completed') throw new DesktopError('JOB_COMPLETED', 409);
       if (commit.resume_until.getTime() <= Date.now()) throw new DesktopError('RESUME_EXPIRED', 401);
       if (op === 'resume') response = { jobId, permitToken: commit.permit_token, resumeUntil: commit.resume_until.toISOString(), planHash: commit.plan_hash };
+      else if (op === 'activity') {
+        const activity = activityV3(body.stage, body.errorCode);
+        const [prior] = await tx<{ stage: string; error_code: string | null; last_activity_at: Date }[]>`select stage,error_code,last_activity_at from chinatech_v2_private.office_v3_activity where job_id=${jobId}`;
+        const coalesced = !!prior && Date.now() - prior.last_activity_at.getTime() < 60000;
+        const recordedAt = coalesced ? prior.last_activity_at : new Date();
+        if (!coalesced) await tx`insert into chinatech_v2_private.office_v3_activity(job_id,installation_id,key_hash,plan_hash,stage,error_code,last_activity_at)
+          values(${jobId},${body.installationId},${keyHash},${String(body.planHash)},${activity.stage},${activity.errorCode},${recordedAt})
+          on conflict(job_id) do update set stage=excluded.stage,error_code=excluded.error_code,last_activity_at=excluded.last_activity_at`;
+        response = { jobId, stage: coalesced ? prior.stage : activity.stage, errorCode: coalesced ? prior.error_code : activity.errorCode, lastActivityAt: recordedAt.toISOString(), coalesced, nextReportAfterSeconds: 60 };
+      }
       else {
         if (!['completed', 'failed', 'cancelled', 'paused'].includes(String(body.status)) || typeof body.checkpointHash !== 'string' || !/^[a-f0-9]{64}$/.test(body.checkpointHash)) throw new DesktopError('INVALID_REQUEST');
         const recordedAt = new Date();

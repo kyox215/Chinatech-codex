@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID, generateKeyPairSync } from 'node:crypto';
-import { tokens, publicKey, keys, plan, proof, env } from './office-desktop-v3.test.mjs';
+import { tokens, publicKey, plan, proof } from './office-desktop-v3.test.mjs';
 
 // Imported only by the existing fresh, explicitly named loopback PostgreSQL harness.
 export async function candidateChecks({owner,runtime,db,server,call,pass}) {
