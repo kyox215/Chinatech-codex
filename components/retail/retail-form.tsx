@@ -20,7 +20,8 @@ import { intakeRecordTime } from "@/lib/repair-intake-record";
 import { useRetail } from "./retail-provider";
 import { RetailWarrantyControl } from "./retail-warranty-control";
 import { RetailCatalogControl, RetailIdentityPicker, RetailDisksControl, RetailRamControl, RetailStorageControl } from "./retail-spec-controls";
-import { CatalogIndexPreload } from '@/components/catalog/device-identity-picker';
+import { CatalogIndexPreload, IdentityChangeNotice } from '@/components/catalog/device-identity-picker';
+import { canonicalCatalogBrand } from "@/lib/device-catalog";
 import { RetailDateControl, RetailMoneyControl, RetailNumberControl } from "./retail-input-controls";
 import { RetailGallery } from "./retail-gallery";
 import styles from "./retail-form.module.css";
@@ -58,6 +59,7 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
   const [savingBase, setSaving] = useState(false);
   const saving = savingBase || receipt.waiting; const [photoBusy, setPhotoBusy] = useState(false);
   const [error, setError] = useState(""); const checkRegion = useRef<HTMLElement>(null);
+  const [identityUndo, setIdentityUndo] = useState<{ before: { brand: string; model: string }; expected: string } | null>(null);
   const canPublish = staff.can("retail.inspect") && staff.can("retail.price");
   const deviceDraft = useDeviceDraft("retail-new:" + (copyId ?? "") + ":" + (identifier ?? ""), { draft, classificationSelected, goal, checks, note, photos, cost, refurb, price, creationId }, value => {
     if (!value.draft?.category || !value.creationId) throw new Error("草稿格式无效。");
@@ -66,6 +68,21 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
   function update<K extends keyof RetailUnit>(key: K, value: RetailUnit[K]) {
     if (isRetailVerificationField(key) && JSON.stringify(draft[key]) !== JSON.stringify(value)) setChecks(emptyChecks);
     setDraft(previous => ({ ...previous, [key]: value }));
+  }
+  const identityContext = (unit: RetailUnit, inspection: Inspection) => JSON.stringify({ unit, inspection, goal, classificationSelected, note, photos, cost, refurb, price, creationId });
+  function updateIdentity(next: { brand: string; model: string }) {
+    const changedBrand = canonicalCatalogBrand(next.brand) !== canonicalCatalogBrand(draft.brand);
+    const updated = { ...draft, ...next, model: changedBrand ? "" : next.model };
+    setIdentityUndo(changedBrand && Boolean(draft.brand || draft.model)
+      ? { before: { brand: draft.brand, model: draft.model }, expected: identityContext(updated, emptyChecks) } : null);
+    if (next.brand !== draft.brand || next.model !== draft.model) setChecks(emptyChecks);
+    setDraft(updated); setError("");
+  }
+  const showIdentityNotice = identityUndo && identityUndo.expected === identityContext(draft, checks);
+  function undoIdentity() {
+    if (!showIdentityNotice || saving || !identityUndo) return;
+    setDraft(previous => ({ ...previous, ...identityUndo.before }));
+    setChecks(emptyChecks); setIdentityUndo(null); setError("");
   }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (submitting.current || receipt.isWaiting() || photoBusy) return; setError("");
@@ -98,7 +115,8 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
         <div className={styles.column}>
           <Section id="identity" title={t("商品身份")}>
             <label className="field"><span>{t("商品类型")}</span><SelectControl aria-label={t("商品类型")} value={draft.category} onChange={event => { if (draft.category !== event.target.value) setChecks(emptyChecks); setDraft(previous => changeRetailDraftCategory(previous, event.target.value as RetailCategory)); }}>{Object.entries(retailCategories).map(([value, label]) => <option value={value} key={value}>{t(label)}</option>)}</SelectControl></label>
-            <RetailIdentityPicker modelClassName={styles.wide} category={draft.category} units={units} brand={draft.brand} model={draft.model} disabled={saving} validationError={Boolean(error)} onCommit={next=>{if(next.brand!==draft.brand||next.model!==draft.model)setChecks(emptyChecks);setDraft(previous=>({...previous,...next}));}}/>
+            <RetailIdentityPicker modelClassName={styles.wide} category={draft.category} units={units} brand={draft.brand} model={draft.model} disabled={saving} validationError={Boolean(error)} onCommit={updateIdentity}/>
+            {showIdentityNotice ? <IdentityChangeNotice disabled={saving} onUndo={undoIdentity}/> : null}
             <IdentifierField label="SN" name="retail-sn" kind="serial" value={draft.serial} onChange={value => update("serial", value)} />
             {["phone", "tablet"].includes(draft.category) ? <IdentifierField label="IMEI 1" name="retail-imei1" kind="imei" value={draft.imei1} onChange={value => update("imei1", value)} /> : null}
             <details className={styles.wide}><summary>{t("更多识别码")}</summary><div className={"field-grid " + styles.extraFields}>{["phone", "tablet"].includes(draft.category) ? <IdentifierField label="IMEI 2" name="retail-imei2" kind="imei" value={draft.imei2} onChange={value => update("imei2", value)} /> : null}<IdentifierField label={t("包装条码")} name="retail-product-code" kind="serial" value={draft.productCode} onChange={value => update("productCode", value)} /></div></details>

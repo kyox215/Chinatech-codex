@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>ChinaTech · 独立品牌型号选择器预览</title>
+  <link rel="stylesheet" href="preview.css">
+  <script src="catalog-preview-data.js" defer></script>
+  <script src="preview.js" defer></script>
+</head>
+<body>
+  <header class="review-bar">
+    <div class="review-heading"><span class="review-mark" aria-hidden="true">P</span><div><strong data-i18n="previewTitle">独立品牌 / 型号</strong><span data-i18n="previewSubtitle">交互设计预览 · 示例数据 · 未连接正式后台</span></div></div>
+    <div class="review-switches" role="group" aria-label="预览模块" data-i18n-aria="previewModule">
+      <button type="button" data-flow="repair" aria-pressed="true" data-i18n="repair">维修接机</button>
+      <button type="button" data-flow="retail" aria-pressed="false" data-i18n="retail">新建商品</button>
+    </div>
+    <details class="review-settings"><summary data-i18n="settings">预览设置</summary><div class="settings-body">
+      <label><span data-i18n="layout">布局</span><select id="layout"><option value="auto" data-i18n="auto">随窗口变化</option><option value="desktop" data-i18n="desktop">电脑</option><option value="mobile" data-i18n="mobile">手机 390px</option></select></label>
+      <label><span data-i18n="language">语言</span><select id="language"><option value="zh">中文</option><option value="it">Italiano</option><option value="en">English</option></select></label>
+      <label><span data-i18n="scenario">场景</span><select id="scenario"><option value="normal" data-i18n="normal">正常</option><option value="loading" data-i18n="loadingScenario">首次加载</option><option value="error" data-i18n="errorScenario">目录查询失败</option><option value="offline" data-i18n="offlineScenario">离线</option><option value="denied" data-i18n="deniedScenario">身份失效</option><option value="conflict" data-i18n="conflictScenario">保存冲突</option></select></label>
+      <button class="button button--secondary" id="reset" type="button" data-i18n="reset">重置示例</button>
+    </div></details>
+  </header>
+  <div class="preview-frame" id="preview-frame">
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar" aria-label="主菜单" data-i18n-aria="mainMenu">
+        <div class="brand"><span class="brand-symbol" aria-hidden="true">CT</span><div><strong>ChinaTech</strong><small data-i18n="brandSubtitle">维修 · 采购 · 整机</small></div><button class="icon-button sidebar-close" type="button" aria-label="关闭菜单" data-i18n-aria="closeMenu">×</button></div>
+        <div class="sidebar-search"><span aria-hidden="true">⌕</span><span data-i18n="searchOrder">搜索工单</span></div>
+        <span class="nav-label" data-i18n="mainMenu">主菜单</span>
+        <nav><button type="button" class="nav-static"><span aria-hidden="true">▦</span><span data-i18n="dashboard">工作台</span></button><button type="button" data-nav-flow="repair"><span aria-hidden="true">▤</span><span data-i18n="orders">维修工单</span></button><button type="button" data-nav-flow="retail"><span aria-hidden="true">◇</span><span data-i18n="products">整机商品</span></button><button type="button" class="nav-static"><span aria-hidden="true">♙</span><span data-i18n="customers">客户管理</span></button><button type="button" class="nav-static"><span aria-hidden="true">⌁</span><span data-i18n="customerDevices">客户设备</span></button></nav>
+        <div class="account"><span class="account-avatar" aria-hidden="true">C</span><div><strong>ChinaTech</strong><small data-i18n="demoAccount">预览账号</small></div></div>
+      </aside>
+      <main class="main-content" id="main-content">
+        <header class="page-title panel"><button class="icon-button" type="button" id="back" aria-label="返回上一步" data-i18n-aria="backStep">←</button><h1 id="page-title">新建维修工单</h1><button class="icon-button mobile-menu" type="button" aria-label="打开菜单" data-i18n-aria="openMenu">☰</button></header>
+        <div class="workflow-grid" id="workflow-grid"><nav class="steps panel" id="steps" aria-label="录入步骤" data-i18n-aria="entrySteps"></nav><section class="workspace panel" id="workspace"></section></div>
+      </main>
+    </div>
+  </div>
+  <div class="drawer-shade" id="drawer-shade" hidden></div>
+  <div id="live-status" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

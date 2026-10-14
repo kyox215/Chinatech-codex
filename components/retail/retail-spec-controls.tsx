@@ -21,7 +21,7 @@ export function RetailCatalogControl({ field, category, brand, units, value, onC
   if (field === "brand" || field === "model") {
     const recorded = units.filter(unit => unit.category === category && (field === "brand" || !brand || canonicalCatalogBrand(unit.brand) === canonicalCatalogBrand(brand))).map(unit => unit[field]).filter(value => value.trim());
     const unique = new Map(recorded.map(value => [catalogNormalize(value),value]));
-    return <DeviceIdentityPicker mode={field} category={category} brand={field==='brand'?value:brand??''} model={field==='model'?value:''} brandLabel={label} modelLabel={label} modelRequired={required} validationError={validationError} onCommit={next=>onChange(next[field])} historicalBrands={field==='brand'?[...unique.values()].map(value=>({value,label:value})):[]} historicalModels={field==='model'?[...unique.values()].map(value=>({value,label:value})):[]} />;
+    return <DeviceIdentityPicker mode={field} category={category} brand={field==='brand'?value:brand??''} model={field==='model'?value:''} brandLabel={label} modelLabel={label} brandRequired={field==='brand'&&required} modelRequired={required} validationError={validationError} onCommit={next=>onChange(next[field])} historicalBrands={field==='brand'?[...unique.values()].map(value=>({value,label:value})):[]} historicalModels={field==='model'?[...unique.values()].map(value=>({value,label:value})):[]} />;
   }
   return <SearchCombobox validate={text => required && !text.trim() ? "请选择或填写实物型号。" : ""} label={t(label)} value={value} onChange={onChange} options={retailCatalogOptions(field, category, brand, units)}
     required={required} maxLength={300} placeholder={t("搜索或手动填写{v0}", { v0: t(label) })} />;

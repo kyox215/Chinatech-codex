@@ -1,57 +1,60 @@
 "use client";
-import { useEffect,useId,useMemo,useRef,useState } from 'react';
-import { createPortal } from 'react-dom';
-import { ChevronDown,ChevronRight,Search,X } from 'lucide-react';
-import { InputControl } from '@/components/input-control';
-import { SearchCombobox,type ComboboxOption } from '@/components/search-combobox';
-import { useLanguage } from '@/components/language-provider';
-import { canonicalCatalogBrand,catalogBrandAliases,catalogCategory,catalogNormalize,catalogSearchText,type CatalogEntry,type CatalogPage,type CatalogPickerModel } from '@/lib/device-catalog';
-import { useCatalogIndex,useCatalogRead,catalogScope } from './use-catalog';
-import styles from './device-identity-picker.module.css';
 
-type Props={category:string;brand:string;model:string;onCommit:(value:{brand:string;model:string})=>void;mode?:'identity'|'brand'|'model';brandLabel?:string;modelLabel?:string;modelClassName?:string;brandClassName?:string;brandRequired?:boolean;modelRequired?:boolean;brandMaxLength?:number;modelMaxLength?:number;disabled?:boolean;validationError?:boolean;historicalBrands?:readonly ComboboxOption[];historicalModels?:readonly ComboboxOption[];historicalModelsByBrand?:Readonly<Record<string,readonly ComboboxOption[]>>};
-const categoryKey=(category:string)=>category==='电脑'?'computer':catalogCategory(category)??'other';
-export function CatalogIndexPreload({category,enabled=true}:{category:string;enabled?:boolean}){useCatalogIndex({category:categoryKey(category)},enabled);return null;}
-export function DeviceIdentityPicker({mode='identity',brandLabel='品牌',modelLabel='型号',brandRequired=false,modelRequired=true,brandMaxLength=60,modelMaxLength=120,disabled=false,...props}:Props){
-  const {t}=useLanguage();const [opened,setOpened]=useState<'brand'|'family'|null>(null);const brandId=useId();const modelId=useId();const [anchor,setAnchor]=useState<DOMRect|null>(null);
-  const open=(stage:'brand'|'family')=>{if(!disabled){setAnchor((document.activeElement as HTMLElement)?.closest('.field')?.getBoundingClientRect()??null);setOpened(stage);}};
+import { DeviceCatalogControl } from "./device-catalog-control";
+import type { ComboboxOption } from "@/components/search-combobox";
+import { canonicalCatalogBrand, catalogCategory } from "@/lib/device-catalog";
+import { useCatalogIndex } from "./use-catalog";
+import { useLayoutEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { useLanguage } from "@/components/language-provider";
+import styles from "./device-catalog.module.css";
+
+type Props = {
+  category: string; brand: string; model: string; onCommit: (value: { brand: string; model: string }) => void;
+  mode?: "identity" | "brand" | "model"; brandLabel?: string; modelLabel?: string;
+  modelClassName?: string; brandClassName?: string; brandRequired?: boolean; modelRequired?: boolean;
+  brandMaxLength?: number; modelMaxLength?: number; disabled?: boolean; validationError?: boolean;
+  historicalBrands?: readonly ComboboxOption[]; historicalModels?: readonly ComboboxOption[];
+  historicalModelsByBrand?: Readonly<Record<string, readonly ComboboxOption[]>>;
+};
+export function CatalogIndexPreload({ category, enabled = true }: { category: string; enabled?: boolean }) {
+  useCatalogIndex({ category: category === "电脑" ? "computer" : catalogCategory(category) ?? "other" }, enabled);
+  return null;
+}
+/** Shared field presentation only; callers retain draft cleanup and existing-record update rules. */
+export function DeviceIdentityPicker({
+  mode = "identity", brandLabel = "品牌", modelLabel = "型号", brandRequired = false,
+  modelRequired = true, brandMaxLength = 60, modelMaxLength = 120, ...props
+}: Props) {
   return <>
-    {mode!=='model'?<div className={['field',props.brandClassName].filter(Boolean).join(' ')}><label htmlFor={brandId}>{t(brandLabel)}{brandRequired?' *':''}</label><InputControl id={brandId} aria-label={t(brandLabel)} role="combobox" aria-haspopup="dialog" aria-expanded={opened!==null} value={props.brand} error={props.validationError&&brandRequired&&!props.brand.trim()?'请选择或填写设备品牌。':undefined} required={brandRequired} validate={value=>brandRequired&&!value.trim()?'请选择或填写设备品牌。':''} selectionOnly onClear={()=>props.onCommit({brand:'',model:mode==='brand'?props.model:''})} clearLabel={t('清空{v0}',{v0:t(brandLabel)})} disabled={disabled} onClick={()=>open('brand')} onKeyDown={event=>{if(['Enter','ArrowDown',' '].includes(event.key)){event.preventDefault();open('brand');}}} leading={<Search size={16}/>} trailing={<button type="button" disabled={disabled} aria-label={t('选择设备品牌')} onClick={()=>open('brand')}><ChevronDown size={17}/></button>} placeholder={t('选择设备品牌')}/></div>:null}
-    {mode!=='brand'?<div className={['field',props.modelClassName].filter(Boolean).join(' ')}><label htmlFor={modelId}>{t(modelLabel)}{modelRequired?' *':''}</label><InputControl id={modelId} aria-label={t(modelLabel)} role="combobox" aria-haspopup="dialog" aria-expanded={opened!==null} value={props.model} error={props.validationError&&modelRequired&&!props.model.trim()?'请选择或填写实物型号。':undefined} required={modelRequired} validate={value=>modelRequired&&!value.trim()?'请选择或填写实物型号。':''} selectionOnly onClear={()=>props.onCommit({brand:props.brand,model:''})} clearLabel={t('清空{v0}',{v0:t(modelLabel)})} disabled={disabled} onClick={()=>open(props.brand?'family':'brand')} onKeyDown={event=>{if(['Enter','ArrowDown',' '].includes(event.key)){event.preventDefault();open(props.brand?'family':'brand');}}} leading={<Search size={16}/>} trailing={<button type="button" disabled={disabled} aria-label={t('选择设备型号')} onClick={()=>open(props.brand?'family':'brand')}><ChevronDown size={17}/></button>} placeholder={t('选择设备型号')}/></div>:null}
-    {opened&&!disabled?<PickerPanel {...props} anchor={anchor} mode={mode} firstStage={mode==='brand'?'brand':mode==='model'?'family':opened} brandLabel={brandLabel} modelLabel={modelLabel} brandRequired={brandRequired} modelRequired={modelRequired} brandMaxLength={brandMaxLength} modelMaxLength={modelMaxLength} onClose={()=>setOpened(null)}/>:null}
+    {mode !== "model" ? <DeviceCatalogControl category={props.category} field="brand" label={brandLabel}
+      value={props.brand} onChange={brand => props.onCommit({ brand, model: props.model })}
+      className={props.brandClassName} required={brandRequired} maxLength={brandMaxLength}
+      disabled={props.disabled} validationError={props.validationError} historicalOptions={props.historicalBrands} /> : null}
+    {mode !== "brand" ? <DeviceCatalogControl category={props.category} field="model" label={modelLabel}
+      brand={props.brand} value={props.model} onChange={model => props.onCommit({ brand: props.brand, model })}
+      className={props.modelClassName} required={modelRequired} maxLength={modelMaxLength}
+      disabled={props.disabled} validationError={props.validationError}
+      historicalOptions={props.historicalModels ?? props.historicalModelsByBrand?.[canonicalCatalogBrand(props.brand)]} /> : null}
   </>;
 }
-function PickerPanel(props:Props&{anchor:DOMRect|null;firstStage:'brand'|'family';onClose:()=>void}){
-  const {t,systemText}=useLanguage();const category=categoryKey(props.category);const dialog=useRef<HTMLDialogElement>(null);const previousScope=useRef(catalogScope());const title=useId();
-  const [stage,setStage]=useState<'brand'|'family'|'model'>(props.firstStage);const [brand,setBrand]=useState(props.brand);const [family,setFamily]=useState<string|null>(null);const [search,setSearch]=useState('');const [manual,setManual]=useState(false);const [error,setError]=useState('');
-  const base=useCatalogIndex({category});const knownBrand=Boolean(base.data?.brands.some(row=>row.value===canonicalCatalogBrand(brand)));const branch=useCatalogIndex({category,brand:canonicalCatalogBrand(brand)},knownBrand&&base.ready&&base.data?.complete===false);const leaf=useCatalogIndex({category,brand:canonicalCatalogBrand(brand),family:family??''},knownBrand&&!manual&&family!==null&&branch.ready&&branch.data?.complete===false);
-  const current=base.data?.complete===false&&knownBrand?(branch.data?.complete===false&&family!==null&&!manual?leaf:branch):base;
-  const groupsRead=branch.data?branch:base;const groups=groupsRead.ready?groupsRead.data:null;const canonical=canonicalCatalogBrand(brand);
-  const brands=useMemo(()=>{const map=new Map((base.ready?base.data?.brands??[]:[]).map(row=>[catalogNormalize(row.value),{value:row.value,label:row.value,detail:catalogBrandAliases(row.value).filter(value=>value!==row.value).join(' · ')}]));for(const row of props.historicalBrands??[])if(!map.has(catalogNormalize(row.value)))map.set(catalogNormalize(row.value),{...row,detail:t('门店原文 · 实物仍须核对')});return [...map.values()];},[base.data,base.ready,props.historicalBrands,t]);
-  const families=(groups?.families??[]).filter(row=>row.brand===canonical).map(row=>({value:row.value,label:row.value||t('未分组系列'),detail:t('共 {v0} 个型号',{v0:row.total})}));
-  useEffect(()=>{const prior=document.activeElement as HTMLElement|null;const node=dialog.current;node?.showModal();node?.querySelector<HTMLInputElement>('input[role=combobox]')?.focus({preventScroll:true});return()=>{node?.close();prior?.focus({preventScroll:true});};},[]);
-  useEffect(()=>{const node=dialog.current;if(!node)return;const position=()=>{if(window.innerWidth<768){node.style.removeProperty('left');node.style.removeProperty('top');node.style.removeProperty('margin');return;}const box=node.getBoundingClientRect();const anchor=props.anchor;const left=Math.max(12,Math.min(anchor?.left??(innerWidth-box.width)/2,innerWidth-box.width-12));const below=(anchor?.bottom??24)+6;const top=Math.max(12,Math.min(below+box.height<=innerHeight-12?below:(anchor?.top??innerHeight)-box.height-6,innerHeight-box.height-12));Object.assign(node.style,{left:left+'px',top:top+'px',margin:'0'});};position();const observer=new ResizeObserver(position);observer.observe(node);window.addEventListener('resize',position);return()=>{observer.disconnect();window.removeEventListener('resize',position);};},[props.anchor,stage]);
-  useEffect(()=>{if(previousScope.current!==catalogScope())props.onClose();},[base.ready,base.error,props]);
-  const nextBrand=(value:string)=>{const cleaned=value.trim();if(props.brandRequired&&!cleaned){setError('请选择或填写设备品牌。');return;}setError('');setBrand(cleaned);setFamily(null);setManual(false);setSearch('');if(props.mode==='brand'){props.onCommit({brand:cleaned,model:props.model});props.onClose();}else setStage('family');};
-  const nextFamily=(value:string,custom=false)=>{setFamily(value);setManual(custom);setStage('model');setSearch('');setError('');};
-  const complete=(model:string)=>{if(props.modelRequired&&!model.trim()){setError('请选择或填写实物型号。');return;}props.onCommit({brand:props.mode==='model'?props.brand:brand,model:model.trim()});props.onClose();};
-  const pending=!base.ready&&base.loading;
-  return createPortal(<dialog ref={dialog} className={styles.dialog} aria-labelledby={title} onCancel={event=>{event.preventDefault();props.onClose();}} onClick={event=>{if(event.target===event.currentTarget){const box=event.currentTarget.getBoundingClientRect();if(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom)props.onClose();}}}>
-    <header className={styles.head}><h3 id={title}>{t('选择设备')}</h3><button type="button" className="icon-button" aria-label={t('关闭设备选择')} onClick={props.onClose}><X size={20}/></button></header>
-    <nav className={styles.path} aria-label={t('品牌系列型号选择步骤')}><button type="button" disabled={props.mode==='model'} aria-current={stage==='brand'?'step':undefined} onClick={()=>{setStage('brand');setSearch('');}}>{t(props.brandLabel??'品牌')}{brand?' · '+brand:''}</button><ChevronRight size={16}/><button type="button" disabled={stage==='brand'} aria-current={stage==='family'?'step':undefined} onClick={()=>{setStage('family');setSearch('');}}>{t('系列')}{family!==null?' · '+(family||t('未分组系列')):''}</button><ChevronRight size={16}/><span aria-current={stage==='model'?'step':undefined}>{t('型号')}</span></nav>
-    <div className={styles.content}>
-      {stage==='brand'?<><SearchCombobox key="brand" label={t(props.brandLabel??'品牌')} value={search} onChange={setSearch} onSelect={option=>nextBrand(option.value)} options={brands} optionDetailsAsDescription optionLimit={200} filterOptions windowed selectedKey="" persistentMenu autoFocus maxLength={props.brandMaxLength??60} loading={pending} disabled={false} placeholder={t('搜索或手动填写')} menuClassName={styles.menu}/><button type="button" className="button button--secondary" disabled={!search.trim()&&props.brandRequired} onClick={()=>nextBrand(search)}>{t(search.trim()?'使用手填品牌':'品牌未记录')}</button></>:null}
-      {stage==='family'?<><SearchCombobox key={'series:'+canonical} label={t('系列')} value={search} onChange={setSearch} onSelect={option=>nextFamily(option.value)} options={families} optionDetailsAsDescription optionLimit={200} filterOptions windowed selectedKey="" persistentMenu autoFocus loading={!groupsRead.ready&&groupsRead.loading} placeholder={t('搜索系列')} menuClassName={styles.menu}/><button type="button" className="button button--secondary" onClick={()=>nextFamily('',true)}>{t('未收录系列 / 手动填写')}</button></>:null}
-      {stage==='model'?<ModelStage key={category+':'+canonical+':'+family+':'+manual} category={category} brand={canonical} family={family??''} manual={manual} models={current.ready?current.data?.models??[]:[]} remote={current.ready&&current.data?.complete===false} pending={!manual&&!current.ready&&current.loading} modelLabel={t(props.modelLabel??'型号')} maxLength={props.modelMaxLength??120} historical={props.historicalModelsByBrand?.[canonical]??(canonical===canonicalCatalogBrand(props.brand)?props.historicalModels??[]:[])} onSelect={complete} search={search} setSearch={setSearch}/>:null}
-      {base.error||current.error?<p role="alert" className="form-error">{systemText(base.error||current.error)} <button type="button" className="button button--secondary" onClick={()=>{base.retry();current.retry();}}>{t('重新查询目录')}</button></p>:null}
-      {error?<p className="form-error" role="alert">{systemText(error)}</p>:null}
-    </div>
-    <footer className={styles.actions}><button type="button" className="button button--secondary" onClick={props.onClose}>{t('取消')}</button></footer>
-  </dialog>,document.body);
+function subscribeMobile(listener: () => void) {
+  const media = window.matchMedia("(max-width: 767px)");
+  media.addEventListener("change", listener);
+  return () => media.removeEventListener("change", listener);
 }
-function ModelStage({category,brand,family,manual,models,remote,pending,modelLabel,maxLength,historical,onSelect,search,setSearch}:{category:string;brand:string;family:string;manual:boolean;models:readonly CatalogPickerModel[];remote:boolean;pending:boolean;modelLabel:string;maxLength:number;historical:readonly ComboboxOption[];onSelect:(value:string)=>void;search:string;setSearch:(value:string)=>void}){
-  const {t}=useLanguage();const [page,setPage]=useState(1);const [remoteRows,setRemoteRows]=useState<CatalogPickerModel[]>([]);const data=useCatalogRead<CatalogPage>({kind:'models',category,brand,family,familyExact:'1',q:search,page:String(page)},remote&&!manual);
-  useEffect(()=>{if(!data.data)return;const next=data.data;queueMicrotask(()=>setRemoteRows(previous=>next.page===1?next.rows:[...previous,...next.rows.filter(row=>!previous.some(old=>old.id===row.id))]));},[data.data]);
-  const options=useMemo(()=>{const phrase=catalogNormalize(search);const rows=(remote?remoteRows:models).filter(row=>row.brand===brand&&row.family===family&&(manual||catalogSearchText(row as CatalogEntry).includes(phrase)));const official:ComboboxOption[]=manual?[]:rows.map(row=>({key:row.id,value:row.name,label:row.name,detail:[row.network==='unknown'?'':row.network,row.year?String(row.year):'',row.platform,...row.modelCodes.slice(0,3),row.status==='review'?t('待核对'):''].filter(Boolean).join(' · ')}));const names=new Set(official.map(row=>catalogNormalize(row.value)));const local=(manual?historical:[]).filter(row=>!names.has(catalogNormalize(row.value))&&catalogNormalize(row.value).includes(phrase)).map(row=>({...row,key:'historical:'+row.value,detail:t('门店原文 · 实物仍须核对')}));return [...official,...local];},[search,models,remoteRows,remote,manual,brand,family,historical,t]);
-  return <><SearchCombobox label={t(modelLabel)} value={search} onChange={value=>{setSearch(value);setPage(1);setRemoteRows([]);}} onSelect={option=>onSelect(option.value)} options={options} optionDetailsAsDescription optionLimit={remote?100000:3000} windowed selectedKey="" persistentMenu filterOptions={false} autoFocus maxLength={maxLength} loading={pending||remote&&data.loading} onEndReached={()=>{if(remote&&!data.loading&&data.data&&page*50<data.data.total)setPage(previous=>previous+1);}} placeholder={t('搜索型号或机型码')} menuClassName={styles.menu}/><button className="button button--secondary" type="button" disabled={!search.trim()} onClick={()=>onSelect(search)}>{t('使用手填型号')}</button></>;
+export function DeviceIdentityExtras({ children, hasValue }: { children: ReactNode; hasValue: boolean }) {
+  const { t } = useLanguage();
+  const details = useRef<HTMLDetailsElement>(null);
+  const mobile = useSyncExternalStore(subscribeMobile, () => window.matchMedia("(max-width: 767px)").matches, () => false);
+  // Restored facts become visible; clearing a value must not collapse an editor still in use.
+  useLayoutEffect(() => { if (hasValue && details.current) details.current.open = true; }, [hasValue, mobile]);
+  return mobile ? <details ref={details} className={styles.deviceExtras}>
+    <summary>{t("更多设备信息 · 颜色、SN / IMEI")}</summary><div className="field-grid">{children}</div>
+  </details> : <>{children}</>;
+}
+export function IdentityChangeNotice({ onUndo, disabled }: { onUndo: () => void; disabled?: boolean }) {
+  const { t } = useLanguage();
+  return <div className={styles.identityNotice} role="status"><span>{t("已切换品牌，请重新选择型号。")}</span>
+    <button className="button button--secondary" type="button" disabled={disabled} onClick={onUndo}>{t("撤销品牌切换")}</button>
+  </div>;
 }

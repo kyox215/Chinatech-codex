@@ -1,5 +1,13 @@
 # ChinaTech 项目连续记忆
 
+## 独立品牌/型号实施候选（2026-10-15）
+
+用户确认实施并上线；候选codex/catalog-separated-20261014从fresh main d32dafc2起。当前已落独立SearchCombobox、保留useCatalogIndex预取/合并/授权失效、可选系列/跨系列代码搜索、手填Enter/Tab/blur与Esc、窗口化/移动定位；新建同次清型号/核验、即时撤销不恢复签名/同意/授权，已有单字段规则保留。手机自定义颜色不自动折叠；仅草稿签名失效，存储签名/销售快照不改。无DB迁移/生产业务写入。详docs35。
+
+真实本地组件108不同用例通过（主106=104过+定向修复/签名补12过）；30原生样本各阶段Chrome P95 32.3/32.2/24.7ms、WebKit35/31/33ms，0额外目录GET。491 unit=490过+1既有PS环境skip，4107三语/TS/lint/正式build过，原导航warning保留。证据.local/catalog-separated与.local/device-catalog/separated-performance；首次网络/实体键盘非本指标。
+
+正在用本项目新本地Colima/Supabase做真实API/保存刷新/三语打印/回链验收；未用旧云runtime脚本。CLI2.101兼容只在忽略目录副本，不改tracked Auth/RLS配置。远程精确SHA CI与发布尚未完成；实际回滚alias dpl_6c8DTE8jrTgUKmm63V9g7uDPdWfy/正确project已只读核过。3191预览仅本候选，3177将供正式本机测试，不停其他服务。
+
 ## 当前 Figma 操作反馈修复与上线（2026-10-14，候选）
 
 最新用户已授权按原Figma补全缺失组件、相关操作状态与逻辑闭环并上线。独立发布树 `.local/ui-feedback-release/source`／分支 `codex/ui-feedback-20261014`，基线main5826131；公开Office1.3资产保持原字节。Figma按钮／焦点／错误输入已读取，扩展真实导航等待、加载恢复、原requestId回执、草稿锁、客户分页及下载请求提示，不修改Figma文件。474/475本地Node（1Mac无PowerShell跳过）、3953三语键、类型／lint零错误、正式build；原360浏览器323过37失败，修正后96相关回归过。采购20私有／6预览／54领域、签名返修草稿8两浏览器增量通过。新增采购本次成功信号、分组原回执恢复、confirmed Promise收尾锁与isCurrent；相关34浏览器及私有慢清理/卸载反例已通过。旧0f／740候选不晋升，PR56最终SHA须完整CI、独立审查与候选→正式只读验收。详[报告34](docs/34-figma-interaction-feedback-release.md)，没有生产业务写入。
