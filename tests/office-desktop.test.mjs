@@ -63,7 +63,7 @@ test('public 1.3.0 downloads use the approved architecture assets and exact bina
  assert.equal(officeDesktopRelease.checksums,base+'/SHA256SUMS.txt');
 });
 test('public copy identifies selected installation and removal with explicit unsupported boundaries',()=>{
- const source=readFileSync('components/toolbox/office-desktop-download.tsx','utf8');
+ const source=['components/toolbox/office-desktop-download.tsx','components/toolbox/office-tools-page.tsx'].map(file=>readFileSync(file,'utf8')).join('\n');
  for(const fact of ['测试版','独立运行','无需网站登录','八项应用默认全选','可单独选择安装','OneDrive','Skype for Business','语言跟随 Windows','全部 Office（包括 Visio 和 Project）','个人文档保留','MSI 产品须整项卸载','OneDrive 仅支持当前账户卸载','仍待 Windows 验收','尚未数字签名'])assert.ok(source.includes(fact),fact);
  for(const obsolete of ['打开后自动联网检查','通过检查后','六个应用','激活只检查和使用已有有效许可','安装替换全部旧 Office'])assert.ok(!source.includes(obsolete),obsolete);
 });
