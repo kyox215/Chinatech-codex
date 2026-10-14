@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import ts from 'typescript';
+import { adaptPreviewHookImports } from './helpers/preview-hook-loader.mjs';
 const dependencies = new Map();
 function library(name) {
   if (dependencies.has(name)) return dependencies.get(name);
@@ -14,7 +15,8 @@ function dataUrl(code) { return `data:text/javascript;base64,${Buffer.from(code)
 let instance = 0;
 async function store(path, extra = '', tail = '') {
   let code = compile(path).replace(/import \{[^}]+\} from "react";/g, 'let captured; const React = {createElement(type, props) {captured = props; return null;}}; const createContext = () => ({Provider: "provider"}); const useCallback = fn => fn; const useContext = () => null; const useMemo = fn => fn(); const useSyncExternalStore = (subscribe, read) => read(); const useReducer = (reducer, initial) => [initial, action => Object.assign(initial, reducer(initial, action))];');
-  code = code.replace(/from "@\/components\/repairs\/repair-workflow-store"/g, () => { let flow=compile("components/repairs/repair-workflow-store.ts").replace(/import \{[^}]+\} from "react";/g,"const useSyncExternalStore=()=>{};").replace(/from "@\/lib\/([^"]+)"/g,(_,dep)=>`from "${library(dep)}"`);return `from "${dataUrl(flow)}"`; });
+  code = adaptPreviewHookImports(code, { compile, library, dataUrl });
+  code = code.replace(/from "@\/components\/repairs\/repair-workflow-store"/g, () => { let flow=compile("components/repairs/repair-workflow-store.ts").replace(/import \{[^}]+\} from "react";/g,"const useSyncExternalStore=()=>{};").replace(/from "@\/lib\/([^"]+)"/g,(_,dep)=>`from "${library(dep)}"`);flow=adaptPreviewHookImports(flow,{compile,library,dataUrl});return `from "${dataUrl(flow)}"`; });
   code = code.replace(/from "@\/lib\/([^"]+)"/g, (_, dep) => `from "${library(dep)}"`);
   return import(dataUrl(`${code}\nexport {read as readSnapshot${extra}};\n${tail}\n// instance ${instance++}`));
 }

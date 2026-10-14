@@ -1,4 +1,6 @@
 "use client";
+import { ReadPending } from "@/components/page-recovery";
+import { useBackendMode } from "@/components/backend-snapshot";
 
 import { ReadFailure } from "@/components/page-recovery";
 import { useLanguage } from "@/components/language-provider";
@@ -17,7 +19,6 @@ import { useRetail } from "@/components/retail/retail-provider";
 import { useStaff } from "@/components/staff/use-staff";
 import { useStoreSettings } from "@/components/settings/settings-store";
 import { defaultRepairGroups, visibleRepairGroups } from "@/lib/repair-groups";
-import { isBackendClient } from "@/lib/backend/client";
 import { workflowGroup, workflowGroups, repairProgress, hasCurrentRepairHandover, initialRepairWorkflow, type WorkflowGroup } from "@/lib/repair-workflow";
 import { procurementEventLabel } from "@/lib/procurement";
 import {
@@ -60,7 +61,7 @@ function DashboardHeading({ canScan = true, canCreate = true }: { canScan?: bool
 }
 
 export function DashboardContent() {
-  return isBackendClient() ? <RealDashboardContent /> : <PreviewDashboardContent />;
+  return useBackendMode() ? <RealDashboardContent /> : <PreviewDashboardContent />;
 }
 
 function RealDashboardContent() {
@@ -91,7 +92,7 @@ function RealDashboardContent() {
     ...units.flatMap(unit => unit.events.map(event => ({ id: `retail:${unit.id}:${event.id}`, title: `${unit.code} · ${retailEventTitle(event.title, locale)}`, time: event.time, href: `/app/retail/units/${unit.id}`, tone: "violet" }))),
   ].filter(event => event.time).sort((left, right) => right.time.localeCompare(left.time) || left.id.localeCompare(right.id)).slice(0, 5);
   const heading = <DashboardHeading canScan={canRepairs} canCreate={staff.can("repairs.edit")} />;
-  if (!workflowReady || !retailReady || !staff.ready) return <div className="dashboard">{heading}<div className="panel module-empty" role="status">{t("正在读取门店概况…")}</div></div>;
+  if (!workflowReady || !retailReady || !staff.ready) return <div className="dashboard">{heading}<ReadPending label="正在读取门店概况…" /></div>;
   if (error) return <div className="dashboard">{heading}<ReadFailure message={error} /></div>;
 
   return <div className="dashboard">

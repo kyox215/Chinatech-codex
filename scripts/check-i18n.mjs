@@ -74,6 +74,7 @@ const translatedHelperArguments = new Map([
 ]);
 const visibleProps = new Set(["title", "label", "text", "tooltip", "placeholder", "alt", "aria-label", "aria-description", "aria-placeholder", "aria-valuetext", "description", "hint", "message", "emptyText", "clearLabel", "backLabel", "caption", "heading"]);
 const translatedComponentProps = new Map([
+  ["ReadPending", new Set(["label"])],
   ["SingleChoice", new Set(["label", "options"])], ["MultiChoice", new Set(["label", "options"])],
   ["SearchCombobox", new Set(["placeholder", "emptyText"])],
 ]);

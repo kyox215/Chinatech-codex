@@ -8,6 +8,11 @@
 
 目录pending已补单SVG/aria-busy可见按钮，兼容B共享单线；source双引擎2＋rootB组合2＋最终native性能2通过。后台预取/关闭不busy，未改hook/读取/权限。新本地Colima/Supabase与同一production build通过18组真实Auth/RLS/API＋双引擎保存刷新/三语打印/反向关联/账号切换，loopback TLS验证原Secure Cookie；15组合成数据残留0、admin null/rev0。30次130型号目录API本机P95 220.3ms，非公网冷启动。未用旧云runtime脚本；CLI2.101兼容只在忽略副本，不改tracked Auth/RLS配置。远程精确SHA CI与发布尚未完成；实际回滚alias dpl_6c8DTE8jrTgUKmm63V9g7uDPdWfy/正确project已只读核过。3191/3177/3178仅本候选，不停其他服务。详.local/catalog-separated/formal；早期HTTP Secure Cookie环境失败与精确TLS取消消息测试适配保留，不放宽业务断言。
 
+## B方案正式改造进行中（2026-10-15）
+
+用户已授权B方案实施、后续维护规则、验证与正式上线。基于fresh main d32dafc创建项目内独立发布检出`.local/loading-b-release/source`，branch codex/loading-b-20261014；未混入根并行Office工作。已移除5 route loading/3整机骨架，真实导航原位+2px线、作用域bootstrap、旧查询保留/权限清理、账号状态和维护契约。独立审查修两个bootstrap反例；Node24 498(497过/1缺PS环境)、导航22、实际组件SSR/水合20＋目录10过；初104相关浏览器102过/2WebKit失败保留；目录性能冻结后3过，409账号恢复修latch并加强请求反例后双浏览器repeat3共6过。补真实表单/IndexedDB合成4过：未知显示待核对，busy锁/原ID恢复不变；cf12164/5mq及f038/V8旧候选均过期，不晋升；另补根级错误重试进度宿主2项双浏览器通过，只以最新PR head完整CI及候选作门禁。双域仍旧6c8/d32。真实Auth/DB不由合成壳证明；尚未发布，完整新head CI/候选/双域验收仍必需。详docs/35-loading-feedback-b.md。
+
+
 ## 当前 Figma 操作反馈修复与上线（2026-10-14，候选）
 
 最新用户已授权按原Figma补全缺失组件、相关操作状态与逻辑闭环并上线。独立发布树 `.local/ui-feedback-release/source`／分支 `codex/ui-feedback-20261014`，基线main5826131；公开Office1.3资产保持原字节。Figma按钮／焦点／错误输入已读取，扩展真实导航等待、加载恢复、原requestId回执、草稿锁、客户分页及下载请求提示，不修改Figma文件。474/475本地Node（1Mac无PowerShell跳过）、3953三语键、类型／lint零错误、正式build；原360浏览器323过37失败，修正后96相关回归过。采购20私有／6预览／54领域、签名返修草稿8两浏览器增量通过。新增采购本次成功信号、分组原回执恢复、confirmed Promise收尾锁与isCurrent；相关34浏览器及私有慢清理/卸载反例已通过。旧0f／740候选不晋升，PR56最终SHA须完整CI、独立审查与候选→正式只读验收。详[报告34](docs/34-figma-interaction-feedback-release.md)，没有生产业务写入。

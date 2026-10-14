@@ -5,6 +5,7 @@ import { memberScope, pendingOperation, reserveOperation, markOperationUnknown, 
 let snapshot:BackendSnapshot|null=null;
 let configured=false;
 let generation=0;
+let releasedBootstrap:{from:number;to:number}|null=null;
 let writing=false;
 let refreshFlight:Promise<void>|null=null;
 let recoveryFlight:Promise<void>|null=null;
@@ -24,8 +25,11 @@ export function backendSnapshot(){return snapshot;}
 export function backendReadGeneration(){return generation;}
 export function subscribeBackend(listener:()=>void){listeners.add(listener);return()=>{listeners.delete(listener);};}
 function publish(next:BackendSnapshot|null){snapshot=next;listeners.forEach(listener=>listener());}
-export function configureBackend(initial:BackendSnapshot){generation++;configured=true;refreshFlight=null;publish(initial);recoveryUpdate({busy:false,pending:null,message:""});void loadRecovery();}
-export function clearBackend(){generation++;refreshFlight=null;publish(null);recoveryUpdate({busy:false,pending:null,message:""});}
+export function configureBackend(initial:BackendSnapshot){generation++;releasedBootstrap=null;configured=true;refreshFlight=null;publish(initial);recoveryUpdate({busy:false,pending:null,message:""});void loadRecovery();}
+export function clearBackend(){generation++;releasedBootstrap=null;refreshFlight=null;publish(null);recoveryUpdate({busy:false,pending:null,message:""});}
+/** Only a valid provider cleanup grants a handoff; identity invalidation never does. */
+export function releaseBackendBootstrap(expectedGeneration:number){if(generation!==expectedGeneration)return null;clearBackend();releasedBootstrap={from:expectedGeneration,to:generation};return generation;}
+export function canAdoptBackendBootstrap(baseline:number){return releasedBootstrap?.from===baseline&&releasedBootstrap.to===generation;}
 function requestScope(){return {generation,identity:snapshot?.staff.currentId,storeId:snapshot?.storeId};}
 function sameScope(scope:ReturnType<typeof requestScope>){return scope.generation===generation && scope.identity===snapshot?.staff.currentId && scope.storeId===snapshot?.storeId;}
 function accept(next:BackendSnapshot,scope:ReturnType<typeof requestScope>){
@@ -37,6 +41,8 @@ function accept(next:BackendSnapshot,scope:ReturnType<typeof requestScope>){
   if(next.stateToken && next.stateToken===snapshot.stateToken) return true;
   publish(next);return true;
 }
+// A same-scope server refresh updates reads without resetting an in-flight receipt.
+export function reconcileBackendInitial(next:BackendSnapshot){if(snapshot)accept(next,requestScope());}
 async function request(url:string,init:RequestInit={}) {
   const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);
   try {const response=await fetch(url,{...init,cache:"no-store",signal:controller.signal});const data=await response.json();return {response,data};}

@@ -58,12 +58,18 @@ test("identity event discards delayed old projection; 503 stays distinct from lo
 });
 
 test("expired hint needs explicit refresh without a background cookie refresh", async ({ page }) => {
+  let statusReads=0;page.on("request",request=>{if(new URL(request.url()).pathname==="/api/auth/status")statusReads++;});
   await previewLogin(page); await page.goto("/");
   await page.route("**/api/auth/status", route => route.fulfill({ status: 409, json: { code: "SESSION_REFRESH_REQUIRED" } }));
   const path = page.url();
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(nav(page).getByText("账号状态暂不可用")).toBeVisible(); expect(page.url()).toBe(path);
   await page.unroute("**/api/auth/status");
+  const latchedReads=statusReads;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.waitForTimeout(120);
+  expect(statusReads).toBe(latchedReads);
+  await expect(nav(page).getByRole("button", { name: "重新检查", exact: true })).toBeEnabled();
   await nav(page).getByRole("button", { name: "重新检查", exact: true }).click();
   await expect(nav(page).getByRole("link", { name: "工作台", exact: true })).toBeVisible();
 });

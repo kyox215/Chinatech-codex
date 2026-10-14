@@ -1,7 +1,8 @@
 "use client";
+import { useBackendState } from "@/components/backend-snapshot";
 import { useLanguage } from "@/components/language-provider";
 import { useEffect, useRef, useState } from "react";
-import { backendSnapshot, isBackendClient } from "@/lib/backend/client";
+import { backendSnapshot } from "@/lib/backend/client";
 import { draftScope, listDeviceDrafts, removeDeviceDraft, saveDeviceDraft, type DeviceDraft } from "@/lib/backend/recovery-store";
 import { SelectControl } from "./select-control";
 
@@ -10,7 +11,8 @@ import { SelectControl } from "./select-control";
 // must match the currently authenticated server snapshot.
 export function useDeviceDraft<T>(form:string,data:T,restore:(data:T)=>void,active=true) {
   const [id]=useState(()=>crypto.randomUUID());
-  const [scope]=useState(()=>{const state=backendSnapshot();return isBackendClient()&&state?draftScope(state):null;});
+  const backend=useBackendState();
+  const [scope]=useState(()=>backend.formal&&backend.snapshot?draftScope(backend.snapshot):null);
   const signature=JSON.stringify(data);
   const [initial]=useState(signature);
   const [candidates,setCandidates]=useState<DeviceDraft<T>[]>([]);

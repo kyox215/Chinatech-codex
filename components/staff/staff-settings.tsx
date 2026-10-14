@@ -1,7 +1,8 @@
 "use client";
+import { useBackendMode } from "@/components/backend-snapshot";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
-import { backendRecovery, isBackendClient } from "@/lib/backend/client";
+import { backendRecovery } from "@/lib/backend/client";
 import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 import { useEffect, useRef, useState } from "react";
@@ -16,7 +17,7 @@ const statusLabels={pending:"待核对",active:"有效",disabled:"停用"};
 export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending: boolean) => void } = {}) {
   const { t , systemText } = useLanguage();
   const staff = useStaff();
-  const formal = isBackendClient();
+  const formal = useBackendMode();
   const [editing, setEditing] = useState<StaffMember | null>(null);
   const [openedRevision, setOpenedRevision] = useState(0);
   const [review, setReview] = useState(false);
@@ -88,7 +89,7 @@ export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending:
           <label className="field"><span>{t(formal ? "账号姓名（核对用）" : "员工称呼 *")}</span><InputControl onClear={() => { setEditing({ ...editing, name: "" }); setError(""); }} clearLabel={t("清空员工称呼")} aria-label={t("员工称呼")} readOnly={formal && Boolean(editing.revision)} required validate={validateName} value={editing.name} maxLength={80} autoComplete="name" onChange={event => { setEditing({ ...editing, name: event.target.value }); setError(""); }} placeholder={t("例如：小陈")} /></label>
           <label className="field"><span>{t(formal ? "员工账号邮箱 *" : "DEMO账号标识 *")}</span><InputControl onClear={() => { setEditing({ ...editing, email: "" }); setError(""); }} clearLabel={t("清空员工账号标识")} aria-label={t("员工账号标识")} readOnly={formal && Boolean(editing.revision)} required type="email" validate={validateEmail} value={editing.email} maxLength={160} autoComplete="email" autoCapitalize="off" onChange={event => { setEditing({ ...editing, email: event.target.value }); setError(""); }} placeholder={formal ? "name@example.com" : "sales@demo.chinatech.local"} /></label>
           <label className="field"><span>{t("角色模板")}</span><SelectControl aria-label={t("员工角色")} value={editing.role} disabled={editing.role === "owner" || editing.id === staff.member?.id} onChange={event => { const role = event.target.value as StaffRole; setEditing({ ...editing, role, permissions: rolePermissions(role) }); }}>{Object.entries(staffRoles).filter(([role]) => role !== "owner" || editing.role === "owner").map(([role, label]) => <option key={role} value={role}>{t(label)}</option>)}</SelectControl></label>
-          {(["accountStatus", "membershipStatus"] as const).map(key => <label className="field" key={key}><span>{key === "accountStatus" ? t("账号状态") : t("门店成员状态")}</span><SelectControl aria-label={key === "accountStatus" ? t("员工账号状态") : t("员工成员状态")} disabled={(isBackendClient() && key === "accountStatus") || editing.id === staff.member?.id || editing.role === "owner" && staff.member?.role !== "owner"} value={formal && !editing.revision && key === "accountStatus" ? "pending" : editing[key]} onChange={event => setEditing({ ...editing, [key]: event.target.value as StaffStatus })}>{Object.entries(statusLabels).map(([status, label]) => <option value={status} key={status}>{t(label)}</option>)}</SelectControl></label>)}
+          {(["accountStatus", "membershipStatus"] as const).map(key => <label className="field" key={key}><span>{key === "accountStatus" ? t("账号状态") : t("门店成员状态")}</span><SelectControl aria-label={key === "accountStatus" ? t("员工账号状态") : t("员工成员状态")} disabled={(formal && key === "accountStatus") || editing.id === staff.member?.id || editing.role === "owner" && staff.member?.role !== "owner"} value={formal && !editing.revision && key === "accountStatus" ? "pending" : editing[key]} onChange={event => setEditing({ ...editing, [key]: event.target.value as StaffStatus })}>{Object.entries(statusLabels).map(([status, label]) => <option value={status} key={status}>{t(label)}</option>)}</SelectControl></label>)}
         </div>
         <fieldset className={styles.permissions}><legend>{t("允许的操作")}</legend>{Object.entries(permissionLabels).map(([permission, label]) => <label key={permission}><input type="checkbox" aria-label={t(label)} checked={editing.permissions.includes(permission as keyof typeof permissionLabels)} disabled={editing.id === staff.member?.id || editing.role === "owner" || !staff.can(permission as keyof typeof permissionLabels)} onChange={event => { const next = event.target.checked ? [...editing.permissions, permission as keyof typeof permissionLabels] : editing.permissions.filter(value => value !== permission); setEditing({ ...editing, permissions: next }); }}/><span>{t(label)}</span></label>)}</fieldset>
       {formal ? <p className={styles.note}>{t("保存时使用已验证账号的身份资料；此处填写不会修改账号姓名或邮箱。")}</p> : null}</>}

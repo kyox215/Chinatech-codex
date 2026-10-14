@@ -491,8 +491,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .sync-connection-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); }
 .sync-connection-notice p { flex: 1 1 240px; margin: 0; }
 .navigation-link { position: relative; }
-.navigation-link > .navigation-feedback { position: absolute; right: 3px; top: 3px; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; opacity: 0; pointer-events: none; }
-.navigation-link > .navigation-feedback[data-pending="true"] { opacity: 1; animation: button-spin 800ms linear infinite; }
+.navigation-link > .navigation-feedback { position: absolute; right: 3px; top: 3px; width: 14px; height: 14px; opacity: 0; pointer-events: none; }
+.navigation-link > .navigation-feedback[data-pending="true"] { opacity: 1; }
 .navigation-link:has(> .navigation-feedback[data-pending="true"]) { cursor: progress; outline: 2px solid var(--primary-200); outline-offset: 2px; }
 .navigation-link > .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .list-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; padding: 16px; border-top: 1px solid var(--border); }
@@ -1847,3 +1847,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .intake-step--active>span>svg{display:none;}
   .intake-step--active>span::before{content:attr(data-step-number);font-size:12px;}
 }
+
+/* Request-scoped backend bootstrap preserves the actual application frame. */
+.backend-snapshot-root { display: contents; }
+
+.read-pending { display: flex; align-items: center; gap: 8px; margin: 16px 0; color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
+.read-pending > svg { flex: 0 0 16px; }
+
+.read-failure { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px; margin-block: 12px; }
+.read-failure p { flex: 1 1 180px; margin: 0; color: var(--text-secondary); font-size: 14px; }
+.read-failure > svg { flex-shrink: 0; color: var(--danger); }

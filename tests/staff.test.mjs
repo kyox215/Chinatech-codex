@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import ts from "typescript";
+import { adaptPreviewHookImports } from "./helpers/preview-hook-loader.mjs";
 
 // Load the actual TypeScript modules and stores, with only React rendering stubbed.
 const modules = new Map();
@@ -15,6 +16,7 @@ function library(name) {
 let instance = 0;
 async function store(path, ssr = false) {
   let code = compile(path).replace(/import \{[^}]+\} from "react";/g, `let captured; const React = {createElement(type, props) {captured = props; return null;}}; const createContext = () => ({Provider: "provider"}); const useContext = () => null; const useMemo = fn => fn(); const useSyncExternalStore = (subscribe, read, server) => ${ssr ? "server()" : "read()"}; const useReducer = (reducer, initial) => [initial, action => Object.assign(initial, reducer(initial, action))];`);
+  code = adaptPreviewHookImports(code, { compile, library, dataUrl, ssr });
   code = code.replace(/from "@\/lib\/([^"]+)"/g, (_, dep) => `from "${library(dep)}"`);
   code = code.replaceAll('from "./repair-workflow-store"', `from "${dataUrl("export function useRepairWorkflows() { return {workflows:{}}; } export function previewRepairWorkflow(){throw new Error(\"Unexpected workflow lookup in staff persistence test\");}")}"`);
   const tail = path.includes("retail-provider") ? "export function contextUnderTest() { RetailProvider({children:null}); return captured.value; }" : "";

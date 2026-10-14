@@ -1,6 +1,7 @@
 "use client";
-import { useMemo, useSyncExternalStore } from "react";
-import { backendSnapshot, isBackendClient, subscribeBackend } from "@/lib/backend/client";
+import { useBackendState, useBackendStore } from "@/components/backend-snapshot";
+import { useMemo } from "react";
+import { isBackendClient } from "@/lib/backend/client";
 import { projectRetailHistory, type RetailHistoryRecord } from "@/lib/retail-history";
 import { useStaff } from "@/components/staff/use-staff";
 import { parsePreviewRetailHistory, previewRetailHistoryKey } from "@/lib/retail-record";
@@ -27,11 +28,11 @@ function subscribeLocal(listener: () => void) {
   return () => window.removeEventListener("storage", onStorage);
 }
 export function useRetailHistory() {
-  const state = useSyncExternalStore(subscribeBackend, backendSnapshot, () => null);
-  const preview = useSyncExternalStore(subscribeLocal, readLocal, () => server);
+  const backend = useBackendState();
+  const preview = useBackendStore(subscribeLocal,readLocal,server,current=>({records:current?.retailHistory??empty,error:current?"":"历史整机资料暂不可用。"}));
   const staff = useStaff();
-  const source = isBackendClient() ? state?.retailHistory ?? empty : preview.records;
+  const source = preview.records;
   const records = useMemo(() => projectRetailHistory(source, staff.member), [source, staff.member]);
   return { records,
-    ready: staff.ready, error: isBackendClient() && !state ? "历史整机资料暂不可用。" : preview.error };
+    ready: staff.ready, error: backend.formal && !backend.snapshot ? "历史整机资料暂不可用。" : preview.error };
 }
