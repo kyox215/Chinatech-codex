@@ -15,10 +15,13 @@ coverage/
 test-results/
 playwright-report/
 archive.local/
-history/
+/history/
 prototypes/
 design/
 checks/
 交付/
 supabase/.temp/
 supabase/.branches/
+
+# Authoring cache is never a runtime asset; only public/tutorials is published.
+scripts/tutorials/.work/
