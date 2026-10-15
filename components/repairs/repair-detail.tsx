@@ -33,7 +33,7 @@ export function RepairDetail({ initialOrder }: { initialOrder: RepairOrder }) {
   return <main className="module-page repair-detail">
     <div className="module-heading repair-detail__toolbar">
       <PageTitle title={repair.id} backHref="/app/repairs" backLabel={t("工单列表")} backScroll={false} />
-      <div className="module-heading__actions">
+      <div className="module-heading__actions module-heading__actions--icons">
         <button className="button button--secondary button--compact page-toolbar-action" type="button" onClick={() => setPrintOpen(true)} aria-label={t("打印接机单")} title={t("打印接机单")}><Printer size={16} /><span>{t("打印接机单")}</span></button>
         {order ? <RepairReworkControl order={order}/> : null}
       </div>

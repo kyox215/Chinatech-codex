@@ -57,7 +57,7 @@ function Sparkline({ points, tone }: { points: string; tone: Tone }) {
 function DashboardHeading({ canScan = true, canCreate = true }: { canScan?: boolean; canCreate?: boolean }) {
   const { t } = useLanguage();
   const navigation = useContext(AppNavigationContext);
-  return <header className="module-heading"><PageTitle title={t("工作台")} /><div className="module-heading__actions">{canScan ? <RepairScanner iconOnly={navigation?.isMobile ?? false} /> : null}{canCreate ? <Link className="button button--primary button--compact" href="/app/repairs/new"><Plus size={17} />{t("新建工单")}</Link> : null}</div></header>;
+  return <header className="module-heading"><PageTitle title={t("工作台")} /><div className={`module-heading__actions${!canCreate ? " module-heading__actions--icons" : ""}`}>{canScan ? <RepairScanner iconOnly={navigation?.isMobile ?? false} /> : null}{canCreate ? <Link className="button button--primary button--compact" href="/app/repairs/new"><Plus size={17} />{t("新建工单")}</Link> : null}</div></header>;
 }
 
 export function DashboardContent() {
