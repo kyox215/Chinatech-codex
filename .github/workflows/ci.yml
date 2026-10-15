@@ -46,6 +46,7 @@ jobs:
             test-results/
             .local/ui-proof/controls/
             .local/device-catalog/picker-performance-*.json
+            .local/device-catalog/separated-performance-*.json
           include-hidden-files: true
           retention-days: 7
       - name: Preserve browser-native catalog measurements
@@ -53,7 +54,9 @@ jobs:
         if: always()
         with:
           name: catalog-native-performance
-          path: .local/device-catalog/picker-performance-*.json
+          path: |
+            .local/device-catalog/picker-performance-*.json
+            .local/device-catalog/separated-performance-*.json
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7

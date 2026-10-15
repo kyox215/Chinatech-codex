@@ -1836,6 +1836,18 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .input-control__body.input-shell { padding-block: 0; }
 :is(.multi-choice__item, .single-choice label):has(input:disabled) { color: var(--text-secondary); background: var(--bg); cursor: not-allowed; }
 
+/* Compact mobile intake steps; the desktop stepper keeps its established layout. */
+@media(min-width:768px){.intake-form__body>.field-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));}}
+@media(max-width:767px){
+  .intake-stepper{display:flex;}
+  .intake-step{flex:1;min-width:0;flex-direction:row;gap:6px;}
+  .intake-step--active{flex:1.5;}
+  .intake-step:not(.intake-step--active)>span{display:none;}
+  .intake-step--active>span{width:24px;height:24px;}
+  .intake-step--active>span>svg{display:none;}
+  .intake-step--active>span::before{content:attr(data-step-number);font-size:12px;}
+}
+
 /* Request-scoped backend bootstrap preserves the actual application frame. */
 .backend-snapshot-root { display: contents; }
 

@@ -3,7 +3,7 @@ import { getTutorials } from "../../lib/tutorials";
 import { translate } from "../../lib/i18n/translate";
 import type { Locale } from "../../lib/i18n/locale";
 
-import { chooseCatalogDevice } from "./catalog-picker";
+import { chooseCatalogDevice, openDeviceExtras } from "./catalog-picker";
 
 const languageLabel = "语言 / Lingua / Language";
 async function activate(locator: Locator) {
@@ -141,6 +141,7 @@ test("changing the backend language keeps drafts and saves canonical facts with 
   await activate(page.getByRole("button", { name: "Next", exact: true }));
   await expect(page.getByRole("heading", { name: translate("送修设备", "en"), exact: true })).toBeVisible();
   await chooseCatalogDevice(page, "Apple", "iPhone", "iPhone 16", page.getByRole("combobox", { name: /^Brand/ }));
+  await openDeviceExtras(page);
   await page.getByRole("textbox", { name: "SN / IMEI", exact: true }).fill("DEMO-LANGUAGE-001");
   await changeLanguage(page, "it");
   await expect(page.getByRole("combobox", { name: /^Marca/ })).toHaveValue("Apple");

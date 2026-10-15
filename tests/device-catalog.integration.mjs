@@ -15,7 +15,7 @@ const sql=postgres(config.DB_URL,{max:4,prepare:false});
 const runtime=postgres(localEnv.APP_DATABASE_URL,{max:1,prepare:false});
 const auth=createClient(config.API_URL,config.SECRET_KEY||config.SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 const origin=process.env.CATALOG_ORIGIN||'http://localhost:3177';const api=process.env.CATALOG_API||'http://127.0.0.1:3177';
-for(const target of [origin,api]){const url=new URL(target);assert.ok(['localhost','127.0.0.1'].includes(url.hostname));assert.equal(url.protocol,'http:');}
+for(const target of [origin,api]){const url=new URL(target);assert.ok(['localhost','127.0.0.1'].includes(url.hostname));assert.ok(['http:','https:'].includes(url.protocol));assert.equal(url.username,'');assert.equal(url.password,'');}
 const proof=process.env.CATALOG_PROOF_DIR?resolve(process.env.CATALOG_PROOF_DIR):resolve(root,'.local/device-catalog');mkdirSync(proof,{recursive:true});
 const domainPath=resolve(proof,'integration-domain.mjs');
 writeFileSync(domainPath,ts.transpileModule(readFileSync(fileURLToPath(new URL('../lib/device-catalog.ts',import.meta.url)),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);
@@ -40,7 +40,9 @@ try{
  const m=await login(manager),o=await login(owner),x=await login(outsider);
  const state=await json(await req(m,'/api/catalog?kind=state'));assert.equal(state.canManage,true);assert.equal((await json(await req(o,'/api/catalog?kind=state'))).canManage,false);
  assert.equal((await req(new Map(),'/api/catalog')).status,401);assert.equal((await req(x,'/api/catalog')).status,403);assert.equal((await req(o,'/api/catalog?kind=history')).status,403);assert.equal((await req(o,'/api/catalog?disabled=true')).status,403);assert.equal((await req(o,'/api/catalog/workbook')).status,403);
- const reference=JSON.parse(readFileSync(resolve(root,'data/device-catalog/catalog.json'),'utf8')).filter(r=>r.brand==='Samsung'&&/Galaxy A13/.test(r.name));
+ const reference=JSON.parse(readFileSync(resolve(root,'data/device-catalog/catalog.json'),'utf8')).filter(r=>
+  r.brand==='Samsung'&&(/Galaxy A13/.test(r.name)||r.id==='samsung-galaxy-s26')||
+  r.brand==='Apple'&&r.name==='iPhone 16');
  const initial=[...Array.from({length:130},(_,i)=>({entry:base(i,i===18?{modelCodes:['00018','M16']}:{}),expectedVersion:0})),...reference.map((entry,i)=>({entry:{...entry,id:prefix+'-official-'+i},expectedVersion:0})),{entry:base(900,{id:prefix+'-laptop',category:'laptop',brand:'SyntheticComputer',family:'Book',name:'Synthetic Book',year:null}),expectedVersion:0}];
  const previewBody={action:'preview',revision:lastRevision,rows:initial};
  assert.equal((await req(o,'/api/catalog',previewBody,owner)).status,403);assert.equal((await req(m,'/api/catalog',previewBody,manager,{Origin:'https://foreign.invalid'})).status,403);assert.equal((await req(m,'/api/catalog',previewBody,manager,{'X-CT-Account-ID':owner.id})).status,409);assert.equal((await req(m,'/api/catalog',previewBody,manager,{'X-CT-Session-ID':randomUUID()})).status,409);assert.equal((await req(m,'/api/catalog',previewBody,manager,{'X-CT-Store-ID':stores[1]})).status,403);
@@ -109,6 +111,10 @@ try{
  writeFileSync(proof+'/integration.json',JSON.stringify({checks,timings,productionWrites:0},null,2));
 }catch(error){console.error('Integration stopped:',error.message);throw error;}finally{
  // Never truncate shared tables. Remove this test's exact IDs/actors and restore only our unchanged control.
+ // A closed browser can leave an authorized read in flight. Lock the synthetic store parents
+ // before deleting sessions so a late FK insert cannot race the child/parent cleanup.
+ await sql.begin(async sql=>{
+ await sql`select id from chinatech_v2.stores where id=any(${stores}::uuid[]) for update`;
  const created=(await sql`select id from chinatech_v2_private.device_catalog_entries where id like ${prefix+'-%'} or data->>'notes'=${prefix+' browser fixture'}`).map(r=>r.id);
  const foreign=(await sql`select count(*)::int n from chinatech_v2_private.device_catalog_entries where id<>all(${created}::text[])`)[0].n;
  if(foreign)throw Error('Unexpected external catalog rows; preserve state and require targeted cleanup');
@@ -127,6 +133,7 @@ try{
  await sql`delete from chinatech_v2.store_memberships where store_id=any(${stores}::uuid[])`;
  await sql`delete from chinatech_v2.stores where id=any(${stores}::uuid[])`;
  await sql`delete from chinatech_v2.accounts where id=any(${users}::uuid[])`;
+ });
  for(const id of users){const {error}=await auth.auth.admin.deleteUser(id);assert.ifError(error);}
  assert.equal((await sql`select count(*)::int n from chinatech_v2_private.device_catalog_entries`)[0].n,0);
  await runtime.end();await sql.end();console.log('Synthetic catalog fixtures removed; local control restored.');

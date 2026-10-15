@@ -1,5 +1,15 @@
 # 公共组件与样式复用规范
 
+## 2026-10-15 独立目录字段
+
+DeviceIdentityPicker现为两个DeviceCatalogControl的薄展示层，不再创建组合dialog；新建的清型号/撤销、维修服务/报价/同意/签名和已有更正仍归各模块。目录控件直接复用useCatalogIndex和原受限分页fallback，窗口化及稳定ID保持。SearchCombobox增加显式opt-in commitOnBlur、showAllOnOpen、adaptiveMenu、onQueryChange、inputLabel、className和manualActionLabel；默认客户/配件等即时输入行为不变。emptyText=null仅在真实错误已有反馈时抑制假空态，不忽略错误。
+
+SearchCombobox候选展开按钮仅在expanded且真实loading时aria-busy并用一个LoaderCircle.spin替换ChevronDown，按钮仍可关闭。隐藏/关闭/禁用不登记忙碌，后台预取不产生可见busy；沿B共享兼容桥聚合ContentProgress，不增加重复圈或线。
+
+查询只存在控件中，确认才发布onChange；外部值更新不接受旧查询，outside/blur不重复确认，中文输入法Enter不触发选择。候选按实际输入框/visualViewport定位，时机和可视窗口保留真实键盘/触控验收。菜单反馈、历史和手填仍三语，普通数据原文不改。
+
+DeviceIdentityExtras为维修设备低频可选字段的响应式展示，桌面用原字段，手机原生details；恢复已有值展开，清空/自定义不自动关闭。IdentityChangeNotice只展示父模块允许的即时撤销，不拥有业务状态。手机步骤和候选沿原token/语义类，44px/16px保持；无新依赖/主题/页面。验收与限制见docs35和PROJECT_MEMORY；旧三级弹窗样式在无使用方后移除。
+
 ## 2026-10-14 B方案：新增组件与维护扩展的操作状态契约
 
 本节取代旧条目中推荐整页PageLoading/骨架的行为，适用于后续新增、维护和扩展。

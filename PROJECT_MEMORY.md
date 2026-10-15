@@ -1,5 +1,17 @@
 # ChinaTech 项目连续记忆
 
+## 独立品牌/型号实施候选（2026-10-15）
+
+组合289e/iS5真实18组已过（最终独立cleanup另核）；新增20定向/2native过，Cr32.0/32.2/26.2、WK36/31/35ms、0GET。498本机497过/1PS环境skip，4108i18n/类型/lint/build过。首次组合中断证据确认为helper等待全页无限动画，非商品权限/业务失败；已只修菜单有限动画同步与30s限时，原断言保留。最终此测试/文档commit不改产品源，精确head CI/双域门槛继续。
+
+当前新增B组合候选：仅在本分支合入PR58的4751cf5d提前验收；正式必须PR58已MERGED且fresh main合并tree等于已测试tree，不能提前发布并行未准入代码。七冲突只保留双方新增及processing/data-step-number；组合完整CI/生产构建/API复验另记，原gr1与995e的18组成功分别归档。
+
+用户确认实施并上线；候选codex/catalog-separated-20261014从fresh main d32dafc2起。当前已落独立SearchCombobox、保留useCatalogIndex预取/合并/授权失效、可选系列/跨系列代码搜索、手填Enter/Tab/blur与Esc、窗口化/移动定位；新建同次清型号/核验、即时撤销不恢复签名/同意/授权，已有单字段规则保留。手机自定义颜色不自动折叠；仅草稿签名失效，存储签名/销售快照不改。无DB迁移/生产业务写入。详docs35。
+
+真实本地组件108不同用例通过（主106=104过+定向修复/签名补12过）；30原生样本各阶段最终Chrome P95 32.4/33.1/26.2ms、WebKit32/31/33ms，0额外目录GET。491 unit=490过+1既有PS环境skip，4107三语/TS/lint/正式build过，原导航warning保留。证据.local/catalog-separated与.local/device-catalog/separated-performance；首次网络/实体键盘非本指标。
+
+目录pending已补单SVG/aria-busy可见按钮，兼容B共享单线；source双引擎2＋rootB组合2＋最终native性能2通过。后台预取/关闭不busy，未改hook/读取/权限。新本地Colima/Supabase与同一production build通过18组真实Auth/RLS/API＋双引擎保存刷新/三语打印/反向关联/账号切换，loopback TLS验证原Secure Cookie；15组合成数据残留0、admin null/rev0。30次130型号目录API本机P95 220.3ms，非公网冷启动。未用旧云runtime脚本；CLI2.101兼容只在忽略副本，不改tracked Auth/RLS配置。远程精确SHA CI与发布尚未完成；实际回滚alias dpl_6c8DTE8jrTgUKmm63V9g7uDPdWfy/正确project已只读核过。3191/3177/3178仅本候选，不停其他服务。详.local/catalog-separated/formal；早期HTTP Secure Cookie环境失败与精确TLS取消消息测试适配保留，不放宽业务断言。
+
 ## B方案正式改造进行中（2026-10-15）
 
 用户已授权B方案实施、后续维护规则、验证与正式上线。基于fresh main d32dafc创建项目内独立发布检出`.local/loading-b-release/source`，branch codex/loading-b-20261014；未混入根并行Office工作。已移除5 route loading/3整机骨架，真实导航原位+2px线、作用域bootstrap、旧查询保留/权限清理、账号状态和维护契约。独立审查修两个bootstrap反例；Node24 498(497过/1缺PS环境)、导航22、实际组件SSR/水合20＋目录10过；初104相关浏览器102过/2WebKit失败保留；目录性能冻结后3过，409账号恢复修latch并加强请求反例后双浏览器repeat3共6过。补真实表单/IndexedDB合成4过：未知显示待核对，busy锁/原ID恢复不变；cf12164/5mq及f038/V8旧候选均过期，不晋升；另补根级错误重试进度宿主2项双浏览器通过，只以最新PR head完整CI及候选作门禁。双域仍旧6c8/d32。真实Auth/DB不由合成壳证明；尚未发布，完整新head CI/候选/双域验收仍必需。详docs/35-loading-feedback-b.md。

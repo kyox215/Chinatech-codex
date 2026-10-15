@@ -1,5 +1,10 @@
 /** Static display messages. Do not use these translations as business values. */
 export const interfaceMessages: Record<string, readonly [string, string]> = {
+  "门店原文": ["Testo del negozio", "Store text"],
+  "目录型号": ["Modelli del catalogo", "Catalog models"],
+  "已切换品牌，请重新选择型号。": ["Marca cambiata. Scegli di nuovo il modello.", "Brand changed. Choose the model again."],
+  "更多设备信息 · 颜色、SN / IMEI": ["Altri dati · Colore, SN / IMEI", "More details · Color, SN / IMEI"],
+  "撤销品牌切换": ["Annulla cambio marca", "Undo brand change"],
   "暂显示上次结果，当前条件尚未确认。": ["Sono mostrati i risultati precedenti; i criteri attuali non sono ancora confermati.", "Previous results are shown; the current criteria are not yet confirmed."],
 
   "请填写有效的员工账号邮箱，例如 name@example.com。": ["Inserisci un’email valida per l’account del membro, ad esempio name@example.com.", "Enter a valid staff account email, such as name@example.com."],

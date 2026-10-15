@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { retailUnits } from "../../lib/retail-fixtures";
-import { chooseCatalogDevice, manuallyChooseDevice } from "./catalog-picker";
+import { chooseCatalogDevice, manuallyChooseDevice, openDeviceExtras } from "./catalog-picker";
 
 async function preview(page: Page) {
   const response = await page.request.post("/api/preview-session", { data: { email: "demo@chinatech.local", password: "Preview2026!" } });
@@ -203,6 +203,7 @@ test("组合框清空沿用客户及型号联动并返回输入焦点", async ({
 
 test("维修条件必填、金额错误就地提示，关闭扫码不阻挡下一步", async ({ page }) => {
   await device(page);
+  await openDeviceExtras(page);
   await page.getByRole("button", { name: /扫描.*SN/ }).click();
   const scanner = page.getByRole("dialog", { name: /识别.*SN/ });
   const manual = scanner.getByRole("textbox");
