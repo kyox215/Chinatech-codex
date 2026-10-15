@@ -490,7 +490,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .page-state__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
 .sync-connection-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); }
 .sync-connection-notice p { flex: 1 1 240px; margin: 0; }
-.navigation-link { position: relative; }
+:where(.navigation-link) { position: relative; }
 .navigation-link > .navigation-feedback { position: absolute; right: 3px; top: 3px; width: 14px; height: 14px; opacity: 0; pointer-events: none; }
 .navigation-link > .navigation-feedback[data-pending="true"] { opacity: 1; }
 .navigation-link:has(> .navigation-feedback[data-pending="true"]) { cursor: progress; outline: 2px solid var(--primary-200); outline-offset: 2px; }
