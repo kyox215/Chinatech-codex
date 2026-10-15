@@ -43,6 +43,36 @@ for (const locale of ["zh-CN", "it", "en"] as const) test(`navigation keeps old 
   await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
 });
 
+for (const holdMs of [200, 2000, 5000]) test(`real RSC wait of ${holdMs}ms retains content and clears after commit`, async ({ page }) => {
+  await page.goto("/");
+  const original = await page.locator("h1").textContent();
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/toolbox?*", async route => {
+    if (route.request().headers()["rsc"] !== "1") return route.continue();
+    const response = await route.fetch(); await gate; await route.fulfill({ response });
+  });
+  const link = page.locator("header").getByRole("link", { name: "工具箱", exact: true });
+  await link.click();
+  const waiting = async () => {
+    await expect(page.locator("h1")).toHaveText(original!);
+    await expect(page).toHaveURL(/\/$/);
+    await expect(link.locator(".navigation-feedback")).toHaveAttribute("data-pending", "true");
+    await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(1);
+    await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(1);
+    expect((await page.locator("[data-content-progress]").boundingBox())!.height).toBe(2);
+    await expect(page.locator(".module-skeleton")).toHaveCount(0);
+  };
+  await waiting();
+  // A controlled network hold, using real time and the actual Next RSC response.
+  await new Promise(resolve => setTimeout(resolve, holdMs));
+  await waiting(); release();
+  await expect(page).toHaveURL(/\/toolbox$/);
+  await expect(page.getByRole("heading", { name: "工具箱", exact: true })).toBeVisible();
+  await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(0);
+  await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
+});
+
 test("an old navigation finishing cannot clear a newer pending route", async ({ page }) => {
   await page.goto("/");
   let releaseFirst!: () => void; let releaseSecond!: () => void;
@@ -110,6 +140,63 @@ test("mobile drawer keeps its pending link and closes only after commit; Escape 
   await expect(page).toHaveURL(/\/app\/repairs$/);
   await expect(menu).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
+});
+
+test("mobile Back and Forward close route-owned menus without reviving them after a late RSC", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.request.post("/api/preview-session", { data: { email: "demo@chinatech.local", password: "Preview2026!" } });
+  await page.goto("/app/dashboard");
+  await page.locator(".app-sidebar__collapse").click();
+  await expect(page.locator(".app-shell")).toHaveClass(/app-shell--collapsed/);
+  await page.locator("#app-sidebar").getByRole("link", { name: "维修工单", exact: true }).click();
+  await expect(page).toHaveURL(/\/app\/repairs$/);
+  await page.setViewportSize({ width: 375, height: 812 });
+  let release!: () => void; let fetched!: () => void; let delivered!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const ready = new Promise<void>(resolve => { fetched = resolve; });
+  const late = new Promise<void>(resolve => { delivered = resolve; });
+  await page.route("**/app/catalog?*", async route => {
+    if (route.request().headers()["rsc"] !== "1") return route.continue();
+    const response = await route.fetch(); fetched(); await gate;
+    await route.fulfill({ response }).catch(() => {}); delivered();
+  });
+  const menu = page.getByRole("button", { name: "打开菜单", exact: true });
+  const sidebar = page.locator("#app-sidebar");
+  const account = page.locator(".sidebar-account");
+  await menu.click(); await account.locator("summary").click();
+  const link = account.getByRole("link", { name: "设备目录", exact: true });
+  await link.press("Enter");
+  await expect(link.locator(".navigation-feedback")).toHaveAttribute("data-pending", "true");
+  await expect(sidebar).toHaveClass(/app-sidebar--open/);
+  await expect(account).toHaveAttribute("open", "");
+  await ready;
+  await page.goBack();
+  await expect(page).toHaveURL(/\/app\/dashboard$/);
+  const closed = async () => {
+    await expect(menu).toHaveAttribute("aria-expanded", "false");
+    await expect(sidebar).not.toHaveClass(/app-sidebar--open/);
+    await expect(account).not.toHaveAttribute("open", "");
+    await expect(page.locator(".sidebar-scrim")).toHaveCount(0);
+    await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(0);
+    await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe("");
+  };
+  await closed();
+  await expect(page.getByRole("heading", { name: "工作台", exact: true })).toBeVisible();
+  release(); await late;
+  await expect(page).toHaveURL(/\/app\/dashboard$/); await closed();
+  await page.goForward();
+  await expect(page).toHaveURL(/\/app\/repairs$/); await closed();
+  await expect(page.getByRole("heading", { name: "维修工单", exact: true })).toBeVisible();
+  await menu.click(); await account.locator("summary").click();
+  await expect(account).toHaveAttribute("open", "");
+  await page.keyboard.press("Escape");
+  await expect(account).not.toHaveAttribute("open", "");
+  await expect(account.locator("summary")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveAttribute("aria-expanded", "false"); await expect(menu).toBeFocused();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(page.locator(".app-shell")).toHaveClass(/app-shell--collapsed/);
 });
 
 test("account disclosure keeps the clicked link while pending and closes after a committed route", async ({ page }) => {
