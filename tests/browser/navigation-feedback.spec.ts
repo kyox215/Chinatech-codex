@@ -291,6 +291,8 @@ test("keyboard skip navigation focuses the real content after commit, including 
     await page.goto(path);
     for (let visit = 0; visit < 2; visit++) {
       const skip = page.getByRole("link", { name: "跳到主要内容", exact: true });
+      await expect(skip).toHaveCSS("position", "fixed");
+      if (visit === 0) expect((await skip.boundingBox())!.y).toBeLessThan(0);
       await skip.focus(); await skip.press("Enter");
       await expect(page.locator("#main-content")).toBeFocused();
       await expect(page).toHaveURL(/#main-content$/);

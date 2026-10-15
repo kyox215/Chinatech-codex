@@ -49,3 +49,10 @@ AGENTS.md已要求后续新增、修改与扩展采用B方案；接口及状态�
 锚点及焦点最终本地：双引擎完整导航38/38，四个新增/调整关键场景repeat3共24/24通过；9路径独立CODE_GO。此前类型失败仅为4个与原文件字节相同的生成types副本，已另存hash/备份后清除，原检查规则未变。最终正式构建及新提交完整CI仍以实际终态为准。
 
 焦点修复后的正式模式生产构建、TS strict、lint（0错/1原有建议）及4103键三语检查已通过；Node498为497过/1本机无PowerShell跳过。发布仍等待此冻结源码的新远程两套完整CI和同源候选。
+
+
+## 候选实际CSS顺序反例
+
+8d3候选READY/14GET及实际导航通过，但Chrome实际getComputedStyle发现skip链接position=relative（预期fixed）：同specificity的共享navigation-link覆盖了module.skipLink。此候选NO_GO，两个8d3完整CI主动取消，不能据此发布。共享定位默认规则改用低优先级:where(.navigation-link)，让既有模块定位生效；五路skip回归增加fixed及首访离屏断言，须在新生产候选再次检查实际计算值。原CI和实际computedStyle证据保留candidate-8d3-skip-position-NOGO.json，未改生产域名。
+
+定位修复最终本地38/38导航（含五路fixed/首访离屏/冷与Back焦点），独立CSS CODE_GO、正式build、TS strict、lint0错/1原有建议与4103键三语通过。原24次同URL/hash/skip竞态证据的导航逻辑未变；最终完整远程CI及新候选计算样式仍须另取，不用8d3旧候选替代。
