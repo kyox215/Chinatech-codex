@@ -1155,7 +1155,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .module-heading > .module-heading__actions.module-heading__actions--icons { display: flex; flex: 0 0 auto; width: auto; max-width: 100%; }
   .module-heading > .module-heading__actions:empty { display: none; }
   .module-heading .page-toolbar-action { width: 44px; min-width: 44px; height: 44px; padding: 0; }
-  .module-heading .page-toolbar-action > span { display: none; }
+  .module-heading .page-toolbar-action > span:not(.navigation-feedback):not(.sr-only) { display: none; }
   .inline-notice, .detail-fact-banner { align-items: flex-start; margin-bottom: 8px; font-size: 12px; line-height: 1.4; }
   .repair-status-strip { display: flex; gap: 6px; padding-bottom: 3px; margin: 0 -8px 8px; padding-inline: 8px; overflow-x: auto; scrollbar-width: none; }
   .repair-status-strip::-webkit-scrollbar { display: none; }

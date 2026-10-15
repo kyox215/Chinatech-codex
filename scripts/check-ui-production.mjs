@@ -47,7 +47,7 @@ function markup(css) {
       ${group("identity")}${group("history", true)}${group("source", true)}
     </div></div></main>
     <div class="module-page" id="heading-samples">
-      <header class="module-heading"><div class="module-title"><button class="icon-button page-menu-button" id="heading-menu">≡</button><a class="icon-button page-back-button">←</a><div class="module-title__content"><div class="module-title__line"><h2>Scheda prodotto</h2><span class="status-pill" id="heading-status">Ricambi da scegliere · Non ordinato</span></div></div></div><a class="button page-toolbar-action" id="heading-action">＋<span>New matching model</span></a></header>
+      <header class="module-heading"><div class="module-title"><button class="icon-button page-menu-button" id="heading-menu">≡</button><a class="icon-button page-back-button">←</a><div class="module-title__content"><div class="module-title__line"><h2>Scheda prodotto</h2><span class="status-pill" id="heading-status">Ricambi da scegliere · Non ordinato</span></div></div></div><a class="button page-toolbar-action navigation-link" id="heading-action"><span class="navigation-feedback" data-pending="true"><span class="navigation-feedback__icon"><svg width="17" height="17"><path d="M2 2h12v12H2z" /></svg></span><svg class="spin" width="16" height="16"><circle cx="8" cy="8" r="6" /></svg></span><span id="heading-action-label">New matching model</span><span class="sr-only" id="heading-action-status">Opening page</span></a></header>
       <header class="module-heading repair-detail__toolbar"><div class="module-title"><button class="icon-button page-menu-button" id="group-menu">≡</button><div class="module-title__content"><h2>CT-2026-0929</h2></div></div><div class="module-heading__actions module-heading__actions--icons"><button class="button page-toolbar-action" id="group-action">◇<span>Print receipt</span></button><button class="button page-toolbar-action">↻<span>Rework</span></button></div></header>
     </div>
     <div class="panel" id="panel">Figma card</div>
@@ -109,6 +109,7 @@ for (const engine of [chromium, webkit]) {
               const b=badge.getBoundingClientRect(), c=content.getBoundingClientRect();
               return { centerDifference: Math.abs(a.y+a.height/2-m.y-m.height/2), width:a.width, height:a.height, badgeFits:b.right<=c.right+1 && badge.scrollWidth<=badge.clientWidth };
             }),
+            headingNavigation: { slotDisplay: style("#heading-action .navigation-feedback").display, ...rect("#heading-action .navigation-feedback"), spinnerVisibility: style("#heading-action .spin").visibility, iconVisibility: style("#heading-action .navigation-feedback__icon").visibility, statusDisplay: style("#heading-action-status").display, labelDisplay: style("#heading-action-label").display },
             closedBody: style("#identity-body").display,
             button: { size: style("#primary").fontSize, weight: style("#primary").fontWeight, radius: style("#primary").borderRadius, background: style("#primary").backgroundColor },
             panelRadius: style("#panel").borderRadius,
@@ -159,6 +160,12 @@ for (const engine of [chromium, webkit]) {
             assert.ok(heading.width >= 44 && heading.height >= 44);
             assert.ok(heading.badgeFits, "Long mobile status stays within title content");
           }
+          assert.ok(["grid", "inline-grid"].includes(result.headingNavigation.slotDisplay), "Navigation slot keeps its grid after flex item blockification");
+          assert.ok(result.headingNavigation.width > 0 && result.headingNavigation.height > 0, "Mobile navigation feedback slot stays visible");
+          assert.equal(result.headingNavigation.spinnerVisibility, "visible");
+          assert.equal(result.headingNavigation.iconVisibility, "hidden");
+          assert.notEqual(result.headingNavigation.statusDisplay, "none");
+          assert.equal(result.headingNavigation.labelDisplay, "none");
           for (const target of [result.tiny, result.icon]) assert.ok(target.width >= 44 && target.height >= 44);
         }
         rows.push({ engine: engine.name(), order, width, ...result });

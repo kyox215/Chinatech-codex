@@ -20,3 +20,5 @@
 - 错误、冲突、离线与结果待核对保留就地处理入口。通知消失只影响展示，不删除请求、回执或草稿。
 
 新增状态页：[ChinaTech UI](https://www.figma.com/design/nhZ37YLOUVP8zpDBBGihhS?node-id=15167-209297)。`figma-state.json`保存18个变体、变量/字体和可编辑结构证据，`original-components.json`索引原按钮/输入/选择/分页/Tab/Card/表格；它们不是整份Figma文件导出。`previews/`保留设计图和实际DEMO截图，`catalog.tsx`直接使用实际共享组件。实际验收与限制见`verification.md`。
+
+手机标题图标的真实DEMO截图也归档在`previews/mobile-toolbar-*`：两引擎、同型号新建/关联工单、空闲/真实导航等待共8张；保留原页面、标题、44px按钮及单圈。它们证明该场景的实际界面，不代表正式账号数据。

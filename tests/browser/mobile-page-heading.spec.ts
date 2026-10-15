@@ -3,6 +3,7 @@ import { retailUnits } from "../../lib/retail-fixtures";
 import { defaultStaffData } from "../../lib/staff";
 import { translate } from "../../lib/i18n/translate";
 import { languageStorageKey, type Locale } from "../../lib/i18n/locale";
+import {measureHeadingLayout} from './heading-layout';
 
 async function login(page: Page) {
   await page.request.post("/api/preview-session", { data: { email: "demo@chinatech.local", password: "Preview2026!" } });
@@ -10,7 +11,9 @@ async function login(page: Page) {
 async function sameRow(page: Page, action: Locator) {
   await expect(action).toBeVisible();
   const menu = page.locator(".module-heading .page-menu-button");
-  const a = await action.boundingBox(), m = await menu.boundingBox();
+  await expect(menu).toBeVisible();
+  const {a, m, runningFinite} = await measureHeadingLayout(page, action);
+  expect(runningFinite).toBe(0);
   expect(a).not.toBeNull(); expect(m).not.toBeNull();
   expect(a!.width).toBeGreaterThanOrEqual(44); expect(a!.height).toBeGreaterThanOrEqual(44);
   expect(m!.width).toBeGreaterThanOrEqual(44); expect(m!.height).toBeGreaterThanOrEqual(44);
