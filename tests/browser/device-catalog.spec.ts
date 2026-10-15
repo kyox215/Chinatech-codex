@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page, type Request } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { armCatalogPaintProbe, catalogPaintDiagnostics, installCatalogPaintProbe, type PickerProbe, type PickerTier } from './catalog-paint-probe';
 import { activatePicker, openCatalogPicker, chooseCatalogDevice, choosePickerFamily, choosePickerModel, pickerRoot, pickerText, manuallyChooseDevice } from './catalog-picker';
 
 async function setup(page: Page) {
@@ -205,10 +206,6 @@ test('computer candidates stay windowed and anchored in all three languages at f
   }
 });
 
-type PickerTier = 'brand' | 'series' | 'model';
-type PickerPaint = { start: number; firstVisible: number; frame1: number; frame2: number; ms: number; trusted: boolean; event: string };
-type PickerArm = { tier: PickerTier; event: 'pointerdown' | 'click' | 'input'; source: HTMLElement; root: HTMLElement; target: string; count?: number; query?: string; pressed?: string };
-type PickerProbe = { catalogArmed: PickerArm | null; catalogSamples: Record<PickerTier, PickerPaint[]> };
 type AuthorizationTick = { timerId: number; sequence: number; registeredAt: number; at: number };
 type AuthorizationProbe = { catalogAuthorizationTimers: { id: number; registeredAt: number }[]; catalogAuthorizationTicks: AuthorizationTick[] };
 
@@ -239,60 +236,12 @@ test('preloaded independent choices paint within 200ms with zero new-data GETs a
   const requests: Request[] = [];
   const observe = (request: Request) => { if (request.method() === 'GET' && new URL(request.url()).pathname === '/api/catalog') requests.push(request); };
   page.on('request', observe);
-  await page.evaluate(() => {
-    const probe = window as unknown as PickerProbe;
-    probe.catalogArmed = null; probe.catalogSamples = { brand: [], series: [], model: [] };
-    const visible = (element: HTMLElement | null) => {
-      if (!element) return false;
-      const rect = element.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0 || rect.top >= innerHeight || rect.right <= 0 || rect.left >= innerWidth) return false;
-      for (let parent: HTMLElement | null = element; parent; parent = parent.parentElement) {
-        const style = getComputedStyle(parent), clip = parent.getBoundingClientRect();
-        if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
-        if (/auto|scroll|hidden|clip/.test(style.overflowY) && (rect.bottom <= clip.top || rect.top >= clip.bottom)) return false;
-        if (/auto|scroll|hidden|clip/.test(style.overflowX) && (rect.right <= clip.left || rect.left >= clip.right)) return false;
-      }
-      const hit = document.elementFromPoint(Math.max(0, rect.left + rect.width / 2), Math.max(0, rect.top + rect.height / 2));
-      return !!hit && (hit === element || element.contains(hit));
-    };
-    const sample = (event: Event) => {
-      const arm = probe.catalogArmed;
-      if (!arm || arm.event !== event.type || !event.isTrusted || !(event.target instanceof Node) || !(event.target === arm.source || arm.source.contains(event.target))) return;
-      probe.catalogArmed = null;
-      const start = performance.now();
-      let firstVisible: number | undefined, painting = false, done = false, poll = 0;
-      const condition = () => {
-        const target = [...arm.root.querySelectorAll<HTMLElement>('[role="option"]')].find(option => option.getAttribute('aria-label') === arm.target) ?? null;
-        const input = arm.root.querySelector<HTMLInputElement>('input[role="combobox"]');
-        const list = arm.root.querySelector('[role="listbox"]');
-        return arm.root.isConnected && input?.getAttribute('aria-expanded') === 'true' && visible(target) && list?.getAttribute('aria-busy') === 'false' && (arm.count === undefined || arm.root.querySelectorAll('[role="option"]').length === arm.count) && (arm.query === undefined || input.value === arm.query) && (arm.pressed === undefined || [...arm.root.querySelectorAll('button[aria-pressed="true"]')].some(button => button.textContent === arm.pressed));
-      };
-      const queue = () => { if (!poll && !done) poll = requestAnimationFrame(() => { poll = 0; check(); }); };
-      const check = () => {
-        if (done || painting) return;
-        if (!condition()) { queue(); return; }
-        firstVisible ??= performance.now(); painting = true;
-        requestAnimationFrame(() => {
-          if (!condition()) { painting = false; queue(); return; }
-          const frame1 = performance.now();
-          requestAnimationFrame(() => {
-            if (!condition()) { painting = false; queue(); return; }
-            const frame2 = performance.now(); done = true; observer.disconnect(); cancelAnimationFrame(poll);
-            probe.catalogSamples[arm.tier].push({ start, firstVisible: firstVisible!, frame1, frame2, ms: frame2 - start, trusted: event.isTrusted, event: event.type });
-          });
-        });
-      };
-      const observer = new MutationObserver(check);
-      observer.observe(document, { subtree: true, childList: true, attributes: true }); check();
-    };
-    for (const type of ['pointerdown', 'click', 'input']) document.addEventListener(type, sample, true);
-  });
-  const arm = (source: Locator, value: Omit<PickerArm, 'source' | 'root'>) => source.evaluate((element, value) => {
-    const root = element.closest<HTMLElement>('.search-combobox');
-    if (!(element instanceof HTMLElement) || !root) throw new Error('Sampler requires the independent catalog control');
-    (window as unknown as PickerProbe).catalogArmed = { ...value, source: element, root };
-  }, value);
-  const recorded = (tier: PickerTier, n: number) => expect.poll(() => page.evaluate(value => (window as unknown as PickerProbe).catalogSamples[value].length, tier)).toBe(n);
+  await installCatalogPaintProbe(page);
+  const arm = armCatalogPaintProbe;
+  const recorded = async (tier: PickerTier, n: number) => {
+    try { await expect.poll(() => page.evaluate(value => (window as unknown as PickerProbe).catalogSamples[value].length, tier)).toBe(n); }
+    catch (reason) { const diagnostics = JSON.stringify(await catalogPaintDiagnostics(page), null, 2); mkdirSync(info.outputDir, { recursive: true }); writeFileSync(info.outputPath('catalog-paint-diagnostic.json'), diagnostics); await info.attach('catalog-paint-diagnostic', { body: diagnostics, contentType: 'application/json' }); throw reason; }
+  };
   const brand = repairBrand(page), model = repairModel(page);
   for (let i = 0; i < 30; i++) {
     await brand.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
@@ -308,6 +257,8 @@ test('preloaded independent choices paint within 200ms with zero new-data GETs a
     const group = root.getByRole('group', { name: '型号系列筛选', exact: true });
     await activatePicker(group.getByRole('button', { name: '全部系列', exact: true }));
     const family = group.getByRole('button', { name: 'Galaxy A', exact: true });
+    await expect(group.getByRole('button', { name: '全部系列', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(family).toHaveAttribute('aria-pressed', 'false');
     await arm(family, { tier: 'series', event: 'click', target: 'Galaxy A5 (2017)', pressed: 'Galaxy A' });
     await activatePicker(family);
     await recorded('series', i + 1);
@@ -349,13 +300,14 @@ test('preloaded independent choices paint within 200ms with zero new-data GETs a
   }
   expect(consumedTicks.size).toBe(authorizationChecks.length);
   const observationWindowMs = Date.now() - observationStarted; expect(observationWindowMs).toBeGreaterThanOrEqual(30000);
-  const evidence = JSON.stringify({ network: 'local preview, no throttling', metric: 'browser-native trusted pointerdown/click/input to unobscured visible target retained across two native animation frames; excludes test RPC tail', points, samples, results, requests: requests.length, newDataRequests, authorizationChecks, nativeAuthorization, observationWindowMs }, null, 2);
+  const paintDiagnostics = await catalogPaintDiagnostics(page);
+  const evidence = JSON.stringify({ paintDiagnostics, network: 'local preview, no throttling', metric: 'browser-native trusted pointerdown/click/input to unobscured visible target retained across two native animation frames; excludes test RPC tail', points, samples, results, requests: requests.length, newDataRequests, authorizationChecks, nativeAuthorization, observationWindowMs }, null, 2);
   mkdirSync('.local/device-catalog', { recursive: true });
   writeFileSync('.local/device-catalog/separated-performance-' + info.project.name + '.json', evidence);
   await info.attach('catalog-native-performance', { body: evidence, contentType: 'application/json' });
-  for (const values of Object.values(points)) {
+  for (const [tier, values] of Object.entries(points)) {
     expect(values).toHaveLength(30);
-    for (const value of values) { expect(value.trusted).toBe(true); expect(value.start).toBeLessThanOrEqual(value.firstVisible); expect(value.firstVisible).toBeLessThanOrEqual(value.frame1); expect(value.frame1).toBeLessThanOrEqual(value.frame2); }
+    for (const value of values) { expect(value.trusted).toBe(true); expect(value.start).toBeLessThanOrEqual(value.firstVisible); expect(value.firstVisible).toBeLessThanOrEqual(value.frame1); expect(value.frame1).toBeLessThanOrEqual(value.frame2); const receipts = paintDiagnostics.native.filter(receipt => receipt.captured && receipt.token === value.token); expect(receipts).toHaveLength(1); expect(receipts[0].trusted).toBe(true); expect(receipts[0].tier).toBe(tier); expect(receipts[0].at).toBe(value.start); }
   }
   for (const result of Object.values(results)) expect(result.p95).toBeLessThanOrEqual(200);
   expect(newDataRequests).toBe(0);
