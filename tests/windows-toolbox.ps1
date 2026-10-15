@@ -1,11 +1,11 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$file = Join-Path $root 'public/toolbox/windows/ChinaTech-Windows.ps1.txt'
+$file = Join-Path $root 'public/toolbox/windows-current/ChinaTech-Windows.ps1.txt'
 $tokens = $null; $errors = $null
 [Management.Automation.Language.Parser]::ParseFile($file,[ref]$tokens,[ref]$errors) | Out-Null
 if ($errors.Count) { throw ($errors.Message -join '; ') }
 foreach ($locale in @('zh-CN','it','en')) {
-    $loader = [IO.File]::ReadAllText((Join-Path $root ('public/toolbox/windows/Start-' + $locale + '.cmd.txt')))
+    $loader = [IO.File]::ReadAllText((Join-Path $root ('public/toolbox/windows-current/Start-' + $locale + '.cmd.txt')))
     $encoded = [regex]::Match($loader, '-EncodedCommand ([A-Za-z0-9+/=]+)').Groups[1].Value
     $code = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encoded))
     if (-not $code) { throw 'missing CMD PowerShell loader' }
@@ -27,7 +27,7 @@ function Assert($Condition, $Label) {
 }
 # Exercise the exact pinned manifest, then corruption/missing-file failures.
 $releasePath = Join-Path $validation 'release.xml'
-[IO.File]::WriteAllBytes($releasePath, [IO.File]::ReadAllBytes((Join-Path $root 'public/toolbox/windows/release.xml')))
+[IO.File]::WriteAllBytes($releasePath, [IO.File]::ReadAllBytes((Join-Path $root 'public/toolbox/windows-current/release.xml')))
 Assert ((Read-Release).status -eq 'inspection-only') 'original release parses as inspection'
 [IO.File]::AppendAllText($releasePath, 'corrupted')
 $tampered = $false
@@ -110,7 +110,7 @@ $packageBytes = [IO.File]::ReadAllBytes($file)
 $packageHash = Get-Sha256Bytes $packageBytes
 $entryCode = [Text.Encoding]::UTF8.GetString($packageBytes).TrimStart([char]65279)
 . ([ScriptBlock]::Create($entryCode)) -LibraryOnly -PackageDirectory $validation -EntryHash $packageHash
-[IO.File]::WriteAllBytes($releasePath,[IO.File]::ReadAllBytes((Join-Path $root 'public/toolbox/windows/release.xml')))
+[IO.File]::WriteAllBytes($releasePath,[IO.File]::ReadAllBytes((Join-Path $root 'public/toolbox/windows-current/release.xml')))
 Assert ((Read-Release).status -eq 'inspection-only') 'ScriptBlock uses explicit PackageDirectory'
 Assert-CTEntryBytes
 $count++

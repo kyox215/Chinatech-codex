@@ -8,7 +8,7 @@ if ($errors.Count) { throw ($errors.Message -join '; ') }
 $validation=Join-Path $root '.local/windows-toolbox/workflow-fixtures'
 [void][IO.Directory]::CreateDirectory($validation)
 $runner=Join-Path $validation 'ChinaTech-Windows.ps1'
-[IO.File]::WriteAllBytes($runner,[IO.File]::ReadAllBytes((Join-Path $root 'public/toolbox/windows/ChinaTech-Windows.ps1.txt')))
+[IO.File]::WriteAllBytes($runner,[IO.File]::ReadAllBytes((Join-Path $root 'public/toolbox/windows-current/ChinaTech-Windows.ps1.txt')))
 . $runner -LibraryOnly
 . $module
 $script:count=0

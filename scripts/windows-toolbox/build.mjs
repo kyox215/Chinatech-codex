@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const source = resolve(root, "scripts/windows-toolbox");
-const output = resolve(root, "public/toolbox/windows");
+const output = resolve(root, "public/toolbox/windows-current");
 const config = JSON.parse(readFileSync(resolve(source, "release.json"), "utf8"));
 const messages = JSON.parse(readFileSync(resolve(source, "messages.json"), "utf8"));
 const sha = data => createHash("sha256").update(data).digest("hex");
@@ -14,8 +14,10 @@ const escapeXml = text => String(text).replace(/[<>&"']/g, char => ({ "<": "&lt;
 const quotePS = value => `'${value.replace(/['\u2018\u2019]/g, "''")}'`;
 const crlf = text => text.replace(/\r?\n/g, "\r\n");
 if (config.schemaVersion !== 1 || config.target?.edition !== "Professional" || config.target?.architecture !== "x64" || !Array.isArray(config.verifiedRoutes) || !Array.isArray(config.media) || !Array.isArray(config.sources)) throw new Error("Invalid Windows release schema/target.");
+if (typeof config.version !== "string" || !/^[A-Za-z0-9][A-Za-z0-9.+_-]{0,95}$/.test(config.version)) throw new Error("Invalid display version.");
+if (!/^[a-z0-9][a-z0-9.-]{0,95}$/.test(config.releaseId)) throw new Error("Invalid immutable release ID.");
 const hashPattern = /^[a-f0-9]{64}$/;
-const sourceInputs = Object.fromEntries(["build.mjs", "messages.json", "runner.ps1", "workflow.ps1"].map(name => [name, sha(readFileSync(resolve(source, name)))]));
+const sourceInputs = Object.fromEntries(["build.mjs", "messages.json", "runner.ps1", "workflow.ps1", "admission.ps1"].map(name => [name, sha(readFileSync(resolve(source, name)))]));
 const sourceInputSha256 = sha(JSON.stringify(sourceInputs));
 // Bind evidence to what will actually run, excluding report hashes (circular)
 // and expiring Microsoft URL tokens. Downloaded bytes remain SHA256-pinned.
@@ -120,6 +122,7 @@ const replacements = {
   __SOURCE_INPUT_HASH__: sourceInputSha256,
   __ENTRY_LOADER_TEMPLATE__: Buffer.from(loaderTemplate).toString("base64"),
   __WORKFLOW_BASE64__: readFileSync(resolve(source, "workflow.ps1")).toString("base64"),
+  __ADMISSION_BASE64__: Buffer.from(readFileSync(resolve(source, "admission.ps1"), "utf8").replace("__CLIENT_RELEASE_ID__", () => config.releaseId).replace("__CLIENT_VERSION__", () => config.version)).toString("base64"),
 };
 let compiled = template;
 for (const [key, value] of Object.entries(replacements)) compiled = compiled.replace(key, () => value);
@@ -167,6 +170,10 @@ const readme = [
   config.status === "inspection-only" ? "Estrai tutto il pacchetto e apri Start-it.cmd. Verifica in sola lettura; nessuna attivazione, installazione, conversione o attività di riavvio." : "Estrai tutto il pacchetto e apri Start-it.cmd. Dopo la verifica conferma una volta un percorso corrispondente. La ripresa controlla di nuovo sistema e identità.",
   config.status === "inspection-only" ? "Extract the entire package and open Start-en.cmd. Read-only inspection; no activation, installation, edition conversion or restart tasks." : "Extract the entire package and open Start-en.cmd. Inspect first, then confirm a matching verified route once locally. Recovery rechecks the system and identity.",
   "",
+  "需联网核验最新发行身份；每次新检测取得绑定任务的签名许可。无需登录。网站仅接收任务/结果摘要哈希，不接收原始检测信息。",
+  "Richiede Internet e un permesso firmato per ogni nuovo controllo, senza login. Il sito riceve solo identità attività e hash; nessun dato diagnostico originale.",
+  "Internet and a signed task permit are required for each new inspection, without login. Only task identity and result hashes reach the website, never raw inspection facts.",
+  "",
   config.status === "inspection-only" ? "自动升级尚未开放：执行／恢复驱动已接入，但没有真实 Windows 升级、数据保留及匹配媒体路线验收。" : "只有与已验系统版本、语言、架构及媒体完全匹配的路线才能确认执行；请先备份重要文件。",
   config.status === "inspection-only" ? "Aggiornamento automatico non disponibile: il driver di esecuzione e ripristino è integrato, ma aggiornamento reale, conservazione dei dati e percorsi con supporti corrispondenti non sono verificati su Windows." : "Puoi confermare solo percorsi con versione, lingua, architettura e supporti identici a quelli verificati. Salva prima i file importanti.",
   config.status === "inspection-only" ? "Automatic upgrade is unavailable: the execution/recovery driver is integrated, but real Windows upgrades, data retention and matching media routes have not passed verification." : "Only routes with the exact verified system version, language, architecture and media can be confirmed. Back up important files first.",
@@ -186,10 +193,10 @@ with zipfile.ZipFile(sys.argv[1],'w',compression=zipfile.ZIP_DEFLATED,compressle
   archive.writestr(item,base64.b64decode(data))`, resolve(output, "ChinaTech-Windows-Check.zip")], { input: JSON.stringify(payload) });
 const archive = readFileSync(resolve(output, "ChinaTech-Windows-Check.zip"));
 const metadata = {
-  version: config.version, status: config.status, target: config.target,
+  version: config.version, releaseId: config.releaseId, websiteControlProtocol: 1, status: config.status, target: config.target,
   sourceInputSha256, releasePolicySha256, evidenceFiles,
-  inputs: Object.fromEntries(["release.json", "messages.json", "runner.ps1", "workflow.ps1", "build.mjs"].map(name => [name, sha(readFileSync(resolve(source, name)))])),
-  archive: { path: "/toolbox/windows/ChinaTech-Windows-Check.zip", sha256: sha(archive), bytes: archive.length },
+  inputs: Object.fromEntries(["release.json", "messages.json", "runner.ps1", "workflow.ps1", "admission.ps1", "build.mjs"].map(name => [name, sha(readFileSync(resolve(source, name)))])),
+  archive: { path: "/toolbox/windows-current/ChinaTech-Windows-Check.zip", sha256: sha(archive), bytes: archive.length },
   files: Object.fromEntries(Object.entries(files).map(([name, data]) => [name, { sha256: sha(data), bytes: data.length }])),
   sources: config.sources,
 };

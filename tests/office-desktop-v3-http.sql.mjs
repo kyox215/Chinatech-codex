@@ -12,7 +12,7 @@ export async function httpLifecycleChecks({ owner, db, call, admin, identity, ot
  // Error serialization is injected to preserve one VM error class identity;
  // body parsing, proofs, transactions, services and the route exports are real.
  const adapter={...desktop,desktopFailure:error=>NextResponse.json({code:error.code??(error.status===403?'NO_ACCESS':'INVALID_REQUEST')},{status:error.status??503})};
- const server=load('lib/toolbox/office-desktop-v3-server.ts',{'./office-desktop-server':adapter,'./office-server':office,'./office-desktop-v3-database':db},env);
+ const server=load('lib/toolbox/office-desktop-v3-server.ts',{'./office-desktop-server':adapter,'./office-server':office,'./office-desktop-v3-database':db,'./tool-registry-server':{readTool:async()=>({toolId:'office',activeReleaseId:'office-1.4.0',enabled:true,ready:true,release:{releaseId:'office-1.4.0',...load('lib/toolbox/office-desktop-release.ts',{},env).officeDesktopRelease}})}},env);
  const common={'@/lib/toolbox/office-desktop-v3-server':server,'@/lib/toolbox/office-desktop-v3-database':db,'@/lib/toolbox/office-desktop-server':adapter,'@/lib/toolbox/office-server':office};
  const activity=load('app/api/toolbox/office-desktop/v3/jobs/activity/route.ts',common,env);
  const update=load('app/api/toolbox/office-desktop/v3/update/route.ts',common,env);
@@ -32,7 +32,7 @@ export async function httpLifecycleChecks({ owner, db, call, admin, identity, ot
   const session=await invoke({publicKey},'session',''),start=await invoke({jobId:randomUUID(),action:'install',architecture:'win-x64',plan},'start',session.sessionToken),permit=await invoke({jobId:start.jobId,planHash:start.planHash},'commit',start.startToken);
   const post=(body,bearer=permit.permitToken)=>activity.POST(new NextRequest(tokens.v3Origin+tokens.pathV3('activity'),{method:'POST',headers:{'content-type':'application/json','x-vercel-forwarded-for':'203.0.113.102',authorization:'Bearer '+bearer},body:JSON.stringify(signed(body,'activity',bearer))}));
   const body=proof({installationId,jobId:start.jobId,planHash:start.planHash,stage:'Install',errorCode:null});
-  const response=await post(body);assert.equal(response.status,200);assert.equal((await response.json()).stage,'Install');
+  const response=await post(body);assert.equal(response.status,200,await response.clone().text());assert.equal((await response.json()).stage,'Install');
   assert.equal((await post({...body,requestId:randomUUID(),output:'private output'})).status,400);
   assert.equal((await post(proof({...body,timestamp:Math.floor(Date.now()/1000)-301}))).status,401);
   assert.equal((await post(proof({...body,requestId:randomUUID(),nonce:proof().nonce,planHash:'b'.repeat(64)}))).status,401);

@@ -1,15 +1,14 @@
 "use client";
-import { DownloadLink } from "@/components/download-link";
+import {ToolIntegrationPending} from "./tool-integration-pending";
 
 import { useMemo, useState } from "react";
 import { NavigationLink as Link } from "@/components/navigation-link";
-import { ArrowLeft, ArrowRight, Download, Smartphone } from "lucide-react";
+import { ArrowLeft, ArrowRight, Smartphone } from "lucide-react";
 import { PublicHeader } from "@/components/home/public-header";
 import { Brand } from "@/components/brand";
 import { SelectControl } from "@/components/select-control";
 import { useLanguage } from "@/components/language-provider";
 import { androidBrands, androidVersions, androidVersionNames, coverageLabels, defaultProfile, planAndroidTransfer, type DeviceProfile, type AndroidSystem } from "@/lib/toolbox/android-transfer";
-import { androidAssistantRelease as release } from "@/lib/toolbox/android-assistant-release";
 import { MimoverOriginalDownload } from "./mimover-original-download";
 import { SmartSwitchExperimentDownload } from "./smart-switch-experiment-download";
 import shared from "./toolbox.module.css";
@@ -50,15 +49,7 @@ export function AndroidTransferPage() {
       <SmartSwitchExperimentDownload />
       <section id="chinatech-assistant" className={`${styles.panel} ${styles.experiment}`} aria-labelledby="chinatech-assistant-title">
         <h2 id="chinatech-assistant-title">{t("ChinaTech 手机助手")}</h2>
-        <div className={styles.release}><span className={shared.pending}>{t("扫描传输测试包")}</span><span>{t("版本 {version} · Android 8 及以上", { version: release.version })}</span></div>
-        <p>{t("0.3 支持自动热点、手动热点和同一 Wi-Fi，内置实时扫码。Android 16 模拟器已验证本地传输与恢复；品牌真机仍待核验。")}</p>
-        <p className={styles.muted}>{t("扫描授权资料后分类选择，文件保存与图库导入分开核验。通讯录保留系统标准 VCF 字段与头像；系统导入、重复日历还原和 APP 安装分别核对。")}</p>
-        <p className={styles.muted}>{t("不设资料总数或已确认传输的固定时长上限。首次配对限时 10 分钟；恢复时重新校验已完成文件，未完成文件从头重传。")}</p>
-        <div className={styles.downloadActions}>
-        {release.available && release.apkPath ? <DownloadLink className="button button--primary" href={release.apkPath} download><Download size={17} aria-hidden="true" />{t("下载 ChinaTech 0.3 测试版")}</DownloadLink> : <p role="status">{t("测试 APK 正在构建；下载就绪后将在这里提供。")}</p>}
-        <DownloadLink className="button button--secondary" href={release.instructionsPath} download>{t("下载新版说明")}</DownloadLink>
-        </div>
-        {release.sha256 && <details className={styles.integrity}><summary>{t("查看 APK 校验信息")}</summary><p>{t("安装前核对文件与签名指纹；测试包不代表所有品牌已通过验证。")}</p><dl><dt>{t("文件 SHA256")}</dt><dd><code>{release.sha256}</code></dd><dt>{t("签名证书 SHA256")}</dt><dd><code>{release.signerSha256}</code></dd></dl></details>}
+        <ToolIntegrationPending/>
       </section>
       <section className={styles.panel} aria-labelledby="steps-title"><h2 id="steps-title">{t("ChinaTech 使用步骤")}</h2>
         <ol className={styles.steps}>

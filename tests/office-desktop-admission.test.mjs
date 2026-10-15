@@ -100,17 +100,17 @@ test('the old verified marker cannot select the 0.2.1 candidate minimum', async 
   assert.equal(writes.length, 0);
 });
 
-test('public status binds recommendation to the verified version rather than the candidate constant', async () => {
+test('retired public protocol only directs old clients to the current release', async () => {
   const api = load('app/api/toolbox/office-desktop/status/route.ts', {
     '@/lib/backend/database': { readOfficeDesktopAdmission: async () => ({ acceptingNewSessions: true, minimumVersion: '0.2.0', releaseReady: true, verifiedVersion: '0.2.0' }) },
     '@/lib/supabase/config': { isSupabaseMode: () => true },
     '@/lib/toolbox/office-desktop-token': token,
     '@/lib/toolbox/office-desktop-server': { desktopFailure: () => { throw Error('Unexpected status failure'); } },
     '@/lib/toolbox/office-server': { officeResponse: response => response },
-    '@/lib/toolbox/office-desktop-release-catalog': { currentVersion: '0.3.0', previousPublishedVersion: '0.1.1' },
+    '@/lib/toolbox/office-desktop-release': { officeDesktopRelease: {version:'1.5.0'} },
   });
   const response = await api.GET();
-  assert.deepEqual(await response.json(), { acceptingNewSessions: true, minimumVersion: '0.2.0', currentVersion: '0.2.0' });
+  assert.deepEqual(await response.json(), { acceptingNewSessions: false, minimumVersion: '1.5.0', currentVersion: '1.5.0',code:'UPDATE_REQUIRED',updateUrl:'https://www.chinatech.in/toolbox/office' });
 });
 
 test('replaying an earlier toggle cannot restore its old requested state', async () => {
