@@ -1,6 +1,6 @@
 # B方案加载反馈、初始化与维护契约
 
-用户选定原位反馈＋内容区细线，并授权实施、后续维护规范及验证后上线。基线为fresh main d32dafc20f8b37121923a3d820f23e9874a68577；独立发布分支codex/loading-b-20261014。本文记录实现边界；实际CI、候选及域名发布回执以PROJECT_MEMORY和本轮发布proof为准，未取得回执前不把候选当正式上线。
+用户选定原位反馈＋内容区细线，并授权实施、后续维护规范及验证后上线。基线为fresh main d32dafc20f8b37121923a3d820f23e9874a68577；独立发布分支codex/loading-b-20261014。本文记录实现边界；本文件冻结在发布前；最终CI、候选及域名回执以[PR58](https://github.com/kyox215/Chinatech-codex/pull/58)、当前域名源及本轮发布proof为准，未取得回执前不把候选当正式上线。
 
 ## 实现
 
@@ -32,3 +32,7 @@ AGENTS.md已要求后续新增、修改与扩展采用B方案；接口及状态�
 4751的PR完整成功，push为390/392，仍未发布。导航trace确认旧toolbox RSC完成后登录与工具箱仍各显示pending，属于真实显示缺陷，不能放松单实例断言；新增最新onNavigate owner约束并对同一链接连续点击补反例。目录采样90次真实点击耗时30.584秒，P95为103/173/91ms均过；唯一额外请求恰在30.006秒，是同scope、knownRevision=seed且unchanged=true的授权核对。性能脚本必须逐一验证该类响应，另严格断言点击触发新数据请求0，保留native RAF/30样本/200ms与独立撤权场景。最终修复仍待定向、独立审查、新完整CI及同源候选，旧绿灯不替代。
 
 本轮最新owner修复定向验证：完整导航24过、竞争/同链接双引擎repeat5共20过；目录性能及撤权双引擎repeat3共12过，性能真实观测30秒窗口、原P95/两帧/30样本保持。独立导航CODE_GO；类型/lint/4103三语过，Node24全498为497过/0失败/1本机PS缺环境skip；正式构建通过。源码待新head完整CI及同源候选，尚未发布。
+
+返回补查：桌面双引擎等待中Back/迟到响应2过；375手机发现实际路由已返回Dashboard而抽屉仍open，等待圈/细线已清。该UI状态不放行，de90 CI主动取消、46Z候选保留但不晋升。将对AppShell做仅路由归属的菜单状态修复，Back/Forward关闭且不恢复旧open，保留desktop collapsed及原pending保持打开规则。新最终提交仍需完整验证。
+
+返回修复最终本地验收：AppShell仅局部drawer/account按pathname+query归属，旧事件不能关新页菜单，collapsed独立保留；summary同一受控开关消除DOM先open/state尚false的Escape时序。全导航32/32、Back/Forward及迟到RSC核心双引擎repeat3共6/6，含新实际200/2000/5000ms等待。首轮toggle反例保留；主线程独立CODE_GO，类型/lint/4103三语、Node498（497过/1本地PS缺环境skip）和正式构建通过。4份字节完全相同的本次.next-backend/types重复生成文件已备份移除，不修改类型规则。最终完整CI、候选及域名回执另记。
