@@ -114,7 +114,7 @@ try {
         # A fresh process preloads the CNG type name without loading DPAPI, then
         # executes the real initializer's early-return branch from the pinned package.
         $encodedPath=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($copy))
-        $childCode='$ProgressPreference="SilentlyContinue";$ErrorActionPreference="Stop";try{$p=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String("'+$encodedPath+'"));. $p -LibraryOnly;. Import-CTAdmission;Add-Type -TypeDefinition "public static class ChinaTechToolboxCryptoV1 {}";Initialize-CTToolboxCrypto;if(-not ("System.Security.Cryptography.ProtectedData" -as [type])){exit 2};$b=[Text.Encoding]::UTF8.GetBytes("public fixture");$e=[Security.Cryptography.ProtectedData]::Protect($b,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser);$d=[Security.Cryptography.ProtectedData]::Unprotect($e,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser);if([Convert]::ToBase64String($b) -cne [Convert]::ToBase64String($d)){exit 3};exit 0}catch{[Console]::WriteLine("DIAGNOSTIC childType="+$_.Exception.GetType().FullName+" line="+$_.InvocationInfo.ScriptLineNumber);exit 1}'
+        $childCode='$ProgressPreference="SilentlyContinue";$ErrorActionPreference="Stop";try{$p=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String("'+$encodedPath+'"));. $p -LibraryOnly;. Import-CTAdmission;$stage="fixture-type";Add-Type -TypeDefinition "public static class ChinaTechToolboxCryptoV1 { public static int FixtureMarker(){return 1;} }" -WarningAction Stop;$stage="real-initialize";Initialize-CTToolboxCrypto;$stage="real-dpapi";if(-not ("System.Security.Cryptography.ProtectedData" -as [type])){exit 2};$b=[Text.Encoding]::UTF8.GetBytes("public fixture");$e=[Security.Cryptography.ProtectedData]::Protect($b,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser);$d=[Security.Cryptography.ProtectedData]::Unprotect($e,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser);if([Convert]::ToBase64String($b) -cne [Convert]::ToBase64String($d)){exit 3};exit 0}catch{[Console]::WriteLine("DIAGNOSTIC childType="+$_.Exception.GetType().FullName+" line="+$_.InvocationInfo.ScriptLineNumber+" stage="+$stage);exit 1}'
         $start=New-Object Diagnostics.ProcessStartInfo
         $start.FileName=Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell\v1.0\powershell.exe'
         $start.Arguments='-NoLogo -NoProfile -NonInteractive -OutputFormat Text -EncodedCommand '+[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childCode))
@@ -124,7 +124,7 @@ try {
             [void]$process.Start();$stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
             if (-not $process.WaitForExit(30000)) { $process.Kill();throw 'owned diagnostic child timed out' }
             $outText=$stdout.Result.Trim();$errText=$stderr.Result
-            $typesOnly=$outText -match '^DIAGNOSTIC childType=[A-Za-z_][A-Za-z0-9_.+]* line=[0-9]+$'
+            $typesOnly=$outText -match '^DIAGNOSTIC childType=[A-Za-z_][A-Za-z0-9_.+]* line=[0-9]+ stage=(fixture-type|real-initialize|real-dpapi)$'
             Write-Output ('DIAGNOSTIC childExitCode='+$process.ExitCode+' stdoutTypeOnly='+$typesOnly+' stderrLength='+$errText.Length+' stderrClixml='+$errText.TrimStart().StartsWith('#< CLIXML'))
             if ($typesOnly) { Write-Output $outText }
             $parsed=[CTDiagnosticStderr]::Inspect($errText)
