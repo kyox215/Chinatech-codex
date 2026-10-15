@@ -17,6 +17,22 @@ function Assert-AdmissionError([scriptblock]$Action,[string]$Code,[string]$Label
     $caught='';try { & $Action | Out-Null } catch { $caught=$_.Exception.Message }
     Assert-Admission ($caught -eq $Code) ($Label+': '+$caught)
 }
+function Invoke-AdmissionStage([string]$Name,[scriptblock]$Action) {
+    Write-Output ('DIAGNOSTIC phase='+$Name+' state=begin')
+    try { & $Action;Write-Output ('DIAGNOSTIC phase='+$Name+' state=ok') }
+    catch {
+        # Exception types and numeric line numbers only. Never print exception
+        # messages, private keys, plaintext records or customer/file paths.
+        $index=0
+        foreach ($record in @($Error | Select-Object -First 5)) {
+            $kinds=New-Object Collections.Generic.List[string]
+            for ($exception=$record.Exception;$null -ne $exception;$exception=$exception.InnerException) { $kinds.Add($exception.GetType().FullName) }
+            Write-Output ('DIAGNOSTIC phase='+$Name+' error='+$index+' types='+($kinds -join ',')+' line='+$record.InvocationInfo.ScriptLineNumber)
+            $index++
+        }
+        throw
+    }
+}
 $script:testRoot=Join-Path $copyRoot 'private-device'
 function Get-CTToolboxRoot { return $script:testRoot }
 $script:serverPrivate=[ChinaTechToolboxCryptoV1]::CreatePrivate()
@@ -93,7 +109,28 @@ try {
         Assert-Admission ([Convert]::ToBase64String((ConvertFrom-CTBase64Url (ConvertTo-CTBase64Url $bytes))) -ceq [Convert]::ToBase64String($bytes)) 'base64url roundtrips each padding boundary'
     }
     foreach ($bad in @('','a=','ab+','ab/','!!!!')) { Assert-AdmissionError { ConvertFrom-CTBase64Url $bad } 'toolbox.invalid' 'noncanonical base64url rejects' }
-    $device=Get-CTToolboxDevice;$again=Get-CTToolboxDevice
+    Invoke-AdmissionStage 'directory-acl' { New-CTPrivateDirectory $script:testRoot;New-CTPrivateDirectory $script:testRoot }
+    Invoke-AdmissionStage 'file-lease' {
+        $probe=Join-Path $script:testRoot 'diagnostic.lock'
+        $stream=New-Object IO.FileStream($probe,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+        $stream.Dispose();[IO.File]::Delete($probe)
+    }
+    Invoke-AdmissionStage 'cng-generate-export-sign' {
+        $secret=[ChinaTechToolboxCryptoV1]::CreatePrivate()
+        try {
+            $public=[ChinaTechToolboxCryptoV1]::Public($secret);$message=[Text.Encoding]::UTF8.GetBytes('public synthetic CNG fixture')
+            $signature=[ChinaTechToolboxCryptoV1]::Sign($secret,$message)
+            Assert-Admission ([ChinaTechToolboxCryptoV1]::Verify($public,$message,$signature)) 'independent CNG lifecycle works before protected device storage'
+        } finally { [Array]::Clear($secret,0,$secret.Length) }
+    }
+    Invoke-AdmissionStage 'dpapi-protect-read' {
+        Write-Output ('DIAGNOSTIC protectedDataTypePresent='+[bool]('System.Security.Cryptography.ProtectedData' -as [type]))
+        $bytes=[Text.Encoding]::UTF8.GetBytes('public synthetic DPAPI fixture')
+        $encrypted=[Security.Cryptography.ProtectedData]::Protect($bytes,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser)
+        $decoded=[Security.Cryptography.ProtectedData]::Unprotect($encrypted,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser)
+        Assert-Admission ((Get-Sha256Bytes $decoded) -ceq (Get-Sha256Bytes $bytes)) 'independent DPAPI roundtrip works before device storage'
+    }
+    Invoke-AdmissionStage 'device-record-write-read' { $script:device=Get-CTToolboxDevice;$script:again=Get-CTToolboxDevice }
     Assert-Admission ($device.InstallationId -ceq $again.InstallationId -and (Get-Sha256Bytes $device.Public) -ceq (Get-Sha256Bytes $again.Public) -and $device.Public.Length -eq 91) 'random instance and P256 identity persist across launches'
     $protected=[IO.File]::ReadAllBytes((Join-Path $script:testRoot 'device.dat'))
     Assert-Admission (-not [Text.Encoding]::UTF8.GetString($protected).Contains($device.InstallationId)) 'device identity and private key are not plaintext on disk'

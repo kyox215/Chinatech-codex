@@ -1090,5 +1090,9 @@
   "Mi Mover 实验版": [
     "Mi Mover sperimentale",
     "Mi Mover experimental"
+  ],
+  "设备条件符合；下载仍需通过版本校验。": [
+    "Requisiti del dispositivo compatibili; il download richiede ancora la verifica della versione.",
+    "Device requirements match; downloads still require release verification."
   ]
 }

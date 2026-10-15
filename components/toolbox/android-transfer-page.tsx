@@ -66,7 +66,7 @@ export function AndroidTransferPage() {
       <section className={styles.panel} aria-labelledby="plan-title"><h2 id="plan-title">{t("两机兼容与权限规划")}</h2>
         <p className={styles.muted}>{t("选择两机情况，查看当前覆盖与需要的权限。这里不会读取手机资料。")}</p>
         <div className={styles.devices}><DeviceChoices side="sender" value={sender} onChange={setSender} /><ArrowRight className={styles.direction} size={24} aria-hidden="true" /><DeviceChoices side="receiver" value={receiver} onChange={setReceiver} /></div>
-        <div className={styles.notices} role="status" aria-live="polite"><strong>{t(plan.runnable ? "可以安装首版助手，迁移能力待手机核验。" : "先解决系统兼容性。")}</strong><ul>{plan.notices.map(notice => <li key={notice}>{t(notice)}</li>)}</ul></div>
+        <div className={styles.notices} role="status" aria-live="polite"><strong>{t(plan.runnable ? "设备条件符合；下载仍需通过版本校验。" : "先解决系统兼容性。")}</strong><ul>{plan.notices.map(notice => <li key={notice}>{t(notice)}</li>)}</ul></div>
         {plan.connectionPermissions.length > 0 && <details className={styles.integrity}><summary>{t("热点连接权限")}</summary><ul className={styles.networkPermissions}>{plan.connectionPermissions.map((permission, index) => <li key={index}><strong>{t(permission.side === "sender" ? "旧手机" : "新手机")}</strong><code>{permission.permission}</code><span>{t(permission.explanation)}</span></li>)}</ul></details>}
         <div className={styles.capabilities}>{plan.capabilities.map(capability => <article className={styles.capability} data-coverage={capability.coverage} key={capability.kind}>
           <div className={styles.capabilityHead}><h3>{t(capability.title)}</h3><span className={shared.pending}>{t(coverageLabels[capability.coverage])}</span></div>
