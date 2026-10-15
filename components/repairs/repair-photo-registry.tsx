@@ -18,24 +18,25 @@ export function RepairPhotoRegistry({ data, photos, active = true }: { data: Int
   const draft = useIntakePhotos();
   const receipt = useOperationReceipt();
   const [revision, setRevision] = useState(data.revision ?? 1);
+  const baseRevision = useRef<number | null>(null);
   const [saving, setSaving] = useState(false), [error, setError] = useState(""), [saved, setSaved] = useState(false);
   const [viewing, setViewing] = useState<IntakePhoto | null>(null);
   const photoOpener = useRef<HTMLButtonElement | null>(null);
   const closeViewer = () => { setViewing(null); requestAnimationFrame(() => { if (photoOpener.current?.isConnected) photoOpener.current.focus({preventScroll:true}); }); };
   const busy = useRef(false);
   const pending = saving || receipt.waiting;
-  useActivityFeedback(saving, { kind: "submit", scope: `repair-photos:${data.id}` });
-  const changed = draft.photos.length > 0 && revision !== (data.revision ?? 1);
+  useActivityFeedback(saving || draft.pending.length > 0, { kind: saving ? "submit" : "read", scope: `repair-photos:${data.id}` });
+  const changed = (draft.photos.length > 0 || draft.pending.length > 0) && revision !== (data.revision ?? 1);
   async function add(slot: IntakePhoto["slot"], files: File[]) {
-    if (pending || !canEdit) return;
-    if (!draft.photos.length) setRevision(data.revision ?? 1);
+    if (pending || !canEdit || !files.length) return;
+    if (baseRevision.current === null) { baseRevision.current = data.revision ?? 1; setRevision(baseRevision.current); }
     setSaved(false); await draft.add(slot, files);
   }
   async function save() {
-    if (busy.current || receipt.isWaiting() || !canEdit || changed || !draft.photos.length) return;
+    if (busy.current || receipt.isWaiting() || !canEdit || changed || !draft.photos.length || draft.pending.length > 0) return;
     busy.current = true; setSaving(true); setError(""); setSaved(false);
     const requestId = crypto.randomUUID();
-    const finish = () => { draft.clear(); setError(""); setSaved(true); busy.current = false; };
+    const finish = () => { draft.clear(); baseRevision.current = null; setError(""); setSaved(true); busy.current = false; };
     try {
       const attachments = await draft.encode();
       if (!receipt.isActive()) return;
@@ -50,8 +51,8 @@ export function RepairPhotoRegistry({ data, photos, active = true }: { data: Int
     <div className={styles.photoGrid}>{photos.map(photo => <button key={photo.id} className={styles.photo} type="button" onClick={event => { photoOpener.current=event.currentTarget; setViewing(photo); }} aria-label={t("查看{v0}照片", { v0: t(photo.slot === "front" ? "正面" : photo.slot === "back" ? "背面" : "其他") })}><Image unoptimized src={photo.url} width={240} height={180} alt={t(photo.slot === "front" ? "正面" : photo.slot === "back" ? "背面" : "其他")}/><span>{t(photo.slot === "front" ? "正面" : photo.slot === "back" ? "背面" : "其他")}</span></button>)}</div>
     {!photos.length ? <p className={styles.note}>{t(data.photoCount ? "旧照片引用待核对，请刷新后重试。" : "尚未登记照片")}</p> : null}
     {canEdit ? <details className={styles.photoDraft} open={draft.photos.length ? true : undefined}><summary>{t("添加或更新照片")}</summary><p className={styles.note}>{t("正面、背面会替换当前展示，旧原件保留；其他照片追加。确认保存后更新数量。")}</p><IntakePhotos {...draft} add={add} disabled={pending}/>
-      {changed ? <p role="alert" className="form-error">{t("工单已变化，照片草稿已保留。请核对当前照片后继续。")}<button className="button button--secondary" type="button" disabled={pending} onClick={() => { setRevision(data.revision ?? 1); setError(""); }}>{t("已核对当前照片")}</button></p> : null}
-      {draft.photos.length ? <div className={styles.actions}><button className="button button--secondary" type="button" disabled={pending} onClick={() => { draft.clear(); setError(""); }}>{t("放弃照片草稿")}</button><button className="button button--primary" type="button" aria-busy={saving} disabled={pending || changed || draft.pending.length > 0} onClick={() => void save()}>{saving ? t("正在保存…") : receipt.waiting ? t("待核对") : t("保存照片登记")}</button></div> : null}
+      {changed ? <p role="alert" className="form-error">{t("工单已变化，照片草稿已保留。请核对当前照片后继续。")}<button className="button button--secondary" type="button" disabled={pending || draft.pending.length > 0} onClick={() => { baseRevision.current = data.revision ?? 1; setRevision(baseRevision.current); setError(""); }}>{t("已核对当前照片")}</button></p> : null}
+      {draft.photos.length ? <div className={styles.actions}><button className="button button--secondary" type="button" disabled={pending} onClick={() => { draft.clear(); baseRevision.current = null; setError(""); }}>{t("放弃照片草稿")}</button><button className="button button--primary" type="button" aria-busy={saving} disabled={pending || changed || draft.pending.length > 0} onClick={() => void save()}>{saving ? t("正在保存…") : receipt.waiting ? t("待核对") : t("保存照片登记")}</button></div> : null}
     </details> : null}
     {error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}
     {saved ? <p role="status" className={styles.note}>{t("照片登记已保存")}</p> : null}

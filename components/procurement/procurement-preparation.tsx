@@ -31,16 +31,17 @@ export function ProcurementPreparation({ record, onPendingChange }: { record: Pr
   const receipt = useOperationReceipt();
   const busy = useRef(false);
   const [submitting, setSubmitting] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
+  const [confirmation, setConfirmation] = useState<{ id: string; revision: number; supplierId: string | undefined; supplier: string } | null>(null);
+  const confirmed = confirmation?.id === record.id && confirmation.revision === record.events.length && confirmation.supplierId === record.supplierId && confirmation.supplier === record.supplier;
 
   async function append() {
-    if (!canEdit || busy.current || receipt.isWaiting() || (!purchaseOpen || !confirmed)) return;
+    if (!canEdit || busy.current || receipt.isWaiting() || !purchaseOpen || !confirmed || !confirmation) return;
     const requestId=crypto.randomUUID();
     if(onPendingChange?.(true,requestId)===false)return;
     busy.current = true;
     setSubmitting(true);
     const release=()=>{busy.current=false;onPendingChange?.(false,requestId);};
-    try {await dispatch({ type: "append", id: record.id, revision: record.events.length, event: {
+    try {await dispatch({ type: "append", id: confirmation.id, revision: confirmation.revision, event: {
       id: crypto.randomUUID(), type: "ordered", quantity: 0, note: "标记实际已下单。",
       time: new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Rome", dateStyle: "short", timeStyle: "short" }).format(new Date()),
     } },{requestId});} catch {receipt.watch(requestId,release,release);}
@@ -56,7 +57,7 @@ export function ProcurementPreparation({ record, onPendingChange }: { record: Pr
     <OperationRecoveryControls requestId={onPendingChange?null:receipt.requestId}/>
     {submitting||receipt.waiting ? <p role="status">{t(submitting?"正在保存…":"提交结果待核对，请处理原提交，勿重复新建。")}</p> : null}
     <p className="procurement-action-hint"><PackageSearch size={16} />{t("待采购 · 未下单")}</p>
-    <label className="review-confirm"><input type="checkbox" checked={confirmed} disabled={submitting||receipt.waiting} onChange={event=>setConfirmed(event.target.checked)}/><span>{t("确认已向该供应商实际下单")}</span></label>
+    <label className="review-confirm"><input type="checkbox" checked={confirmed} disabled={submitting||receipt.waiting} onChange={event=>setConfirmation(event.target.checked ? { id: record.id, revision: record.events.length, supplierId: record.supplierId, supplier: record.supplier } : null)}/><span>{t("确认已向该供应商实际下单")}</span></label>
     <button className="button button--primary" type="button" aria-busy={submitting} disabled={!confirmed||submitting||receipt.waiting} onClick={() => void append()}><Truck size={17} />{submitting?t("正在保存…"):receipt.waiting?t("待核对"):t("记录已实际下单")}</button>
   </div>;
 }

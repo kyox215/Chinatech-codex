@@ -151,7 +151,7 @@ test("selected device facts save, reload and supplier choice saves to the same o
   await expect(page.locator("main")).toContainText("iPhone 16");
   await page.reload();
   await expect(page.locator("main")).toContainText("触控选项回归测试");
-  await activate(page, page.getByRole("main").getByRole("button", { name: "供应商 / 报价", exact: true }));
+  await activate(page, page.getByRole("main").getByRole("button", { name: "选择屏幕供应商", exact: true }));
   const supplier = page.getByRole("combobox", { name: "供应商（选填）" });
   await activate(page, supplier);
   await activate(page, page.getByRole("option", { name: "MobileParts SRL", exact: true }));
