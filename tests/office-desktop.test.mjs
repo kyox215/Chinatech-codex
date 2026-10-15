@@ -38,12 +38,16 @@ test('public website excludes private native sources and retains protocol and re
  const workflow=readFileSync('.github/workflows/ci.yml','utf8');assert.ok(!workflow.includes('desktop/office-assistant/'));
  assert.ok(readFileSync('desktop/README.md','utf8').includes('private'));
 });
-test('public 1.3.0 downloads use the approved architecture assets and exact binary checksums',()=>{
- const base='https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v1.3.0';
- assert.equal(officeDesktopRelease.version,'1.3.0');
+test('public 1.4.0 downloads use the approved architecture assets and exact binary checksums',()=>{
+ const base='https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v1.4.0';
+ assert.equal(officeDesktopRelease.version,'1.4.0');
+ assert.equal(officeDesktopRelease.websiteControlProtocol,3);
+ assert.equal(officeDesktopRelease.authenticodeSigned,false);
+ assert.equal(officeDesktopRelease.publisherCertificateSha256,null);
+ assert.equal(officeDesktopRelease.prerelease,true);
  assert.deepEqual(officeDesktopRelease.files,[
-  {architecture:'x64',bytes:64973194,sha256:'472f935742d8da0144264a0f1e584a5b013ff724dda4a922882cdabc9b846173',href:base+'/ChinaTech-Office-Assistant-x64.exe'},
-  {architecture:'ARM64',bytes:61126536,sha256:'a576385bddab1bd5489dd4392a6ca12f008a31da784a102a2ccc3ff0b51c3144',href:base+'/ChinaTech-Office-Assistant-ARM64.exe'},
+  {architecture:'x64',bytes:65049274,sha256:'977c07ae5b7c7ca21584a5a0cebdfb91a08c008ecfb930058d398fdf4827eaaf',href:base+'/ChinaTech-Office-Assistant-x64.exe'},
+  {architecture:'ARM64',bytes:61202604,sha256:'03b29ea6b4f7473112db42c1f2edde771cb2df356f60fd0f39ea9810eca81b3f',href:base+'/ChinaTech-Office-Assistant-ARM64.exe'},
  ]);
  assert.equal(officeDesktopRelease.instructions,base+'/README.txt');
  assert.equal(officeDesktopRelease.checksums,base+'/SHA256SUMS.txt');
@@ -52,4 +56,5 @@ test('public copy identifies selected installation and removal with explicit uns
  const source=['components/toolbox/office-desktop-download.tsx','components/toolbox/office-tools-page.tsx'].map(file=>readFileSync(file,'utf8')).join('\n');
  for(const fact of ['测试版','独立运行','无需网站登录','八项应用默认全选','可单独选择安装','OneDrive','Skype for Business','语言跟随 Windows','全部 Office（包括 Visio 和 Project）','个人文档保留','MSI 产品须整项卸载','OneDrive 仅支持当前账户卸载','仍待 Windows 验收','尚未数字签名'])assert.ok(source.includes(fact),fact);
  for(const obsolete of ['打开后自动联网检查','通过检查后','六个应用','激活只检查和使用已有有效许可','安装替换全部旧 Office'])assert.ok(!source.includes(obsolete),obsolete);
+ assert.ok(!source.includes('/tree/office-assistant-v'));
 });

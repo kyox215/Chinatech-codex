@@ -127,6 +127,18 @@ test('Public release control and EXE signing are distinct from protocol signing 
  const state=await admin.getAdminV3(identity);assert.equal(state.signingReady,true);assert.equal(state.publicRelease.authenticodeSigned,false);assert.equal(state.publicRelease.websiteControlProtocol,null);assert.equal(state.publicRelease.websiteControlled,false);assert.equal(state.cleanupEnabled,false);
  await assert.rejects(admin.cleanupAdminV3(identity,{requestId:randomUUID(),expectedDigest:'a'.repeat(64)}),e=>e.code==='CLEANUP_DISABLED');
 });
+test('The protocol3 public release remains unsigned and needs every server publication gate',async()=>{
+ const identity={userId:randomUUID(),sessionId:randomUUID()};
+ let control={enabled:true,minimum_version:'1.4.0',release_ready:true,verified_version:'1.4.0',revision:'0',updated_at:null};
+ const tx=async(strings)=>strings.join('').includes('office_command_control')?[{admin_user_id:identity.userId}]:[control];
+ const admin=load('lib/toolbox/office-desktop-v3-admin.ts',{'@/lib/backend/database':{withDatabase:(id,store,run)=>run(tx)}},{...env,VERCEL:'1',OFFICE_DESKTOP_V3_RATE_SECRET:'a'.repeat(64)});
+ const ready=await admin.getAdminV3(identity);
+ assert.equal(ready.publicRelease.version,'1.4.0');assert.equal(ready.publicRelease.websiteControlProtocol,3);
+ assert.equal(ready.publicRelease.websiteControlled,true);assert.equal(ready.publicRelease.authenticodeSigned,false);
+ for(const patch of [{enabled:false},{release_ready:false},{verified_version:null},{minimum_version:'1.4.1'}]){
+  const saved=control;control={...control,...patch};assert.equal((await admin.getAdminV3(identity)).publicRelease.websiteControlled,false);control=saved;
+ }
+});
 
 test('Executable activity HTTP boundary rejects leaked fields, wrong origin and missing permits before data writes',async()=>{
  const {NextRequest,NextResponse}=nativeRequire('next/server');
