@@ -2,10 +2,11 @@ param([string]$ProjectRoot = (Split-Path -Parent $PSScriptRoot))
 $ErrorActionPreference='Stop'
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'Native Windows required for CNG/DPAPI admission checks' }
 $entry=Join-Path $ProjectRoot 'public/toolbox/windows-current/ChinaTech-Windows.ps1.txt'
-$code=[IO.File]::ReadAllText($entry,[Text.Encoding]::UTF8)
 $copyRoot=Join-Path ([IO.Path]::GetTempPath()) ('ChinaTech-admission-'+[Guid]::NewGuid().ToString('D'))
 [void][IO.Directory]::CreateDirectory($copyRoot)
-$copy=Join-Path $copyRoot 'ChinaTech-Windows.ps1';[IO.File]::WriteAllText($copy,$code,(New-Object Text.UTF8Encoding($false)))
+$copy=Join-Path $copyRoot 'ChinaTech-Windows.ps1'
+# Preserve the package's exact UTF-8 BOM and bytes for Windows PowerShell 5.1.
+[IO.File]::WriteAllBytes($copy,[IO.File]::ReadAllBytes($entry))
 [IO.File]::Copy((Join-Path $ProjectRoot 'public/toolbox/windows-current/release.xml'),(Join-Path $copyRoot 'release.xml'))
 . $copy -LibraryOnly
 . Import-CTAdmission
