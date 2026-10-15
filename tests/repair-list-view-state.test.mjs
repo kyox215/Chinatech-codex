@@ -14,7 +14,7 @@ function harness() {
   return { ...context.exports, storage, raw: () => raw, setRaw: value => { raw = value; } };
 }
 const member = { id: "MEMBER-A", name: "DEMO", email: "demo@example.test", role: "viewer", accountStatus: "active", membershipStatus: "active", permissions: ["repairs.view", "customers.view"], revision: 2 };
-const view = { query: "DEMO 客户 123456789", status: "awaiting_parts", partsFilter: "ordered", groupBy: "parts", sort: "priority", filtersOpen: true, openGroups: { ordered: true, cart: false }, scrollY: 740, scrollLeft: 310 };
+const view = { query: "DEMO 客户 123456789", status: "awaiting_parts", partsFilter: "ordered", groupBy: "parts", sort: "priority", filtersOpen: true, openGroups: { ordered: true }, scrollY: 740, scrollLeft: 310 };
 const snapshot = value => JSON.parse(JSON.stringify(value));
 
 test("同scope恢复搜索、筛选、排序、分组和滚动；持久化只保存视图和ID", () => {
@@ -110,3 +110,5 @@ test("日常/历史/全部及取机通知筛选持久恢复，非法范围拒绝
  for(const scope of ['active','history','all']) {const h=harness();const value={...view,view:scope,noticeFilter:'notified',status:'handover',openGroups:{rework:true,history:false}};assert.equal(h.writeRepairListView('NEW',value,h.storage),true);const cold=harness();cold.setRaw(h.raw());assert.deepEqual(snapshot(cold.readRepairListView('NEW',cold.storage)),{...value,query:''});}
  for(const change of [{view:'invented'},{noticeFilter:'unreachable'}]){const h=harness();h.setRaw(JSON.stringify({version:1,scope:'S',view:{...view,...change}}));assert.equal(h.readRepairListView('S',h.storage),null);}
 });
+
+test('retired cart view restores as pending purchase without losing existing draft expansion',()=>{for(const groups of [{cart:true,draft:false},{cart:false,draft:true}]){const h=harness();h.setRaw(JSON.stringify({version:1,scope:'UPGRADE',view:{...view,partsFilter:'cart',openGroups:groups}}));const actual=h.readRepairListView('UPGRADE',h.storage);assert.equal(actual.partsFilter,'draft');assert.equal(actual.openGroups.draft,true);assert.equal(Object.hasOwn(actual.openGroups,'cart'),false);}});

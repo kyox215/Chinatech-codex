@@ -1,51 +1,53 @@
 WEBVTT
 
-00:00:00.000 --> 00:00:06.875
+00:00:00.000 --> 00:00:06.042
 Daily repairs are grouped as return repairs, in progress,
 waiting for parts and waiting for collection.
 
-00:00:06.875 --> 00:00:12.667
+00:00:06.042 --> 00:00:11.083
 Use the search field to find a customer, device or order, then
 check the device.
 
-00:00:12.667 --> 00:00:15.750
+00:00:11.083 --> 00:00:13.333
 Click the stage badge in the order row.
 
-00:00:15.750 --> 00:00:24.042
+00:00:13.333 --> 00:00:21.250
 In the window, choose the actual progress, such as awaiting
 diagnosis, being repaired, or repaired and waiting for
 collection.
 
-00:00:24.042 --> 00:00:29.417
+00:00:21.250 --> 00:00:26.125
 Check the stage, add a reason when required, then click the
 save button below.
 
-00:00:29.417 --> 00:00:35.292
+00:00:26.125 --> 00:00:31.083
 A stage change does not confirm parts arrival, payment or the
 return of the device.
 
-00:00:35.292 --> 00:00:38.417
-Click the follow-up button in the order row.
+00:00:31.083 --> 00:00:33.125
+Open contact and follow-up.
 
-00:00:38.417 --> 00:00:47.250
-After contacting the customer about the quote, choose the
-actual result: quote discussed, no answer, or awaiting a reply
-about the quote.
+00:00:33.125 --> 00:00:37.750
+Choose quote discussed, contact unsuccessful, or awaiting a
+reply.
 
-00:00:47.250 --> 00:00:52.542
-Enter a contact note in the field, then click the matching
-result button below.
+00:00:37.750 --> 00:00:41.500
+No written note is required; earlier notes remain in history.
 
-00:00:52.542 --> 00:00:58.250
-This saves a record; it does not send a message or prove the
-customer approved the repair.
+00:00:41.500 --> 00:00:44.250
+After selecting, press Record result.
 
-00:00:58.250 --> 00:01:03.292
-Open the order details to see the device, parts and follow-up
-history.
+00:00:44.250 --> 00:00:47.000
+Record only contact that actually occurred.
 
-00:01:03.292 --> 00:01:07.042
-Device custody and return are separate facts.
+00:00:47.000 --> 00:00:52.250
+It does not confirm repair consent, send messages, or change
+the repair stage.
 
-00:01:07.042 --> 00:01:10.750
-Go back to the list to continue with the next order.
+00:00:52.250 --> 00:00:57.375
+Repair details have repair, suppliers, photos, and history
+sections.
+
+00:00:57.375 --> 00:01:04.625
+Requirements, quote, and supplier are grouped per item, with
+separate photo registration and source-specific history.

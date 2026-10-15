@@ -1,5 +1,15 @@
 # 公共组件与样式复用规范
 
+## 工单详情分组与照片登记（2026-10-15）
+
+`RepairDetailWorkspace` 组合现有设备摘要、`RepairItemsForm`、`RepairProcurementDialog`、`RepairWorkflowPanel` 和签名区；维修/供应商/照片/历史是页内分组。逐项要求、客户报价、供应商和进度共用领域投影；报价沿canonical item键，同名歧义只读且服务端拒绝猜写。缺项目报价时合计未知，显式零保留，审核/联系/打印同源。
+
+手机打印与标题同排，菜单/返回/打印各44px；宽表只在面板内滚动，同工单切分组保留草稿。阶段入口从列表打开采购时，由列表持有稳定弹窗owner，工单移组不得卸载提交恢复；默认阶段控件实例ID唯一，关闭回到原可见入口。
+
+`RepairPhotoRegistry` 复用`useIntakePhotos`/`IntakePhotos`读取和压缩，`intake.photos`专用版本命令合并当前引用；正背面替换展示、其他追加，旧原件/签名保持。真实保存通过`useActivityFeedback`跨分组持有token；仅活动分组注册局部恢复，隐藏后由全局原requestId接管。成功才清草稿/更新数量，冲突保留核对、未知不得另建提交。照片查看覆盖真实读取/失败/重试，关闭撤销自身反馈。
+
+采购车新入口、加车/取消及批量下单退休；当前待采购包含旧cart/draft，旧事件/已完成回执原样读取。旧保存视图cart规范为draft，保留展开与身份范围；存量分组设置仍完整解析。联系先选择再记录，实际交还/未结清仍分别核对；不得用伪备注、推断同意或自动下单替代真实事实。详[方案与实施](37-repair-detail-redesign-plan.md)及docs/16。
+
 ## Figma 当前基线与设计前必读（2026-10-15）
 
 所有 UI 设计、改版和维护先读 PROJECT_MEMORY / AGENTS / 本节，再列规划、实际组件使用方及验收。Figma [项目管理流程](https://www.figma.com/design/nhZ37YLOUVP8zpDBBGihhS?node-id=12373-155040) 是组件视觉来源；整节只返回稀疏元数据，实施必须读取可见子节点的高保真上下文与截图。组件映射、检查范围与当前执行证据见[本轮审查36](36-ui-design-audit-20261015.md)。

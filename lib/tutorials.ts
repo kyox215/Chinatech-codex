@@ -113,27 +113,27 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
         {
           "title": "点击阶段，按实际进展选择",
           "body": "点击这一行的阶段标签，打开维修阶段窗口。按实际进展选择待检测、维修中，或修好，等取机。",
-          "at": 10.75
+          "at": 10.208
         },
         {
           "title": "确认保存，阶段才会更新",
           "body": "核对新的阶段，必要时填写变更原因，然后保存。改变维修阶段，不会自动代表配件到齐、收到款项或交还设备。",
-          "at": 20.792
+          "at": 20.208
         },
         {
-          "title": "用跟进记录联系结果",
-          "body": "点击跟进，打开联系窗口。与客户沟通报价后，根据实际结果选择已沟通报价、未接通或报价待客户回复。",
-          "at": 32.5
+          "title": "选择联系结果，无需手写",
+          "body": "打开联系与跟进，选择已沟通报价、未接通，或者等待客户回复。不需要手动填写说明，旧备注仍保留在历史中。",
+          "at": 31.792
         },
         {
-          "title": "先实际联系，再记录结果",
-          "body": "补充联系说明，再点击对应的结果按钮。这里保存的是沟通记录，不会替你发送消息，也不表示客户已经同意维修。",
-          "at": 43.667
+          "title": "核对后记录结果",
+          "body": "选择后点击记录结果。只记录已经实际发生的联系，不表示客户同意维修，也不会自动发送消息或更改维修阶段。",
+          "at": 42.875
         },
         {
-          "title": "详情中继续追溯",
-          "body": "打开工单详情，可以继续查看设备、配件和跟进历史。返回列表后，接着处理下一张工单。",
-          "at": 54.958
+          "title": "四个分组查看详情",
+          "body": "详情分为维修、供应商、照片和历史。每项要求、报价和供应商集中展示；照片独立登记，历史按来源核对。",
+          "at": 53.667
         }
       ]
     },
@@ -144,7 +144,7 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
       "description": "选供应商、核对实际下单，再逐次记录收到的配件。",
       "href": "/app/procurement",
       "actionLabel": "打开采购与到货",
-      "duration": "1:06",
+      "duration": "1:07",
       "src": "/tutorials/procurement.mp4",
       "poster": "/tutorials/procurement.webp",
       "captions": "/tutorials/procurement.vtt",
@@ -157,27 +157,27 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
         {
           "title": "逐项选择供应商与报价",
           "body": "给需要采购的项目选择供应商，报价可以选填。有财务权限时才能记录进价；只填报价不选供应商，不会生成采购。",
-          "at": 10.833
+          "at": 10.583
         },
         {
-          "title": "保存加车，不等于已下单",
-          "body": "核对后保存，已选供应商的项目进入采购车。加车只代表准备采购，系统不会自动向供应商下单。",
-          "at": 22.542
+          "title": "保存为待采购",
+          "body": "核对报价和供应商后保存，项目保持待采购。系统不会自动向供应商下单，客户报价和内部进价分别保存。",
+          "at": 22.167
         },
         {
-          "title": "实际下单后，核对清单再记录",
-          "body": "实际向供应商下单后，打开采购车，选供应商和对应项目。点击核对所选清单，再确认保存实际事实。",
-          "at": 32.5
+          "title": "实际下单后逐项登记",
+          "body": "实际向供应商下单后，打开对应项目的采购记录。明确勾选已经实际下单，再记录下单事实；每个项目独立核对。",
+          "at": 32.833
         },
         {
           "title": "到多少，记录多少",
           "body": "收到配件时打开批量到货。选择供应商和项目，填写本次实际数量，核对后保存；分几次到，就分几次记录。",
-          "at": 43.125
+          "at": 43.792
         },
         {
           "title": "到货与维修阶段分别核对",
           "body": "采购页可以查看到货数量和关联工单。配件到齐后，仍要按实际情况跟进维修与客户联系，这里不作为配件库存。",
-          "at": 54.375
+          "at": 54.958
         }
       ]
     },
@@ -322,7 +322,7 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
       "description": "Trova la scheda, aggiorna la fase e registra i contatti effettivi.",
       "href": "/app/repairs",
       "actionLabel": "Apri le riparazioni",
-      "duration": "1:14",
+      "duration": "1:05",
       "src": "/tutorials/it/follow-up.mp4",
       "poster": "/tutorials/it/follow-up.webp",
       "captions": "/tutorials/it/follow-up.vtt",
@@ -335,27 +335,27 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
         {
           "title": "Scegli la fase reale",
           "body": "Premi l'etichetta della fase nella riga. Nella finestra scegli la situazione reale, per esempio da diagnosticare, in riparazione, oppure riparato e in attesa di ritiro.",
-          "at": 13.167
+          "at": 11.542
         },
         {
           "title": "Controlla e salva la fase",
           "body": "Verifica la nuova fase e scrivi il motivo, se richiesto. Poi salva dal pulsante in basso. La fase non conferma arrivo dei ricambi, pagamento o riconsegna del dispositivo.",
-          "at": 24.167
+          "at": 21.417
         },
         {
-          "title": "Apri contatti e aggiornamenti",
-          "body": "Premi il pulsante di contatto nella riga. Dopo aver contattato il cliente per il preventivo, registra l'esito reale: preventivo comunicato, nessuna risposta o attesa di risposta sul preventivo.",
-          "at": 36.208
+          "title": "Scegli l’esito senza scrivere note",
+          "body": "Apri contatti e aggiornamenti. Scegli preventivo comunicato, contatto non raggiunto oppure attesa della risposta. Non serve scrivere una nota; le note precedenti restano nella cronologia.",
+          "at": 32
         },
         {
-          "title": "Registra ciò che è successo",
-          "body": "Scrivi una nota nel campo, poi premi sotto il pulsante dell'esito corretto. Il sito salva una registrazione: non invia messaggi e non dimostra il consenso del cliente alla riparazione.",
-          "at": 48.708
+          "title": "Controlla e registra l’esito",
+          "body": "Dopo la scelta, premi Registra esito. Registra solo un contatto realmente avvenuto: non conferma il consenso alla riparazione, non invia messaggi e non cambia la fase.",
+          "at": 43.375
         },
         {
-          "title": "Consulta la cronologia della scheda",
-          "body": "Apri i dettagli per vedere dispositivo, ricambi e cronologia dei contatti. Custodia e riconsegna sono fatti separati. Torna all'elenco per continuare con la scheda successiva.",
-          "at": 61
+          "title": "Consulta le quattro sezioni",
+          "body": "La scheda contiene riparazione, fornitori, foto e cronologia. Requisiti, preventivo e fornitore sono riuniti per intervento; le foto hanno una registrazione separata.",
+          "at": 53.875
         }
       ]
     },
@@ -366,7 +366,7 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
       "description": "Scegli il fornitore e registra ordini reali e singole consegne.",
       "href": "/app/procurement",
       "actionLabel": "Apri acquisti e arrivi",
-      "duration": "1:12",
+      "duration": "1:03",
       "src": "/tutorials/it/procurement.mp4",
       "poster": "/tutorials/it/procurement.webp",
       "captions": "/tutorials/it/procurement.vtt",
@@ -379,27 +379,27 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
         {
           "title": "Scegli fornitore e preventivo",
           "body": "Seleziona il fornitore per i ricambi da acquistare. Il preventivo è facoltativo; il costo richiede permessi finanziari. Il solo preventivo, senza fornitore, non crea un acquisto.",
-          "at": 11.208
+          "at": 9.708
         },
         {
-          "title": "Salva nel carrello",
-          "body": "Controlla e salva. Le voci con un fornitore entrano nel carrello acquisti. Il carrello è solo una preparazione: il sito non invia ordini al fornitore.",
-          "at": 23.792
+          "title": "Salva come da acquistare",
+          "body": "Controlla preventivo e fornitore, poi salva. Il ricambio resta da acquistare. Il sito non invia ordini; preventivo cliente e costo interno restano separati.",
+          "at": 21.125
         },
         {
-          "title": "Registra l'ordine già effettuato",
-          "body": "Dopo aver ordinato realmente al fornitore, apri il carrello e seleziona fornitore e voci. Premi il controllo della lista in basso, verifica e conferma i fatti registrati.",
-          "at": 35.042
+          "title": "Registra ogni ordine effettivo",
+          "body": "Dopo aver ordinato al fornitore, apri il relativo acquisto. Conferma esplicitamente che l’ordine è già stato effettuato, poi registra il fatto per ogni intervento.",
+          "at": 31.125
         },
         {
           "title": "Registra quanto è arrivato",
           "body": "Apri gli arrivi multipli, scegli fornitore e voci e inserisci le quantità ricevute in questa consegna. Controlla e salva. Ogni consegna va registrata separatamente.",
-          "at": 46.375
+          "at": 40.75
         },
         {
           "title": "Separa arrivi e fase di riparazione",
           "body": "La pagina acquisti mostra quantità arrivate e riparazioni collegate. Dopo l'arrivo, continua a seguire la riparazione e il cliente secondo i fatti reali. Questi dati non sono un magazzino ricambi.",
-          "at": 58.083
+          "at": 50.958
         }
       ]
     },
@@ -544,7 +544,7 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
       "description": "Find the right order, update its stage and record actual contact.",
       "href": "/app/repairs",
       "actionLabel": "Open repair orders",
-      "duration": "1:11",
+      "duration": "1:05",
       "src": "/tutorials/en/follow-up.mp4",
       "poster": "/tutorials/en/follow-up.webp",
       "captions": "/tutorials/en/follow-up.vtt",
@@ -557,27 +557,27 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
         {
           "title": "Choose the actual repair stage",
           "body": "Click the stage badge in the order row. In the window, choose the actual progress, such as awaiting diagnosis, being repaired, or repaired and waiting for collection.",
-          "at": 12.667
+          "at": 11.083
         },
         {
           "title": "Review and save the stage",
           "body": "Check the stage, add a reason when required, then click the save button below. A stage change does not confirm parts arrival, payment or the return of the device.",
-          "at": 24.042
+          "at": 21.25
         },
         {
-          "title": "Open contact and follow-up",
-          "body": "Click the follow-up button in the order row. After contacting the customer about the quote, choose the actual result: quote discussed, no answer, or awaiting a reply about the quote.",
-          "at": 35.292
+          "title": "Choose the contact result without typing",
+          "body": "Open contact and follow-up. Choose quote discussed, contact unsuccessful, or awaiting a reply. No written note is required; earlier notes remain in history.",
+          "at": 31.083
         },
         {
-          "title": "Record what actually happened",
-          "body": "Enter a contact note in the field, then click the matching result button below. This saves a record; it does not send a message or prove the customer approved the repair.",
-          "at": 47.25
+          "title": "Review and record the result",
+          "body": "After selecting, press Record result. Record only contact that actually occurred. It does not confirm repair consent, send messages, or change the repair stage.",
+          "at": 41.5
         },
         {
-          "title": "Review the history in the order",
-          "body": "Open the order details to see the device, parts and follow-up history. Device custody and return are separate facts. Go back to the list to continue with the next order.",
-          "at": 58.25
+          "title": "Review the four detail sections",
+          "body": "Repair details have repair, suppliers, photos, and history sections. Requirements, quote, and supplier are grouped per item, with separate photo registration and source-specific history.",
+          "at": 52.25
         }
       ]
     },
@@ -588,7 +588,7 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
       "description": "Choose suppliers, confirm actual orders and record each delivery.",
       "href": "/app/procurement",
       "actionLabel": "Open purchases and arrivals",
-      "duration": "1:16",
+      "duration": "1:02",
       "src": "/tutorials/en/procurement.mp4",
       "poster": "/tutorials/en/procurement.webp",
       "captions": "/tutorials/en/procurement.vtt",
@@ -601,27 +601,27 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
         {
           "title": "Choose a supplier and quote",
           "body": "Use the supplier field for items you need to buy. A quote is optional. Purchase cost is editable only with financial permission. A quote without a supplier does not create a purchase.",
-          "at": 11.792
+          "at": 9.333
         },
         {
-          "title": "Save to the cart",
-          "body": "Check the entries and save. Items with a supplier enter the purchase cart. The cart is only preparation; the website does not place an order with the supplier.",
-          "at": 26.042
+          "title": "Save as pending purchase",
+          "body": "Review the quote and supplier, then save. The item remains pending purchase. The website does not place orders; the customer quote and internal cost stay separate.",
+          "at": 20.042
         },
         {
-          "title": "Record the order after placing it",
-          "body": "After actually ordering from the supplier, open the cart and select that supplier and the items. Use the review button below, check the list, then confirm the recorded facts.",
-          "at": 37.875
+          "title": "Record each actual order",
+          "body": "After ordering from the supplier, open the corresponding purchase record. Explicitly confirm that the order was actually placed, then record that fact for each item separately.",
+          "at": 30.125
         },
         {
           "title": "Record only what arrived",
           "body": "Open batch arrivals, choose the supplier and items, then enter the quantities received in this delivery. Review and save. Record separate deliveries separately.",
-          "at": 49.917
+          "at": 40.625
         },
         {
           "title": "Keep arrivals and repair stages separate",
           "body": "The purchase page shows received quantities and linked repairs. When parts arrive, still update the repair and contact the customer as appropriate. These records are not parts inventory.",
-          "at": 61.958
+          "at": 50.375
         }
       ]
     },

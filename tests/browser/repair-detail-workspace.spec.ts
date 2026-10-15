@@ -1,0 +1,62 @@
+import {test,expect,type Page} from "@playwright/test";
+import {emptyIntakeServices} from "../../lib/intake-services";
+import {defaultStaffData} from "../../lib/staff";
+import {translate} from "../../lib/i18n/translate";
+import {intakeDirectoryEntry,type IntakeReceiptData} from "../../lib/repair-intake-record";
+import {initialRepairWorkflow} from "../../lib/repair-workflow";
+
+const id="LOCAL-C123456789ABCDEF", key="chinatech.m1.local-intakes.v1";
+const initial:IntakeReceiptData={id,revision:1,createdAt:"2026-10-01 09:00:00",updatedAt:"2026-10-01 09:00:00",previewAt:"2026-10-01 09:00:00",customerName:"DEMO grouped detail",phone:"+393200000100",email:"",category:"手机",brand:"Apple",model:"DEMO iPhone 16",color:"",serial:"",faults:["屏幕：碎裂","电池：不充电","尾插：接触不良"],issueNote:"",issue:"屏幕：碎裂、电池：不充电、尾插：接触不良",accessories:["SIM 卡"],services:structuredClone(emptyIntakeServices),priority:"普通",photoCount:0,photos:[],custody:"store",itemQuotes:[{item:"屏幕",amountCents:9000},{item:"电池",amountCents:6000},{item:"尾插",amountCents:4000}]};
+
+test.beforeEach(async({page})=>{
+  expect((await page.request.post("/api/preview-session",{data:{email:"demo@chinatech.local",password:"Preview2026!"}})).status()).toBe(200);
+  await page.addInitScript(({initial,key})=>{if(localStorage.getItem("repair-detail-seeded"))return;localStorage.setItem("repair-detail-seeded","1");localStorage.setItem(key,JSON.stringify({version:1,records:[initial],signatures:[]}));localStorage.setItem("chinatech.m1.procurement.v1",JSON.stringify({version:1,records:[],repairUpdates:{}}));}, {initial,key});
+});
+async function detail(page:Page){await page.goto(`/app/repairs/${id}`);await expect(page.getByRole("tablist",{name:"工单详情分组"})).toBeVisible();}
+async function chooseSupplier(page:Page){const dialog=page.getByRole("dialog",{name:"供应商与配件",exact:true});const card=dialog.getByRole("group",{name:"屏幕",exact:true});await card.getByRole("combobox",{name:"供应商（选填）",exact:true}).fill("MobileParts SRL");await card.getByRole("option",{name:"MobileParts SRL",exact:true}).click();return {dialog,card};}
+
+test("four groups retain true titles and per-item layout at four widths and three languages",async({page})=>{
+  await detail(page);
+  for(const locale of ["zh-CN","it","en"] as const){await page.evaluate(locale=>{localStorage.setItem("chinatech.language",locale);window.dispatchEvent(new StorageEvent("storage",{key:"chinatech.language",newValue:locale}));},locale);
+    for(const width of [375,390,1024,1440]){await page.setViewportSize({width,height:1000});const tablist=page.getByRole("tablist",{name:translate("工单详情分组",locale)});for(const label of ["维修","供应商","照片","历史"]){await tablist.getByRole("tab",{name:new RegExp(`^${translate(label,locale)}`)}).click();await expect(page.getByRole("heading",{name:translate("工单详情",locale),exact:true})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await page.locator('[role="tabpanel"]:visible').count()).toBe(1);}
+      const print=await page.getByRole("button",{name:translate("打印接机单",locale),exact:true}).boundingBox();const heading=await page.getByRole("heading",{name:translate("工单详情",locale),exact:true}).boundingBox();expect(print!.height).toBeGreaterThanOrEqual(44);expect(Math.abs(print!.y+print!.height/2-heading!.y-heading!.height/2)).toBeLessThan(4);
+    }
+  }
+});
+
+test("single project edit retains failed input, successful save updates quote and supplier without creating cart",async({page})=>{
+  await detail(page);await page.getByRole("button",{name:"修改屏幕报价",exact:true}).click();const {dialog,card}=await chooseSupplier(page);await expect(dialog.getByRole("group",{name:"电池",exact:true})).toHaveCount(0);await card.getByLabel("屏幕报价",{exact:true}).fill("95");
+  await page.evaluate(key=>{const original=Storage.prototype.setItem;(window as typeof window & {restoreStorage?:()=>void}).restoreStorage=()=>{Storage.prototype.setItem=original;};Storage.prototype.setItem=function(name,value){if(name===key)throw new DOMException("DEMO disk full","QuotaExceededError");return original.call(this,name,value);};},key);
+  await dialog.getByRole("button",{name:"保存",exact:true}).click();await expect(dialog.getByRole("alert")).toContainText("本地保存及恢复失败，请保留草稿并核对各项记录后重试。");await expect(card.getByLabel("屏幕报价",{exact:true})).toHaveValue("95");await expect(page.locator('[data-repair-project="intake:屏幕"]')).toContainText("€90.00");
+  await page.evaluate(()=>(window as typeof window & {restoreStorage?:()=>void}).restoreStorage?.());await dialog.getByRole("button",{name:"保存",exact:true}).click();await expect(dialog).not.toBeVisible();await expect(page.locator('[data-repair-project="intake:屏幕"]')).toContainText("€95.00");await expect(page.locator('[data-repair-project="intake:电池"]')).toContainText("€60.00");
+  const purchases=await page.evaluate(()=>JSON.parse(localStorage.getItem("chinatech.m1.procurement.v1")!).records);expect(purchases).toHaveLength(1);expect(purchases[0].supplier).toBe("MobileParts SRL");expect(purchases[0].events).toEqual([]);
+  await page.reload();await expect(page.locator('[data-repair-project="intake:屏幕"]')).toContainText("MobileParts SRL");await expect(page.getByRole("button",{name:"采购车",exact:true})).toHaveCount(0);
+});
+
+test("contact selection writes no fabricated note and preserves record on failure",async({page})=>{
+  await detail(page);await page.getByRole("button",{name:`${id} 联系与跟进`,exact:true}).click();const dialog=page.getByRole("dialog",{name:"工单联系与跟进"});await expect(dialog.getByRole("textbox")).toHaveCount(0);await expect(dialog.getByRole("button",{name:"记录结果",exact:true})).toBeDisabled();await dialog.getByRole("button",{name:"报价待客户回复",exact:true}).click();await dialog.getByRole("button",{name:"记录结果",exact:true}).click();await expect(dialog).not.toBeVisible();await page.reload();await page.getByRole("tab",{name:/^历史/}).click();await expect(page.getByRole("tabpanel")).toContainText("报价待客户回复");const flow=await page.evaluate(id=>JSON.parse(localStorage.getItem("chinatech.m1.repair-workflow.v1")!).workflows[id],id);expect(flow.events.at(-1)).toMatchObject({type:"quote_contact",note:""});
+});
+
+test("photo drafts survive group switches, count changes only after save; replacement preserves signature facts",async({page})=>{
+  await detail(page);await page.getByRole("tab",{name:/^照片/}).click();await page.getByText("添加或更新照片",{exact:true}).click();const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jPr8AAAAASUVORK5CYII=","base64");await page.getByLabel("上传正面照片",{exact:true}).setInputFiles({name:"DEMO-front.png",mimeType:"image/png",buffer:png});await expect(page.getByRole("button",{name:"保存照片登记",exact:true})).toBeEnabled();await expect(page.getByRole("tab",{name:/^照片/})).toHaveText(/0/);await page.getByRole("tab",{name:/^维修/}).click();await page.getByRole("tab",{name:/^照片/}).click();await expect(page.getByRole("button",{name:"保存照片登记",exact:true})).toBeEnabled();await page.getByRole("button",{name:"保存照片登记",exact:true}).click();await expect(page.getByRole("status")).toContainText("照片登记已保存");await expect(page.getByRole("tab",{name:/^照片/})).toHaveText(/1/);const data=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!).records[0],key);expect(data.photoCount).toBe(1);expect(data.itemQuotes).toEqual(initial.itemQuotes);expect(data.revision).toBe(2);
+});
+
+test("permission change removes draft editor and private cost controls without writes",async({page})=>{
+  await detail(page);await page.getByRole("button",{name:"选择屏幕供应商",exact:true}).click();await chooseSupplier(page);await page.evaluate(staff=>{staff.currentId="DEMO-VIEWER";localStorage.setItem("chinatech.m1.staff.v1",JSON.stringify({version:1,data:staff}));window.dispatchEvent(new Event("chinatech-staff-change"));},structuredClone(defaultStaffData));await expect(page.getByRole("dialog",{name:"供应商与配件"})).not.toBeVisible();await expect(page.getByRole("button",{name:"选择屏幕供应商",exact:true})).toBeDisabled();expect(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!).records[0].revision,key)).toBe(1);
+});
+
+test("ambiguous quote stays read only through the supplier entry while current and legacy pending purchases remain visible",async({page})=>{
+  const order=intakeDirectoryEntry(initial);const workflow=initialRepairWorkflow(order);const source=order.requirements!.find(row=>row.title==="屏幕")!;
+  workflow.requirements=[source,{...source,id:"project:duplicate-screen",sourceFingerprint:undefined}];
+  await page.addInitScript(({workflow,id})=>localStorage.setItem("chinatech.m1.repair-workflow.v1",JSON.stringify({version:1,workflows:{[id]:workflow}})),{workflow,id});
+  await detail(page);await page.getByRole("button",{name:"选择屏幕供应商",exact:true}).first().click();const dialog=page.getByRole("dialog",{name:"供应商与配件",exact:true});await expect(dialog.getByLabel("屏幕报价",{exact:true})).toHaveCount(0);await expect(dialog.getByText("报价关联待核对",{exact:true})).toBeVisible();await dialog.getByRole("button",{name:"关闭配件操作",exact:true}).click();
+  await page.evaluate(({id,time})=>localStorage.setItem("chinatech.m1.procurement.v1",JSON.stringify({version:1,records:[{id:"PO-legacy-detail",repairId:id,item:"屏幕",supplier:"MobileParts SRL",supplierId:"demo-mobile",quantity:1,unitCostCents:null,expectedAt:"",reference:"",events:[{id:"old-cart-detail",type:"cart_added",quantity:0,time,note:"DEMO original"}]}],repairUpdates:{}})),{id,time:initial.createdAt});await page.goto("/app/procurement");await page.getByRole("button",{name:/^待采购/}).click();await expect(page.locator(".procurement-row")).toHaveCount(1);await expect(page.locator(".procurement-row")).toContainText("PO-legacy-detail");
+});
+
+test("desktop stage dialog restores its visible instance after close with no duplicate IDs",async({page})=>{
+  await page.setViewportSize({width:1440,height:1000});await detail(page);const trigger=page.getByRole("button",{name:`${id} 更改维修阶段`,exact:true});await trigger.click();await page.getByRole("dialog",{name:"更改维修阶段",exact:true}).getByRole("button",{name:"关闭维修阶段",exact:true}).click();await expect(trigger).toBeFocused();const ids=await page.locator('[id^="repair-stage-"]').evaluateAll(rows=>rows.map(row=>row.id));expect(new Set(ids).size).toBe(ids.length);
+});
+
+test("missing project quote remains unknown in details, contact and receipt",async({page})=>{
+  await detail(page);await page.evaluate(key=>{const envelope=JSON.parse(localStorage.getItem(key)!);envelope.records[0].itemQuotes=envelope.records[0].itemQuotes.filter((row:{item:string})=>row.item!=="尾插");localStorage.setItem(key,JSON.stringify(envelope));window.dispatchEvent(new Event("chinatech-local-intake-change"));},key);await expect(page.getByLabel("维修报价",{exact:true})).toContainText("待补全报价");await page.getByRole("button",{name:`${id} 联系与跟进`,exact:true}).click();const contact=page.getByRole("dialog",{name:"工单联系与跟进"});await expect(contact.locator(".repair-quote-context strong")).toHaveText("报价待补全");await contact.getByRole("button",{name:"关闭",exact:true}).click();await page.getByRole("button",{name:"打印接机单",exact:true}).click();const receipt=page.locator(".intake-receipt-dialog");await receipt.locator("select").nth(1).selectOption("zh");const amounts=receipt.locator(".intake-receipt-block").filter({hasText:"工单总额"}).first();await expect(amounts).toContainText("未报价");await expect(amounts).not.toContainText("150.00");
+});

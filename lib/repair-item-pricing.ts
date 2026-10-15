@@ -21,10 +21,11 @@ export function validItemQuoteHistory(value: unknown): value is ItemQuoteChange[
   }
   return true;
 }
-export function itemQuoteTotal(quotes: readonly ItemQuote[] | undefined): number | null {
+export function itemQuoteTotal(quotes: readonly ItemQuote[] | undefined, expectedItems?: readonly string[]): number | null {
   if (!quotes?.length) return null;
   if (!validItemQuotes(quotes)) throw new Error("维修项目报价无效。");
   if (quotes.some(row => row.amountCents === null)) return null;
+  if (expectedItems && (new Set(expectedItems).size !== expectedItems.length || expectedItems.some(item => !quotes.some(row => row.item === item)))) return null;
   return quotes.reduce((total, row) => total + row.amountCents!, 0);
 }
 /** Blank is unknown, zero is explicit. Never round extra decimals or accept exponent notation. */

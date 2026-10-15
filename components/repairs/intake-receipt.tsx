@@ -6,6 +6,7 @@ import { useLocalIntakes, useRepairDirectory } from "./local-intake-store";
 import { useRepairWorkflows } from "./repair-workflow-store";
 import { initialRepairWorkflow } from "@/lib/repair-workflow";
 import { useBackendMode } from "@/components/backend-snapshot";
+import { intakeRequirements, currentRepairRequirements } from "@/lib/repair-requirements";
 import { itemQuoteTotal } from "@/lib/repair-item-pricing";
 import { getRepairOrder } from "@/lib/repair-fixtures";
 import { useStoreSettings } from "@/components/settings/settings-store";
@@ -27,7 +28,7 @@ export function IntakeReceipt({ data, onClose }: { data: IntakeReceiptData; onCl
   const order = directory.find(order => order.id === data.id);
   const { workflows } = useRepairWorkflows();
   const workflow = order ? workflows[data.id] ?? initialRepairWorkflow(order) : null;
-  const quoteTotal=itemQuoteTotal(data.itemQuotes);
+  const quoteTotal=itemQuoteTotal(data.itemQuotes,(order ? currentRepairRequirements(order,workflow??undefined) : intakeRequirements(data)).map(row=>row.title));
   const quote = formal ? undefined : getRepairOrder(data.id)?.quote;
   const policy = data.policy ?? { months: settings.repairWarrantyMonths, shopName: settings.shopName, address: settings.address, phone: settings.phone };
   const signature = matchingIntakeSignature(signatures, data, policy);

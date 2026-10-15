@@ -30,8 +30,8 @@ export type ProcurementRecord = {
 
 export type ProcurementStatus = "draft" | "cart" | "ordered" | "partial" | "complete";
 export const procurementStatuses: Record<ProcurementStatus, { label: string; tone: string }> = {
-  draft: { label: "待选配件 · 未下单", tone: "warning" },
-  cart: { label: "已加购物车 · 未下单", tone: "info" },
+  draft: { label: "待采购", tone: "warning" },
+  cart: { label: "待采购", tone: "warning" },
   ordered: { label: "已下单 · 待到货", tone: "progress" },
   partial: { label: "部分到货", tone: "progress" },
   complete: { label: "已到齐", tone: "success" },
@@ -61,7 +61,7 @@ export function isPreorder(record: ProcurementRecord) {
 export const repairPartsGroups = {
   unrecorded: "配件待核对",
   draft: "待选配件",
-  cart: "已加购物车 · 未下单",
+  cart: "待采购",
   mixed: "部分已下单",
   ordered: "已下单",
   complete: "已登记配件到齐",
@@ -76,7 +76,7 @@ export function repairPartsSummary(records: ProcurementRecord[], repairId: strin
   const inCart = rows.reduce((sum, row) => sum + (procurementStatus(row) === "cart" ? row.quantity : 0), 0);
   const unresolvedRequirements = requirements.filter(requirement => requirement.mode === "pending" || !requirement.confirmed || (requirement.mode === "parts" && (!records.some(row => row.repairId === repairId && row.requirementId === requirement.id && row.requirementRevision === requirement.revision) || rows.some(row => row.requirementId === requirement.id && row.requirementRevision !== requirement.revision)))).length;
   const allRequiredReady = unresolvedRequirements === 0 && (rows.length > 0 || requirements.length > 0) && arrived === total;
-  const group: RepairPartsGroup = unresolvedRequirements > 0 ? (ordered > 0 ? "mixed" : "draft") : !rows.length ? "unrecorded" : arrived === total ? "complete" : ordered === total ? "ordered" : ordered > 0 ? "mixed" : inCart === total ? "cart" : "draft";
+  const group: RepairPartsGroup = unresolvedRequirements > 0 ? (ordered > 0 ? "mixed" : "draft") : !rows.length ? "unrecorded" : arrived === total ? "complete" : ordered === total ? "ordered" : ordered > 0 ? "mixed" : "draft";
   return { group, label: repairPartsGroups[group], total, ordered, arrived, inCart, unresolvedRequirements, allRequiredReady };
 }
 
@@ -88,6 +88,11 @@ export function procurementEventLabel(event: ProcurementEvent) {
   if (event.type === "ordered") return "已标记实际下单";
   if (event.type === "arrival") return `分批到货 +${event.quantity} 件`;
   return `数量更正 ${event.quantity > 0 ? "+" : ""}${event.quantity} 件`;
+}
+
+/** Current writes reject retired cart actions; historical replay remains supported below. */
+export function assertProcurementWrite(action: { type?: unknown; event?: { type?: unknown } }) {
+  if (action.type === "create-cart" || action.type === "append" && ["cart_added", "cart_removed"].includes(String(action.event?.type))) throw new Error("采购车操作已停用，请刷新后记录实际下单。");
 }
 
 // Preview-only ledger. Production writes still require server authorization and transactions.

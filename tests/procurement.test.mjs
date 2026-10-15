@@ -62,7 +62,7 @@ test("工单分组按必需配件聚合，部分下单不冒充全部下单", ()
   first = append(first, event("cart1", "cart_added", 0));
   assert.equal(repairPartsSummary([first, second], "CT-TEST").group, "draft");
   second = append(second, event("cart2", "cart_added", 0));
-  assert.equal(repairPartsSummary([first, second], "CT-TEST").group, "cart");
+  assert.equal(repairPartsSummary([first, second], "CT-TEST").group, "draft");
   first = append(first, event("order1", "ordered", 0));
   let summary = repairPartsSummary([first, second, other, optional], "CT-TEST");
   assert.equal(summary.group, "mixed"); assert.equal(summary.ordered, 3); assert.equal(summary.total, 6);

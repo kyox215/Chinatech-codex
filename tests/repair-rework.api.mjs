@@ -118,24 +118,25 @@ try {
   const requirement = { id: "synthetic-check", title: "Synthetic check", request: "", revision: 1, mode: "none", confirmed: true, deviceFingerprint: JSON.stringify([active.category, active.brand, active.model]) };
   expect(await command(owner, storeIds[0], "repair.workflow", { id: active.id, command: { type: "requirement", item: requirement, note: "Synthetic no-part check" }, revision: 0 }), 200);
   const cart = { id: "PO-rework-cart-" + suffix, repairId: active.id, item: "Synthetic optional part", supplierId: "test-supplier", supplier: "Synthetic supplier", quantity: 2, unitCostCents: null, expectedAt: "", reference: "", events: [], required: false };
-  expect(await command(owner, storeIds[0], "procurement", { type: "create-cart", record: cart, intakeRevision: 1, workflowRevision: 1 }), 200);
-  const ordered = { ...cart, id: "PO-rework-ordered-" + suffix }; expect(await command(owner, storeIds[0], "procurement", { type: "create-cart", record: ordered, intakeRevision: 1, workflowRevision: 1 }), 200);
-  expect(await command(owner, storeIds[0], "procurement", { type: "append", id: ordered.id, revision: 1, event: { type: "ordered", id: randomUUID(), time: "", note: "Synthetic order", quantity: 0 } }), 200);
+  expect(await command(owner, storeIds[0], "procurement", { type: "create", record: cart }), 200);
+  const ordered = { ...cart, id: "PO-rework-ordered-" + suffix }; expect(await command(owner, storeIds[0], "procurement", { type: "create", record: ordered }), 200);
+  expect(await command(owner, storeIds[0], "procurement", { type: "append", id: ordered.id, revision: 0, event: { type: "ordered", id: randomUUID(), time: "", note: "Synthetic order", quantity: 0 } }), 200);
   for (const status of ["ready", "completed", "cancelled"]) {
     expect(await stage(owner, active.id, status), 200); current = await state(owner); const before = await ledgerCounts(storeIds[0]), orderRevision = current.intakes.find(row => row.id === active.id).revision, workflowRevision = current.workflows[active.id].revision;
     const attempts = [
       ["procurement", { type: "create", record: { ...cart, id: "PO-new-" + randomBytes(4).toString("hex") } }],
       ["procurement", { type: "create-cart", record: { ...cart, id: "PO-new-" + randomBytes(4).toString("hex") }, intakeRevision: orderRevision, workflowRevision }],
-      ["procurement", { type: "edit", record: cart, revision: 1 }],
+      ["procurement", { type: "edit", record: cart, revision: 0 }],
       ["procurement", { type: "append", id: cart.id, revision: 1, event: { type: "cart_added", id: randomUUID(), time: "", note: "Synthetic", quantity: 0 } }],
-      ["procurement", { type: "append", id: cart.id, revision: 1, event: { type: "ordered", id: randomUUID(), time: "", note: "Synthetic", quantity: 0 } }],
+      ["procurement", { type: "append", id: cart.id, revision: 0, event: { type: "ordered", id: randomUUID(), time: "", note: "Synthetic", quantity: 0 } }],
       ["procurement.batch", { action: "ordered", supplierId: "test-supplier", items: [{ id: cart.id, revision: 1 }] }],
       ["procurement", { type: "save-item", record: { ...cart, id: "PO-item-" + randomBytes(4).toString("hex"), item: requirement.title, requirementId: requirement.id, requirementRevision: 1 }, revision: 0, intakeRevision: orderRevision, workflowRevision, quoteCents: null }],
       ["procurement", { type: "save-item", record: { ...cart, id: "PO-none-" + randomBytes(4).toString("hex"), item: "Synthetic closed no-purchase project", supplier: "", supplierId: "" }, revision: 0, intakeRevision: orderRevision, workflowRevision, quoteCents: null, noProcurement: true }],
       ["procurement", { type: "save-items", repairId: active.id, intakeRevision: orderRevision, workflowRevision, items: [{ requirementId: requirement.id, requirementRevision: 1, quoteCents: null, purchase: { id: "PO-items-" + randomBytes(4).toString("hex"), revision: 0, supplierId: "test-supplier", unitCostCents: null } }] }],
     ];
     for (const [kind, payload] of attempts) {
-      const rejected = expect(await command(owner, storeIds[0], kind, payload), 409);
+      const retired=payload.type==="create-cart" || payload.event?.type==="cart_added" || kind==="procurement.batch";
+      const rejected = expect(await command(owner, storeIds[0], kind, payload), retired?400:409);
       if (payload.noProcurement) assert.match(rejected.message, /先明确恢复维修/);
     }
     const rejectedProject = expect(await command(owner, storeIds[0], "repair.workflow", { id: active.id, revision: workflowRevision, command: { type: "requirement", item: { ...requirement, id: "closed-project-" + status, mode: "pending", confirmed: false }, note: "Synthetic closed repair project" } }), 400);
@@ -146,9 +147,9 @@ try {
   }
   pass("new manual repair projects reject on ready, completed and cancelled repairs without reopening the order");
   pass("quote-only saves remain available on ready and historical repairs without reopening procurement");
-  expect(await command(owner, storeIds[0], "procurement.batch", { action: "arrival", supplierId: "test-supplier", items: [{ id: ordered.id, revision: 2, quantity: 1 }] }), 200); pass("actual arrivals on historical repairs can still be recorded without erasing the existing order");
+  expect(await command(owner, storeIds[0], "procurement.batch", { action: "arrival", supplierId: "test-supplier", items: [{ id: ordered.id, revision: 1, quantity: 1 }] }), 200); pass("actual arrivals on historical repairs can still be recorded without erasing the existing order");
   expect(await stage(owner, active.id, "repairing"), 200);
-  expect(await command(owner, storeIds[0], "procurement.batch", { action: "ordered", supplierId: "test-supplier", items: [{ id: cart.id, revision: 1 }] }), 200); pass("explicit recovery restores new purchase eligibility without replacing old history");
+  expect(await command(owner, storeIds[0], "procurement", { type:"append",id:cart.id,revision:0,event:{type:"ordered",id:randomUUID(),time:"",note:"Synthetic actual order",quantity:0} }), 200); pass("explicit recovery restores new purchase eligibility without replacing old history");
 
   const returned = receipt(); expect(await command(owner, storeIds[0], "intake.save", { data: returned, revision: 0, signatureCount: 0 }), 200); expect(await stage(owner, returned.id, "ready"), 200); current = await state(owner);
   expect(await command(owner, storeIds[0], "repair.workflow", { id: returned.id, revision: current.workflows[returned.id].revision, command: { type: "followup", flag: "collectedUnpaid", value: true, delivered: true, unpaid: true, note: "Synthetic actual handover" } }), 200);

@@ -6,7 +6,7 @@ import { controlError } from "@/components/control-feedback";
 import { InputControl } from "@/components/input-control";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
 import { useRef, useState } from "react";
-import { Check, ShoppingCart } from "lucide-react";
+import { Check } from "lucide-react";
 import { SearchCombobox } from "@/components/search-combobox";
 import { isPreorder, formatCost, validateProcurementDraft, type ProcurementRecord } from "@/lib/procurement";
 import { currentRepairRequirements, type RepairRequirement } from "@/lib/repair-requirements";
@@ -63,5 +63,5 @@ export function RepairPartForm({repairId,record,requirement,onSaved,onCancel,onP
     {canCost&&!noProcurement&&!quoteOnly?<label className="field"><span>{t("进价（€，选填）")}</span><InputControl validate={value => controlError(() => parseItemMoney(value))} aria-label={t("配件进价")} inputMode="decimal" maxLength={20} value={cost} onChange={event=>setCost(event.target.value)} placeholder={t("未知留空")}/></label>:null}
     {quoteOnly&&staff.can("financial.read")?<div className="field"><span>{t("进价")}</span><strong>{t(formatCost(record!.unitCostCents))}</strong></div>:null}
   </div>{selectedRequirement?.request?<p className="repair-stage-note">{selectedRequirement.request}</p>:null}{receipt.waiting?<p role="status">{t("提交结果待核对，请处理原提交，勿重复新建。")}</p>:changed?<p role="alert" className="form-error">{t("工单或配件已变化，请核对最新资料；输入已保留。")}<button type="button" className="button button--secondary" onClick={()=>{setRevision(currentRevision);setWorkflowRevision(workflows[repairId]?.revision??0);setIntakeRevision(order?.intakeRevision??1);setError("");}}>{t("核对最新资料后重试")}</button></p>:null}{error?<p role="alert" className="form-error">{systemText(error)}</p>:null}
-  <footer><button className="button button--secondary" type="button" disabled={pending||receipt.waiting} onClick={onCancel}>{t("返回")}</button><button className="button button--primary" type="submit" disabled={pending||receipt.waiting||changed}>{noProcurement||quoteOnly?<Check size={17}/>:<ShoppingCart size={17}/>} {pending?t("正在保存…"):receipt.waiting?t("待核对"):noProcurement||quoteOnly?t("保存报价"):record?t("保存并加入采购车"):t("加入采购车")}</button></footer></fieldset><OperationRecoveryControls requestId={onPendingChange?null:receipt.requestId}/></form>;
+  <footer><button className="button button--secondary" type="button" disabled={pending||receipt.waiting} onClick={onCancel}>{t("返回")}</button><button className="button button--primary" type="submit" disabled={pending||receipt.waiting||changed}><Check size={17}/> {pending?t("正在保存…"):receipt.waiting?t("待核对"):noProcurement||quoteOnly?t("保存报价"):t("保存供应商与报价")}</button></footer></fieldset><OperationRecoveryControls requestId={onPendingChange?null:receipt.requestId}/></form>;
 }

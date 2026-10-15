@@ -123,7 +123,8 @@ test("parts group rename and order persist independently of workflow groups", as
 
 test("drag previews scroll at the edge, Escape cancels and reduced motion keeps live feedback", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.setViewportSize({width: test.info().project.use.isMobile ? 375 : 1440, height:500});
+  // Five active parts groups need this short viewport to exercise real edge overflow.
+  await page.setViewportSize({width: test.info().project.use.isMobile ? 375 : 1440, height:440});
   await openEditor(page,"parts");
   const dialog=page.getByRole('dialog',{name:'管理维修分组'});
   const list=dialog.locator('[data-dragging]');

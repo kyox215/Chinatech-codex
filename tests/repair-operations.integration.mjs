@@ -23,7 +23,7 @@ const config=JSON.parse(readFileSync(process.env.CT_LOCAL_CONFIG??process.env.RE
 const api=process.env.REPAIR_OPERATIONS_API_URL??"http://127.0.0.1:3144";
 const origin=process.env.REPAIR_OPERATIONS_ORIGIN??"http://localhost:3144";
 for(const [value,port] of [[config.API_URL,"55421"],[config.DB_URL,"55422"],[api,"3144"],[origin,"3144"]]) {
-  const target=new URL(value);assert.ok(["127.0.0.1","localhost"].includes(target.hostname) && target.port===port,"Only the isolated local rebuild stack and candidate port 3144 are accepted.");
+  const target=new URL(value);assert.ok(["127.0.0.1","localhost"].includes(target.hostname) && (port==="3144"?["3144","3117","3118"].includes(target.port):target.port===port),"Only the isolated local rebuild stack and verified candidate ports are accepted.");
 }
 const sql=postgres(config.DB_URL,{max:1,prepare:false});
 const admin=createClient(config.API_URL,config.SECRET_KEY||config.SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -63,11 +63,16 @@ async function createIntake(who,label,withRequirements=false) {
   const data={id,createdAt:"2026-10-02 00:00:00",updatedAt:"2026-10-02 00:00:00",previewAt:"2026-10-02 00:00",customerName:"Synthetic "+label,phone:"+39333"+String(Number.parseInt(suffix.slice(0,6),16)).padStart(8,"0"),email:"",category:"手机",brand:"Apple",model:"Synthetic phone",color:"",serial:label+suffix,issue:withRequirements?"屏幕、电池":"Synthetic issue",...(withRequirements?{faults:["屏幕","电池"],issueNote:""}:{}),accessories:[],services,priority:"普通",photoCount:0,custody:"customer"};
   ok(await command(who,"intake.save",{data,revision:0,signatureCount:0,photos:[]}));return id;
 }
-async function createCart(who,id,label,supplierId="supplier-a",requirementId,quantity=2,cost=null,required=true) {
+async function createDraft(who,id,label,supplierId="supplier-a",requirementId,quantity=2,cost=null,required=true) {
   const snapshot=await state(who),intake=snapshot.intakes.find(row=>row.id===id),item=requirements(snapshot,id).find(item=>item.id===requirementId);
   const record={id:"PO-"+suffix+"-"+label,repairId:id,item:"Synthetic "+label,supplier:suppliers.find(item=>item.id===supplierId)?.name??"Unknown",supplierId,quantity,unitCostCents:cost,expectedAt:"",reference:"",events:[],required,specification:"Reviewed synthetic specification",...(item?{requirementId:item.id,requirementRevision:item.revision}:{})};
-  const payload={type:"create-cart",record,intakeRevision:intake.revision,workflowRevision:snapshot.workflows[id]?.revision??0};
+  const payload={type:"create",record,intakeRevision:intake.revision,workflowRevision:snapshot.workflows[id]?.revision??0};
   return {record,payload,result:await command(who,"procurement",payload)};
+}
+async function orderOne(who,id,requestId=randomUUID()) {
+  const snapshot=await state(who),record=snapshot.procurement.find(row=>row.id===id);
+  const payload={type:"append",id,revision:record.events.length,event:{id:randomUUID(),time:"",type:"ordered",note:"Synthetic actual order confirmed",quantity:0}};
+  return {payload,requestId,result:await command(who,"procurement",payload,requestId)};
 }
 async function batch(who,action,ids,supplierId="supplier-a",quantities,requestId=randomUUID()) {
   const snapshot=await state(who);
@@ -87,18 +92,18 @@ try {
 
   const repair=await createIntake(owner,"linked",true),second=await createIntake(owner,"second"),foreign=await createIntake(other,"foreign");
   await setRequirement(owner,repair,"屏幕","parts");
-  let added=await createCart(owner,repair,"screen","supplier-a","intake:屏幕",2,4321);ok(added.result);
+  let added=await createDraft(owner,repair,"screen","supplier-a","intake:屏幕",2,4321);ok(added.result);
   let snapshot=added.result.data,screen=snapshot.procurement.find(row=>row.id===added.record.id);
-  assert.equal(procurementDomain.procurementStatus(screen),"cart");assert.equal(screen.events[0].actorId,owner.memberId);
+  assert.equal(procurementDomain.procurementStatus(screen),"draft");assert.equal(screen.events.length,0);
   assert.equal(workflowDomain.workflowGroup(intakeDomain.intakeDirectoryEntry(snapshot.intakes.find(row=>row.id===repair)),snapshot.procurement,snapshot.workflows[repair]),"processing");
   const noCost=(await state(tech)).procurement.find(row=>row.id===screen.id);assert.equal(noCost.unitCostCents,null);
-  pass("create-cart atomically adds a server-attributed event without moving to purchase or leaking cost");
+  pass("create atomically records an unplaced purchase without moving to purchase or leaking cost");
 
-  for(const [change,expected] of [[{intakeRevision:0},409],[{workflowRevision:0},409],[{record:{...added.record,supplierId:"missing"}},409],[{record:{...added.record,requirementId:"intake:电池",requirementRevision:1}},409]]) {
+  for(const [change,expected] of [[{type:"save-item",revision:0,quoteCents:null,intakeRevision:0},409],[{type:"save-item",revision:0,quoteCents:null,workflowRevision:0},409],[{record:{...added.record,supplierId:"missing"}},409],[{record:{...added.record,requirementId:"intake:电池",requirementRevision:1}},409]]) {
     const payload={...added.payload,...change,record:{...(change.record??added.record),id:"PO-"+randomUUID()}};
     assert.equal((await command(owner,"procurement",payload)).status,expected);
   }
-  const costGuess=await createCart(tech,second,"cost-guess","supplier-a",undefined,1,4321);assert.equal(costGuess.result.status,403);
+  const costGuess=await createDraft(tech,second,"cost-guess","supplier-a",undefined,1,4321);assert.equal(costGuess.result.status,403);
   assert.equal((await command(owner,"repair.workflow",{id:repair,revision:snapshot.workflows[repair].revision,command:{type:"not_a_command",outcome:"notified",note:"forged"}})).status,400);
   assert.equal((await command(owner,"repair.workflow",{id:repair,revision:snapshot.workflows[repair].revision,command:{type:"pickup_notice",outcome:"notified",note:"forged",actorId:"forged"}})).status,400);
   pass("stale intake/workflow, pending demand, unknown supplier, cost guesses and forged workflow inputs denied");
@@ -115,37 +120,41 @@ try {
   ok(await command(tech,"procurement",{type:"edit",record:legacyDraft,revision:screen.events.length}));
   screen=(await state(owner)).procurement.find(row=>row.id===screen.id);
   assert.equal(screen.supplierId,"supplier-a");assert.equal(screen.requirementId,"intake:屏幕");assert.equal(screen.specification,added.record.specification);assert.equal(screen.unitCostCents,4321);
-  ok(await command(owner,"procurement",{type:"append",id:screen.id,revision:screen.events.length,event:{id:randomUUID(),time:"1999-01-01 00:00:00",type:"cart_added",note:"Synthetic readd",quantity:0}}));
+  assert.equal((await command(owner,"procurement",{type:"append",id:screen.id,revision:screen.events.length,event:{id:randomUUID(),time:"",type:"cart_added",note:"Retired write",quantity:0}})).status,400);
   await setRequirement(owner,repair,"屏幕","parts",true);
   pass("old edit payload preserves supplier, requirement, specification and hidden cost");
 
-  const a1=(await createCart(owner,second,"a1")).record,a2=(await createCart(owner,second,"a2")).record,b1=(await createCart(owner,second,"b1","supplier-b")).record;
-  const foreignRecord=(await createCart(other,foreign,"foreign")).record;
+  const a1=(await createDraft(owner,second,"a1")).record,a2=(await createDraft(owner,second,"a2")).record,b1=(await createDraft(owner,second,"b1","supplier-b")).record;
+  const foreignRecord=(await createDraft(other,foreign,"foreign")).record;
+  for(const id of [a1.id,a2.id,b1.id])ok((await orderOne(owner,id)).result);
+  ok((await orderOne(other,foreignRecord.id)).result);
+  const unplaced=(await createDraft(owner,second,"unplaced")).record;
   snapshot=await state(owner);
-  const selected=id=>({id,revision:snapshot.procurement.find(row=>row.id===id).events.length});
+  const selected=id=>({id,revision:snapshot.procurement.find(row=>row.id===id).events.length,quantity:1});
   const invalid=[
-    [{action:"ordered",supplierId:"supplier-a",items:[]},400],
-    [{action:"ordered",supplierId:"supplier-a",items:Array.from({length:101},()=>selected(a1.id))},400],
-    [{action:"ordered",supplierId:"supplier-a",items:[selected(a1.id),selected(a1.id)]},400],
-    [{action:"ordered",supplierId:"supplier-a",items:[selected(a1.id),selected(b1.id)]},409],
-    [{action:"ordered",supplierId:"supplier-a",items:[selected(a1.id),{...selected(a2.id),revision:999}]},409],
-    [{action:"ordered",supplierId:"supplier-a",items:[selected(a1.id),{id:foreignRecord.id,revision:1}]},404],
-    [{action:"ordered",supplierId:"supplier-a",items:[{...selected(a1.id),quantity:1}]},400],
-    [{action:"arrival",supplierId:"supplier-a",items:[{...selected(a1.id),quantity:1}]},400],
+    [{action:"ordered",supplierId:"supplier-a",items:[selected(a1.id)]},400],
+    [{action:"arrival",supplierId:"supplier-a",items:[]},400],
+    [{action:"arrival",supplierId:"supplier-a",items:Array.from({length:101},()=>selected(a1.id))},400],
+    [{action:"arrival",supplierId:"supplier-a",items:[selected(a1.id),selected(a1.id)]},400],
+    [{action:"arrival",supplierId:"supplier-a",items:[selected(a1.id),selected(b1.id)]},409],
+    [{action:"arrival",supplierId:"supplier-a",items:[selected(a1.id),{...selected(a2.id),revision:999}]},409],
+    [{action:"arrival",supplierId:"supplier-a",items:[selected(a1.id),{id:foreignRecord.id,revision:1,quantity:1}]},404],
+    [{action:"arrival",supplierId:"supplier-a",items:[{...selected(a1.id),quantity:0}]},400],
+    [{action:"arrival",supplierId:"supplier-a",items:[{...selected(unplaced.id),quantity:1}]},400],
   ];
   for(const [payload,expected] of invalid){const before=await state(owner);assert.equal((await command(owner,"procurement.batch",payload)).status,expected);assert.deepEqual((await state(owner)).procurement,before.procurement);}
   pass("empty, 101-row, duplicate, mixed-supplier, stale, foreign and invalid-quantity batches leave all records unchanged");
 
-  const ordered=await batch(owner,"ordered",[screen.id,a1.id]);ok(ordered.result);
+  const ordered=await orderOne(owner,screen.id);ok(ordered.result);
   snapshot=ordered.result.data;
   assert.equal(snapshot.procurement.find(row=>row.id===a2.id).events.length,1);assert.equal(snapshot.procurement.find(row=>row.id===b1.id).events.length,1);
-  for(const id of [screen.id,a1.id]){const event=snapshot.procurement.find(row=>row.id===id).events.at(-1);assert.equal(event.batchId,ordered.requestId);assert.equal(event.actorId,owner.memberId);}
-  ok(await command(owner,"procurement.batch",ordered.payload,ordered.requestId));
-  assert.equal((await command(owner,"procurement.batch",{...ordered.payload,items:ordered.payload.items.slice(0,1)},ordered.requestId)).status,409);
+  const actualEvent=snapshot.procurement.find(row=>row.id===screen.id).events.at(-1);assert.equal(actualEvent.type,"ordered");assert.equal(actualEvent.actorId,owner.memberId);
+  ok(await command(owner,"procurement",ordered.payload,ordered.requestId));
+  assert.equal((await command(owner,"procurement",{...ordered.payload,event:{...ordered.payload.event,note:"Changed retry"}},ordered.requestId)).status,409);
   const receipt=ok(await request(owner,"/api/backend/operation?"+new URLSearchParams({storeId:stores[0],memberId:owner.memberId,requestId:ordered.requestId})));
   assert.equal(receipt.status,"committed");assert.equal(receipt.operation.requestId,ordered.requestId);
   const [receiptCount]=await sql`select count(*)::int count from chinatech_v2_private.command_receipts where store_id=${stores[0]} and request_id=${ordered.requestId}`;assert.equal(receiptCount.count,1);
-  pass("selected same-supplier orders commit once and response-loss receipt recovery preserves unselected rows");
+  pass("individual actual order commits once and response-loss receipt recovery preserves unselected rows");
 
   const firstArrival=await batch(owner,"arrival",[screen.id],"supplier-a",[1]);ok(firstArrival.result);
   ok(await command(owner,"procurement.batch",firstArrival.payload,firstArrival.requestId));
@@ -159,7 +168,7 @@ try {
   snapshot=await state(owner);summary=procurementDomain.repairPartsSummary(snapshot.procurement,repair,requirements(snapshot,repair));assert.equal(summary.allRequiredReady,true);
   snapshot=ok(await workflow(owner,repair,{type:"arrival_notice",outcome:"notified",note:"Synthetic arrival call"}));
   assert.equal(snapshot.workflows[repair].events.at(-1).actorId,owner.memberId);
-  assert.equal(workflowDomain.workflowGroup(intakeDomain.intakeDirectoryEntry(snapshot.intakes.find(row=>row.id===repair)),snapshot.procurement,snapshot.workflows[repair]),"arrival");
+  assert.equal(workflowDomain.workflowGroup(intakeDomain.intakeDirectoryEntry(snapshot.intakes.find(row=>row.id===repair)),snapshot.procurement,snapshot.workflows[repair]),"processing");
   pass("partial receipts retry once, pending battery blocks completeness, explicit no-purchase unblocks arrival notification");
 
   snapshot=ok(await workflow(owner,repair,{type:"stage",status:"ready",note:"Synthetic repair completion"}));
@@ -178,6 +187,7 @@ try {
   assert.equal(snapshot.workflows[repair].followUp.collectedUnpaid,false);assert.equal(snapshot.workflows[repair].handedOver.unpaid,true);
   pass("pickup cycle resets notice while debt survives repair and cancellation; explicit close retains actual handback history");
 
+  ok(await workflow(owner,repair,{type:"stage",status:"repairing",note:"Synthetic explicit recovery before changing the intake model"}));
   snapshot=await state(owner);const oldIntake=snapshot.intakes.find(row=>row.id===repair),beforeRequirements=snapshot.workflows[repair].requirements;
   ok(await command(owner,"intake.save",{data:{...oldIntake,model:"Synthetic model updated"},revision:oldIntake.revision,signatureCount:0,photos:[]}));
   snapshot=await state(owner);assert.deepEqual(snapshot.workflows[repair].requirements,beforeRequirements);
@@ -191,10 +201,10 @@ try {
   snapshot=await state(owner);const customDirectory=intakeDomain.intakeDirectoryEntry(snapshot.intakes.find(row=>row.id===customRepair));
   const customItem={id:"project:camera",title:"Synthetic camera",request:"Synthetic compatible camera",revision:1,mode:"parts",confirmed:false,deviceFingerprint:customDirectory.deviceFingerprint};
   snapshot=ok(await workflow(owner,customRepair,{type:"requirement",item:customItem,note:"Synthetic custom project"}));
-  const camera=await createCart(owner,customRepair,"camera","supplier-a",customItem.id,1);ok(camera.result);
-  const glue=await createCart(owner,customRepair,"camera-glue","supplier-a",customItem.id,1);ok(glue.result);
+  const camera=await createDraft(owner,customRepair,"camera","supplier-a",customItem.id,1);ok(camera.result);
+  const glue=await createDraft(owner,customRepair,"camera-glue","supplier-a",customItem.id,1);ok(glue.result);
   await setRequirement(owner,customRepair,customItem.title,"parts",true);
-  ok((await batch(owner,"ordered",[camera.record.id,glue.record.id])).result);
+  for(const id of [camera.record.id,glue.record.id])ok((await orderOne(owner,id)).result);
   ok((await batch(owner,"arrival",[camera.record.id,glue.record.id],"supplier-a",[1,1])).result);
   snapshot=await state(owner);assert.equal(procurementDomain.repairPartsSummary(snapshot.procurement,customRepair,requirements(snapshot,customRepair)).allRequiredReady,true);
   const beforeCustom=requirements(snapshot,customRepair)[0],customIntake=snapshot.intakes.find(row=>row.id===customRepair),customWorkflowRevision=snapshot.workflows[customRepair].revision;
@@ -220,7 +230,7 @@ try {
   const optionalDirectory=intakeDomain.intakeDirectoryEntry(snapshot.intakes.find(row=>row.id===optionalRepair));
   const optionalItem={...customItem,id:"project:optional",title:"Synthetic optional scope",deviceFingerprint:optionalDirectory.deviceFingerprint};
   ok(await workflow(owner,optionalRepair,{type:"requirement",item:optionalItem,note:"Synthetic optional project"}));
-  const optional=await createCart(owner,optionalRepair,"optional","supplier-a",optionalItem.id,1,null,false);ok(optional.result);
+  const optional=await createDraft(owner,optionalRepair,"optional","supplier-a",optionalItem.id,1,null,false);ok(optional.result);
   snapshot=await state(owner);assert.equal(procurementDomain.repairPartsSummary(snapshot.procurement,optionalRepair,requirements(snapshot,optionalRepair)).allRequiredReady,false);
   await setRequirement(owner,optionalRepair,optionalItem.title,"parts",true);
   snapshot=await state(owner);const optionalSummary=procurementDomain.repairPartsSummary(snapshot.procurement,optionalRepair,requirements(snapshot,optionalRepair));
@@ -231,7 +241,7 @@ try {
 
   snapshot=await state(owner);
   ok(await command(owner,"settings.save",{revision:snapshot.settings.revision,settings:{...snapshot.settings,suppliers:snapshot.settings.suppliers.map(item=>item.id==="supplier-a"?{...item,active:false}:item)}}));
-  assert.equal((await batch(owner,"ordered",[a2.id])).result.status,409);
+  assert.equal((await orderOne(owner,unplaced.id)).result.status,409);
   ok((await batch(owner,"arrival",[a1.id],"supplier-a",[1])).result);
   snapshot=await state(owner);ok(await command(owner,"settings.save",{revision:snapshot.settings.revision,settings:{...snapshot.settings,suppliers:snapshot.settings.suppliers.map(item=>({...item,active:true}))}}));
   pass("disabled supplier prevents new orders while existing real arrivals remain writable");
@@ -241,19 +251,17 @@ try {
   snapshot=await state(owner);assert.equal(snapshot.procurement.find(row=>row.id===legacyRecord.id).supplierId,undefined);
   const legacySupplier={id:"legacy-exact",name:legacyRecord.supplier,phone:"",website:"",active:true};
   ok(await command(owner,"settings.save",{revision:snapshot.settings.revision,settings:{...snapshot.settings,suppliers:[...snapshot.settings.suppliers,legacySupplier]}}));
-  ok(await command(owner,"procurement",{type:"append",id:legacyRecord.id,revision:0,event:{id:randomUUID(),time:"1999-01-01 00:00:00",type:"cart_added",note:"Reviewed old record",quantity:0}}));
-  const legacyOrdered=await batch(owner,"ordered",[legacyRecord.id],legacySupplier.id);ok(legacyOrdered.result);
+  const legacyOrdered=await orderOne(owner,legacyRecord.id);ok(legacyOrdered.result);
   assert.equal(legacyOrdered.result.data.procurement.find(row=>row.id===legacyRecord.id).supplierId,legacySupplier.id);
   const ambiguousRecord={...legacyRecord,id:"PO-unmatched-"+suffix,supplier:"synthetic a"};
   ok(await command(owner,"procurement",{type:"create",record:ambiguousRecord}));
-  ok(await command(owner,"procurement",{type:"append",id:ambiguousRecord.id,revision:0,event:{id:randomUUID(),time:"1999-01-01 00:00:00",type:"cart_added",note:"Legacy literal name",quantity:0}}));
-  assert.equal((await batch(owner,"ordered",[ambiguousRecord.id],"supplier-a")).result.status,409);
+  assert.equal((await orderOne(owner,ambiguousRecord.id)).result.status,409);
   pass("legacy supplier names map only by unique exact match and never by fuzzy or case-folded guesses");
 
-  const a3=(await createCart(owner,second,"a3")).record;
+  const a3=(await createDraft(owner,second,"a3")).record;ok((await orderOne(owner,a3.id)).result);
   await sql.unsafe(`create function chinatech_v2_private.${failName}() returns trigger language plpgsql as $$ begin if new.store_id='${stores[0]}'::uuid and new.id='${a3.id}' then raise exception 'synthetic repair operations failure'; end if; return new; end $$`);
   await sql.unsafe(`create trigger ${failName} before update on chinatech_v2_private.procurement_records for each row execute function chinatech_v2_private.${failName}()`);failureTrigger=true;
-  const beforeFailure=await state(owner),failed=await batch(owner,"ordered",[a2.id,a3.id]);assert.equal(failed.result.status,503);
+  const beforeFailure=await state(owner),failed=await batch(owner,"arrival",[a2.id,a3.id],"supplier-a",[1,1]);assert.equal(failed.result.status,503);
   const afterFailure=await state(owner);assert.deepEqual(afterFailure.procurement,beforeFailure.procurement);assert.equal(afterFailure.revision,beforeFailure.revision);
   const [absentReceipt]=await sql`select count(*)::int count from chinatech_v2_private.command_receipts where store_id=${stores[0]} and request_id=${failed.requestId}`;assert.equal(absentReceipt.count,0);
   await sql.unsafe(`drop trigger ${failName} on chinatech_v2_private.procurement_records`);await sql.unsafe(`drop function chinatech_v2_private.${failName}()`);failureTrigger=false;
@@ -261,11 +269,11 @@ try {
   pass("injected database failure rolls back entire batch, revision and receipt; exact retry succeeds once");
 
   // Seed only this run's local store to exercise the successful boundary without 100 setup HTTP requests.
-  const hundred=Array.from({length:100},(_,index)=>({...legacyRecord,id:`PO-limit-${suffix}-${index}`,supplier:"Synthetic A",supplierId:"supplier-a",events:[{id:randomUUID(),type:"cart_added",quantity:0,time:"2026-10-02 00:00:00",note:"Synthetic fixture",actorId:owner.memberId}]}));
+  const hundred=Array.from({length:100},(_,index)=>({...legacyRecord,id:`PO-limit-${suffix}-${index}`,supplier:"Synthetic A",supplierId:"supplier-a",events:[{id:randomUUID(),type:"ordered",quantity:0,time:"2026-10-02 00:00:00",note:"Synthetic fixture",actorId:owner.memberId}]}));
   await sql`insert into chinatech_v2_private.procurement_records(store_id,id,repair_id,data)
     select ${stores[0]},fixture.id,${second},fixture.data from jsonb_to_recordset(${sql.json(hundred.map(record=>({id:record.id,data:record})))}::jsonb) as fixture(id text,data jsonb)`;
   await sql`update chinatech_v2_private.store_state set revision=revision+1 where store_id=${stores[0]}`;
-  const hundredResult=await batch(owner,"ordered",hundred.map(row=>row.id));ok(hundredResult.result);
+  const hundredResult=await batch(owner,"arrival",hundred.map(row=>row.id),"supplier-a",hundred.map(()=>1));ok(hundredResult.result);
   for(const record of hundred){const saved=hundredResult.result.data.procurement.find(row=>row.id===record.id);assert.equal(saved.events.length,2);assert.equal(saved.events.at(-1).batchId,hundredResult.requestId);}
   pass("exactly 100 allocated rows commit in one successful batch");
 

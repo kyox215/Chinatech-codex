@@ -133,7 +133,7 @@ test("one supplier entry keeps the remaining project visible and restores usable
   await expect(dialog.getByRole("group", { name: "电池", exact: true })).toBeVisible();
   await screen.getByRole("combobox", { name: "供应商（选填）" }).fill("MobileParts SRL");
   await screen.getByRole("option", { name: "MobileParts SRL", exact: true }).click();
-  await expect(screen.getByRole("status")).toHaveText("保存后加车");
+  await expect(screen.getByRole("status")).toHaveText("保存后待采购");
   await screen.getByLabel("屏幕报价", { exact: true }).fill("89");
   await dialog.getByRole("button", { name: "保存", exact: true }).press("Enter");
   await expect(dialog).not.toBeVisible();
@@ -147,7 +147,7 @@ test("one supplier entry keeps the remaining project visible and restores usable
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("chinatech.m1.procurement.v1")!).records);
   expect(saved).toHaveLength(1);
   expect(saved[0]).toMatchObject({ repairId: basicId, item: "屏幕", supplierId: "demo-mobile" });
-  expect(saved[0].events.map((event: { type: string }) => event.type)).toEqual(["cart_added"]);
+  expect(saved[0].events.map((event: { type: string }) => event.type)).toEqual([]);
 
   for (const width of [1440, 1024, 390, 375]) {
     await test.step(`${width}px: visible remaining project and a single actionable supplier entry`, async () => {
@@ -163,7 +163,7 @@ test("one supplier entry keeps the remaining project visible and restores usable
       await trigger.click();
       await expect(dialog).toBeVisible();
       await expect(screen.getByLabel("屏幕报价", { exact: true })).toHaveValue("89.00");
-      await expect(screen.getByRole("status")).toHaveText("已加购物车");
+      await expect(screen.getByRole("status")).toHaveText("待采购");
       await expect(dialog.getByRole("group", { name: "电池", exact: true }).getByRole("status")).toHaveText("待填写");
       await expect(screen.getByRole("combobox", { name: "供应商（选填）" })).toHaveValue("MobileParts SRL");
       await expect(dialog.getByRole("group", { name: "电池", exact: true }).getByRole("combobox", { name: "供应商（选填）" })).toHaveValue("");
@@ -387,14 +387,13 @@ test("detail demand, parts and signature flow together independently of a tall s
       await page.setViewportSize({ width, height: 1000 });
       await expectPageFits(page);
       const gaps = await page.evaluate(() => {
-        const main = document.querySelector(".intake-review__main")!;
-        const issue = main.querySelector(".intake-review__issue-section")!.getBoundingClientRect();
-        const related = main.querySelector(".intake-review__related")!;
-        const [parts, signature] = [...related.children].map(element => element.getBoundingClientRect());
-        return { beforeParts: parts.top - issue.bottom, beforeSignature: signature.top - parts.bottom };
+        const blocks=[...document.querySelector('[data-repair-main]')!.children].filter(e=>e.getBoundingClientRect().height>0).map(e=>e.getBoundingClientRect());
+        return blocks.slice(1).map((rect,index)=>rect.top-blocks[index].bottom);
       });
-      expect(gaps.beforeParts).toBe(width >= 768 ? 14 : 10);
-      expect(gaps.beforeSignature).toBe(width >= 768 ? 14 : 10);
+      expect(gaps.length).toBe(width>=768?1:2);
+      for(const gap of gaps)expect(gap).toBe(16);
+      await expect(page.locator('[data-repair-project]')).toHaveCount(record.itemQuotes!.length);
+      await expect(page.getByRole('tab',{name:/^供应商/})).toBeVisible();
     }
     const before = await page.evaluate(() => localStorage.getItem("chinatech.m1.local-intakes.v1"));
     await signature.getByRole("button", { name: "添加签名", exact: true }).click();

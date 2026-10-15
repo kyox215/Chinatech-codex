@@ -1,59 +1,58 @@
 WEBVTT
 
-00:00:00.000 --> 00:00:04.042
+00:00:00.000 --> 00:00:03.333
 Premi il pulsante dei ricambi nell'elenco delle riparazioni.
 
-00:00:04.042 --> 00:00:08.250
+00:00:03.333 --> 00:00:07.000
 La finestra contiene già gli interventi scelti all'accettazione.
 
-00:00:08.250 --> 00:00:11.208
+00:00:07.000 --> 00:00:09.708
 Compila ogni voce senza crearla di nuovo.
 
-00:00:11.208 --> 00:00:14.667
+00:00:09.708 --> 00:00:12.667
 Seleziona il fornitore per i ricambi da acquistare.
 
-00:00:14.667 --> 00:00:19.292
+00:00:12.667 --> 00:00:16.958
 Il preventivo è facoltativo; il costo richiede permessi
 finanziari.
 
-00:00:19.292 --> 00:00:23.792
+00:00:16.958 --> 00:00:21.125
 Il solo preventivo, senza fornitore, non crea un acquisto.
 
-00:00:23.792 --> 00:00:25.917
-Controlla e salva.
+00:00:21.125 --> 00:00:24.125
+Controlla preventivo e fornitore, poi salva.
 
-00:00:25.917 --> 00:00:29.917
-Le voci con un fornitore entrano nel carrello acquisti.
+00:00:24.125 --> 00:00:26.167
+Il ricambio resta da acquistare.
 
-00:00:29.917 --> 00:00:35.042
-Il carrello è solo una preparazione: il sito non invia ordini
-al fornitore.
+00:00:26.167 --> 00:00:31.125
+Il sito non invia ordini; preventivo cliente e costo interno
+restano separati.
 
-00:00:35.042 --> 00:00:41.042
-Dopo aver ordinato realmente al fornitore, apri il carrello e
-seleziona fornitore e voci.
+00:00:31.125 --> 00:00:34.792
+Dopo aver ordinato al fornitore, apri il relativo acquisto.
 
-00:00:41.042 --> 00:00:46.375
-Premi il controllo della lista in basso, verifica e conferma i
-fatti registrati.
+00:00:34.792 --> 00:00:40.750
+Conferma esplicitamente che l’ordine è già stato effettuato,
+poi registra il fatto per ogni intervento.
 
-00:00:46.375 --> 00:00:52.833
+00:00:40.750 --> 00:00:46.750
 Apri gli arrivi multipli, scegli fornitore e voci e inserisci
 le quantità ricevute in questa consegna.
 
-00:00:52.833 --> 00:00:54.958
+00:00:46.750 --> 00:00:48.083
 Controlla e salva.
 
-00:00:54.958 --> 00:00:58.083
+00:00:48.083 --> 00:00:50.958
 Ogni consegna va registrata separatamente.
 
-00:00:58.083 --> 00:01:02.750
+00:00:50.958 --> 00:00:55.000
 La pagina acquisti mostra quantità arrivate e riparazioni
 collegate.
 
-00:01:02.750 --> 00:01:08.292
+00:00:55.000 --> 00:00:59.917
 Dopo l'arrivo, continua a seguire la riparazione e il cliente
 secondo i fatti reali.
 
-00:01:08.292 --> 00:01:11.167
+00:00:59.917 --> 00:01:02.375
 Questi dati non sono un magazzino ricambi.

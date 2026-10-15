@@ -42,3 +42,9 @@ node scripts/tutorials/verify.mjs all
 渲染器先在 `.work/evidence` 完成单集 MP4、WebP、VTT，再逐文件原子替换公开路径，避免本地播放器读到半截视频。全量资产稳定后再执行最终校验和播放器回归；期间不要把旧媒体的播放结果当作新媒体验证。
 
 `scripts/tutorials/.work/` 保存私有截图、音频、合成中间帧、测量和验证证据，已被忽略。验证汇总是 `.work/evidence/verification.json`，各集运动联系图为 `*-motion-sheet.png`；这些文件不能作为网页依赖或一起发布。全量验证通过时另生成可提交的 `assets-manifest.json`，记录 45 个公共文件的路径、字节数、SHA-256，以及 15 集的时长、语音、章节和验证结果，便于鉴别产物版本。网站播放只使用 `public/tutorials` 下的 MP4、WebP、VTT，以及生成的 `lib/tutorials.ts`。完成后仍需运行播放器和语言切换的浏览器回归；媒体解码检查不替代页面交互测试。
+
+## 2026-10-15 工单整合教程更新
+
+采购/跟进两集的三语画面、讲稿、字幕和封面同步新流程：保存为待采购，实际下单逐项确认；联系先选结果再记录，无必填备注；详情四分组。原Edge作者配音端点返回403，本次明确使用本机macOS系统语音：中文Tingting/意大利语Alice/英语Samantha，分别190/170/175词每分钟；整集重制避免同集混音，网站运行不请求TTS。`TUTORIAL_TTS_ENGINE=macos node scripts/tutorials/prepare-audio.mjs all procurement`（follow-up同理）；默认Edge路径保持原有用途。
+
+`verify.mjs all procurement,follow-up`支持同时验收指定多集：新6个视频仍逐句测时/全文解码/字幕章节/鼠标运动/封面检查，旧9集须匹配原manifest完整字节与SHA并全量解码，最后原子更新15集manifest。不得把旧9集的哈希/解码复用称为本轮重拍或重验鼠标目标。

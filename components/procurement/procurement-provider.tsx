@@ -4,7 +4,7 @@ import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand, bac
 import { requirePreviewPermission } from "@/lib/staff-client";
 import { createContext, useContext, useSyncExternalStore } from "react";
 import { procurementRecords } from "@/lib/procurement-fixtures";
-import { appendProcurementEvent, validateProcurementDraft, procurementStatus, isPreorder, type ProcurementEvent, type ProcurementRecord } from "@/lib/procurement";
+import { appendProcurementEvent, validateProcurementDraft, isPreorder, type ProcurementEvent, type ProcurementRecord } from "@/lib/procurement";
 import { applyProcurementBatch, resolveSupplierId, type ProcurementBatchItem } from "@/lib/procurement-batch";
 import { parseProcurementState } from "@/lib/procurement-storage";
 import { recordRepairUpdate, type RepairUpdates } from "@/lib/repair-list-order";
@@ -19,9 +19,9 @@ import { getRepairOrder } from "@/lib/repair-fixtures";
 import { previewRepairWorkflow } from "@/components/repairs/repair-workflow-store";
 
 type Feedback = { recordId: string; requestId?: string; error: boolean; message: string } | null;
-export type ProcurementListView = { query: string; filter: "all" | "draft" | "cart" | "open" | "complete"; repairId: string; groupBy: string };
+export type ProcurementListView = { query: string; filter: "all" | "draft" | "open" | "complete"; repairId: string; groupBy: string };
 type State = { storageError?: string; records: ProcurementRecord[]; feedback: Feedback; listView: ProcurementListView; repairUpdates: RepairUpdates };
-export type ProcurementAction = { type:"save-items";repairId:string;intakeRevision:number;workflowRevision:number;items:RepairItemEdit[] } | { type:"save-item";record:ProcurementRecord;revision:number;workflowRevision:number;intakeRevision:number;quoteCents:number|null;noProcurement?:boolean } | { type: "create"; record: ProcurementRecord } | { type: "create-cart"; record: ProcurementRecord; workflowRevision: number; intakeRevision: number } | { type: "edit"; record: ProcurementRecord; revision: number } | { type: "append"; id: string; event: ProcurementEvent; revision: number } | { type: "link_requirement"; id: string; revision: number; requirementId: string; requirementRevision: number; note: string } | { type: "batch"; action: "ordered" | "arrival"; supplierId: string; items: ProcurementBatchItem[] } | { type: "list-view"; view: ProcurementListView } | { type: "clear-feedback" };
+export type ProcurementAction = { type:"save-items";repairId:string;intakeRevision:number;workflowRevision:number;items:RepairItemEdit[] } | { type:"save-item";record:ProcurementRecord;revision:number;workflowRevision:number;intakeRevision:number;quoteCents:number|null;noProcurement?:boolean } | { type: "create"; record: ProcurementRecord } | { type: "edit"; record: ProcurementRecord; revision: number } | { type: "append"; id: string; event: ProcurementEvent; revision: number } | { type: "link_requirement"; id: string; revision: number; requirementId: string; requirementRevision: number; note: string } | { type: "batch"; action: "arrival"; supplierId: string; items: ProcurementBatchItem[] } | { type: "list-view"; view: ProcurementListView } | { type: "clear-feedback" };
 const recordIdOf = (action: ProcurementAction) => "record" in action ? action.record.id : "id" in action ? action.id : action.type === "save-items" ? action.repairId : action.type === "batch" ? "batch" : "";
 const storageKey = "chinatech.m1.procurement.v1";
 const changed = "chinatech-procurement-change";
@@ -46,21 +46,16 @@ function mutate(state: State, action: Exclude<ProcurementAction, {type:"list-vie
   const id = recordIdOf(action); const suppliers = parseStoreSettings(window.localStorage.getItem("chinatech.m1.store-settings.v1")).suppliers;
   let records = state.records; let message = "配件事实已保存。"; const repairIds = new Set<string>();
   if (action.type === "batch") {
-    if (action.action === "ordered") for (const item of action.items) { const row = records.find(row => row.id === item.id); if (row) { checkRequirement(row); const order=previewOrder(row.repairId); assertRepairProcurementOpen(order,previewRepairWorkflow(order)); } }
     records = applyProcurementBatch(records, action.action, action.supplierId, action.items, suppliers, { id: crypto.randomUUID(), time, actorId });
     action.items.forEach(item => { const row = records.find(row => row.id === item.id); if (row) repairIds.add(row.repairId); });
-    message = action.action === "ordered" ? "所选供应商条目已记录实际下单。" : "本批实际到货已保存。";
-  } else if (action.type === "create" || action.type === "create-cart") {
+    message = "本批实际到货已保存。";
+  } else if (action.type === "create") {
     validateProcurementDraft(action.record); if (records.some(row => row.id === id)) throw new Error("采购编号已存在。");
-    const nextDraft = action.record; let next = nextDraft; const order = previewOrder(next.repairId);
+    const next = action.record; const order = previewOrder(next.repairId);
     assertRepairProcurementOpen(order,previewRepairWorkflow(order));
     if (next.supplierId && !suppliers.some(row => row.id === next.supplierId && row.active)) throw new Error("供应商已变化，请重新选择。");
     checkRequirement(next);
-    if (action.type === "create-cart") {
-      if ((order.intakeRevision ?? 1) !== action.intakeRevision || previewRepairWorkflow(order).revision !== action.workflowRevision) throw new Error("接单资料或维修项目已变化，请重新核对。");
-      next = appendProcurementEvent(next, { id: crypto.randomUUID(), type:"cart_added", quantity:0, time, actorId, note:"已核对配件并加入采购车。" });
-      message = "已加购物车 · 未下单。";
-    } else message = "采购草稿已创建，尚未下单。";
+    message = "采购草稿已创建，尚未下单。";
     records = [next, ...records]; repairIds.add(next.repairId);
   } else {
     const current = records.find(row => row.id === id); if (!current) throw new Error("采购记录不存在。");
@@ -73,15 +68,14 @@ function mutate(state: State, action: Exclude<ProcurementAction, {type:"list-vie
       const draft = { ...current, ...action.record, events: [] }; validateProcurementDraft(draft); checkRequirement(draft);
       const supplierId = resolveSupplierId(draft, suppliers); if (!supplierId || !suppliers.some(row => row.id === supplierId && row.active)) throw new Error("请重新核对有效供应商。");
       let history = current;
-      if (procurementStatus(current) === "cart") history = appendProcurementEvent(history, { id:crypto.randomUUID(), type:"cart_removed", quantity:0, time, actorId, note:"配件资料变更，取消原加车标记。" });
       history = appendProcurementEvent(history, { id:crypto.randomUUID(), type:"details_changed", quantity:0, time, actorId, note:`${current.supplier} / ${current.item} → ${draft.supplier} / ${draft.item}` });
-      next = { ...draft, reference:current.reference, events:history.events }; message = "配件资料已更新，请按最新资料重新加车。";
+      next = { ...draft, reference:current.reference, events:history.events }; message = "配件资料已更新，尚未下单。";
     } else if (action.type === "link_requirement") {
       next = { ...current, requirementId:action.requirementId, requirementRevision:action.requirementRevision }; checkRequirement(next);
       if (!action.note.trim()) throw new Error("请填写关联核对说明。");
       next = appendProcurementEvent(next, { id:crypto.randomUUID(), type:"requirement_linked", quantity:0, time, actorId, note:`${current.requirementId ?? "未关联"}@${current.requirementRevision ?? "未知"} → ${action.requirementId}@${action.requirementRevision}；${action.note}` });
     } else {
-      if (["ordered", "cart_added"].includes(action.event.type)) { checkRequirement(current); const order=previewOrder(current.repairId); assertRepairProcurementOpen(order,previewRepairWorkflow(order)); }
+      if (action.event.type === "ordered") { checkRequirement(current); const order=previewOrder(current.repairId); assertRepairProcurementOpen(order,previewRepairWorkflow(order)); }
       next = appendProcurementEvent(current, { ...action.event, actorId }, action.revision);
     }
     records = records.map(row => row.id === id ? next : row); repairIds.add(current.repairId);
@@ -128,8 +122,7 @@ function savePreviewItem(current:State, action:Extract<ProcurementAction,{type:"
     selected={...action.record,supplier:supplier.name,unitCostCents:canCost?action.record.unitCostCents:existing?.unitCostCents??null,...(requirement?{requirementId:requirement.id,requirementRevision:requirement.revision}:{})};validateProcurementDraft(selected);
     if(existing&&existing.requirementId!==selected.requirementId)throw new Error("不能改写原采购项目关联。");
     let history={...selected,events:existing?.events??[]};
-    if(existing)history=appendProcurementEvent(history,{id:crypto.randomUUID(),type:"details_changed",quantity:0,time,actorId:actor.id,note:"配件资料已更正，按当前资料加入采购车。"});
-    if(procurementStatus(history)!=="cart")history=appendProcurementEvent(history,{id:crypto.randomUUID(),type:"cart_added",quantity:0,time,actorId:actor.id,note:"已选供应商并加入采购车。"});
+    if(existing)history=appendProcurementEvent(history,{id:crypto.randomUUID(),type:"details_changed",quantity:0,time,actorId:actor.id,note:"配件资料已更正，尚未下单。"});
     selected=history;records=existing?records.map(row=>row.id===selected.id?selected:row):[selected,...records];
   }
   if(requirement){
@@ -139,7 +132,7 @@ function savePreviewItem(current:State, action:Extract<ProcurementAction,{type:"
   const nextWorkflow={...workflow,revision:workflow.revision+1,updatedAt:time,requirements:requirement?[...requirements.filter(row=>row.id!==requirement!.id),requirement]:requirements,events:[...workflow.events,{id:crypto.randomUUID(),time,actorId:actor.id,type:"requirement" as const,label:`${title}：${action.noProcurement?"无需采购":"已选供应商"}`,note:"维修项及报价已保存。"}]};validateWorkflowExtensions(nextWorkflow);
   const workflowEnvelope=JSON.parse(before[1]??'{"version":1,"workflows":{}}');workflowEnvelope.workflows[id]=nextWorkflow;
   const intakeEnvelope=JSON.parse(before[2]??'{"version":1,"records":[]}');if(intake)intakeEnvelope.records=local.map(row=>row.id===id?{...row,...pricing,revision:(row.revision??1)+1,updatedAt:time}:row);
-  const next={...current,records,repairUpdates:recordRepairUpdate(current.repairUpdates,id,time),feedback:{recordId:action.record.id,error:false,message:action.noProcurement?"报价已保存，无需采购。":"已加购物车 · 未下单。"}};
+  const next={...current,records,repairUpdates:recordRepairUpdate(current.repairUpdates,id,time),feedback:{recordId:action.record.id,error:false,message:action.noProcurement?"报价已保存，无需采购。":"报价及供应商已保存 · 未下单。"}};
   const values=[JSON.stringify({version:1,records,repairUpdates:next.repairUpdates}),JSON.stringify(workflowEnvelope),JSON.stringify(intakeEnvelope)];parseProcurementState(values[0]);parseLocalIntakes(values[2]);
   try{keys.forEach((key,index)=>window.localStorage.setItem(key,values[index]));}catch(reason){keys.forEach((key,index)=>{try{if(before[index]===null)window.localStorage.removeItem(key);else window.localStorage.setItem(key,before[index]!);}catch{}});throw reason;}
   cachedRaw=values[0];store=next;window.dispatchEvent(new Event("chinatech-repair-workflow-change"));window.dispatchEvent(new Event("chinatech-local-intake-change"));
@@ -172,13 +165,15 @@ function savePreviewItems(current:State, action:Extract<ProcurementAction,{type:
   window.dispatchEvent(new Event("chinatech-local-intake-change"));
 }
 async function dispatchAction(action: ProcurementAction, options?: { requestId?: string }) {
+  const rawAction=action as {type:string;action?:string;event?:{type:string}};
+  if(rawAction.type==="create-cart" || (rawAction.type==="batch"&&rawAction.action==="ordered") || (rawAction.type==="append"&&["cart_added","cart_removed"].includes(rawAction.event?.type??"")))throw new Error("采购车操作已停用，请核对当前采购资料。");
   const current=read();if(action.type==="list-view"||action.type==="clear-feedback"){store={...current,...(action.type==="list-view"?{listView:action.view}:{feedback:null})};window.dispatchEvent(new Event(changed));return;}
   const recordId=recordIdOf(action);
   const requestId=options?.requestId??crypto.randomUUID();
   try {
     if(isBackendClient()) {
       if(action.type==="batch") {const {type:_type,...payload}=action;void _type;await backendCommand("procurement.batch",payload,requestId);} else await backendCommand("procurement",action,requestId);
-      read();store={...store,feedback:{recordId,requestId,error:false,message:action.type==="create-cart"?"已加购物车 · 未下单。":action.type==="save-items"?action.items.some(row=>row.purchase)?"报价及供应商已保存 · 未下单。":"报价已保存。":"配件事实已保存。"}};
+      read();store={...store,feedback:{recordId,requestId,error:false,message:action.type==="save-items"?action.items.some(row=>row.purchase)?"报价及供应商已保存 · 未下单。":"报价已保存。":"配件事实已保存。"}};
     } else {
       const actor=requirePreviewPermission("repairs.edit");if(current.storageError)throw new Error(current.storageError);
       const time=new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Rome",dateStyle:"short",timeStyle:"medium"}).format(new Date());

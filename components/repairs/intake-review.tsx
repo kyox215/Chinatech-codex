@@ -2,6 +2,7 @@
 
 import { useLanguage } from "@/components/language-provider";
 import { repairKnownText, repairServiceTexts } from "@/lib/i18n/repair-display";
+import { intakeRequirements } from "@/lib/repair-requirements";
 import { printIssue } from "@/lib/print-language";
 import { itemQuoteTotal, type ItemQuote, type ItemQuoteChange } from "@/lib/repair-item-pricing";
 import type { ReactNode } from "react";
@@ -16,11 +17,12 @@ const deviceIcons = { 手机: Smartphone, 电脑: Laptop, 平板: Tablet, 游戏
 const qualityLabels = { original: "原装", assembled: "组装" };
 const appleLabels = { capacity: "扩容", diagnostics: "跑诊断", both: "扩容跑诊断" };
 
-export function IntakeReview({ data, photos = [], onEdit, layout = "review", metadata, relatedContent, asideContent, statusContent }: { data: ReviewData; photos?: IntakePhoto[]; onEdit?: (step: number) => void; layout?: "review" | "detail"; metadata?: ReactNode; relatedContent?: ReactNode; asideContent?: ReactNode; statusContent?: ReactNode }) {
+export function IntakeReview({ data, photos = [], onEdit, layout = "review", metadata, relatedContent, asideContent, statusContent, detailContent }: { data: ReviewData; photos?: IntakePhoto[]; onEdit?: (step: number) => void; layout?: "review" | "detail"; metadata?: ReactNode; relatedContent?: ReactNode; asideContent?: ReactNode; statusContent?: ReactNode; detailContent?: ReactNode }) {
   const { t, locale } = useLanguage();
   const DeviceIcon = deviceIcons[data.category as keyof typeof deviceIcons] ?? Wrench;
   const issue = printIssue(data, locale === "zh-CN" ? "zh" : locale);
   const issueText = locale === "zh-CN" ? data.issue : [...issue.faults, issue.note].filter(Boolean).join("; ");
+  const quoteTotal = itemQuoteTotal(data.itemQuotes, intakeRequirements(data).map(row=>row.title));
   const serviceLabels = repairServiceTexts(data.services, locale);
   const services = [
     { label: "屏幕", icon: Monitor, quality: data.services.screen.quality, detail: data.services.screen.technology === "incell" ? "Incell" : data.services.screen.technology.toUpperCase() },
@@ -31,7 +33,7 @@ export function IntakeReview({ data, photos = [], onEdit, layout = "review", met
   const issueSection = <section className="intake-review__section intake-review__issue-section"><header><span><Wrench size={18} />{t("故障与维修需求")}</span>{edit(2,"故障与维修需求")}</header>
           {layout === "detail" ? <small className="intake-review__label">{t("故障报告")}</small> : null}<p className="intake-review__issue">{issueText}</p>
           {layout === "detail" && services.length ? <div className="intake-review__services"><small className="intake-review__label">{t("配件要求")}</small>{services.map(service => <div key={service.label}><span className="intake-review__service-icon"><service.icon size={18} /></span><strong>{t(service.label)}</strong>{service.quality ? <span className="intake-review__quality">{t(qualityLabels[service.quality])}</span> : null}{service.detail ? <small>{t(service.detail)}</small> : null}</div>)}</div> : serviceLabels.length ? <div className="intake-review__tags">{serviceLabels.map(label => <span key={label}><Wrench size={13} />{t(label)}</span>)}</div> : null}
-          {data.itemQuotes?.length?<div className="intake-review__services" aria-label={t("维修报价")}>{data.itemQuotes.map(row=><div key={row.item}><strong>{t(row.item)} {t("报价")}</strong><span>{row.amountCents===null?t("未报价"):`€${(row.amountCents/100).toFixed(2)}`}</span></div>)}<div><strong>{t("报价合计")}</strong><span>{itemQuoteTotal(data.itemQuotes)===null?t("待补全报价"):`€${(itemQuoteTotal(data.itemQuotes)!/100).toFixed(2)}`}</span></div></div>:null}
+          {data.itemQuotes?.length?<div className="intake-review__services" aria-label={t("维修报价")}>{data.itemQuotes.map(row=><div key={row.item}><strong>{t(row.item)} {t("报价")}</strong><span>{row.amountCents===null?t("未报价"):`€${(row.amountCents/100).toFixed(2)}`}</span></div>)}<div><strong>{t("报价合计")}</strong><span>{quoteTotal===null?t("待补全报价"):`€${(quoteTotal!/100).toFixed(2)}`}</span></div></div>:null}
           {layout==="detail"&&data.itemQuoteHistory?.length?<details className="repair-workflow-history"><summary>{t("报价历史 · ")}{data.itemQuoteHistory.length}</summary><ol>{data.itemQuoteHistory.toReversed().map(row=><li key={row.id}>{t(row.item)}: {row.previousCents===null?t("未报价"):`€${(row.previousCents/100).toFixed(2)}`} → {row.amountCents===null?t("未报价"):`€${(row.amountCents/100).toFixed(2)}`}<small> · {row.time}</small></li>)}</ol></details>:null}
         </section>;
   const contactSection = <section className="intake-review__section intake-review__customer"><header><span><UserRound size={18} />{t("客户联系")}</span>{edit(0,"客户")}</header><div className="intake-review__contact"><strong>{data.customerName || t("未填写姓名")}</strong><a href={`tel:${data.phone.replace(/[^+\d]/g, "")}`}><Phone size={15} />{data.phone}</a>{data.email ? <p><Mail size={15} />{data.email}</p> : null}</div></section>;
@@ -43,8 +45,8 @@ export function IntakeReview({ data, photos = [], onEdit, layout = "review", met
       <div><small>{t(data.category)}</small><h4>{data.brand} {data.model}</h4><div className="intake-review__device-meta"><span><ColorSwatch value={data.color} />{data.color ? repairKnownText(data.color, locale) : t("颜色未记录")}</span><span>SN / IMEI：{data.serial || t("未记录")}</span></div>{metadata}</div>
       <span className="intake-review__device-status">{statusContent ?? <span className="status-pill status-pill--warning"><ClipboardList size={14} />{t("待检测")}</span>}<small><Flag size={13} />{t(data.priority)}{t("优先级")}</small></span>{edit(1,"设备")}
     </section>
-    <div className={`intake-review__body${photos.length ? "" : " intake-review__body--no-photos"}`}>
+    {layout === "detail" && detailContent ? detailContent : <div className={`intake-review__body${photos.length ? "" : " intake-review__body--no-photos"}`}>
       {layout === "detail" ? <><div className="intake-review__main">{issueSection}{relatedContent ? <div className="intake-review__related">{relatedContent}</div> : null}</div><aside className="intake-review__aside">{asideContent}{contactSection}{accessoriesSection}{photoSection}</aside></> : <>{contactSection}{issueSection}{accessoriesSection}{photoSection}</>}
-    </div>
+    </div>}
   </div>;
 }

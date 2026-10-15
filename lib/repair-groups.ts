@@ -55,7 +55,7 @@ export function moveRepairGroup<T extends RepairGroupItem>(rows: T[], key: strin
 export function visibleRepairGroups(settings: RepairGroupSettings, kind: "workflow"): RepairGroupItem<WorkflowGroup>[];
 export function visibleRepairGroups(settings: RepairGroupSettings, kind: "parts"): RepairGroupItem<RepairPartsGroup>[];
 export function visibleRepairGroups(settings: RepairGroupSettings, kind: RepairGroupKind): RepairGroupItem[];
-export function visibleRepairGroups(settings: RepairGroupSettings, kind: RepairGroupKind): RepairGroupItem[] { const current = parseRepairGroups(settings); return kind === "workflow" ? current.workflow.filter(row => !retiredWorkflowGroups.includes(row.key)) : current.parts; }
+export function visibleRepairGroups(settings: RepairGroupSettings, kind: RepairGroupKind): RepairGroupItem[] { const current = parseRepairGroups(settings); return kind === "workflow" ? current.workflow.filter(row => !retiredWorkflowGroups.includes(row.key)) : current.parts.filter(row => row.key !== "cart"); }
 export function mergeVisibleRepairGroups(settings: RepairGroupSettings, kind: RepairGroupKind, rows: RepairGroupItem[]): RepairGroupSettings {
   const current = parseRepairGroups(settings);
   let index = 0; const oldVisible = new Set(visibleRepairGroups(current, kind).map(row => row.key));

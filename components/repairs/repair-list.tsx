@@ -11,7 +11,7 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   ArrowUpDown, ChevronRight, CircleHelp,
   ClipboardList, Clock3, Flag, Gamepad2, Laptop, SlidersHorizontal, RotateCcw, Layers,
-  PackageCheck, PackageSearch, Plus, Search, ShoppingCart,
+  PackageCheck, PackageSearch, Plus, Search,
   Smartphone, Tablet, Truck, X, CheckCircle2,
 } from "lucide-react";
 import { PageTitle } from "@/components/page-title";
@@ -39,7 +39,7 @@ type StatusFilter = "all" | "including_cancelled" | "handover" | RepairStatus;
 
 const groupVisuals = {
   draft: { icon: PackageSearch, tone: "warning" },
-  cart: { icon: ShoppingCart, tone: "info" },
+  cart: { icon: PackageSearch, tone: "info" },
   mixed: { icon: ClipboardList, tone: "warning" },
   ordered: { icon: Truck, tone: "info" },
   complete: { icon: PackageCheck, tone: "success" },
@@ -89,8 +89,10 @@ function ScopedRepairList({ scope }: { scope: string }) {
   const [sort, setSort] = useState<RepairListViewState["sort"]>(restored?.sort ?? "updated");
   const [filtersOpen, setFiltersOpen] = useState(restored?.filtersOpen ?? false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(restored?.openGroups ?? {});
-  const [batchAction, setBatchAction] = useState<"ordered" | "arrival" | null>(null);
+  const [batchAction, setBatchAction] = useState<"arrival" | null>(null);
   const [activeRepairId, setActiveRepairId] = useState<string | null>(null);
+  const shortcutOrigin = useRef<"parts" | "stage">("parts");
+  const openShortcut = (id:string, origin:"parts"|"stage"="parts") => { shortcutOrigin.current=origin; setActiveRepairId(id); };
 
 
   useEffect(() => {
@@ -152,7 +154,7 @@ function ScopedRepairList({ scope }: { scope: string }) {
   });
   const groups = view === "history" ? [{ key: "all", label: "历史工单", rows: filteredRepairs }]
     : groupBy === "parts"
-    ? groupSettings.parts.map(({key, label}) => ({ key, label, rows: filteredRepairs.filter((repair) => summaries.get(repair.id)!.group === key) }))
+    ? visibleRepairGroups(groupSettings, "parts").map(({key, label}) => ({ key, label, rows: filteredRepairs.filter((repair) => summaries.get(repair.id)!.group === key) }))
     : groupBy === "workflow" ? [...visibleRepairGroups(groupSettings, "workflow").map(({key, label}) => ({ key, label, rows: filteredRepairs.filter(order => workflowGroup(order, records, workflows[order.id]) === key) })), ...(view === "all" ? [{ key: "history", label: "历史工单", rows: filteredRepairs.filter(order => histories.get(order.id)) }] : [])]
     : [{ key: "all", label: "全部工单", rows: filteredRepairs }];
   const clearFilters = () => { setQuery(""); setStatus("all"); setPartsFilter("all"); setNoticeFilter("all"); };
@@ -177,7 +179,7 @@ function ScopedRepairList({ scope }: { scope: string }) {
     setActiveRepairId(null);
     if (!id) return;
     const order = repairOrders.find(order => order.id === id);
-    if (order) { followSaved(order,"parts"); return; }
+    if (order) { followSaved(order,shortcutOrigin.current); return; }
     const group = "all";
     setOpenGroups((previous) => ({ ...previous, [group]: true }));
     requestAnimationFrame(() => {
@@ -188,7 +190,7 @@ function ScopedRepairList({ scope }: { scope: string }) {
   }
 
   return <main className="module-page repair-page repair-parts-list repair-unified-list">
-    <header className="module-heading"><PageTitle title={t("维修工单")} /><div className="module-heading__actions"><RepairScanner iconOnly />{canEdit ? <><button className="button button--secondary button--compact" type="button" onClick={() => setBatchAction("ordered")}><ShoppingCart size={17} />{t("采购车")}</button><button className="button button--secondary button--compact" type="button" onClick={() => setBatchAction("arrival")}><PackageCheck size={17} />{t("批量到货")}</button></> : null}{canEdit ? <Link className="button button--primary button--compact" href="/app/repairs/new"><Plus size={17} />{t("新建工单")}</Link> : null}</div></header>
+    <header className="module-heading"><PageTitle title={t("维修工单")} /><div className="module-heading__actions"><RepairScanner iconOnly />{canEdit ? <><button className="button button--secondary button--compact" type="button" onClick={() => setBatchAction("arrival")}><PackageCheck size={17} />{t("批量到货")}</button></> : null}{canEdit ? <Link className="button button--primary button--compact" href="/app/repairs/new"><Plus size={17} />{t("新建工单")}</Link> : null}</div></header>
     <section className="panel repair-module-panel">
       <div className="segmented-control repair-list-scope" role="group" aria-label={t("工单范围")}>
         <button type="button" className={view === "active" ? "active" : ""} aria-pressed={view === "active"} onClick={() => switchView("active")}>{t("日常工单 ")}{repairOrders.length-historyCount}</button>
@@ -200,7 +202,7 @@ function ScopedRepairList({ scope }: { scope: string }) {
         <button type="button" className={`button button--secondary repair-filter-trigger${status !== "all" || partsFilter !== "all" ? " repair-filter-trigger--active" : ""}`} aria-expanded={filtersOpen} aria-controls="repair-filter-options" onClick={() => setFiltersOpen(value => !value)}><SlidersHorizontal size={17} /><span>{t("筛选")}{status !== "all" || partsFilter !== "all" ? ` · ${Number(status !== "all")+Number(partsFilter !== "all")}` : ""}</span></button>
         <label className="module-select repair-view-select"><Layers size={16} aria-hidden="true" /><SelectControl aria-label={t("工单分组")} value={groupBy} onChange={event => setGroupBy(event.target.value as RepairListViewState["groupBy"])}><option value="workflow">{t("维修分组")}</option><option value="parts">{t("配件分组")}</option><option value="none">{t("全部工单 ")}</option></SelectControl></label>
         <label className="module-select repair-view-select"><ArrowUpDown size={16} aria-hidden="true" /><SelectControl value={sort} onChange={event => setSort(event.target.value as RepairListViewState["sort"])} aria-label={t("工单排序")}><option value="updated">{t("更新：旧 → 新")}</option><option value="created">{t("建单：旧 → 新")}</option><option value="priority">{t("优先级")}</option></SelectControl></label>
-        {filtersOpen ? <div id="repair-filter-options" className="repair-filter-options repair-filter-options--open"><label className="module-select"><SelectControl aria-label={t("维修阶段筛选")} value={status} onChange={event => { const next=event.target.value as StatusFilter; setStatus(next); if (["completed","cancelled","handover"].includes(next)) setView("history"); else if(!["all","including_cancelled"].includes(next) && view==="history") setView("active"); }}><option value="all">{t("全部阶段")}</option><option value="handover">{t("已取机待收尾")}</option>{repairStatusOptions.filter(option => !["ready_notified", "awaiting_reply", "collected_unpaid"].includes(option.value)).map(option => <option value={option.value} key={option.value}>{option.value === "awaiting_parts" ? t("待选配件") : option.value === "ready" ? t("等取机") : t(option.label)}</option>)}</SelectControl></label><label className="module-select"><SelectControl aria-label={t("配件状态筛选")} value={partsFilter} onChange={event => setPartsFilter(event.target.value as "all" | RepairPartsGroup)}><option value="all">{t("全部配件状态")}</option>{groupSettings.parts.map(({key,label}) => <option value={key} key={key}>{label}</option>)}</SelectControl></label><button className="button button--secondary repair-filter-reset" type="button" onClick={clearFilters}><RotateCcw size={15} />{t("重置")}</button></div> : null}
+        {filtersOpen ? <div id="repair-filter-options" className="repair-filter-options repair-filter-options--open"><label className="module-select"><SelectControl aria-label={t("维修阶段筛选")} value={status} onChange={event => { const next=event.target.value as StatusFilter; setStatus(next); if (["completed","cancelled","handover"].includes(next)) setView("history"); else if(!["all","including_cancelled"].includes(next) && view==="history") setView("active"); }}><option value="all">{t("全部阶段")}</option><option value="handover">{t("已取机待收尾")}</option>{repairStatusOptions.filter(option => !["ready_notified", "awaiting_reply", "collected_unpaid"].includes(option.value)).map(option => <option value={option.value} key={option.value}>{option.value === "awaiting_parts" ? t("待选配件") : option.value === "ready" ? t("等取机") : t(option.label)}</option>)}</SelectControl></label><label className="module-select"><SelectControl aria-label={t("配件状态筛选")} value={partsFilter} onChange={event => setPartsFilter(event.target.value as "all" | RepairPartsGroup)}><option value="all">{t("全部配件状态")}</option>{visibleRepairGroups(groupSettings, "parts").map(({key,label}) => <option value={key} key={key}>{label}</option>)}</SelectControl></label><button className="button button--secondary repair-filter-reset" type="button" onClick={clearFilters}><RotateCcw size={15} />{t("重置")}</button></div> : null}
       </div>
       {storageError || workflowError || settingsError ? <p className="form-error" role="alert">{systemText(storageError || workflowError || settingsError || "")}</p> : null}
       <div ref={table} className="module-table-scroll" role="region" aria-label={t("工单表格")} tabIndex={0}>
@@ -225,8 +227,8 @@ function ScopedRepairList({ scope }: { scope: string }) {
                 return <article className="repair-module-row" key={repair.id} aria-label={`${repair.id} ${repair.device.model}`}>
                   <div className="repair-module-row__device"><span className="device-glyph" title={repairKnownText(repair.device.category, locale)}><DeviceIcon size={20} aria-hidden="true" /></span><div><Link className="repair-row-link" onClick={rememberBeforeNavigation} href={`/app/repairs/${repair.id}`} aria-label={t("打开 {v0} {v1} 详情", { v0: repair.id, v1: repair.device.model })} title={`${repair.device.model} · ${repairIssueText(repair, locale)}`}><strong>{repair.device.model}</strong>{repair.repairOrigin ? <span className="repair-rework-tag">{t("返修")}</span> : null}</Link></div></div>
                   <div className="repair-module-row__cell repair-module-row__customer"><strong>{repairCustomerName(repair, locale)}</strong><small>{repair.customer.phone}</small></div>
-                  <div className="repair-row-parts-cell"><button id={`repair-action-${repair.id}`} className="button button--secondary repair-row-parts" type="button" onClick={() => setActiveRepairId(repair.id)} aria-label={t("{v0} 供应商与配件{v1}", { v0: repair.id, v1: canEdit ? t("操作") : t("详情") })} title={parts.map(row => `${row.supplier} · ${repairItemText(row.item, locale)}`).join("\n") || (canEdit ? t("选择供应商与配件") : t("查看供应商与配件"))}><span className="repair-row-parts__body"><PackageSearch size={17} aria-hidden="true" /><span><strong>{suppliers || (canEdit ? t("选择配件") : t("查看配件"))}</strong><small>{parts.length ? `${repairItemText(parts[0].item, locale)}${parts.length > 1 ? ` +${parts.length - 1}` : ""}` : t("供应商 · 报价")}</small></span></span><ChevronRight size={16} aria-hidden="true" /></button></div>
-                  <RepairStageControl variant="list" order={repair} onSaved={() => followSaved(repair)} />
+                  <div className="repair-row-parts-cell"><button id={`repair-action-${repair.id}`} className="button button--secondary repair-row-parts" type="button" onClick={() => openShortcut(repair.id)} aria-label={t("{v0} 供应商与配件{v1}", { v0: repair.id, v1: canEdit ? t("操作") : t("详情") })} title={parts.map(row => `${row.supplier} · ${repairItemText(row.item, locale)}`).join("\n") || (canEdit ? t("选择供应商与配件") : t("查看供应商与配件"))}><span className="repair-row-parts__body"><PackageSearch size={17} aria-hidden="true" /><span><strong>{suppliers || (canEdit ? t("选择配件") : t("查看配件"))}</strong><small>{parts.length ? `${repairItemText(parts[0].item, locale)}${parts.length > 1 ? ` +${parts.length - 1}` : ""}` : t("供应商 · 报价")}</small></span></span><ChevronRight size={16} aria-hidden="true" /></button></div>
+                  <RepairStageControl variant="list" order={repair} onOpenParts={id=>openShortcut(id,"stage")} onSaved={() => followSaved(repair)} />
                   <div className="repair-module-row__quick"><RepairContactControl variant="list" order={repair} onSaved={() => followSaved(repair,"contact")} /></div>
                   <div className="repair-module-row__cell repair-module-row__owner"><strong><Flag size={14} className={`repair-priority repair-priority--${repair.priority === "紧急" ? "urgent" : repair.priority === "优先" ? "high" : "normal"}`} aria-label={t("{v0}优先级", { v0: t(repair.priority) })} role="img" />{repair.technician === "未分配" ? t("未分配") : repair.technician}</strong><small className="repair-updated"><Clock3 size={13} aria-hidden="true" /><time dateTime={updated.replace(" ", "T")} title={t("最后更新 {v0}（门店时间）", { v0: updated })}>{updated.slice(5, 16).replaceAll("-", "/")}</time></small></div>
                 </article>;

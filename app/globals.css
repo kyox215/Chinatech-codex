@@ -742,7 +742,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .procurement-preparation > .procurement-feedback { margin: 0; }
 .procurement-preparation .procurement-action-hint { display: flex; align-items: center; gap: 6px; }
 .procurement-preparation .button { min-height: 44px; }
-.procurement-remove-cart > summary, .repair-parts-entry__shortcut > summary { display: flex; align-items: center; min-height: 44px; color: var(--primary-700); font-size: 13px; cursor: pointer; }
+.repair-parts-entry__shortcut > summary { display: flex; align-items: center; min-height: 44px; color: var(--primary-700); font-size: 13px; cursor: pointer; }
 .repair-parts-entries { padding: 0 13px; }
 .repair-parts-entry { border-bottom: 1px solid var(--border); }
 .repair-parts-entry:last-child { border-bottom: 0; }

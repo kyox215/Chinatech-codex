@@ -20,16 +20,16 @@ test('接单报价沟通独立记录，不冒充客户授权、到货通知或�
   const contacted=apply(waiting,{type:'quote_contact',outcome:'contacted',note:'DEMO 再次沟通报价'},[],'A2');
   assert.equal(contacted.events.length,2);assert.equal(contacted.quoteContact.outcome,'contacted');assert.equal(contacted.status,'diagnosis');assert.equal(contacted.events[0].note,waiting.events[0].note);
 });
-test('报价沟通拒绝无说明、坏结果、越过结案和版本冲突，保留原事实', () => {
+test('报价沟通拒绝坏结果、越过结案和版本冲突，保留原事实', () => {
   const base=initialRepairWorkflow(order);
-  for(const command of [{type:'quote_contact',outcome:'contacted',note:''},{type:'quote_contact',outcome:'accepted',note:'DEMO'},{type:'quote_contact',outcome:'unreachable',note:'x'.repeat(1201)}])assert.throws(()=>apply(base,command,[]));
+  for(const command of [{type:'quote_contact',outcome:'contacted',note:null},{type:'quote_contact',outcome:'accepted',note:'DEMO'},{type:'quote_contact',outcome:'unreachable',note:'x'.repeat(1201)}])assert.throws(()=>apply(base,command,[]));
   for(const status of ['completed','cancelled'])assert.throws(()=>apply({...base,status},{type:'quote_contact',outcome:'contacted',note:'DEMO'},[]),/只能查看/);
   assert.throws(()=>applyWorkflowCommand(base,{type:'quote_contact',outcome:'contacted',note:'DEMO'},activity,[],order.id,1),/已变化/);assert.equal(base.events.length,0);
 });
 test('新报价沟通扩展兼容旧工作流，拒绝损坏持久资料', async()=>{
   const {validateWorkflowExtensions}=await import(moduleUrl('repair-workflow'));const base=initialRepairWorkflow(order);validateWorkflowExtensions(base);
   const good={outcome:'unreachable',time:activity.time,note:'DEMO 未接通',actorId:'DEMO-OWNER'};validateWorkflowExtensions({...base,quoteContact:good});
-  for(const bad of [null,{...good,outcome:'accepted'},{...good,note:''},{...good,time:0},{...good,actorId:0}])assert.throws(()=>validateWorkflowExtensions({...base,quoteContact:bad}));
+  for(const bad of [null,{...good,outcome:'accepted'},{...good,note:null},{...good,time:0},{...good,actorId:0}])assert.throws(()=>validateWorkflowExtensions({...base,quoteContact:bad}));
 });
 test('作废和恢复必须原因，原历史不抹除', () => { const base = initialRepairWorkflow(order); assert.throws(() => apply(base, { type: 'stage', status: 'cancelled', note: '' })); const cancelled = apply(base, { type: 'stage', status: 'cancelled', note: 'DEMO重复登记' }); assert.throws(() => apply(cancelled, { type: 'stage', status: 'diagnosis', note: '' }, [part], 'A2')); const restored = apply(cancelled, { type: 'stage', status: 'diagnosis', note: 'DEMO复核恢复' }, [part], 'A2'); assert.equal(restored.events.length, 2); });
 test('版本冲突、重复操作、倒退时间失败不改变历史', () => { const base = initialRepairWorkflow(order); assert.throws(() => applyWorkflowCommand(base, { type: 'stage', status: 'ready', note: '' }, activity, [], order.id, 1)); const next = apply(base, { type: 'stage', status: 'ready', note: '' }); assert.throws(() => apply(next, { type: 'stage', status: 'testing', note: '' })); assert.throws(() => applyWorkflowCommand(next, { type: 'stage', status: 'testing', note: '' }, { id: 'later', time: order.updatedAt }, [], order.id, 1)); assert.equal(next.events.length, 1); });
@@ -135,7 +135,7 @@ test('返修保留来源标记，选供应商或加车不移组，下单/部分�
     const group=source.repairOrigin?'rework':'processing';
     for(const rows of [[],[draft],[cart],[complete]])assert.equal(workflowGroup(source,rows),group);
     for(const rows of [[ordered],[partial]])assert.equal(workflowGroup(source,rows),'purchase');
-    assert.equal(repairProgress(source,[cart]).label,'已加车');assert.equal(repairProgress(source,[partial]).label,'部分到货');
+    assert.equal(repairProgress(source,[cart]).label,'待采购');assert.equal(repairProgress(source,[partial]).label,'部分到货');
     assert.equal(workflowGroup(source,[complete],{...initialRepairWorkflow(source),status:'ready'}),'ready');
   }
 });

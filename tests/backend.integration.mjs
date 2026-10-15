@@ -86,8 +86,8 @@ try {
  r=await command(tech,stores[0],"procurement",{type:"edit",record:{...record,item:"Updated screen",unitCostCents:null},revision:0});assert.equal(r.status,200,JSON.stringify(r.data));assert.equal((await state(owner)).procurement[0].unitCostCents,12345);pass("nonfinancial edit preserves hidden cost and rejects guesses uniformly");
  own=await state(owner);let rev=own.procurement[0].events.length;
  const event=(type)=>({type,id:randomUUID(),time:"1999-01-01 00:00:00",note:"Test action",quantity:0});
- for(const type of ["cart_added","cart_removed","cart_added"]){r=await command(owner,stores[0],"procurement",{type:"append",id:record.id,event:event(type),revision:rev++});assert.equal(r.status,200,JSON.stringify(r.data));}
- r=await command(owner,stores[0],"procurement",{type:"edit",record:{...record,item:"Revised screen"},revision:rev});assert.equal(r.status,200);assert.equal(r.data.procurement[0].events.at(-2).type,"cart_removed");pass("editing after repeated add/remove clears current cart marker");
+ for(const type of ["cart_added","cart_removed"]){r=await command(owner,stores[0],"procurement",{type:"append",id:record.id,event:event(type),revision:rev});assert.equal(r.status,400,JSON.stringify(r.data));}
+ r=await command(owner,stores[0],"procurement",{type:"edit",record:{...record,item:"Revised screen"},revision:rev++});assert.equal(r.status,200);assert.equal(r.data.procurement[0].events.length,rev);assert.ok(r.data.procurement[0].events.every(row=>row.type==="details_changed"));pass("retired cart writes reject and preorder editing appends only its real details event");
  // Two simultaneous writes cannot both accept one workflow revision.
  const parallel=await Promise.all([command(owner,stores[0],"repair.workflow",{id,command:{type:"custody",custody:"store"},revision:0}),command(owner,stores[0],"repair.workflow",{id,command:{type:"custody",custody:"customer"},revision:0})]);
  assert.equal(parallel.filter(r=>r.status===200).length,1);assert.equal(parallel.filter(r=>r.status===409).length,1);pass("concurrent commands cannot overwrite one another");
