@@ -78,12 +78,11 @@ export function OfficeDesktopDetails() {
     </div>
     <details className={styles.technical}><summary>{t("版本与技术信息")}</summary><div className={styles.detailsBody}>
       <p>{t("程序尚未数字签名。运行前可核对 SHA256；若 Windows 拦截，请先核对来源与文件，不要关闭系统防护。")}</p>
-      <p>{t("本版实际界面、UAC、安装、激活、卸载及文档与 OneDrive 保留仍待 Windows 验收。")}</p>
+      <p>{t("实体设备、实际 UAC、未保存文档提示及 OneDrive 账户与同步恢复仍待 Windows 验收。")}</p>
       {officeDesktopRelease.files.map(file => <div className={styles.digestRow} key={file.architecture}><strong>{t("{architecture} · SHA256", { architecture: file.architecture })}</strong><code>{file.sha256}</code></div>)}
       <div className={styles.technicalLinks}>
         <a href={officeDesktopRelease.checksums}>{t("下载 SHA256 校验清单")}<Download size={15} aria-hidden="true" /></a>
         <a href={officeDesktopRelease.instructions}>{t("使用说明")}<ExternalLink size={15} aria-hidden="true" /></a>
-        <a href={`https://github.com/kyox215/Chinatech-codex/tree/office-assistant-v${officeDesktopRelease.version}/desktop/office-assistant`} target="_blank" rel="noopener noreferrer">{t("查看此版本源码")}<ExternalLink size={15} aria-hidden="true" /></a>
       </div>
     </div></details>
   </section>;

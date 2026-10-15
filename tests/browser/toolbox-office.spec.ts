@@ -89,7 +89,8 @@ test("compact FAQ and technical information retain licenses, document scope, acc
     await activate(faq.nth(0).locator("summary")); await expect(faq.nth(0)).toContainText(translate("旧版 MSI 产品须整项卸载；配置未知时不修改单个应用。OneDrive 仅支持当前账户卸载，所有账户安装请用 Windows 设置处理。", locale)); await activate(faq.nth(0).locator("summary"));
     await activate(faq.nth(2).locator("summary")); await expect(faq.nth(2)).toContainText(translate("激活不能替代有效的 Office 许可证，请确认持有相应授权。", locale)); await expect(faq.nth(2)).toContainText("kms.cx"); await activate(faq.nth(2).locator("summary"));
     const technical = section.locator(":scope > details"); await activate(technical.locator("summary"));
-    await expect(technical).toContainText(translate("本版实际界面、UAC、安装、激活、卸载及文档与 OneDrive 保留仍待 Windows 验收。", locale));
+    await expect(technical).toContainText(translate("实体设备、实际 UAC、未保存文档提示及 OneDrive 账户与同步恢复仍待 Windows 验收。", locale));
+    await expect(technical.getByRole("link", { name: translate("查看此版本源码", locale), exact: true })).toHaveCount(0);
     for (const file of officeDesktopRelease.files) await expect(technical.locator("code").filter({ hasText: file.sha256 })).toBeVisible();
     await expect(technical.getByRole("link", { name: translate("下载 SHA256 校验清单", locale), exact: true })).toHaveAttribute("href", officeDesktopRelease.checksums);
     await activate(technical.locator("summary"));
