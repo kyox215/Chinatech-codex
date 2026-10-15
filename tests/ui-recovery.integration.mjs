@@ -6,7 +6,7 @@ import postgres from "postgres";
 import { createClient } from "@supabase/supabase-js";
 import { chromium, webkit, expect } from "@playwright/test";
 
-const config = JSON.parse(readFileSync(process.env.CT_TEST_CONFIG || "../../../.local/backend/connection.private.json", "utf8"));
+const config = JSON.parse(readFileSync(process.env.CT_TEST_CONFIG || ".local/backend/connection.private.json", "utf8"));
 for (const [value, port] of [[config.API_URL, "55421"], [config.DB_URL, "55422"]]) { const url = new URL(value); assert.equal(url.hostname, "127.0.0.1"); assert.equal(url.port, port); }
 const origin = process.env.CT_TEST_ORIGIN || "https://localhost:3118";
 assert.equal(origin, "https://localhost:3118");
