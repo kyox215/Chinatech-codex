@@ -13,20 +13,59 @@ test("@offline recovery ownership follows actual rendered hosts and preserves or
   await page.setViewportSize({ width: 1440, height: 900 });
   await offlineCall(page, "mount", "recovery", "location", true);
   await offlineCall(page, "setRecovery", pending);
-  async function owner(where: string) {
-    await expect(page.locator("[data-operation-recovery]:visible")).toHaveCount(1);
-    await expect(page.locator(`#${where} [data-operation-recovery]:visible`)).toHaveCount(1);
+  async function owner(where: string, excludedBy?: "aria-hidden" | "inert") {
+    // CSS visibility and semantic availability differ for aria-hidden/inert.
+    // Sample both owners together, so one RAF handoff cannot satisfy two waits
+    // with different presentation states. Native hidden/details/media cases
+    // still require exactly one visually rendered recovery host.
+    await expect.poll(() => page.locator("[data-operation-recovery]:visible").evaluateAll(hosts => {
+      // WebKit's Playwright :visible fallback checks only the nearest details.
+      // A still-open inner details must not make a closed outer body painted.
+      const rendered = hosts.filter(host => !host.closest("details:not([open])")).map(host => ({
+        owner: host.closest("#global") ? "global" : host.closest("#desktop") ? "desktop" : "unexpected",
+        ariaHidden: Boolean(host.closest('[aria-hidden="true"]')),
+        inert: Boolean(host.closest("[inert]")),
+        enabledActions: Array.from(host.querySelectorAll("button")).filter(button => !button.disabled).length,
+      }));
+      const available = rendered.filter(host => !host.ariaHidden && !host.inert);
+      return {
+        visualOwners: rendered.map(host => host.owner).sort(),
+        availableOwners: available.map(host => host.owner).sort(),
+        availableActions: available.map(host => host.enabledActions),
+        excluded: rendered.filter(host => host.ariaHidden || host.inert).map(({ owner, ariaHidden, inert }) => ({ owner, ariaHidden, inert })),
+      };
+    })).toEqual({
+      visualOwners: excludedBy ? ["desktop", "global"] : [where],
+      availableOwners: [where],
+      availableActions: [3],
+      excluded: excludedBy ? [{ owner: "desktop", ariaHidden: excludedBy === "aria-hidden", inert: excludedBy === "inert" }] : [],
+    });
+    // Check ARIA exclusion through its role query. Its layout approximation can
+    // retain inert/outer-closed-details descendants, so those native behaviors
+    // get focus checks below. aria-hidden does not hide pixels or block focus.
+    if (excludedBy === "aria-hidden") await expect(page.getByRole("button", { name: "核对提交结果", exact: true })).toHaveCount(1);
+    await expect(page.locator(`#${where}`).getByRole("button", { name: "核对提交结果", exact: true })).toBeEnabled();
     expect((await snapshot(page)).recovery.pending?.command).toEqual(pending.pending.command);
     expect((await snapshot(page)).calls).toEqual([]);
   }
   await owner("desktop");
-  for (const attr of ["hidden", "aria-hidden", "inert"]) {
+  for (const attr of ["hidden", "aria-hidden", "inert"] as const) {
     await page.locator("#tab").evaluate((element, name) => element.setAttribute(name, name === "aria-hidden" ? "true" : ""), attr);
-    await owner("global");
+    await owner("global", attr === "hidden" ? undefined : attr);
+    if (attr === "inert") expect(await page.locator("#desktop button").evaluateAll(buttons => buttons.every(button => {
+      (button as HTMLElement).focus();
+      return document.activeElement !== button;
+    }))).toBe(true);
     await page.locator("#tab").evaluate((element, name) => element.removeAttribute(name), attr);
     await owner("desktop");
   }
-  for (const id of ["outer", "inner"]) { await page.locator(`#${id}`).evaluate(element => element.removeAttribute("open")); await owner("global"); }
+  for (const id of ["outer", "inner"]) {
+    await page.locator(`#${id}`).evaluate(element => element.removeAttribute("open")); await owner("global");
+    expect(await page.locator("#desktop button").evaluateAll(buttons => buttons.every(button => {
+      (button as HTMLElement).focus();
+      return document.activeElement !== button;
+    }))).toBe(true);
+  }
   await page.locator("#outer").evaluate(element => element.setAttribute("open", "")); await owner("global");
   await page.locator("#inner").evaluate(element => element.setAttribute("open", "")); await owner("desktop");
   for (const width of [767, 768, 390, 375, 1440]) { await page.setViewportSize({ width, height: 900 }); await owner(width < 768 ? "global" : "desktop"); }
@@ -191,12 +230,15 @@ for (const locale of ["zh-CN", "it", "en"] as const) test(`routed customer and p
       let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });
       await page.route(`**${href}?*`, async route => { if (route.request().headers()["rsc"] !== "1") return route.continue(); const response = await route.fetch(); await gate; await route.fulfill({ response }); });
       try {
-        const heading = await page.locator("main h1").textContent();
+        const title = page.locator("main").getByRole("heading", { level: 2, name: translate(area === "customers" ? "客户管理" : "采购与到货", locale), exact: true });
+        await expect(title).toHaveCount(1);
+        await expect(title).toBeVisible();
+        const heading = await title.textContent();
         await row.press("Enter");
         await expect(slot).toHaveAttribute("data-pending", "true");
         await expect(slot.locator("svg.spin")).toHaveCount(1);
         await expect(page.locator('main .navigation-feedback[data-pending="true"]')).toHaveCount(1);
-        await expect(page.locator("main h1")).toHaveText(heading!);
+        await expect(title).toHaveText(heading!);
         await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(1);
         expect(await slot.boundingBox()).toEqual(before);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
