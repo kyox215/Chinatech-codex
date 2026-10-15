@@ -2,10 +2,10 @@ param([string]$ProjectRoot = (Split-Path -Parent $PSScriptRoot))
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'Native Windows required' }
-$manifest = Get-Content -LiteralPath (Join-Path $ProjectRoot 'public/toolbox/windows/checksums.json') -Raw | ConvertFrom-Json
+$manifest = Get-Content -LiteralPath (Join-Path $ProjectRoot 'public/toolbox/windows-current/checksums.json') -Raw | ConvertFrom-Json
 if ($manifest.status -ne 'inspection-only') { throw 'Smoke test only permits the read-only release' }
 $messages = Get-Content -LiteralPath (Join-Path $ProjectRoot 'scripts/windows-toolbox/messages.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-$zip = Join-Path $ProjectRoot 'public/toolbox/windows/ChinaTech-Windows-Check.zip'
+$zip = Join-Path $ProjectRoot 'public/toolbox/windows-current/ChinaTech-Windows-Check.zip'
 if ((Get-FileHash -LiteralPath $zip).Hash -ine $manifest.archive.sha256) { throw 'ZIP fingerprint mismatch' }
 $temp = Join-Path ([IO.Path]::GetTempPath()) ('ChinaTech-cmd-' + [Guid]::NewGuid().ToString('N'))
 # Exercise spaces, shell metacharacters, an apostrophe and a non-ASCII folder.
@@ -48,7 +48,11 @@ try {
     $languages = @('zh-CN','it','en')
     foreach ($locale in $languages) {
         $index = [Array]::IndexOf($languages,$locale)
-        foreach ($cp in @(437,936)) { Invoke-CmdCheck $locale $cp 10 $messages.blocked[$index] }
+        # A valid pinned entry reaches its real manifest gate in both code pages.
+        # Remove only this test's copy to stop before any production HTTP request.
+        [IO.File]::Delete($release)
+        foreach ($cp in @(437,936)) { Invoke-CmdCheck $locale $cp 1 $messages.integrity[$index] }
+        [IO.File]::WriteAllBytes($release,$releaseBytes)
         [IO.File]::AppendAllText($entry,'# intentional test corruption')
         Invoke-CmdCheck $locale 936 2 $messages.integrity[$index]
         [IO.File]::WriteAllBytes($entry,$entryBytes)
@@ -60,7 +64,7 @@ try {
         [IO.File]::WriteAllBytes($entry,$entryBytes)
         Invoke-CmdCheck $locale 936 2 $messages.missingPowerShell[$index] -MissingHost
     }
-    Write-Output ($count.ToString() + ' native CMD checks passed; inspection and rejected packages only')
+    Write-Output ($count.ToString() + ' native CMD checks passed; pinned entry/manifest/host rejection only; HTTP=0')
 } finally {
     # Only this test's GUID-named temporary directory is removed.
     if ([IO.Directory]::Exists($temp)) { [IO.Directory]::Delete($temp,$true) }

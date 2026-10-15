@@ -453,5 +453,65 @@
     "配套脚本未找到。请右键 ZIP 选择“全部解压”，再打开解压文件夹内的启动器。",
     "Script mancante. Estrai tutto lo ZIP, poi apri Start nella cartella estratta.",
     "Script missing. Extract the entire ZIP, then open Start from the extracted folder."
+  ],
+  "toolbox.prerequisite": [
+    "需要 Windows PowerShell 5.1 才能安全核验版本。请更新系统组件后重试，或访问 https://www.chinatech.in/toolbox/windows 。",
+    "Serve Windows PowerShell 5.1 per verificare la versione. Aggiorna i componenti e riprova: https://www.chinatech.in/toolbox/windows .",
+    "Windows PowerShell 5.1 is required for release verification. Update system components and retry: https://www.chinatech.in/toolbox/windows ."
+  ],
+  "toolbox.updateRequired": [
+    "此版本已停用，检测未执行。请更新： https://www.chinatech.in/toolbox/windows",
+    "Questa versione è ritirata; controllo non eseguito. Aggiorna: https://www.chinatech.in/toolbox/windows",
+    "This release is retired; inspection did not run. Update: https://www.chinatech.in/toolbox/windows"
+  ],
+  "toolbox.paused": [
+    "网站已暂停新检测，未读取电脑检测信息。稍后重新打开，或访问 https://www.chinatech.in/toolbox/windows 。",
+    "Nuovi controlli sospesi; dati del PC non letti. Riapri più tardi: https://www.chinatech.in/toolbox/windows .",
+    "New inspections are paused; computer inspection facts were not read. Reopen later: https://www.chinatech.in/toolbox/windows ."
+  ],
+  "toolbox.unavailable": [
+    "无法核验网站，检测未执行。请联网后重试： https://www.chinatech.in/toolbox/windows",
+    "Verifica del sito non disponibile; controllo non eseguito. Connettiti e riprova: https://www.chinatech.in/toolbox/windows",
+    "Website could not be verified; inspection did not run. Connect and retry: https://www.chinatech.in/toolbox/windows"
+  ],
+  "toolbox.invalid": [
+    "网站许可或更新文件未通过核验，已停止。请重试或从官网下载： https://www.chinatech.in/toolbox/windows",
+    "Autorizzazione o aggiornamento non verificato. Operazione interrotta. Riprova o scarica dal sito: https://www.chinatech.in/toolbox/windows",
+    "Task permit or update verification failed. Stopped. Retry or download from: https://www.chinatech.in/toolbox/windows"
+  ],
+  "toolbox.storage": [
+    "无法安全访问本账户的受保护验证记录，检测未执行。请检查账户文件权限后重试。",
+    "Accesso sicuro ai dati protetti dell’account non riuscito. Controllo non eseguito; verifica i permessi e riprova.",
+    "Protected account verification records could not be accessed safely. Inspection did not run; check file permissions and retry."
+  ],
+  "toolbox.updatePrompt": [
+    "是否下载并校验最新版？输入 Y 继续；其他输入退出。旧版不会继续检测。",
+    "Scaricare e verificare la versione corrente? Digita Y; altro per uscire. La versione ritirata non esegue controlli.",
+    "Download and verify the current release? Enter Y to continue; anything else exits. The retired release will not inspect."
+  ],
+  "toolbox.downloadBytes": [
+    "已下载 {0} / {1} 字节",
+    "Scaricati {0} / {1} byte",
+    "Downloaded {0} / {1} bytes"
+  ],
+  "toolbox.updateSaved": [
+    "更新包已核验：{0}。请解压完整包后运行对应语言入口；Windows 安全提示保持。当前旧版仍停用。",
+    "Pacchetto verificato: {0}. Estrai tutto e avvia l’ingresso della tua lingua; gli avvisi Windows restano attivi. La vecchia versione resta bloccata.",
+    "Update verified: {0}. Extract the complete package and run your language entry; Windows security prompts remain enabled. This retired release stays blocked."
+  ],
+  "toolbox.outcomePending": [
+    "检测结果已完成，网站回报待确认。已保存加密回报记录，下次打开先重试上报；不会用旧许可开始新检测。",
+    "Controllo completato, conferma del sito in sospeso. Esito cifrato salvato; invio riprovato al prossimo avvio. Il vecchio permesso non avvia nuovi controlli.",
+    "Inspection completed; website acknowledgement is pending. An encrypted outcome record is saved for retry on the next launch. The old permit never starts a new inspection."
+  ],
+  "toolbox.outcomeUnrecorded": [
+    "检测已完成，但无法保存网站回报记录，请保留当前结果并检查本账户的磁盘与文件权限。",
+    "Controllo completato, ma il record per il sito non è stato salvato. Conserva il risultato e controlla disco e permessi dell’account.",
+    "Inspection completed, but its website outcome record could not be saved. Keep the displayed result and check account disk space and file permissions."
+  ],
+  "toolbox.pendingRetry": [
+    "之前的回报尚未确认，已保留本地加密记录；本次检测仍需重新联网授权。",
+    "Un esito precedente è ancora in sospeso; record cifrato mantenuto. Il nuovo controllo richiede comunque una nuova autorizzazione online.",
+    "An earlier outcome is still pending; its encrypted local record is retained. This inspection still requires a fresh online permit."
   ]
 }

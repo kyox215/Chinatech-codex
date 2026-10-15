@@ -1,3 +1,4 @@
+import {retiredTool} from '@/lib/toolbox/retired';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccountSession } from '@/lib/server/account-auth';
 import { copyAuthCookies } from '@/lib/server/auth-flows';
@@ -20,4 +21,4 @@ async function handle(request: NextRequest, changing: boolean) {
  } catch(error) { return copyAuthCookies(cookies,desktopFailure(error)); }
 }
 export async function GET(request: NextRequest) { return handle(request,false); }
-export async function PATCH(request: NextRequest) { return handle(request,true); }
+export async function PATCH() { return retiredTool(); }

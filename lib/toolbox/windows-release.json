@@ -1,45 +1,48 @@
 {
-  "version": "2026.10.07-preview.2",
+  "version": "2026.10.15-preview.3",
+  "releaseId": "windows-check-20261015.3",
+  "websiteControlProtocol": 1,
   "status": "inspection-only",
   "target": {
     "version": "26H2",
     "edition": "Professional",
     "architecture": "x64"
   },
-  "sourceInputSha256": "3213efcb2541620a6dbbef9618ffd4bda6079254cf1cc894aaca3987b638cbd7",
+  "sourceInputSha256": "41dff4ce344c6ddeadc3918b4abe031ce347f9b88d52e23aa356409ede04dc17",
   "releasePolicySha256": "d15b5bb808e7de9c9ef005f6c74dfeaf217d0ee294e2f1df755f9114d8c20a6e",
   "evidenceFiles": {},
   "inputs": {
-    "release.json": "23388b828dd472a455815176af06a0a37217ffffc858e12de958129abb7ea113",
-    "messages.json": "b00da1c4d7cc68cc3e15875a7198d710921684abe35716c48985bb34d715d67a",
-    "runner.ps1": "67cc7bd5e1bf4c430e8643d5cc2948aea527c6879ffa849499faeda0819759b8",
+    "release.json": "5315cebdbe22ef7e68a8989bb036aed7e71aec3b030668676bcdbe077a658ac6",
+    "messages.json": "064193bb8586ae33fe22e476d702b49c4ce49f0ca0c14d196252e980476d7ff9",
+    "runner.ps1": "ea5bb1d64713c3cdbb574342ebad6809d12afe4ecc31008a7dc6db51701aa71c",
     "workflow.ps1": "6a93afebfd6149f207f4e3dfbe1830d18b36ee1b5ab1fd0d1c5c7560f4a9be1d",
-    "build.mjs": "925ed350a980118c1dce946deabe9d3ea0f8cbab8316a217295da253a86dca1f"
+    "admission.ps1": "60fb24e3404121f0157636f2dc4f7ea7ad363bf55b3c70233a81fe12d777f719",
+    "build.mjs": "55bad504686e580a9f0671b978ca37267cfac86d796c79fcfa075c026fdfd61c"
   },
   "archive": {
-    "path": "/toolbox/windows/ChinaTech-Windows-Check.zip",
-    "sha256": "36f46fe8a8e60658aa2f14a44e2e44f4845ee9a8c50c917b38a755795fcef238",
-    "bytes": 48718
+    "path": "/toolbox/windows-current/ChinaTech-Windows-Check.zip",
+    "sha256": "3a62e575d984bf45729ab9f293e18c29a883541b3caa8defd86161fa5c579514",
+    "bytes": 59578
   },
   "files": {
     "ChinaTech-Windows.ps1": {
-      "sha256": "1c146421153f97862cfc880c1604ea72190baffa5e351b61063bc4d62defde15",
-      "bytes": 119333
+      "sha256": "d220122e3440508510d35b5e2491bf12c98ab8005b9a0aeeed03b64da2d84462",
+      "bytes": 153699
     },
     "release.xml": {
-      "sha256": "47b403ee2faa990f9d3263f31bf3fcc6ee7c2740f14756c9bb42fe80bc485d78",
+      "sha256": "a04675a8a5d1b3399e55ed4454ff5c44056e22ce30bf3ad479407dbdf2db232a",
       "bytes": 831
     },
     "Start-zh-CN.cmd": {
-      "sha256": "32d69c5b9770778e6184fff9b425f2daabfe0ed72f906e3446dbb3a837d5505b",
+      "sha256": "22620ffdd3cffa15ad26575782253fa0c8750ff57c4a02c301e8df9d67e7aed5",
       "bytes": 6937
     },
     "Start-it.cmd": {
-      "sha256": "661d6056c3b0c269f85ba5a45987e27d493e635ac9e43713ec230e9af4b8d3c1",
+      "sha256": "e3aff7f8ecfc1ceb09fb8a8db02ce5e6f68c4df583dee437767033cd8cacd3b9",
       "bytes": 8321
     },
     "Start-en.cmd": {
-      "sha256": "fdfdf1fde140880235929a0ec9ad7b869e7bc80be839906a8e782e0c705c7851",
+      "sha256": "1b4a893f9ab55b82af98bcd35c990813aaf021c76dcf6c853daa9fe1b71f79fa",
       "bytes": 8205
     },
     "Launcher-notices.txt": {
@@ -47,8 +50,8 @@
       "bytes": 300
     },
     "README.txt": {
-      "sha256": "683b4396fe7ec51e33fd7794a53609f634456d117faeaf8756e8d70b1401e4ca",
-      "bytes": 1479
+      "sha256": "bb7a8cf07a35e9079e86a29ce366b9ff30923daa3271dd2053e833148bba2cdf",
+      "bytes": 1993
     }
   },
   "sources": [

@@ -1,7 +1,7 @@
 /** Frozen standalone candidate; emulator evidence is distinct from physical-brand verification. */
 export const androidAssistantRelease = {
   "version": "0.3.0-alpha",
-  "available": true,
+  "available": false,
   "apkPath": "/toolbox/android-assistant/ChinaTech-Phone-Assistant-0.3.0-alpha.apk",
   "instructionsPath": "/toolbox/android-assistant/README-0.3.md",
   "sha256": "0326b05ad69263ef5ca787de4b7658180f3fdf9af7dbf36b03456f6afa420da2",

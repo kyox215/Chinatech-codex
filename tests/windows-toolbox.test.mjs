@@ -1,16 +1,26 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { resolve, join } from "node:path";
 
-const root = process.cwd();
+const originalRoot = process.cwd();
+mkdirSync(join(originalRoot,'.local/windows-toolbox'),{recursive:true});
+const root=mkdtempSync(join(originalRoot,'.local/windows-toolbox/retired-build-'));
+cpSync(join(originalRoot,'scripts/windows-toolbox'),join(root,'scripts/windows-toolbox'),{recursive:true});
+mkdirSync(join(root,'lib/toolbox'),{recursive:true});
+execFileSync(process.execPath,[join(root,'scripts/windows-toolbox/build.mjs')]);
+mkdirSync(join(root,'tests'),{recursive:true});
+cpSync(join(originalRoot,'tests/windows-toolbox.ps1'),join(root,'tests/windows-toolbox.ps1'));
+process.on('exit',()=>rmSync(root,{recursive:true,force:true}));
+test('obsolete Windows public package remains retired',()=>assert.equal(existsSync(join(originalRoot,'public/toolbox/windows/ChinaTech-Windows-Check.zip')),false));
 const sha = value => createHash("sha256").update(value).digest("hex");
 const read = path => readFileSync(resolve(root, path));
 const config = JSON.parse(read("scripts/windows-toolbox/release.json"));
 const manifest = JSON.parse(read("lib/toolbox/windows-release.json"));
-const runner = read("public/toolbox/windows/ChinaTech-Windows.ps1.txt").toString("utf8");
+const runner = read("public/toolbox/windows-current/ChinaTech-Windows.ps1.txt").toString("utf8");
+const admission = Buffer.from(runner.match(/\$script:AdmissionBytes = '([^']+)'/)[1], "base64").toString("utf8");
 const workflow = Buffer.from(runner.match(/\$script:WorkflowBytes = '([^']+)'/)[1], "base64").toString("utf8");
 const decodeLiteral = (code, name) => Buffer.from(code.match(new RegExp(`\\$${name}=d '([^']*)'`))[1], "base64").toString("utf16le");
 
@@ -26,15 +36,38 @@ test("unverified release cannot advertise verified routes or configured installa
   }
 });
 
+test("current identity, task proof and update authority are compiled into the pinned package", () => {
+  assert.equal(config.releaseId, "windows-check-20261015.3");
+  assert.equal(manifest.releaseId, config.releaseId);
+  assert.equal(manifest.websiteControlProtocol, 1);
+  assert.equal(manifest.archive.path, "/toolbox/windows-current/ChinaTech-Windows-Check.zip");
+  assert.ok(admission.includes(`$script:CTToolboxReleaseId = '${config.releaseId}'`));
+  assert.ok(admission.includes(`$script:CTToolboxVersion = '${config.version}'`));
+  assert.ok(!admission.includes("__CLIENT_"));
+  for (const required of ["CT-TOOLBOX-V1", "toolbox-v1-task", "toolbox-v1-update", "CT-OFFICE-V3-UPDATE", "CngKeyBlobFormat.EccPrivateBlob", "DataProtectionScope]::CurrentUser", "Assert-CTDetectPermit", "Get-CTTrustedWebsiteKey", "AllowAutoRedirect=$false"]) assert.ok(admission.includes(required), required);
+  assert.ok(!admission.includes("-----BEGIN PRIVATE KEY-----") && !/Invoke-Expression|DownloadString/.test(admission));
+});
+
+test("every inspection obtains fresh permission before facts and records completion without uploading facts", () => {
+  const entry = runner.slice(runner.indexOf("function Invoke-Inspection"), runner.indexOf("function Get-CTFailureMessage"));
+  assert.ok(entry.indexOf("Sync-CTPendingOutcomes") < entry.indexOf("Request-CTDetectPermit"));
+  assert.ok(entry.indexOf("Request-CTDetectPermit") < entry.indexOf("Get-SystemFacts"));
+  assert.ok(entry.indexOf("Get-SystemFacts") < entry.indexOf("Complete-CTDetection"));
+  assert.ok(admission.includes("function Send-CTPendingOutcome") && admission.includes("'checkpointHash'"));
+  const payload = admission.slice(admission.indexOf("function Send-CTToolboxProof"), admission.indexOf("function Write-CTPendingOutcome"));
+  assert.ok(!payload.includes("$Facts") && !payload.includes("OwnerSid"));
+  assert.ok(payload.includes("[Guid]::NewGuid()") && payload.includes("'jobs/'+$Operation"));
+});
+
 test("the package and source are byte-for-byte consistent with website checksums", () => {
   for (const [name, hash] of Object.entries(manifest.inputs)) {
     assert.equal(sha(read(`scripts/windows-toolbox/${name}`)), hash, `Regenerate after changing ${name}`);
   }
   assert.equal(sha(read("public" + manifest.archive.path)), manifest.archive.sha256);
-  assert.equal(sha(read("public/toolbox/windows/release.xml")), manifest.files["release.xml"].sha256);
-  assert.equal(sha(read("public/toolbox/windows/ChinaTech-Windows.ps1.txt")), manifest.files["ChinaTech-Windows.ps1"].sha256);
+  assert.equal(sha(read("public/toolbox/windows-current/release.xml")), manifest.files["release.xml"].sha256);
+  assert.equal(sha(read("public/toolbox/windows-current/ChinaTech-Windows.ps1.txt")), manifest.files["ChinaTech-Windows.ps1"].sha256);
   assert.ok(runner.includes(`$script:ExpectedReleaseHash = '${manifest.files["release.xml"].sha256}'`));
-  assert.deepEqual(JSON.parse(read("public/toolbox/windows/checksums.json")), manifest);
+  assert.deepEqual(JSON.parse(read("public/toolbox/windows-current/checksums.json")), manifest);
   const entries = JSON.parse(execFileSync("python3", ["-c", `import hashlib,json,sys,zipfile
 with zipfile.ZipFile(sys.argv[1]) as archive:
  assert archive.testzip() is None
@@ -45,7 +78,7 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
 
 test("each language launcher pins the executed file and avoids dynamic remote execution", () => {
   for (const language of ["zh-CN", "it", "en"]) {
-    const cmd = read(`public/toolbox/windows/Start-${language}.cmd.txt`).toString("utf8");
+    const cmd = read(`public/toolbox/windows-current/Start-${language}.cmd.txt`).toString("utf8");
     const encoded = cmd.match(/-EncodedCommand ([A-Za-z0-9+/=]+)/)?.[1];
     assert.ok(encoded);
     const code = Buffer.from(encoded, "base64").toString("utf16le");
@@ -107,7 +140,7 @@ test("verified builds require source-bound Windows and media evidence before wri
   const fixture = mkdtempSync(join(root, ".local/windows-toolbox/build-gate-"));
   try {
     mkdirSync(join(fixture, "scripts/windows-toolbox"), { recursive: true });
-    for (const name of ["build.mjs", "runner.ps1", "workflow.ps1", "messages.json"]) writeFileSync(join(fixture, "scripts/windows-toolbox", name), read(`scripts/windows-toolbox/${name}`));
+    for (const name of ["build.mjs", "runner.ps1", "workflow.ps1", "admission.ps1", "messages.json"]) writeFileSync(join(fixture, "scripts/windows-toolbox", name), read(`scripts/windows-toolbox/${name}`));
     const check = (candidate, label) => {
       writeFileSync(join(fixture, "scripts/windows-toolbox/release.json"), JSON.stringify(candidate));
       const result = spawnSync(process.execPath, [join(fixture, "scripts/windows-toolbox/build.mjs")], { encoding: "utf8" });
@@ -144,15 +177,15 @@ test("verified builds require source-bound Windows and media evidence before wri
     writeFileSync(join(fixture, "scripts/windows-toolbox/release.json"), JSON.stringify({ ...config, status: "verified", target, media, verifiedRoutes: [writeReports(windows)] }));
     const valid = spawnSync(process.execPath, [join(fixture, "scripts/windows-toolbox/build.mjs")], { encoding: "utf8" });
     assert.equal(valid.status, 0, valid.stdout + valid.stderr);
-    assert.ok(readFileSync(join(fixture, "public/toolbox/windows/ChinaTech-Windows.ps1.txt"), "utf8").includes("$script:AutomationEnabled = $true"), "complete synthetic contract permits future verified compilation");
-    assert.equal(JSON.parse(readFileSync(join(fixture, "public/toolbox/windows/checksums.json"))).status, "verified");
+    assert.ok(readFileSync(join(fixture, "public/toolbox/windows-current/ChinaTech-Windows.ps1.txt"), "utf8").includes("$script:AutomationEnabled = $true"), "complete synthetic contract permits future verified compilation");
+    assert.equal(JSON.parse(readFileSync(join(fixture, "public/toolbox/windows-current/checksums.json"))).status, "verified");
   } finally { rmSync(fixture, { recursive: true, force: true }); }
 });
 
 const pwsh = process.env.WINDOWS_TOOLBOX_PWSH || "pwsh";
 const available = spawnSync(pwsh, ["-NoLogo", "-NoProfile", "-Command", "$PSVersionTable.PSVersion.ToString()"], { encoding: "utf8" }).status === 0;
 test("real PowerShell parser and pure route, retention, release-gate and failure tests", { skip: available ? false : "PowerShell runtime unavailable; this does not prove Windows execution" }, () => {
-  const result = spawnSync(pwsh, ["-NoLogo", "-NoProfile", "-File", "tests/windows-toolbox.ps1"], { encoding: "utf8" });
+  const result = spawnSync(pwsh, ["-NoLogo", "-NoProfile", "-File", join(root,"tests/windows-toolbox.ps1")], { encoding: "utf8" });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /PowerShell checks passed/);
 });

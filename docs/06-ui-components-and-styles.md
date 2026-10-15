@@ -569,3 +569,7 @@ OfficeDesktopControl沿用account panel/form/button/token，最低版本复用Se
 
 
 设置面板`.settings-content`使用overflow-anchor:none，避免位于视口上方的保存错误/结果提示插入后，UA滚动锚定在按下事件中改变触点命中。该局部规则包含既有各设置分类；按钮按下样式、校验、焦点和表单提交保持原生行为，不全局禁用列表等区域的滚动锚定。六组Linux原断言对照见docs/34。
+
+## 2026-10-15 工具箱统一管理
+
+ToolboxControl替换账号设置旧三套Office管理卡片与双导航，复用既有panel/button、Figma 12373:157599的边框/16px面板/8px控件及B反馈；桌面紧凑行、手机名称独行+状态/44px操作。唯一当前发行与暂停开关，历史版本选择不再出现。技术信息才挂载只读公钥/任务/过期清理，未知保存只重试原requestId，冲突/身份变化隔离旧投影。具体协议及边界见docs38。

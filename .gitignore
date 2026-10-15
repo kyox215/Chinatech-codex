@@ -17,6 +17,7 @@ archive.local/
 *.private.*
 *.zip
 !public/toolbox/windows/ChinaTech-Windows-Check.zip
+!public/toolbox/windows-current/ChinaTech-Windows-Check.zip
 history/
 prototypes/
 design/

@@ -4,14 +4,19 @@ on:
     paths:
       - 'scripts/windows-toolbox/**'
       - 'public/toolbox/windows/**'
+      - 'public/toolbox/windows-current/**'
       - 'tests/windows-toolbox*'
       - '.github/workflows/windows-toolbox.yml'
   pull_request:
     paths:
       - 'scripts/windows-toolbox/**'
       - 'public/toolbox/windows/**'
+      - 'public/toolbox/windows-current/**'
       - 'tests/windows-toolbox*'
       - '.github/workflows/windows-toolbox.yml'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}-${{ github.event_name }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -21,7 +26,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Windows PowerShell 5.1 core and closed-gate tests
         shell: powershell
-        run: ./tests/windows-toolbox.ps1
+        run: |
+          ./tests/windows-toolbox.ps1
+          ./tests/windows-toolbox.admission.ps1
       - name: Windows PowerShell workflow parsing and pure cryptographic checks
         shell: powershell
         run: ./tests/windows-toolbox.workflow.ps1

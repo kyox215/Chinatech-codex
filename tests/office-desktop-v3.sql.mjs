@@ -7,6 +7,8 @@ import { env, load, tokens, publicKey, keys, plan, proof, signed } from './offic
 import { candidateChecks } from './office-desktop-v3-candidate.sql.mjs';
 import { httpLifecycleChecks } from './office-desktop-v3-http.sql.mjs';
 import { lifecycleChecks } from './office-desktop-v3-lifecycle.sql.mjs';
+import {toolboxClientChecks} from './toolbox-client.sql.mjs';
+import {toolboxLatestChecks} from './toolbox-latest.sql.mjs';
 import { requestRateChecks } from './office-desktop-v3-rate.sql.mjs';
 const raw=process.env.OFFICE_V3_TEST_OWNER_URL;
 if(!raw)throw Error('Explicit dedicated OFFICE_V3_TEST_OWNER_URL required');
@@ -36,7 +38,7 @@ try{
  await owner.unsafe(readFileSync('supabase/migrations/20261013094116_office_desktop_v3_candidate_admission.sql','utf8'));
  await owner.unsafe(readFileSync('supabase/migrations/20261013100926_office_desktop_v3_request_rate.sql','utf8'));
  await owner.unsafe(readFileSync('supabase/migrations/20261014124342_office_desktop_v3_activity_lifecycle.sql','utf8'));
- const db=load('lib/toolbox/office-desktop-v3-database.ts',{},env),server=load('lib/toolbox/office-desktop-v3-server.ts',{},env);
+ const db=load('lib/toolbox/office-desktop-v3-database.ts',{},env),server=load('lib/toolbox/office-desktop-v3-server.ts',{'./tool-registry-server':{readTool:async()=>({toolId:'office',activeReleaseId:'office-1.4.0',enabled:true,ready:true,release:{version:'1.4.0'}})}},env);
  const call=async(body,op,bearer='',source='d'.repeat(64),deviceKeys=keys)=>{const wire=signed(body,op,bearer,deviceKeys.privateKey);const keyHash=op==='session'?tokens.hashV3(Buffer.from(body.publicKey,'base64url')):tokens.readV3(bearer,op==='start'||op==='admission'?'office-v3-session':op==='commit'?'office-v3-start':'office-v3-permit',undefined,op==='commit').keyHash;return JSON.parse(JSON.stringify(await db.transactionV3(body,keyHash,op,source,tx=>server.operationV3(tx,body,op,bearer,source,wire.payload,wire.signature))));};
  const metadata=await owner`select relname,relrowsecurity,relforcerowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='chinatech_v2_private' and relname like 'office_v3_%' and relkind='r'`;assert.equal(metadata.length,12);assert.ok(metadata.every(x=>x.relrowsecurity&&x.relforcerowsecurity));
  const [badGrant]=await owner`select count(*)::integer as n from information_schema.role_table_grants where table_schema='chinatech_v2_private' and table_name like 'office_v3_%' and grantee in('PUBLIC','anon','authenticated')`;assert.equal(badGrant.n,0);
@@ -111,5 +113,7 @@ try{
  await httpLifecycleChecks({owner,db,call,admin,identity,otherIdentity:{userId:otherId,sessionId:otherSid},pass});
 
 
+ await toolboxLatestChecks({owner,runtime,db,identity,otherIdentity:{userId:otherId,sessionId:otherSid},withDatabase,pass});
+ await toolboxClientChecks({owner,db,pass});
  console.log(JSON.stringify({checks:checks.length,productionOperations:0,scope:'synthetic auth-session fixture and actual v3 SQL/RLS/protocol'}));
 } finally {await runtime.end();await owner.end();}

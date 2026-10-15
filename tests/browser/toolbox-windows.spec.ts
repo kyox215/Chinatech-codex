@@ -1,58 +1,17 @@
+import {createHash} from "node:crypto";
 import { test, expect } from "@playwright/test";
-import { createHash } from "node:crypto";
 import release from "../../lib/toolbox/windows-release.json";
-import { translate } from "../../lib/i18n/translate";
 
-const sha = (data: Buffer) => createHash("sha256").update(data).digest("hex");
 const languages = [
   { locale: "zh-CN", title: "Windows 11 Pro 升级", download: "下载检测启动器", status: "自动升级尚未开放", source: "查看检测脚本源码" },
   { locale: "it", title: "Aggiornamento a Windows 11 Pro", download: "Scarica il programma di verifica", status: "Aggiornamento automatico non disponibile", source: "Visualizza il codice della verifica" },
   { locale: "en", title: "Windows 11 Pro upgrade", download: "Download inspection launcher", status: "Automatic upgrade is not yet available", source: "View inspection script source" },
 ] as const;
 
-test("Windows entry, real ZIP download and all public files match pinned bytes", async ({ page, request }) => {
-  const errors: string[] = [];
-  page.on("pageerror", error => errors.push(error.message));
-  await page.goto("/toolbox");
-  await page.getByRole("link", { name: "查看 Windows 升级工具", exact: true }).click();
-  await expect(page).toHaveURL(/\/toolbox\/windows$/);
-  await expect(page.getByRole("heading", { name: languages[0].title, exact: true })).toBeVisible();
-  await expect(page.getByText(languages[0].status, { exact: true })).toBeVisible();
-  const link = page.getByRole("link", { name: languages[0].download, exact: true });
-  await expect(link).toHaveAttribute("href", release.archive.path);
-  const zip = await request.get(release.archive.path);
-  expect(zip.ok()).toBe(true);
-  expect(sha(await zip.body())).toBe(release.archive.sha256);
-  const downloaded = page.waitForEvent("download");
-  await link.click();
-  expect((await downloaded).suggestedFilename()).toBe("ChinaTech-Windows-Check.zip");
-  for (const [filename, metadata] of Object.entries(release.files)) {
-    if (filename === "README.txt" || filename === "release.xml" || filename.endsWith(".cmd") || filename.endsWith(".ps1")) {
-      const path = filename.endsWith(".cmd") || filename.endsWith(".ps1") ? `${filename}.txt` : filename;
-      const response = await request.get(`/toolbox/windows/${path}`);
-      expect(response.ok()).toBe(true);
-      expect(sha(await response.body())).toBe(metadata.sha256);
-    }
-  }
-  await page.getByRole("link", { name: "工具箱", exact: true }).click();
-  await expect(page).toHaveURL(/\/toolbox$/);
-  await page.getByRole("link", { name: "查看 Office 助手", exact: true }).click();
-  await expect(page).toHaveURL(/\/toolbox\/office$/);
-  await expect(page.getByRole("heading", { name: translate("Office 助手", "zh-CN"), exact: true })).toBeVisible();
-  expect(errors).toEqual([]);
-});
-
-test("JavaScript-disabled browsers can read the page and download the complete package", async ({ browser, baseURL }) => {
-  const context = await browser.newContext({ javaScriptEnabled: false });
-  try {
-    const page = await context.newPage();
-    await page.goto(`${baseURL}/toolbox/windows`);
-    await expect(page.getByRole("heading", { name: languages[0].title, exact: true })).toBeVisible();
-    await expect(page.getByText(languages[0].status, { exact: true })).toBeVisible();
-    const download = page.getByRole("link", { name: languages[0].download, exact: true });
-    await expect(download).toHaveAttribute("href", release.archive.path);
-    expect((await context.request.get(release.archive.path)).ok()).toBe(true);
-  } finally { await context.close(); }
+test('Retired Windows files are unavailable, including direct and Range requests',async({page,request})=>{
+ await page.goto('/toolbox/windows');await expect(page.getByRole('heading',{name:languages[0].title,exact:true})).toBeVisible();await expect(page.getByRole('link',{name:languages[0].download,exact:true})).toHaveAttribute('href',release.archive.path);
+ const current=await request.get(release.archive.path);expect(current.status()).toBe(200);expect(createHash('sha256').update(await current.body()).digest('hex')).toBe(release.archive.sha256);
+ for(const path of ['/toolbox/windows/ChinaTech-Windows-Check.zip','/toolbox/windows/ChinaTech-Windows.ps1.txt','/toolbox/windows/Start-zh-CN.cmd.txt','/toolbox/windows/release.xml','/toolbox/windows/checksums.json']){const response=await request.get(path,{headers:{Range:'bytes=0-1023'}});expect(response.status()).toBe(410);expect((await response.json()).code).toBe('UPDATE_REQUIRED');}
 });
 
 for (const language of languages) {
@@ -63,10 +22,8 @@ for (const language of languages) {
       await page.goto("/toolbox/windows");
       await expect(page.getByRole("heading", { name: language.title, exact: true })).toBeVisible();
       await expect(page.getByText(language.status, { exact: true })).toBeVisible();
-      const download = page.getByRole("link", { name: language.download, exact: true });
-      await expect(download).toBeVisible();
-      await expect(page.getByRole("link", { name: language.source, exact: true })).toBeVisible();
-      await expect(page.getByText(`Start-${language.locale}.cmd`, { exact: false })).toBeVisible();
+      await expect(page.getByRole('link',{name:language.download,exact:true})).toHaveAttribute('href',release.archive.path);
+      await expect(page.getByText(release.version,{exact:false})).toBeVisible();
       const measurements = await page.evaluate(() => ({
         width: document.documentElement.clientWidth,
         scroll: document.documentElement.scrollWidth,

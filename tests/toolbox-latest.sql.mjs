@@ -1,0 +1,62 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {randomUUID} from 'node:crypto';
+import {load,env,proof,publicKey,signed,tokens,plan} from './office-desktop-v3.test.mjs';
+export async function toolboxLatestChecks({owner,runtime,db,identity,otherIdentity,withDatabase,pass}){
+ // The old fixture only carries its administrator identity; add the historical fields consumed by the retirement migration.
+ await owner`alter table chinatech_v2_private.office_command_control add column enabled boolean not null default true,add column command_version bigint not null default 1,add column revision bigint not null default 0`;
+ await owner`create table chinatech_v2_private.office_desktop_control(singleton boolean primary key,enabled boolean not null)`;
+ await owner`insert into chinatech_v2_private.office_desktop_control values(true,true)`;
+ await owner`update chinatech_v2_private.test_sessions set revoked=false where id=${identity.sessionId}`;
+ await owner`update chinatech_v2_private.office_v3_control set enabled=true,minimum_version='1.4.0',verified_version='1.4.0',release_ready=true`;
+ await owner.unsafe(readFileSync('supabase/migrations/20261015120124_toolbox_latest_only.sql','utf8'));
+ const [tables]=await owner`select count(*)::int as n from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='chinatech_v2_private' and c.relname in('toolbox_tools','toolbox_releases','toolbox_admin_receipts') and c.relrowsecurity and c.relforcerowsecurity`;assert.equal(tables.n,3);
+ const denies=async(fn,code)=>{let error;try{await fn();}catch(e){error=e;}assert.ok(error,'expected rejection');if(code)assert.equal(error.code,code);};
+ await denies(()=>owner`update chinatech_v2_private.office_command_control set enabled=true`,'23514');
+ await denies(()=>owner`update chinatech_v2_private.office_desktop_control set enabled=true`,'23514');
+ await denies(()=>owner`update chinatech_v2_private.toolbox_releases set ready=false`);
+ await denies(()=>runtime`update chinatech_v2_private.toolbox_tools set active_release_id=null`,'42501');
+ await denies(()=>owner`update chinatech_v2_private.office_v3_control set minimum_version='1.3.0'`,'23514');
+ await denies(()=>owner`insert into chinatech_v2_private.toolbox_releases(tool_id,release_id,manifest) values('office','invalid','{}'::jsonb)`,'23514');
+ pass('Latest registry FORCE RLS; immutable releases; runtime cannot publish or downgrade; retired switches cannot reopen');
+ const admin=load('lib/toolbox/tool-registry-server.ts',{'@/lib/backend/database':{withDatabase}},env);
+ await denies(()=>admin.adminTools(otherIdentity),'NO_ACCESS');
+ let state=await admin.adminTools(identity);assert.equal(state.tools.length,5);let office=state.tools.find(t=>t.toolId==='office');
+ const input={toolId:'office',enabled:false,expectedRevision:office.revision,requestId:randomUUID()};
+ state=await admin.adminTools(identity,input);assert.equal(state.tools[0].enabled,false);assert.equal((await admin.adminTools(identity,input)).tools[0].revision,state.tools[0].revision);
+ await denies(()=>admin.adminTools(identity,{...input,enabled:true}),'REQUEST_CONFLICT');
+ await denies(()=>admin.adminTools(identity,{...input,requestId:randomUUID()}),'REQUEST_CONFLICT');
+ for(const tool of state.tools.slice(1))await denies(()=>admin.adminTools(identity,{toolId:tool.toolId,enabled:true,expectedRevision:tool.revision,requestId:randomUUID()}),'SERVICE_UNAVAILABLE');
+ pass('Administrator/session/body-bound idempotency; stale revision and incomplete-tool enable denied; pause synchronises v3');
+ const server=load('lib/toolbox/office-desktop-v3-server.ts',{},env);
+ const call=async(body,op,bearer='')=>{const wire=signed(body,op,bearer);const keyHash=op==='session'?tokens.hashV3(Buffer.from(body.publicKey,'base64url')):tokens.readV3(bearer,op==='admission'||op==='start'?'office-v3-session':op==='commit'?'office-v3-start':'office-v3-permit',undefined,op==='commit').keyHash;return db.transactionV3(body,keyHash,op,'a'.repeat(64),tx=>server.operationV3(tx,body,op,bearer,'a'.repeat(64),wire.payload,wire.signature));};
+ // Commit real v3 1.4 fixtures before the cutoff, including one unknown-result retry.
+ state=await admin.adminTools(identity);office=state.tools[0];await admin.adminTools(identity,{toolId:'office',enabled:true,expectedRevision:office.revision,requestId:randomUUID()});
+ const oldBase={installationId:randomUUID(),appVersion:'1.4.0'},oldSession=await call(proof({...oldBase,publicKey}),'session');
+ const oldStart=await call(proof({...oldBase,jobId:randomUUID(),action:'install',architecture:'win-x64',plan}),'start',oldSession.sessionToken);
+ const oldPrepared=await call(proof({...oldBase,jobId:randomUUID(),action:'install',architecture:'win-x64',plan}),'start',oldSession.sessionToken);
+ const oldCommitProof=proof({...oldBase,jobId:oldStart.jobId,planHash:oldStart.planHash});
+ const oldPermit=await call(oldCommitProof,'commit',oldStart.startToken);
+ const [receipt]=await owner`select fingerprint from chinatech_v2_private.office_v3_receipts where installation_id=${oldBase.installationId} and request_id=${oldCommitProof.requestId}`;
+ assert.equal(receipt.fingerprint,tokens.hashV3(JSON.stringify(['commit',oldBase.installationId,'1.4.0',tokens.hashV3(oldStart.startToken),oldStart.jobId,oldStart.planHash])));
+ // Publish is an owner-only transaction, advancing both pointer and old-v3 compatibility floor atomically.
+ const manifest={releaseId:'office-1.5.0',version:'1.5.0',files:[{architecture:'x64',bytes:1,sha256:'a'.repeat(64),href:'https://example.test/fixture.exe'}],authenticodeSigned:false,prerelease:true};
+ await owner.begin(async tx=>{await db.lockV3(tx,'control');await tx`insert into chinatech_v2_private.toolbox_releases(tool_id,release_id,manifest,ready) values('office','office-1.5.0',${tx.json(manifest)},true)`;await tx`update chinatech_v2_private.toolbox_tools set active_release_id='office-1.5.0',enabled=true,revision=revision+1 where tool_id='office'`;await tx`update chinatech_v2_private.office_v3_control set enabled=true,minimum_version='1.5.0',verified_version='1.5.0',release_ready=true,revision=revision+1 where singleton`;});
+ await denies(()=>owner`update chinatech_v2_private.toolbox_tools set active_release_id='office-1.4.0' where tool_id='office'`,'23514');
+ const oldRetried=await call(oldCommitProof,'commit',oldStart.startToken);assert.equal(oldRetried.permitToken,oldPermit.permitToken);
+ const oldResumed=await call(proof({...oldBase,jobId:oldStart.jobId,planHash:oldStart.planHash}),'resume',oldPermit.permitToken);assert.equal(oldResumed.permitToken,oldPermit.permitToken);
+ await denies(()=>call(proof({...oldBase,jobId:oldPrepared.jobId,planHash:oldPrepared.planHash}),'commit',oldPrepared.startToken),'UPDATE_REQUIRED');
+ await denies(()=>call(proof({...oldBase,jobId:randomUUID(),action:'install',architecture:'win-x64',plan}),'start',oldSession.sessionToken),'UPDATE_REQUIRED');
+ pass('Actual 1.4 commit receipt replay and original permit resume survive 1.5 cutoff; uncommitted 1.4 and fresh old jobs denied');
+ const iid=randomUUID(),base={installationId:iid,appVersion:'1.5.0',releaseId:'office-1.5.0'};
+ const session=await call(proof({...base,publicKey}),'session');
+ const stale=proof({...base,releaseId:'phone-1.5.0',architecture:'win-x64'});await denies(()=>call(stale,'admission',session.sessionToken),'UPDATE_REQUIRED');
+ const ticket=await call(proof({...base,jobId:randomUUID(),action:'install',architecture:'win-x64',plan}),'start',session.sessionToken);
+ const commit=await call(proof({...base,jobId:ticket.jobId,planHash:ticket.planHash}),'commit',ticket.startToken);
+ const prepared=await call(proof({...base,jobId:randomUUID(),action:'install',architecture:'win-x64',plan}),'start',session.sessionToken);
+ state=await admin.adminTools(identity);office=state.tools[0];await admin.adminTools(identity,{toolId:'office',enabled:false,expectedRevision:office.revision,requestId:randomUUID()});
+ await denies(()=>call(proof({...base,jobId:prepared.jobId,planHash:prepared.planHash}),'commit',prepared.startToken),'DESKTOP_PAUSED');
+ const resumed=await call(proof({...base,jobId:ticket.jobId,planHash:ticket.planHash}),'resume',commit.permitToken);assert.ok(resumed.permitToken);
+ await denies(()=>call(proof({...base,jobId:ticket.jobId,planHash:'f'.repeat(64)}),'resume',commit.permitToken),'SESSION_INVALID');
+ pass('Exact release identity/cross-tool denial; prepared task loses admission on pause; committed task safely resumes with frozen scope');
+}

@@ -21,6 +21,7 @@ $script:ExpectedEntryHash = $EntryHash
 $script:OwnerSid = $OwnerSid
 $script:EntryLoaderTemplate = '__ENTRY_LOADER_TEMPLATE__'
 $script:WorkflowBytes = '__WORKFLOW_BASE64__'
+$script:AdmissionBytes = '__ADMISSION_BASE64__'
 $script:Messages = __MESSAGES__
 $script:LanguageIndex = 0
 if ($Language -eq 'it') { $script:LanguageIndex = 1 }
@@ -103,6 +104,12 @@ function Import-CTWorkflow {
     # Keeping modern module syntax inside a Base64 string leaves PS2 inspection
     # parseable. No module operation runs while its functions are imported.
     $code = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($script:WorkflowBytes))
+    . ([ScriptBlock]::Create($code))
+}
+
+function Import-CTAdmission {
+    if ($PSVersionTable.PSVersion -lt [Version]'5.1') { throw 'toolbox.prerequisite' }
+    $code=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($script:AdmissionBytes))
     . ([ScriptBlock]::Create($code))
 }
 
@@ -252,6 +259,9 @@ function Invoke-Inspection {
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { Write-CTMessage (Get-Message 'platform'); return $null }
     [void](Assert-CTEntryHost)
     $release = Read-Release
+    . Import-CTAdmission
+    Sync-CTPendingOutcomes
+    $permission = Request-CTDetectPermit
     $facts = Get-SystemFacts
     Write-CTMessage ((Get-Message 'detected') -f $facts.Caption, $facts.Edition, $facts.Architecture, $facts.InstallLanguage)
     $route = Get-Route $facts.Version $facts.Build $facts.Edition $facts.Architecture
@@ -261,6 +271,7 @@ function Invoke-Inspection {
     } else { Write-CTMessage (Get-Message $route.Reason) }
     $issues = @(Get-PreflightIssues $facts)
     foreach ($issue in $issues) { Write-CTMessage (Get-Message $issue) }
+    Complete-CTDetection $permission $facts
     # Inspection reports facts only. The separate entry branch checks both gates
     # before asking for UAC or importing any workflow operation.
     return New-Object PSObject -Property @{ Release=$release; Route=$route; Facts=$facts; Issues=$issues }
@@ -268,6 +279,7 @@ function Invoke-Inspection {
 
 function Get-CTFailureMessage([string]$Code) {
     if ($Code -match '^workflow\.[A-Za-z][A-Za-z0-9]+$' -and $script:Messages.ContainsKey($Code)) { return Get-Message $Code }
+    if ($Code -match '^toolbox\.[A-Za-z][A-Za-z0-9]+$' -and $script:Messages.ContainsKey($Code)) { return Get-Message $Code }
     foreach ($key in @('integrity','platform','signature','blocked','admin')) {
         if ($Code -eq (Get-Message $key)) { return Get-Message $key }
     }
@@ -319,7 +331,12 @@ if (-not $LibraryOnly) {
             elseif ($outcome -eq 'awaiting-restart') { Write-CTMessage (Get-Message 'inProgress'); $result=0 }
             else { Write-CTMessage (Get-Message 'workflow.failedUnknown'); $result=1 }
         }
-    } catch { Write-CTMessage (Get-CTFailureMessage $_.Exception.Message) }
+    } catch {
+        $code=$_.Exception.Message;Write-CTMessage (Get-CTFailureMessage $code)
+        if ($code -eq 'toolbox.updateRequired' -and (Get-Command Invoke-CTGuidedUpdate -ErrorAction SilentlyContinue)) {
+            try { Invoke-CTGuidedUpdate } catch { Write-CTMessage (Get-CTFailureMessage $_.Exception.Message) }
+        }
+    }
     Write-CTMessage (Get-Message 'pressEnter')
     [void][Console]::ReadLine()
     exit $result
