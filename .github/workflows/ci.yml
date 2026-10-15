@@ -51,6 +51,13 @@ jobs:
         run: node tests/toolbox-control.ui.mjs
       - name: Shared feedback lifecycle and UI catalog checks
         run: node tests/ui-feedback.ui.mjs
+      - name: Preserve shared feedback verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-ui-feedback-proof
+          path: .local/ui-feedback/
+          if-no-files-found: error
       - run: npm run test:controls
       - uses: actions/upload-artifact@v4
         if: failure()

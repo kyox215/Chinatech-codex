@@ -51,7 +51,7 @@ function markup(css) {
     <button class="button button--secondary" id="secondary">Secondary action</button>
     <button class="button button--tiny" id="tiny">View all</button>
     <button class="icon-button" id="icon" aria-label="Close">×</button>
-    <a class="navigation-link" id="navigation" href="#"><span class="navigation-feedback" data-pending="true" aria-hidden="true"></span>Navigation</a>
+    <a class="navigation-link" id="navigation" href="#">Navigation<span class="navigation-feedback" data-pending="true" aria-hidden="true"><svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></span></a>
     <label class="field"><span id="field-label">Input</span><span class="input-control" data-filled="false" data-invalid="false"><span class="input-control__body"><input id="input" class="input-control__native" aria-label="Input"></span></span></label>
     <div class="repair-module-table__head" id="table-header">Model</div>
     <div class="repair-unified-list"><div class="repair-module-row"><div class="repair-module-row__device"><div><strong id="repair-name">Repair model</strong></div></div></div></div>
@@ -85,6 +85,7 @@ for (const engine of [chromium, webkit]) {
       assert.ok(loaded.length && loaded.every(status => status === "loaded"), "The actual bundled font must load");
       for (const width of [1440, 1024, 390, 375]) {
         await page.setViewportSize({ width, height: 1000 });
+        await page.locator("#primary").focus();
         const result = await page.evaluate(() => {
           const style = selector => getComputedStyle(document.querySelector(selector));
           const rect = selector => {
@@ -101,7 +102,8 @@ for (const engine of [chromium, webkit]) {
             closedBody: style("#identity-body").display,
             button: { size: style("#primary").fontSize, weight: style("#primary").fontWeight, radius: style("#primary").borderRadius, background: style("#primary").backgroundColor },
             panelRadius: style("#panel").borderRadius,
-            pendingOutline: { width: style("#navigation").outlineWidth, color: style("#navigation").outlineColor },
+            pendingOutline: style("#navigation").outlineStyle,
+            pendingSlot: { position: style("#navigation .navigation-feedback").position, ...rect("#navigation .navigation-feedback") },
             dialog: { radius: style("#dialog").borderRadius, padding: style("#dialog").paddingTop },
             table: { size: style("#table-header").fontSize, weight: style("#table-header").fontWeight, background: style("#table-header").backgroundColor },
             repairName: { size: style("#repair-name").fontSize, weight: style("#repair-name").fontWeight },
@@ -120,7 +122,11 @@ for (const engine of [chromium, webkit]) {
         await page.locator('[data-retail-group="identity"]').evaluate(element => element.setAttribute("data-open", "false"));
         assert.deepEqual(result.button, { size: "14px", weight: "500", radius: "8px", background: "rgb(95, 87, 255)" });
         assert.equal(result.panelRadius, "16px");
-        assert.deepEqual(result.pendingOutline, { width: "2px", color: "rgb(223, 221, 255)" });
+        assert.equal(result.pendingOutline, "none", "Pending does not add a frame");
+        assert.deepEqual(result.pendingSlot, { position: "static", width: 16, height: 16 }, "Pending occupies its inline slot");
+        await page.locator("#navigation").focus(); await page.keyboard.press("Shift");
+        assert.equal(await page.locator("#navigation").evaluate(e => document.activeElement === e), true);
+        assert.deepEqual(await page.locator("#navigation").evaluate(e => ({style:getComputedStyle(e).outlineStyle,width:getComputedStyle(e).outlineWidth})), {style:"solid",width:"3px"}, "Keyboard focus remains visible independently");
         assert.deepEqual(result.dialog, { radius: "16px", padding: "16px" });
         assert.deepEqual(result.table, { size: "14px", weight: "400", background: "rgb(246, 247, 249)" });
         assert.equal(result.inputSize, "16px");

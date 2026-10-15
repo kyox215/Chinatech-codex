@@ -65,7 +65,7 @@ try {
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
         if (locale === "zh-CN" && [375, 1440].includes(width)) await page.screenshot({ path: `.local/ui-feedback/previews/catalog-${engine}-${width}.png`, fullPage: true });
       }
-      assert.deepEqual(requests, []); assert.deepEqual(errors, []); results.push({ engine, toastElapsedMs: elapsed, checks: ["one visible local/global toast", "1.8s real timer", "dismiss", "no replay", "hidden owner fallback", "old timer isolation", "stable busy slots", "OAuth one active control", "text/icon/grid navigation", "3 locales x4 widths", "0 API requests", "0 page errors"] });
+      assert.deepEqual(requests, []); assert.deepEqual(errors, []); results.push({ engine, toastElapsedMs: elapsed, checks: ["one visible local/global toast", "1.8s real timer", "dismiss", "no replay", "hidden owner fallback", "old timer isolation", "new global replaces older local", "same-ID first deadline without global owner", "stable busy slots", "OAuth one active control", "text/icon/grid navigation", "3 locales x4 widths", "0 API requests", "0 page errors"] });
     } finally { await browser.close(); }
   }
   writeFileSync(".local/ui-feedback/component-results.json", JSON.stringify({ results, source: "Actual shared React components and CSS; isolated DEMO harness, no business writes" }, null, 2));

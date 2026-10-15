@@ -4,9 +4,9 @@
 
 用户已确认普通成功通知放操作附近/标题下方，约1.8秒自动消失、点击可提前关闭，不悬浮遮挡；失败/冲突/未知恢复入口持久。盘点79活动反馈文件/120导航源码调用，原Figma新增可编辑状态页15167:209297，项目统一从ui-design索引先复用，缺失先回Figma补齐归档。共享导航固定图标槽/文本预留槽、去右上绝对圈和等待外框；Toast按事件身份/可见性/首deadline隔离，旧计时不清新通知；waiting锁与executing反馈分离。
 
-实际本地冻结98关联浏览器通过，组件目录两引擎/三语四宽/API0/计时1849与1822ms通过；513领域512过/1本机无PowerShellskip，新增writer通知后34客户端专项过。独立审查暴露并修复隐藏Toast、重播、deadline、不同事件吞提示、unknown假busy及在线prepared恢复入口P1；后者源码CODE_GO，正式隔离API/UI尚待实跑。报告与边界ui-design/verification.md，源码证据.local/ui-feedback。旧失败/热更新干扰保留，未用它们冒充通过。
+实际本地冻结98关联浏览器通过，组件目录两引擎/三语四宽/API0/计时1849与1822ms通过；513领域512过/1本机无PowerShellskip，新增writer通知后34客户端专项过。独立审查暴露并修复隐藏Toast、重播、deadline、不同事件吞提示、unknown假busy及在线prepared恢复入口P1；后者源码CODE_GO，随后真实隔离验收已通过，见下一段。报告与边界ui-design/verification.md，源码证据.local/ui-feedback。旧失败/热更新干扰保留，未用它们冒充通过。
 
-当前正式main已漂移8e4638d9430c464691c0d78b3aa2ce0c8d8689de（Phone0.5.1），待正常合入、同源完整CI/候选/独立gate后随工单改版一起上线；不得晋升旧344d候选。正式双域与回滚点需要重新查询，不沿用旧2Wm作为当前事实。
+已正常合入正式main8e4638d9（Phone0.5.1），44文件42字节相同/CI与返回Link两受控合并。组合类型/4203三语/513领域、默认及正式编译、11CSS两顺序16组合过；严格https本地Auth/DB恢复两引擎各3组+照片两引擎过，新UUID精确清理且0生产业务写。双域fresh均J58NEAJBLcGTN5ZDhzv8qS1TLppT，已保存回滚点。待精确head完整CI/同源候选/独立gate后随工单一起上线；不得晋升旧344d候选或回退2Wm。
 
 ## 工单详情整合实施与发布准备（2026-10-15）
 

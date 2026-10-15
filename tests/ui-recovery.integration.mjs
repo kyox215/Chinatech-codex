@@ -31,10 +31,11 @@ try {
       const login = await context.request.post("/api/auth/login", { headers: { Origin: origin }, data: { email, password } }); assert.equal(login.status(), 200);
       page = await context.newPage(); page.on("dialog", dialog => dialog.accept());
       await page.goto("/app/settings"); const address = page.getByLabel("门店地址", { exact: true }), save = page.getByRole("button", { name: "保存设置", exact: true });
+      const businessHeading = page.locator(".module-title h2"); const originalTitle = await businessHeading.textContent();
       await address.fill("DEMO normal delayed save");
       let release; const gate = new Promise(resolve => { release = resolve; }); let captured;
       await page.route("**/api/backend/command", async route => { captured = route.request().postDataJSON(); const response = await route.fetch(); await gate; await route.fulfill({ response }); });
-      try { await save.click(); await expect.poll(() => Boolean(captured)).toBe(true); await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(1); await expect(page.locator("section.panel.sync-recovery")).toHaveCount(0); await expect(address).toHaveValue("DEMO normal delayed save"); await expect(page.locator("h2").filter({ hasText: "门店设置" }).first()).toBeVisible(); } finally { release(); }
+      try { await save.click(); await expect.poll(() => Boolean(captured)).toBe(true); await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(1); await expect(page.locator("section.panel.sync-recovery")).toHaveCount(0); await expect(address).toHaveValue("DEMO normal delayed save"); await expect(businessHeading).toHaveText(originalTitle); } finally { release(); }
       await expect(page.locator("[data-toast]")).toHaveCount(1); await page.unrouteAll({ behavior: "wait" }); await expect(page.locator("[data-toast]")).toHaveCount(0, { timeout: 2500 });
       checked.push("actual delayed save keeps content, single line, no recovery panel, confirmed Toast");
       await address.fill("DEMO offline prepared"); await context.setOffline(true); await save.click(); await expect.poll(async () => (await operations(page)).length).toBe(1); const prepared = (await operations(page))[0]; assert.equal(prepared.phase, "prepared"); await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
@@ -52,6 +53,7 @@ try {
       assert.deepEqual(runtimeErrors, []); results.push({ engine: engine.name(), checked, runtimeErrors });
     } catch (error) { if (page) await page.screenshot({ path: `${output}/${engine.name()}-failure.png`, fullPage: true }).catch(() => {}); throw error; }
     finally {
+      if (page) await page.unrouteAll({ behavior: "wait" }).catch(() => {});
       if (context) { await context.setOffline(false).catch(() => {}); await context.request.post("/api/auth/logout", { headers: { Origin: origin } }).catch(() => {}); await context.close(); } if (browser) await browser.close();
       if (userId) await sql`delete from chinatech_v2_private.session_audit where actor_id=${userId} or target_user_id=${userId}`;
       await sql.begin(async tx => { for (const table of ["session_audit", "store_login_sessions", "audit_events", "command_receipts", "intake_photos", "procurement_records", "repair_intakes", "customer_devices", "customers", "store_state"]) await tx.unsafe(`delete from chinatech_v2_private.${table} where store_id=$1`, [storeId]); await tx`delete from chinatech_v2.store_memberships where store_id=${storeId}`; await tx`delete from chinatech_v2.stores where id=${storeId}`; });
