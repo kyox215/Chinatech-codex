@@ -25,7 +25,7 @@ export function RepairProcurementShortcut({ repairId, onOpen }: { repairId: stri
   return <button id={`repair-action-${repairId}`} className="button button--secondary" type="button" onClick={() => onOpen(repairId)} aria-label={t("{v0} 配件{v1}", { v0: repairId, v1: canEdit ? t("操作") : t("详情") })} title={canEdit ? t("配件操作") : t("配件详情")}><PackageSearch size={17} aria-hidden="true" /><span>{t("配件")}</span></button>;
 }
 // Dialog lives outside groups; marking a part may move its work order into another group.
-export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "" }: { repairId: string | null; onClose: () => void; initialRecordId?: string; initialMode?: "view" | "add" }) {
+export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "", initialRequirementId }: { repairId: string | null; onClose: () => void; initialRecordId?: string; initialMode?: "view" | "add"; initialRequirementId?: string }) {
   const { t, locale, systemText } = useLanguage();
   const canEdit = useStaff().can("repairs.edit");
   const { records, storageError } = useProcurement();
@@ -42,7 +42,8 @@ export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "
   const retainOwner = useRef(false);
   const projectOwner = useRef<RepairProjectConfirmation | null>(null);
   const { watch: watchReceipt } = useOperationReceipt();
-  const selected = rows.find(row => row.id === selectedId) ?? rows.find(isPreorder) ?? rows[0];
+  const relatedRows = initialRequirementId ? rows.filter(row => row.requirementId === initialRequirementId) : rows;
+  const selected = relatedRows.find(row => row.id === selectedId) ?? relatedRows.find(isPreorder) ?? relatedRows[0];
   const releaseOwner = useCallback((requestId: string, confirmed = false) => {
     if (owner.current !== requestId) return;
     if (confirmed && projectOwner.current?.requestId === requestId) setConfirmedProject(projectOwner.current);
@@ -82,10 +83,10 @@ export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "
     <fieldset className="form-fields" disabled={pending}>
     {storageError ? <p className="form-error" role="alert">{systemText(storageError)}</p> : null}
     {order ? <RepairProjectControls order={order} records={records} onPendingChange={setOperationPending}/> : null}
-    <RepairItemsForm key={repairId} repairId={repairId} confirmedProject={confirmedProject} onSaved={close} onCancel={close} onPendingChange={setOperationPending} />
+    <RepairItemsForm key={repairId} repairId={repairId} requirementId={initialRequirementId} confirmedProject={confirmedProject} onSaved={close} onCancel={close} onPendingChange={setOperationPending} />
     {selected ? <details className="repair-workflow-history repair-existing-parts" open={initialRecordId ? true : undefined}>
-      <summary><PackageSearch size={16} />{t("配件记录 ")}<small>{rows.length}</small></summary>
-      {rows.length > 1 ? <label className="field"><span>{t("查看配件记录")}</span><SelectControl disabled={pending} aria-label={t("本次操作的配件")} value={selected.id} onChange={event => { if (busy.current) return; setSelectedId(event.target.value); setLegacyEdit(false); }}>{rows.map(row => <option key={row.id} value={row.id}>{repairItemText(row.item, locale)} · {row.supplier}{row.required === false ? t(" · 备选") : ""}</option>)}</SelectControl></label> : null}
+      <summary><PackageSearch size={16} />{t("配件记录 ")}<small>{relatedRows.length}</small></summary>
+      {relatedRows.length > 1 ? <label className="field"><span>{t("查看配件记录")}</span><SelectControl disabled={pending} aria-label={t("本次操作的配件")} value={selected.id} onChange={event => { if (busy.current) return; setSelectedId(event.target.value); setLegacyEdit(false); }}>{relatedRows.map(row => <option key={row.id} value={row.id}>{repairItemText(row.item, locale)} · {row.supplier}{row.required === false ? t(" · 备选") : ""}</option>)}</SelectControl></label> : null}
       {legacyEdit ? <RepairPartForm key={selected.id} repairId={repairId} record={selected} onSaved={() => { if (!busy.current) setLegacyEdit(false); }} onCancel={() => { if (!busy.current) setLegacyEdit(false); }} onPendingChange={setOperationPending} /> : <>
         <div className="repair-parts-dialog__item"><strong>{repairItemText(selected.item, locale)}</strong><span>{t(procurementStatuses[procurementStatus(selected)].label)}</span>{selected.specification ? <p>{selected.specification}</p> : null}<span>{selected.supplier} · {selected.quantity} {t(" 件")}{selected.required === false ? t(" · 备选") : ""}</span>{canEdit && !selected.requirementId ? <button className="button button--secondary button--tiny" type="button" onClick={() => setLegacyEdit(true)}><Pencil size={14} />{t("编辑旧配件记录")}</button> : null}</div>
         {order && selected.requirementId ? <RepairPartReconfirmation key={selected.requirementId} order={order} requirement={currentRepairRequirements(order, workflows[order.id]).find(row => row.id === selected.requirementId)} rows={rows.filter(row => row.requirementId === selected.requirementId)} onPendingChange={setOperationPending} /> : null}

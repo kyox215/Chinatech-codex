@@ -1,0 +1,403 @@
+{
+  "fileKey": "nhZ37YLOUVP8zpDBBGihhS",
+  "scope": "existing component source index; not a full Figma file export",
+  "assets": [
+    {
+      "id": "12001:63564",
+      "name": "Buttons [1.0]",
+      "type": "COMPONENT_SET",
+      "key": "e6fa96e404f88d5759c8d44f38be810355e29e08",
+      "width": 1124,
+      "height": 1289,
+      "bindings": {
+        "fills": [
+          {
+            "type": "VARIABLE_ALIAS",
+            "id": "VariableID:2008:5712"
+          }
+        ]
+      },
+      "variantCount": 128,
+      "variantAxes": {
+        "🧩 Type": {
+          "values": [
+            "Primary",
+            "Neutral"
+          ]
+        },
+        "🏵️ Style": {
+          "values": [
+            "Filled",
+            "Stroke",
+            "Lighter",
+            "Ghost"
+          ]
+        },
+        "📌 State": {
+          "values": [
+            "Default",
+            "Hover",
+            "Focused",
+            "Disabled"
+          ]
+        },
+        "📏 Size": {
+          "values": [
+            "Small (32)",
+            "Large(36)"
+          ]
+        },
+        "🔳 Only Icon": {
+          "values": [
+            "Off",
+            "On"
+          ]
+        }
+      },
+      "representativeVariants": [
+        {
+          "id": "12001:63565",
+          "name": "🧩 Type=Neutral, 🏵️ Style=Stroke, 📌 State=Default, 📏 Size=Small (32), 🔳 Only Icon=Off"
+        },
+        {
+          "id": "12001:63570",
+          "name": "🧩 Type=Neutral, 🏵️ Style=Stroke, 📌 State=Default, 📏 Size=Large(36), 🔳 Only Icon=Off"
+        },
+        {
+          "id": "12001:63575",
+          "name": "🧩 Type=Primary, 🏵️ Style=Stroke, 📌 State=Default, 📏 Size=Small (32), 🔳 Only Icon=Off"
+        },
+        {
+          "id": "12001:63580",
+          "name": "🧩 Type=Primary, 🏵️ Style=Stroke, 📌 State=Default, 📏 Size=Large(36), 🔳 Only Icon=Off"
+        }
+      ]
+    },
+    {
+      "id": "5103:497",
+      "name": "Input Field",
+      "type": "COMPONENT_SET",
+      "key": "83c4958beb686bd958e7dc0ddb2e13b1671ca10a",
+      "width": 362,
+      "height": 880,
+      "bindings": {
+        "itemSpacing": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:961534fa4eb7a04de8cc3889221b6438415ad8b5/110:136"
+        }
+      },
+      "variantCount": 8,
+      "variantAxes": {
+        "State": {
+          "values": [
+            "Default",
+            "Hover",
+            "Typing",
+            "Field",
+            "Disabled",
+            "Error"
+          ]
+        },
+        "Type": {
+          "values": [
+            "Password",
+            "Input Text"
+          ]
+        }
+      },
+      "representativeVariants": [
+        {
+          "id": "5103:498",
+          "name": "State=Default, Type=Input Text"
+        },
+        {
+          "id": "5103:506",
+          "name": "State=Hover, Type=Input Text"
+        },
+        {
+          "id": "5103:514",
+          "name": "State=Typing, Type=Input Text"
+        },
+        {
+          "id": "5103:522",
+          "name": "State=Field, Type=Input Text"
+        }
+      ]
+    },
+    {
+      "id": "5154:1084",
+      "name": "Checkbox [1.0]",
+      "type": "COMPONENT_SET",
+      "key": "fdcfc435cb934654925530817fe7f784c310a1b4",
+      "width": 220,
+      "height": 272,
+      "bindings": {
+        "fills": [
+          {
+            "type": "VARIABLE_ALIAS",
+            "id": "VariableID:0a2c8c6e75d3179304a8a7cac18507a3b930dd32/5580:56"
+          }
+        ]
+      },
+      "variantCount": 8,
+      "variantAxes": {
+        "📌 State": {
+          "values": [
+            "Default",
+            "Hover",
+            "Focused",
+            "Disabled"
+          ]
+        },
+        "🟢 Active": {
+          "values": [
+            "Off",
+            "On"
+          ]
+        },
+        "❓ Indeterminate": {
+          "values": [
+            "Off"
+          ]
+        }
+      },
+      "representativeVariants": [
+        {
+          "id": "5154:1085",
+          "name": "📌 State=Default, 🟢 Active=Off, ❓ Indeterminate=Off"
+        },
+        {
+          "id": "5154:1088",
+          "name": "📌 State=Default, 🟢 Active=On, ❓ Indeterminate=Off"
+        },
+        {
+          "id": "5154:1094",
+          "name": "📌 State=Hover, 🟢 Active=Off, ❓ Indeterminate=Off"
+        },
+        {
+          "id": "5154:1097",
+          "name": "📌 State=Hover, 🟢 Active=On, ❓ Indeterminate=Off"
+        }
+      ]
+    },
+    {
+      "id": "5154:1123",
+      "name": "Radio [1.0]",
+      "type": "COMPONENT_SET",
+      "key": "df3d33cb74308f036474eb89d68a6ea47125a0e1",
+      "width": 272,
+      "height": 168,
+      "bindings": {
+        "fills": [
+          {
+            "type": "VARIABLE_ALIAS",
+            "id": "VariableID:0a2c8c6e75d3179304a8a7cac18507a3b930dd32/5580:56"
+          }
+        ]
+      },
+      "variantCount": 8,
+      "variantAxes": {
+        "📌 State": {
+          "values": [
+            "Default",
+            "Hover",
+            "Focused",
+            "Disabled"
+          ]
+        },
+        "🟢 Active": {
+          "values": [
+            "Off",
+            "On"
+          ]
+        }
+      },
+      "representativeVariants": [
+        {
+          "id": "5154:1124",
+          "name": "📌 State=Default, 🟢 Active=Off"
+        },
+        {
+          "id": "5154:1127",
+          "name": "📌 State=Hover, 🟢 Active=Off"
+        },
+        {
+          "id": "5154:1130",
+          "name": "📌 State=Focused, 🟢 Active=Off"
+        },
+        {
+          "id": "5154:1133",
+          "name": "📌 State=Disabled, 🟢 Active=Off"
+        }
+      ]
+    },
+    {
+      "id": "5222:11151",
+      "name": "Search Input",
+      "type": "COMPONENT",
+      "key": "29ec301730f9ae7d1452fd853beb814309e31cc5",
+      "width": 191,
+      "height": 36,
+      "bindings": {
+        "fills": [
+          {
+            "type": "VARIABLE_ALIAS",
+            "id": "VariableID:2008:5712"
+          }
+        ],
+        "strokes": [
+          {
+            "type": "VARIABLE_ALIAS",
+            "id": "VariableID:2015:1484"
+          }
+        ]
+      },
+      "variantCount": 0,
+      "variantAxes": {},
+      "representativeVariants": []
+    },
+    {
+      "id": "5205:5961",
+      "name": "Pagination",
+      "type": "COMPONENT",
+      "key": "e81f17739e843b006e0c2205c15aaa33d812bacb",
+      "width": 1116,
+      "height": 64,
+      "bindings": {
+        "fills": [
+          {
+            "type": "VARIABLE_ALIAS",
+            "id": "VariableID:2008:5712"
+          }
+        ],
+        "strokes": [
+          {
+            "type": "VARIABLE_ALIAS",
+            "id": "VariableID:2015:1484"
+          }
+        ]
+      },
+      "variantCount": 0,
+      "variantAxes": {},
+      "representativeVariants": []
+    },
+    {
+      "id": "12111:20674",
+      "name": "Tab Menu",
+      "type": "COMPONENT_SET",
+      "key": "1d5b67a5114a07f023db4c341b8acb0e89fd06cf",
+      "width": 536,
+      "height": 60,
+      "bindings": {
+        "fills": [
+          {
+            "type": "VARIABLE_ALIAS",
+            "id": "VariableID:6d263a6a30586724653be33f08b7428e928e7173/4161:169"
+          }
+        ]
+      },
+      "variantCount": 3,
+      "variantAxes": {
+        "Sate": {
+          "values": [
+            "Off",
+            "On",
+            "Hover"
+          ]
+        }
+      },
+      "representativeVariants": [
+        {
+          "id": "12111:20675",
+          "name": "Sate=Off"
+        },
+        {
+          "id": "12111:20680",
+          "name": "Sate=Hover"
+        },
+        {
+          "id": "12111:20685",
+          "name": "Sate=On"
+        }
+      ]
+    },
+    {
+      "id": "12373:157537",
+      "name": "Card",
+      "type": "COMPONENT",
+      "key": "c6e39473a268bc648fbe88b4f5757fea42f94967",
+      "width": 522,
+      "height": 514,
+      "bindings": {
+        "fills": [
+          {
+            "type": "VARIABLE_ALIAS",
+            "id": "VariableID:2008:5712"
+          }
+        ],
+        "strokes": [
+          {
+            "type": "VARIABLE_ALIAS",
+            "id": "VariableID:2015:1484"
+          }
+        ]
+      },
+      "variantCount": 0,
+      "variantAxes": {},
+      "representativeVariants": []
+    },
+    {
+      "id": "5130:610",
+      "name": "Table Component",
+      "type": "COMPONENT_SET",
+      "key": "ec73446ee499afb24d4e937a4c0197517d597b69",
+      "width": 290,
+      "height": 741,
+      "bindings": {},
+      "variantCount": 9,
+      "variantAxes": {
+        "State": {
+          "values": [
+            "Default",
+            "Active"
+          ]
+        },
+        "Size": {
+          "values": [
+            "Large (48)",
+            "X-Large (64)"
+          ]
+        },
+        "Misc": {
+          "values": [
+            "Icon Button",
+            "Avatar - Title",
+            "Badge",
+            "Top Bar",
+            "Single Button",
+            "Progress bar",
+            "Avatar"
+          ]
+        }
+      },
+      "representativeVariants": [
+        {
+          "id": "5130:611",
+          "name": "State=Default, Size=X-Large (64), Misc=Avatar - Title"
+        },
+        {
+          "id": "5130:618",
+          "name": "State=Default, Size=X-Large (64), Misc=Badge"
+        },
+        {
+          "id": "5130:620",
+          "name": "State=Active, Size=X-Large (64), Misc=Avatar - Title"
+        },
+        {
+          "id": "5130:627",
+          "name": "State=Default, Size=Large (48), Misc=Top Bar"
+        }
+      ]
+    }
+  ]
+}

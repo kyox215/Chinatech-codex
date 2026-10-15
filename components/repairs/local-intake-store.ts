@@ -9,6 +9,7 @@ import { updateItemQuotes } from "@/lib/repair-item-pricing";
 import { emptyIntakeServices } from "@/lib/intake-services";
 import { parseStoreSettings } from "@/lib/store-settings";
 import { getRepairOrder } from "@/lib/repair-fixtures";
+import { prepareIntakePhotoUpdate } from "@/lib/repair-photo-update";
 import { intakeRecordTime } from "@/lib/repair-intake-record";
 import { buildRepairRework, repairOriginForSave, validateRepairReworkInput, type CreateRepairReworkInput } from "@/lib/repair-rework";
 export type { CreateRepairReworkInput } from "@/lib/repair-rework";
@@ -173,4 +174,19 @@ export async function saveRepairItemQuote(id:string,item:string,quoteCents:numbe
   const index=quotes.findIndex(row=>row.item===item);if(index<0)quotes.push({item,amountCents:quoteCents});else quotes[index]={item,amountCents:quoteCents};
   const time=intakeRecordTime();const pricing=updateItemQuotes(intake.itemQuotes,quotes,intake.itemQuoteHistory,{id:crypto.randomUUID(),time,actorId:actor.id});
   writeEnvelope(records.map(row=>row.id===id?{...row,...pricing,revision:intakeRevision+1,updatedAt:time}:row),signatures,"repairs.edit",actor.id);
+}
+
+/** Add/re-register photos through a dedicated versioned command; intake fields/signatures stay unchanged. */
+export async function saveIntakePhotos(id: string, revision: number, photos: IntakePhotoAttachment[], options?: { requestId?: string }) {
+  if (isBackendClient()) return backendCommand("intake.photos", { id, revision, photos }, options?.requestId);
+  requirePreviewPermission("repairs.edit"); requirePreviewPermission("repairs.view");
+  const before = window.localStorage.getItem(key);
+  const records = parseLocalIntakes(before);
+  const current = records.find(row => row.id === id);
+  if (!current) throw new Error("工单不存在或无权查看");
+  const next = prepareIntakePhotoUpdate(current, revision, photos.map(({id,slot})=>({id,slot})), intakeRecordTime());
+  const envelope = JSON.parse(before!);
+  envelope.records = records.map(row => row.id === id ? next : row);
+  const raw = JSON.stringify(envelope); parseLocalIntakes(raw);
+  window.localStorage.setItem(key, raw); window.dispatchEvent(new Event(change));
 }

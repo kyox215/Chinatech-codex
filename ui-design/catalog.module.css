@@ -1,0 +1,20 @@
+.catalog { max-width: 1200px; margin: auto; padding: 16px; background: var(--bg); }
+.heading { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.heading > div { flex: 1; min-width: 0; }
+.heading p { margin: 0; color: var(--text-secondary); }
+.demo { font-size: 14px; color: var(--text-secondary); }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
+.section { min-width: 0; padding: 16px; margin-block: 16px; }
+.section h1 { margin: 0 0 16px; font-size: 24px; }
+.section h2 { margin: 0 0 16px; font-size: 18px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 12px; }
+.fields { display: grid; gap: 16px; margin-top: 16px; }
+.tabs { display: flex; gap: 4px; }
+.tabs button { min-height: 44px; min-width: 0; flex: 1; border: 0; border-radius: var(--radius-control); background: var(--bg); cursor: pointer; }
+.tabs button[aria-selected=true] { color: var(--primary-600); background: var(--primary-50); }
+.facts { display: flex; align-items: center; gap: 8px; margin-block: 16px; }
+.facts span { margin-left: auto; }
+.table { overflow: auto; }
+.table > div { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; min-height: 48px; padding: 12px 8px; border-bottom: 1px solid var(--border); }
+.table > div:first-child { background: var(--bg); }
+@media(max-width:767px) { .heading { display: grid; grid-template-columns: minmax(0,1fr) auto; } .heading > div { grid-column: 1 / -1; grid-row: 2; } .heading > label { grid-column: 2; grid-row: 1; } .grid { grid-template-columns: minmax(0,1fr); } .catalog { padding: 12px; } }

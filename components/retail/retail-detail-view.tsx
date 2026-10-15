@@ -76,7 +76,7 @@ export function RetailDetailView({ unit, returnTo, children, storageError, selec
   const originalStorage = !unit.bodyStorage && !unit.disks.length ? original?.memory : null;
 
   return <RetailGroups.Provider value={{ open: openGroup, toggle: id => setOpenGroup(current => current === id ? null : id) }}><RetailEditScope field={editing?.field ?? null} readOnly={sourcePreview}><main className={"module-page retail-detail " + surface.page + " " + styles.detail}>
-    <header className="module-heading"><PageTitle title={t("商品档案")} backHref={returnTo} backLabel={t("返回商品列表")} backScroll={false} badge={<span className={"status-pill status-pill--" + status.tone}>{t(status.label)}</span>} />{staff.can("retail.edit") && !sourcePreview ? <Link className="button button--secondary button--compact page-toolbar-action" href={"/app/retail/new?copy=" + unit.id} aria-label={t("同型号新建")} title={t("同型号新建")}><Copy size={17} /><span>{t("同型号新建")}</span></Link> : null}</header>
+    <header className="module-heading"><PageTitle title={t("商品档案")} backHref={returnTo} backLabel={t("返回商品列表")} backScroll={false} badge={<span className={"status-pill status-pill--" + status.tone}>{t(status.label)}</span>} />{staff.can("retail.edit") && !sourcePreview ? <Link className="button button--secondary button--compact page-toolbar-action" href={"/app/retail/new?copy=" + unit.id} aria-label={t("同型号新建")} title={t("同型号新建")} icon={<Copy size={17} />}><span>{t("同型号新建")}</span></Link> : null}</header>
     {storageError ? <p className="form-error" role="alert">{systemText(storageError)}</p> : null}
     <section className={"panel " + styles.summary} aria-label={t("单机摘要")}>
       <div className={styles.hero}>

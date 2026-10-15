@@ -73,3 +73,27 @@ test("expired hint needs explicit refresh without a background cookie refresh", 
   await nav(page).getByRole("button", { name: "重新检查", exact: true }).click();
   await expect(nav(page).getByRole("link", { name: "工作台", exact: true })).toBeVisible();
 });
+
+test("unavailable account retry has one in-place indicator and one foreground line", async ({ page }) => {
+  await page.goto("/");
+  await page.route("**/api/auth/status", route => route.fulfill({ status: 503, json: { state: "unavailable", scope: null, formal: true, account: null, store: null } }));
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(nav(page).getByText("账号状态暂不可用")).toBeVisible();
+  await page.unroute("**/api/auth/status");
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/auth/status", async route => { await gate; await route.fulfill({ status: 503, json: { state: "unavailable", scope: null, formal: true, account: null, store: null } }); });
+  const retry = nav(page).getByRole("button", { name: "重新检查", exact: true });
+  const title = await page.locator("h1").textContent();
+  try {
+    await retry.click();
+    await expect(retry).toHaveAttribute("aria-busy", "true");
+    await expect(nav(page).locator("svg.spin")).toHaveCount(0);
+    expect(await retry.evaluate(e => getComputedStyle(e, "::before").visibility)).toBe("visible");
+    await expect(nav(page).locator('button[aria-busy="true"]')).toHaveCount(1);
+    await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(1);
+    await expect(page.locator("h1")).toHaveText(title!);
+  } finally { release(); await page.unrouteAll({ behavior: "wait" }); }
+  await expect(retry).toHaveAttribute("aria-busy", "false");
+  await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
+});

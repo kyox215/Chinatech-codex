@@ -40,8 +40,8 @@ export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" | "o
       <Link href="#questions">{t("常见问题")}</Link>
     </nav>}
     <LanguageSwitcher />
-    <Link className={styles.publicLink} href="/toolbox" aria-label={t("工具箱")} aria-current={page === "toolbox" ? "page" : undefined}>
-      <PanelsTopLeft size={17} aria-hidden="true" />
+    <Link className={styles.publicLink} href="/toolbox" aria-label={t("工具箱")} aria-current={page === "toolbox" ? "page" : undefined} icon={<PanelsTopLeft size={17} aria-hidden="true" />}>
+
       <span data-public-link-label className={styles.publicLinkLabel}>{t("工具箱")}</span>
     </Link>
   </div></header><ContentProgress placement="public" /></>;

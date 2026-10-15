@@ -3,13 +3,13 @@
 import NextLink, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { useLanguage } from "./language-provider";
 import { useActivityFeedback, useNavigationIntent } from "./operation-feedback";
 
 type NavigationAttempt = { token: symbol; destination: string; refresh: boolean };
 
-function NavigationFeedback({ attempt, onSettled }: { attempt: NavigationAttempt | null; onSettled: (token: symbol, committed: boolean) => void }) {
+function NavigationFeedback({ attempt, onSettled, icon, iconClassName }: { attempt: NavigationAttempt | null; onSettled: (token: symbol, committed: boolean) => void; icon?: ReactNode; iconClassName?: string }) {
   const { pending: nextPending } = useLinkStatus();
   const navigation = useNavigationIntent();
   const current = Boolean(attempt && (!navigation || navigation.current === attempt.token));
@@ -27,11 +27,11 @@ function NavigationFeedback({ attempt, onSettled }: { attempt: NavigationAttempt
     // A same-URL click can refresh dynamic segments. Its unchanged URL is not a receipt.
     if ((!attempt.refresh && committed) || observed.current.pending) { observed.current = null; onSettled(attempt.token, committed); }
   }, [pending, pathname, attempt, current, onSettled]);
-  return <><span className="navigation-feedback" data-pending={pending} aria-hidden="true"><LoaderCircle size={14} className="spin" /></span><span className="sr-only" aria-live="polite" aria-atomic="true" role={pending ? "status" : undefined}>{pending ? t("正在打开页面…") : ""}</span></>;
+  return <><span className={["navigation-feedback", iconClassName].filter(Boolean).join(" ")} data-pending={pending} data-has-icon={Boolean(icon)} aria-hidden="true">{icon ? <span className="navigation-feedback__icon">{icon}</span> : null}<LoaderCircle size={16} className="spin" /></span><span className="sr-only" aria-live="polite" aria-atomic="true" role={pending ? "status" : undefined}>{pending ? t("正在打开页面…") : ""}</span></>;
 }
 
 /** Next supplies real pending; the latest click owns its presentation. */
-export function NavigationLink({ children, className, prefetch = false, onClick, onNavigate, onNavigationComplete, focusTargetId, ...props }: ComponentProps<typeof NextLink> & { onNavigationComplete?: () => void; focusTargetId?: string }) {
+export function NavigationLink({ children, icon, iconClassName, iconPosition = "start", className, prefetch = false, onClick, onNavigate, onNavigationComplete, focusTargetId, ...props }: ComponentProps<typeof NextLink> & { icon?: ReactNode; iconClassName?: string; iconPosition?: "start" | "end"; onNavigationComplete?: () => void; focusTargetId?: string }) {
   const clickedHref = useRef("");
   const [attempt, setAttempt] = useState<NavigationAttempt | null>(null);
   const liveAttempt = useRef<NavigationAttempt | null>(null);
@@ -47,12 +47,13 @@ export function NavigationLink({ children, className, prefetch = false, onClick,
   }, [finish, onNavigationComplete, focusTargetId]);
   const token = attempt?.token;
   useEffect(() => () => { if (token) finish?.(token); }, [token, finish]);
-  return <NextLink {...props} prefetch={prefetch} className={[className, "navigation-link"].filter(Boolean).join(" ")} onClick={event => { onClick?.(event); clickedHref.current = event.currentTarget.href; }} onNavigate={event => {
+  const feedback = <NavigationFeedback attempt={attempt} onSettled={settled} icon={icon} iconClassName={iconClassName} />;
+  return <NextLink {...props} prefetch={prefetch} data-navigation-icon={Boolean(icon)} className={[className, "navigation-link"].filter(Boolean).join(" ")} onClick={event => { onClick?.(event); clickedHref.current = event.currentTarget.href; }} onNavigate={event => {
     let prevented = false;
     onNavigate?.({ preventDefault: () => { prevented = true; event.preventDefault(); } });
     if (prevented) return;
     const next = { token: Symbol("navigation"), destination: clickedHref.current, refresh: clickedHref.current === window.location.href };
     navigation?.start(next.token);
     liveAttempt.current = next; setAttempt(next);
-  }}>{children}<NavigationFeedback attempt={attempt} onSettled={settled} /></NextLink>;
+  }}>{icon && iconPosition === "start" ? feedback : null}{children}{!icon || iconPosition === "end" ? feedback : null}</NextLink>;
 }

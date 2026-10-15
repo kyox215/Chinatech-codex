@@ -93,7 +93,7 @@ test("settings failure retains input and success clears feedback with the saved 
   await expect(page.locator(".settings-content").getByRole("alert")).toContainText("本地保存失败"); await expect(field).toHaveValue("DEMO 设置恢复");
   await expect(page.getByRole("navigation", { name: "门店管理分类" }).getByRole("button", { name: "打印", exact: true })).toBeEnabled();
   await restoreWrites(page); await page.getByRole("button", { name: "保存设置", exact: true }).click();
-  await expect(page.locator(".settings-saved")).toHaveText("已保存"); await expect(page.locator(".settings-content").getByRole("alert")).toHaveCount(0);
+  await expect(page.locator("[data-toast]")).toHaveText("已保存"); await expect(page.locator(".settings-content").getByRole("alert")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "保留输入并核对最新版本", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "保存设置", exact: true }).click();
   await expect(page.getByRole("button", { name: "保留输入并核对最新版本", exact: true })).toHaveCount(0);

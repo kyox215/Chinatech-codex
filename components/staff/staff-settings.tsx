@@ -82,7 +82,7 @@ export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending:
     <p className={styles.note}>{t(formal ? "正式门店权限保存在服务器；只能关联已注册并验证邮箱的账号，不创建账号或发送邀请。" : "本地权限演示 · 不创建真实登录或发送邀请，不保存密码。")}</p>
     <fieldset className="form-fields" disabled={pending}><DeviceDraftNotice draft={deviceDraft} disabled={pending}/></fieldset>
     {editing && needsReview ? <button type="button" className="button button--secondary" disabled={pending} onClick={reviewLatest}>{t("保留输入并核对最新版本")}</button> : null}
-    {editing ? <form className={styles.editor} onSubmit={save} aria-busy={pending}><fieldset className="form-fields" disabled={pending}>
+    {editing ? <form className={styles.editor} onSubmit={save} aria-busy={submitting || receipt.executing}><fieldset className="form-fields" disabled={pending}>
       <div className={styles.heading}><h4>{review ? t("核对员工与权限") : editing.revision ? t("编辑员工") : t(formal ? "新增员工" : "新增DEMO员工")}</h4><button className="icon-button" type="button" aria-label={t("关闭员工编辑")} onClick={close}><X size={18}/></button></div>
       {review ? <div className={styles.review}><strong>{formal && !editing.revision ? t("姓名由已验证账号提供") : editing.name} · {t(staffRoles[editing.role])}</strong><p>{editing.email}</p><p>{t("账号：")}{t(formal && !editing.revision ? "待核对" : statusLabels[editing.accountStatus])} {t(" · 门店成员：")}{t(statusLabels[editing.membershipStatus])}</p><ul>{editing.permissions.map(permission => <li key={permission}>{t(permissionLabels[permission])}</li>)}</ul><p>{t(formal ? "确认后保存本门店的成员状态与权限；账号身份由服务器核对，业务操作仍检查当前权限。" : "权限立即用于当前浏览器的预览；已有业务确认页将重新核对。")}</p></div> : <>
         <div className="field-grid">

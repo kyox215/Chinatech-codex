@@ -1,0 +1,2286 @@
+{
+  "auditHead": "344d6c0ac4c8f3ccbf8d50efde33c0fe706076ca",
+  "root": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source",
+  "evidence": "只读静态源码/从app文件的静态import可达性；不包含浏览器或线上复现。父线程并行修改不计入本冻结快照。",
+  "activeDirectFeedbackFilesBeforeProducerAugmentation": 77,
+  "inactiveControllers": [
+    "components/account/office-desktop-control.tsx",
+    "components/account/office-desktop-licenses.tsx",
+    "components/account/office-toolbox-control.tsx"
+  ],
+  "feedbackInventory": [
+    {
+      "file": "components/account/account-settings.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/account/account-settings.tsx",
+      "lines": [
+        75,
+        76,
+        88,
+        99,
+        128,
+        152,
+        155,
+        169,
+        176,
+        182,
+        187
+      ]
+    },
+    {
+      "file": "components/account/login-devices.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/account/login-devices.tsx",
+      "lines": [
+        123,
+        130,
+        131,
+        133,
+        134,
+        135,
+        143
+      ]
+    },
+    {
+      "file": "components/account/office-desktop-v3-control.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/account/office-desktop-v3-control.tsx",
+      "lines": [
+        132,
+        133,
+        153,
+        154,
+        158,
+        161,
+        162,
+        165,
+        166,
+        180,
+        182,
+        185,
+        186,
+        187,
+        190
+      ]
+    },
+    {
+      "file": "components/account/toolbox-control.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/account/toolbox-control.tsx",
+      "lines": [
+        31,
+        33,
+        34
+      ]
+    },
+    {
+      "file": "components/auth-status-provider.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/auth-status-provider.tsx",
+      "lines": [
+        56
+      ]
+    },
+    {
+      "file": "components/auth/auth-status-unavailable.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/auth/auth-status-unavailable.tsx",
+      "lines": [
+        6
+      ]
+    },
+    {
+      "file": "components/auth/login-form.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/auth/login-form.tsx",
+      "lines": [
+        33,
+        83,
+        94,
+        95,
+        113,
+        115
+      ]
+    },
+    {
+      "file": "components/auth/password-recovery-form.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/auth/password-recovery-form.tsx",
+      "lines": [
+        60,
+        63,
+        64,
+        72
+      ]
+    },
+    {
+      "file": "components/auth/pending-account-content.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/auth/pending-account-content.tsx",
+      "lines": [
+        20
+      ]
+    },
+    {
+      "file": "components/auth/register-form.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/auth/register-form.tsx",
+      "lines": [
+        30,
+        60,
+        62,
+        71,
+        72,
+        73
+      ]
+    },
+    {
+      "file": "components/auth/social-sign-in.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/auth/social-sign-in.tsx",
+      "lines": [
+        31,
+        35
+      ]
+    },
+    {
+      "file": "components/auth/verification-sent.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/auth/verification-sent.tsx",
+      "lines": [
+        25
+      ]
+    },
+    {
+      "file": "components/auth/verify-email-form.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/auth/verify-email-form.tsx",
+      "lines": [
+        32,
+        33
+      ]
+    },
+    {
+      "file": "components/backend-provider.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/backend-provider.tsx",
+      "lines": [
+        60,
+        61
+      ]
+    },
+    {
+      "file": "components/catalog/device-catalog-control.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/catalog/device-catalog-control.tsx",
+      "lines": [
+        126
+      ]
+    },
+    {
+      "file": "components/catalog/device-catalog-page.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/catalog/device-catalog-page.tsx",
+      "lines": [
+        50,
+        54,
+        56,
+        58,
+        59,
+        60,
+        66,
+        67
+      ]
+    },
+    {
+      "file": "components/catalog/device-identity-picker.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/catalog/device-identity-picker.tsx",
+      "lines": [
+        57
+      ]
+    },
+    {
+      "file": "components/control-feedback.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/control-feedback.tsx",
+      "lines": [
+        95
+      ]
+    },
+    {
+      "file": "components/customers/customer-detail.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/customers/customer-detail.tsx",
+      "lines": [
+        45,
+        47
+      ]
+    },
+    {
+      "file": "components/customers/customer-profile-form.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/customers/customer-profile-form.tsx",
+      "lines": [
+        45,
+        52
+      ]
+    },
+    {
+      "file": "components/dashboard/app-shell.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/dashboard/app-shell.tsx",
+      "lines": [
+        113
+      ]
+    },
+    {
+      "file": "components/dashboard/logout-button.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/dashboard/logout-button.tsx",
+      "lines": [
+        33
+      ]
+    },
+    {
+      "file": "components/download-link.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/download-link.tsx",
+      "lines": [
+        13,
+        14
+      ]
+    },
+    {
+      "file": "components/home/account-actions.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/home/account-actions.tsx",
+      "lines": [
+        13
+      ]
+    },
+    {
+      "file": "components/home/tutorial-library.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/home/tutorial-library.tsx",
+      "lines": [
+        115,
+        142,
+        143,
+        156,
+        183
+      ]
+    },
+    {
+      "file": "components/home/workflow-tour.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/home/workflow-tour.tsx",
+      "lines": [
+        20
+      ]
+    },
+    {
+      "file": "components/identifier-scanner.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/identifier-scanner.tsx",
+      "lines": [
+        84,
+        120,
+        146,
+        147
+      ]
+    },
+    {
+      "file": "components/list-pagination.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/list-pagination.tsx",
+      "lines": [
+        10
+      ]
+    },
+    {
+      "file": "components/login-activity.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/login-activity.tsx",
+      "lines": [
+        41
+      ]
+    },
+    {
+      "file": "components/navigation-link.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/navigation-link.tsx",
+      "lines": [
+        30
+      ]
+    },
+    {
+      "file": "components/operation-feedback.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/operation-feedback.tsx",
+      "lines": [
+        28
+      ]
+    },
+    {
+      "file": "components/page-recovery.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/page-recovery.tsx",
+      "lines": [
+        26,
+        36,
+        39,
+        40,
+        45,
+        48
+      ]
+    },
+    {
+      "file": "components/photo-capture.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/photo-capture.tsx",
+      "lines": [
+        57,
+        88,
+        123,
+        172,
+        173
+      ]
+    },
+    {
+      "file": "components/procurement/procurement-create.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/procurement/procurement-create.tsx",
+      "lines": [
+        59
+      ]
+    },
+    {
+      "file": "components/procurement/procurement-detail.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/procurement/procurement-detail.tsx",
+      "lines": [
+        60,
+        62
+      ]
+    },
+    {
+      "file": "components/procurement/procurement-preparation.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/procurement/procurement-preparation.tsx",
+      "lines": [
+        15,
+        19,
+        55,
+        58,
+        61
+      ]
+    },
+    {
+      "file": "components/procurement/procurement-provider.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/procurement/procurement-provider.tsx",
+      "lines": [
+        84,
+        135,
+        162,
+        176,
+        185
+      ]
+    },
+    {
+      "file": "components/procurement/repair-items-form.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/procurement/repair-items-form.tsx",
+      "lines": [
+        158,
+        172,
+        181,
+        182
+      ]
+    },
+    {
+      "file": "components/procurement/repair-part-form.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/procurement/repair-part-form.tsx",
+      "lines": [
+        59,
+        65
+      ]
+    },
+    {
+      "file": "components/procurement/repair-procurement-shortcut.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/procurement/repair-procurement-shortcut.tsx",
+      "lines": [
+        81,
+        84,
+        109
+      ]
+    },
+    {
+      "file": "components/procurement/repair-project-controls.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/procurement/repair-project-controls.tsx",
+      "lines": [
+        47,
+        67
+      ]
+    },
+    {
+      "file": "components/procurement/supplier-batch-dialog.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/procurement/supplier-batch-dialog.tsx",
+      "lines": [
+        52,
+        53
+      ]
+    },
+    {
+      "file": "components/repairs/intake-fault-picker.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/repairs/intake-fault-picker.tsx",
+      "lines": [
+        69
+      ]
+    },
+    {
+      "file": "components/repairs/intake-photos.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/repairs/intake-photos.tsx",
+      "lines": [
+        21,
+        31,
+        88,
+        130,
+        134
+      ]
+    },
+    {
+      "file": "components/repairs/intake-receipt.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/repairs/intake-receipt.tsx",
+      "lines": [
+        73,
+        74,
+        88
+      ]
+    },
+    {
+      "file": "components/repairs/intake-signature.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/repairs/intake-signature.tsx",
+      "lines": [
+        65,
+        86,
+        91,
+        108
+      ]
+    },
+    {
+      "file": "components/repairs/repair-contact-control.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/repairs/repair-contact-control.tsx",
+      "lines": [
+        54,
+        60
+      ]
+    },
+    {
+      "file": "components/repairs/repair-group-editor.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/repairs/repair-group-editor.tsx",
+      "lines": [
+        150,
+        151
+      ]
+    },
+    {
+      "file": "components/repairs/repair-intake-form.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/repairs/repair-intake-form.tsx",
+      "lines": [
+        148,
+        149,
+        151,
+        156
+      ]
+    },
+    {
+      "file": "components/repairs/repair-list.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/repairs/repair-list.tsx",
+      "lines": [
+        61,
+        207,
+        244
+      ]
+    },
+    {
+      "file": "components/repairs/repair-photo-registry.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/repairs/repair-photo-registry.tsx",
+      "lines": [
+        54,
+        55,
+        57,
+        58,
+        69
+      ]
+    },
+    {
+      "file": "components/repairs/repair-rework-control.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/repairs/repair-rework-control.tsx",
+      "lines": [
+        62
+      ]
+    },
+    {
+      "file": "components/repairs/repair-scanner.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/repairs/repair-scanner.tsx",
+      "lines": [
+        15
+      ]
+    },
+    {
+      "file": "components/repairs/repair-stage-control.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/repairs/repair-stage-control.tsx",
+      "lines": [
+        60
+      ]
+    },
+    {
+      "file": "components/repairs/repair-workflow-panel.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/repairs/repair-workflow-panel.tsx",
+      "lines": [
+        56,
+        58,
+        64
+      ]
+    },
+    {
+      "file": "components/retail/retail-checkout.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/retail/retail-checkout.tsx",
+      "lines": [
+        107,
+        110,
+        125,
+        128
+      ]
+    },
+    {
+      "file": "components/retail/retail-commerce.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/retail/retail-commerce.tsx",
+      "lines": [
+        159,
+        181,
+        241,
+        243,
+        244
+      ]
+    },
+    {
+      "file": "components/retail/retail-detail-view.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/retail/retail-detail-view.tsx",
+      "lines": [
+        80
+      ]
+    },
+    {
+      "file": "components/retail/retail-detail.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/retail/retail-detail.tsx",
+      "lines": [
+        84,
+        91,
+        109
+      ]
+    },
+    {
+      "file": "components/retail/retail-field-editor.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/retail/retail-field-editor.tsx",
+      "lines": [
+        124,
+        125
+      ]
+    },
+    {
+      "file": "components/retail/retail-form.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/retail/retail-form.tsx",
+      "lines": [
+        45,
+        113,
+        158
+      ]
+    },
+    {
+      "file": "components/retail/retail-gallery.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/retail/retail-gallery.tsx",
+      "lines": [
+        34
+      ]
+    },
+    {
+      "file": "components/retail/retail-history-list.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/retail/retail-history-list.tsx",
+      "lines": [
+        76,
+        101
+      ]
+    },
+    {
+      "file": "components/retail/retail-operation-confirmation.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/retail/retail-operation-confirmation.tsx",
+      "lines": [
+        40,
+        42,
+        44
+      ]
+    },
+    {
+      "file": "components/retail/retail-provider.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/retail/retail-provider.tsx",
+      "lines": [
+        60,
+        103,
+        117,
+        119
+      ]
+    },
+    {
+      "file": "components/retail/retail-receipt.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/retail/retail-receipt.tsx",
+      "lines": [
+        45
+      ]
+    },
+    {
+      "file": "components/retail/retail-record-preparation.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/retail/retail-record-preparation.tsx",
+      "lines": [
+        56,
+        59
+      ]
+    },
+    {
+      "file": "components/retail/retail-record-scanner.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/retail/retail-record-scanner.tsx",
+      "lines": [
+        21
+      ]
+    },
+    {
+      "file": "components/retail/retail-warranty.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/retail/retail-warranty.tsx",
+      "lines": [
+        34
+      ]
+    },
+    {
+      "file": "components/search-combobox.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/search-combobox.tsx",
+      "lines": [
+        166,
+        196,
+        218
+      ]
+    },
+    {
+      "file": "components/settings/order-management.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/settings/order-management.tsx",
+      "lines": [
+        35
+      ]
+    },
+    {
+      "file": "components/settings/settings-page.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/settings/settings-page.tsx",
+      "lines": [
+        38,
+        48,
+        92,
+        138,
+        193,
+        199,
+        202,
+        204
+      ]
+    },
+    {
+      "file": "components/staff/staff-settings.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/staff/staff-settings.tsx",
+      "lines": [
+        85,
+        96
+      ]
+    },
+    {
+      "file": "components/toolbox/android-transfer-page.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/toolbox/android-transfer-page.tsx",
+      "lines": [
+        69
+      ]
+    },
+    {
+      "file": "components/toolbox/office-product-video.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/toolbox/office-product-video.tsx",
+      "lines": [
+        58,
+        59
+      ]
+    },
+    {
+      "file": "components/toolbox/tool-integration-pending.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/toolbox/tool-integration-pending.tsx",
+      "lines": [
+        3
+      ]
+    },
+    {
+      "file": "components/toolbox/windows-tools-page.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/toolbox/windows-tools-page.tsx",
+      "lines": [
+        34
+      ]
+    },
+    {
+      "file": "components/use-device-draft.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/use-device-draft.tsx",
+      "lines": [
+        81,
+        82,
+        83
+      ]
+    },
+    {
+      "file": "components/use-operation-receipt.tsx",
+      "absolutePath": "/Users/kyox215/Documents/codex应用文件夹/维修网站重构版/.local/repair-detail-release/source/components/use-operation-receipt.tsx",
+      "lines": [
+        81,
+        82,
+        83,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95
+      ]
+    }
+  ],
+  "ordinaryAcknowledgementBranches": [
+    {
+      "file": "components/backend-provider.tsx",
+      "line": 61,
+      "state": "纯成功且无pending的提交确认；全app布局重复持久显示"
+    },
+    {
+      "file": "components/procurement/procurement-preparation.tsx",
+      "line": 19,
+      "state": "ProcurementFeedback成功分支，错误同组件另分支"
+    },
+    {
+      "file": "components/repairs/repair-list.tsx",
+      "line": 244,
+      "state": "采购成功浮动提示；有X无超时"
+    },
+    {
+      "file": "components/procurement/supplier-batch-dialog.tsx",
+      "line": 53,
+      "state": "本批实际到货已保存"
+    },
+    {
+      "file": "components/retail/retail-detail.tsx",
+      "line": 84,
+      "state": "currentFeedback非error分支"
+    },
+    {
+      "file": "components/customers/customer-detail.tsx",
+      "line": 47,
+      "state": "客户资料已保存"
+    },
+    {
+      "file": "components/repairs/repair-photo-registry.tsx",
+      "line": 58,
+      "state": "照片登记已保存"
+    },
+    {
+      "file": "components/settings/order-management.tsx",
+      "line": 35,
+      "state": "分组已保存"
+    },
+    {
+      "file": "components/settings/settings-page.tsx",
+      "line": 48,
+      "state": "onReceiptChange confirmed后的已保存"
+    },
+    {
+      "file": "components/catalog/device-catalog-page.tsx",
+      "line": 59,
+      "state": "已应用目录变更"
+    },
+    {
+      "file": "components/account/account-settings.tsx",
+      "line": 99,
+      "state": "HTTP成功反馈；需区分仍待验证事实"
+    },
+    {
+      "file": "components/account/login-devices.tsx",
+      "line": 133,
+      "state": "已退出所选设备/已撤销本门店访问"
+    },
+    {
+      "file": "components/account/toolbox-control.tsx",
+      "line": 34,
+      "state": "工具箱设置已保存"
+    },
+    {
+      "file": "components/account/office-desktop-v3-control.tsx",
+      "line": 187,
+      "state": "执行完成通知；dryRun预览与计数是持久业务事实"
+    },
+    {
+      "file": "components/auth/verification-sent.tsx",
+      "line": 25,
+      "state": "仅resend的普通message；验证下一步主体非普通通知"
+    },
+    {
+      "file": "components/download-link.tsx",
+      "line": 13,
+      "state": "已发起下载的动作确认，当前8000ms；不是下载完成"
+    }
+  ],
+  "persistentStates": [
+    "unknown请求原ID恢复/check/retry/cancel：use-operation-receipt.tsx81-95",
+    "服务端保存但设备恢复记录清理失败：lib/backend/client.ts100-102仍有pending",
+    "错误/冲突/权限/离线/read-retry及字段错误",
+    "DeviceDraftNotice恢复或丢弃选择",
+    "邮箱/手机号待验证和账号待授权下一步",
+    "Office清理预览范围/计数/确认与任务回报",
+    "维修签名/接机/销售回执正文与下一步，并非普通提示",
+    "拖动分组sr-only操作播报repair-group-editor.tsx150"
+  ],
+  "navigation": {
+    "jsxCallsites": 120,
+    "literalLucideSites": 52,
+    "singleLiteralLucideSites": 47,
+    "singleDirectChildLucideSites": 39,
+    "dynamicIconSite": {
+      "file": "components/dashboard/app-shell.tsx",
+      "line": 37,
+      "rendersPrimaryNavItems": 5
+    },
+    "verifiedFixedIconContainerCallsites": 8,
+    "verifiedFixedContainers": [
+      {
+        "file": "components/customers/customer-detail.tsx",
+        "line": 50,
+        "count": 2,
+        "class": "recordIcon",
+        "css": "components/customers/customers.module.css:14, 38px"
+      },
+      {
+        "file": "components/customers/customer-list.tsx",
+        "line": 40,
+        "count": 1,
+        "class": "avatar",
+        "css": "components/customers/customers.module.css:14, 38px"
+      },
+      {
+        "file": "components/procurement/procurement-list.tsx",
+        "line": 51,
+        "count": 1,
+        "class": "procurement-icon",
+        "css": "app/globals.css:618, 32px"
+      },
+      {
+        "file": "components/procurement/procurement-summary.tsx",
+        "line": 34,
+        "count": 1,
+        "class": "arrival-row__icon",
+        "css": "app/globals.css:428, 34px"
+      },
+      {
+        "file": "components/retail/retail-dashboard-summary.tsx",
+        "line": 16,
+        "count": 3,
+        "class": "retail-icon",
+        "css": "app/globals.css:435, 31px"
+      }
+    ],
+    "brandSeparate": {
+      "file": "components/brand.tsx",
+      "line": 16,
+      "count": 1,
+      "css": "app/globals.css:100,341,1216; 36/28/34px"
+    },
+    "layoutFacts": [
+      "普通button（含动态变体）",
+      "独立图标按钮page-title29与dashboard row-action107/148",
+      "纯文本/内联记录/skip link",
+      "公开导航public-header37-43、账号导航account-settings143/account-menu37-39、侧栏导航app-shell37/104/110-112",
+      "卡片/整行/grid row：customer-list40、customer-detail50、procurement-list51、procurement-summary34、retail-dashboard-summary16、retail-history-list92、retail-history-customer-records18、retail-record-scanner21、toolbox-page54、repair-list228"
+    ],
+    "callsites": [
+      {
+        "file": "app/not-found.tsx",
+        "line": 12,
+        "kind": "button",
+        "className": "\"button button--primary\"",
+        "href": "\"/\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/account/account-settings.tsx",
+        "line": 76,
+        "kind": "button",
+        "className": "\"button button--primary\"",
+        "href": "\"/login\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/account/account-settings.tsx",
+        "line": 143,
+        "kind": "text",
+        "className": "",
+        "href": "\"#account-email\"",
+        "glyphs": [
+          {
+            "name": "Mail",
+            "size": "{18}",
+            "parent": "Link",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/account/account-settings.tsx",
+        "line": 143,
+        "kind": "text",
+        "className": "",
+        "href": "\"#account-providers\"",
+        "glyphs": [
+          {
+            "name": "Link2",
+            "size": "{18}",
+            "parent": "Link",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/account/account-settings.tsx",
+        "line": 143,
+        "kind": "text",
+        "className": "",
+        "href": "\"#account-phone\"",
+        "glyphs": [
+          {
+            "name": "Smartphone",
+            "size": "{18}",
+            "parent": "Link",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/account/account-settings.tsx",
+        "line": 143,
+        "kind": "text",
+        "className": "",
+        "href": "\"#toolbox-control\"",
+        "glyphs": [
+          {
+            "name": "ShieldCheck",
+            "size": "{18}",
+            "parent": "Link",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/account/account-settings.tsx",
+        "line": 156,
+        "kind": "text",
+        "className": "",
+        "href": "\"/forgot-password\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/auth-frame.tsx",
+        "line": 15,
+        "kind": "text",
+        "className": "",
+        "href": "\"/\"",
+        "glyphs": [
+          {
+            "name": "ArrowLeft",
+            "size": "{16}",
+            "parent": "Link",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/auth/auth-status-unavailable.tsx",
+        "line": 6,
+        "kind": "text",
+        "className": "\"auth-back-link\"",
+        "href": "\"/\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/login-form.tsx",
+        "line": 87,
+        "kind": "text",
+        "className": "",
+        "href": "\"/register\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/login-form.tsx",
+        "line": 109,
+        "kind": "text",
+        "className": "",
+        "href": "\"/forgot-password\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/login-form.tsx",
+        "line": 116,
+        "kind": "text",
+        "className": "{styles.verifyLink}",
+        "href": "\"/verify-email\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/password-recovery-form.tsx",
+        "line": 61,
+        "kind": "text",
+        "className": "\"auth-back-link\"",
+        "href": "\"/login\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/password-recovery-form.tsx",
+        "line": 62,
+        "kind": "button",
+        "className": "\"button button--primary\"",
+        "href": "\"/forgot-password\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/password-recovery-form.tsx",
+        "line": 62,
+        "kind": "text",
+        "className": "\"auth-back-link\"",
+        "href": "\"/login\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/password-recovery-form.tsx",
+        "line": 63,
+        "kind": "button",
+        "className": "\"button button--primary auth-submit\"",
+        "href": "\"/login\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/password-recovery-form.tsx",
+        "line": 74,
+        "kind": "text",
+        "className": "\"auth-back-link\"",
+        "href": "\"/login\"",
+        "glyphs": [
+          {
+            "name": "ArrowLeft",
+            "size": "{15}",
+            "parent": "Link",
+            "containerClass": "\"auth-back-link\""
+          }
+        ]
+      },
+      {
+        "file": "components/auth/pending-account-content.tsx",
+        "line": 20,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "\"/account/settings\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/pending-account-content.tsx",
+        "line": 20,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "\"/verify-email\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/pending-account-content.tsx",
+        "line": 20,
+        "kind": "text",
+        "className": "\"auth-back-link\"",
+        "href": "\"/\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/register-form.tsx",
+        "line": 60,
+        "kind": "button",
+        "className": "\"button button--primary\"",
+        "href": "\"/login\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/register-form.tsx",
+        "line": 63,
+        "kind": "text",
+        "className": "",
+        "href": "\"/login\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/verification-sent.tsx",
+        "line": 25,
+        "kind": "button",
+        "className": "\"button button--primary\"",
+        "href": "\"/login\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/verify-email-form.tsx",
+        "line": 32,
+        "kind": "button",
+        "className": "\"button button--primary\"",
+        "href": "\"/login\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/auth/verify-email-form.tsx",
+        "line": 33,
+        "kind": "text",
+        "className": "\"auth-back-link\"",
+        "href": "\"/login\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/backend-provider.tsx",
+        "line": 62,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "{resultHref}",
+        "glyphs": []
+      },
+      {
+        "file": "components/brand.tsx",
+        "line": 16,
+        "kind": "brand",
+        "className": "{`brand${inverse ? \" brand--inverse\" : \"\"}`}",
+        "href": "{href}",
+        "glyphs": [
+          {
+            "name": "Wrench",
+            "size": "{18}",
+            "parent": "span",
+            "containerClass": "\"brand__mark\""
+          }
+        ]
+      },
+      {
+        "file": "components/customers/customer-detail.tsx",
+        "line": 45,
+        "kind": "button",
+        "className": "\"button button--primary\"",
+        "href": "\"/app/customers\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/customers/customer-detail.tsx",
+        "line": 50,
+        "kind": "text",
+        "className": "{styles.recordLink}",
+        "href": "{`/app/repairs/${repair.id}`}",
+        "glyphs": [
+          {
+            "name": "Wrench",
+            "size": "{18}",
+            "parent": "span",
+            "containerClass": "{styles.recordIcon}"
+          },
+          {
+            "name": "ArrowRight",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "{styles.recordLink}"
+          }
+        ]
+      },
+      {
+        "file": "components/customers/customer-detail.tsx",
+        "line": 50,
+        "kind": "text",
+        "className": "{styles.recordLink}",
+        "href": "{customerSaleHref(sale)}",
+        "glyphs": [
+          {
+            "name": "ShoppingBag",
+            "size": "{18}",
+            "parent": "span",
+            "containerClass": "{styles.recordIcon}"
+          },
+          {
+            "name": "ArrowRight",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "{styles.recordLink}"
+          }
+        ]
+      },
+      {
+        "file": "components/customers/customer-devices.tsx",
+        "line": 36,
+        "kind": "button",
+        "className": "\"button button--secondary button--compact\"",
+        "href": "\"/app/customers\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/customers/customer-devices.tsx",
+        "line": 36,
+        "kind": "text",
+        "className": "",
+        "href": "{row.href}",
+        "glyphs": [
+          {
+            "name": "Wrench",
+            "size": "{15}",
+            "parent": "",
+            "containerClass": ""
+          },
+          {
+            "name": "ShoppingBag",
+            "size": "{15}",
+            "parent": "",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/customers/customer-devices.tsx",
+        "line": 36,
+        "kind": "text",
+        "className": "",
+        "href": "{profileHref(row.phone)}",
+        "glyphs": []
+      },
+      {
+        "file": "components/customers/customer-list.tsx",
+        "line": 40,
+        "kind": "card-row",
+        "className": "{styles.row}",
+        "href": "{`/app/customers/${customer.id}`}",
+        "glyphs": [
+          {
+            "name": "UsersRound",
+            "size": "{19}",
+            "parent": "span",
+            "containerClass": "{styles.avatar}"
+          },
+          {
+            "name": "ArrowRight",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "{styles.row}"
+          }
+        ]
+      },
+      {
+        "file": "components/dashboard/app-shell.tsx",
+        "line": 37,
+        "kind": "navigation",
+        "className": "{`app-nav__item${active ? \" app-nav__item--active\" : \"\"}`}",
+        "href": "{item.href}",
+        "glyphs": []
+      },
+      {
+        "file": "components/dashboard/app-shell.tsx",
+        "line": 104,
+        "kind": "text",
+        "className": "\"app-search\"",
+        "href": "\"/app/repairs\"",
+        "glyphs": [
+          {
+            "name": "Search",
+            "size": "{19}",
+            "parent": "Link",
+            "containerClass": "\"app-search\""
+          }
+        ]
+      },
+      {
+        "file": "components/dashboard/app-shell.tsx",
+        "line": 110,
+        "kind": "navigation",
+        "className": "\"sidebar-account__action\"",
+        "href": "\"/account/settings\"",
+        "glyphs": [
+          {
+            "name": "UserRound",
+            "size": "{18}",
+            "parent": "Link",
+            "containerClass": "\"sidebar-account__action\""
+          }
+        ]
+      },
+      {
+        "file": "components/dashboard/app-shell.tsx",
+        "line": 111,
+        "kind": "navigation",
+        "className": "\"sidebar-account__action\"",
+        "href": "\"/app/catalog\"",
+        "glyphs": [
+          {
+            "name": "Boxes",
+            "size": "{18}",
+            "parent": "Link",
+            "containerClass": "\"sidebar-account__action\""
+          }
+        ]
+      },
+      {
+        "file": "components/dashboard/app-shell.tsx",
+        "line": 112,
+        "kind": "navigation",
+        "className": "\"sidebar-account__action\"",
+        "href": "\"/app/settings\"",
+        "glyphs": [
+          {
+            "name": "Settings",
+            "size": "{18}",
+            "parent": "Link",
+            "containerClass": "\"sidebar-account__action\""
+          }
+        ]
+      },
+      {
+        "file": "components/dashboard/dashboard-content.tsx",
+        "line": 60,
+        "kind": "button",
+        "className": "\"button button--primary button--compact\"",
+        "href": "\"/app/repairs/new\"",
+        "glyphs": [
+          {
+            "name": "Plus",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "\"button button--primary button--compact\""
+          }
+        ]
+      },
+      {
+        "file": "components/dashboard/dashboard-content.tsx",
+        "line": 103,
+        "kind": "text",
+        "className": "",
+        "href": "\"/app/repairs?view=history&status=handover\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/dashboard/dashboard-content.tsx",
+        "line": 106,
+        "kind": "button",
+        "className": "\"button button--secondary button--tiny\"",
+        "href": "\"/app/repairs\"",
+        "glyphs": [
+          {
+            "name": "ArrowRight",
+            "size": "{15}",
+            "parent": "Link",
+            "containerClass": "\"button button--secondary button--tiny\""
+          }
+        ]
+      },
+      {
+        "file": "components/dashboard/dashboard-content.tsx",
+        "line": 107,
+        "kind": "card-row",
+        "className": "\"row-action\"",
+        "href": "{`/app/repairs/${order.id}`}",
+        "glyphs": [
+          {
+            "name": "ChevronRight",
+            "size": "{18}",
+            "parent": "Link",
+            "containerClass": "\"row-action\""
+          }
+        ]
+      },
+      {
+        "file": "components/dashboard/dashboard-content.tsx",
+        "line": 115,
+        "kind": "button",
+        "className": "\"button button--secondary button--tiny\"",
+        "href": "\"/app/repairs\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/dashboard/dashboard-content.tsx",
+        "line": 117,
+        "kind": "text",
+        "className": "",
+        "href": "{event.href}",
+        "glyphs": []
+      },
+      {
+        "file": "components/dashboard/dashboard-content.tsx",
+        "line": 139,
+        "kind": "button",
+        "className": "\"button button--secondary button--tiny\"",
+        "href": "\"/app/repairs\"",
+        "glyphs": [
+          {
+            "name": "ArrowRight",
+            "size": "{15}",
+            "parent": "Link",
+            "containerClass": "\"button button--secondary button--tiny\""
+          }
+        ]
+      },
+      {
+        "file": "components/dashboard/dashboard-content.tsx",
+        "line": 148,
+        "kind": "card-row",
+        "className": "\"row-action\"",
+        "href": "{`/app/repairs/${repair.id}`}",
+        "glyphs": [
+          {
+            "name": "ChevronRight",
+            "size": "{18}",
+            "parent": "Link",
+            "containerClass": "\"row-action\""
+          }
+        ]
+      },
+      {
+        "file": "components/home/account-actions.tsx",
+        "line": 13,
+        "kind": "text",
+        "className": "",
+        "href": "\"/login\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/home/account-actions.tsx",
+        "line": 13,
+        "kind": "text",
+        "className": "",
+        "href": "\"/register\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/home/account-actions.tsx",
+        "line": 17,
+        "kind": "button",
+        "className": "\"button button--primary\"",
+        "href": "{destination}",
+        "glyphs": []
+      },
+      {
+        "file": "components/home/account-actions.tsx",
+        "line": 20,
+        "kind": "text",
+        "className": "{primaryClass}",
+        "href": "{destination}",
+        "glyphs": []
+      },
+      {
+        "file": "components/home/account-actions.tsx",
+        "line": 21,
+        "kind": "button",
+        "className": "{variant === \"footer\" ? undefined : `button button--${variant === \"nav\" ? \"primary\" : \"secondary\"}`}",
+        "href": "\"/register\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/home/account-actions.tsx",
+        "line": 22,
+        "kind": "button",
+        "className": "{variant === \"cta\" ? \"button button--secondary\" : undefined}",
+        "href": "\"/account/settings\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/home/account-menu.tsx",
+        "line": 37,
+        "kind": "text",
+        "className": "",
+        "href": "{authDestination(status.state)}",
+        "glyphs": [
+          {
+            "name": "MonitorSmartphone",
+            "size": "{18}",
+            "parent": "Link",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/home/account-menu.tsx",
+        "line": 38,
+        "kind": "text",
+        "className": "",
+        "href": "\"/account/settings\"",
+        "glyphs": [
+          {
+            "name": "Settings",
+            "size": "{18}",
+            "parent": "Link",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/home/account-menu.tsx",
+        "line": 38,
+        "kind": "text",
+        "className": "",
+        "href": "\"/account/settings#login-devices\"",
+        "glyphs": [
+          {
+            "name": "MonitorSmartphone",
+            "size": "{18}",
+            "parent": "Link",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/home/account-menu.tsx",
+        "line": 39,
+        "kind": "text",
+        "className": "",
+        "href": "\"/verify-email\"",
+        "glyphs": [
+          {
+            "name": "Mail",
+            "size": "{18}",
+            "parent": "Link",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/home/home-page.tsx",
+        "line": 24,
+        "kind": "text",
+        "className": "{styles.skipLink}",
+        "href": "\"#main-content\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/home/home-page.tsx",
+        "line": 28,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "\"#tutorials\"",
+        "glyphs": [
+          {
+            "name": "ArrowDown",
+            "size": "{16}",
+            "parent": "Link",
+            "containerClass": "\"button button--secondary\""
+          }
+        ]
+      },
+      {
+        "file": "components/home/home-page.tsx",
+        "line": 33,
+        "kind": "text",
+        "className": "",
+        "href": "\"#workflow\"",
+        "glyphs": [
+          {
+            "name": "ArrowRight",
+            "size": "{16}",
+            "parent": "Link",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/home/home-page.tsx",
+        "line": 47,
+        "kind": "text",
+        "className": "",
+        "href": "\"/toolbox\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/home/home-page.tsx",
+        "line": 47,
+        "kind": "text",
+        "className": "",
+        "href": "\"#tutorials\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/home/public-header.tsx",
+        "line": 37,
+        "kind": "text",
+        "className": "",
+        "href": "\"#features\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/home/public-header.tsx",
+        "line": 38,
+        "kind": "text",
+        "className": "",
+        "href": "\"#tutorials\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/home/public-header.tsx",
+        "line": 39,
+        "kind": "text",
+        "className": "",
+        "href": "\"#workflow\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/home/public-header.tsx",
+        "line": 40,
+        "kind": "text",
+        "className": "",
+        "href": "\"#questions\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/home/public-header.tsx",
+        "line": 43,
+        "kind": "navigation",
+        "className": "{styles.publicLink}",
+        "href": "\"/toolbox\"",
+        "glyphs": [
+          {
+            "name": "PanelsTopLeft",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "{styles.publicLink}"
+          }
+        ]
+      },
+      {
+        "file": "components/home/tutorial-library.tsx",
+        "line": 154,
+        "kind": "button",
+        "className": "{`button button--secondary ${styles.actionLink}`}",
+        "href": "{tutorial.href}",
+        "glyphs": [
+          {
+            "name": "ArrowRight",
+            "size": "{16}",
+            "parent": "Link",
+            "containerClass": "{`button button--secondary ${styles.actionLink}`}"
+          }
+        ]
+      },
+      {
+        "file": "components/page-recovery.tsx",
+        "line": 40,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "\"/\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/page-title.tsx",
+        "line": 29,
+        "kind": "icon-button",
+        "className": "\"icon-button page-back-button\"",
+        "href": "{backHref}",
+        "glyphs": [
+          {
+            "name": "ArrowLeft",
+            "size": "{20}",
+            "parent": "Link",
+            "containerClass": "\"icon-button page-back-button\""
+          }
+        ]
+      },
+      {
+        "file": "components/procurement/procurement-create.tsx",
+        "line": 67,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "\"/app/procurement\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/procurement/procurement-detail.tsx",
+        "line": 79,
+        "kind": "button",
+        "className": "\"button button--primary\"",
+        "href": "\"/app/procurement\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/procurement/procurement-detail.tsx",
+        "line": 84,
+        "kind": "button",
+        "className": "\"button button--secondary button--compact page-toolbar-action\"",
+        "href": "{`/app/repairs/${record.repairId}`}",
+        "glyphs": [
+          {
+            "name": "ClipboardList",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "\"button button--secondary button--compact page-toolbar-action\""
+          }
+        ]
+      },
+      {
+        "file": "components/procurement/procurement-detail.tsx",
+        "line": 88,
+        "kind": "text",
+        "className": "",
+        "href": "{`/app/repairs/${record.repairId}`}",
+        "glyphs": []
+      },
+      {
+        "file": "components/procurement/procurement-list.tsx",
+        "line": 42,
+        "kind": "button",
+        "className": "\"button button--primary button--compact\"",
+        "href": "{`/app/procurement/new${repairId ? `?repair=${encodeURIComponent(repairId)}` : \"\"}`}",
+        "glyphs": [
+          {
+            "name": "Plus",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "\"button button--primary button--compact\""
+          }
+        ]
+      },
+      {
+        "file": "components/procurement/procurement-list.tsx",
+        "line": 51,
+        "kind": "card-row",
+        "className": "\"procurement-row\"",
+        "href": "{`/app/procurement/${record.id}`}",
+        "glyphs": [
+          {
+            "name": "PackageSearch",
+            "size": "{18}",
+            "parent": "span",
+            "containerClass": "\"procurement-icon\""
+          },
+          {
+            "name": "ChevronRight",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "\"procurement-row\""
+          }
+        ]
+      },
+      {
+        "file": "components/procurement/procurement-preparation.tsx",
+        "line": 51,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "{`/app/procurement/${record.id}`}",
+        "glyphs": []
+      },
+      {
+        "file": "components/procurement/procurement-preparation.tsx",
+        "line": 52,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "{`/app/repairs/${record.repairId}`}",
+        "glyphs": []
+      },
+      {
+        "file": "components/procurement/procurement-summary.tsx",
+        "line": 34,
+        "kind": "button",
+        "className": "\"button button--secondary button--tiny\"",
+        "href": "\"/app/repairs\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/procurement/procurement-summary.tsx",
+        "line": 34,
+        "kind": "card-row",
+        "className": "\"arrival-row procurement-dashboard-link\"",
+        "href": "{`/app/repairs/${row.repairId}`}",
+        "glyphs": [
+          {
+            "name": "PackageSearch",
+            "size": "{18}",
+            "parent": "span",
+            "containerClass": "\"arrival-row__icon\""
+          }
+        ]
+      },
+      {
+        "file": "components/procurement/supplier-batch-dialog.tsx",
+        "line": 50,
+        "kind": "text",
+        "className": "",
+        "href": "{`/app/repairs/${row.repairId}`}",
+        "glyphs": []
+      },
+      {
+        "file": "components/repairs/local-intake-detail.tsx",
+        "line": 28,
+        "kind": "text",
+        "className": "",
+        "href": "{`/app/repairs/${data.repairOrigin.repairId}`}",
+        "glyphs": []
+      },
+      {
+        "file": "components/repairs/local-intake-detail.tsx",
+        "line": 28,
+        "kind": "text",
+        "className": "",
+        "href": "{`/app/repairs/${row.id}`}",
+        "glyphs": []
+      },
+      {
+        "file": "components/repairs/local-intake-detail.tsx",
+        "line": 28,
+        "kind": "text",
+        "className": "",
+        "href": "{customerSaleHref({ unitId: data.retailOrigin.unitId, id: data.retailOrigin.saleId })}",
+        "glyphs": []
+      },
+      {
+        "file": "components/repairs/repair-detail.tsx",
+        "line": 41,
+        "kind": "text",
+        "className": "",
+        "href": "{`/app/repairs/${row.id}`}",
+        "glyphs": []
+      },
+      {
+        "file": "components/repairs/repair-detail.tsx",
+        "line": 60,
+        "kind": "text",
+        "className": "",
+        "href": "{`/app/customers/${customerId(repair.customer.phone)}`}",
+        "glyphs": []
+      },
+      {
+        "file": "components/repairs/repair-intake-form.tsx",
+        "line": 145,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "{`/app/repairs/${submitted.id}`}",
+        "glyphs": [
+          {
+            "name": "ClipboardCheck",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "\"button button--secondary\""
+          }
+        ]
+      },
+      {
+        "file": "components/repairs/repair-intake-form.tsx",
+        "line": 151,
+        "kind": "text",
+        "className": "",
+        "href": "{`/app/repairs/${order.id}`}",
+        "glyphs": [
+          {
+            "name": "ArrowRight",
+            "size": "{14}",
+            "parent": "span",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/repairs/repair-intake-form.tsx",
+        "line": 152,
+        "kind": "text",
+        "className": "",
+        "href": "{`/app/repairs/${order.id}`}",
+        "glyphs": [
+          {
+            "name": "ArrowRight",
+            "size": "{15}",
+            "parent": "Link",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/repairs/repair-list.tsx",
+        "line": 193,
+        "kind": "button",
+        "className": "\"button button--primary button--compact\"",
+        "href": "\"/app/repairs/new\"",
+        "glyphs": [
+          {
+            "name": "Plus",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "\"button button--primary button--compact\""
+          }
+        ]
+      },
+      {
+        "file": "components/repairs/repair-list.tsx",
+        "line": 228,
+        "kind": "card-row",
+        "className": "\"repair-row-link\"",
+        "href": "{`/app/repairs/${repair.id}`}",
+        "glyphs": []
+      },
+      {
+        "file": "components/repairs/repair-scanner.tsx",
+        "line": 15,
+        "kind": "text",
+        "className": "",
+        "href": "{`/app/repairs/${repair.id}`}",
+        "glyphs": []
+      },
+      {
+        "file": "components/retail/retail-commerce.tsx",
+        "line": 234,
+        "kind": "text",
+        "className": "{styles.buyer}",
+        "href": "{\"/app/customers/\" + customerId(sale.customerPhone) + \"?records=sales\"}",
+        "glyphs": []
+      },
+      {
+        "file": "components/retail/retail-commerce.tsx",
+        "line": 241,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "{\"/app/repairs/\" + item.repairId}",
+        "glyphs": []
+      },
+      {
+        "file": "components/retail/retail-dashboard-summary.tsx",
+        "line": 16,
+        "kind": "button",
+        "className": "\"button button--secondary button--tiny\"",
+        "href": "\"/app/retail\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/retail/retail-dashboard-summary.tsx",
+        "line": 16,
+        "kind": "text",
+        "className": "",
+        "href": "\"/app/retail\"",
+        "glyphs": [
+          {
+            "name": "Boxes",
+            "size": "{19}",
+            "parent": "span",
+            "containerClass": "\"retail-icon retail-icon--violet\""
+          }
+        ]
+      },
+      {
+        "file": "components/retail/retail-dashboard-summary.tsx",
+        "line": 16,
+        "kind": "text",
+        "className": "",
+        "href": "\"/app/retail?view=other\"",
+        "glyphs": [
+          {
+            "name": "Clock3",
+            "size": "{19}",
+            "parent": "span",
+            "containerClass": "\"retail-icon retail-icon--amber\""
+          }
+        ]
+      },
+      {
+        "file": "components/retail/retail-dashboard-summary.tsx",
+        "line": 16,
+        "kind": "text",
+        "className": "",
+        "href": "\"/app/retail?view=sold\"",
+        "glyphs": [
+          {
+            "name": "CheckCircle2",
+            "size": "{19}",
+            "parent": "span",
+            "containerClass": "\"retail-icon retail-icon--mint\""
+          }
+        ]
+      },
+      {
+        "file": "components/retail/retail-detail-view.tsx",
+        "line": 79,
+        "kind": "button",
+        "className": "\"button button--secondary button--compact page-toolbar-action\"",
+        "href": "{\"/app/retail/new?copy=\" + unit.id}",
+        "glyphs": [
+          {
+            "name": "Copy",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "\"button button--secondary button--compact page-toolbar-action\""
+          }
+        ]
+      },
+      {
+        "file": "components/retail/retail-detail.tsx",
+        "line": 109,
+        "kind": "button",
+        "className": "\"button button--primary\"",
+        "href": "{backHref}",
+        "glyphs": []
+      },
+      {
+        "file": "components/retail/retail-form.tsx",
+        "line": 165,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "{returnTo}",
+        "glyphs": []
+      },
+      {
+        "file": "components/retail/retail-history-customer-records.tsx",
+        "line": 18,
+        "kind": "text",
+        "className": "",
+        "href": "{historyDetailHref(record.id, returnTo)}",
+        "glyphs": [
+          {
+            "name": "ChevronRight",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/retail/retail-history-list.tsx",
+        "line": 73,
+        "kind": "button",
+        "className": "\"button button--primary button--compact\"",
+        "href": "\"/app/retail/new\"",
+        "glyphs": [
+          {
+            "name": "Plus",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "\"button button--primary button--compact\""
+          }
+        ]
+      },
+      {
+        "file": "components/retail/retail-history-list.tsx",
+        "line": 75,
+        "kind": "text",
+        "className": "",
+        "href": "{viewHref(value)}",
+        "glyphs": []
+      },
+      {
+        "file": "components/retail/retail-history-list.tsx",
+        "line": 92,
+        "kind": "card-row",
+        "className": "{`${styles.row}${!item.phone?.trim() && !item.identifier?.trim() ? ` ${styles.rowWithoutIdentity}` : \"\"}`}",
+        "href": "{retailRecordHref(item.id,listUrl)}",
+        "glyphs": [
+          {
+            "name": "ChevronRight",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "{`${styles.row}${!item.phone?.trim() && !item.identifier?.trim() ? ` ${styles.rowWithoutIdentity}` : \"\"}`}"
+          }
+        ]
+      },
+      {
+        "file": "components/retail/retail-record-preparation.tsx",
+        "line": 93,
+        "kind": "text",
+        "className": "",
+        "href": "{href}",
+        "glyphs": []
+      },
+      {
+        "file": "components/retail/retail-record-scanner.tsx",
+        "line": 21,
+        "kind": "text",
+        "className": "",
+        "href": "{\"/app/retail/units/\" + unit.id}",
+        "glyphs": [
+          {
+            "name": "ChevronRight",
+            "size": "{16}",
+            "parent": "span",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/retail/retail-record-scanner.tsx",
+        "line": 21,
+        "kind": "text",
+        "className": "",
+        "href": "{retailRecordHref(record.id)}",
+        "glyphs": [
+          {
+            "name": "ChevronRight",
+            "size": "{16}",
+            "parent": "span",
+            "containerClass": ""
+          }
+        ]
+      },
+      {
+        "file": "components/retail/retail-record-scanner.tsx",
+        "line": 21,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "{\"/app/retail/new?identifier=\" + encodeURIComponent(scanResult.raw) + \"&kind=\" + scanResult.type}",
+        "glyphs": []
+      },
+      {
+        "file": "components/settings/settings-page.tsx",
+        "line": 95,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "\"/app/repairs\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/toolbox/android-transfer-page.tsx",
+        "line": 41,
+        "kind": "text",
+        "className": "{home.skipLink}",
+        "href": "\"#main-content\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/toolbox/android-transfer-page.tsx",
+        "line": 77,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "\"/toolbox\"",
+        "glyphs": [
+          {
+            "name": "ArrowLeft",
+            "size": "{16}",
+            "parent": "Link",
+            "containerClass": "\"button button--secondary\""
+          }
+        ]
+      },
+      {
+        "file": "components/toolbox/office-tools-page.tsx",
+        "line": 29,
+        "kind": "text",
+        "className": "{homeStyles.skipLink}",
+        "href": "\"#main-content\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/toolbox/toolbox-page.tsx",
+        "line": 22,
+        "kind": "text",
+        "className": "{homeStyles.skipLink}",
+        "href": "\"#main-content\"",
+        "glyphs": []
+      },
+      {
+        "file": "components/toolbox/toolbox-page.tsx",
+        "line": 31,
+        "kind": "button",
+        "className": "\"button button--primary\"",
+        "href": "\"#categories\"",
+        "glyphs": [
+          {
+            "name": "ArrowDown",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "\"button button--primary\""
+          }
+        ]
+      },
+      {
+        "file": "components/toolbox/toolbox-page.tsx",
+        "line": 54,
+        "kind": "card-row",
+        "className": "{`${styles.cardFoot} ${styles.cardLink}`}",
+        "href": "\"/toolbox/office\"",
+        "glyphs": [
+          {
+            "name": "ArrowRight",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "{`${styles.cardFoot} ${styles.cardLink}`}"
+          }
+        ]
+      },
+      {
+        "file": "components/toolbox/toolbox-page.tsx",
+        "line": 54,
+        "kind": "card-row",
+        "className": "{`${styles.cardFoot} ${styles.cardLink}`}",
+        "href": "\"/toolbox/windows\"",
+        "glyphs": [
+          {
+            "name": "ArrowRight",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "{`${styles.cardFoot} ${styles.cardLink}`}"
+          }
+        ]
+      },
+      {
+        "file": "components/toolbox/toolbox-page.tsx",
+        "line": 54,
+        "kind": "card-row",
+        "className": "{`${styles.cardFoot} ${styles.cardLink}`}",
+        "href": "\"/toolbox/transfer\"",
+        "glyphs": [
+          {
+            "name": "ArrowRight",
+            "size": "{17}",
+            "parent": "Link",
+            "containerClass": "{`${styles.cardFoot} ${styles.cardLink}`}"
+          }
+        ]
+      },
+      {
+        "file": "components/toolbox/toolbox-page.tsx",
+        "line": 58,
+        "kind": "button",
+        "className": "\"button button--secondary\"",
+        "href": "\"/\"",
+        "glyphs": [
+          {
+            "name": "ArrowLeft",
+            "size": "{16}",
+            "parent": "Link",
+            "containerClass": "\"button button--secondary\""
+          }
+        ]
+      },
+      {
+        "file": "components/toolbox/windows-tools-page.tsx",
+        "line": 25,
+        "kind": "text",
+        "className": "{homeStyles.skipLink}",
+        "href": "\"#main-content\"",
+        "glyphs": []
+      }
+    ]
+  },
+  "priorityFacts": [
+    {
+      "priority": "P1",
+      "location": "backend-provider61 + backend/client99-102 + app/app/layout23",
+      "fact": "普通提交成功panel无自动关闭，挂在所有正式app正文之前；unknown和本机清理失败不可仅凭已保存文案归为短显"
+    },
+    {
+      "priority": "P1",
+      "location": "app/globals.css505-507 + navigation-link30",
+      "fact": "所有布局共享绝对right/top3px圈和额外2px outline；无预留空间，单SVG但可能遮内容/形成第二层框"
+    },
+    {
+      "priority": "P2",
+      "location": "repair-part-form59; repair-items-form158; settings-page92/138/193/202; staff-settings85",
+      "fact": "部分表单aria-busy=包含receipt.waiting的pending，未知结果可持续显示busy；与正确仅submitting的实现不一致"
+    },
+    {
+      "priority": "P2",
+      "location": "operation-feedback28; repair-stage-control60; repair-rework-control62; repair-workflow-panel56; retail-operation-confirmation40; repair-contact-control54-57",
+      "fact": "桥只收button/form；某些真实写只有disabled或section/details busy，另一些未知仍busy，反馈入口不一致"
+    },
+    {
+      "priority": "P2",
+      "location": "login-form33/83/96/115; register-form30/62/64/73; social-sign-in31; globals77",
+      "fact": "OAuth busy时social explicit圈且父form busy会使email submit自动pseudo圈，单动作可在两个按钮上同时出圈；源码推导，未浏览器复现"
+    },
+    {
+      "priority": "P2",
+      "location": "repair-list244/globals761-762; download-link13/globals512-515",
+      "fact": "两套现有浮动通知，分别无超时及8秒；fixed可能占用底部内容区域，未运行时复现"
+    }
+  ],
+  "readProgressHosts": [
+    "app/layout.tsx:20",
+    "components/dashboard/app-shell.tsx:120",
+    "components/home/public-header.tsx:47",
+    "app/account/settings/page.tsx:23",
+    "components/page-recovery.tsx:34"
+  ],
+  "readPendingConsumers": [
+    "staff/access-panel:13",
+    "dashboard/dashboard-content:95",
+    "repairs/local-intake-detail:28",
+    "repairs/repair-list:61,207",
+    "customers/customer-list:40",
+    "customers/customer-detail:45",
+    "customers/customer-devices:36",
+    "retail/retail-list:14",
+    "retail/retail-form:43",
+    "retail/retail-detail:108",
+    "retail/retail-history-list:89",
+    "account/account-settings:77,78",
+    "account/toolbox-control:32",
+    "account/office-desktop-v3-control:137"
+  ],
+  "pageLoadingFacts": "无活动app/**/loading.*；无TSX/TS module-skeleton渲染；ReadPending/PageRecovery和领域读取状态负责实际等待。",
+  "noSourceWrites": true
+}

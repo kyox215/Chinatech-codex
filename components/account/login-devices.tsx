@@ -1,4 +1,5 @@
 "use client";
+import { Toast } from "@/components/toast";
 import { useBackendMode } from "@/components/backend-snapshot";
 import { useActivityFeedback } from "@/components/operation-feedback";
 import { notifyAuthChanged, subscribeAuthChanged } from "@/lib/auth-events";
@@ -130,7 +131,7 @@ export function LoginDevicesPanel({ storeMode = false }: { storeMode?: boolean }
   return <section ref={panel} id={storeMode ? undefined : "login-devices"} className={`panel ${styles.panel}`} aria-label={t(storeMode ? "员工登录设备" : "登录设备")} aria-busy={loading || busy}>
     <header className={styles.header}><h2>{t(storeMode ? "员工登录设备" : "登录设备")}</h2><button type="button" className="button button--secondary" disabled={loading || busy} aria-busy={loading&&foreground} onClick={() => void load(true)}>{t("刷新")}</button></header>
     {storeMode ? <><p>{t("仅撤销此设备的本店访问，其他门店不受影响；重新登录后可恢复。")}</p><label className="field"><span>{t("员工")}</span><SelectControl value={selected} disabled={busy} onChange={event => { setMemberId(event.target.value); setOffset(0); setMessage(""); }}>{staff.data.members.filter(row => row.membershipStatus === "active").map(member => <option key={member.id} value={member.id}>{member.name}</option>)}</SelectControl></label></> : <p>{t("每项代表一个浏览器登录，多个标签页共享同一登录。")}</p>}
-    {message ? <p role="status">{t(message)}</p> : null}
+    {message ? <Toast message={t(message)} onDismiss={() => setMessage("")} /> : null}
     {error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}
     {loading ? <p role="status">{t("正在读取登录设备…")}</p> : null}
     {!loading && visibleData?.devices.length === 0 ? <p>{t("没有可管理的登录设备")}</p> : null}

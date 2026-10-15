@@ -47,7 +47,7 @@ function markup(css) {
       ${group("identity")}${group("history", true)}${group("source", true)}
     </div></div></main>
     <div class="module-page" id="heading-samples">
-      <header class="module-heading"><div class="module-title"><button class="icon-button page-menu-button" id="heading-menu">≡</button><a class="icon-button page-back-button">←</a><div class="module-title__content"><div class="module-title__line"><h2>Scheda prodotto</h2><span class="status-pill" id="heading-status">Ricambi da scegliere · Non ordinato</span></div></div></div><a class="button page-toolbar-action" id="heading-action">＋<span>New matching model</span></a></header>
+      <header class="module-heading"><div class="module-title"><button class="icon-button page-menu-button" id="heading-menu">≡</button><a class="icon-button page-back-button">←</a><div class="module-title__content"><div class="module-title__line"><h2>Scheda prodotto</h2><span class="status-pill" id="heading-status">Ricambi da scegliere · Non ordinato</span></div></div></div><a class="button page-toolbar-action navigation-link" id="heading-action"><span class="navigation-feedback" data-pending="true"><span class="navigation-feedback__icon"><svg width="17" height="17"><path d="M2 2h12v12H2z" /></svg></span><svg class="spin" width="16" height="16"><circle cx="8" cy="8" r="6" /></svg></span><span id="heading-action-label">New matching model</span><span class="sr-only" id="heading-action-status">Opening page</span></a></header>
       <header class="module-heading repair-detail__toolbar"><div class="module-title"><button class="icon-button page-menu-button" id="group-menu">≡</button><div class="module-title__content"><h2>CT-2026-0929</h2></div></div><div class="module-heading__actions module-heading__actions--icons"><button class="button page-toolbar-action" id="group-action">◇<span>Print receipt</span></button><button class="button page-toolbar-action">↻<span>Rework</span></button></div></header>
     </div>
     <div class="panel" id="panel">Figma card</div>
@@ -55,7 +55,7 @@ function markup(css) {
     <button class="button button--secondary" id="secondary">Secondary action</button>
     <button class="button button--tiny" id="tiny">View all</button>
     <button class="icon-button" id="icon" aria-label="Close">×</button>
-    <a class="navigation-link" id="navigation" href="#"><span class="navigation-feedback" data-pending="true" aria-hidden="true"></span>Navigation</a>
+    <a class="navigation-link" id="navigation" href="#">Navigation<span class="navigation-feedback" data-pending="true" aria-hidden="true"><svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></span></a>
     <label class="field"><span id="field-label">Input</span><span class="input-control" data-filled="false" data-invalid="false"><span class="input-control__body"><input id="input" class="input-control__native" aria-label="Input"></span></span></label>
     <div class="repair-module-table__head" id="table-header">Model</div>
     <div class="repair-unified-list"><div class="repair-module-row"><div class="repair-module-row__device"><div><strong id="repair-name">Repair model</strong></div></div></div></div>
@@ -89,6 +89,7 @@ for (const engine of [chromium, webkit]) {
       assert.ok(loaded.length && loaded.every(status => status === "loaded"), "The actual bundled font must load");
       for (const width of [1440, 1024, 390, 375]) {
         await page.setViewportSize({ width, height: 1000 });
+        await page.locator("#primary").focus();
         const result = await page.evaluate(() => {
           const style = selector => getComputedStyle(document.querySelector(selector));
           const rect = selector => {
@@ -108,10 +109,12 @@ for (const engine of [chromium, webkit]) {
               const b=badge.getBoundingClientRect(), c=content.getBoundingClientRect();
               return { centerDifference: Math.abs(a.y+a.height/2-m.y-m.height/2), width:a.width, height:a.height, badgeFits:b.right<=c.right+1 && badge.scrollWidth<=badge.clientWidth };
             }),
+            headingNavigation: { slotDisplay: style("#heading-action .navigation-feedback").display, ...rect("#heading-action .navigation-feedback"), spinnerVisibility: style("#heading-action .spin").visibility, iconVisibility: style("#heading-action .navigation-feedback__icon").visibility, statusDisplay: style("#heading-action-status").display, labelDisplay: style("#heading-action-label").display },
             closedBody: style("#identity-body").display,
             button: { size: style("#primary").fontSize, weight: style("#primary").fontWeight, radius: style("#primary").borderRadius, background: style("#primary").backgroundColor },
             panelRadius: style("#panel").borderRadius,
-            pendingOutline: { width: style("#navigation").outlineWidth, color: style("#navigation").outlineColor },
+            pendingOutline: style("#navigation").outlineStyle,
+            pendingSlot: { position: style("#navigation .navigation-feedback").position, ...rect("#navigation .navigation-feedback") },
             dialog: { radius: style("#dialog").borderRadius, padding: style("#dialog").paddingTop },
             table: { size: style("#table-header").fontSize, weight: style("#table-header").fontWeight, background: style("#table-header").backgroundColor },
             repairName: { size: style("#repair-name").fontSize, weight: style("#repair-name").fontWeight },
@@ -130,7 +133,11 @@ for (const engine of [chromium, webkit]) {
         await page.locator('[data-retail-group="identity"]').evaluate(element => element.setAttribute("data-open", "false"));
         assert.deepEqual(result.button, { size: "14px", weight: "500", radius: "8px", background: "rgb(95, 87, 255)" });
         assert.equal(result.panelRadius, "16px");
-        assert.deepEqual(result.pendingOutline, { width: "2px", color: "rgb(223, 221, 255)" });
+        assert.equal(result.pendingOutline, "none", "Pending does not add a frame");
+        assert.deepEqual(result.pendingSlot, { position: "static", width: 16, height: 16 }, "Pending occupies its inline slot");
+        await page.locator("#navigation").focus(); await page.keyboard.press("Shift");
+        assert.equal(await page.locator("#navigation").evaluate(e => document.activeElement === e), true);
+        assert.deepEqual(await page.locator("#navigation").evaluate(e => ({style:getComputedStyle(e).outlineStyle,width:getComputedStyle(e).outlineWidth})), {style:"solid",width:"3px"}, "Keyboard focus remains visible independently");
         assert.deepEqual(result.dialog, { radius: "16px", padding: "16px" });
         assert.deepEqual(result.table, { size: "14px", weight: "400", background: "rgb(246, 247, 249)" });
         assert.equal(result.inputSize, "16px");
@@ -153,6 +160,12 @@ for (const engine of [chromium, webkit]) {
             assert.ok(heading.width >= 44 && heading.height >= 44);
             assert.ok(heading.badgeFits, "Long mobile status stays within title content");
           }
+          assert.ok(["grid", "inline-grid"].includes(result.headingNavigation.slotDisplay), "Navigation slot keeps its grid after flex item blockification");
+          assert.ok(result.headingNavigation.width > 0 && result.headingNavigation.height > 0, "Mobile navigation feedback slot stays visible");
+          assert.equal(result.headingNavigation.spinnerVisibility, "visible");
+          assert.equal(result.headingNavigation.iconVisibility, "hidden");
+          assert.notEqual(result.headingNavigation.statusDisplay, "none");
+          assert.equal(result.headingNavigation.labelDisplay, "none");
           for (const target of [result.tiny, result.icon]) assert.ok(target.width >= 44 && target.height >= 44);
         }
         rows.push({ engine: engine.name(), order, width, ...result });

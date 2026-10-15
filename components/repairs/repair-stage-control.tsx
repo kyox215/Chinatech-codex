@@ -2,20 +2,20 @@
 import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Check, ClipboardList, X, Search, MessageCircle, PackageSearch, Wrench, ShieldCheck, CheckCircle2, Ban, Send, ArrowRight } from "lucide-react";
 import { repairStatusOptions, type RepairStatus } from "@/lib/repair-fixtures";
 import { type RepairDirectoryEntry } from "@/lib/repair-intake-record";
 import { initialRepairWorkflow, repairStageStatus, repairProgress, isRepairHistory, hasCurrentRepairHandover, isRepairReady, stageChangeNeedsNote, type WorkflowCommand } from "@/lib/repair-workflow";
-import { SupplierBatchDialog } from "@/components/procurement/supplier-batch-dialog";
+import { RepairProcurementDialog } from "@/components/procurement/repair-procurement-shortcut";
 import { useProcurement } from "@/components/procurement/procurement-provider";
 import { useStaff } from "@/components/staff/use-staff";
 import { useRepairWorkflows, updateRepairWorkflow } from "./repair-workflow-store";
-type RepairStageControlProps = { order: RepairDirectoryEntry; variant?: "default" | "list"; onSaved?: (status: RepairStatus) => void };
+type RepairStageControlProps = { order: RepairDirectoryEntry; variant?: "default" | "list"; onSaved?: (status: RepairStatus) => void; onOpenParts?: (repairId:string) => void };
 const stageIcons = { diagnosis: Search, awaiting_quote: MessageCircle, awaiting_parts: PackageSearch, repairing: Wrench, testing: ShieldCheck, ready: CheckCircle2, completed: CheckCircle2, cancelled: Ban, outsourced: Send, awaiting_reply: MessageCircle, collected_unpaid: ClipboardList, ready_notified: CheckCircle2 };
 export function RepairStageControl(props: RepairStageControlProps) { const staff = useStaff(); return <ScopedStageControl key={`${staff.member?.id}:${staff.member?.revision}`} {...props} />; }
-function ScopedStageControl({ order, onSaved, variant = "default" }: RepairStageControlProps) {
+function ScopedStageControl({ order, onSaved, onOpenParts, variant = "default" }: RepairStageControlProps) {
   const { t } = useLanguage();
   const canEdit = useStaff().can("repairs.edit");
   const { workflows } = useRepairWorkflows();
@@ -25,9 +25,11 @@ function ScopedStageControl({ order, onSaved, variant = "default" }: RepairStage
   const stage = repairStageStatus(workflows[order.id] ?? initialRepairWorkflow(order));
   const [open, setOpen] = useState(false);
   const [ordering,setOrdering]=useState(false);
+  const instanceId = useId();
+  const triggerId = variant === "list" ? `repair-stage-${order.id}` : `repair-stage-${order.id}-${instanceId}`;
   const Icon = stageIcons[stage];
   const label = <><Icon size={14} aria-hidden="true" /><span>{t(progress.label)}</span>{canEdit ? <ChevronDown size={13} aria-hidden="true" /> : null}</>;
-  return <><button id={`repair-stage-${order.id}`} type="button" className={variant === "list" ? "repair-stage-button repair-stage-button--list" : `status-pill repair-stage-button status-pill--${progress.tone}`} disabled={!canEdit} aria-label={`${order.id} ${canEdit ? t("更改维修阶段") : t("维修阶段")}`} title={t(progress.note || (canEdit ? "更改维修阶段" : "当前账号仅可查看维修阶段"))} onClick={() => setOpen(true)}>{variant === "list" ? <span className={`status-pill status-pill--${progress.tone}`}>{label}</span> : label}</button>{open && canEdit ? <StageDialog order={order} onSaved={onSaved} onOrder={()=>{setOpen(false);setOrdering(true);}} onClose={() => { setOpen(false); requestAnimationFrame(() => document.getElementById(`repair-stage-${order.id}`)?.focus({preventScroll:true})); }} /> : null}{ordering && canEdit ? <SupplierBatchDialog action="ordered" repairId={order.id} onSaved={()=>{onSaved?.(stage);setOrdering(false);requestAnimationFrame(()=>document.getElementById(`repair-stage-${order.id}`)?.focus({preventScroll:true}));}} onClose={()=>{setOrdering(false);requestAnimationFrame(()=>document.getElementById(`repair-stage-${order.id}`)?.focus({preventScroll:true}));}}/> : null}</>;
+  return <><button id={triggerId} type="button" className={variant === "list" ? "repair-stage-button repair-stage-button--list" : `status-pill repair-stage-button status-pill--${progress.tone}`} disabled={!canEdit} aria-label={`${order.id} ${canEdit ? t("更改维修阶段") : t("维修阶段")}`} title={t(progress.note || (canEdit ? "更改维修阶段" : "当前账号仅可查看维修阶段"))} onClick={() => setOpen(true)}>{variant === "list" ? <span className={`status-pill status-pill--${progress.tone}`}>{label}</span> : label}</button>{open && canEdit ? <StageDialog order={order} onSaved={onSaved} onOrder={()=>{setOpen(false);if(onOpenParts)onOpenParts(order.id);else setOrdering(true);}} onClose={() => { setOpen(false); requestAnimationFrame(() => document.getElementById(triggerId)?.focus({preventScroll:true})); }} /> : null}{ordering && canEdit ? <RepairProcurementDialog repairId={order.id} onClose={()=>{onSaved?.(stage);setOrdering(false);requestAnimationFrame(()=>document.getElementById(triggerId)?.focus({preventScroll:true}));}}/> : null}</>;
 }
 function StageDialog({ order, onClose, onSaved, onOrder }: { order: RepairDirectoryEntry; onClose: () => void; onSaved?: (status: RepairStatus) => void; onOrder:()=>void }) {
   const { t , systemText } = useLanguage();

@@ -1,4 +1,5 @@
 "use client";
+import { Toast } from "@/components/toast";
 import { subscribeAuthChanged } from "@/lib/auth-events";
 import { ReadPending } from "@/components/page-recovery";
 import { useActivityFeedback } from "@/components/operation-feedback";
@@ -72,7 +73,7 @@ export function AccountSettings({ notice = "" }: { notice?: string }) {
   useEffect(()=>subscribeAuthChanged(()=>{request.current?.abort();setData(null);setError("");void load(true);}),[load]);
 
   return <>
-    {notices[notice] ? <p className={notice === "account-failed" ? "form-error" : styles.notice} role={notice === "account-failed" ? "alert" : "status"}>{t(notices[notice])}</p> : null}
+    {notices[notice] ? notice === "linked" || notice === "email-updated" ? <Toast message={t(notices[notice])} noticeId={notice} /> : <p className={notice === "account-failed" ? "form-error" : styles.notice} role={notice === "account-failed" ? "alert" : "status"}>{t(notices[notice])}</p> : null}
     {error ? <div className="panel read-failure" role="alert" data-operation-feedback={foreground?undefined:"background"}><CircleAlert size={26} /><p>{systemText(error)}</p>{unauthorized ? <Link className="button button--primary" href="/login">{t("重新登录")}</Link> : <button className="button button--secondary" disabled={loading} aria-busy={loading} onClick={() => void load(true)}>{loading ? t("正在重新读取…") : t("重新读取")}</button>}</div> : null}
     {!data && !error ? <ReadPending label="正在读取账号…" /> : null}
     {data && loading && foreground && !error ? <ReadPending label="正在重新读取…" /> : null}
@@ -93,10 +94,10 @@ function useCooldown() {
 
 type Operation = "email" | "phone" | "verify" | "google" | "apple";
 type FeedbackState = { operation: Operation; message: string; error: boolean };
-function Feedback({ feedback, operations }: { feedback: FeedbackState | null; operations: Operation[] }) {
+function Feedback({ feedback, operations, onDismiss }: { feedback: FeedbackState | null; operations: Operation[]; onDismiss: () => void }) {
   const { systemText } = useLanguage();
   if (!feedback || !operations.includes(feedback.operation)) return null;
-  return <p className={feedback.error ? "form-error" : styles.notice} role={feedback.error ? "alert" : "status"}>{systemText(feedback.message)}</p>;
+  return feedback.error || feedback.operation === "email" || feedback.operation === "phone" ? <p className={feedback.error ? "form-error" : styles.notice} role={feedback.error ? "alert" : "status"}>{systemText(feedback.message)}</p> : <Toast message={systemText(feedback.message)} onDismiss={onDismiss} />;
 }
 function AccountForms({ data, refreshing, refresh }: { data: AccountOverview; refreshing: boolean; refresh: () => Promise<AccountOverview | undefined> }) {
   const { t } = useLanguage();
@@ -140,7 +141,7 @@ function AccountForms({ data, refreshing, refresh }: { data: AccountOverview; re
       <span className={styles.avatar}><ShieldCheck size={30} aria-hidden="true" /></span>
       <div><h1>{t("我的账号")}</h1><p className={styles.email}>{account.email}</p></div>
       <span className="status-pill status-pill--success"><Check size={14} />{t("邮箱已验证")}</span>
-      <nav aria-label={t("账号设置分类")} className={styles.nav}><Link href="#account-email"><Mail size={18} />{t("登录邮箱")}</Link><Link href="#account-providers"><Link2 size={18} />{t("第三方账号")}</Link><Link href="#account-phone"><Smartphone size={18} />{t("手机号码")}</Link>{data.capabilities?.canManageOffice ? <Link href="#toolbox-control"><ShieldCheck size={18}/>{t("工具箱管理")}</Link> : null}</nav>
+      <nav aria-label={t("账号设置分类")} className={styles.nav}><Link href="#account-email" icon={<Mail size={18} />}>{t("登录邮箱")}</Link><Link href="#account-providers" icon={<Link2 size={18} />}>{t("第三方账号")}</Link><Link href="#account-phone" icon={<Smartphone size={18} />}>{t("手机号码")}</Link>{data.capabilities?.canManageOffice ? <Link href="#toolbox-control" icon={<ShieldCheck size={18}/>}>{t("工具箱管理")}</Link> : null}</nav>
       <p className={styles.muted}>{t("绑定方式用于登录同一个账号，门店权限保持不变。")}</p>
       <button className="button button--secondary" type="button" disabled={disabled} onClick={() => void refresh()}><RefreshCw size={16} className={refreshing ? "spin" : undefined} />{refreshing ? t("正在刷新…") : t("刷新绑定状态")}</button>
     </aside>
@@ -152,7 +153,7 @@ function AccountForms({ data, refreshing, refresh }: { data: AccountOverview; re
         <form onSubmit={event => { event.preventDefault(); void perform("email", "email", { email }); }} className={styles.form} aria-busy={busy === "email"}>
           <label className="field"><span>{account.email ? t("新邮箱地址") : t("关联邮箱地址")}</span><InputControl onClear={() => setEmail("")} aria-label={account.email ? t("新邮箱地址") : t("关联邮箱地址")} clearLabel={t("清空邮箱地址")} type="email" name="email" autoComplete="email" required maxLength={160} value={email} onChange={event => setEmail(event.target.value)} disabled={disabled} placeholder="name@example.com" /></label>
           <p className={styles.muted}>{t("请按新、旧邮箱收到的邮件完成确认。已有登录邮箱不会被直接替换。")}</p>
-          <Feedback feedback={feedback} operations={["email"]} />
+          <Feedback feedback={feedback} operations={["email"]} onDismiss={() => setFeedback(current => current === feedback ? null : current)} />
           <footer className={styles.actions}><Link href="/forgot-password">{t("设置或重置登录密码")}</Link><button className="button button--primary" type="submit" disabled={disabled || emailCooldown.seconds > 0}>{busy === "email" ? t("正在发送…") : emailCooldown.seconds ? t("{v0} 秒后可重发", { v0: emailCooldown.seconds }) : t("发送验证邮件")}</button></footer>
         </form>
       </section>
@@ -166,7 +167,7 @@ function AccountForms({ data, refreshing, refresh }: { data: AccountOverview; re
             {identity.linked ? <span className="status-pill status-pill--success"><Check size={14} />{t("已绑定")}</span> : <button className="button button--secondary" type="button" disabled={disabled || !availability[provider]} onClick={() => void perform(provider, "link", { provider })}>{busy === provider ? t("正在前往…") : availability[provider] ? t("绑定 {v0}", { v0: label }) : t("暂不可用")}</button>}
           </div>;
         })}</div>
-        <Feedback feedback={feedback} operations={["google", "apple"]} />
+        <Feedback feedback={feedback} operations={["google", "apple"]} onDismiss={() => setFeedback(current => current === feedback ? null : current)} />
         <p className={styles.muted}>{t("请在授权页面选择要绑定的账号。已属于其他网站账号的身份不能在这里合并。")}</p>
       </section>
       <section id="account-phone" className={`panel ${styles.card}`} aria-labelledby="phone-heading">
@@ -184,7 +185,7 @@ function AccountForms({ data, refreshing, refresh }: { data: AccountOverview; re
           <label className="field"><span>{t("短信验证码")}</span><InputControl aria-label={t("短信验证码")} type="text" inputMode="numeric" autoComplete="one-time-code" validationMessage={t("验证码须为短信中的 6–10 位数字，请核对后重新填写。")} pattern="[0-9]{6,10}" minLength={6} maxLength={10} required value={token} onChange={event => setToken(event.target.value.replace(/\D/g, ""))} disabled={disabled || !availability.phone} placeholder={t("输入短信中的验证码")} /></label>
           <button className="button button--primary" type="submit" disabled={disabled || !availability.phone}>{busy === "verify" ? t("正在验证…") : t("验证并绑定")}</button>
         </form> : null}
-        <Feedback feedback={feedback} operations={["phone", "verify"]} />
+        <Feedback feedback={feedback} operations={["phone", "verify"]} onDismiss={() => setFeedback(current => current === feedback ? null : current)} />
       </section>
       {data.capabilities?.canManageOffice ? <ToolboxControl accountId={account.id} sessionId={data.sessionId} /> : null}
     </div>

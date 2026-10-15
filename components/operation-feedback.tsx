@@ -25,7 +25,7 @@ function BusyControlFeedback() {
     if (!registry) return;
     const token = Symbol("busy-controls");
     const scan = () => {
-      const busy = Array.from(document.querySelectorAll<HTMLElement>('button[aria-busy="true"], form[aria-busy="true"]')).some(isVisibleControl);
+      const busy = Array.from(document.querySelectorAll<HTMLElement>('[aria-busy="true"]')).some(isVisibleControl);
       if (busy) registry.add(token, { kind: "submit" });
       else registry.remove(token);
     };

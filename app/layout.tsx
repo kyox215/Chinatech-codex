@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { LegacyServiceWorkerCleanup } from "@/components/legacy-service-worker-cleanup";
 import { LanguageProvider } from "@/components/language-provider";
 import { OperationFeedbackProvider } from "@/components/operation-feedback";
+import { ToastProvider } from "@/components/toast";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN">
-      <body><LegacyServiceWorkerCleanup /><LanguageProvider><OperationFeedbackProvider><LoginActivity enabled={isSupabaseMode()} />{children}</OperationFeedbackProvider></LanguageProvider></body>
+      <body><LegacyServiceWorkerCleanup /><LanguageProvider><ToastProvider><OperationFeedbackProvider><LoginActivity enabled={isSupabaseMode()} />{children}</OperationFeedbackProvider></ToastProvider></LanguageProvider></body>
     </html>
   );
 }

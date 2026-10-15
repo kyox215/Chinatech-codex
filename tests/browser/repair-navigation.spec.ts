@@ -68,7 +68,7 @@ async function configureView(page: Page) {
   await page.getByLabel("配件状态筛选", { exact: true }).selectOption("draft");
   await page.getByLabel("工单分组", { exact: true }).selectOption("parts");
   await page.getByLabel("工单排序", { exact: true }).selectOption("priority");
-  await openGroup(page, "cart");
+  await expect(page.locator("#repair-group-cart")).toHaveCount(0);
   await openGroup(page, "draft");
   await expect(page.locator("#repair-group-unrecorded")).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator("#repair-group-draft small")).toHaveText("24");
@@ -81,7 +81,7 @@ async function expectConfiguredView(page: Page, query = "DEMO-NAV") {
   await expect(page.getByLabel("配件状态筛选", { exact: true })).toHaveValue("draft");
   await expect(page.getByLabel("工单分组", { exact: true })).toHaveValue("parts");
   await expect(page.getByLabel("工单排序", { exact: true })).toHaveValue("priority");
-  await expect(page.locator("#repair-group-cart")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator("#repair-group-cart")).toHaveCount(0);
   await expect(page.locator("#repair-group-draft")).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator("#repair-group-unrecorded")).toHaveAttribute("aria-expanded", "false");
 }
@@ -203,28 +203,28 @@ test("quote contact appends real local history and remains shared by list, detai
     await row.getByRole("button", { name: `${firstId} 联系与跟进`, exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "工单联系与跟进", exact: true });
     await expect(dialog.locator(".repair-quote-context strong")).toHaveText("€120.00");
-    await dialog.getByLabel("联系跟进说明", { exact: true }).fill(`DEMO 报价沟通事实 ${index + 1}`);
+    await expect(dialog.getByRole("textbox")).toHaveCount(0);
     await dialog.getByRole("button", { name: outcome.label, exact: true }).click();
+    await dialog.getByRole("button", { name: "记录结果", exact: true }).click();
     await expect(dialog).not.toBeVisible();
     await expect(row.locator(".repair-contact__quote")).toHaveText(outcome.label);
     await expect(row).toContainText("已通知取机");
     await expect(row.getByRole("button", { name: `${firstId} 更改维修阶段`, exact: true })).toHaveText("已通知");
     const saved = await quoteWorkflow(page);
-    expect(saved.quoteContact).toEqual(expect.objectContaining({ outcome: outcome.outcome, note: `DEMO 报价沟通事实 ${index + 1}`, actorId: "DEMO-OWNER" }));
+    expect(saved.quoteContact).toEqual(expect.objectContaining({ outcome: outcome.outcome, note: "", actorId: "DEMO-OWNER" }));
     expect(saved.revision).toBe(original.revision + index + 1);
-    expect(saved.events.at(-1)).toEqual(expect.objectContaining({ type: "quote_contact", label: outcome.label, note: `DEMO 报价沟通事实 ${index + 1}` }));
+    expect(saved.events.at(-1)).toEqual(expect.objectContaining({ type: "quote_contact", label: outcome.label, note: "" }));
     for (const key of ["status", "custody", "notice", "pickupNotice", "readyCycle", "followUp", "handedOver"] as const) expect(saved[key]).toEqual(original[key]);
   }
   await row.getByRole("link", { name: `打开 ${firstId} DEMO-NAV 合成测试手机 01 详情`, exact: true }).click();
-  const overview = page.locator('section[aria-label="工单概况"]');
-  await expect(overview.locator(".repair-contact__quote")).toHaveText("已沟通报价");
-  await overview.getByText("状态与操作历史", { exact: true }).click();
-  await expect(overview.getByText("DEMO 报价沟通事实 1", { exact: true })).toBeVisible();
-  await expect(overview.getByText("DEMO 报价沟通事实 3", { exact: true })).toBeVisible();
-  await overview.getByRole("button", { name: `${firstId} 联系与跟进`, exact: true }).click();
+  await page.getByRole("tab",{name:/^历史/}).click();
+  await expect(page.getByRole("tabpanel")).toContainText("报价待客户回复");
+  await expect(page.getByRole("tabpanel")).toContainText("已沟通报价");
+  await page.getByRole("tab",{name:/^维修/}).click();
+  await page.getByRole("button", { name: `${firstId} 联系与跟进`, exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "工单联系与跟进", exact: true });
   await dialog.getByText("报价沟通历史 · 3", { exact: true }).click();
-  for (const index of [1, 2, 3]) await expect(dialog.getByText(`DEMO 报价沟通事实 ${index}`, { exact: true })).toBeVisible();
+  await expect(dialog.locator(".detail-timeline li")).toHaveCount(3);
   await dialog.getByRole("button", { name: "关闭", exact: true }).click();
   await page.getByRole("link", { name: "返回工单列表", exact: true }).click();
   await expect(page).toHaveURL("/app/repairs");
@@ -243,14 +243,13 @@ test("empty or cancelled quote communication never changes the work order", asyn
   const facts = await rawFacts(page), trigger = page.getByRole("button", { name: `${firstId} 联系与跟进`, exact: true });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "工单联系与跟进", exact: true });
-  for (const label of ["已沟通报价", "报价联系未接通", "报价待客户回复"]) await expect(dialog.getByRole("button", { name: label, exact: true })).toBeDisabled();
-  await dialog.getByLabel("联系跟进说明", { exact: true }).fill("   ");
-  await expect(dialog.getByRole("button", { name: "报价待客户回复", exact: true })).toBeDisabled();
-  await dialog.getByLabel("联系跟进说明", { exact: true }).fill("DEMO 取消而不保存");
-  await expect(dialog.getByRole("button", { name: "报价待客户回复", exact: true })).toBeEnabled();
+  await expect(dialog.getByRole("textbox")).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "记录结果", exact: true })).toBeDisabled();
+  await dialog.getByRole("button", { name: "报价待客户回复", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "记录结果", exact: true })).toBeEnabled();
   await dialog.getByRole("button", { name: "关闭", exact: true }).click();
   expect(await rawFacts(page)).toEqual(facts);
-  await trigger.click(); await dialog.getByLabel("联系跟进说明", { exact: true }).fill("DEMO Escape 取消");
+  await trigger.click(); await dialog.getByRole("button",{name:"报价待客户回复",exact:true}).click();
   await page.keyboard.press("Escape"); await expect(dialog).not.toBeVisible();
   expect(await rawFacts(page)).toEqual(facts);
 });
@@ -261,7 +260,7 @@ test("revoking repair edit closes a quote draft and a viewer cannot open it from
   const facts = await rawFacts(page);
   await page.getByRole("button", { name: `${firstId} 联系与跟进`, exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "工单联系与跟进", exact: true });
-  await dialog.getByLabel("联系跟进说明", { exact: true }).fill("DEMO 撤权后不得保存");
+  await dialog.getByRole("button",{name:"报价待客户回复",exact:true}).click();
   await page.evaluate(key => {
     const raw = JSON.parse(localStorage.getItem(key)!);
     raw.data.currentId = "DEMO-VIEWER";

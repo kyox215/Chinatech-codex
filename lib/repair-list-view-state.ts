@@ -50,9 +50,11 @@ function validView(value: unknown, query = ""): RepairListViewState | null {
     || typeof query !== "string" || query.length > 1000) return null;
   const entries = Object.entries(row.openGroups);
   if (entries.length > groupIds.size || entries.some(([id, open]) => !groupIds.has(id) || typeof open !== "boolean")) return null;
-  return { query, status: row.status as RepairListViewState["status"], partsFilter: row.partsFilter as RepairListViewState["partsFilter"],
+  const openGroups = Object.fromEntries(entries.filter(([id]) => id !== "cart")) as Record<string, boolean>;
+  if (row.partsFilter === "cart" || (row.openGroups as Record<string, boolean>).cart) openGroups.draft = Boolean(openGroups.draft || (row.openGroups as Record<string, boolean>).cart);
+  return { query, status: row.status as RepairListViewState["status"], partsFilter: row.partsFilter === "cart" ? "draft" : row.partsFilter as RepairListViewState["partsFilter"],
     groupBy: row.groupBy as RepairListViewState["groupBy"], sort: row.sort as RepairListViewState["sort"], filtersOpen: row.filtersOpen,
-    openGroups: Object.fromEntries(entries) as Record<string, boolean>, scrollY: row.scrollY as number, scrollLeft: row.scrollLeft as number,
+    openGroups, scrollY: row.scrollY as number, scrollLeft: row.scrollLeft as number,
     ...(row.view === undefined ? {} : { view: row.view as RepairListViewState["view"] }),
     ...(row.noticeFilter === undefined ? {} : { noticeFilter: row.noticeFilter as RepairListViewState["noticeFilter"] }) };
 }

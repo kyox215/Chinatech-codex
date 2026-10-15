@@ -9,8 +9,11 @@ export const root = process.cwd();
 export const work = path.join(root, "scripts/tutorials/.work");
 export const output = path.join(root, "public/tutorials");
 export const locales = ["zh-CN", "it", "en"];
-export const voices = { "zh-CN": "zh-CN-XiaoxiaoNeural", it: "it-IT-ElsaNeural", en: "en-US-JennyNeural" };
-export const rates = { "zh-CN": "+5%", it: "+3%", en: "+2%" };
+const nativeTts = process.env.TUTORIAL_TTS_ENGINE === "macos";
+const nativeVoices = { "zh-CN": "Tingting", it: "Alice", en: "Samantha" };
+const nativeRates = { "zh-CN": 190, it: 170, en: 175 };
+export const voices = nativeTts ? Object.fromEntries(Object.entries(nativeVoices).map(([locale,voice])=>[locale,`macos-${voice}`])) : { "zh-CN": "zh-CN-XiaoxiaoNeural", it: "it-IT-ElsaNeural", en: "en-US-JennyNeural" };
+export const rates = nativeTts ? Object.fromEntries(Object.entries(nativeRates).map(([locale,rate])=>[locale,`${rate}wpm`])) : { "zh-CN": "+5%", it: "+3%", en: "+2%" };
 export const fps = 24;
 export const ttsPython = process.env.TUTORIAL_TTS_PYTHON ?? path.resolve(root, "../tts-env/bin/python");
 const oldWork = process.env.TUTORIAL_LEGACY_WORK ?? path.resolve(root, "..");
@@ -68,15 +71,21 @@ export async function prepareStoryAudio(locale, story) {
       const mp3 = path.join(work, `audio/${key}.mp3`), wav = path.join(work, `audio/${key}-aligned.wav`);
       let reused = false;
       if (!await exists(mp3)) {
-        const old = locale === "zh-CN" ? (await legacyAudio()).get(spokenText) : null;
+        const old = !nativeTts && locale === "zh-CN" ? (await legacyAudio()).get(spokenText) : null;
         if (old) { await fs.copyFile(old, mp3); reused = true; }
         else {
-          let error;
-          for (let attempt = 0; attempt < 2; attempt++) {
-            try { await run(ttsPython, ["-m", "edge_tts", "--voice", voice, "--rate", rate, "--text", spokenText, "--write-media", mp3], { timeout: 50_000, maxBuffer: 2e6 }); error = null; break; }
-            catch (reason) { error = reason; if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 1500)); }
+          if (nativeTts) {
+            const aiff = path.join(work, `audio/${key}.aiff`);
+            await run("say", ["-v", nativeVoices[locale], "-r", String(nativeRates[locale]), "-o", aiff, spokenText], {timeout:50_000,maxBuffer:2e6});
+            await ffmpeg(["-i",aiff,"-codec:a","libmp3lame","-b:a","128k",mp3]);
+          } else {
+            let error;
+            for (let attempt = 0; attempt < 2; attempt++) {
+              try { await run(ttsPython, ["-m", "edge_tts", "--voice", voice, "--rate", rate, "--text", spokenText, "--write-media", mp3], { timeout: 50_000, maxBuffer: 2e6 }); error = null; break; }
+              catch (reason) { error = reason; if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 1500)); }
+            }
+            if (error) throw error;
           }
-          if (error) throw error;
         }
       }
       const spoken = Number((await probe(mp3)).format.duration);

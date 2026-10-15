@@ -2,7 +2,7 @@ import { intakeDirectoryEntry, validLocalIntake, type IntakeReceiptData } from "
 import { updateItemQuotes, validItemQuotes } from "./repair-item-pricing";
 import { currentRepairRequirements, validateRepairRequirements } from "./repair-requirements";
 import { validateWorkflowExtensions, assertRepairProcurementOpen, type RepairWorkflow } from "./repair-workflow";
-import { appendProcurementEvent, isPreorder, procurementStatus, validateProcurementDraft, type ProcurementRecord } from "./procurement";
+import { appendProcurementEvent, isPreorder, validateProcurementDraft, type ProcurementRecord } from "./procurement";
 import type { StoreSettings } from "./store-settings";
 
 export type RepairItemEdit = {
@@ -56,6 +56,7 @@ export function prepareRepairItemEdits(input: RepairItemsEdit, context: {
   for (const [index, edit] of input.items.entries()) {
     const requirement = requirements.find(row => row.id === edit.requirementId);
     if (!requirement || requirement.revision !== edit.requirementRevision) throw new RepairItemEditError("维修项目或接单要求已变化，请重新核对关联。", 409);
+    if (requirements.filter(row => row.title === requirement.title).length > 1 && edit.quoteCents !== quotes.get(requirement.title)) throw new RepairItemEditError("同名项目的报价关联待核对，不能在此更改报价。", 409);
     if (selectedTitles.has(requirement.title) && selectedTitles.get(requirement.title) !== edit.quoteCents) throw new RepairItemEditError("同名维修项目不能保存互相冲突的报价。");
     selectedTitles.set(requirement.title, edit.quoteCents);
     quotes.set(requirement.title, edit.quoteCents);
@@ -83,7 +84,6 @@ export function prepareRepairItemEdits(input: RepairItemsEdit, context: {
     validateProcurementDraft(draft);
     let next = { ...draft, events: previous?.events ?? [] };
     if (previous) next = appendProcurementEvent(next, { ...activity, id: `${activity.id}:${index + 1}:details`, type: "details_changed", quantity: 0, note: "项目供应商及配件资料已核对，保留原采购事实。" });
-    if (procurementStatus(next) !== "cart") next = appendProcurementEvent(next, { ...activity, id: `${activity.id}:${index + 1}:cart`, type: "cart_added", quantity: 0, note: "已选供应商并加入采购车。" });
     changedRecords.push(next);
     purchasedRequirements.add(requirement.id);
   }
@@ -102,7 +102,7 @@ export function prepareRepairItemEdits(input: RepairItemsEdit, context: {
     } : row);
     validateRepairRequirements(nextRequirements);
     nextWorkflow = { ...workflow, requirements: nextRequirements, revision: workflow.revision + 1, updatedAt: activity.time,
-      events: [...workflow.events, { ...activity, type: "requirement", label: `${changedRecords.length}项维修配件已选供应商`, note: "已核对项目要求并加入采购车，尚未下单。" }] };
+      events: [...workflow.events, { ...activity, type: "requirement", label: `${changedRecords.length}项维修配件已选供应商`, note: "已核对项目要求和供应商，尚未下单。" }] };
     validateWorkflowExtensions(nextWorkflow);
   }
   return { intake: nextIntake, workflow: nextWorkflow, changedRecords };

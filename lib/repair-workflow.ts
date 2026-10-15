@@ -85,7 +85,7 @@ export function repairProgress(order: RepairDirectoryEntry, records: Procurement
   }
   if (["awaiting_quote", "repairing", "testing", "outsourced"].includes(stage)) return { label: stageLabel(stage), tone: repairStageTones[stage], note: parts.unresolvedRequirements && records.some(row => row.repairId === order.id) ? "需求待核对" : "" };
   if (parts.allRequiredReady && parts.total > 0) return { label: current.custody === "customer" ? "待送机" : "已到货", tone: "info", note: current.custody === "unknown" ? "保管待核对" : "" };
-  if (parts.inCart > 0) return { label: "已加车", tone: "info", note: parts.unresolvedRequirements ? "需求待核对" : "" };
+  if (parts.total > 0 && parts.ordered === 0) return { label: "待采购", tone: "info", note: parts.unresolvedRequirements ? "需求待核对" : "" };
   return { label: stage === "awaiting_parts" ? "待选配件" : "待检测", tone: repairStageTones[stage], note: parts.ordered > 0 || parts.arrived > 0 ? "其余配件待核对" : "" };
 }
 /** A new purchase requires an explicitly active repair; arrival/correction facts stay appendable. */
@@ -129,7 +129,7 @@ export function applyWorkflowCommand(workflow: RepairWorkflow, command: Workflow
   } else if (command.type === "quote_contact") {
     if (["completed", "cancelled"].includes(repairStageStatus(workflow)) || hasCurrentRepairHandover(workflow)) throw new Error("历史工单只能查看报价沟通记录，请先明确恢复维修。");
     if (!Object.hasOwn(quoteContactLabels, command.outcome)) throw new Error("请选择实际报价沟通结果。");
-    if (typeof command.note !== "string" || !command.note.trim() || command.note.trim().length > 1200) throw new Error("请填写报价沟通说明，最多1200字。");
+    if (typeof command.note !== "string" || command.note.trim().length > 1200) throw new Error("报价沟通说明最多1200字。");
     note = command.note.trim();
     next.quoteContact = { outcome: command.outcome, time: activity.time, note, ...(activity.actorId ? { actorId: activity.actorId } : {}) };
     label = quoteContactLabels[command.outcome];
@@ -166,7 +166,7 @@ export function applyWorkflowCommand(workflow: RepairWorkflow, command: Workflow
     if (!isRepairReady(workflow) && !(command.value === false && workflow.followUp?.[command.flag])) throw new Error("请先核对工单已修好；旧跟进状态不能推断修好。");
     if (command.value && hasCurrentRepairHandover(workflow)) throw new Error("设备已取走，只能结束既有跟进或明确恢复维修。");
     if (!["awaitingReply", "collectedUnpaid"].includes(command.flag) || typeof command.value !== "boolean") throw new Error("跟进状态无效。");
-    if (typeof command.note !== "string") throw new Error("备注格式无效。"); note = command.note.trim(); if (note.length > 1200) throw new Error("备注最多1200字。"); if (!note) throw new Error("请填写跟进说明。");
+    if (typeof command.note !== "string") throw new Error("备注格式无效。"); note = command.note.trim(); if (note.length > 1200) throw new Error("备注最多1200字。");
     if (command.flag === "collectedUnpaid" && command.value) {
       if (command.delivered !== true || command.unpaid !== true) throw new Error("请明确核对设备实际交还和未结清事实。");
       next.custody = "customer"; next.handedOver = { time: activity.time, actorId: activity.actorId, unpaid: true };
@@ -192,7 +192,7 @@ export function overlayRepair(order: RepairDirectoryEntry, workflow?: RepairWork
 
 /** Reject malformed optional additions before a local JSON envelope reaches UI selectors. */
 export function validateWorkflowExtensions(value: RepairWorkflow) {
-  if (value.quoteContact !== undefined && (!value.quoteContact || typeof value.quoteContact.outcome !== "string" || !Object.hasOwn(quoteContactLabels, value.quoteContact.outcome) || typeof value.quoteContact.time !== "string" || !value.quoteContact.time || typeof value.quoteContact.note !== "string" || !value.quoteContact.note.trim() || value.quoteContact.note.length > 1200 || (value.quoteContact.actorId !== undefined && (typeof value.quoteContact.actorId !== "string" || !value.quoteContact.actorId || value.quoteContact.actorId.length > 100)))) throw new Error("报价沟通资料无效。");
+  if (value.quoteContact !== undefined && (!value.quoteContact || typeof value.quoteContact.outcome !== "string" || !Object.hasOwn(quoteContactLabels, value.quoteContact.outcome) || typeof value.quoteContact.time !== "string" || !value.quoteContact.time || typeof value.quoteContact.note !== "string" || value.quoteContact.note.length > 1200 || (value.quoteContact.actorId !== undefined && (typeof value.quoteContact.actorId !== "string" || !value.quoteContact.actorId || value.quoteContact.actorId.length > 100)))) throw new Error("报价沟通资料无效。");
   if (value.requirements !== undefined) validateRepairRequirements(value.requirements);
   if (value.readyCycle !== undefined && (typeof value.readyCycle !== "string" || !value.readyCycle || value.readyCycle.length > 100)) throw new Error("修好周期资料无效。");
   if (value.pickupNotice !== undefined && (!value.pickupNotice || typeof value.pickupNotice.cycle !== "string" || !value.pickupNotice.cycle || !["notified", "unreachable"].includes(value.pickupNotice.outcome))) throw new Error("取机通知资料无效。");

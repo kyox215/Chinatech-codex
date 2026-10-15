@@ -32,9 +32,9 @@ type ItemsDraft = { rows: ItemInput[]; intakeRevision: number; workflowRevision:
 const moneyInput = (value: number | null | undefined) => value == null ? "" : (value / 100).toFixed(2);
 
 /** Intake projects are the rows: there is no second item picker or procurement wizard. */
-export function RepairItemsForm({ repairId, confirmedProject, onSaved, onCancel, onPendingChange }: {
+export function RepairItemsForm({ repairId, confirmedProject, onSaved, onCancel, onPendingChange, requirementId }: {
   repairId: string; onSaved: () => void; onCancel: () => void; onPendingChange: (pending: boolean, requestId?: string, project?: undefined, retainUntilReleased?: boolean) => boolean | void;
-  confirmedProject?: RepairProjectConfirmation | null;
+  confirmedProject?: RepairProjectConfirmation | null; requirementId?: string;
 }) {
   const { t, locale, systemText } = useLanguage();
   const staff = useStaff();
@@ -155,23 +155,24 @@ export function RepairItemsForm({ repairId, confirmedProject, onSaved, onCancel,
     } catch (reason) { if (!receipt.watch(requestId, confirmed, settled)) setError(reason instanceof Error ? reason.message : "保存失败，输入已保留。"); }
     finally { if (!receipt.isWaiting()) release(); setPending(false); }
   }
-  return <form className="repair-item-editor" aria-busy={pending} onSubmit={submit}>
+  return <form className="repair-item-editor" aria-busy={pendingBase || receipt.executing} onSubmit={submit}>
     <DeviceDraftNotice draft={deviceDraft} disabled={pending} />
-    <div className="repair-item-editor__cards">{draft.rows.map(row => {
+    <div className="repair-item-editor__cards">{draft.rows.filter(row => !requirementId || row.requirementId === requirementId).map(row => {
       const itemTitle = repairItemText(row.title, locale);
+      const ambiguousQuote = requirements.filter(item => item.title === row.title).length > 1;
       const linked = purchases.filter(record => record.requirementId === row.requirementId);
       const record = linked.length === 1 ? linked[0] : undefined;
       const editablePurchase = canEdit && purchaseOpen && linked.length <= 1 && (!record || isPreorder(record));
       const Icon = row.title.includes("屏幕") ? Monitor : row.title.includes("电池") ? Battery : row.title.includes("尾插") ? Plug : Wrench;
       const status = record ? procurementStatuses[procurementStatus(record)] : null;
       const supplierChanged = row.supplier !== row.beforeSupplier && Boolean(row.supplier.trim());
-      const statusLabel = supplierChanged && editablePurchase ? "保存后加车" : record && procurementStatus(record) === "cart" ? "已加购物车" : status?.label ?? (linked.length > 1 ? `${linked.length}条配件记录` : row.beforeQuote ? "已报价" : "待填写");
+      const statusLabel = supplierChanged && editablePurchase ? "保存后待采购" : record && procurementStatus(record) === "cart" ? "待采购" : status?.label ?? (linked.length > 1 ? `${linked.length}条配件记录` : row.beforeQuote ? "已报价" : "待填写");
       return <fieldset className="repair-item-card" key={row.requirementId} aria-label={itemTitle} disabled={pending}>
         <legend className="visually-hidden">{itemTitle}</legend>
         <div className="repair-item-card__head"><span className="repair-item-card__icon"><Icon size={18} aria-hidden="true" /></span><div><h3>{itemTitle}</h3>{row.request ? <small>{row.request}</small> : null}</div><span className={`status-pill status-pill--${supplierChanged ? "info" : status?.tone ?? "neutral"}`} role="status">{t(statusLabel)}</span></div>
         <div className="repair-item-card__fields">
           {editablePurchase ? <SearchCombobox validate={value => { if (value === row.beforeSupplier && row.cost === row.beforeCost) return ""; if (!value.trim()) return record ? "已有采购记录，清空供应商不能取消采购。" : row.cost.trim() ? "填写进价前请选择供应商。" : ""; return settings.suppliers.filter(supplier => supplier.active && supplier.name.trim() === value.trim()).length === 1 ? "" : "请选择已登记的门店供应商，或留空只填报价。"; }} label={t("供应商（选填）")} value={row.supplier} onChange={value => update(row.requirementId, "supplier", value)} options={settings.suppliers.filter(supplier => supplier.active).map(supplier => ({ value: supplier.name, label: supplier.name }))} placeholder={t("不采购可留空")} emptyText="请先在门店设置登记供应商" /> : <div className="field"><span>{t("供应商")}</span><strong>{linked.length ? linked.map(item => item.supplier).join("、") : t("未选择")}</strong></div>}
-          <label className="field"><span>{t("报价（€）")}</span>{canEdit ? <InputControl validate={value => controlError(() => parseItemMoney(value))} aria-label={t("{v0}报价", { v0: itemTitle })} inputMode="decimal" maxLength={20} value={row.quote} onChange={event => update(row.requirementId, "quote", event.target.value)} placeholder={t("如 49.90，未知留空")} /> : <strong>{t(formatCost(parseItemMoney(row.quote)))}</strong>}</label>
+          <label className="field"><span>{t("报价（€）")}</span>{canEdit && !ambiguousQuote ? <InputControl validate={value => controlError(() => parseItemMoney(value))} aria-label={t("{v0}报价", { v0: itemTitle })} inputMode="decimal" maxLength={20} value={row.quote} onChange={event => update(row.requirementId, "quote", event.target.value)} placeholder={t("如 49.90，未知留空")} /> : <strong>{ambiguousQuote ? t("报价关联待核对") : t(formatCost(parseItemMoney(row.quote)))}</strong>}</label>
           {canReadCost && (record || row.supplier.trim()) ? <label className="field"><span>{t("进价（€）")}</span>{canEditCost && editablePurchase ? <InputControl validate={value => controlError(() => parseItemMoney(value))} aria-label={t("{v0}进价", { v0: itemTitle })} inputMode="decimal" maxLength={20} value={row.cost} onChange={event => update(row.requirementId, "cost", event.target.value)} placeholder={t("如 49.90，未知留空")} /> : <strong>{record ? t(formatCost(record.unitCostCents)) : t("未记录")}</strong>}</label> : null}
         </div>
       </fieldset>;

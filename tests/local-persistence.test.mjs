@@ -54,7 +54,7 @@ test('采购先完整验证再写入，1001条记录/事件不会破坏已有账
   const histories = Array.from({ length: 1000 }, (_, index) => ({ id: `E${index}`, type: index % 2 ? 'cart_removed' : 'cart_added', quantity: 0, time: '2026-09-30 10:00:00', note: '' }));
   for (const [records, action] of [
     [Array.from({ length: 1000 }, (_, index) => ({ ...part, id: `P${index}` })), { type: 'create', record: part }],
-    [[{ ...part, events: histories }], { type: 'append', id: part.id, revision: 1000, event: { id: 'E1001', type: 'cart_added', quantity: 0, time: '2026-10-01 10:00:00', note: '' } }],
+    [[{ ...part, events: histories }], { type: 'append', id: part.id, revision: 1000, event: { id: 'E1001', type: 'ordered', quantity: 0, time: '2026-10-01 10:00:00', note: '' } }],
   ]) {
     const original = procurementRaw(records);
     await withBrowser(browser(original), async () => { const storeModule = await store('components/procurement/procurement-provider.tsx', ', dispatchAction as dispatchTest'); await assert.rejects(storeModule.dispatchTest(action)); assert.equal(storeModule.readSnapshot().feedback.error, true); assert.equal(window.saved(), original); assert.equal(storeModule.readSnapshot().records.length, records.length); });
@@ -63,9 +63,9 @@ test('采购先完整验证再写入，1001条记录/事件不会破坏已有账
 test('采购写入成功直接发布；随后读失败不会误报原操作失败', async () => {
   await withBrowser(browser(procurementRaw([])), async () => { const storeModule = await store('components/procurement/procurement-provider.tsx', ', dispatchAction as dispatchTest'); storeModule.readSnapshot(); window.afterWriteDenyRead = true; await storeModule.dispatchTest({ type: 'create', record: part }); assert.equal(JSON.parse(window.saved()).records[0].id, part.id); assert.equal(storeModule.readSnapshot().feedback.error, false); window.denyRead = false; assert.equal(storeModule.readSnapshot().records[0].id, part.id); });
 });
-test('配件编辑保留历史并取消旧加车，写入失败或损坏存储不覆盖', async () => {
+test('配件编辑保留原加车历史且不新增加车事件，写入失败或损坏存储不覆盖', async () => {
   const inCart = { ...part, events: [{ id: 'E1', type: 'cart_added', quantity: 0, time: '2026-09-30 10:00:00', note: '' }] };
-  await withBrowser(browser(procurementRaw([inCart])), async () => { const storeModule = await store('components/procurement/procurement-provider.tsx', ', dispatchAction as dispatchTest'); await storeModule.dispatchTest({ type: 'edit', record: { ...inCart, supplier: 'TechSupply Italia', quantity: 2 }, revision: 1 }); const row = storeModule.readSnapshot().records[0]; assert.deepEqual(row.events.map(event => event.type), ['cart_added', 'cart_removed', 'details_changed']); assert.equal(row.quantity, 2); const saved = window.saved(); window.denyWrite = true; await assert.rejects(storeModule.dispatchTest({ type: 'create', record: { ...part, id: 'DEMO-P2' } })); assert.equal(storeModule.readSnapshot().feedback.error, true); assert.equal(window.saved(), saved); });
+  await withBrowser(browser(procurementRaw([inCart])), async () => { const storeModule = await store('components/procurement/procurement-provider.tsx', ', dispatchAction as dispatchTest'); await storeModule.dispatchTest({ type: 'edit', record: { ...inCart, supplier: 'TechSupply Italia', quantity: 2 }, revision: 1 }); const row = storeModule.readSnapshot().records[0]; assert.deepEqual(row.events.map(event => event.type), ['cart_added', 'details_changed']); assert.equal(row.quantity, 2); const saved = window.saved(); window.denyWrite = true; await assert.rejects(storeModule.dispatchTest({ type: 'create', record: { ...part, id: 'DEMO-P2' } })); assert.equal(storeModule.readSnapshot().feedback.error, true); assert.equal(window.saved(), saved); });
   await withBrowser(browser('{damaged'), async () => { const storeModule = await store('components/procurement/procurement-provider.tsx', ', dispatchAction as dispatchTest'); await assert.rejects(storeModule.dispatchTest({ type: 'create', record: part })); assert.equal(storeModule.readSnapshot().feedback.error, true); assert.equal(window.saved(), '{damaged'); });
 });
 test('设置与维修状态先保存再发布，旧版本/容量失败不改事实', async () => {

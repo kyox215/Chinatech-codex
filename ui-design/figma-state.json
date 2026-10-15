@@ -1,0 +1,541 @@
+{
+  "fileKey": "nhZ37YLOUVP8zpDBBGihhS",
+  "pageId": "15167:209297",
+  "reviewFrameId": "15167:209418",
+  "sourceFrameId": "15167:209475",
+  "createdNodeIds": [
+    "15167:209297",
+    "15167:209357",
+    "15167:209315",
+    "15173:209415",
+    "15167:209321",
+    "15173:209422",
+    "15167:209326",
+    "15173:209429",
+    "15167:209332",
+    "15173:209436",
+    "15167:209337",
+    "15173:209443",
+    "15167:209343",
+    "15173:209452",
+    "15167:209348",
+    "15173:209459",
+    "15167:209353",
+    "15173:209463",
+    "15167:209378",
+    "15167:209358",
+    "15167:209359",
+    "15167:209360",
+    "15167:209361",
+    "15167:209362",
+    "15167:209363",
+    "15167:209364",
+    "15167:209365",
+    "15167:209366",
+    "15167:209367",
+    "15167:209368",
+    "15167:209369",
+    "15167:209370",
+    "15167:209371",
+    "15167:209372",
+    "15167:209373",
+    "15167:209374",
+    "15167:209375",
+    "15167:209376",
+    "15167:209377",
+    "15167:209381",
+    "15167:209379",
+    "15167:209380",
+    "15167:209417",
+    "15167:209382",
+    "15167:209383",
+    "15167:209384",
+    "15167:209385",
+    "15167:209386",
+    "15167:209387",
+    "15179:209491",
+    "15179:209492",
+    "15179:209493",
+    "15179:209494",
+    "15167:209392",
+    "15167:209393",
+    "15179:209495",
+    "15179:209496",
+    "15179:209497",
+    "15179:209498",
+    "15179:209499",
+    "15179:209500",
+    "15179:209501",
+    "15167:209398",
+    "15167:209399",
+    "15179:209502",
+    "15179:209503",
+    "15179:209504",
+    "15179:209505",
+    "15167:209404",
+    "15167:209405",
+    "15179:209506",
+    "15179:209507",
+    "15179:209508",
+    "15179:209509",
+    "15167:209410",
+    "15167:209411",
+    "15179:209510",
+    "15179:209511",
+    "15179:209512",
+    "15179:209513",
+    "15167:209416",
+    "15167:209418",
+    "15167:209419",
+    "15167:209420",
+    "15167:209421",
+    "15167:209422",
+    "15167:209423",
+    "15167:209429",
+    "15169:209361",
+    "15169:209367",
+    "15169:209372",
+    "15169:209378",
+    "15169:209383",
+    "15169:209388",
+    "15167:209434",
+    "15167:209435",
+    "15167:209436",
+    "15167:209446",
+    "15167:209456",
+    "15167:209457",
+    "15167:209458",
+    "15167:209459",
+    "15167:209460",
+    "15167:209461",
+    "15167:209462",
+    "15167:209467",
+    "15169:209392",
+    "15169:209398",
+    "15169:209404",
+    "15169:209410",
+    "15167:209473",
+    "15167:209474",
+    "15167:209475",
+    "15167:209476",
+    "15167:209477",
+    "15167:209484",
+    "15167:209491",
+    "15167:209501",
+    "15173:209406",
+    "15173:209407",
+    "15173:209408",
+    "15173:209409",
+    "15173:209410",
+    "15173:209411",
+    "15173:209412",
+    "15173:209413",
+    "15173:209414"
+  ],
+  "sets": [
+    {
+      "id": "15167:209357",
+      "name": "ChinaTech/NavigationControl",
+      "variants": [
+        {
+          "id": "15167:209315",
+          "name": "Style=Primary, State=Default"
+        },
+        {
+          "id": "15167:209321",
+          "name": "Style=Primary, State=Pending"
+        },
+        {
+          "id": "15167:209326",
+          "name": "Style=Secondary, State=Default"
+        },
+        {
+          "id": "15167:209332",
+          "name": "Style=Secondary, State=Pending"
+        },
+        {
+          "id": "15167:209337",
+          "name": "Style=Text, State=Default"
+        },
+        {
+          "id": "15167:209343",
+          "name": "Style=Text, State=Pending"
+        },
+        {
+          "id": "15167:209348",
+          "name": "Style=Icon, State=Default"
+        },
+        {
+          "id": "15167:209353",
+          "name": "Style=Icon, State=Pending"
+        }
+      ],
+      "bounds": [
+        824,
+        448
+      ]
+    },
+    {
+      "id": "15167:209378",
+      "name": "ChinaTech/Toast",
+      "variants": [
+        {
+          "id": "15167:209358",
+          "name": "State=Success"
+        },
+        {
+          "id": "15167:209368",
+          "name": "State=Information"
+        }
+      ],
+      "bounds": [
+        824,
+        148
+      ]
+    },
+    {
+      "id": "15167:209381",
+      "name": "ChinaTech/ContentProgress",
+      "variants": [
+        {
+          "id": "15167:209379",
+          "name": "State=Idle"
+        },
+        {
+          "id": "15167:209380",
+          "name": "State=Active"
+        }
+      ],
+      "bounds": [
+        824,
+        148
+      ]
+    },
+    {
+      "id": "15167:209417",
+      "name": "ChinaTech/OperationState",
+      "variants": [
+        {
+          "id": "15167:209382",
+          "name": "State=Loading"
+        },
+        {
+          "id": "15167:209387",
+          "name": "State=Error"
+        },
+        {
+          "id": "15167:209393",
+          "name": "State=Empty"
+        },
+        {
+          "id": "15167:209399",
+          "name": "State=NoAccess"
+        },
+        {
+          "id": "15167:209405",
+          "name": "State=Conflict"
+        },
+        {
+          "id": "15167:209411",
+          "name": "State=Unknown"
+        }
+      ],
+      "bounds": [
+        824,
+        348
+      ]
+    }
+  ],
+  "fonts": [
+    "Source Sans 3"
+  ],
+  "nodeTypeCounts": {
+    "COMPONENT_SET": 4,
+    "COMPONENT": 20,
+    "INSTANCE": 61,
+    "FRAME": 60,
+    "GROUP": 30,
+    "VECTOR": 89,
+    "TEXT": 41,
+    "LINE": 1
+  },
+  "imageFilledNodes": [],
+  "variables": [
+    {
+      "id": "VariableID:15167:209299",
+      "name": "primary",
+      "scopes": [
+        "FRAME_FILL",
+        "SHAPE_FILL",
+        "TEXT_FILL",
+        "STROKE_COLOR"
+      ],
+      "codeSyntax": {
+        "WEB": "var(--primary-600)"
+      },
+      "values": {
+        "15167:0": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:2007:5397"
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209300",
+      "name": "surface",
+      "scopes": [
+        "FRAME_FILL",
+        "SHAPE_FILL",
+        "TEXT_FILL",
+        "STROKE_COLOR"
+      ],
+      "codeSyntax": {
+        "WEB": "var(--surface)"
+      },
+      "values": {
+        "15167:0": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:110:162"
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209301",
+      "name": "border",
+      "scopes": [
+        "FRAME_FILL",
+        "SHAPE_FILL",
+        "TEXT_FILL",
+        "STROKE_COLOR"
+      ],
+      "codeSyntax": {
+        "WEB": "var(--border)"
+      },
+      "values": {
+        "15167:0": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:81:5131"
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209302",
+      "name": "bg",
+      "scopes": [
+        "FRAME_FILL",
+        "SHAPE_FILL",
+        "TEXT_FILL",
+        "STROKE_COLOR"
+      ],
+      "codeSyntax": {
+        "WEB": "var(--bg)"
+      },
+      "values": {
+        "15167:0": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:81:5123"
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209303",
+      "name": "Primitive/text",
+      "scopes": [],
+      "codeSyntax": {},
+      "values": {
+        "15167:0": {
+          "r": 0.1411764770746231,
+          "g": 0.16078431904315948,
+          "b": 0.18431372940540314,
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209304",
+      "name": "text",
+      "scopes": [
+        "FRAME_FILL",
+        "SHAPE_FILL",
+        "TEXT_FILL",
+        "STROKE_COLOR"
+      ],
+      "codeSyntax": {
+        "WEB": "var(--text)"
+      },
+      "values": {
+        "15167:0": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:15167:209303"
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209305",
+      "name": "Primitive/secondary",
+      "scopes": [],
+      "codeSyntax": {},
+      "values": {
+        "15167:0": {
+          "r": 0.34117648005485535,
+          "g": 0.3764705955982208,
+          "b": 0.4156862795352936,
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209306",
+      "name": "secondary",
+      "scopes": [
+        "FRAME_FILL",
+        "SHAPE_FILL",
+        "TEXT_FILL",
+        "STROKE_COLOR"
+      ],
+      "codeSyntax": {
+        "WEB": "var(--text-secondary)"
+      },
+      "values": {
+        "15167:0": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:15167:209305"
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209307",
+      "name": "Primitive/success",
+      "scopes": [],
+      "codeSyntax": {},
+      "values": {
+        "15167:0": {
+          "r": 0.1568627506494522,
+          "g": 0.6666666865348816,
+          "b": 0.5568627715110779,
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209308",
+      "name": "success",
+      "scopes": [
+        "FRAME_FILL",
+        "SHAPE_FILL",
+        "TEXT_FILL",
+        "STROKE_COLOR"
+      ],
+      "codeSyntax": {
+        "WEB": "var(--success)"
+      },
+      "values": {
+        "15167:0": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:15167:209307"
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209309",
+      "name": "Primitive/danger",
+      "scopes": [],
+      "codeSyntax": {},
+      "values": {
+        "15167:0": {
+          "r": 0.7058823704719543,
+          "g": 0.13725490868091583,
+          "b": 0.16862745583057404,
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209310",
+      "name": "danger",
+      "scopes": [
+        "FRAME_FILL",
+        "SHAPE_FILL",
+        "TEXT_FILL",
+        "STROKE_COLOR"
+      ],
+      "codeSyntax": {
+        "WEB": "var(--danger-text)"
+      },
+      "values": {
+        "15167:0": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:15167:209309"
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209311",
+      "name": "gap",
+      "scopes": [
+        "GAP"
+      ],
+      "codeSyntax": {
+        "WEB": "var(--space-2)"
+      },
+      "values": {
+        "15167:0": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:98:434"
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209312",
+      "name": "padding",
+      "scopes": [
+        "GAP"
+      ],
+      "codeSyntax": {
+        "WEB": "var(--space-3)"
+      },
+      "values": {
+        "15167:0": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:98:435"
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209313",
+      "name": "radius",
+      "scopes": [
+        "CORNER_RADIUS"
+      ],
+      "codeSyntax": {
+        "WEB": "var(--radius-control)"
+      },
+      "values": {
+        "15167:0": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:110:140"
+        }
+      }
+    },
+    {
+      "id": "VariableID:15167:209314",
+      "name": "panelRadius",
+      "scopes": [
+        "CORNER_RADIUS"
+      ],
+      "codeSyntax": {
+        "WEB": "var(--radius-panel)"
+      },
+      "values": {
+        "15167:0": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:110:143"
+        }
+      }
+    }
+  ],
+  "reviewBounds": [
+    840,
+    1328
+  ]
+}

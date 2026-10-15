@@ -5,12 +5,11 @@ import { useAuthStatus } from "@/components/auth-status-provider";
 import { useLanguage } from "@/components/language-provider";
 import { authDestination } from "@/lib/auth-status";
 import styles from "./home.module.css";
-import { LoaderCircle } from "lucide-react";
 
 export function AccountActions({ variant = "nav", compact = false }: { variant?: "nav" | "primary" | "cta" | "footer"; compact?: boolean }) {
   const { status, checking, refresh } = useAuthStatus();
   const { t } = useLanguage();
-  if (status.state === "unavailable") return <span className={styles.accountFeedback} data-operation-feedback="background"><span role="status">{checking && <LoaderCircle size={16} className="spin" aria-hidden="true" />}{t(checking ? "正在核对账号状态…" : "账号状态暂不可用")}</span><button type="button" className="button button--secondary" onClick={refresh} disabled={checking} aria-busy={checking}>{t("重新检查")}</button><noscript><Link href="/login">{t("登录")}</Link><Link href="/register">{t("注册")}</Link></noscript></span>;
+  if (status.state === "unavailable") return <span className={styles.accountFeedback} data-operation-feedback="background"><span role="status">{t(checking ? "正在核对账号状态…" : "账号状态暂不可用")}</span><button type="button" className="button button--secondary" onClick={refresh} disabled={checking} aria-busy={checking}>{t("重新检查")}</button><noscript><Link href="/login">{t("登录")}</Link><Link href="/register">{t("注册")}</Link></noscript></span>;
   const anonymous = status.state === "anonymous";
   const destination = authDestination(status.state);
   const label = status.state === "workspace" ? variant === "nav" ? "工作台" : "进入工作台" : status.state === "account" ? "账号状态" : status.state === "unverified" ? "验证邮箱后继续" : variant === "primary" ? "开始使用" : variant === "cta" ? "登录工作台" : "登录";

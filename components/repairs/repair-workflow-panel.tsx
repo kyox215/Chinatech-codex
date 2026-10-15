@@ -14,7 +14,7 @@ import { RepairContactControl } from "./repair-contact-control";
 import { RepairStageControl } from "./repair-stage-control";
 import styles from "./repair-workflow-panel.module.css";
 
-export function RepairWorkflowPanel({ repairId, metadata, historyContent }: { repairId: string; metadata?: ReactNode; historyContent?: ReactNode }) {
+export function RepairWorkflowPanel({ repairId, metadata, historyContent, showContact = true, showHistory = true }: { repairId: string; metadata?: ReactNode; historyContent?: ReactNode; showContact?: boolean; showHistory?: boolean }) {
   const { t, locale , systemText } = useLanguage();
   const receipt = useOperationReceipt();
   const canEdit = useStaff().can("repairs.edit");
@@ -60,10 +60,10 @@ export function RepairWorkflowPanel({ repairId, metadata, historyContent }: { re
       <span className={styles.notice}><Phone size={14} />{systemText(notice)}</span>
     </div>
     <OperationRecoveryControls requestId={receipt.requestId}/>
-    <div className={styles.contactActions}><RepairContactControl order={order} /></div>
+    {showContact ? <div className={styles.contactActions}><RepairContactControl order={order} /></div> : null}
     {error || storageError ? <p role="alert" className="form-error">{systemText(error || storageError)}</p> : null}
     {metadata ? <div className={styles.metadata}>{metadata}</div> : null}
-    {workflow.events.length || historyContent ? <details className={styles.history}><summary><History size={16} /><span>{t("状态与操作历史")}</span>{workflow.events.length ? <small>{workflow.events.length} {t(" 次操作")}</small> : null}<ChevronDown size={14} /></summary>
+    {showHistory && (workflow.events.length || historyContent) ? <details className={styles.history}><summary><History size={16} /><span>{t("状态与操作历史")}</span>{workflow.events.length ? <small>{workflow.events.length} {t(" 次操作")}</small> : null}<ChevronDown size={14} /></summary>
       {workflow.events.length ? <ol className="detail-timeline">{workflow.events.toReversed().map(event => <li key={event.id}><i className="timeline-dot timeline-dot--info" /><div><strong>{repairActivityLabel(event, locale)}</strong>{event.note ? <p>{event.note}</p> : null}<small>{event.time}</small></div></li>)}</ol> : null}{historyContent}
     </details> : null}
   </section>;

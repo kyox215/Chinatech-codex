@@ -29,6 +29,7 @@ export const sourceExceptions = new Map([
 // is never scraped, sent for translation or rewritten by this tool.
 export const literalExceptions = [
   ...["苹果", "三星", "小米", "红米", "华为", "荣耀", "欧珀", "真我", "一加", "谷歌", "摩托罗拉", "联想", "惠普", "戴尔", "华硕", "宏碁", "微星", "微软", "索尼", "任天堂", "诺基亚", "中兴", "乐金", "技嘉"].map(text => ({ file: "lib/device-catalog.ts", owner: "brandAliases", text, reason: "Exact canonical brand search alias. Alias text is a naming fact, never a translated saved value." })),
+  { file: "ui-design/catalog.tsx", text: "DEMO-0001", reason: "Explicit fictional record identifier in the UI catalog; preserve the original identifier." },
   { file: "components/language-switcher.tsx", text: "语言 / Lingua / Language", reason: "The language picker identifies itself in all three supported languages." },
   { file: "components/dashboard/dashboard-content.tsx", owner: "repairs", text: "周先生", reason: "Fictional customer name; preserve original." },
   { file: "components/dashboard/dashboard-content.tsx", owner: "repairs", text: "林女士", reason: "Fictional customer name; preserve original." },
@@ -328,7 +329,7 @@ export function auditI18n(root = ROOT) {
   const dynamicBoundaries = [];
   const counts = { dictionaries: dictionaryFiles.length, entries: parsed.reduce((sum, item) => sum + item.entries.length, 0), uniqueMessages: dictionary.messages.size, sources: 0 };
   const skipped = [];
-  for (const file of ["app", "components", "lib"].flatMap(directory => sourceFiles(root, directory))) {
+  for (const file of ["app", "components", "lib", "ui-design"].flatMap(directory => sourceFiles(root, directory))) {
     if (dictionaryFiles.includes(file)) continue;
     if (sourceExceptions.has(file)) { skipped.push({ file, reason: sourceExceptions.get(file) }); continue; }
     const result = scanSource(file, readFileSync(resolve(root, file), "utf8"), dictionary.messages);

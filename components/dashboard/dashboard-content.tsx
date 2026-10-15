@@ -57,7 +57,7 @@ function Sparkline({ points, tone }: { points: string; tone: Tone }) {
 function DashboardHeading({ canScan = true, canCreate = true }: { canScan?: boolean; canCreate?: boolean }) {
   const { t } = useLanguage();
   const navigation = useContext(AppNavigationContext);
-  return <header className="module-heading"><PageTitle title={t("工作台")} /><div className={`module-heading__actions${!canCreate ? " module-heading__actions--icons" : ""}`}>{canScan ? <RepairScanner iconOnly={navigation?.isMobile ?? false} /> : null}{canCreate ? <Link className="button button--primary button--compact" href="/app/repairs/new"><Plus size={17} />{t("新建工单")}</Link> : null}</div></header>;
+  return <header className="module-heading"><PageTitle title={t("工作台")} /><div className={`module-heading__actions${!canCreate ? " module-heading__actions--icons" : ""}`}>{canScan ? <RepairScanner iconOnly={navigation?.isMobile ?? false} /> : null}{canCreate ? <Link className="button button--primary button--compact" href="/app/repairs/new" icon={<Plus size={17} />}>{t("新建工单")}</Link> : null}</div></header>;
 }
 
 export function DashboardContent() {
@@ -103,8 +103,8 @@ function RealDashboardContent() {
     {canRepairs && debtCount > 0 ? <p className="repair-stage-note"><Link href="/app/repairs?view=history&status=handover">{t("已取机待收尾 · ")}{debtCount}{t("单")}</Link></p> : null}
     <section className="dashboard-grid dashboard-grid--main">
       <article className="panel repair-panel">
-        <div className="panel__header"><div><h2>{t("近期工单")}</h2></div>{canRepairs ? <Link className="button button--secondary button--tiny" href="/app/repairs">{t("查看全部 ")}<ArrowRight size={15} /></Link> : null}</div>
-        {!canRepairs ? <div className="section-empty"><strong>{t("当前账号没有维修查看权限")}</strong></div> : !recent.length ? <div className="section-empty"><Wrench size={24} /><strong>{t("尚未登记工单")}</strong></div> : <div className="module-table-scroll" role="region" aria-label={t("近期工单表格")} tabIndex={0}><div className="repair-table__head"><span>{t("设备与故障")}</span><span>{t("客户 / 工单号")}</span><span>{t("当前状态")}</span><span /></div><div className="repair-list">{recent.map(order => <div className="repair-row" key={order.id}><div className="repair-row__device"><span><Smartphone size={18} /></span><div><strong>{order.device.brand} {order.device.model}</strong><small>{repairIssueText(order, locale)}</small></div></div><div className="repair-row__meta"><strong>{repairCustomerName(order, locale)}</strong><small>{order.id}</small></div><span className={`status-pill status-pill--${repairProgress(order, records, workflows[order.id]).tone}`}>{t(repairProgress(order, records, workflows[order.id]).label)}</span><Link className="row-action" href={`/app/repairs/${order.id}`} aria-label={t("打开 {v0}", { v0: order.id })}><ChevronRight size={18} /></Link></div>)}</div></div>}
+        <div className="panel__header"><div><h2>{t("近期工单")}</h2></div>{canRepairs ? <Link className="button button--secondary button--tiny" href="/app/repairs" icon={<ArrowRight size={15} />} iconPosition="end">{t("查看全部 ")}</Link> : null}</div>
+        {!canRepairs ? <div className="section-empty"><strong>{t("当前账号没有维修查看权限")}</strong></div> : !recent.length ? <div className="section-empty"><Wrench size={24} /><strong>{t("尚未登记工单")}</strong></div> : <div className="module-table-scroll" role="region" aria-label={t("近期工单表格")} tabIndex={0}><div className="repair-table__head"><span>{t("设备与故障")}</span><span>{t("客户 / 工单号")}</span><span>{t("当前状态")}</span><span /></div><div className="repair-list">{recent.map(order => <div className="repair-row" key={order.id}><div className="repair-row__device"><span><Smartphone size={18} /></span><div><strong>{order.device.brand} {order.device.model}</strong><small>{repairIssueText(order, locale)}</small></div></div><div className="repair-row__meta"><strong>{repairCustomerName(order, locale)}</strong><small>{order.id}</small></div><span className={`status-pill status-pill--${repairProgress(order, records, workflows[order.id]).tone}`}>{t(repairProgress(order, records, workflows[order.id]).label)}</span><Link className="row-action" href={`/app/repairs/${order.id}`} aria-label={t("打开 {v0}", { v0: order.id })} icon={<ChevronRight size={18} />}></Link></div>)}</div></div>}
       </article>
       <article className="panel workload-panel">
         <div className="panel__header"><div><h2>{t("日常维修分组")}</h2></div>{canRepairs ? <span className="status-pill status-pill--info">{counts.rework + counts.processing + counts.purchase + counts.ready} {t(" 张")}</span> : null}</div>
@@ -136,7 +136,7 @@ function PreviewDashboardContent() {
 
       <section className="dashboard-grid dashboard-grid--main">
         <article className="panel repair-panel">
-          <div className="panel__header"><div><h2>{t("优先处理工单")}</h2></div><Link className="button button--secondary button--tiny" href="/app/repairs">{t("查看全部 ")}<ArrowRight size={15} /></Link></div>
+          <div className="panel__header"><div><h2>{t("优先处理工单")}</h2></div><Link className="button button--secondary button--tiny" href="/app/repairs" icon={<ArrowRight size={15} />} iconPosition="end">{t("查看全部 ")}</Link></div>
           <div className="module-table-scroll" role="region" aria-label={t("优先工单表格")} tabIndex={0}>
           <div className="repair-table__head"><span>{t("设备与故障")}</span><span>{t("客户 / 工单号")}</span><span>{t("当前状态")}</span><span /></div>
           <div className="repair-list">
@@ -145,7 +145,7 @@ function PreviewDashboardContent() {
                 <div className="repair-row__device"><span><Smartphone size={18} /></span><div><strong>{repair.device}</strong><small>{repairIssueText(repair, locale)}</small></div></div>
                 <div className="repair-row__meta"><strong>{repair.customer}</strong><small>{repair.id}</small></div>
                 <span className={`status-pill status-pill--${repair.tone}`}>{t(repair.state)}</span>
-                <Link className="row-action" href={`/app/repairs/${repair.id}`} aria-label={t("打开 {v0}", { v0: repair.id })}><ChevronRight size={18} /></Link>
+                <Link className="row-action" href={`/app/repairs/${repair.id}`} aria-label={t("打开 {v0}", { v0: repair.id })} icon={<ChevronRight size={18} />}></Link>
               </div>
             ))}
           </div>
