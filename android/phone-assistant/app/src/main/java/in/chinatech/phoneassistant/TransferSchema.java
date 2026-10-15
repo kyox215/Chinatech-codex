@@ -2,7 +2,7 @@ package in.chinatech.phoneassistant;
 
 /** Additive migration: old object identities, selected items, receipts and unknown residuals survive. */
 final class TransferSchema {
- static final int VERSION=2;
+ static final int VERSION=3;
  static final int PAGE=50;
  static final String ITEMS="CREATE TABLE items(n INTEGER PRIMARY KEY AUTOINCREMENT,uri TEXT UNIQUE NOT NULL,object TEXT UNIQUE NOT NULL,category TEXT NOT NULL,name TEXT NOT NULL,mime TEXT NOT NULL,size INTEGER NOT NULL,hash BLOB,selected INTEGER NOT NULL DEFAULT 0)";
  static final String SELECTION="CREATE INDEX selection ON items(selected,n)",CATEGORIES="CREATE INDEX categories ON items(category,selected,n)";
@@ -21,5 +21,6 @@ final class TransferSchema {
   SCOPES,
   "INSERT INTO scan_scopes SELECT 'legacy',v FROM meta WHERE k='scanState' AND v IN ('incomplete','complete')"
  };
+ static final String MANIFEST="CREATE TABLE task_manifest(transfer TEXT NOT NULL,n INTEGER NOT NULL,object TEXT NOT NULL,name TEXT NOT NULL,mime TEXT NOT NULL,size INTEGER NOT NULL,hash BLOB NOT NULL,PRIMARY KEY(transfer,n),UNIQUE(transfer,object))";
  private TransferSchema(){}
 }

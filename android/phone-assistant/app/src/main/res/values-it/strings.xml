@@ -1,9 +1,9 @@
 <resources>
   <string name="app_name">ChinaTech Phone Assistant</string>
-  <string name="alpha_notice">0.3.0 alpha · Scansiona e seleziona sul vecchio telefono; crea collegamento sul nuovo. Hotspot automatico/manuale o stessa Wi-Fi. Nessun limite di file o durata dopo conferma. Test reali delle marche ancora necessari.</string>
+  <string name="alpha_notice">0.5.1 test · Entrambi i telefoni prima online: tre codici e autorizzazioni, poi collegamento locale. Nessun limite al totale dei file; autorizzazione originale fino a 30 giorni. Verifica su marche reali ancora necessaria.</string>
   <string name="sender_title">Vecchio telefono · Invio</string>
   <string name="receiver_title">Nuovo telefono · Ricezione</string>
-  <string name="create_hotspot">Crea hotspot e codice QR</string>
+  <string name="create_hotspot">Dopo autorizzazione reciproca: attiva hotspot</string>
   <string name="hotspot_starting">Richiesta hotspot locale al sistema…</string>
   <string name="hotspot_ready">Hotspot sul nuovo telefono pronto. Scegli cartella e genera codice; il vecchio telefono richiede conferma di connessione.</string>
   <string name="hotspot_required">Crea prima un hotspot locale o scegli esplicitamente la stessa rete del router.</string>
@@ -23,7 +23,7 @@
   <string name="qr_pairing">QR per hotspot e sessione cifrata</string>
   <string name="qr_camera">Scansiona il codice del nuovo telefono</string>
   <string name="qr_image">Leggi il QR da una immagine locale</string>
-  <string name="qr_read">Codice temporaneo letto. Premi Connetti e verifica il codice sui due telefoni.</string>
+  <string name="qr_read">Nuovo codice letto. Prosegui con autorizzazione o connessione e confronta i codici di verifica.</string>
   <string name="qr_failed">QR non leggibile, scaduto o non valido. La miniatura della fotocamera può non bastare: inquadra tutto il QR o usa una immagine nitida/codice lungo di test.</string>
   <string name="qr_reading">Lettura QR in background, attesa massima 30 secondi. Interrompi o modifica il codice per annullare.</string>
   <string name="qr_timeout">Lettura QR scaduta; il risultato precedente non sarà applicato. Annullamento del provider in corso: attendi e verifica la app file se non si chiude.</string>
@@ -33,7 +33,7 @@
   <string name="service_starting">Richiesta servizio di trasferimento foreground ad Android…</string>
   <string name="service_start_failed">Android ha rifiutato avvio o promozione del servizio foreground. Sessione non iniziata o interrotta. Verifica notifiche, permessi e limiti di sistema e abbina di nuovo; i file incompleti non sono riusciti.</string>
   <string name="stopping">Arresto in corso, in attesa della chiusura di provider e attività. Verifica i file incompleti; non riprovare prima della chiusura. %1$s</string>
-  <string name="provider_notice">Questo assistente non carica dati al sito. I provider SAF scelti possono collegarsi alla rete o sincronizzare: preferisci una cartella locale sul nuovo telefono e verifica le loro impostazioni.</string>
+  <string name="provider_notice">I file viaggiano solo tra i telefoni. Il sito riceve identità e hash di piano/esito, non elenco o contenuti. I provider SAF possono sincronizzare autonomamente: preferisci una cartella locale.</string>
   <string name="ready">Seleziona i dati da trasferire.</string>
   <string name="selected_count">%1$d file selezionati</string>
   <string name="choose_files">Seleziona foto, video o file</string>
@@ -41,9 +41,9 @@
   <string name="export_contacts">Leggi i contatti e aggiungi un VCF</string>
   <string name="contacts_explanation">Esporta contatti autorizzati tramite vCard di sistema, conservando campi e foto effettivamente forniti. Esportazioni fallite risultano parziali, con ripiego nome/telefono/email ove possibile. Verifica account, duplicati e risultato nella app Contatti.</string>
   <string name="create_pairing">Verifica i file e crea il codice</string>
-  <string name="code_notice">Il nuovo telefono mostra il codice per il vecchio. Contiene credenziali: condividilo solo con il tuo dispositivo. Scade dopo 10 minuti senza abbinamento; nessun limite di durata dopo conferma.</string>
+  <string name="code_notice">Scambia i codici solo fra questi due telefoni. Il codice finale vale 10 minuti; il ripristino originale segue la scadenza firmata, fino a 30 giorni. Non pubblicare i codici.</string>
   <string name="pairing_code">Codice di abbinamento</string>
-  <string name="paste_code">Incolla il codice del vecchio telefono</string>
+  <string name="paste_code">Incolla il codice iniziale, risposta o finale</string>
   <string name="copy_code">Copia il codice temporaneo</string>
   <string name="code_copied">Codice copiato. Alla scadenza la app tenta di cancellarlo dagli appunti.</string>
   <string name="choose_folder">Scegli prima la cartella di destinazione</string>
@@ -55,7 +55,7 @@
   <string name="import_vcf">Apri Contatti per confermare il VCF</string>
   <string name="import_explanation">Si apre la app Contatti. Verifica la destinazione e i duplicati. Questo assistente non scrive automaticamente i contatti e non verifica il risultato. Se manca una app compatibile, apri il VCF dal gestore file.</string>
   <string name="import_unavailable">Nessuna app di importazione disponibile. Apri il VCF nella cartella ricevuta.</string>
-  <string name="stop">Interrompi e cancella abbinamento</string>
+  <string name="stop">Arresta in sicurezza / annulla attività originale</string>
   <string name="cancel">Annulla</string>
   <string name="continue_action">Continua</string>
   <string name="approve">Corrisponde, consenti il trasferimento selezionato</string>
@@ -80,7 +80,7 @@
   <string name="notification_explanation">Le notifiche mostrano il trasferimento e il comando di arresto. Puoi continuare anche se negate. Mantieni i telefoni attivi e consenti l’attività in background.</string>
   <string name="permission_denied">Permesso negato o revocato. La selezione file resta disponibile; controlla i permessi e riprova.</string>
   <string name="transfer_notification">Trasferimento dati in corso. Apri la app o interrompi.</string>
-  <string name="session_expired">Codice non confermato scaduto. Ferma e genera nuovo codice sul nuovo telefono; indice e file completati conservati.</string>
+  <string name="session_expired">Codice o autorizzazione scaduti. Controlla l’attività originale nel registro. Dati e ricevute sono conservati; nessun ampliamento automatico.</string>
   <string name="cancelled">Sessione interrotta. Originali e file ricevuti verificati conservati.</string>
   <string name="service_timeout">Il sistema ha terminato il servizio. I file incompleti non sono riusciti; tieni la app aperta e abbina di nuovo.</string>
   <string name="wifi_required">Collega entrambi alla stessa Wi-Fi privata. Isolamento ospiti, VPN o router possono bloccare il collegamento.</string>
@@ -126,7 +126,7 @@
   <string name="receiver_pairing">Nuovo telefono: genera codice e attendi</string>
   <string name="receiver_waiting">Nuovo telefono in attesa di abbinamento entro 10 minuti.</string>
   <string name="retrying">Connessione interrotta, tentativo %1$d / %2$d; file completati riverificati, incompleti da zero.</string>
-  <string name="recovery_notice">Nessun limite totale di file o durata per i dati selezionati. Fino a 5 riconnessioni automatiche, poi intervento richiesto. Dopo stop/chiusura abbina di nuovo: stessa attività e cartella riverificano completati; incompleti ripartono da zero. Nessuna ripresa a byte.</string>
+  <string name="recovery_notice">Fino a 5 riconnessioni automatiche, poi rimane la stessa attività. Riprendi dal registro con piano e destinazione originali; gli oggetti salvati vengono riverificati, gli incompleti ritrasmessi. Nessuna ripresa per byte. Annullamento e completamento sono distinti.</string>
   <string name="file_failed">File da verificare: %1$s. %2$s Completati conservati; deseleziona questo file o verifica permessi/spazio e abbina di nuovo.</string>
   <string name="rescan_notice">Una nuova scansione crea una nuova attività e azzera la selezione; originali e file ricevuti restano.</string>
   <string name="scan_interrupted">Un ambito di scansione è incompleto; l’indice contiene solo la parte letta. Altre cartelle non completano l’ambito precedente; scansiona di nuovo telefono o stessa cartella.</string>
@@ -160,4 +160,31 @@
   <string name="wifi_auto_available">Richiesta Wi-Fi con conferma di sistema disponibile; il produttore può rifiutarla.</string>
   <string name="wifi_manual_required">Android 8–9: collega Wi-Fi nelle impostazioni.</string>
   <string name="scan_request_lost">Richiesta non conservata. Seleziona di nuovo le categorie; nessuna scansione più ampia avviata.</string>
+    <string name="gate_checking">Verifica autorizzazione del sito…</string>
+    <string name="gate_ready">Versione attuale disponibile</string>
+    <string name="gate_paused">Nuove attività sospese. Restano disponibili ripristino originale, registri e annullamento.</string>
+    <string name="gate_update">Aggiorna alla versione più recente per avviare nuove operazioni.</string>
+    <string name="gate_offline">Sito non raggiungibile. Riprova online. Le attività originali possono riprendere nello stesso ambito.</string>
+    <string name="gate_storage">Registro protetto non disponibile. Operazioni bloccate; dati esistenti conservati.</string>
+    <string name="gate_retry">Ricontrolla</string>
+    <string name="gate_download">Aggiorna assistente</string>
+    <string name="gate_records">Registro e ripristino</string>
+    <string name="gate_steps">Con entrambi i telefoni online: ① il nuovo mostra il codice iniziale; ② il vecchio lo scansiona e mostra la risposta; ③ il nuovo scansiona la risposta e solo allora attiva hotspot; il vecchio scansiona il codice finale. Entrambi richiedono la nuova versione.</string>
+    <string name="gate_scan_peer">Scansiona o incolla il codice iniziale, risposta o finale</string>
+    <string name="gate_prepare">Prepara online / riprendi attività originale</string>
+    <string name="gate_offer_ready">Codice iniziale pronto. Mantieni entrambi online e scansionalo col vecchio telefono.</string>
+    <string name="gate_response_ready">Autorizzazione invio verificata. Scansiona la risposta col nuovo telefono.</string>
+    <string name="gate_receiver_authorized">Entrambe le autorizzazioni verificate. Ora puoi attivare hotspot.</string>
+    <string name="gate_pair_first">Completa prima lo scambio online dei codici e delle autorizzazioni.</string>
+    <string name="gate_failed">Verifica autorizzazione o abbinamento fallita. Controlla rete, versione e registro originale.</string>
+    <string name="gate_peer_required">Sono accettati solo i nuovi codici iniziale, risposta e finale. I codici precedenti sono rifiutati.</string>
+    <string name="gate_completed">Completamento verificato</string>
+    <string name="gate_resume">Attività originale da riprendere</string>
+    <string name="gate_finish_first">Termina o arresta in sicurezza il trasferimento prima di aggiornare.</string>
+    <string name="gate_downloading">Download e verifica del pacchetto…</string>
+    <string name="gate_install_permission">Consenti le richieste di installazione, poi torna e riprova aggiornamento.</string>
+    <string name="gate_update_failed">Verifica o download fallito. Riprova o visita www.chinatech.in/toolbox.</string>
+    <string name="gate_close_receiver">Termina ricezione / chiudi ascolto ricevute</string>
+    <string name="gate_receipt_waiting">Ricezione verificata. Ascolto fino a 3 minuti per la ricevuta del mittente originale; puoi terminare ora. Il registro resta disponibile.</string>
+    <string name="gate_restoring_permission">Ripristino dell’autorizzazione originale; piano e ambito restano invariati…</string>
 </resources>
