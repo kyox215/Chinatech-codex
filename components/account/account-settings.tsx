@@ -1,4 +1,7 @@
 "use client";
+import { subscribeAuthChanged } from "@/lib/auth-events";
+import { ReadPending } from "@/components/page-recovery";
+import { useActivityFeedback } from "@/components/operation-feedback";
 import { OfficeDesktopControl } from "./office-desktop-control";
 import { OfficeDesktopV3Control } from "./office-desktop-v3-control";
 import { LoginDevicesPanel } from "./login-devices";
@@ -8,7 +11,7 @@ import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
 import { NavigationLink as Link } from "@/components/navigation-link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, CircleAlert, Link2, LoaderCircle, Mail, RefreshCw, ShieldCheck, Smartphone } from "lucide-react";
+import { Check, CircleAlert, Link2, Mail, RefreshCw, ShieldCheck, Smartphone } from "lucide-react";
 import { SelectControl } from "@/components/select-control";
 import { ProviderMark } from "@/components/auth/provider-mark";
 import { COUNTRY_DIAL_CODES, type AccountOverview } from "@/lib/account";
@@ -38,8 +41,10 @@ export function AccountSettings({ notice = "" }: { notice?: string }) {
   const [unauthorized, setUnauthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const request = useRef<AbortController | null>(null);
-  const load = useCallback(async () => {
-    setLoading(true);
+  const [foreground,setForeground]=useState(false);
+  useActivityFeedback(loading&&(!data||foreground),{kind:"read"});
+  const load = useCallback(async (visible=false) => {
+    setForeground(visible);setLoading(true);
     request.current?.abort();
     const controller = new AbortController(); request.current = controller;
     try {
@@ -53,7 +58,7 @@ export function AccountSettings({ notice = "" }: { notice?: string }) {
       // Unmount every sensitive draft if the session is no longer authoritative.
       if (expired) setData(null);
       setError(reason instanceof AccountRequestError ? reason.message : "连接中断，无法确认账号状态。请重试。");
-    } finally { if (!controller.signal.aborted) setLoading(false); }
+    } finally { if (!controller.signal.aborted) {setLoading(false);setForeground(false);} }
   }, []);
   useEffect(() => {
     let active = true;
@@ -64,12 +69,14 @@ export function AccountSettings({ notice = "" }: { notice?: string }) {
     return () => { active = false; request.current?.abort(); window.removeEventListener("focus", refresh); window.removeEventListener("online", refresh); };
   }, [load]);
 
+  useEffect(()=>subscribeAuthChanged(()=>{request.current?.abort();setData(null);setError("");void load(true);}),[load]);
+
   return <>
     {notices[notice] ? <p className={notice === "account-failed" ? "form-error" : styles.notice} role={notice === "account-failed" ? "alert" : "status"}>{t(notices[notice])}</p> : null}
-    {error ? <div className={`panel ${styles.state}`} role="alert"><CircleAlert size={26} /><p>{systemText(error)}</p>{unauthorized ? <Link className="button button--primary" href="/login">{t("重新登录")}</Link> : <button className="button button--secondary" disabled={loading} aria-busy={loading} onClick={() => void load()}>{loading ? t("正在重新读取…") : t("重新读取")}</button>}</div> : null}
-    {!data && !error ? <div className={`panel ${styles.state}`} role="status"><LoaderCircle className="spin" size={25} />{t("正在读取账号…")}</div> : null}
-    {data && loading && !error ? <p role="status">{t("正在重新读取…")}</p> : null}
-    {data ? <AccountForms key={`forms:${data.account.id}:${data.sessionId}`} data={data} refreshing={loading || Boolean(error)} refresh={() => { setLoading(true); return load(); }} /> : null}
+    {error ? <div className="panel read-failure" role="alert" data-operation-feedback={foreground?undefined:"background"}><CircleAlert size={26} /><p>{systemText(error)}</p>{unauthorized ? <Link className="button button--primary" href="/login">{t("重新登录")}</Link> : <button className="button button--secondary" disabled={loading} aria-busy={loading} onClick={() => void load(true)}>{loading ? t("正在重新读取…") : t("重新读取")}</button>}</div> : null}
+    {!data && !error ? <ReadPending label="正在读取账号…" /> : null}
+    {data && loading && foreground && !error ? <ReadPending label="正在重新读取…" /> : null}
+    {data ? <AccountForms key={`forms:${data.account.id}:${data.sessionId}`} data={data} refreshing={loading || Boolean(error)} refresh={() => { setLoading(true); return load(true); }} /> : null}
     {data ? <LoginDevicesPanel key={`devices:${data.account.id}:${data.sessionId}`} /> : null}
   </>;
 }
@@ -133,7 +140,7 @@ function AccountForms({ data, refreshing, refresh }: { data: AccountOverview; re
       <span className={styles.avatar}><ShieldCheck size={30} aria-hidden="true" /></span>
       <div><h1>{t("我的账号")}</h1><p className={styles.email}>{account.email}</p></div>
       <span className="status-pill status-pill--success"><Check size={14} />{t("邮箱已验证")}</span>
-      <nav aria-label={t("账号设置分类")} className={styles.nav}><a href="#account-email"><Mail size={18} />{t("登录邮箱")}</a><a href="#account-providers"><Link2 size={18} />{t("第三方账号")}</a><a href="#account-phone"><Smartphone size={18} />{t("手机号码")}</a>{data.capabilities?.canManageOffice ? <a href="#office-toolbox"><ShieldCheck size={18}/>{t("网站工具箱管理")}</a> : null}{data.capabilities?.canManageOffice ? <a href="#office-desktop-control"><ShieldCheck size={18}/>{t("桌面助手管理")}</a> : null}</nav>
+      <nav aria-label={t("账号设置分类")} className={styles.nav}><Link href="#account-email"><Mail size={18} />{t("登录邮箱")}</Link><Link href="#account-providers"><Link2 size={18} />{t("第三方账号")}</Link><Link href="#account-phone"><Smartphone size={18} />{t("手机号码")}</Link>{data.capabilities?.canManageOffice ? <Link href="#office-toolbox"><ShieldCheck size={18}/>{t("网站工具箱管理")}</Link> : null}{data.capabilities?.canManageOffice ? <Link href="#office-desktop-control"><ShieldCheck size={18}/>{t("桌面助手管理")}</Link> : null}</nav>
       <p className={styles.muted}>{t("绑定方式用于登录同一个账号，门店权限保持不变。")}</p>
       <button className="button button--secondary" type="button" disabled={disabled} onClick={() => void refresh()}><RefreshCw size={16} className={refreshing ? "spin" : undefined} />{refreshing ? t("正在刷新…") : t("刷新绑定状态")}</button>
     </aside>

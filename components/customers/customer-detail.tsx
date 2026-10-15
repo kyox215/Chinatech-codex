@@ -1,4 +1,5 @@
 "use client";
+import { ReadPending } from "@/components/page-recovery";
 
 import { ReadFailure } from "@/components/page-recovery";
 import { useLanguage } from "@/components/language-provider";
@@ -8,7 +9,7 @@ import { useRepairWorkflows } from "@/components/repairs/repair-workflow-store";
 import { repairProgress } from "@/lib/repair-workflow";
 import { useStaff } from "@/components/staff/use-staff";
 import { NavigationLink as Link } from "@/components/navigation-link";
-import { Suspense, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowRight, FileClock, Pencil, Phone, ShoppingBag, UsersRound, Wrench } from "lucide-react";
 import { PageTitle } from "@/components/page-title";
@@ -21,8 +22,7 @@ import historyStyles from "@/components/retail/retail-history.module.css";
 import styles from "./customers.module.css";
 
 export function CustomerDetail({ id }: { id: string }) {
-  const { t } = useLanguage();
-  return <Suspense fallback={<main className="module-page"><header className="module-heading"><PageTitle title={t("客户档案")} backHref="/app/customers" backLabel={t("返回客户列表")} /></header><div className="panel module-empty" role="status">{t("正在读取客户记录…")}</div></main>}><CustomerDetailContent id={id} /></Suspense>;
+  return <CustomerDetailContent id={id} />;
 }
 
 function CustomerDetailContent({ id }: { id: string }) {
@@ -42,7 +42,7 @@ function CustomerDetailContent({ id }: { id: string }) {
     window.history.replaceState(null, "", `/app/customers/${encodeURIComponent(id)}?${next.toString()}`);
   }
   if (error) return <main className="module-page"><header className="module-heading"><PageTitle title={t("客户档案")} backHref="/app/customers" backLabel={t("返回客户列表")} /></header><ReadFailure message={error} /></main>;
-  if (!ready || !customer) return <main className="module-page"><header className="module-heading"><PageTitle title={t("客户档案")} backHref="/app/customers" backLabel={t("返回客户列表")} /></header>{error ? <p className="procurement-feedback procurement-feedback--error" role="alert">{systemText(error)}</p> : null}<div className="panel module-empty">{!ready ? <strong role="status">{t("正在读取客户记录…")}</strong> : <><UsersRound size={28} /><strong>{t("没有找到客户档案")}</strong><Link className="button button--primary" href="/app/customers">{t("返回客户列表")}</Link></>}</div></main>;
+  if (!ready || !customer) return <main className="module-page"><header className="module-heading"><PageTitle title={t("客户档案")} backHref="/app/customers" backLabel={t("返回客户列表")} /></header>{error ? <p className="procurement-feedback procurement-feedback--error" role="alert">{systemText(error)}</p> : null}{!ready ? <ReadPending label="正在读取客户记录…" /> : <div className="panel module-empty"><UsersRound size={28} /><strong>{t("没有找到客户档案")}</strong><Link className="button button--primary" href="/app/customers">{t("返回客户列表")}</Link></div>}</main>;
   return <main className="module-page"><header className="module-heading"><PageTitle title={customer.name || t("客户档案")} backHref="/app/customers" backLabel={t("返回客户列表")} />{staff.can("customers.edit")?<button className="button button--secondary page-toolbar-action" type="button" aria-label={t("编辑客户资料")} title={t("编辑客户资料")} onClick={() => { setEditing(true); setSaved(false); }}><Pencil size={17} /><span>{t("编辑资料")}</span></button>:null}</header>
     {error ? <p className="procurement-feedback procurement-feedback--error" role="alert">{systemText(error)}</p> : null}{saved ? <p className="procurement-feedback" role="status">{t("客户资料已保存。")}</p> : null}
     <div className={styles.detailLayout}><aside className={styles.profileSide}>{editing && staff.can("customers.edit") ? <CustomerProfileForm customer={customer} onCancel={() => setEditing(false)} onSaved={() => { setEditing(false); setSaved(true); }} /> : <section className="panel detail-section"><div className="detail-section__head"><div><span><UsersRound size={18} /></span><h3>{t("客户资料")}</h3></div></div><div className="device-facts"><span className="device-facts__wide"><small>{t("手机号")}</small><strong><a className={styles.phoneLink} href={`tel:${customer.phone}`}><Phone size={15} />{customer.phone}</a></strong></span><span className="device-facts__wide"><small>{t("客户称呼")}</small><strong>{customer.name || t("未填写")}</strong></span><span className="device-facts__wide"><small>{t("电子邮件")}</small><strong>{customer.email || t("未填写")}</strong></span><span className="device-facts__wide"><small>{t("客户备注")}</small><strong>{customer.note || t("未填写")}</strong></span></div></section>}</aside>

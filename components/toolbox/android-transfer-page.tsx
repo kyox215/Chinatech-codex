@@ -39,9 +39,9 @@ export function AndroidTransferPage() {
   const [receiver, setReceiver] = useState<DeviceProfile>({ ...defaultProfile });
   const plan = useMemo(() => planAndroidTransfer(sender, receiver), [sender, receiver]);
   return <div className={shared.page}>
-    <a className={home.skipLink} href="#main-content">{t("跳到主要内容")}</a>
+    <Link className={home.skipLink} href="#main-content" focusTargetId="main-content">{t("跳到主要内容")}</Link>
     <PublicHeader page="transfer" />
-    <main className={`${shared.main} ${styles.main}`} id="main-content">
+    <main className={`${shared.main} ${styles.main}`} id="main-content" tabIndex={-1}>
       <section className={styles.intro} aria-labelledby="transfer-title">
         <Smartphone size={28} aria-hidden="true" /><h1 id="transfer-title">{t("数据传输")}</h1>
         <p>{t("两部手机，本地迁移资料。")}</p>

@@ -1,3 +1,4 @@
+import { ContentProgress } from "@/components/operation-feedback";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AccountBrand, AccountHeading } from "@/components/account/account-heading";
@@ -19,6 +20,7 @@ export default async function AccountSettingsPage({ searchParams }: { searchPara
   const { notice } = await searchParams;
   return <div className={styles.page}>
     <AccountBrand />
+    <ContentProgress />
     <main className={styles.main}>
       <AccountHeading />
       <AccountSettings notice={notice ?? ""} />

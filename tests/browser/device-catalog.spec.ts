@@ -1,12 +1,13 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Request } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { openCatalogPicker,choosePickerFamily,choosePickerModel,pickerText,manuallyChooseDevice } from './catalog-picker';
 
 async function setup(page: import('@playwright/test').Page) {
   const response=await page.request.post('/api/preview-session',{data:{email:'demo@chinatech.local',password:'Preview2026!'}});expect(response.status()).toBe(200);
   const index=page.waitForResponse(response=>response.url().includes('/api/catalog?kind=picker-index')&&response.status()===200);
-  await page.goto('/app/repairs/new');await index;
+  await page.goto('/app/repairs/new');const indexResponse=await index;
   await page.getByRole('combobox',{name:'联系电话'}).fill('+393200001234');await page.getByRole('button',{name:'下一步',exact:true}).click();
+  return {response:indexResponse,data:await indexResponse.json()};
 }
 
 test('focus during the first index request restarts the query and opens the picker',async({page})=>{
@@ -55,8 +56,14 @@ type PickerTier='brand'|'series'|'model';
 type PickerPaint={start:number;firstVisible:number;frame1:number;frame2:number;ms:number;trusted:boolean};
 type PickerProbe={catalogArmed:PickerTier|null;catalogPanel:HTMLDialogElement|null;catalogSamples:Record<PickerTier,PickerPaint[]>};
 
-test('preloaded tier results become visible within 200ms without a new catalog request',async({page},info)=>{
-  test.setTimeout(120000);await setup(page);let requests=0;page.on('request',request=>{if(request.url().includes('/api/catalog?'))requests++;});
+test('preloaded tier results become visible within 200ms without new data requests while authorization is verified',async({page},info)=>{
+  test.setTimeout(120000);const observationStarted=Date.now();const warmed=await setup(page);
+  expect(warmed.data.revision).toBe('seed');
+  const currentScope=[1,warmed.data.scope.accountId,warmed.data.scope.sessionId,warmed.data.scope.storeId,warmed.data.scope.memberId,warmed.data.scope.memberRevision];
+  expect(currentScope).toEqual([1,'preview','preview','preview','preview',0]);
+  const requests:Request[]=[];
+  const observe=(request:Request)=>{if(new URL(request.url()).pathname==='/api/catalog')requests.push(request);};
+  page.on('request',observe);
   await page.evaluate(()=>{
     const probe=window as unknown as PickerProbe;probe.catalogArmed=null;probe.catalogPanel=null;probe.catalogSamples={brand:[],series:[],model:[]};
     const visible=(element:HTMLElement|null)=>{
@@ -88,11 +95,32 @@ test('preloaded tier results become visible within 200ms without a new catalog r
   const samples=Object.fromEntries(Object.entries(points).map(([tier,values])=>[tier,values.map(value=>value.ms)]));
   const p95=(values:number[])=>[...values].sort((a,b)=>a-b)[Math.ceil(values.length*.95)-1];
   const results=Object.fromEntries(Object.entries(samples).map(([name,values])=>[name,{n:values.length,p95:p95(values),max:Math.max(...values)}]));
-  const evidence=JSON.stringify({network:'local preview, no throttling',metric:'browser-native trusted click to visible target retained across two native animation frames; excludes test RPC tail',points,samples,results,requests},null,2);
+  // Observe the real 30-second authorization cycle without changing native RAF
+  // or hiding its request inside the click-to-paint/new-data measurement.
+  await expect.poll(()=>requests.filter(request=>new URL(request.url()).searchParams.has('knownRevision')).length,{timeout:45000}).toBeGreaterThanOrEqual(1);
+  page.off('request',observe);
+  let newDataRequests=0;
+  const authorizationChecks=[];
+  for(const request of requests){
+    const url=new URL(request.url());
+    if(!url.searchParams.has('knownRevision')){newDataRequests++;continue;}
+    expect([...url.searchParams.entries()].sort()).toEqual([['category',warmed.data.category],['kind','picker-index'],['knownRevision','seed']].sort());
+    const requestScope=JSON.parse(request.headers()['x-ct-catalog-scope']);
+    expect(requestScope).toEqual(currentScope);
+    const response=await request.response();expect(response).not.toBeNull();expect(response!.status()).toBe(200);
+    const body=await response!.json();
+    expect(body.unchanged).toBe(true);expect(body.revision).toBe('seed');expect(body.scope).toEqual(warmed.data.scope);
+    expect(body.formatVersion).toBe(1);expect(body.category).toBe(warmed.data.category);expect(body.brand).toBe('');expect(body.family).toBe('');
+    authorizationChecks.push({url:url.pathname+url.search,requestScope,status:response!.status(),revision:body.revision,unchanged:body.unchanged,afterPreloadMs:request.timing().startTime-warmed.response.request().timing().startTime});
+  }
+  const observationWindowMs=Date.now()-observationStarted;
+  expect(observationWindowMs).toBeGreaterThanOrEqual(30000);
+  const evidence=JSON.stringify({network:'local preview, no throttling',metric:'browser-native trusted click to visible target retained across two native animation frames; excludes test RPC tail',points,samples,results,requests:requests.length,newDataRequests,authorizationChecks,observationWindowMs},null,2);
   mkdirSync('.local/device-catalog',{recursive:true});writeFileSync('.local/device-catalog/picker-performance-'+info.project.name+'.json',evidence);await info.attach('catalog-native-performance',{body:evidence,contentType:'application/json'});
   for(const values of Object.values(points)){expect(values).toHaveLength(30);for(const value of values){expect(value.trusted).toBe(true);expect(value.start).toBeLessThanOrEqual(value.firstVisible);expect(value.firstVisible).toBeLessThanOrEqual(value.frame1);expect(value.frame1).toBeLessThanOrEqual(value.frame2);}}
   for(const result of Object.values(results))expect(result.p95).toBeLessThanOrEqual(200);
-  expect(requests).toBe(0);
+  expect(newDataRequests).toBe(0);
+  expect(authorizationChecks).toHaveLength(requests.length);
 });
 
 test('periodic authorization reuses the version and clears candidates after denial',async({page})=>{

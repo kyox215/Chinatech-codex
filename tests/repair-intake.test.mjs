@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import ts from "typescript";
+import { adaptPreviewHookImports } from "./helpers/preview-hook-loader.mjs";
 const compiled = ts.transpileModule(readFileSync(new URL("../lib/repair-intake.ts", import.meta.url),"utf8"),{ compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022} }).outputText;
 const { customerPhoneMatches, intakeCustomers, validIntakePhone, modelsFor, intakeDeviceHistory, intakeIssueText, intakePhotoError } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`);
 test("客户实时电话候选支持格式化/国际拨号前缀，短值不返回整份目录",()=>{
@@ -80,6 +81,7 @@ test("本地保存幂等、损坏与容量失败不覆盖；暂时读失败可�
   let storeModule=ts.transpileModule(readFileSync(new URL("../components/repairs/local-intake-store.ts", import.meta.url),"utf8"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
   storeModule=storeModule.replace(/import \{[^}]+\} from "react";/,'const useSyncExternalStore = () => {}; const useMemo=fn=>fn();').replace(/import \{ repairOrders \} from "@\/lib\/repair-fixtures";/,'const repairOrders = [];').replace('"@/lib/repair-intake-record"',JSON.stringify(recordUrl)).replace('"@/lib/repair-workflow"',JSON.stringify(dependencyUrl("repair-workflow"))).replace(/import \{ previewRepairWorkflow \} from "\.\/repair-workflow-store";/,'const previewRepairWorkflow=()=>{throw new Error("Unexpected workflow lookup in intake persistence test");};').replace(/import \{ useRepairWorkflows \} from "\.\/repair-workflow-store";/,'const useRepairWorkflows=()=>({workflows:{}});');
   storeModule=storeModule.replace(/from "@\/lib\/([^"]+)"/g,(_,dep)=>`from "${dependencyUrl(dep)}"`);
+  storeModule=adaptPreviewHookImports(storeModule,{compile:path=>ts.transpileModule(readFileSync(new URL("../"+path,import.meta.url),"utf8"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText,library:dependencyUrl,dataUrl:code=>"data:text/javascript;base64,"+Buffer.from(code).toString("base64")});
   storeModule+='\nexport {read as readSnapshot};';
   const {saveLocalIntake,readSnapshot}=await import("data:text/javascript;base64,"+Buffer.from(storeModule).toString("base64"));
   assert.equal(readSnapshot().records.length,0);

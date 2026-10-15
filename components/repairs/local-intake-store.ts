@@ -1,4 +1,5 @@
 "use client";
+import { useBackendStore, useBackendMode } from "@/components/backend-snapshot";
 import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 import { currentRetailSale, parseStoredRetailUnits, saleProductUnit, retailCategories } from "@/lib/retail";
 import { retailUnits } from "@/lib/retail-fixtures";
@@ -13,7 +14,6 @@ import { buildRepairRework, repairOriginForSave, validateRepairReworkInput, type
 export type { CreateRepairReworkInput } from "@/lib/repair-rework";
 import { requirePreviewPermission } from "@/lib/staff-client";
 import type { Permission } from "@/lib/staff";
-import { useSyncExternalStore } from "react";
 import { repairOrders } from "@/lib/repair-fixtures";
 import { intakeDirectoryEntry, parseLocalIntakes, validLocalIntake, parseIntakeSignatures, appendIntakeSignature, fixtureIntakeReceipt, type IntakeSignature, type IntakeSignatureDraft, type IntakePolicy, type IntakeReceiptData, type IntakePhotoAttachment } from "@/lib/repair-intake-record";
 import { overlayRepair } from "@/lib/repair-workflow";
@@ -42,11 +42,12 @@ function subscribe(listener: () => void) {const stop=subscribeBackend(listener);
   window.addEventListener("storage", storage); window.addEventListener(change, listener);
   return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); };
 }
-export function useLocalIntakes() { return useSyncExternalStore(subscribe, read, () => server); }
+export function useLocalIntakes() { return useBackendStore(subscribe,read,server,current=>({records:current?.intakes??[],signatures:current?.signatures??[],ready:true,error:current?"":"后台资料暂不可用。"})); }
 export function useRepairDirectory() {
   const local = useLocalIntakes();
+  const formal = useBackendMode();
   const { workflows } = useRepairWorkflows();
-  return [...(isBackendClient()?[]:fixtureDirectory), ...local.records.map(intakeDirectoryEntry)].map(order => overlayRepair(order, workflows[order.id]));
+  return [...(formal?[]:fixtureDirectory), ...local.records.map(intakeDirectoryEntry)].map(order => overlayRepair(order, workflows[order.id]));
 }
 // Preview saves retain the browser-local envelope; backend saves use the command boundary.
 export function intakePolicyFromSettings():IntakePolicy {

@@ -8,6 +8,7 @@ import { useAuthStatus } from "@/components/auth-status-provider";
 import { Brand } from "@/components/brand";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useLanguage } from "@/components/language-provider";
+import { ContentProgress } from "@/components/operation-feedback";
 import styles from "./home.module.css";
 
 export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" | "office" | "windows" | "transfer" }) {
@@ -24,7 +25,7 @@ export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" | "o
     return () => { observer.disconnect(); parent.style.removeProperty("--public-header-offset"); };
   }, []);
 
-  return <header ref={header} className={`${styles.header} ${page === "office" ? styles.officeHeader : ""}`} data-signed-in={status.state === "workspace" || status.state === "account" || status.state === "unverified"}><div className={styles.headerInner}>
+  return <><header ref={header} className={`${styles.header} ${page === "office" ? styles.officeHeader : ""}`} data-signed-in={status.state === "workspace" || status.state === "account" || status.state === "unverified"}><div className={styles.headerInner}>
     <div className={styles.headerLeft}>
       <nav className={styles.authNav} aria-label={t("账户入口")}>
         <AccountActions compact={page === "office"} />
@@ -33,15 +34,15 @@ export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" | "o
       <Brand compact />
     </div>
     {isHome && <nav className={styles.navigation} aria-label={t("主页导航")}>
-      <a href="#features">{t("功能亮点")}</a>
-      <a href="#tutorials">{t("视频教程")}</a>
-      <a href="#workflow">{t("业务流程")}</a>
-      <a href="#questions">{t("常见问题")}</a>
+      <Link href="#features">{t("功能亮点")}</Link>
+      <Link href="#tutorials">{t("视频教程")}</Link>
+      <Link href="#workflow">{t("业务流程")}</Link>
+      <Link href="#questions">{t("常见问题")}</Link>
     </nav>}
     <LanguageSwitcher />
     <Link className={styles.publicLink} href="/toolbox" aria-label={t("工具箱")} aria-current={page === "toolbox" ? "page" : undefined}>
       <PanelsTopLeft size={17} aria-hidden="true" />
       <span data-public-link-label className={styles.publicLinkLabel}>{t("工具箱")}</span>
     </Link>
-  </div></header>;
+  </div></header><ContentProgress placement="public" /></>;
 }

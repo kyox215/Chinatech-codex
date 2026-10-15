@@ -56,6 +56,8 @@ test("finite config output is checked separately from the canonical map input", 
 test("canonical comparisons and translated custom component props are not mutated", () => {
   assert.deepEqual(kinds(scan('const selected = form.accessories.includes("其他"); const allowed = ["新机", "翻新机"].includes(value); const view = <>{value === "其他" ? null : <span>{t("全部")}</span>}</>;', ["全部"])), []);
   assert.deepEqual(kinds(scan('const view = <MultiChoice label="随件" options={["充电器", "数据线"]} />;', ["随件", "充电器", "数据线"])), []);
+  assert.deepEqual(kinds(scan('const view = <ReadPending label="正在读取账号…" />;', ["正在读取账号…"])), []);
+  assert.ok(kinds(scan('const view = <ReadPending label="缺少翻译的等待" />;')).includes("missing-message"));
 });
 
 test("original facts have exact scoped exceptions, not a blanket Chinese exclusion", () => {

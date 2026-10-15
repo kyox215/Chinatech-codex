@@ -19,16 +19,16 @@ export function ToolboxPage() {
   const { t } = useLanguage();
 
   return <div className={styles.page}>
-    <a className={homeStyles.skipLink} href="#main-content">{t("跳到主要内容")}</a>
+    <Link className={homeStyles.skipLink} href="#main-content" focusTargetId="main-content">{t("跳到主要内容")}</Link>
     <PublicHeader page="toolbox" />
-    <main className={styles.main} id="main-content">
+    <main className={styles.main} id="main-content" tabIndex={-1}>
       <section className={styles.hero} aria-labelledby="toolbox-title">
         <div className={styles.heroCopy}>
           <span className={styles.publicBadge}><PanelsTopLeft size={16} aria-hidden="true" />{t("公开工具箱 · 无需登录")}</span>
           <h1 id="toolbox-title">{t("工具箱")}</h1>
           <p className={styles.lead}>{t("装机、刷机、传数据。")}</p>
           <p className={styles.description}>{t("常用工具与资料，集中在这里。更多内容将陆续添加。")}</p>
-          <a className="button button--primary" href="#categories">{t("浏览工具分类")}<ArrowDown size={17} aria-hidden="true" /></a>
+          <Link className="button button--primary" href="#categories">{t("浏览工具分类")}<ArrowDown size={17} aria-hidden="true" /></Link>
         </div>
         <div className={styles.illustration} aria-hidden="true">
           <div className={styles.orbit} />

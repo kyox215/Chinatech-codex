@@ -1,4 +1,6 @@
 "use client";
+import { ReadPending } from "@/components/page-recovery";
+import { useActivityFeedback } from "@/components/operation-feedback";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SelectControl } from '@/components/select-control';
 import { useLanguage } from '@/components/language-provider';
@@ -9,6 +11,8 @@ const errors:Record<string,string>={SERVICE_UNAVAILABLE:'桌面授权服务尚�
 class DesktopControlRequestError extends Error {}
 
 export function OfficeDesktopControl(){
+  const [manualRead,setManualRead]=useState(false);
+  useActivityFeedback(manualRead,{kind:"read"});
   const {t,systemText,locale}=useLanguage();
   const [data,setData]=useState<DesktopControlState|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[allowed,setAllowed]=useState(true);
   const [intent,setIntent]=useState<{enabled:boolean;revision:string;requestId:string;scope:string;minimumVersion:string}|null>(null);
@@ -45,15 +49,15 @@ export function OfficeDesktopControl(){
     <div className={styles.cardHead}><h2 id="office-desktop-control-title">{t('旧协议 Office 助手 0.2.1 管理')}</h2></div>
     <div className={styles.form}>
       <p className={styles.muted}>{t('此开关只管理旧协议 0.2.1 及更早客户端的启动与会话；1.0 至 1.3 为本地执行，网站无法远程停用。')}</p>
-      {loading&&!data?<p role="status">{t('正在读取桌面助手开关…')}</p>:null}
+      {loading&&!data?<ReadPending label="正在读取桌面助手开关…" />:null}
       {data?<><p>{t('允许新的助手启动')}：<strong>{t(data.enabled?'已开启':'已关闭')}</strong></p><p className={styles.muted}>{t('已打开的有效会话可继续使用到期，最长 1 小时；已开始的任务允许完成。Office 总开关仍可禁止已有会话的新操作。')}</p>{data.updatedAt?<p className={styles.muted}>{t('最近开关变更')}：{new Date(data.updatedAt).toLocaleString(locale)}</p>:null}
       <button type="button" className="button button--primary" disabled={loading||saving||!!error} onClick={()=>setIntent({enabled:!data.enabled,revision:data.revision,requestId:crypto.randomUUID(),scope:data.accountId+':'+data.sessionId,minimumVersion:data.minimumVersion})}>{t(data.enabled?'暂停新的助手启动':'允许新的助手启动')}</button></>:null}
       {data?<><p>{t('旧协议已验证版本')}：<strong>{data.currentVersion}</strong></p><label className="field">{t('最低可用版本')}<SelectControl aria-label={t('最低可用版本')} value={minimum} disabled={loading||saving} onChange={e=>{setMinimum(e.target.value);setIntent(null);}}>{data.eligibleMinimumVersions.map(version=><option key={version} value={version}>{version==='0.0.0'?t('兼容旧版（过渡期）'):version}</option>)}</SelectControl></label>
       <p className={styles.muted}>{t('只能选择已发布并完成下载校验的版本。低于最低版本的程序必须更新，才能重新启动使用。')}</p>
       <button type="button" className="button button--primary" disabled={loading||saving||!!error||minimum===data.minimumVersion} onClick={()=>setIntent({enabled:data.enabled,minimumVersion:minimum,revision:data.revision,requestId:crypto.randomUUID(),scope:data.accountId+':'+data.sessionId})}>{t('保存最低版本')}</button></>:null}
       {error?<p role="alert" className="form-error">{systemText(error)}</p>:null}
-      <button type="button" className="button button--secondary" disabled={saving||loading} onClick={()=>void load()}>{t('刷新状态')}</button>
-      {intent?<div role="group" aria-label={t('确认桌面助手设置')}><p>{t('将保存启动开关和最低版本设置。已有有效会话继续使用，正在执行的任务允许完成。')} {t('最低可用版本')}：{intent.minimumVersion==='0.0.0'?t('兼容旧版（过渡期）'):intent.minimumVersion}</p><button type="button" className="button button--primary" disabled={saving} onClick={()=>void save()}>{t(saving?'正在保存…':'确认变更')}</button><button type="button" className="button button--secondary" disabled={saving} onClick={()=>setIntent(null)}>{t('取消')}</button></div>:null}
+      <button type="button" className="button button--secondary" disabled={saving||loading} aria-busy={manualRead} onClick={()=>{setManualRead(true);void load().finally(()=>setManualRead(false));}}>{t('刷新状态')}</button>
+      {intent?<div role="group" aria-label={t('确认桌面助手设置')}><p>{t('将保存启动开关和最低版本设置。已有有效会话继续使用，正在执行的任务允许完成。')} {t('最低可用版本')}：{intent.minimumVersion==='0.0.0'?t('兼容旧版（过渡期）'):intent.minimumVersion}</p><button type="button" className="button button--primary" disabled={saving} aria-busy={saving} onClick={()=>void save()}>{t(saving?'正在保存…':'确认变更')}</button><button type="button" className="button button--secondary" disabled={saving} onClick={()=>setIntent(null)}>{t('取消')}</button></div>:null}
     </div>
   </section>;
 }

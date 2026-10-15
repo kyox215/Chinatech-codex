@@ -1,4 +1,5 @@
 "use client";
+import { ReadPending } from "@/components/page-recovery";
 
 import { retailDisplaySpec, retailSearchLabels } from "@/lib/i18n/retail-display";
 import { useLanguage } from "@/components/language-provider";
@@ -85,7 +86,7 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
         </div>
       </div>
       <div className={styles.summary}><span>{t(retailViewLabels[view])} · {result.total} {t(" 条")}{condition !== "all" ? ` · ${t(condition)}` : ""}</span>{hasFilters ? <button type="button" onClick={clear}><X size={15} />{t("清除筛选")}</button> : null}</div>
-      {!ready ? <div className="module-empty" role="status">{t("正在读取整机商品…")}</div> : <>
+      {!ready ? <ReadPending label="正在读取整机商品…" /> : <>
         <div className={`module-table-scroll ${styles.table}`} role="region" aria-label={t("整机商品表格")} tabIndex={0}>
           <div className={styles.tableHead} aria-hidden="true"><span>{t("商品 / 规格")}</span><span>{t("客户 / 识别码")}</span><span>{t("入库 / 拿走日期")}</span><span>{t("标价 / 成交价")}</span><span>{t("状态")}</span><span /></div>
           {result.items.map(item => <Link className={`${styles.row}${!item.phone?.trim() && !item.identifier?.trim() ? ` ${styles.rowWithoutIdentity}` : ""}`} href={retailRecordHref(item.id,listUrl)} onClick={remember} key={item.key}>

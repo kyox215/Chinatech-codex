@@ -1,4 +1,5 @@
 "use client";
+import { ReadPending } from "@/components/page-recovery";
 import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 import { ReadFailure } from "@/components/page-recovery";
 import { backendSnapshot } from "@/lib/backend/client";
@@ -104,6 +105,7 @@ export function RetailDetail({ id, selectedSale, returnTo: requestedReturn, show
   const backHref = historyReturnHref(requestedReturn || (returnTo !== "/app/retail" ? returnTo : fallback));
   const loading = !ready || !history.ready;
   if (error || history.error) return <main className="module-page"><header className="module-heading"><PageTitle title={t("商品档案")} backHref={backHref} backLabel={t("返回商品列表")} /></header><ReadFailure message={error || history.error} /></main>;
-  if (loading || !unit || !staff.can("retail.view")) return <main className="module-page"><header className="module-heading"><PageTitle title={t("商品档案")} backHref={backHref} backLabel={t("返回商品列表")} /></header><div className="panel module-empty"><Boxes size={28} /><strong>{loading ? t("正在读取整机记录…") : !staff.can("retail.view") ? t("当前账号无权查看整机记录") : t("没有找到商品档案")}</strong>{error || history.error ? <p role="alert">{systemText(error || history.error)}</p> : null}<Link className="button button--primary" href={backHref}>{t("返回商品列表")}</Link></div></main>;
+  if (loading) return <main className="module-page"><header className="module-heading"><PageTitle title={t("商品档案")} backHref={backHref} backLabel={t("返回商品列表")} /></header><ReadPending label="正在读取整机记录…" /></main>;
+  if (!unit || !staff.can("retail.view")) return <main className="module-page"><header className="module-heading"><PageTitle title={t("商品档案")} backHref={backHref} backLabel={t("返回商品列表")} /></header><div className="panel module-empty"><Boxes size={28} /><strong>{!staff.can("retail.view") ? t("当前账号无权查看整机记录") : t("没有找到商品档案")}</strong>{error || history.error ? <p role="alert">{systemText(error || history.error)}</p> : null}<Link className="button button--primary" href={backHref}>{t("返回商品列表")}</Link></div></main>;
   return <RetailDetailView key={unit.id + ":" + staff.member?.id + ":" + staff.member?.revision} unit={unit} returnTo={backHref} original={original} showOriginal={showOriginal} sourcePreview={!saved} selectedSale={selectedSale} storageError={error || history.error}>{saved ? <RetailActions key={unit.id + ":" + unit.status} unit={unit} /> : original && (isSoldSource(original) ? <RetailRecordOriginalSale record={original} /> : <RetailRecordPreparation key={original.id + ":" + original.sourceSnapshot} record={original} />)}</RetailDetailView>;
 }

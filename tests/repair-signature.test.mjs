@@ -2,6 +2,7 @@ import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import ts from 'typescript';
+import { adaptPreviewHookImports } from './helpers/preview-hook-loader.mjs';
 const modules=new Map();
 const compile=path=>ts.transpileModule(readFileSync(new URL('../'+path,import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const url=code=>'data:text/javascript;base64,'+Buffer.from(code).toString('base64');
@@ -42,7 +43,7 @@ test('默认保修区分维修和整机，旧设置升级，非法月数不会�
   for(const months of [null,0,-1,1.5,121,'6'])assert.throws(()=>parseStoreSettings(JSON.stringify({version:1,settings:{...defaultStoreSettings,repairWarrantyMonths:months}})));
 });
 let instance=0;
-async function store(){const code=compile('components/repairs/local-intake-store.ts').replace(/import \{[^}]+\} from "react";/,'const useSyncExternalStore=()=>{}; const useMemo=fn=>fn();').replace(/import \{ previewRepairWorkflow \} from "\.\/repair-workflow-store";/,'const previewRepairWorkflow=()=>{throw new Error("Unexpected workflow lookup in signature persistence test");};').replace(/import \{ useRepairWorkflows \} from "\.\/repair-workflow-store";/,'const useRepairWorkflows=()=>({workflows:{}});').replace(/from "@\/lib\/([^"]+)"/g,(_,dep)=>`from "${library(dep)}"`);return import(url(code+'\n// '+instance++));}
+async function store(){let code=compile('components/repairs/local-intake-store.ts').replace(/import \{[^}]+\} from "react";/,'const useSyncExternalStore=()=>{}; const useMemo=fn=>fn();').replace(/import \{ previewRepairWorkflow \} from "\.\/repair-workflow-store";/,'const previewRepairWorkflow=()=>{throw new Error("Unexpected workflow lookup in signature persistence test");};').replace(/import \{ useRepairWorkflows \} from "\.\/repair-workflow-store";/,'const useRepairWorkflows=()=>({workflows:{}});').replace(/from "@\/lib\/([^"]+)"/g,(_,dep)=>`from "${library(dep)}"`);code=adaptPreviewHookImports(code,{compile,library,dataUrl:url});return import(url(code+'\n// '+instance++));}
 async function withBrowser(action){const before=globalThis.window;const values=new Map([['chinatech.m1.store-settings.v1',JSON.stringify({version:1,settings:{...defaultStoreSettings,shopName:policy.shopName,address:policy.address,phone:policy.phone}})]]);const browser=new EventTarget();browser.denyWrite=false;browser.localStorage={getItem:key=>values.get(key)??null,setItem:(key,value)=>{if(browser.denyWrite)throw new Error('DEMO quota');values.set(key,value);}};globalThis.window=browser;try{await action(await store(),values,browser);}finally{if(before===undefined)delete globalThis.window;else globalThis.window=before;}}
 const key='chinatech.m1.local-intakes.v1';
 test('新工单与签名一次保存；旧表单不能覆盖补签，修改资料保留原签名',()=>withBrowser(async(store,values)=>{

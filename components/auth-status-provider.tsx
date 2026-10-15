@@ -1,4 +1,5 @@
 "use client";
+import { useActivityFeedback } from "@/components/operation-feedback";
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import type { AuthStatus } from "@/lib/auth-status";
@@ -9,18 +10,22 @@ const Context = createContext<{ status: AuthStatus; checking: boolean; refresh: 
 export function AuthStatusProvider({ initial, initialChecking = false, children }: { initial: AuthStatus; initialChecking?: boolean; children: React.ReactNode }) {
   const [status, setStatus] = useState(initial);
   const [checking, setChecking] = useState(initialChecking);
+  const [foreground,setForeground]=useState(false);
+  useActivityFeedback(checking&&foreground,{kind:"retry"});
   const pathname = usePathname();
   const lastPathname = useRef(pathname);
   const control = useRef<(() => void) | null>(null);
   const needsDocumentRefresh = useRef(false);
-  const refresh = useCallback(() => { if (needsDocumentRefresh.current) window.location.reload(); else control.current?.(); }, []);
+  const refresh = useCallback(() => { if (needsDocumentRefresh.current) window.location.reload(); else {setForeground(true);control.current?.();} }, []);
   useEffect(() => {
     let alive = true, epoch = 0, foregroundTimer: number | undefined, flight: AbortController | undefined;
     let current = initial;
     let lastActivity = 0;
     queueMicrotask(() => { if (alive) setStatus(initial); });
     const check = (invalidate = false) => {
-      if (!alive || document.visibilityState !== "visible") return;
+      // A 409 requires a document refresh. Focus/polls cannot silently undo it
+      // or replace the user's retry control before that click is delivered.
+      if (!alive || needsDocumentRefresh.current || document.visibilityState !== "visible") return;
       if (flight && !invalidate) return;
       flight?.abort();
       const controller = new AbortController(); flight = controller;
@@ -39,7 +44,7 @@ export function AuthStatusProvider({ initial, initialChecking = false, children 
         current = next; setStatus(next);
       }).catch(() => {
         if (alive && epoch === generation && !controller.signal.aborted) { current = { ...current, state: "unavailable", account: null, store: null }; setStatus(current); }
-      }).finally(() => { if (alive && epoch === generation) { flight = undefined; setChecking(false); } });
+      }).finally(() => { if (alive && epoch === generation) { flight = undefined; setChecking(false);setForeground(false); } });
     };
     control.current = () => check(true);
     const interacted = (event: Event) => {

@@ -1,11 +1,13 @@
 "use client";
+import { ReadPending } from "@/components/page-recovery";
+import { useBackendState } from "@/components/backend-snapshot";
 
 import { useLanguage } from "@/components/language-provider";
 import { repairCustomerName, repairIssueText, repairItemText, repairKnownText } from "@/lib/i18n/repair-display";
 import { InputControl } from "@/components/input-control";
 import { NavigationLink as Link } from "@/components/navigation-link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   ArrowUpDown, ChevronRight, CircleHelp,
   ClipboardList, Clock3, Flag, Gamepad2, Laptop, SlidersHorizontal, RotateCcw, Layers,
@@ -31,7 +33,6 @@ import { RepairScanner } from "./repair-scanner";
 
 import { useStoreSettings } from "@/components/settings/settings-store";
 import { defaultRepairGroups, visibleRepairGroups } from "@/lib/repair-groups";
-import { backendSnapshot, isBackendClient } from "@/lib/backend/client";
 import { clearRepairListView, repairListViewScope, readRepairListView, writeRepairListView, captureRepairListPosition, restoreRepairListPosition, type RepairListViewState } from "@/lib/repair-list-view-state";
 
 type StatusFilter = "all" | "including_cancelled" | "handover" | RepairStatus;
@@ -52,11 +53,12 @@ function TableHead() {
 }
 
 export function RepairList() {
+  const backend=useBackendState();
   const { t } = useLanguage();
   const staff = useStaff();
-  const scope = repairListViewScope({ mode: isBackendClient() ? "backend" : "preview", storeId: backendSnapshot()?.storeId ?? "local-preview", member: staff.member });
+  const scope = repairListViewScope({ mode: backend.formal ? "backend" : "preview", storeId: backend.snapshot?.storeId ?? "local-preview", member: staff.member });
   useEffect(() => { if (staff.ready && !scope) clearRepairListView(); }, [staff.ready, scope]);
-  return scope ? <Suspense fallback={<section className="panel module-empty" role="status">{t("正在读取工单…")}</section>}><ScopedRepairList key={scope} scope={scope} /></Suspense> : <main className="module-page repair-page"><header className="module-heading"><PageTitle title={t("维修工单")} /></header><section className="panel section-empty" role="status">{staff.ready ? t("当前账号无法读取维修工单") : t("正在读取工单…")}</section></main>;
+  return scope ? <ScopedRepairList key={scope} scope={scope} /> : <main className="module-page repair-page"><header className="module-heading"><PageTitle title={t("维修工单")} /></header>{staff.ready ? <section className="panel section-empty" role="alert">{t("当前账号无法读取维修工单")}</section> : <ReadPending label="正在读取工单…" />}</main>;
 }
 
 function ScopedRepairList({ scope }: { scope: string }) {

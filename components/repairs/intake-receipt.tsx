@@ -5,7 +5,7 @@ import { Printer, X, RotateCcw } from "lucide-react";
 import { useLocalIntakes, useRepairDirectory } from "./local-intake-store";
 import { useRepairWorkflows } from "./repair-workflow-store";
 import { initialRepairWorkflow } from "@/lib/repair-workflow";
-import { isBackendClient } from "@/lib/backend/client";
+import { useBackendMode } from "@/components/backend-snapshot";
 import { itemQuoteTotal } from "@/lib/repair-item-pricing";
 import { getRepairOrder } from "@/lib/repair-fixtures";
 import { useStoreSettings } from "@/components/settings/settings-store";
@@ -19,6 +19,7 @@ export type { IntakeReceiptData } from "@/lib/repair-intake-record";
 const formats = { a5: "A5 landscape", a4: "A4 landscape", half: "A4 portrait", double: "A4 portrait" } as const;
 type QrData = { path: string; size: number };
 export function IntakeReceipt({ data, onClose }: { data: IntakeReceiptData; onClose: () => void }) {
+  const formal = useBackendMode();
   const { settings, ready: settingsReady, error: settingsError } = useStoreSettings();
   const { signatures, ready: intakesReady, error: intakesError } = useLocalIntakes();
   const unavailable = !settingsReady || !!settingsError || !intakesReady || !!intakesError;
@@ -27,7 +28,7 @@ export function IntakeReceipt({ data, onClose }: { data: IntakeReceiptData; onCl
   const { workflows } = useRepairWorkflows();
   const workflow = order ? workflows[data.id] ?? initialRepairWorkflow(order) : null;
   const quoteTotal=itemQuoteTotal(data.itemQuotes);
-  const quote = isBackendClient() ? undefined : getRepairOrder(data.id)?.quote;
+  const quote = formal ? undefined : getRepairOrder(data.id)?.quote;
   const policy = data.policy ?? { months: settings.repairWarrantyMonths, shopName: settings.shopName, address: settings.address, phone: settings.phone };
   const signature = matchingIntakeSignature(signatures, data, policy);
   const hasHistory = signatures.some(item => item.orderId === data.id);
@@ -79,7 +80,7 @@ export function IntakeReceipt({ data, onClose }: { data: IntakeReceiptData; onCl
         <section className="intake-receipt-block"><h4>{t("requested")}</h4><table><thead><tr><th>{t("description")}</th><th>{t("amount")}</th></tr></thead><tbody>{(data.itemQuotes?.length ? pricedRequests! : (requests.length?requests:[t("evaluate")]).map(label=>({label,amount:t("define")}))).map(request=><tr key={request.label}><td>{request.label}</td><td>{request.amount}</td></tr>)}</tbody></table><p><b>{t("reportedFault")}:</b> {issue.faults.join("; ") || "—"}</p>{issue.note ? <p><b>{t("issueNote")}:</b> {issue.note}</p> : null}<p><b>{t("diagnosis")}:</b> {t("incomplete")}</p></section>
         <section className="intake-receipt-block"><h4>{t("amounts")}</h4><dl>{fact("total", data.itemQuotes?.length ? quoteTotal===null?t("unquoted"):printMoney(quoteTotal,language) : quote && quote.version > 0 ? printMoney(Math.round(quote.total * 100), language) : t("unquoted"))}{fact("deposit", t("unrecorded"))}{fact("balance", t("define"))}</dl></section>
         <section className="intake-receipt-block"><h4>{t("service")}</h4><dl>{fact("technician", order?.technician && order.technician !== "未分配" ? order.technician : t("unassigned"))}{fact("orderType", t("repair"))}{fact("status", printRepairStage(workflow?.status ?? order?.status ?? "diagnosis", language))}{fact("custody", printCustody(workflow?.custody ?? data.custody ?? "unknown", language))}{fact("warrantyDuration", printMonths(policy.months, language))}{fact("accessories", printAccessories(data.accessories, language))}{fact("priority", printKnownOrOriginal(data.priority, language))}</dl></section>
-        {!isBackendClient() ? <small className="intake-receipt-local">{t("local")}</small> : null}
+        {!formal ? <small className="intake-receipt-local">{t("local")}</small> : null}
       </section>
       <section className="intake-receipt-warranty">
         <header className="intake-receipt-brand"><h3>{t("repairWarrantyTitle")}</h3><p>{policy.shopName}<br />{policy.address}<br />{contact}</p></header>
