@@ -109,6 +109,22 @@ try {
         Assert-Admission ([Convert]::ToBase64String((ConvertFrom-CTBase64Url (ConvertTo-CTBase64Url $bytes))) -ceq [Convert]::ToBase64String($bytes)) 'base64url roundtrips each padding boundary'
     }
     foreach ($bad in @('','a=','ab+','ab/','!!!!')) { Assert-AdmissionError { ConvertFrom-CTBase64Url $bad } 'toolbox.invalid' 'noncanonical base64url rejects' }
+    Invoke-AdmissionStage 'dpapi-existing-cng-type-early-return' {
+        # A fresh process preloads the CNG type name without loading DPAPI, then
+        # executes the real initializer's early-return branch from the pinned package.
+        $encodedPath=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($copy))
+        $childCode='$ErrorActionPreference="Stop";try{$p=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String("'+$encodedPath+'"));. $p -LibraryOnly;. Import-CTAdmission;Add-Type -TypeDefinition "public static class ChinaTechToolboxCryptoV1 {}";Initialize-CTToolboxCrypto;if(-not ("System.Security.Cryptography.ProtectedData" -as [type])){exit 2};$b=[Text.Encoding]::UTF8.GetBytes("public fixture");$e=[Security.Cryptography.ProtectedData]::Protect($b,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser);$d=[Security.Cryptography.ProtectedData]::Unprotect($e,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser);if([Convert]::ToBase64String($b) -cne [Convert]::ToBase64String($d)){exit 3};exit 0}catch{[Console]::WriteLine($_.Exception.GetType().FullName);exit 1}'
+        $start=New-Object Diagnostics.ProcessStartInfo
+        $start.FileName=Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell\v1.0\powershell.exe'
+        $start.Arguments='-NoLogo -NoProfile -NonInteractive -EncodedCommand '+[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childCode))
+        $start.UseShellExecute=$false;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
+        $process=New-Object Diagnostics.Process;$process.StartInfo=$start
+        try {
+            [void]$process.Start();$stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
+            if (-not $process.WaitForExit(30000)) { $process.Kill();throw 'owned diagnostic child timed out' }
+            Assert-Admission ($process.ExitCode -eq 0 -and $stderr.Result.Trim().Length -eq 0) 'real initializer loads DPAPI even when its CNG class already exists'
+        } finally { $process.Dispose() }
+    }
     Invoke-AdmissionStage 'directory-acl' { New-CTPrivateDirectory $script:testRoot;New-CTPrivateDirectory $script:testRoot }
     Invoke-AdmissionStage 'file-lease' {
         $probe=Join-Path $script:testRoot 'diagnostic.lock'

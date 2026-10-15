@@ -6,6 +6,9 @@ $script:CTToolboxReleaseId = '__CLIENT_RELEASE_ID__'
 $script:CTToolboxVersion = '__CLIENT_VERSION__'
 
 function Initialize-CTToolboxCrypto {
+    # Windows PowerShell 5.1 does not automatically load DPAPI's framework assembly.
+    # This must precede the CNG-type early return as both facilities are independent.
+    Add-Type -AssemblyName System.Security
     if ('ChinaTechToolboxCryptoV1' -as [type]) { return }
     Add-Type -TypeDefinition @'
 using System;

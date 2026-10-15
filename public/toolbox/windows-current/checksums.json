@@ -8,7 +8,7 @@
     "edition": "Professional",
     "architecture": "x64"
   },
-  "sourceInputSha256": "f15a476d0960649175da1ad0d785866c7602dbbef71a033791013fcb6d4f9f50",
+  "sourceInputSha256": "41dff4ce344c6ddeadc3918b4abe031ce347f9b88d52e23aa356409ede04dc17",
   "releasePolicySha256": "d15b5bb808e7de9c9ef005f6c74dfeaf217d0ee294e2f1df755f9114d8c20a6e",
   "evidenceFiles": {},
   "inputs": {
@@ -16,33 +16,33 @@
     "messages.json": "064193bb8586ae33fe22e476d702b49c4ce49f0ca0c14d196252e980476d7ff9",
     "runner.ps1": "ea5bb1d64713c3cdbb574342ebad6809d12afe4ecc31008a7dc6db51701aa71c",
     "workflow.ps1": "6a93afebfd6149f207f4e3dfbe1830d18b36ee1b5ab1fd0d1c5c7560f4a9be1d",
-    "admission.ps1": "21deccc2292564b51aa76ab6c7fb540d0bea3b70522d2b6cbefaf48442982729",
+    "admission.ps1": "60fb24e3404121f0157636f2dc4f7ea7ad363bf55b3c70233a81fe12d777f719",
     "build.mjs": "55bad504686e580a9f0671b978ca37267cfac86d796c79fcfa075c026fdfd61c"
   },
   "archive": {
     "path": "/toolbox/windows-current/ChinaTech-Windows-Check.zip",
-    "sha256": "42c2b0c1ed3fa4786893269343b173deed8753f0653828c35edbcaeb901eefe5",
-    "bytes": 59503
+    "sha256": "3a62e575d984bf45729ab9f293e18c29a883541b3caa8defd86161fa5c579514",
+    "bytes": 59578
   },
   "files": {
     "ChinaTech-Windows.ps1": {
-      "sha256": "fa9d42177f5473f7df48870e3f2b057333fb4a6c97a6a5ad4107d9555bb04e71",
-      "bytes": 153415
+      "sha256": "d220122e3440508510d35b5e2491bf12c98ab8005b9a0aeeed03b64da2d84462",
+      "bytes": 153699
     },
     "release.xml": {
       "sha256": "a04675a8a5d1b3399e55ed4454ff5c44056e22ce30bf3ad479407dbdf2db232a",
       "bytes": 831
     },
     "Start-zh-CN.cmd": {
-      "sha256": "4e6a23319785ec394b5f358ad04217e1a3877df1d44ab12618bc7dea2d564df4",
+      "sha256": "22620ffdd3cffa15ad26575782253fa0c8750ff57c4a02c301e8df9d67e7aed5",
       "bytes": 6937
     },
     "Start-it.cmd": {
-      "sha256": "4b1be0e2bb1e0b6dcc3886115caea64dcb15c296c8052079fc953bf8cd78e559",
+      "sha256": "e3aff7f8ecfc1ceb09fb8a8db02ce5e6f68c4df583dee437767033cd8cacd3b9",
       "bytes": 8321
     },
     "Start-en.cmd": {
-      "sha256": "bc6502443afc65047edc7d3c5f345286869385fd913514eb7e2c343dc237d65c",
+      "sha256": "1b4a893f9ab55b82af98bcd35c990813aaf021c76dcf6c853daa9fe1b71f79fa",
       "bytes": 8205
     },
     "Launcher-notices.txt": {
