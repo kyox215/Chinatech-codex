@@ -6,7 +6,7 @@
 
 实际本地冻结98关联浏览器通过，组件目录两引擎/三语四宽/API0/计时1849与1822ms通过；513领域512过/1本机无PowerShellskip，新增writer通知后34客户端专项过。独立审查暴露并修复隐藏Toast、重播、deadline、不同事件吞提示、unknown假busy及在线prepared恢复入口P1；后者源码CODE_GO，随后真实隔离验收已通过，见下一段。报告与边界ui-design/verification.md，源码证据.local/ui-feedback。旧失败/热更新干扰保留，未用它们冒充通过。
 
-已正常合入正式main8e4638d9（Phone0.5.1），44文件42字节相同/CI与返回Link两受控合并。组合类型/4203三语/513领域、默认及正式编译、11CSS两顺序16组合过；严格https本地Auth/DB恢复两引擎各3组+照片两引擎过，新UUID精确清理且0生产业务写。双域fresh均J58NEAJBLcGTN5ZDhzv8qS1TLppT，已保存回滚点。待精确head完整CI/同源候选/独立gate后随工单一起上线；不得晋升旧344d候选或回退2Wm。
+已正常合入正式main8e4638d9（Phone0.5.1），44文件42字节相同/CI与返回Link两受控合并。组合类型/4203三语/513领域、默认及正式编译、11CSS两顺序16组合过；另60控件/工作台/工具箱与10账号（含单圈重试）双引擎过；严格https本地Auth/DB恢复两引擎各3组+照片两引擎过，新UUID精确清理且0生产业务写。双域fresh均J58NEAJBLcGTN5ZDhzv8qS1TLppT，已保存回滚点。待精确head完整CI/同源候选/独立gate后随工单一起上线；不得晋升旧344d候选或回退2Wm。
 
 ## 工单详情整合实施与发布准备（2026-10-15）
 
