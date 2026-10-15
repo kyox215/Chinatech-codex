@@ -204,7 +204,8 @@ try {
     $script:updateClaims=[ordered]@{iss='https://www.chinatech.in';aud='toolbox-v1-update';toolId='windows-check';activeReleaseId='windows-check-20261015.5';releaseId='windows-check-20261015.5';issuedAt=$now;expiresAt=$now+300;
         files=@([ordered]@{architecture='any';href='https://www.chinatech.in/toolbox/windows-current/ChinaTech-Windows-Check.zip';bytes=$script:downloadBytes.Length;sha256=(Get-Sha256Bytes $script:downloadBytes)})}
     $file=Get-CTVerifiedToolboxUpdate
-    foreach ($bad in @('http://www.chinatech.in/toolbox/windows-current/ChinaTech-Windows-Check.zip','https://example.test/current.zip','https://www.chinatech.in/toolbox/windows/ChinaTech-Windows-Check.zip',$file.href+'?other=1')) {
+    foreach ($bad in @('http://www.chinatech.in/toolbox/windows-current/ChinaTech-Windows-Check.zip','https://example.test/current.zip','https://www.chinatech.in/toolbox/windows/ChinaTech-Windows-Check.zip',($file.href+'?other=1'))) {
+        Assert-Admission ($bad -cne 'https://www.chinatech.in/toolbox/windows-current/ChinaTech-Windows-Check.zip') 'each negative update URI fixture differs from the sole allowed URI'
         $original=$script:updateClaims.files[0].href;$script:updateClaims.files[0].href=$bad
         Assert-AdmissionError { Get-CTVerifiedToolboxUpdate } 'toolbox.invalid' 'even signed updates cannot choose an old or arbitrary URL'
         $script:updateClaims.files[0].href=$original
