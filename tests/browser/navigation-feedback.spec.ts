@@ -264,10 +264,32 @@ test("public account menu preserves pending feedback through Escape and outside 
   await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
 });
 
-test("native same-page, hash and new-tab navigation does not start parent progress", async ({ page, context }) => {
+test("same-URL refresh follows real pending and retains the current content", async ({ page }) => {
   await page.goto("/");
-  await page.locator('header a[href="/"]').press("Enter");
-  await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
+  const original = await page.locator("h1").textContent();
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/*", async route => {
+    if (route.request().headers()["rsc"] !== "1" || new URL(route.request().url()).pathname !== "/") return route.continue();
+    const response = await route.fetch(); await gate; await route.fulfill({ response });
+  });
+  try {
+    const link = page.locator('header a[href="/"]');
+    await link.press("Enter");
+    await expect(link.locator(".navigation-feedback")).toHaveAttribute("data-pending", "true");
+    await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(1);
+    await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(1);
+    await expect(page.locator("h1")).toHaveText(original!);
+    expect((await page.locator("[data-content-progress]").boundingBox())!.height).toBe(2);
+    release();
+    await expect(link.locator(".navigation-feedback")).toHaveAttribute("data-pending", "false");
+    await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/$/);
+  } finally { release(); await page.unrouteAll({ behavior: "wait" }); }
+});
+
+test("hash navigation completes before a new-tab click and does not leave parent progress", async ({ page, context }) => {
+  await page.goto("/");
   await page.getByRole("link", { name: "观看使用教程", exact: true }).click();
   await expect(page).toHaveURL(/\/#tutorials$/);
   await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(0);
@@ -278,6 +300,55 @@ test("native same-page, hash and new-tab navigation does not start parent progre
   await expect(page).toHaveURL(/\/#tutorials$/);
   await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
   await popup.close();
+});
+
+test("keyboard skip navigation focuses the real content after commit, including a cached return", async ({ page }) => {
+  for (const path of ["/", "/toolbox", "/toolbox/office", "/toolbox/windows", "/toolbox/transfer"]) {
+    await page.goto(path);
+    for (let visit = 0; visit < 2; visit++) {
+      const skip = page.getByRole("link", { name: "跳到主要内容", exact: true });
+      await skip.focus(); await skip.press("Enter");
+      await expect(page.locator("#main-content")).toBeFocused();
+      await expect(page).toHaveURL(/#main-content$/);
+      await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
+      if (visit === 0) { await page.goBack(); await expect(page).toHaveURL(new RegExp(path === "/" ? "/$" : `${path}$`)); }
+    }
+  }
+});
+
+test("hash navigation supersedes a held same-URL refresh and survives its late response", async ({ page }) => {
+  await page.goto("/");
+  const original = await page.locator("h1").textContent();
+  let release!: () => void; let oldStarted!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const started = new Promise<void>(resolve => { oldStarted = resolve; });
+  let holdOld = true;
+  const late: Promise<void>[] = [];
+  await page.route("**/*", async route => {
+    if (route.request().headers()["rsc"] !== "1" || new URL(route.request().url()).pathname !== "/") return route.continue();
+    const shouldHold = holdOld;
+    const response = await route.fetch();
+    if (!shouldHold) return route.fulfill({ response });
+    oldStarted();
+    const completion = gate.then(() => route.fulfill({ response }).catch(() => {}));
+    late.push(completion); await completion;
+  });
+  try {
+    await page.locator('header a[href="/"]').press("Enter");
+    await started;
+    await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(1);
+    holdOld = false;
+    await page.getByRole("link", { name: "观看使用教程", exact: true }).click();
+    await expect(page).toHaveURL(/\/#tutorials$/);
+    await expect(page.locator("h1")).toHaveText(original!);
+    await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(0);
+    await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
+    release(); await Promise.all(late);
+    await page.waitForLoadState("networkidle");
+    await expect(page).toHaveURL(/\/#tutorials$/);
+    await expect(page.locator("h1")).toHaveText(original!);
+    await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
+  } finally { release(); await page.unrouteAll({ behavior: "wait" }); }
 });
 
 test("busy bridge excludes hidden and background controls and waits for every visible operation", async ({ page }) => {

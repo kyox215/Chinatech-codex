@@ -34,10 +34,10 @@ export function PublicHeader({ page = "home" }: { page?: "home" | "toolbox" | "o
       <Brand compact />
     </div>
     {isHome && <nav className={styles.navigation} aria-label={t("主页导航")}>
-      <a href="#features">{t("功能亮点")}</a>
-      <a href="#tutorials">{t("视频教程")}</a>
-      <a href="#workflow">{t("业务流程")}</a>
-      <a href="#questions">{t("常见问题")}</a>
+      <Link href="#features">{t("功能亮点")}</Link>
+      <Link href="#tutorials">{t("视频教程")}</Link>
+      <Link href="#workflow">{t("业务流程")}</Link>
+      <Link href="#questions">{t("常见问题")}</Link>
     </nav>}
     <LanguageSwitcher />
     <Link className={styles.publicLink} href="/toolbox" aria-label={t("工具箱")} aria-current={page === "toolbox" ? "page" : undefined}>
