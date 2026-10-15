@@ -24,7 +24,7 @@ export async function toolOperation(request:NextRequest,toolId:ToolId,op:'start'
   const path=`/api/toolbox/client/v1/${toolId}/jobs/${op}`;
   if(request.nextUrl.origin!==origin||request.nextUrl.pathname!==path||request.headers.has('authorization'))throw new DesktopError('INVALID_REQUEST');
   const wire=await desktopBody(request,['payload','signature']);if(typeof wire.payload!=='string')throw new DesktopError('INVALID_REQUEST');
-  let body:V3Proof;try{body=objectV3(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(base64V3(wire.payload))),['requestId','installationId','appVersion','releaseId','timestamp','nonce','publicKey','jobId','action','scopeHash',...(op==='outcome'?['checkpointHash']:[])]) as V3Proof;}catch{throw new DesktopError('INVALID_REQUEST');}
+  let body:V3Proof;try{body=objectV3(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(base64V3(wire.payload))),['requestId','installationId','appVersion','releaseId','timestamp','nonce','publicKey','jobId','action','scopeHash',...(op==='outcome'?['checkpointHash','status']:[])]) as V3Proof;}catch{throw new DesktopError('INVALID_REQUEST');}
   desktopUuid(body.requestId);desktopUuid(body.installationId);desktopUuid(body.jobId);base64V3(body.nonce,32);
   if(typeof body.appVersion!=='string'||body.appVersion.length<1||body.appVersion.length>96||typeof body.releaseId!=='string'||!/^[a-z0-9][a-z0-9.-]{0,95}$/.test(body.releaseId)||typeof body.scopeHash!=='string'||!/^[a-f0-9]{64}$/.test(body.scopeHash)||!Number.isSafeInteger(body.timestamp)||Math.abs(Number(body.timestamp)-Date.now()/1000)>300)throw new DesktopError('INVALID_REQUEST');
   if(!(toolId==='windows-check'?body.action==='detect':toolId==='phone-assistant'&&['send','receive'].includes(String(body.action))))throw new DesktopError('INVALID_REQUEST');
@@ -38,13 +38,14 @@ export async function toolOperation(request:NextRequest,toolId:ToolId,op:'start'
    await lockV3(tx,'control');await lockV3(tx,'tool-instance:'+body.installationId);
    const [known]=await tx<{key_hash:string;public_key:string}[]>`select key_hash,public_key from chinatech_v2_private.toolbox_devices where installation_id=${body.installationId}`;
    if(known&&(known.key_hash!==keyHash||known.public_key!==body.publicKey))throw new DesktopError('DEVICE_KEY_CONFLICT',409);
-   const existing=await tx<{job_id:string;fingerprint:string;request_id:string;nonce:string;permit:Record<string,unknown>;expires_at:Date;completed_at:Date|null;completion_hash:string|null}[]>`select job_id,fingerprint,request_id,nonce,permit,expires_at,completed_at,completion_hash from chinatech_v2_private.toolbox_jobs where installation_id=${body.installationId} and (job_id=${String(body.jobId)} or request_id=${body.requestId} or nonce=${String(body.nonce)})`;
+   const existing=await tx<{job_id:string;fingerprint:string;request_id:string;nonce:string;permit:Record<string,unknown>;expires_at:Date;completed_at:Date|null;completion_hash:string|null;terminal_status:string|null}[]>`select job_id,fingerprint,request_id,nonce,permit,expires_at,completed_at,completion_hash,terminal_status from chinatech_v2_private.toolbox_jobs where installation_id=${body.installationId} and (job_id=${String(body.jobId)} or request_id=${body.requestId} or nonce=${String(body.nonce)})`;
    if(existing.length){const row=existing[0];if(existing.length!==1||row.job_id!==body.jobId||row.fingerprint!==fingerprint||(op==='start'&&(row.request_id!==body.requestId||row.nonce!==body.nonce)))throw new DesktopError('REQUEST_CONFLICT',409);if(row.expires_at.getTime()<=Date.now())throw new DesktopError('RESUME_EXPIRED',403);
     if(op==='outcome'){
      if(typeof body.checkpointHash!=='string'||!/^[a-f0-9]{64}$/.test(body.checkpointHash))throw new DesktopError('INVALID_REQUEST');
-     if(row.completed_at&&row.completion_hash!==body.checkpointHash)throw new DesktopError('REQUEST_CONFLICT',409);
-     if(!row.completed_at)await tx`update chinatech_v2_private.toolbox_jobs set completed_at=now(),completion_hash=${body.checkpointHash} where job_id=${String(body.jobId)}`;
-     return {completed:true};
+     const status=body.status===undefined?'completed':body.status;if(typeof status!=='string'||!['completed','cancelled'].includes(status))throw new DesktopError('INVALID_REQUEST');
+     if(row.completed_at&&(row.completion_hash!==body.checkpointHash||row.terminal_status!==status))throw new DesktopError('REQUEST_CONFLICT',409);
+     if(!row.completed_at)await tx`update chinatech_v2_private.toolbox_jobs set completed_at=now(),completion_hash=${body.checkpointHash},terminal_status=${String(status)} where job_id=${String(body.jobId)}`;
+     return {completed:status==='completed',status};
     }
     if(row.completed_at)throw new DesktopError('JOB_COMPLETED',409);return {permit:row.permit};}
    if(op!=='start')throw new DesktopError('SESSION_INVALID',401);

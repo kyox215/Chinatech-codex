@@ -92,7 +92,7 @@ create table chinatech_v2_private.toolbox_jobs(
  job_id uuid primary key,tool_id text not null,release_id text not null,app_version text not null,
  installation_id uuid not null,key_hash text not null,action text not null check(action in('detect','send','receive')),
  scope_hash text not null check(scope_hash ~ '^[a-f0-9]{64}$'),request_id uuid not null,nonce text not null check(length(nonce)=43),fingerprint text not null check(fingerprint ~ '^[a-f0-9]{64}$'),
- completed_at timestamptz,completion_hash text check(completion_hash ~ '^[a-f0-9]{64}$'),check((completed_at is null)=(completion_hash is null)),permit jsonb not null check(jsonb_typeof(permit)='object'),created_at timestamptz not null,expires_at timestamptz not null,
+ terminal_status text check(terminal_status in('completed','cancelled')),completed_at timestamptz,completion_hash text check(completion_hash ~ '^[a-f0-9]{64}$'),check((completed_at is null)=(completion_hash is null) and (completed_at is null)=(terminal_status is null)),permit jsonb not null check(jsonb_typeof(permit)='object'),created_at timestamptz not null,expires_at timestamptz not null,
  foreign key(tool_id,release_id) references chinatech_v2_private.toolbox_releases(tool_id,release_id),foreign key(installation_id,key_hash) references chinatech_v2_private.toolbox_devices(installation_id,key_hash),
  unique(installation_id,request_id),unique(installation_id,nonce),check(expires_at>created_at and expires_at<=created_at+interval '30 days'));
 alter table chinatech_v2_private.toolbox_devices enable row level security;
@@ -112,11 +112,11 @@ begin perform pg_advisory_xact_lock(hashtextextended('office-v3:control',140));r
 revoke all on function chinatech_v2_private.toolbox_lock_job_start() from public,anon,authenticated;
 create trigger toolbox_lock_job_start before insert on chinatech_v2_private.toolbox_jobs for each row execute function chinatech_v2_private.toolbox_lock_job_start();
 
-grant update(completed_at,completion_hash) on chinatech_v2_private.toolbox_jobs to chinatech_runtime;
+grant update(completed_at,completion_hash,terminal_status) on chinatech_v2_private.toolbox_jobs to chinatech_runtime;
 create policy toolbox_job_complete on chinatech_v2_private.toolbox_jobs for update to chinatech_runtime using(
  installation_id::text=current_setting('app.office_v3_installation',true) and key_hash=current_setting('app.office_v3_key_hash',true) and current_setting('app.office_v3_op',true)='tool-outcome' and completed_at is null)
- with check(installation_id::text=current_setting('app.office_v3_installation',true) and key_hash=current_setting('app.office_v3_key_hash',true) and completed_at is not null and completion_hash is not null);
+ with check(installation_id::text=current_setting('app.office_v3_installation',true) and key_hash=current_setting('app.office_v3_key_hash',true) and completed_at is not null and completion_hash is not null and terminal_status is not null);
 create function chinatech_v2_private.toolbox_completion_immutable() returns trigger language plpgsql set search_path=pg_catalog as $$
-begin if old.completed_at is not null and (new.completed_at is distinct from old.completed_at or new.completion_hash is distinct from old.completion_hash) then raise exception 'completed task is immutable' using errcode='23514';end if;return new;end$$;
+begin if old.completed_at is not null and (new.completed_at is distinct from old.completed_at or new.completion_hash is distinct from old.completion_hash or new.terminal_status is distinct from old.terminal_status) then raise exception 'completed task is immutable' using errcode='23514';end if;return new;end$$;
 revoke all on function chinatech_v2_private.toolbox_completion_immutable() from public,anon,authenticated;
 create trigger toolbox_completion_immutable before update on chinatech_v2_private.toolbox_jobs for each row execute function chinatech_v2_private.toolbox_completion_immutable();

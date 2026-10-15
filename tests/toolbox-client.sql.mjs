@@ -24,6 +24,14 @@ export async function toolboxClientChecks({owner,db,pass}){
   assert.equal((await request(another(),'resume')).status,200);
   const update=await source.toolUpdate('windows-check'),metadata=JSON.parse(Buffer.from(update.payload,'base64url'));assert.equal(metadata.activeReleaseId,manifest.releaseId);assert.equal(metadata.aud,'toolbox-v1-update');
   const finish={...another(),checkpointHash:'d'.repeat(64)};assert.equal((await request(finish,'outcome')).status,200);assert.equal((await request(finish,'outcome')).status,200);assert.equal((await request(another(),'resume')).status,409);
-  pass('Generic task real HTTP proof/signature, non-semver identity, idempotency, frozen scope, forged/cross-tool denial and paused recovery; signed update stays available');
+  await owner`update chinatech_v2_private.toolbox_tools set enabled=true where tool_id='windows-check'`;
+  assert.equal((await request({...finish,status:null},'outcome')).status,400);
+  const cancelled={...another(),jobId:randomUUID()};assert.equal((await request(cancelled)).status,200);
+  const cancelledOutcome={...cancelled,requestId:randomUUID(),nonce:randomBytes(32).toString('base64url'),checkpointHash:'f'.repeat(64),status:'cancelled'};
+  const cancelledResponse=await request(cancelledOutcome,'outcome');assert.equal(cancelledResponse.status,200);assert.deepEqual(await cancelledResponse.json(),{completed:false,status:'cancelled'});
+  assert.equal((await request(cancelledOutcome,'outcome')).status,200);
+  assert.equal((await request({...cancelledOutcome,status:'completed'},'outcome')).status,409);
+  assert.equal((await request({...cancelled,requestId:randomUUID(),nonce:randomBytes(32).toString('base64url')},'resume')).status,409);
+  pass('Generic task real HTTP proof/signature, non-semver identity, idempotency, frozen scope, forged/cross-tool denial and paused recovery; completed/cancelled terminal states; signed update stays available');
  }finally{env.VERCEL=before.VERCEL;env.OFFICE_DESKTOP_V3_RATE_SECRET=before.rate;}
 }

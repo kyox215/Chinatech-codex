@@ -1,5 +1,6 @@
 param([string]$ProjectRoot = (Split-Path -Parent $PSScriptRoot))
 $ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'windows-toolbox.stderr.ps1')
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'Native Windows required for CNG/DPAPI admission checks' }
 $entry=Join-Path $ProjectRoot 'public/toolbox/windows-current/ChinaTech-Windows.ps1.txt'
 $copyRoot=Join-Path ([IO.Path]::GetTempPath()) ('ChinaTech-admission-'+[Guid]::NewGuid().ToString('D'))
@@ -126,7 +127,9 @@ try {
             $typesOnly=$outText -match '^DIAGNOSTIC childType=[A-Za-z_][A-Za-z0-9_.+]* line=[0-9]+$'
             Write-Output ('DIAGNOSTIC childExitCode='+$process.ExitCode+' stdoutTypeOnly='+$typesOnly+' stderrLength='+$errText.Length+' stderrClixml='+$errText.TrimStart().StartsWith('#< CLIXML'))
             if ($typesOnly) { Write-Output $outText }
-            Assert-Admission ($process.ExitCode -eq 0 -and $errText.Trim().Length -eq 0) 'real initializer loads DPAPI even when its CNG class already exists'
+            $parsed=[CTDiagnosticStderr]::Inspect($errText)
+            Write-Output ('DIAGNOSTIC stderrRoot='+$parsed.Root+' childRecords='+$parsed.Records+' streams='+($parsed.Streams -join ','))
+            Assert-Admission ($process.ExitCode -eq 0 -and $parsed.Allowed) 'real initializer loads DPAPI; stderr contains only an empty CLIXML wrapper or explicit progress'
         } finally { $process.Dispose() }
     }
     Invoke-AdmissionStage 'directory-acl' { New-CTPrivateDirectory $script:testRoot;New-CTPrivateDirectory $script:testRoot }
