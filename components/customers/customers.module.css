@@ -2,7 +2,7 @@
 .listToolbar { display: flex; align-items: center; gap: 16px; padding: 14px; border-bottom: 1px solid var(--border); }
 .count { flex: 0 0 auto; color: var(--text-secondary); font-size: 13px; }
 .tableHead, .row { display: grid; grid-template-columns: minmax(230px, 1.5fr) 100px 100px minmax(160px, 1fr) 24px; align-items: center; gap: 14px; min-width: 660px; padding: 14px 16px; }
-.tableHead { background: var(--surface-subtle); color: var(--text-secondary); font-size: 12px; }
+.tableHead { background: var(--bg); color: var(--text); font-size: 14px; font-weight: 400; }
 .row { min-height: 76px; border-bottom: 1px solid var(--border); color: var(--text); font-size: 14px; text-decoration: none; }
 .row:last-child { border-bottom: 0; }
 .row:hover, .row:focus-visible { background: var(--primary-50); }
@@ -51,3 +51,7 @@
   .formBody input, .formBody textarea { font-size: 16px; }
   .formActions button { min-height: 44px; }
 }
+
+@media (min-width: 768px) { .identity strong { font-size: 16px; font-weight: 500; } }
+
+.tableHead { min-height: 48px; }

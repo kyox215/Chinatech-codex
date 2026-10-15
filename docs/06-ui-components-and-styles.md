@@ -1,5 +1,22 @@
 # 公共组件与样式复用规范
 
+## Figma 当前基线与设计前必读（2026-10-15）
+
+所有 UI 设计、改版和维护先读 PROJECT_MEMORY / AGENTS / 本节，再列规划、实际组件使用方及验收。Figma [项目管理流程](https://www.figma.com/design/nhZ37YLOUVP8zpDBBGihhS?node-id=12373-155040) 是组件视觉来源；整节只返回稀疏元数据，实施必须读取可见子节点的高保真上下文与截图。组件映射、检查范围与当前执行证据见[本轮审查36](36-ui-design-audit-20261015.md)。
+
+| 语义 | 当前统一值与入口 |
+| --- | --- |
+| 字体 | Source Sans 3，单个自托管可变 WOFF2、200–900、font-display:swap；中文沿系统字体回退。官方固定提交/OFL/文件SHA在public/fonts/source-sans-3/provenance.json。增加170188B字体资源，不新增JS库或第三方运行请求，验收实际字体加载和长文案。 |
+| 基础颜色 | 主色--primary-600 #5f57ff、背景--bg #f6f7f9、白色--surface、边框--border #e2e3e8。保留现有更清晰的正文/辅助文字对比色与业务状态语义，不照搬低对比度弱文本。 |
+| 半径 | 控件--radius-control 8px；面板--radius-panel和普通弹窗--radius-dialog均16px；手机底部面板--radius-sheet 24px，避免跟随面板半径误放大。 |
+| 按钮 | 公共.button为14px/500/20px行高，沿8px圆角、原焦点/禁用/busy；默认44px，桌面允许有名的compact/tiny变体，手机变体和icon-button至少44×44px。领域金额、营销大CTA等明确变体保留，不能统一改所有strong。 |
+| 表头/主名称 | 表头14px/400/--bg、48px最小行高；只调整明确主名称为桌面16px/500，列宽、金额/编号/状态字号和手机卡片保持所属模块事实。 |
+| 表单/候选 | InputControl/TextareaControl/SelectControl/SearchCombobox等为唯一入口；普通标签14px/500、普通输入16px、紧凑搜索14px；8px圆角和既有焦点/错误/填写/禁用/只读状态，手机16px输入。目录手填按钮必须命中公共.button，不得被CSS Modules误哈希。 |
+| 普通弹层 | 16px外层内边距、16px圆角、明确头/操作区分割、共享遮罩；保留原生dialog、焦点/关闭、提交锁。扫码/照片为正文操作，下载/视频/打印/底部面板保留相应语义，不机械添加确认footer。 |
+| 响应可见性 | 商品详情桌面普通分组只显示桌面标题，source/history保留折叠；手机只显示折叠标题。显示规则带.detail作用域，不能依赖global与module同权加载顺序。 |
+
+后续流程固定为：读守则与参考 → 定位组件/状态/使用方并列短规划 → 沿同源控件和token设计实施 → 真实交互与正式CSS四宽验证 → 记录来源、结果、剩余边界。高密度是业务适配，不能通过缩小手机输入或触控目标实现；既有Lucide业务图标、动态照片/头像、打印纸张和已确认导航结构按项目规则保留。没有设计参考的错误/离线/冲突状态沿项目操作状态契约，不能称它们均已做Figma逐像素比较。
+
 ## 2026-10-15 独立目录字段
 
 DeviceIdentityPicker现为两个DeviceCatalogControl的薄展示层，不再创建组合dialog；新建的清型号/撤销、维修服务/报价/同意/签名和已有更正仍归各模块。目录控件直接复用useCatalogIndex和原受限分页fallback，窗口化及稳定ID保持。SearchCombobox增加显式opt-in commitOnBlur、showAllOnOpen、adaptiveMenu、onQueryChange、inputLabel、className和manualActionLabel；默认客户/配件等即时输入行为不变。emptyText=null仅在真实错误已有反馈时抑制假空态，不忽略错误。

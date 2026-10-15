@@ -36,6 +36,50 @@ test.beforeEach(async ({ page }) => {
   await expect(page).toHaveURL(/\/app\/dashboard$/);
 });
 
+test("每组只保留当前端标题，折叠不丢编辑草稿，取消不改已保存事实", async ({ page }) => {
+  await page.goto(`/app/retail/units/${retailUnits[1].id}`);
+  for (const width of [1440, 1024, 390, 375]) {
+    await page.setViewportSize({ width, height: 1000 });
+    for (const id of ["identity", "physical", "finance", "actions"]) {
+      const group = page.locator(`[data-retail-group="${id}"]`);
+      // Embedded action panels retain their own desktop header; count the
+      // visible semantic heading instead of assuming a direct-child wrapper.
+      await expect(group.getByRole("heading", { level: 3 })).toHaveCount(1);
+      const toggle = group.locator(":scope > button[aria-controls]");
+      if (width < 768) {
+        await expect(toggle).toBeVisible();
+        expect(await toggle.evaluate(element => getComputedStyle(element).borderTopWidth)).toBe("0px");
+      } else {
+        await expect(toggle).not.toBeVisible();
+      }
+    }
+    const history = page.locator('[data-retail-group="history"]');
+    const toggle = history.locator(":scope > button");
+    await openGroup(page, "history");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await toggle.focus(); await toggle.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(history.locator(":scope > div[id]")).not.toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await openGroup(page, "identity");
+  const source = page.getByRole("button", { name: "编辑来源", exact: true });
+  const saved = (await source.textContent()) ?? "";
+  expect(saved).not.toBe("");
+  await source.click();
+  const input = page.getByRole("textbox", { name: "来源", exact: true });
+  await input.fill("DEMO折叠中的未提交编辑");
+  const identity = page.locator('[data-retail-group="identity"] > button');
+  await identity.focus(); await identity.press("Enter");
+  await expect(input).not.toBeVisible();
+  await identity.press("Enter");
+  await expect(input).toHaveValue("DEMO折叠中的未提交编辑");
+  await page.getByRole("button", { name: "取消", exact: true }).click();
+  await expect(source).toHaveText(saved);
+  await page.reload(); await openGroup(page, "identity");
+  await expect(source).toHaveText(saved);
+});
+
 test("图形档案四宽度完整展示，未知成本保留待确认，字段更正可刷新恢复", async ({ page }, info) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   const unit = retailUnits[1];

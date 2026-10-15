@@ -7,8 +7,11 @@
 .device dt { font-size: 13px; color: var(--text-secondary); }
 .device dd { margin: 4px 0 0; overflow-wrap: anywhere; }
 .device strong { margin-right: 12px; }
-.dialog { max-width: min(480px, calc(100vw - 32px)); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 24px; }
+.dialog { max-width: min(480px, calc(100vw - 32px)); border: 1px solid var(--border); border-radius: var(--radius-dialog); padding: 16px; background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); }
 .dialog::backdrop { background: var(--overlay); }
 @media (max-width: 767px) { .panel { padding: 16px; } .device { align-items: stretch; flex-direction: column; } .device dl { display: grid; } }
 
 .panel button { min-height: 44px; }
+
+.dialog > h3 { margin: 0 -16px; padding: 0 16px 16px; border-bottom: 1px solid var(--border); font-size: 18px; font-weight: 500; line-height: 24px; }
+.dialog > .actions { justify-content: flex-end; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }

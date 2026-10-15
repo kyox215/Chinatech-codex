@@ -1,5 +1,13 @@
+@font-face {
+  font-family: "Source Sans 3";
+  src: url("/fonts/source-sans-3/source-sans-3-roman.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+}
+
 :root {
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-sans: "Source Sans 3", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
   --primary-700: #4f47eb;
   --primary-600: #5f57ff;
   --primary-500: #746dff;
@@ -26,7 +34,9 @@
   --shadow-sm: 0 1px 2px rgba(82, 88, 102, 0.06);
   --shadow-md: 0 12px 32px rgba(32, 34, 48, 0.08);
   --radius-control: 8px;
-  --radius-panel: 12px;
+  --radius-panel: 16px;
+  --radius-dialog: 16px;
+  --radius-sheet: 24px;
 }
 
 * { box-sizing: border-box; }
@@ -56,8 +66,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
   padding: 10px 17px;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
-  font-weight: 600;
-  line-height: 1.35;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
   cursor: pointer;
   transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
 }
@@ -72,7 +83,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 .button:active:not(:disabled):not([aria-disabled="true"]) { transform: translateY(1px); filter: brightness(.94); }
 .button:focus-visible { outline: 3px solid var(--primary-500); outline-offset: 3px; }
-.button--primary { color: white; background: var(--primary-600); box-shadow: 0 1px 2px rgba(6, 81, 246, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.22); }
+.button--primary { color: white; background: var(--primary-600); box-shadow: 0 1px 2px rgba(6, 161, 246, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.24); }
 .button--secondary { color: var(--text); background: white; border-color: var(--border); box-shadow: var(--shadow-sm); }
 .button--small { min-height: 36px; padding: 8px 14px; color: white; background: var(--primary-600); }
 .button--compact { min-height: 38px; padding: 8px 12px; font-size: 14px; }
@@ -394,7 +405,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .panel__header > div { min-width: 0; }
 .panel__header h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .panel__header p { overflow: hidden; margin: 3px 0 0; color: var(--text-tertiary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.repair-table__head { display: grid; grid-template-columns: minmax(220px,1.3fr) minmax(130px,.75fr) 130px 32px; gap: 14px; padding: 9px 14px; color: var(--text-tertiary); border-bottom: 1px solid var(--border); background: var(--surface-subtle); font-size: 12px; }
+.repair-table__head { display: grid; grid-template-columns: minmax(220px,1.3fr) minmax(130px,.75fr) 130px 32px; gap: 14px; padding: 9px 14px; color: var(--text); border-bottom: 1px solid var(--border); background: var(--bg); font-size: 14px; font-weight: 400; }
 .repair-row { min-height: 68px; display: grid; grid-template-columns: minmax(220px,1.3fr) minmax(130px,.75fr) 130px 32px; align-items: center; gap: 14px; padding: 9px 14px; border-bottom: 1px solid #eeeff2; }
 .repair-row:last-child { border-bottom: 0; }
 .repair-row__device { min-width: 0; display: flex; align-items: center; gap: 10px; }
@@ -463,13 +474,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-filterbar { min-height: 62px; display: flex; align-items: center; gap: 9px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
 .module-search { min-width: 260px; min-height: 40px; display: flex; align-items: center; flex: 1; gap: 8px; padding: 7px 10px; color: var(--text-tertiary); border: 1px solid var(--border); border-radius: 8px; background: white; }
 .module-search:focus-within { border-color: var(--primary-600); box-shadow: 0 0 0 3px var(--primary-100); }
-.module-search input { min-width: 0; flex: 1; padding: 0; border: 0; outline: 0; color: var(--text); background: transparent; font-size: 13px; }
+.module-search input { min-width: 0; flex: 1; padding: 0; border: 0; outline: 0; color: var(--text); background: transparent; font-size: 14px; }
 .module-search button { min-height: 28px; padding: 3px 7px; color: var(--primary-600); border: 0; border-radius: 5px; background: var(--primary-50); cursor: pointer; font-size: 12px; }
 .module-select { min-height: 40px; display: flex; align-items: center; gap: 6px; padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; background: white; }
 .module-select select { border: 0; outline: 0; background: transparent; color: var(--text-secondary); font-size: 12px; }
 .filter-count { display: inline-flex; align-items: center; gap: 5px; color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
 .repair-module-table__head, .repair-module-row { display: grid; grid-template-columns: minmax(260px,1.35fr) minmax(120px,.62fr) minmax(190px,1fr) 92px 140px 26px; align-items: center; gap: 14px; }
-.repair-module-table__head { min-height: 38px; padding: 8px 14px; color: var(--text-tertiary); border-bottom: 1px solid var(--border); background: var(--surface-subtle); font-size: 12px; font-weight: 600; }
+.repair-module-table__head { min-height: 38px; padding: 8px 14px; color: var(--text); border-bottom: 1px solid var(--border); background: var(--bg); font-size: 14px; font-weight: 400; }
 .repair-module-row { min-height: 74px; padding: 9px 14px; border-bottom: 1px solid #eeeff2; transition: background-color 120ms ease; }
 .repair-module-row:last-child { border-bottom: 0; }
 .repair-module-row:hover { background: #fafaff; }
@@ -493,7 +504,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 :where(.navigation-link) { position: relative; }
 .navigation-link > .navigation-feedback { position: absolute; right: 3px; top: 3px; width: 14px; height: 14px; opacity: 0; pointer-events: none; }
 .navigation-link > .navigation-feedback[data-pending="true"] { opacity: 1; }
-.navigation-link:has(> .navigation-feedback[data-pending="true"]) { cursor: progress; outline: 2px solid var(--primary-200); outline-offset: 2px; }
+.navigation-link:has(> .navigation-feedback[data-pending="true"]) { cursor: progress; outline: 2px solid var(--primary-100); outline-offset: 2px; }
 .navigation-link > .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .list-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; padding: 16px; border-top: 1px solid var(--border); }
 .list-pagination > span { margin-right: auto; font-size: 14px; color: var(--text-secondary); }
@@ -534,8 +545,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .intake-form__body { min-height: 350px; padding: 20px; }
 .field-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,max(220px,calc(50% - 8px))),1fr)); gap: 16px; }
 .field { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.field > span:not(.input-control, .select-control) { font-size: 12px; font-weight: 600; }
-.field input, .field select, .field textarea { width: 100%; min-height: 42px; padding: 9px 10px; color: var(--text); border: 1px solid var(--border); border-radius: 8px; outline: 0; background: white; font-size: 14px; }
+.field > span:not(.input-control, .select-control) { font-size: 14px; font-weight: 500; }
+.field input, .field select, .field textarea { width: 100%; min-height: 42px; padding: 9px 10px; color: var(--text); border: 1px solid var(--border); border-radius: 8px; outline: 0; background: white; font-size: 16px; }
 .field textarea { resize: vertical; line-height: 1.5; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--primary-600); box-shadow: 0 0 0 3px var(--primary-100); }
 .field--wide { grid-column: 1 / -1; }
@@ -643,7 +654,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .procurement-group h3 { display: flex; align-items: center; gap: 9px; padding: 10px 14px; margin: 0; color: var(--text-secondary); background: var(--surface-subtle); font-size: 12px; }
 .procurement-group h3 small { padding: 2px 6px; border: 1px solid var(--border); border-radius: 5px; background: white; font-size: 12px; font-weight: 500; }
 .procurement-table-head, .procurement-row { display: grid; grid-template-columns: minmax(180px,1.4fr) minmax(155px,1fr) 120px 108px 18px; align-items: center; gap: 12px; padding: 11px 14px; }
-.procurement-table-head { padding-block: 8px; color: var(--text-tertiary); border-bottom: 1px solid var(--border); font-size: 12px; }
+.procurement-table-head { padding-block: 8px; color: var(--text); border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 400; background: var(--bg); }
 .procurement-row { min-height: 76px; border-bottom: 1px solid #eeeff2; transition: background 150ms; }
 .procurement-row:hover, .procurement-summary-link:hover, .procurement-dashboard-link:hover { background: var(--primary-50); }
 .procurement-row > div { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
@@ -715,10 +726,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-parts-list .module-search { flex-basis: 250px; }
 .repair-parts-list .repair-module-row__quick { min-width: 0; }
 .repair-parts-list .repair-module-row__quick > .button { width: 100%; padding: 8px; font-size: 12px; }
-.repair-parts-dialog { width: min(500px,calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: 20px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); }
-.repair-parts-dialog::backdrop { background: rgba(17,18,24,.36); }
+.repair-parts-dialog { width: min(500px,calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: 16px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-dialog); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); }
+.repair-parts-dialog::backdrop { background: var(--overlay); }
 .repair-parts-dialog header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.repair-parts-dialog h2 { margin: 6px 0 0; font-size: 22px; }
+.repair-parts-dialog h2 { margin: 0; font-size: 18px; font-weight: 500; line-height: 24px; }
 .repair-parts-dialog .icon-button { width: 44px; height: 44px; }
 .repair-parts-dialog .field { margin-top: 12px; }
 .repair-parts-dialog .field input, .repair-parts-dialog .field select { min-height: 44px; font-size: 16px; }
@@ -788,7 +799,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .retail-filterbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 13px; border-bottom: 1px solid var(--border); }
 .retail-filterbar > small { margin-left: auto; color: var(--text-tertiary); white-space: nowrap; }
 .retail-table-head, .retail-unit-row { display: grid; grid-template-columns: minmax(205px,1.6fr) minmax(135px,1fr) 110px 80px 80px 18px; align-items: center; gap: 10px; padding: 11px 14px; }
-.retail-table-head { color: var(--text-tertiary); background: var(--surface-subtle); font-size: 12px; }
+.retail-table-head { color: var(--text); background: var(--bg); font-size: 14px; font-weight: 400; }
 .retail-unit-row { min-height: 83px; border-bottom: 1px solid #eeeff2; transition: background 150ms; }
 .retail-unit-row:last-child { border-bottom: 0; border-radius: 0 0 12px 12px; }
 .retail-unit-row:hover { background: var(--primary-50); }
@@ -891,7 +902,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .retail-table-head, .retail-unit-row { grid-template-columns: minmax(205px,1.4fr) minmax(135px,1fr) 128px 96px 92px 18px; }
   .repair-module-row strong, .repair-module-row__device strong, .procurement-row strong, .retail-unit-row strong, .repair-row strong, .activity-list strong { font-size: 14px; }
   .repair-module-row small, .procurement-row small, .retail-unit-row small, .repair-row small, .activity-list small, .panel__header p { color: var(--text-secondary); font-size: 12px; }
-  .repair-module-table__head, .procurement-table-head, .retail-table-head { color: var(--text-secondary); font-size: 12px; }
+  .repair-module-table__head, .procurement-table-head, .retail-table-head { color: var(--text); font-size: 14px; font-weight: 400; background: var(--bg); }
   .repair-status-card { min-height: 76px; }
   .repair-status-card span { font-size: 13px; }
   .repair-status-card small { color: var(--text-secondary); font-size: 12px; }
@@ -1504,7 +1515,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-unified-list .module-search { min-width: 0; }
 .repair-result-count { flex: none; color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
 .repair-filter-trigger { min-height: 44px; padding: 8px 12px; box-shadow: none; }
-.repair-filter-trigger--active { color: var(--primary-600); background: var(--primary-50); border-color: var(--primary-200); }
+.repair-filter-trigger--active { color: var(--primary-600); background: var(--primary-50); border-color: var(--primary-100); }
 .repair-unified-list .repair-filter-options { grid-column: 1 / -1; padding-top: 4px; }
 .repair-unified-list .repair-filter-reset { display: inline-flex; min-height: 44px; padding: 8px 12px; }
 .repair-unified-list .module-search, .repair-unified-list .module-select { min-height: 44px; box-shadow: none; }
@@ -1526,7 +1537,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-unified-list .repair-module-row { position: relative; min-height: 80px; padding: 12px 16px; background: var(--surface); }
 .repair-unified-list .repair-module-row:hover, .repair-unified-list .repair-module-row:focus-within { background: var(--surface-subtle); }
 .repair-unified-list .repair-module-table__head, .repair-unified-list .repair-module-row { grid-template-columns: minmax(170px,1.2fr) minmax(110px,.8fr) minmax(220px,1.6fr) 108px 144px 112px; gap: 12px; }
-.repair-unified-list .repair-module-table__head { padding: 10px 16px; font-size: 12px; }
+.repair-unified-list .repair-module-table__head { padding: 10px 16px; font-size: 14px; font-weight: 400; background: var(--bg); color: var(--text); }
 .repair-unified-list .repair-module-row strong { font-size: 13px; }
 .repair-unified-list .repair-module-row__device strong { font-size: 14px; }
 .repair-unified-list .device-glyph { border-radius: var(--radius-control); }
@@ -1564,7 +1575,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-unified-list .repair-contact--list .repair-contact__button { display: grid; width: 100%; min-width: 0; min-height: 44px; justify-items: start; align-content: center; gap: 3px; padding: 7px 9px; border: 0; background: var(--bg); font-size: 13px; text-align: left; white-space: normal; box-shadow: none; }
 .repair-unified-list .repair-contact--list .repair-contact__button:hover { background: var(--border); }
 .repair-stage-button { min-height: 44px; border: 0; cursor: pointer; justify-content: center; padding: 6px; }
-.repair-stage-button:hover { outline: 1px solid var(--primary-200); }
+.repair-stage-button:hover { outline: 1px solid var(--primary-100); }
 .repair-stage-dialog { width: min(440px,calc(100% - 24px)); padding: 16px; }
 .repair-stage-dialog h2, .repair-contact-dialog h2, .repair-items-dialog h2 { font-size: 18px; }
 .repair-stage-current { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding: 10px; border-radius: var(--radius-control); background: var(--surface-subtle); font-size: 13px; }
@@ -1857,3 +1868,17 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .read-failure { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px; margin-block: 12px; }
 .read-failure p { flex: 1 1 180px; margin: 0; color: var(--text-secondary); font-size: 14px; }
 .read-failure > svg { flex-shrink: 0; color: var(--danger); }
+
+
+/* Figma card surfaces; domain content and print sheets keep their own layout. */
+.repair-parts-dialog > header, .repair-parts-dialog > form > header { padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.repair-parts-dialog > footer, .repair-parts-dialog > form > footer { padding-top: 16px; border-top: 1px solid var(--border); gap: 12px; }
+@media (max-width: 767px) {
+  .button:is(.button--small, .button--compact, .button--tiny) { min-width: 44px; min-height: 44px; }
+  .icon-button { width: 44px; height: 44px; min-width: 44px; min-height: 44px; flex-shrink: 0; }
+}
+@media (min-width: 768px) {
+  .repair-unified-list .repair-module-row__device > div > strong, .procurement-row__item strong { font-size: 16px; font-weight: 500; }
+}
+
+.repair-table__head, .repair-module-table__head, .procurement-table-head, .retail-table-head { min-height: 48px; }
