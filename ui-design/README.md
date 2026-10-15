@@ -12,6 +12,12 @@
 
 原 Figma：`nhZ37YLOUVP8zpDBBGihhS`；项目原始视觉节点 `12373:155040`。已有高保真映射见 [组件目录](components.md)。业务内容、客户数据、权限、金额、签名与打印事实不由 Figma 生成。
 
+## 修复候选：恢复呈现与列表状态槽（2026-10-16）
+
+本轮沿已有 `NavigationLink`、`OperationRecoveryControls` 和语义token修正采购/客户状态槽、报价合计及正式历史标签；新增 `recovery-visibility.ts` 仅为恢复入口的技术辅助。局部隐藏后的全局接管保留原requestId、草稿和回执，商品未知结果继续锁输入但不假显示执行。入口与维护要求见[组件索引](components.md)和[候选规范](../docs/06-ui-components-and-styles.md)。
+
+此登记属于待验候选，不覆盖2026-10-15正式基线、数量或历史验收；源CSS离线几何、实际React内存夹具、新正式构建、准确提交CI和最终发布各自取证。
+
 ## 当前增量：加载与通知（2026-10-15）
 
 - 导航在现有图标槽替换等待标记；无图标的文字链接预留固定槽。真实 Next pending 驱动，页面和业务标题保留；取消额外 pending 外框。

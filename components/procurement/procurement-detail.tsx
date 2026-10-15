@@ -2,6 +2,7 @@
 import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 
 import { useLanguage } from "@/components/language-provider";
+import { useBackendMode } from "@/components/backend-snapshot";
 import { repairItemText } from "@/lib/i18n/repair-display";
 import { InputControl, TextareaControl } from "@/components/input-control";
 import { NavigationLink as Link } from "@/components/navigation-link";
@@ -71,6 +72,7 @@ export function ProcurementActions({ record, embedded = false, onPendingChange }
 
 export function ProcurementDetail({ id }: { id: string }) {
   const { t, locale } = useLanguage();
+  const formal = useBackendMode();
   const canCost=useStaff().can("financial.read");
   const { records, storageError } = useProcurement();
   const repairOrders = useRepairDirectory();
@@ -86,7 +88,7 @@ export function ProcurementDetail({ id }: { id: string }) {
     <section className="detail-metrics procurement-metrics" aria-label={t("采购摘要")}><article><span><PackageSearch size={18} /></span><div><small>{t("采购数量")}</small><strong>{record.quantity} {t(" 件")}</strong></div></article><article><span><PackageCheck size={18} /></span><div><small>{t("已到货 / 待到货")}</small><strong data-testid="arrival-summary">{arrived} / {record.quantity - arrived} {t(" 件")}</strong></div></article><article><span><Truck size={18} /></span><div><small>{t("预计到货")}</small><strong>{record.expectedAt || t("待确认")}</strong></div></article>{canCost?<article><span><FileClock size={18} /></span><div><small>{t("采购总额")}</small><strong>{t(formatCost(record.unitCostCents === null ? null : record.unitCostCents * record.quantity))}</strong></div></article>:null}</section>
     <div className="procurement-detail-grid"><div className="repair-detail-main">
       <section className="panel detail-section"><div className="detail-section__head"><div><span><PackageSearch size={18} /></span><div><h3>{t("采购资料")}</h3></div></div></div><div className="device-facts"><span className="device-facts__wide"><small>{t("配件名称")}</small><strong>{repairItemText(record.item, locale)}</strong></span><span><small>{t("用途")}</small><strong>{record.required === false ? t("备选，不阻塞本单") : t("本单必需配件")}</strong></span><span><small>{t("供应商")}</small><strong>{record.supplier}</strong></span>{record.reference ? <span><small>{t("历史订单号")}</small><strong>{record.reference}</strong></span> : null}{canCost?<span><small>{t("采购单价")}</small><strong>{t(formatCost(record.unitCostCents))}</strong></span>:null}<span><small>{t("关联设备 / 工单")}</small><Link href={`/app/repairs/${record.repairId}`}>{repair?.device.model} · {record.repairId}</Link></span></div></section>
-      <section className="panel detail-section"><div className="detail-section__head"><div><span><FileClock size={18} /></span><div><h3>{t("采购与到货历史")}</h3></div></div><span className="demo-badge">{record.events.length} {t(" 条")}</span></div>{record.events.length ? <ol className="detail-timeline procurement-timeline">{[...record.events].reverse().map((event) => <li key={event.id}><i className={`timeline-dot timeline-dot--${event.type === "correction" ? "warning" : event.type === "arrival" ? "success" : "info"}`} /><div><strong>{t(procurementEventLabel(event))}</strong><p>{event.note || t("未填写备注")}</p>{event.reference ? <p>{t("供应商订单号：")}{event.reference}</p> : null}{event.type === "correction" ? <p>{t("关联原批次：")}{record.events.find((row) => row.id === event.arrivalId)?.time}</p> : null}<small>{event.time} {t(" · 演示操作")}</small></div></li>)}</ol> : <div className="section-empty"><FileClock size={24} /><div><strong>{t("草稿尚未下单")}</strong><p>{t("选择供应商后保留待采购；实际下单后另行记录。")}</p></div></div>}</section>
+      <section className="panel detail-section"><div className="detail-section__head"><div><span><FileClock size={18} /></span><div><h3>{t("采购与到货历史")}</h3></div></div><span className="demo-badge">{record.events.length} {t(" 条")}</span></div>{record.events.length ? <ol className="detail-timeline procurement-timeline">{[...record.events].reverse().map((event) => <li key={event.id}><i className={`timeline-dot timeline-dot--${event.type === "correction" ? "warning" : event.type === "arrival" ? "success" : "info"}`} /><div><strong>{t(procurementEventLabel(event))}</strong><p>{event.note || t("未填写备注")}</p>{event.reference ? <p>{t("供应商订单号：")}{event.reference}</p> : null}{event.type === "correction" ? <p>{t("关联原批次：")}{record.events.find((row) => row.id === event.arrivalId)?.time}</p> : null}<small>{event.time}{formal ? null : t(" · 演示操作")}</small></div></li>)}</ol> : <div className="section-empty"><FileClock size={24} /><div><strong>{t("草稿尚未下单")}</strong><p>{t("选择供应商后保留待采购；实际下单后另行记录。")}</p></div></div>}</section>
     </div><ProcurementActions record={record} /></div>
   </main>;
 }
