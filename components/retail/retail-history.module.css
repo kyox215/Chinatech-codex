@@ -15,7 +15,7 @@
 .summary { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px; font-size: 12px; color: var(--text-secondary); }
 .summary button { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; gap: 4px; padding: 8px; border: 0; color: var(--primary-700); background: transparent; cursor: pointer; }
 .tableHead, .row { display: grid; grid-template-columns: minmax(230px,1.5fr) minmax(165px,1fr) 130px 110px 108px 18px; align-items: center; gap: 12px; min-width: 860px; padding: 10px 12px; }
-.tableHead { background: var(--surface-subtle); color: var(--text-secondary); font-size: 12px; }
+.tableHead { background: var(--bg); color: var(--text); font-size: 14px; font-weight: 400; }
 .row { min-height: 86px; border-top: 1px solid var(--border); font-size: 14px; }
 .row:hover { background: var(--primary-50); }
 .row > div { min-width: 0; }
@@ -89,3 +89,7 @@
   .customerTabs button { font-size: 13px; gap: 4px; }
   .customerTabs button svg { display: none; }
 }
+
+@media (min-width: 768px) { .product > strong { font-size: 16px; font-weight: 500; } }
+
+.tableHead { min-height: 48px; }

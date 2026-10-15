@@ -26,7 +26,7 @@
 .applied button { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; min-width: 44px; padding: 8px; border: 0; background: transparent; color: var(--primary-700); cursor: pointer; }
 .table { border-radius: 0 0 var(--radius-panel) var(--radius-panel); }
 .tableHead, .row { display: grid; grid-template-columns: minmax(250px,1.6fr) minmax(150px,1fr) 128px 96px 90px 18px; align-items: center; gap: 12px; min-width: 850px; padding: 10px 12px; }
-.tableHead { min-height: 40px; font-size: 12px; color: var(--text-secondary); background: var(--surface-subtle); }
+.tableHead { min-height: 40px; font-size: 14px; color: var(--text); background: var(--bg); font-weight: 400; }
 .row { min-height: 68px; border-top: 1px solid var(--border); transition: background 150ms; }
 .row:hover { background: var(--primary-50); }
 .row > div, .product > div { min-width: 0; }
@@ -79,3 +79,7 @@
   .scan > form { grid-template-columns: minmax(0,1fr); padding: 10px; }
   .scan input { font-size: 16px; }
 }
+
+@media (min-width: 768px) { .product strong { font-size: 16px; font-weight: 500; } }
+
+.tableHead { min-height: 48px; }

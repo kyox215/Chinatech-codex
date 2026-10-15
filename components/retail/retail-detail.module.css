@@ -30,7 +30,8 @@
 .meter > b { font-size: 16px; font-variant-numeric: tabular-nums; }
 .layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(295px, 1fr); gap: 16px; align-items: start; }
 .column { display: grid; min-width: 0; gap: 16px; align-content: start; }
-.groupToggle, .mobileQuickActions { display: none; }
+.detail .groupToggle, .detail .mobileQuickActions { display: none; }
+.detail .groupDesktopHead { display: flex; }
 .batteryMetaMobile { display: none; }
 .groupDesktopHead .disclosureMeta > svg { display: none; }
 .embeddedGroup { display: contents; }
@@ -219,7 +220,7 @@
   .meter > b { font-size: 15px; }
   .overview > * + * { border-left: 1px solid var(--border); }
   .overview strong { font-size: 14px; }
-  .mobileQuickActions { display: grid; gap: 8px; margin-bottom: 10px; }
+  .detail .mobileQuickActions { display: grid; gap: 8px; margin-bottom: 10px; }
   .mobileQuickActions > button { width: 100%; }
   .knownIssue { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 10px 12px; border-radius: var(--radius-control); color: var(--danger-text); background: var(--danger-soft); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
   .knownIssue > svg { flex-shrink: 0; margin-top: 2px; }
@@ -227,9 +228,9 @@
   .column { display: contents; }
   .group { display: block; overflow: hidden; }
   .embeddedGroup > .groupBody { display: block; }
-  .groupToggle { display: flex; width: 100%; border: 0; background: var(--surface); color: var(--text); cursor: pointer; text-align: left; }
+  .detail .groupToggle { display: flex; width: 100%; border: 0; background: var(--surface); color: var(--text); cursor: pointer; text-align: left; }
   .groupToggle:focus-visible { outline: 2px solid var(--primary-600); outline-offset: -2px; }
-  .groupDesktopHead { display: none; }
+  .detail .groupDesktopHead { display: none; }
   .group[data-open="false"] > .groupBody { display: none; }
   .group[data-open="true"] > .groupToggle .disclosureMeta > svg { transform: rotate(180deg); }
   .group[data-retail-group="actions"], .group[data-retail-group="sales"] { order: -1; }

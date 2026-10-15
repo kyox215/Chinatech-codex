@@ -64,3 +64,14 @@ jobs:
         env:
           BACKEND_MODE: supabase
           LOCAL_PREVIEW: "0"
+      - name: Verify production design and stylesheet order
+        run: node scripts/check-ui-production.mjs .next-backend
+      - name: Preserve production design verification
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-design-verification
+          path: .local/ui-proof/production-design/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
