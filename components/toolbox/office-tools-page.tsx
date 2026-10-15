@@ -1,4 +1,5 @@
 "use client";
+import { NavigationLink as Link } from "@/components/navigation-link";
 
 import { ArrowRight, Check, Cloud } from "lucide-react";
 import { PublicHeader } from "@/components/home/public-header";
@@ -25,9 +26,9 @@ const steps = ["下载程序", "选择应用", "按提示执行"] as const;
 export function OfficeToolsPage() {
   const { t } = useLanguage();
   return <div className={toolboxStyles.page}>
-    <a className={homeStyles.skipLink} href="#main-content">{t("跳到主要内容")}</a>
+    <Link className={homeStyles.skipLink} href="#main-content" focusTargetId="main-content">{t("跳到主要内容")}</Link>
     <PublicHeader page="office" />
-    <main className={styles.main} id="main-content">
+    <main className={styles.main} id="main-content" tabIndex={-1}>
       <section className={styles.hero} aria-labelledby="office-product-title">
         <div className={styles.heroCopy}>
           <h1 id="office-product-title">{t("Office 助手")}</h1>

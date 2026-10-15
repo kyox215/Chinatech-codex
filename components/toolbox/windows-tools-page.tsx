@@ -1,4 +1,5 @@
 "use client";
+import { NavigationLink as Link } from "@/components/navigation-link";
 import { DownloadLink } from "@/components/download-link";
 
 import { Download, ExternalLink, FileText, Laptop, ShieldCheck } from "lucide-react";
@@ -21,9 +22,9 @@ const requirements = [
 export function WindowsToolsPage() {
   const { t, locale } = useLanguage();
   return <div className={toolboxStyles.page}>
-    <a className={homeStyles.skipLink} href="#main-content">{t("跳到主要内容")}</a>
+    <Link className={homeStyles.skipLink} href="#main-content" focusTargetId="main-content">{t("跳到主要内容")}</Link>
     <PublicHeader page="windows" />
-    <main className={styles.main} id="main-content">
+    <main className={styles.main} id="main-content" tabIndex={-1}>
       <div className={styles.heading}>
         <span className={styles.headingIcon}><Laptop size={28} aria-hidden="true" /></span>
         <div><h1>{t("Windows 11 Pro 升级")}</h1><p>{t("保留文件与应用的就地升级工具")}</p></div>

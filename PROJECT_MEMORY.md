@@ -11,6 +11,8 @@
 
 菜单最新修复已完：32导航全过＋Back/Forward核心双引擎repeat3共6过，summary受控消除Escape反例，desktop collapsed保持；实际200/2000/5000ms已纳入最终源码测试。Parent独立CODE_GO，TS/lint/i18n/Node及formal build过；4同字节生成类型重复已备份清除，不改规则。等待新最终完整CI与候选；源码本记录为冻结时刻，最终发布回执查PR58及canonical PROJECT_MEMORY，不能据此pending记录自动重复发布。
 
+最新锚点反例：5fb push完整成功498Node/402浏览器/正式构建，PR401/402失败，仍NO_GO。双引擎独立probe证实同URL确会刷新动态段，native hash可被旧RSC覆盖；已删共享同步快路径、同URL需真实pending结束、全部页内hash复用共享Link。skip键盘回归由focusTargetId+tabIndex=-1在最新提交后移交焦点闭合。最终修复新head需完整CI、同源候选和新独立GO；不晋升5fb或更旧候选。本段冻结在发布前，最终结果查PR58/canonical记忆。
+
 ## 当前 Figma 操作反馈修复与上线（2026-10-14，候选）
 
 最新用户已授权按原Figma补全缺失组件、相关操作状态与逻辑闭环并上线。独立发布树 `.local/ui-feedback-release/source`／分支 `codex/ui-feedback-20261014`，基线main5826131；公开Office1.3资产保持原字节。Figma按钮／焦点／错误输入已读取，扩展真实导航等待、加载恢复、原requestId回执、草稿锁、客户分页及下载请求提示，不修改Figma文件。474/475本地Node（1Mac无PowerShell跳过）、3953三语键、类型／lint零错误、正式build；原360浏览器323过37失败，修正后96相关回归过。采购20私有／6预览／54领域、签名返修草稿8两浏览器增量通过。新增采购本次成功信号、分组原回执恢复、confirmed Promise收尾锁与isCurrent；相关34浏览器及私有慢清理/卸载反例已通过。旧0f／740候选不晋升，PR56最终SHA须完整CI、独立审查与候选→正式只读验收。详[报告34](docs/34-figma-interaction-feedback-release.md)，没有生产业务写入。

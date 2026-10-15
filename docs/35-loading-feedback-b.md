@@ -4,7 +4,7 @@
 
 ## 实现
 
-- 根OperationFeedbackProvider按实例token登记真实活动；NavigationLink由真实onNavigate登记最新实例token，仅当前owner结合Next真实pending显示固定单一svg.spin；旧完成/卸载只清自身，保留原生hash/键盘/新tab语义。ContentProgress在公开header下沿、账号和后台内容上沿显示2px紫色不定进度线，无百分比、遮罩和布局位移。旧任务只能清自己的token，后台轮询不登记；兼容现有可见button/form的aria-busy，后台区域明确排除。
+- 根OperationFeedbackProvider按实例token登记真实活动；NavigationLink由真实onNavigate登记最新实例token，仅当前owner结合Next真实pending显示固定单一svg.spin；旧完成/卸载只清自身，保留锚点/键盘/新tab及无JS语义。ContentProgress在公开header下沿、账号和后台内容上沿显示2px紫色不定进度线，无百分比、遮罩和布局位移。旧任务只能清自己的token，后台轮询不登记；兼容现有可见button/form的aria-busy，后台区域明确排除。
 - 移除5个route loading和3个整机显式骨架Suspense；PageLoading退役，首访/区域读取用真实标题及ReadPending，错误紧凑就地恢复。没有AppShell的根级PageRecovery自行提供进度宿主；内部错误继续复用AppShell，避免重试缺线或重复细线。手机菜单和账号菜单在实际路由提交后关闭。同步交互不制造等待。
 - BackendProvider组件树内持有逐请求授权initial，通过各领域hook提供SSR/首次水合，不调用服务端全局configure。正式分支不读fixture/localStorage。客户端activate、显式owner release/adopt、clear后的generation隔离，以及readFor首个render的新权限投影共同保护身份变化；同scope server refresh不清原提交回执。
 - 目录按身份/门店/成员版本/可见性保存旧结果，新条件等待明确标记；首次尚未activate只等待，不误报无权。订阅树内和全局scope变化，权限版更新无需focus即可重新读取。viewer state401/403/409立即撤下旧行/计数；503保留同范围已确认结果。
@@ -36,3 +36,16 @@ AGENTS.md已要求后续新增、修改与扩展采用B方案；接口及状态�
 返回补查：桌面双引擎等待中Back/迟到响应2过；375手机发现实际路由已返回Dashboard而抽屉仍open，等待圈/细线已清。该UI状态不放行，de90 CI主动取消、46Z候选保留但不晋升。将对AppShell做仅路由归属的菜单状态修复，Back/Forward关闭且不恢复旧open，保留desktop collapsed及原pending保持打开规则。新最终提交仍需完整验证。
 
 返回修复最终本地验收：AppShell仅局部drawer/account按pathname+query归属，旧事件不能关新页菜单，collapsed独立保留；summary同一受控开关消除DOM先open/state尚false的Escape时序。全导航32/32、Back/Forward及迟到RSC核心双引擎repeat3共6/6，含新实际200/2000/5000ms等待。首轮toggle反例保留；主线程独立CODE_GO，类型/lint/4103三语、Node498（497过/1本地PS缺环境skip）和正式构建通过。4份字节完全相同的本次.next-backend/types重复生成文件已备份移除，不修改类型规则。最终完整CI、候选及域名回执另记。
+
+
+## 同URL刷新与页内锚点的远程反例
+
+5fb的push完整成功（498 Node、402浏览器及正式构建），PR为401/402，唯一失败是父页hash被较早的同URL RSC覆盖。双引擎独立小实验复现：Next16.3.7同URL会刷新动态段，native hash不进入导航队列；旧刷新完成后可剥掉新hash。证据在sameurl-probe-observe-results.json与sameurl-effect-results.json。
+
+共享NavigationLink已移除“同pathname/search即同步”的判断；完整href相等的刷新必须先观察真实pending再等待结束，URL相同不能视作回执。首页、工具箱及账号页的页内锚点统一共享Link，仍SSR输出带href的a；新hash导航可废弃旧请求。如果Next实际读取则显示真实原位单圈/细线，不承诺锚点必然零请求。新增真实同URL阻塞、hash/newtab、旧同URL响应迟到不覆盖hash三条双引擎回归。最终新head的完整CI与上线门禁仍单独取得，不用5fb成功push替代失败PR。
+
+独立复核还发现Next新滚动处理器不转移焦点，普通Next hash会使skip链接后的Tab仍进入页头。现仅skip导航声明focusTargetId，真实提交且当前实例才focus({preventScroll:true})，目标tabIndex=-1；普通章节锚点不强制焦点。五个公开页冷载及Back后的缓存路径纳入键盘验收。
+
+锚点及焦点最终本地：双引擎完整导航38/38，四个新增/调整关键场景repeat3共24/24通过；9路径独立CODE_GO。此前类型失败仅为4个与原文件字节相同的生成types副本，已另存hash/备份后清除，原检查规则未变。最终正式构建及新提交完整CI仍以实际终态为准。
+
+焦点修复后的正式模式生产构建、TS strict、lint（0错/1原有建议）及4103键三语检查已通过；Node498为497过/1本机无PowerShell跳过。发布仍等待此冻结源码的新远程两套完整CI和同源候选。
