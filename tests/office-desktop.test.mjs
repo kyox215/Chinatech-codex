@@ -38,16 +38,16 @@ test('public website excludes private native sources and retains protocol and re
  const workflow=readFileSync('.github/workflows/ci.yml','utf8');assert.ok(!workflow.includes('desktop/office-assistant/'));
  assert.ok(readFileSync('desktop/README.md','utf8').includes('private'));
 });
-test('public 1.4.0 downloads use the approved architecture assets and exact binary checksums',()=>{
- const base='https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v1.4.0';
- assert.equal(officeDesktopRelease.version,'1.4.0');
+test('public 1.5.0 downloads use the approved architecture assets and exact binary checksums',()=>{
+ const base='https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v1.5.0';
+ assert.equal(officeDesktopRelease.version,'1.5.0');
  assert.equal(officeDesktopRelease.websiteControlProtocol,3);
  assert.equal(officeDesktopRelease.authenticodeSigned,false);
  assert.equal(officeDesktopRelease.publisherCertificateSha256,null);
  assert.equal(officeDesktopRelease.prerelease,true);
  assert.deepEqual(officeDesktopRelease.files,[
-  {architecture:'x64',bytes:65049274,sha256:'977c07ae5b7c7ca21584a5a0cebdfb91a08c008ecfb930058d398fdf4827eaaf',href:base+'/ChinaTech-Office-Assistant-x64.exe'},
-  {architecture:'ARM64',bytes:61202604,sha256:'03b29ea6b4f7473112db42c1f2edde771cb2df356f60fd0f39ea9810eca81b3f',href:base+'/ChinaTech-Office-Assistant-ARM64.exe'},
+  {architecture:'x64',bytes:65053222,sha256:'40ff26c126d2eab536872f5f559d90be90243f7911755c1ea380000f7f6d95e5',href:base+'/ChinaTech-Office-Assistant-x64.exe'},
+  {architecture:'ARM64',bytes:61206556,sha256:'402af38af4e5a3a04a24d70d67c9f5e90c4abbe10806dfc82f4f1bd8f59fa29f',href:base+'/ChinaTech-Office-Assistant-ARM64.exe'},
  ]);
  assert.equal(officeDesktopRelease.instructions,base+'/README.txt');
  assert.equal(officeDesktopRelease.checksums,base+'/SHA256SUMS.txt');

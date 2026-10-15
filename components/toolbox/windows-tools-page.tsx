@@ -1,8 +1,8 @@
 "use client";
 import { NavigationLink as Link } from "@/components/navigation-link";
-import { DownloadLink } from "@/components/download-link";
+import {DownloadLink} from "@/components/download-link";
 
-import { Download, ExternalLink, FileText, Laptop, ShieldCheck } from "lucide-react";
+import { Download, Laptop } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { PublicHeader } from "@/components/home/public-header";
 import { useLanguage } from "@/components/language-provider";
@@ -20,7 +20,7 @@ const requirements = [
 ];
 
 export function WindowsToolsPage() {
-  const { t, locale } = useLanguage();
+  const { t } = useLanguage();
   return <div className={toolboxStyles.page}>
     <Link className={homeStyles.skipLink} href="#main-content" focusTargetId="main-content">{t("跳到主要内容")}</Link>
     <PublicHeader page="windows" />
@@ -34,21 +34,15 @@ export function WindowsToolsPage() {
         <p className={styles.notice} role="status">{t("目前提供只读检测：尚无 Windows 端到端升级验收，不会执行激活、安装或自动重启。")}</p>
         <ol className={styles.steps}>{stages.map((stage, index) => <li key={stage}><span aria-hidden="true">{index + 1}</span>{t(stage)}</li>)}</ol>
         <div className={styles.actions}>
-          <DownloadLink className="button button--primary" href={release.archive.path} download><Download size={17} aria-hidden="true" />{t("下载检测启动器")}</DownloadLink>
-          <a className="button button--secondary" href="/toolbox/windows/ChinaTech-Windows.ps1.txt" target="_blank" rel="noopener noreferrer"><FileText size={17} aria-hidden="true" />{t("查看检测脚本源码")}</a>
+          <DownloadLink className="button button--primary" href={release.archive.path} download><Download size={17} aria-hidden/>{t("下载检测启动器")}</DownloadLink>
+
         </div>
-        <p className={styles.instruction}>{t("解压后打开 {file}。浏览器下载不会直接运行 Windows 程序。", { file: `Start-${locale}.cmd` })}</p>
-        <dl className={styles.digest}><div><dt>{t("启动器版本")}</dt><dd>{release.version}</dd></div><div><dt>{t("SHA256")}</dt><dd><code>{release.archive.sha256}</code></dd></div></dl>
-        <a className={styles.textLink} href="/toolbox/windows/checksums.json" target="_blank" rel="noopener noreferrer"><ShieldCheck size={16} aria-hidden="true" />{t("查看文件校验清单")}</a>
+        <p className={styles.instruction}>{t("启动器版本")} {release.version}</p>
       </section>
       <div className={styles.details}>
         <section className={styles.detailPanel} aria-labelledby="conditions-title"><h2 id="conditions-title">{t("升级条件")}</h2><ul>{requirements.map(requirement => <li key={requirement}>{t(requirement)}</li>)}</ul></section>
-        <section className={styles.detailPanel} aria-labelledby="sources-title">
-          <h2 id="sources-title">{t("项目来源与激活方式")}</h2>
-          <p>{t("计划接入 AveYo 的安装流程与 KMS 项目的 Windows 本地模拟激活。当前包仅记录固定源码版本，不包含或执行第三方脚本。")}</p>
-          <p>{t("本地模拟会写入授权 Hook 和 Defender 排除，需要单独验收；不能替代有效许可证，也不代表永久激活。已有授权组件可能冲突，不能直接串联执行。")}</p>
-          <div className={styles.sources}>{release.sources.map(source => <a key={source.id} href={`https://github.com/${source.repository}/blob/${source.commit}/${source.path}`} target="_blank" rel="noopener noreferrer">{source.path}<ExternalLink size={14} aria-hidden="true" /></a>)}</div>
-          <a className={styles.textLink} href="https://www.microsoft.com/en-us/software-download/windows11" target="_blank" rel="noopener noreferrer">{t("微软 Windows 下载与安装说明")}<ExternalLink size={14} aria-hidden="true" /></a>
+        <section className={styles.detailPanel}>
+          <a className={styles.textLink} href="https://www.microsoft.com/en-us/software-download/windows11" target="_blank" rel="noopener noreferrer">{t("微软 Windows 下载与安装说明")}</a>
         </section>
       </div>
     </main>

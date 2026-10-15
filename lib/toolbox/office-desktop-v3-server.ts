@@ -1,4 +1,6 @@
 import 'server-only';
+import {readTool} from './tool-registry-server';
+import {acceptsRelease} from './tool-registry';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
 import type { TransactionSql } from 'postgres';
@@ -9,7 +11,6 @@ import { officeResponse } from './office-server';
 import { compareDesktopVersions } from './office-desktop-public-token';
 import { lockV3, requestRateV3, transactionV3 } from './office-desktop-v3-database';
 import { activityV3, base64V3, hashV3, objectV3, pathV3, planV3, proofV3, publicKeysV3, publicKeyV3, readV3, signV3, signedUpdateV3, signingReadyV3, verifyProofV3, v3Actions, v3Origin, type V3Claims, type V3Proof, type V3Plan } from './office-desktop-v3-token';
-import { officeDesktopRelease } from './office-desktop-release';
 
 type Control = { enabled: boolean; minimum_version: string; verified_version: string | null; release_ready: boolean; revision: string };
 type Intent = { job_id: string; token: string; plan_hash: string; start_before: Date; admission_mode: 'public' | 'candidate'; candidate_grant_id: string | null; candidate_revision: string | null };
@@ -47,27 +48,33 @@ async function candidatesV3(tx: TransactionSql, body: V3Proof, keyHash: string, 
    and not exists(select 1 from chinatech_v2_private.office_v3_commits c where c.candidate_grant_id=g.id)
    order by g.action,g.admit_until,g.id limit 5`;
 }
-export async function statusV3() {
-  return transactionV3(null, '', 'status', '', async tx => {
-    const row = await controlV3(tx);
-    const sourceReady = process.env.VERCEL === '1' && /^[a-f0-9]{64}$/.test(process.env.OFFICE_DESKTOP_V3_RATE_SECRET ?? '');
-    const signingReady = signingReadyV3(), accepting = row.enabled && row.release_ready && signingReady && sourceReady;
-    return { v: 3, acceptingNewSessions: accepting, acceptingNewJobs: accepting, signingReady, minimumVersion: row.minimum_version, currentVersion: row.release_ready ? row.verified_version : null, origin: v3Origin };
-  });
+async function latestReleaseV3(tx:TransactionSql,body:V3Proof){
+ const tool=await readTool(tx,'office');
+ if(!tool.enabled)throw new DesktopError('DESKTOP_PAUSED',403);
+ if(!tool.ready||!tool.release)throw new DesktopError('SERVICE_UNAVAILABLE',503);
+ if(tool.activeReleaseId!=='office-1.4.0' && (body.appVersion!==tool.release.version || !acceptsRelease(tool,body.releaseId)))throw new DesktopError('UPDATE_REQUIRED',426);
 }
-export async function updateV3() {
-  const status = await statusV3(), now = Math.floor(Date.now() / 1000);
-  const release = officeDesktopRelease;
-  const publisherCertificateSha256 = release.publisherCertificateSha256 ?? null;
-  if (publisherCertificateSha256 !== null && !/^[a-f0-9]{64}$/.test(publisherCertificateSha256) || release.authenticodeSigned && publisherCertificateSha256 === null) throw new DesktopError('SERVICE_UNAVAILABLE', 503);
-  if (release.files.length !== 2 || release.files.some(file => !/^[a-f0-9]{64}$/.test(file.sha256) || !Number.isSafeInteger(file.bytes) || file.bytes <= 0 || file.href !== `https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v${release.version}/ChinaTech-Office-Assistant-${file.architecture}.exe`)) throw new DesktopError('SERVICE_UNAVAILABLE', 503);
-  return signedUpdateV3({ v: 3, iss: v3Origin, aud: 'office-v3-update', issuedAt: now, expiresAt: now + 300,
-    version: release.version, websiteControlProtocol: release.websiteControlProtocol, authenticodeSigned: release.authenticodeSigned, publisherCertificateSha256, prerelease: release.prerelease,
-    files: release.files, control: status, trustedKeys: publicKeysV3(), trustPolicy: 'embedded-keyring-only' });
+async function snapshotV3(tx:TransactionSql) {
+  await lockV3(tx,'control');
+  const row=await controlV3(tx),tool=await readTool(tx,'office');
+  const sourceReady=process.env.VERCEL==='1'&&/^[a-f0-9]{64}$/.test(process.env.OFFICE_DESKTOP_V3_RATE_SECRET??'');
+  const signingReady=signingReadyV3(),accepting=tool.enabled&&tool.ready&&tool.release?.version===row.verified_version&&row.minimum_version===row.verified_version&&row.enabled&&row.release_ready&&signingReady&&sourceReady;
+  return {tool,status:{v:3,activeReleaseId:tool.activeReleaseId,acceptingNewSessions:accepting,acceptingNewJobs:accepting,signingReady,minimumVersion:row.minimum_version,currentVersion:row.release_ready?row.verified_version:null,origin:v3Origin}};
+}
+export async function statusV3(){return transactionV3(null,'','status','',async tx=>(await snapshotV3(tx)).status);}
+export async function updateV3(){
+  const {tool,status}=await transactionV3(null,'','update','',snapshotV3),now=Math.floor(Date.now()/1000);
+  const release=tool.release;
+  if(!release||!tool.ready||release.releaseId!==tool.activeReleaseId)throw new DesktopError('SERVICE_UNAVAILABLE',503);
+  const publisherCertificateSha256=release.publisherCertificateSha256??null;
+  if(publisherCertificateSha256!==null&&!/^[a-f0-9]{64}$/.test(publisherCertificateSha256)||release.authenticodeSigned&&publisherCertificateSha256===null)throw new DesktopError('SERVICE_UNAVAILABLE',503);
+  if(release.files.length!==2||new Set(release.files.map(file=>file.architecture)).size!==2||release.files.some(file=>!['x64','ARM64'].includes(file.architecture)||!/^[a-f0-9]{64}$/.test(file.sha256)||!Number.isSafeInteger(file.bytes)||file.bytes<=0||file.href!==`https://github.com/kyox215/Chinatech-codex/releases/download/office-assistant-v${release.version}/ChinaTech-Office-Assistant-${file.architecture}.exe`))throw new DesktopError('SERVICE_UNAVAILABLE',503);
+  return signedUpdateV3({v:3,iss:v3Origin,aud:'office-v3-update',issuedAt:now,expiresAt:now+300,releaseId:release.releaseId,version:release.version,websiteControlProtocol:release.websiteControlProtocol??3,authenticodeSigned:release.authenticodeSigned,publisherCertificateSha256,prerelease:release.prerelease,files:release.files,control:status,trustedKeys:publicKeysV3(),trustPolicy:'embedded-keyring-only'});
 }
 export function fingerprintV3(body: V3Proof, op: V3Operation, bearer: string): string {
   const business = op === 'session' ? [body.publicKey] : op === 'admission' ? [body.architecture] : op === 'start' ? [body.jobId, body.action, body.architecture, planV3(body.plan, String(body.action))] : op === 'activity' ? [body.jobId, body.planHash, activityV3(body.stage, body.errorCode)] : op === 'outcome' ? [body.jobId, body.planHash, body.status, body.checkpointHash] : [body.jobId, body.planHash];
-  return hashV3(JSON.stringify([op, body.installationId, body.appVersion, hashV3(bearer), ...business]));
+  const original = [op, body.installationId, body.appVersion, hashV3(bearer), ...business];
+  return hashV3(JSON.stringify(body.releaseId === undefined ? original : [...original,['releaseId',body.releaseId]]));
 }
 async function rateV3(tx: TransactionSql, body: V3Proof, source: string, op: V3Operation) {
   if (!['session', 'admission', 'start'].includes(op)) return;
@@ -121,7 +128,7 @@ export async function operationV3(tx: TransactionSql, body: V3Proof, op: V3Opera
     const architecture = String(body.architecture);
     if (!['win-x64', 'win-arm64'].includes(architecture)) throw new DesktopError('PLAN_INVALID');
     if (op === 'admission') {
-      await lockV3(tx, 'control'); const control = await controlV3(tx); admissionBaseV3(control, body.appVersion);
+      await lockV3(tx, 'control'); const control = await controlV3(tx); await latestReleaseV3(tx,body); admissionBaseV3(control, body.appVersion);
       const publicAdmission = publicV3(control, body.appVersion);
       const grants = publicAdmission ? [] : await candidatesV3(tx, body, keyHash, architecture);
       const actions = publicAdmission ? [...v3Actions] : v3Actions.filter(action => grants.some(grant => grant.action === action));
@@ -135,7 +142,7 @@ export async function operationV3(tx: TransactionSql, body: V3Proof, op: V3Opera
       const plan = planV3(body.plan, action), planHash = hashV3(JSON.stringify(plan));
       const [existing] = await tx`select job_id from chinatech_v2_private.office_v3_intents where job_id=${jobId}`;
       if (existing) throw new DesktopError('REQUEST_CONFLICT', 409);
-      await lockV3(tx, 'control'); const control = await controlV3(tx); admissionBaseV3(control, body.appVersion);
+      await lockV3(tx, 'control'); const control = await controlV3(tx); await latestReleaseV3(tx,body); admissionBaseV3(control, body.appVersion);
       let grant: Candidate | undefined;
       if (!publicV3(control, body.appVersion)) {
         [grant] = await candidatesV3(tx, body, keyHash, architecture, action, plan);
@@ -164,7 +171,7 @@ export async function operationV3(tx: TransactionSql, body: V3Proof, op: V3Opera
       if (!equalV3(intent.token, bearer)) throw new DesktopError('SESSION_INVALID', 401);
       if (!commit) {
         if (claims.exp <= now || intent.start_before.getTime() <= Date.now()) throw new DesktopError('START_EXPIRED', 401);
-        await lockV3(tx, 'control'); const control = await controlV3(tx); admissionBaseV3(control, body.appVersion);
+        await lockV3(tx, 'control'); const control = await controlV3(tx); await latestReleaseV3(tx,body); admissionBaseV3(control, body.appVersion);
         if (intent.admission_mode !== (claims.admissionMode ?? 'public')) throw new DesktopError('SESSION_INVALID', 401);
         if (intent.admission_mode === 'candidate') {
           if (intent.candidate_grant_id !== claims.grantId || intent.candidate_revision !== claims.grantRevision) throw new DesktopError('SESSION_INVALID', 401);
@@ -207,14 +214,14 @@ export async function operationV3(tx: TransactionSql, body: V3Proof, op: V3Opera
   await tx`insert into chinatech_v2_private.office_v3_receipts(installation_id,key_hash,request_id,nonce,endpoint,fingerprint,source_hash,response) values(${body.installationId},${keyHash},${body.requestId},${String(body.nonce)},${op},${fingerprint},${source},${tx.json(JSON.parse(JSON.stringify(response)))})`;
   return response;
 }
-export async function handleV3(request: NextRequest, op: V3Operation) {
+export async function handleV3(request: NextRequest, op: V3Operation, unified = false) {
   try {
     const source = sourceHashV3(request);
     await requestRateV3('source', source, 180);
-    if (request.nextUrl.origin !== v3Origin || request.nextUrl.pathname !== pathV3(op)) throw new DesktopError('INVALID_REQUEST');
+    if (request.nextUrl.origin !== v3Origin || request.nextUrl.pathname !== (unified ? pathV3(op).replace('/api/toolbox/office-desktop/v3/','/api/toolbox/client/v1/office/') : pathV3(op))) throw new DesktopError('INVALID_REQUEST');
     const envelope = objectV3(await desktopBody(request, ['payload', 'signature']), ['payload', 'signature']);
     if (typeof envelope.payload !== 'string') throw new DesktopError('INVALID_REQUEST');
-    const body = proofV3(envelope.payload, fields[op]), auth = request.headers.get('authorization');
+    const body = proofV3(envelope.payload, [...fields[op],'releaseId']), auth = request.headers.get('authorization');
     if (op === 'session' && auth || op !== 'session' && (!auth?.startsWith('Bearer ') || auth.length > 16007)) throw new DesktopError('SESSION_INVALID', 401);
     const bearer = auth?.slice(7) ?? '';
     const claims = op === 'session' ? null : readV3(bearer, op === 'start' || op === 'admission' ? 'office-v3-session' : op === 'commit' ? 'office-v3-start' : 'office-v3-permit', undefined, op === 'commit');

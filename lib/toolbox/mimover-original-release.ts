@@ -1,6 +1,6 @@
 export const mimoverOriginalRelease = {
   status: "ready" as "building" | "ready",
-  available: true,
+  available: false,
   mode: "original-role-only",
   version: "4.5.7.5",
   versionCode: 45708,

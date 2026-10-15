@@ -20,7 +20,7 @@ const stages: Record<string, string> = { Detect: '检测', Download: '下载', R
 const cleanupLabels: Record<string, string> = { jobs: '过期任务', outcomes: '任务结果', activity: '任务活动', commits: '过期恢复许可', receipts: '防重放回执', sessions: '过期设备会话', devices: '无依赖设备', adminReceipts: '设置回执', rateBuckets: '过期限流记录' };
 class RequestError extends Error { constructor(readonly code: string) { super(code); } }
 
-export function OfficeDesktopV3Control({ accountId, sessionId }: { accountId: string; sessionId: string }) {
+export function OfficeDesktopV3Control({ accountId, sessionId, technicalOnly=false }: { accountId: string; sessionId: string; technicalOnly?: boolean }) {
   const [manualRead,setManualRead]=useState(false);
   useActivityFeedback(manualRead,{kind:"read"});
   const [manualJobs,setManualJobs]=useState<"expand"|"refresh"|null>(null);
@@ -131,9 +131,9 @@ export function OfficeDesktopV3Control({ accountId, sessionId }: { accountId: st
   const date = (value: string) => new Date(value).toLocaleString(locale);
   if (!allowed) return <section id="office-desktop-v3-control" className={`panel ${styles.card}`}><p role="alert">{t('你没有新版助手管理权限。')}</p><button type="button" className="button button--secondary" disabled={loading} aria-busy={manualRead} onClick={()=>{setManualRead(true);void load().finally(()=>setManualRead(false));}}>{t('刷新新版设置')}</button></section>;
   return <section id="office-desktop-v3-control" className={`panel ${styles.card}`} aria-labelledby="office-desktop-v3-title" aria-busy={loading || saving}>
-    <div className={styles.cardHead}><h2 id="office-desktop-v3-title">{t('新版 Office 助手')}</h2></div>
+    <div hidden={technicalOnly} className={styles.cardHead}><h2 id="office-desktop-v3-title">{t('新版 Office 助手')}</h2></div>
     <div className={styles.form}>
-      <p className={styles.muted}>{t('暂停或提高最低版本只影响尚未启动的新任务；已启动任务可在有效期内按原范围完成或恢复。')}</p>
+      {!technicalOnly ? <><p className={styles.muted}>{t('暂停或提高最低版本只影响尚未启动的新任务；已启动任务可在有效期内按原范围完成或恢复。')}</p>
       {loading && !data ? <ReadPending label="正在读取新版助手设置…" /> : null}
       {data ? <>
         <div>{t('新版任务开关')}：<strong>{t(data.enabled ? '已开启' : '已关闭')}</strong></div>
@@ -157,7 +157,7 @@ export function OfficeDesktopV3Control({ accountId, sessionId }: { accountId: st
         <p>{t('新版任务开关')}：{t(intent.enabled ? '已开启' : '已关闭')} · {t('新版最低可用版本')}：{intent.minimumVersion}</p>
         <div className={styles.actions}><button type="button" className="button button--primary" disabled={saving} aria-busy={saving} onClick={() => void save()}>{t(saving ? '正在保存…' : error ? '重试原新版设置请求' : '确认变更')}</button><button type="button" className="button button--secondary" disabled={saving} onClick={() => setIntent(null)}>{t('取消')}</button></div>
       </div> : null}
-      {data?.trustedKeyFingerprints?.length ? <details className={v3Styles.keys}><summary>{t('可信公钥指纹')}</summary><p className={styles.muted}>{t('客户端仅信任预嵌公钥；此处公钥元数据用于审计，不会替换客户端根信任。')}</p>{data.trustedKeyFingerprints.map(key => <p key={key.kid}><strong>{key.kid}</strong>{key.current ? ' · ' + t('当前签名公钥') : ''}<br /><code>{key.sha256}</code></p>)}</details> : null}
+      </> : null}{data?.trustedKeyFingerprints?.length ? <details className={v3Styles.keys}><summary>{t('可信公钥指纹')}</summary><p className={styles.muted}>{t('客户端仅信任预嵌公钥；此处公钥元数据用于审计，不会替换客户端根信任。')}</p>{data.trustedKeyFingerprints.map(key => <p key={key.kid}><strong>{key.kid}</strong>{key.current ? ' · ' + t('当前签名公钥') : ''}<br /><code>{key.sha256}</code></p>)}</details> : null}
       {data ? <button type="button" className="button button--secondary" disabled={loading || saving} aria-expanded={expanded} aria-busy={manualJobs==="expand"} aria-controls="office-desktop-v3-jobs" onClick={() => { if (expanded) { jobsGeneration.current++; jobsActive.current?.abort(); setJobsLoading(false);manualJobsEpoch.current++;setManualJobs(null); } else readJobs("expand"); setExpanded(!expanded); }}>{t(expanded ? '收起新版任务状态' : '查看最近 20 条新版任务')}</button> : null}
       {expanded && data ? <div id="office-desktop-v3-jobs" className={styles.form} aria-busy={jobsLoading}>
         <p className={styles.muted}>{t('以下为客户端回报的任务状态；未回报不代表安装或激活成功。')}</p>

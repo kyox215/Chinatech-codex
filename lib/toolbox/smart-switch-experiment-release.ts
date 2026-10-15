@@ -1,6 +1,6 @@
 /** Independently signed lab4 original-interface candidate. Availability requires a frozen, verified APK. */
 export const smartSwitchExperimentRelease = {
-  available: true,
+  available: false,
   version: "3.7.73.4-original-ui-lab4",
   versionCode: 377304135,
   apkPath: "/toolbox/smart-switch-experiment/SmartSwitch-3.7.73.4-original-ui-coexist-lab4.apk",

@@ -2,6 +2,9 @@ name: CI
 on:
   push:
   pull_request:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}-${{ github.event_name }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -37,6 +40,8 @@ jobs:
         env:
           OFFICE_V3_TEST_OWNER_URL: postgresql://postgres:office_v3_ci_fixture@127.0.0.1:5432/office_v3_test
       - run: npx playwright install --with-deps chromium webkit
+      - name: Toolbox management component and identity recovery checks
+        run: node tests/toolbox-control.ui.mjs
       - run: npm run test:controls
       - uses: actions/upload-artifact@v4
         if: failure()

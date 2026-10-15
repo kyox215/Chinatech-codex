@@ -1,8 +1,12 @@
 {
   "schemaVersion": 1,
-  "version": "2026.10.07-preview.2",
+  "version": "2026.10.15-preview.3",
   "status": "inspection-only",
-  "target": { "version": "26H2", "edition": "Professional", "architecture": "x64" },
+  "target": {
+    "version": "26H2",
+    "edition": "Professional",
+    "architecture": "x64"
+  },
   "verifiedRoutes": [],
   "media": [],
   "sources": [
@@ -24,5 +28,6 @@
       "license": "not-established",
       "role": "windows-manual-only"
     }
-  ]
+  ],
+  "releaseId": "windows-check-20261015.3"
 }

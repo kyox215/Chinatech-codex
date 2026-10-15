@@ -24,7 +24,7 @@ export async function requestRateChecks({owner,runtime,db,call,pass}) {
  const oldVercel=env.VERCEL,oldRate=env.OFFICE_DESKTOP_V3_RATE_SECRET;env.VERCEL='1';env.OFFICE_DESKTOP_V3_RATE_SECRET='a'.repeat(64);
  const bodyAdapter={desktopBody:async request=>request.json(),desktopFailure:error=>NextResponse.json({code:error.code??'INVALID_REQUEST'},{status:error.status??400})};
  const responseAdapter={officeResponse:response=>response};
- const overrides={'./office-desktop-v3-database':db,'./office-desktop-server':bodyAdapter,'./office-server':responseAdapter};
+ const overrides={'./tool-registry-server':{readTool:async()=>({toolId:'office',activeReleaseId:'office-1.4.0',enabled:true,ready:true,release:{version:'1.4.0'}})},'./office-desktop-v3-database':db,'./office-desktop-server':bodyAdapter,'./office-server':responseAdapter};
  const http=load('lib/toolbox/office-desktop-v3-server.ts',overrides,env);
  const route=load('app/api/toolbox/office-desktop/v3/status/route.ts',{
   '@/lib/toolbox/office-desktop-v3-server':http,'@/lib/toolbox/office-desktop-v3-database':db,'@/lib/toolbox/office-desktop-server':bodyAdapter,'@/lib/toolbox/office-server':responseAdapter},env);
@@ -43,10 +43,10 @@ export async function requestRateChecks({owner,runtime,db,call,pass}) {
   const invalid=body({jobId:start.jobId,planHash:start.planHash,status:'bad',checkpointHash:'a'.repeat(64)}),wire=signed(invalid,'outcome',commit.permitToken);wire.signature='a'.repeat(86);
   assert.equal((await invoke('outcome',invalid,commit.permitToken,wire)).status,401);assert.equal(await count('source',sourceHash),2);assert.equal(await count('instance',instanceHash),0);
   const retried=body({jobId:start.jobId,planHash:start.planHash}),first=await invoke('commit',retried,start.startToken),again=await invoke('commit',retried,start.startToken);
-  assert.equal(first.status,200);assert.equal(again.status,200);assert.deepEqual(await first.json(),await again.json());
+  assert.equal(first.status,200,await first.clone().text());assert.equal(again.status,200);assert.deepEqual(await first.json(),await again.json());
   assert.equal((await invoke('resume',body({jobId:start.jobId,planHash:start.planHash}),commit.permitToken)).status,200);
   assert.equal((await invoke('outcome',invalid,commit.permitToken)).status,400);
-  const hintBody=body({architecture:'win-x64'});assert.equal((await invoke('admission',hintBody,session.sessionToken)).status,200);assert.equal((await invoke('admission',hintBody,session.sessionToken)).status,409);
+  const hintBody=body({architecture:'win-x64'});const hintResponse=await invoke('admission',hintBody,session.sessionToken);assert.equal(hintResponse.status,200,await hintResponse.clone().text());assert.equal((await invoke('admission',hintBody,session.sessionToken)).status,409);
   assert.equal(await count('instance',instanceHash),6);assert.equal(await count('source',sourceHash),8);
   pass('Actual HTTP handler counts malformed, invalid-signature and rolled-back business refusals; valid commit/resume/outcome/admission use instance counts and idempotent retries retain their response');
   const statuses=[];

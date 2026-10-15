@@ -129,13 +129,13 @@ test('Public release control and EXE signing are distinct from protocol signing 
 });
 test('The protocol3 public release remains unsigned and needs every server publication gate',async()=>{
  const identity={userId:randomUUID(),sessionId:randomUUID()};
- let control={enabled:true,minimum_version:'1.4.0',release_ready:true,verified_version:'1.4.0',revision:'0',updated_at:null};
+ let control={enabled:true,minimum_version:'1.5.0',release_ready:true,verified_version:'1.5.0',revision:'0',updated_at:null};
  const tx=async(strings)=>strings.join('').includes('office_command_control')?[{admin_user_id:identity.userId}]:[control];
  const admin=load('lib/toolbox/office-desktop-v3-admin.ts',{'@/lib/backend/database':{withDatabase:(id,store,run)=>run(tx)}},{...env,VERCEL:'1',OFFICE_DESKTOP_V3_RATE_SECRET:'a'.repeat(64)});
  const ready=await admin.getAdminV3(identity);
- assert.equal(ready.publicRelease.version,'1.4.0');assert.equal(ready.publicRelease.websiteControlProtocol,3);
+ assert.equal(ready.publicRelease.version,'1.5.0');assert.equal(ready.publicRelease.websiteControlProtocol,3);
  assert.equal(ready.publicRelease.websiteControlled,true);assert.equal(ready.publicRelease.authenticodeSigned,false);
- for(const patch of [{enabled:false},{release_ready:false},{verified_version:null},{minimum_version:'1.4.1'}]){
+ for(const patch of [{enabled:false},{release_ready:false},{verified_version:null},{minimum_version:'1.5.1'}]){
   const saved=control;control={...control,...patch};assert.equal((await admin.getAdminV3(identity)).publicRelease.websiteControlled,false);control=saved;
  }
 });
@@ -163,4 +163,13 @@ test('component uninstall freezes media and whole-product removal stays media-fr
  fails(()=>tokens.planV3({...removal,mediaVersion:''},'uninstall'),'PLAN_INVALID');
  assert.equal(tokens.planV3({...removal,removalMode:'all',removalTargets:['c2r-product:ProPlus2024Volume'],mediaVersion:''},'uninstall').mediaVersion,'');
  assert.notEqual(tokens.hashV3(JSON.stringify(tokens.planV3(removal,'uninstall'))),tokens.hashV3(JSON.stringify(tokens.planV3({...removal,mediaVersion:'16.0.17932.21001'},'uninstall'))));
+});
+
+test('1.4 receipt fingerprint remains byte-identical; new identities are bound separately',()=>{
+ const server=load('lib/toolbox/office-desktop-v3-server.ts',{},env);
+ const body=proof({publicKey}),business=[body.publicKey];
+ const legacy=tokens.hashV3(JSON.stringify(['session',body.installationId,body.appVersion,tokens.hashV3(''),...business]));
+ assert.equal(server.fingerprintV3(body,'session',''),legacy);
+ assert.notEqual(server.fingerprintV3({...body,releaseId:'office-1.5.0'},'session',''),legacy);
+ assert.notEqual(server.fingerprintV3({...body,releaseId:'office-1.5.0'},'session',''),server.fingerprintV3({...body,releaseId:'other-1.5.0'},'session',''));
 });
