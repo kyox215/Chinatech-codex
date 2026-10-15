@@ -191,7 +191,7 @@ function ScopedRepairList({ scope }: { scope: string }) {
   }
 
   return <main className="module-page repair-page repair-parts-list repair-unified-list">
-    <header className="module-heading"><PageTitle title={t("维修工单")} /><div className="module-heading__actions"><RepairScanner iconOnly />{canEdit ? <><button className="button button--secondary button--compact" type="button" onClick={() => setBatchAction("arrival")}><PackageCheck size={17} />{t("批量到货")}</button></> : null}{canEdit ? <Link className="button button--primary button--compact" href="/app/repairs/new" icon={<Plus size={17} />}>{t("新建工单")}</Link> : null}</div></header>
+    <header className="module-heading"><PageTitle title={t("维修工单")} /><div className={`module-heading__actions${!canEdit ? " module-heading__actions--icons" : ""}`}><RepairScanner iconOnly />{canEdit ? <><button className="button button--secondary button--compact" type="button" onClick={() => setBatchAction("arrival")}><PackageCheck size={17} />{t("批量到货")}</button></> : null}{canEdit ? <Link className="button button--primary button--compact" href="/app/repairs/new" icon={<Plus size={17} />}>{t("新建工单")}</Link> : null}</div></header>
     {feedback && !feedback.error && !activeRepairId ? <Toast message={systemText(feedback.message)} noticeId={toastNoticeId(feedback)} /> : null}
     <section className="panel repair-module-panel">
       <div className="segmented-control repair-list-scope" role="group" aria-label={t("工单范围")}>

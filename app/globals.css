@@ -1145,12 +1145,15 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
   .module-page { padding: 8px 8px calc(16px + env(safe-area-inset-bottom)); }
   .module-heading { min-height: 60px; flex-wrap: wrap; gap: 8px; padding: 8px; margin-bottom: 10px; }
-  .module-heading > .module-title { flex: 1 1 100%; width: 100%; }
+  .module-heading > .module-title { flex: 1 1 0; width: auto; }
+  .module-heading .module-title__line > .status-pill { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .module-heading h2, .module-title h2 { font-size: 18px; font-weight: 600; }
   .module-heading p { margin-top: 3px; font-size: 12px; }
   .procurement-detail .module-title__content > p, .retail-detail .module-title__content > p { display: none; }
   .module-heading__actions { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; width: 100%; margin-left: 0; }
   .module-heading__actions .button { min-height: 44px; padding: 6px 9px; font-size: 12px; }
+  .module-heading > .module-heading__actions.module-heading__actions--icons { display: flex; flex: 0 0 auto; width: auto; max-width: 100%; }
+  .module-heading > .module-heading__actions:empty { display: none; }
   .module-heading .page-toolbar-action { width: 44px; min-width: 44px; height: 44px; padding: 0; }
   .module-heading .page-toolbar-action > span { display: none; }
   .inline-notice, .detail-fact-banner { align-items: flex-start; margin-bottom: 8px; font-size: 12px; line-height: 1.4; }
