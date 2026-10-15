@@ -46,6 +46,10 @@ function markup(css) {
     <main class="module-page retail-detail ${surface.page} ${detail.detail}"><div class="${detail.layout}"><div class="${detail.column}">
       ${group("identity")}${group("history", true)}${group("source", true)}
     </div></div></main>
+    <div class="module-page" id="heading-samples">
+      <header class="module-heading"><div class="module-title"><button class="icon-button page-menu-button" id="heading-menu">≡</button><a class="icon-button page-back-button">←</a><div class="module-title__content"><div class="module-title__line"><h2>Scheda prodotto</h2><span class="status-pill" id="heading-status">Ricambi da scegliere · Non ordinato</span></div></div></div><a class="button page-toolbar-action" id="heading-action">＋<span>New matching model</span></a></header>
+      <header class="module-heading repair-detail__toolbar"><div class="module-title"><button class="icon-button page-menu-button" id="group-menu">≡</button><div class="module-title__content"><h2>CT-2026-0929</h2></div></div><div class="module-heading__actions module-heading__actions--icons"><button class="button page-toolbar-action" id="group-action">◇<span>Print receipt</span></button><button class="button page-toolbar-action">↻<span>Rework</span></button></div></header>
+    </div>
     <div class="panel" id="panel">Figma card</div>
     <button class="button button--primary" id="primary">Primary action</button>
     <button class="button button--secondary" id="secondary">Secondary action</button>
@@ -98,6 +102,12 @@ for (const engine of [chromium, webkit]) {
           };
           return {
             identity: visible("identity"), history: visible("history"), source: visible("source"),
+            headingRows: [ ["#heading-menu", "#heading-action"], ["#group-menu", "#group-action"] ].map(([menu, action]) => {
+              const a=document.querySelector(action).getBoundingClientRect(), m=document.querySelector(menu).getBoundingClientRect();
+              const badge=document.querySelector("#heading-status"), content=badge.parentElement.parentElement;
+              const b=badge.getBoundingClientRect(), c=content.getBoundingClientRect();
+              return { centerDifference: Math.abs(a.y+a.height/2-m.y-m.height/2), width:a.width, height:a.height, badgeFits:b.right<=c.right+1 && badge.scrollWidth<=badge.clientWidth };
+            }),
             closedBody: style("#identity-body").display,
             button: { size: style("#primary").fontSize, weight: style("#primary").fontWeight, radius: style("#primary").borderRadius, background: style("#primary").backgroundColor },
             panelRadius: style("#panel").borderRadius,
@@ -138,6 +148,11 @@ for (const engine of [chromium, webkit]) {
         }
         if (mobile) {
           assert.ok(Number.parseFloat(result.inputSize) >= 16);
+          for (const heading of result.headingRows) {
+            assert.ok(heading.centerDifference < 1, "Mobile heading actions share the menu row");
+            assert.ok(heading.width >= 44 && heading.height >= 44);
+            assert.ok(heading.badgeFits, "Long mobile status stays within title content");
+          }
           for (const target of [result.tiny, result.icon]) assert.ok(target.width >= 44 && target.height >= 44);
         }
         rows.push({ engine: engine.name(), order, width, ...result });
