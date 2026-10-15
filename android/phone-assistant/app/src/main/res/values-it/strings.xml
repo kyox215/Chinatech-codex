@@ -1,6 +1,6 @@
 <resources>
   <string name="app_name">ChinaTech Phone Assistant</string>
-  <string name="alpha_notice">0.5.0 test · Entrambi i telefoni prima online: tre codici e autorizzazioni, poi collegamento locale. Nessun limite al totale dei file; autorizzazione originale fino a 30 giorni. Verifica su marche reali ancora necessaria.</string>
+  <string name="alpha_notice">0.5.1 test · Entrambi i telefoni prima online: tre codici e autorizzazioni, poi collegamento locale. Nessun limite al totale dei file; autorizzazione originale fino a 30 giorni. Verifica su marche reali ancora necessaria.</string>
   <string name="sender_title">Vecchio telefono · Invio</string>
   <string name="receiver_title">Nuovo telefono · Ricezione</string>
   <string name="create_hotspot">Dopo autorizzazione reciproca: attiva hotspot</string>
@@ -186,4 +186,5 @@
     <string name="gate_update_failed">Verifica o download fallito. Riprova o visita www.chinatech.in/toolbox.</string>
     <string name="gate_close_receiver">Termina ricezione / chiudi ascolto ricevute</string>
     <string name="gate_receipt_waiting">Ricezione verificata. Ascolto fino a 3 minuti per la ricevuta del mittente originale; puoi terminare ora. Il registro resta disponibile.</string>
+    <string name="gate_restoring_permission">Ripristino dell’autorizzazione originale; piano e ambito restano invariati…</string>
 </resources>

@@ -1,3 +1,13 @@
+# ChinaTech 手机助手 0.5.1-test
+
+本版修复网站已创建任务、许可未落盘时从记录恢复失败的问题。保留原CTPA5、包名、签名、Keystore和journal：先核原实例/job/TLS/冻结scope，再resume原许可；只有明确NOT_FOUND、任务属于当前版本且网站允许才用原请求/nonce尝试原job的start。缺失许可不会重新选择或创建新任务，恢复错误保持原非终态记录。
+
+冻结APK `4749c1fd056d29fe90be3092149ef213ea2440b2ec0e6add7bb660c2756ff879`，versionCode6，releaseId `phone-assistant-0.5.1`。本轮51生产输入、794纯JVM断言、188三语词条及实际Android16旧0.5两角色缺许可恢复、暂停NOT_FOUND拒绝、新版完整双端流的证据与边界见 `tests/android-phone-gate-native/README.md` 和忽略目录 `.local/android-phone-gate/delivery.json`。不合并不同套件作为独立native总数，不将旧0.5结果当成新版缺口修复证据。
+
+以下为0.5及更早历史说明，保留用于追溯。
+
+---
+
 # ChinaTech 手机助手 0.5.0-test
 
 本轮候选固定 `phone-assistant-0.5.0`，包名与已有候选证书保留。当前公开下载保持关闭，等待新版 Android 运行和发布门禁。

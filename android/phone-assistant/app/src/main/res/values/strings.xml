@@ -1,6 +1,6 @@
 <resources>
   <string name="app_name">ChinaTech Phone Assistant</string>
-  <string name="alpha_notice">0.5.0 test · Keep both phones online for the three-code permission exchange before local connection. No total file-count cap; original task permission lasts up to 30 days. Real-brand verification remains required.</string>
+  <string name="alpha_notice">0.5.1 test · Keep both phones online for the three-code permission exchange before local connection. No total file-count cap; original task permission lasts up to 30 days. Real-brand verification remains required.</string>
   <string name="sender_title">Old phone · Send</string>
   <string name="receiver_title">New phone · Receive</string>
   <string name="create_hotspot">After both permissions: enable hotspot</string>
@@ -186,4 +186,5 @@
     <string name="gate_update_failed">Update verification or download failed. Retry or visit www.chinatech.in/toolbox.</string>
     <string name="gate_close_receiver">End receiving / close receipt listener</string>
     <string name="gate_receipt_waiting">Receiving is verified complete. The original sender may check its receipt for up to 3 minutes; you can end receiving now. The record is retained.</string>
+    <string name="gate_restoring_permission">Recovering the original task permission; plan and selected scope stay unchanged…</string>
 </resources>

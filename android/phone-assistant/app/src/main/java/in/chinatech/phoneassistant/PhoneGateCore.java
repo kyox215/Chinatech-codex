@@ -10,8 +10,8 @@ import java.util.*;
 
 /** Shared wire/identity checks. No Android, network, files or customer logging. */
 public final class PhoneGateCore {
- public static final String ORIGIN="https://www.chinatech.in",TOOL="phone-assistant",VERSION="0.5.0-test",RELEASE="phone-assistant-0.5.0";
- public static final int VERSION_CODE=5,MAX_CODE_BYTES=2200;
+ public static final String ORIGIN="https://www.chinatech.in",TOOL="phone-assistant",VERSION="0.5.1-test",RELEASE="phone-assistant-0.5.1";
+ public static final int VERSION_CODE=6,MAX_CODE_BYTES=2200;
  public static final String KEY_ID="office-v3-20261013",PUBLIC_KEY="MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEoHieiLBa/Im3OqTwwDEMtygbpqs0U18RkelP70y3ERAFiJDZrVSkQKXNN3dp73VJPouyS2fgAcn0qL16RyMxhA==";
  public interface Json { Map<String,Object> read(String value)throws Exception;String write(Map<String,Object> value)throws Exception; }
  private PhoneGateCore(){}

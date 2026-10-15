@@ -2,10 +2,10 @@ from pathlib import Path
 import subprocess,os,json,re,xml.etree.ElementTree as ET,sqlite3
 r=Path(__file__).resolve().parents[1];workspace=r.parents[2];tools=workspace/'.local/android-assistant/toolchain';java=next((tools/'jdk').glob('*/Contents/Home/bin'));proof=r/'.local/android-phone-gate';proof.mkdir(exist_ok=True);classes=proof/'jvm-tests';classes.mkdir(exist_ok=True)
 cp=os.pathsep.join(map(str,[proof/'native-proof/build/classes.jar',tools/'sdk/android-37.0/android.jar',tools/'deps/zxing-core-3.5.3.jar']))
-names=['ProtocolTest','ReliabilityTest','TransferV2Test','RecoveryStateTest','QrTest','ContactExportTest','ScanConsentTest'];sources=[r/'tests/android-assistant-native'/(n+'.java') for n in names]+[r/'tests/android-phone-gate/PhoneGateCoreTest.java']
+names=['ProtocolTest','ReliabilityTest','TransferV2Test','RecoveryStateTest','QrTest','ContactExportTest','ScanConsentTest'];sources=[r/'tests/android-assistant-native'/(n+'.java') for n in names]+[r/'tests/android-phone-gate/PhoneGateCoreTest.java',r/'tests/android-phone-gate/PhoneRecoveryCoreTest.java']
 subprocess.run([str(java/'javac'),'-encoding','UTF-8','-cp',cp,'-d',str(classes),*map(str,sources)],check=True)
 records=[]
-for n in names+['PhoneGateCoreTest']:
+for n in names+['PhoneGateCoreTest','PhoneRecoveryCoreTest']:
  args=[str(java/'java'),'-cp',str(classes)+os.pathsep+cp,'in.chinatech.phoneassistant.'+n]
  if n=='ProtocolTest':args.append(str(workspace/'.local/android-assistant/native-proof/candidate-key.p12'))
  result=subprocess.run(args,text=True,capture_output=True,timeout=90);(proof/(n+'.log')).write_text(result.stdout+result.stderr);print(result.stdout.strip());

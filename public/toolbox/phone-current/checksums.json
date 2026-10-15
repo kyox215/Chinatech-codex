@@ -1,15 +1,15 @@
 {
-  "releaseId": "phone-assistant-0.5.0",
+  "releaseId": "phone-assistant-0.5.1",
   "files": [
     {
       "name": "ChinaTech-Phone-Assistant.apk",
-      "sha256": "5b9a78263e3c45ff52fe5a6fe7c28130de7121c807f32764df37af5e8ce960c9",
+      "sha256": "4749c1fd056d29fe90be3092149ef213ea2440b2ec0e6add7bb660c2756ff879",
       "bytes": 447167
     },
     {
       "name": "README.md",
-      "sha256": "aa7939c1833d79dc7d869fb5c340e78d27fd07ef53581fe8b26977725b755d54",
-      "bytes": 6960
+      "sha256": "afba1b77cee7a0f09353f6beffe094549a6ce9be30cf82b0cf2ccdbc371eea5b",
+      "bytes": 7464
     }
   ]
 }

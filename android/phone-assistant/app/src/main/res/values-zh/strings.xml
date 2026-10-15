@@ -1,6 +1,6 @@
 <resources>
   <string name="app_name">ChinaTech 手机助手</string>
-  <string name="alpha_notice">0.5.0 测试版 · 两台手机先联网，完成三步扫码授权后再建立本地连接。所选文件无总数上限，原任务许可最长30天。品牌真机仍待验证。</string>
+  <string name="alpha_notice">0.5.1 测试版 · 两台手机先联网，完成三步扫码授权后再建立本地连接。所选文件无总数上限，原任务许可最长30天。品牌真机仍待验证。</string>
   <string name="sender_title">旧手机 · 发送</string>
   <string name="receiver_title">新手机 · 接收</string>
   <string name="create_hotspot">双方授权后：开启热点</string>
@@ -186,4 +186,5 @@
     <string name="gate_update_failed">更新核验或下载失败，请重试，或访问 www.chinatech.in/toolbox。</string>
     <string name="gate_close_receiver">结束接收／关闭回执监听</string>
     <string name="gate_receipt_waiting">接收已核验完成；最多等待3分钟供原发送端核对回执，可直接结束接收。原记录保留。</string>
+    <string name="gate_restoring_permission">正在恢复原任务授权，计划和所选范围保持不变…</string>
 </resources>

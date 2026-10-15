@@ -62,7 +62,7 @@ from pathlib import Path
 import hashlib,json,re,sys
 apk=Path(sys.argv[1]);p=Path(sys.argv[2]);cert=re.search(r'certificate SHA-256 digest: (\w+)',(p/'apk-signature.txt').read_text()).group(1)
 assert cert=='bb8969df392a7c575895c4b4e9bb9219847c20bacadd3980a9bcb956f19e1329'
-obj={'package':'in.chinatech.phoneassistant','versionName':'0.5.0-test','versionCode':5,'releaseId':'phone-assistant-0.5.0','minSdk':26,'targetSdk':37,'compileSdk':'37.0 r02','apkSha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'apkBytes':apk.stat().st_size,'signerCertificateSha256':cert,'signing':'project-local candidate; not production update key','deviceVerification':'not yet verified on physical Android devices','published':False}
+obj={'package':'in.chinatech.phoneassistant','versionName':'0.5.1-test','versionCode':6,'releaseId':'phone-assistant-0.5.1','minSdk':26,'targetSdk':37,'compileSdk':'37.0 r02','apkSha256':hashlib.sha256(apk.read_bytes()).hexdigest(),'apkBytes':apk.stat().st_size,'signerCertificateSha256':cert,'signing':'project-local candidate; not production update key','deviceVerification':'not yet verified on physical Android devices','published':False}
 source=p.parents[2]/'android/phone-assistant/app/src/main'
 inputs=[{'path':str(x.relative_to(source)), 'sha256':hashlib.sha256(x.read_bytes()).hexdigest(),'bytes':x.stat().st_size} for x in sorted(source.rglob('*')) if x.is_file()]
 obj['sourceInputsSha256']=hashlib.sha256(json.dumps(inputs,sort_keys=True,separators=(',',':')).encode()).hexdigest()

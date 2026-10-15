@@ -1,9 +1,9 @@
 from pathlib import Path
 import hashlib,json,shutil
 r=Path(__file__).resolve().parents[2];p=r/'.local/android-phone-gate/native-proof';v=json.loads((p/'apk-verification.json').read_text());apk=r/'.local/android-phone-gate/delivery/ChinaTech-Phone-Assistant.apk';out=r/'public/toolbox/phone-current';out.mkdir(parents=True,exist_ok=True)
-assert v['releaseId']=='phone-assistant-0.5.0' and hashlib.sha256(apk.read_bytes()).hexdigest()==v['apkSha256']
+assert v['releaseId']=='phone-assistant-0.5.1' and hashlib.sha256(apk.read_bytes()).hexdigest()==v['apkSha256']
 shutil.copyfile(apk,out/'ChinaTech-Phone-Assistant.apk')
-readme='''# ChinaTech Phone Assistant 0.5.0-test
+readme='''# ChinaTech Phone Assistant 0.5.1-test
 
 中文：Android 8及以上测试版，沿用原包名与签名证书。两机先联网：新机选本机接收目录并生成准备码；旧机选择资料后扫码，冻结清单并出回应码；新机扫描回应码取得接收许可后才启热点；旧机扫描最终码连接。旧版协议不回退。
 

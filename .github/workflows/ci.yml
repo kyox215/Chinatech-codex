@@ -38,8 +38,9 @@ jobs:
       - name: Phone current-release cryptographic policies (JVM only)
         run: |
           mkdir -p .local/phone-gate-jvm
-          javac -d .local/phone-gate-jvm android/phone-assistant/app/src/main/java/in/chinatech/phoneassistant/ProtocolCore.java android/phone-assistant/app/src/main/java/in/chinatech/phoneassistant/PhoneGateCore.java tests/android-phone-gate/PhoneGateCoreTest.java
+          javac -d .local/phone-gate-jvm android/phone-assistant/app/src/main/java/in/chinatech/phoneassistant/ProtocolCore.java android/phone-assistant/app/src/main/java/in/chinatech/phoneassistant/PhoneGateCore.java android/phone-assistant/app/src/main/java/in/chinatech/phoneassistant/PhoneRecoveryCore.java tests/android-phone-gate/PhoneGateCoreTest.java tests/android-phone-gate/PhoneRecoveryCoreTest.java
           java -cp .local/phone-gate-jvm in.chinatech.phoneassistant.PhoneGateCoreTest
+          java -cp .local/phone-gate-jvm in.chinatech.phoneassistant.PhoneRecoveryCoreTest
           python3 tests/android-phone-gate-coordinator.test.py
       - name: Verify Office v3 migrations, RLS, candidate scope and request rate
         run: node tests/office-desktop-v3.sql.mjs
