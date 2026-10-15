@@ -1,9 +1,9 @@
 <resources>
   <string name="app_name">ChinaTech Phone Assistant</string>
-  <string name="alpha_notice">0.3.0 alpha · Scan and select on the old phone; create a hotspot on the new phone. Automatic connection, manual hotspot and same-Wi-Fi modes. No selected-file count or approved-session duration cap. Real-brand verification is still required.</string>
+  <string name="alpha_notice">0.5.1 test · Keep both phones online for the three-code permission exchange before local connection. No total file-count cap; original task permission lasts up to 30 days. Real-brand verification remains required.</string>
   <string name="sender_title">Old phone · Send</string>
   <string name="receiver_title">New phone · Receive</string>
-  <string name="create_hotspot">Create hotspot and QR code</string>
+  <string name="create_hotspot">After both permissions: enable hotspot</string>
   <string name="hotspot_starting">Requesting a local hotspot from Android…</string>
   <string name="hotspot_ready">New-phone hotspot ready. Choose a destination and generate a code; the old phone requests Android connection approval.</string>
   <string name="hotspot_required">Create a local hotspot first, or explicitly choose the same-router fallback.</string>
@@ -23,7 +23,7 @@
   <string name="qr_pairing">QR for this hotspot and encrypted session</string>
   <string name="qr_camera">Scan new phone QR code</string>
   <string name="qr_image">Read pairing QR from a local image</string>
-  <string name="qr_read">Temporary pairing information read. Press Connect and compare verification codes on both phones.</string>
+  <string name="qr_read">New pairing code read. Continue permission exchange or connection and compare verification codes.</string>
   <string name="qr_failed">QR could not be read, expired or invalid. System-camera thumbnails may be insufficient: fill the frame with the QR, or use a clear local image/development-test long code.</string>
   <string name="qr_reading">Reading QR in the background for up to 30 seconds. Stop or edit the pairing code to cancel.</string>
   <string name="qr_timeout">QR reading timed out; the old result will not be applied. Cancelling the provider: wait and check the file app if it does not close.</string>
@@ -33,7 +33,7 @@
   <string name="service_starting">Requesting the Android foreground transfer service…</string>
   <string name="service_start_failed">Android refused to start or promote the foreground transfer service. The session did not start or was aborted. Check notifications, permissions and system restrictions and pair again; unfinished items are not successful.</string>
   <string name="stopping">Stopping and waiting for file providers and tasks to close. Review unfinished items; retry is unavailable until closure. %1$s</string>
-  <string name="provider_notice">This assistant itself does not upload to the website. Selected SAF file providers may connect or sync independently. Prefer a local destination folder on the new phone and check provider settings.</string>
+  <string name="provider_notice">File contents move only between the phones. The website receives task identity and plan/result hashes, never file lists or contents. SAF providers may sync independently; prefer a local destination folder.</string>
   <string name="ready">Select the data to transfer.</string>
   <string name="selected_count">%1$d selected files</string>
   <string name="choose_files">Choose photos, videos or files</string>
@@ -41,9 +41,9 @@
   <string name="export_contacts">Read contacts and add a VCF</string>
   <string name="contacts_explanation">Export authorized contacts using the system vCard provider, including fields and photos it actually supplies. Failed standard exports are reported as partial, with a basic name/phone/email fallback when available. Confirm account and duplicates separately in the system Contacts app.</string>
   <string name="create_pairing">Check selected files and create pairing code</string>
-  <string name="code_notice">The new phone shows this temporary code to the old phone. It contains hotspot credentials: share only with your device. Unpaired codes expire after 10 minutes; confirmed transfer duration is unrestricted.</string>
+  <string name="code_notice">Exchange setup, response and final codes only between these two phones. Final join codes last 10 minutes; original recovery follows the signed expiry, up to 30 days. Keep QR codes private.</string>
   <string name="pairing_code">Pairing code</string>
-  <string name="paste_code">Paste pairing code from old phone</string>
+  <string name="paste_code">Paste the other phone’s setup, response or final code</string>
   <string name="copy_code">Copy temporary pairing code</string>
   <string name="code_copied">Code copied. At expiry the app attempts to clear this clipboard entry.</string>
   <string name="choose_folder">Choose destination folder first</string>
@@ -55,7 +55,7 @@
   <string name="import_vcf">Open system Contacts to confirm VCF import</string>
   <string name="import_explanation">The system Contacts app will open. Check the destination and duplicate contacts. This assistant does not automatically write contacts or verify the system import result. If no compatible app exists, open the VCF manually in a file manager.</string>
   <string name="import_unavailable">No import app available. Open the VCF manually in the destination folder.</string>
-  <string name="stop">Stop and clear this pairing</string>
+  <string name="stop">Safely stop / cancel original task</string>
   <string name="cancel">Cancel</string>
   <string name="continue_action">Continue</string>
   <string name="approve">Matches, allow selected transfer</string>
@@ -80,7 +80,7 @@
   <string name="notification_explanation">Notifications show the transfer and a stop action. You may continue if notifications are denied. Keep both phones awake and allow background activity during transfer.</string>
   <string name="permission_denied">Permission denied or revoked. File selection remains available; check permissions and retry.</string>
   <string name="transfer_notification">Data transfer active. Open the app or stop.</string>
-  <string name="session_expired">The unapproved join code expired. Stop and generate a new code on the new phone; the scan and completed records are kept.</string>
+  <string name="session_expired">The join code or task permission expired. Check the original task record. Existing data and receipts remain; scope is never expanded automatically.</string>
   <string name="cancelled">Session stopped. Originals and verified received files are kept.</string>
   <string name="service_timeout">The system ended the foreground transfer service. Unfinished items are not successful; keep the app open and pair again.</string>
   <string name="wifi_required">Connect both phones to the same private Wi-Fi. Guest isolation, VPNs or router settings may block direct connection.</string>
@@ -126,7 +126,7 @@
   <string name="receiver_pairing">New phone: generate code and wait to receive</string>
   <string name="receiver_waiting">New phone waiting for the old phone to join and confirm within 10 minutes.</string>
   <string name="retrying">Connection lost, reconnecting %1$d / %2$d; completed files are reread and skipped, incomplete files restart.</string>
-  <string name="recovery_notice">No total file-count or duration limit for selected data. Up to 5 automatic reconnections, then user attention is required. After stop/app exit, pair again: the same task and destination recheck completed objects; incomplete files restart. No byte-offset resume.</string>
+  <string name="recovery_notice">Up to 5 automatic reconnections, then the original task waits for attention. Resume the same plan and destination from task records; saved objects are rechecked and incomplete files retransmitted. No byte-offset resume. Cancellation and completion are separate.</string>
   <string name="file_failed">File requiring attention: %1$s. %2$s Completed files are kept; deselect this item or review permissions/space and pair again.</string>
   <string name="rescan_notice">Rescanning starts a new task and resets selection; originals and completed destination files stay.</string>
   <string name="scan_interrupted">A scan scope is incomplete; the index covers only data already read. Adding other folders does not complete the earlier scope; rescan the phone or the same folder.</string>
@@ -160,4 +160,31 @@
   <string name="wifi_auto_available">System-confirmed Wi-Fi request available; OEM may reject it.</string>
   <string name="wifi_manual_required">Android 8–9: connect Wi-Fi in system settings.</string>
   <string name="scan_request_lost">Scan request was not retained. Choose the scan categories again; no expanded scan started.</string>
+    <string name="gate_checking">Checking website permission…</string>
+    <string name="gate_ready">Current version available</string>
+    <string name="gate_paused">New tasks paused. Original recovery, records and cancellation remain available.</string>
+    <string name="gate_update">Update to the latest version before starting new operations.</string>
+    <string name="gate_offline">Website unavailable. Retry online. Original tasks can resume within their original scope.</string>
+    <string name="gate_storage">Secure journal unavailable. Operations blocked; existing data retained.</string>
+    <string name="gate_retry">Check again</string>
+    <string name="gate_download">Update assistant</string>
+    <string name="gate_records">Task records and recovery</string>
+    <string name="gate_steps">Keep both phones online: ① new phone shows setup code; ② old phone scans it and shows response; ③ new phone scans response before enabling hotspot, then old phone scans final code. Both require this new protocol.</string>
+    <string name="gate_scan_peer">Scan or paste the other phone’s setup, response or final code</string>
+    <string name="gate_prepare">Prepare online / resume original task</string>
+    <string name="gate_offer_ready">Setup code ready. Keep both phones online; scan it with the old phone.</string>
+    <string name="gate_response_ready">Send permission verified. Scan the response below with the new phone.</string>
+    <string name="gate_receiver_authorized">Both permissions verified. Hotspot connection can now begin.</string>
+    <string name="gate_pair_first">Complete both online code and permission exchanges before enabling hotspot.</string>
+    <string name="gate_failed">Permission or pairing verification failed. Check network, latest version and original task records.</string>
+    <string name="gate_peer_required">Only new setup, response and final codes are accepted. Old pairing codes are refused.</string>
+    <string name="gate_completed">Verified complete</string>
+    <string name="gate_resume">Original task awaiting recovery</string>
+    <string name="gate_finish_first">Finish or safely stop the current transfer before updating.</string>
+    <string name="gate_downloading">Downloading and verifying the package…</string>
+    <string name="gate_install_permission">Allow this app to request update installation, then return and tap Update again.</string>
+    <string name="gate_update_failed">Update verification or download failed. Retry or visit www.chinatech.in/toolbox.</string>
+    <string name="gate_close_receiver">End receiving / close receipt listener</string>
+    <string name="gate_receipt_waiting">Receiving is verified complete. The original sender may check its receipt for up to 3 minutes; you can end receiving now. The record is retained.</string>
+    <string name="gate_restoring_permission">Recovering the original task permission; plan and selected scope stay unchanged…</string>
 </resources>

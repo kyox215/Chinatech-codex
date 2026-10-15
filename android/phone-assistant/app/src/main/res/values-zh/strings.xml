@@ -1,9 +1,9 @@
 <resources>
   <string name="app_name">ChinaTech 手机助手</string>
-  <string name="alpha_notice">0.3.0 alpha · 旧机扫描后选择，新机建立连接。支持自动热点、手动热点和同一 Wi-Fi；所选资料没有总数或批准后固定时长限制。品牌真机仍待验证。</string>
+  <string name="alpha_notice">0.5.1 测试版 · 两台手机先联网，完成三步扫码授权后再建立本地连接。所选文件无总数上限，原任务许可最长30天。品牌真机仍待验证。</string>
   <string name="sender_title">旧手机 · 发送</string>
   <string name="receiver_title">新手机 · 接收</string>
-  <string name="create_hotspot">创建热点并生成二维码</string>
+  <string name="create_hotspot">双方授权后：开启热点</string>
   <string name="hotspot_starting">正在请求系统创建本地热点…</string>
   <string name="hotspot_ready">新机热点已创建。请选择接收目录，再生成配对码；旧机申请系统确认加入。</string>
   <string name="hotspot_required">请先创建本地热点，或明确选择同路由器备用模式。</string>
@@ -23,7 +23,7 @@
   <string name="qr_pairing">本次热点和加密会话配对二维码</string>
   <string name="qr_camera">扫描新手机二维码</string>
   <string name="qr_image">从本机图片读取配对二维码</string>
-  <string name="qr_read">已读取短期配对信息。请点击连接，再核对两端校验码。</string>
+  <string name="qr_read">已读取新版配对信息，请继续下一步扫码授权或连接，并核对双方验证码。</string>
   <string name="qr_failed">二维码未能读取、已过期或格式不符。系统相机返回的缩略图可能不足，请让二维码填满画面，或使用清晰本地图片/开发测试长码。</string>
   <string name="qr_reading">正在后台读取二维码，最多等待30秒；可停止或修改配对码取消。</string>
   <string name="qr_timeout">二维码读取已超时，旧结果不会应用。正在取消提供者；若仍未关闭，请等待并核对所用文件应用。</string>
@@ -33,7 +33,7 @@
   <string name="service_starting">正在请求Android前台迁移服务…</string>
   <string name="service_start_failed">Android拒绝启动或提升前台迁移服务，本次未开始或已中止。请核对通知、权限及系统限制后重新配对；未完成项不算成功。</string>
   <string name="stopping">正在停止并等待文件提供者／任务关闭；未完成项待核对，关闭前不能重试。%1$s</string>
-  <string name="provider_notice">本助手本身不上传网站。所选SAF文件提供者可能自行联网或同步，请优先选择新机本机接收目录，并核对提供者设置。</string>
+  <string name="provider_notice">文件内容只在两台手机间传输；网站接收任务身份、计划和结果摘要，不接收文件清单或内容。所选SAF提供者可能自行同步，请使用本机接收目录。</string>
   <string name="ready">请选择要传输的资料。</string>
   <string name="selected_count">已选择 %1$d 个文件</string>
   <string name="choose_files">选择照片、视频或文件</string>
@@ -41,9 +41,9 @@
   <string name="export_contacts">读取通讯录并加入 VCF</string>
   <string name="contacts_explanation">通过系统 vCard 提供者导出已授权通讯录，保留其实际提供的字段和头像。标准导出失败会标示部分覆盖，必要时回退到姓名/电话/邮箱。目标账号、重复联系人和导入结果需在系统通讯录中核对。</string>
   <string name="create_pairing">核对所选资料并创建配对码</string>
-  <string name="code_notice">新机显示此临时配对码，旧机读取。码含热点凭据，只交给自己的旧机；未配对10分钟失效。双方核对后不限制传输时长。</string>
+  <string name="code_notice">准备码、回应码和最终码仅供这两台手机交换。最终连接码10分钟内有效，原任务许可按签署期限最多30天恢复。请勿公开二维码。</string>
   <string name="pairing_code">配对码</string>
-  <string name="paste_code">粘贴旧手机配对码</string>
+  <string name="paste_code">粘贴对方的准备／回应／最终码</string>
   <string name="copy_code">复制短期配对码</string>
   <string name="code_copied">配对码已复制，到期后应用会尝试清空该剪贴板内容。</string>
   <string name="choose_folder">先选择接收目录</string>
@@ -55,7 +55,7 @@
   <string name="import_vcf">交给系统通讯录确认导入 VCF</string>
   <string name="import_explanation">将打开系统联系人应用。请核对导入目标与重复联系人；本助手不自动写入通讯录，不验证系统导入结果。若无兼容应用，可在文件管理器手动打开 VCF。</string>
   <string name="import_unavailable">未找到可用导入应用，请在接收目录手动打开 VCF。</string>
-  <string name="stop">停止并清除本次配对</string>
+  <string name="stop">安全停止／取消原任务</string>
   <string name="cancel">取消</string>
   <string name="continue_action">继续</string>
   <string name="approve">匹配，允许所选传输</string>
@@ -80,7 +80,7 @@
   <string name="notification_explanation">通知用于显示传输和停止按钮。拒绝通知仍可继续。传输期间请保持两台手机唤醒，并允许后台活动。</string>
   <string name="permission_denied">权限未授权或已撤销。文件选择仍可使用，请重新核对权限后重试。</string>
   <string name="transfer_notification">资料迁移进行中，可打开应用或停止。</string>
-  <string name="session_expired">未确认的加入码已过期。新机停止后重新生成码；扫描与已完成记录保留。</string>
+  <string name="session_expired">连接码或任务许可已过期。请从任务记录核对原任务，已有资料和回执保留，不会自动扩大范围。</string>
   <string name="cancelled">本次已停止；旧机原件和已校验接收文件保留。</string>
   <string name="service_timeout">系统终止了前台迁移服务。未完成项不能记为成功，请保持前台并重新配对。</string>
   <string name="wifi_required">需要两机连接同一私有 Wi-Fi。访客隔离、VPN或路由器设置可能阻止直连。</string>
@@ -126,7 +126,7 @@
   <string name="receiver_pairing">新机：生成配对码并等待接收</string>
   <string name="receiver_waiting">新机等待旧机加入并核对。首次加入10分钟内有效。</string>
   <string name="retrying">连接中断，正在重连 %1$d / %2$d；重读已完成文件后跳过，未完成文件从头传。</string>
-  <string name="recovery_notice">直到本次所选资料完成，不设总文件数或会话时长。断线最多自动重连5次；仍失败则保留进度等待处理。停止/退出后重新配对，按同一任务与接收目录重读校验已完成文件，未完成单文件从头传；不支持字节偏移续传。</string>
+  <string name="recovery_notice">最多自动重连5次，之后保留原任务等待处理。中断后从任务记录恢复同一计划和目标，已完成对象重新核验，不完整文件重新传输；不支持字节位置续传。取消与完成分别记录。</string>
   <string name="file_failed">待处理文件：%1$s。%2$s 已完成文件保留；可取消选择此项或核对权限/空间后重新配对。</string>
   <string name="rescan_notice">重新扫描会建立新任务并重置选择；不会删除手机原件或新机已完成文件。</string>
   <string name="scan_interrupted">有扫描范围未完成；现有索引只代表已读取部分。追加其他目录不会补全此前范围，可重新扫描手机或同一目录。</string>
@@ -160,4 +160,31 @@
   <string name="wifi_auto_available">可申请系统确认的 Wi-Fi 连接，厂商系统仍可能拒绝。</string>
   <string name="wifi_manual_required">Android 8–9：在系统设置中手动连接 Wi-Fi。</string>
   <string name="scan_request_lost">扫描请求状态未保留，请重新选择范围；未扩大范围开始扫描。</string>
+    <string name="gate_checking">正在检查网站许可…</string>
+    <string name="gate_ready">当前版本可用</string>
+    <string name="gate_paused">网站已暂停新任务；原任务可恢复，记录和取消仍可用。</string>
+    <string name="gate_update">需要更新到最新版本才能开始新操作。</string>
+    <string name="gate_offline">无法连接网站；请联网重试。原任务可按原范围恢复。</string>
+    <string name="gate_storage">安全记录不可用；停止操作，保留现有资料。</string>
+    <string name="gate_retry">重新检查</string>
+    <string name="gate_download">更新助手</string>
+    <string name="gate_records">任务记录与恢复</string>
+    <string name="gate_steps">先让两台手机联网：① 新手机生成准备码；② 旧手机扫码并展示回应码；③ 新手机扫描回应码后才开启热点，旧手机扫描最终码连接。两端都需新版。</string>
+    <string name="gate_scan_peer">扫描或粘贴对方的准备／回应／最终码</string>
+    <string name="gate_prepare">联网准备／恢复原任务</string>
+    <string name="gate_offer_ready">准备码已生成；两台手机保持联网，请旧手机扫码。</string>
+    <string name="gate_response_ready">发送许可已核验，请让新手机扫描下方回应码。</string>
+    <string name="gate_receiver_authorized">双方许可已核验，可以开启热点连接。</string>
+    <string name="gate_pair_first">请先完成双方联网扫码授权，再开启热点。</string>
+    <string name="gate_failed">许可或配对核验失败。请检查网络、最新版本及原任务记录。</string>
+    <string name="gate_peer_required">只接受新版准备／回应／最终码，旧版配对码不可使用。</string>
+    <string name="gate_completed">已核验完成</string>
+    <string name="gate_resume">原任务待恢复</string>
+    <string name="gate_finish_first">请先安全停止或完成当前传输，再更新。</string>
+    <string name="gate_downloading">正在下载并核验安装包…</string>
+    <string name="gate_install_permission">请允许此应用请求安装更新，然后返回并再次点击更新。</string>
+    <string name="gate_update_failed">更新核验或下载失败，请重试，或访问 www.chinatech.in/toolbox。</string>
+    <string name="gate_close_receiver">结束接收／关闭回执监听</string>
+    <string name="gate_receipt_waiting">接收已核验完成；最多等待3分钟供原发送端核对回执，可直接结束接收。原记录保留。</string>
+    <string name="gate_restoring_permission">正在恢复原任务授权，计划和所选范围保持不变…</string>
 </resources>

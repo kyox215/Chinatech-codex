@@ -21,11 +21,14 @@ for (const locale of ["zh-CN", "it", "en"] as const) for (const width of [1440, 
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
     await page.getByRole("link", { name: text.open }).click();
     await expect(page.getByRole("heading", { name: text.title, level: 1 })).toBeVisible();
-    for(const id of ['smart-switch-experiment','mimover-original','chinatech-assistant']){
+    for(const id of ['smart-switch-experiment','mimover-original']){
       const card=page.locator('#'+id);await expect(card).toBeVisible();
       await expect(card.getByRole('status')).toHaveText(translate('版本校验接入中，下载暂未开放。',locale));
       await expect(card.locator('a[download]')).toHaveCount(0);
     }
+    const own=page.locator('#chinatech-assistant');
+    if(release.available){await expect(own.getByRole('link',{name:translate('下载手机助手',locale),exact:true})).toHaveAttribute('href',release.apkPath);await expect(own.getByText(translate('版本 {version} · Android 8 及以上',locale,{version:release.version}),{exact:true})).toBeVisible();}
+    else{await expect(own.getByRole('status')).toHaveText(translate('版本校验接入中，下载暂未开放。',locale));await expect(own.locator('a[download]')).toHaveCount(0);}
     const sender = page.getByRole("group", { name: text.sender }), receiver = page.getByRole("group", { name: text.receiver });
     await receiver.getByLabel(text.system).selectOption("harmony-next");
     await expect(page.getByText(text.blocked, { exact: true })).toBeVisible();
@@ -63,7 +66,7 @@ for (const locale of ["zh-CN", "it", "en"] as const) for (const width of [1440, 
 }
 
 test('Obsolete APKs and auxiliary files require updating even for Range requests',async({request})=>{
- for(const path of [release.apkPath,release.instructionsPath,smartSwitchExperimentRelease.apkPath,smartSwitchExperimentRelease.updateApkPath,'/toolbox/smart-switch-experiment/SmartSwitch-3.7.73.4-receiver-entry-lab1.apk','/toolbox/android-assistant/ChinaTech-Phone-Assistant-0.2.0-alpha.apk']){
+ for(const path of ['/toolbox/android-assistant/ChinaTech-Phone-Assistant-0.3.0-alpha.apk','/toolbox/android-assistant/README-0.3.md',smartSwitchExperimentRelease.apkPath,smartSwitchExperimentRelease.updateApkPath,'/toolbox/smart-switch-experiment/SmartSwitch-3.7.73.4-receiver-entry-lab1.apk','/toolbox/android-assistant/ChinaTech-Phone-Assistant-0.2.0-alpha.apk']){
   const response=await request.get(path,{headers:{Range:'bytes=0-1023'}});expect(response.status()).toBe(410);expect((await response.json()).code).toBe('UPDATE_REQUIRED');
  }
 });

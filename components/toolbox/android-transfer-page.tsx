@@ -3,8 +3,10 @@ import {ToolIntegrationPending} from "./tool-integration-pending";
 
 import { useMemo, useState } from "react";
 import { NavigationLink as Link } from "@/components/navigation-link";
-import { ArrowLeft, ArrowRight, Smartphone } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, Smartphone } from "lucide-react";
 import { PublicHeader } from "@/components/home/public-header";
+import { DownloadLink } from "@/components/download-link";
+import { androidAssistantRelease as release } from "@/lib/toolbox/android-assistant-release";
 import { Brand } from "@/components/brand";
 import { SelectControl } from "@/components/select-control";
 import { useLanguage } from "@/components/language-provider";
@@ -49,18 +51,24 @@ export function AndroidTransferPage() {
       <SmartSwitchExperimentDownload />
       <section id="chinatech-assistant" className={`${styles.panel} ${styles.experiment}`} aria-labelledby="chinatech-assistant-title">
         <h2 id="chinatech-assistant-title">{t("ChinaTech 手机助手")}</h2>
-        <ToolIntegrationPending/>
+        {release.available ? <>
+          <div className={styles.release}><span className={shared.pending}>{t("扫描传输测试包")}</span><span>{t("版本 {version} · Android 8 及以上", {version:release.version})}</span></div>
+          <p>{t("双机先联网验证本次任务，再切换热点或同一 Wi-Fi 传输。旧版本需要更新；原任务可在冻结范围内恢复。")}</p>
+          <p className={styles.muted}>{t("测试包已进行模拟器验证，品牌真机仍待核验。安装和资料导入按系统提示确认。")}</p>
+          <div className={styles.downloadActions}><DownloadLink className="button button--primary" href={release.apkPath} download><Download size={17} aria-hidden="true" />{t("下载手机助手")}</DownloadLink><DownloadLink className="button button--secondary" href={release.instructionsPath} download>{t("下载新版说明")}</DownloadLink></div>
+          <details className={styles.integrity}><summary>{t("查看 APK 校验信息")}</summary><dl><dt>{t("文件 SHA256")}</dt><dd><code>{release.sha256}</code></dd><dt>{t("签名证书 SHA256")}</dt><dd><code>{release.signerSha256}</code></dd></dl></details>
+        </> : <ToolIntegrationPending/>}
       </section>
       <section className={styles.panel} aria-labelledby="steps-title"><h2 id="steps-title">{t("ChinaTech 使用步骤")}</h2>
         <ol className={styles.steps}>
           <li>{t("两机安装同版本助手，旧机先扫描已授权资料，按类别或逐项选择。")}</li>
-          <li>{t("选好资料后，新机选择本机保存目录并创建热点；旧机读取新机二维码，核对两端信息后开始发送。")}</li>
-          <li>{t("保持两机连接，等待所选资料逐项保存并校验；断线后重新配对恢复，系统导入另行确认。")}</li>
+          <li>{t("两机保持联网，依次交换三个配对二维码并验证任务；完成后再按系统提示连接热点或同一 Wi-Fi。")}</li>
+          <li>{t("保持两机连接，等待所选资料逐项保存并校验；断线后从任务记录恢复原计划和目标，系统导入另行确认。")}</li>
           <li>{t("逐项检查新机资料；未完成项目按官方迁移指引补做。")}</li>
         </ol>
         <p className={styles.muted}>{t("旧机使用内置相机实时扫码；系统连接失败可手动连接 Wi-Fi 后继续。收到照片和视频后，可另行确认导入图库；通讯录在系统应用中核对导入。")}</p>
-        <p className={styles.muted}>{t("二维码含临时配对凭据，仅供两机使用。系统相机照片和云文件夹可能由对应应用保存或同步；助手自身不上传资料到网站。")}</p>
-        <p className={styles.muted}>{t("旧机由助手申请加入新机热点，首次连接通常需要系统确认；旧版本手动加入，不兼容时使用同一路由器。")}</p>
+        <p className={styles.muted}>{t("二维码含临时配对凭据，仅供两机使用。助手不向网站上传文件或清单，仅发送任务身份及计划和结果摘要。")}</p>
+        <p className={styles.muted}>{t("旧机由助手申请加入新机热点，首次连接通常需要系统确认；Android 8–9 手动加入，不兼容时使用同一路由器。")}</p>
         <p className={styles.muted}>{t("配对码只在手机助手内使用，请勿粘贴到网页、客服消息或公开截图。首版没有网页远控或云端备份。")}</p>
       </section>
       <section className={styles.panel} aria-labelledby="plan-title"><h2 id="plan-title">{t("两机兼容与权限规划")}</h2>
