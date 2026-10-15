@@ -1,10 +1,11 @@
 "use client";
+import { Toast, toastNoticeId } from "@/components/toast";
 import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 
 import { useLanguage } from "@/components/language-provider";
 import { NavigationLink as Link } from "@/components/navigation-link";
 import { useRef, useState } from "react";
-import { CheckCircle2, PackageSearch, Truck } from "lucide-react";
+import { PackageSearch, Truck } from "lucide-react";
 import { isPreorder, type ProcurementRecord } from "@/lib/procurement";
 import { useProcurement } from "./procurement-provider";
 import { useRepairDirectory } from "@/components/repairs/local-intake-store";
@@ -16,7 +17,7 @@ export function ProcurementFeedback({ recordId }: { recordId: string }) {
   const { systemText } = useLanguage();
   const { feedback } = useProcurement();
   if (feedback?.recordId !== recordId) return null;
-  return <div className={`procurement-feedback${feedback.error ? " procurement-feedback--error" : ""}`} role={feedback.error ? "alert" : "status"}>{feedback.error ? null : <CheckCircle2 size={16} />}{systemText(feedback.message)}</div>;
+  return feedback.error ? <div className="procurement-feedback procurement-feedback--error" role="alert">{systemText(feedback.message)}</div> : <Toast message={systemText(feedback.message)} noticeId={toastNoticeId(feedback)} />;
 }
 
 // Shared one-click markers for work orders and procurement detail.

@@ -1,4 +1,5 @@
 'use client';
+import { Toast } from "@/components/toast";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ReadPending } from '@/components/page-recovery';
 import { useActivityFeedback } from '@/components/operation-feedback';
@@ -31,10 +32,11 @@ export function OfficeDesktopV3Control({ accountId, sessionId, technicalOnly=fal
   const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [allowed, setAllowed] = useState(true), [error, setError] = useState(''), [intent, setIntent] = useState<Intent | null>(null);
   const [expanded, setExpanded] = useState(false), [jobs, setJobs] = useState<Job[] | null>(null), [jobsLoading, setJobsLoading] = useState(false), [jobsError, setJobsError] = useState('');
   const [cleanup, setCleanup] = useState<Cleanup | null>(null), [cleanupIntent, setCleanupIntent] = useState<CleanupIntent | null>(null), [cleanupError, setCleanupError] = useState(''), [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupNotice, setCleanupNotice] = useState("");
   const cleanupActive = useRef<AbortController | null>(null), cleanupGeneration = useRef(0);
   const active = useRef<AbortController | null>(null), jobsActive = useRef<AbortController | null>(null), generation = useRef(0), jobsGeneration = useRef(0), busy = useRef(false), mounted = useRef(true), refreshAfterSave = useRef(false);
   const headers = useCallback(() => ({ 'X-CT-Account-ID': accountId, 'X-CT-Session-ID': sessionId }), [accountId, sessionId]);
-  const clearCleanup = useCallback(() => { cleanupGeneration.current++; cleanupActive.current?.abort(); setCleanup(null); setCleanupIntent(null); setCleanupError(''); setCleanupLoading(false); }, []);
+  const clearCleanup = useCallback(() => { cleanupGeneration.current++; cleanupActive.current?.abort(); setCleanup(null); setCleanupIntent(null); setCleanupError(''); setCleanupLoading(false); setCleanupNotice(""); }, []);
   const clearJobs = useCallback(() => { jobsGeneration.current++; jobsActive.current?.abort(); setJobs(null); setJobsError(''); setJobsLoading(false); }, []);
   const load = useCallback(async () => {
     if (busy.current) return;
@@ -118,7 +120,7 @@ export function OfficeDesktopV3Control({ accountId, sessionId, technicalOnly=fal
         throw new RequestError(body.code || 'SERVICE_UNAVAILABLE');
       }
       if (body.accountId + ':' + body.sessionId !== scope) { setCleanup(null); setCleanupIntent(null); throw new RequestError('SESSION_INVALID'); }
-      setCleanup(body); setCleanupIntent(null);
+      setCleanup(body); setCleanupIntent(null); if (execute) setCleanupNotice(crypto.randomUUID());
     } catch (reason) { if (!controller.signal.aborted && attempt === cleanupGeneration.current) setCleanupError(reason instanceof RequestError ? reason.code : 'SERVICE_UNAVAILABLE'); }
     finally {
       if (!controller.signal.aborted && attempt === cleanupGeneration.current) setCleanupLoading(false);
@@ -184,7 +186,7 @@ export function OfficeDesktopV3Control({ accountId, sessionId, technicalOnly=fal
         <p className={styles.muted}>{t('只处理已过期至少 90 天的 Office v3 技术记录；有效恢复许可、关联回执和候选授予审计继续保留。')}</p><p className={styles.muted}>{t('每次仅预览和执行一个受限批次；完成后可重新预览剩余记录。')}</p>
         <button type="button" className="button button--secondary" disabled={loading || saving || cleanupLoading} aria-busy={cleanupLoading} onClick={() => void requestCleanup(false)}>{t(cleanupLoading ? '正在核对清理范围…' : '预览过期记录范围')}</button>
         {cleanupError ? <p role="alert" className="form-error">{t(errors[cleanupError] || '过期记录清理结果未确认，请重试原请求或重新预览。')}</p> : null}
-        {cleanup ? <><p role="status">{t(cleanup.dryRun ? '清理预览，尚未删除记录' : '已完成本次过期记录清理')}</p><dl className={v3Styles.counts}>{Object.entries(cleanup.counts).map(([key, value]) => <div key={key}><dt>{t(cleanupLabels[key] || '未知')}</dt><dd>{value}</dd></div>)}</dl></> : null}
+        {cleanup ? <>{cleanup.dryRun ? <p role="status">{t('清理预览，尚未删除记录')}</p> : cleanupNotice ? <Toast message={t('已完成本次过期记录清理')} noticeId={cleanupNotice} onDismiss={() => setCleanupNotice("")} /> : null}<dl className={v3Styles.counts}>{Object.entries(cleanup.counts).map(([key, value]) => <div key={key}><dt>{t(cleanupLabels[key] || '未知')}</dt><dd>{value}</dd></div>)}</dl></> : null}
         {!data.cleanupEnabled ? <p className={styles.muted}>{t('过期记录清理执行尚未开放，可先预览候选范围。')}</p> : null}
         {cleanup?.dryRun && data.cleanupEnabled && !cleanupIntent ? <button type="button" className="button button--secondary" disabled={loading || saving || cleanupLoading || !!cleanupError || !Object.values(cleanup.counts).some(count => count > 0)} onClick={() => setCleanupIntent({ digest: cleanup.digest, requestId: crypto.randomUUID(), scope })}>{t('核对并清理上述范围')}</button> : null}
         {cleanupIntent ? <div role="group" aria-label={t('确认过期记录清理')}><p>{t('仅删除上述已核对的技术记录；范围发生变化会停止并要求重新预览。')}</p><div className={styles.actions}><button type="button" className="button button--primary" disabled={saving || cleanupLoading} aria-busy={cleanupLoading} onClick={() => void requestCleanup(true)}>{t(cleanupError ? '重试原清理请求' : '确认清理')}</button><button type="button" className="button button--secondary" disabled={saving || cleanupLoading} onClick={() => setCleanupIntent(null)}>{t('取消')}</button></div></div> : null}

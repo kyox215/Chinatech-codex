@@ -26,7 +26,7 @@ export function PageTitle({ title, backHref, backLabel = "返回列表", backScr
   const returnLabel = /^(返回|Back|Torna)/.test(backLabel) ? t(backLabel) : t("返回{v0}", { v0: t(backLabel) });
   return <div className="module-title">
     <SidebarToggle />
-    {backHref ? <Link className="icon-button page-back-button" href={backHref} scroll={backScroll} title={returnLabel} aria-label={returnLabel}><ArrowLeft size={20} aria-hidden="true" /></Link> : null}
+    {backHref ? <Link className="icon-button page-back-button" href={backHref} scroll={backScroll} title={returnLabel} aria-label={returnLabel} icon={<ArrowLeft size={20} aria-hidden="true" />}></Link> : null}
     <div className="module-title__content">
       <div className="module-title__line"><h2>{title}</h2>{badge}</div>
       {subtitle ? <p>{subtitle}</p> : null}

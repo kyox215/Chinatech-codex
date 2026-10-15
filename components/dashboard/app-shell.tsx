@@ -33,8 +33,7 @@ function subscribeMobile(callback: () => void) {
 const mobileSnapshot = () => window.matchMedia("(max-width: 767px)").matches;
 function NavItem({ item, active, onNavigate }: { item: NavItemConfig; active: boolean; onNavigate: () => void }) {
   const { t } = useLanguage();
-  const content = <><item.icon size={19} /><span>{t(item.label)}</span></>;
-  return item.href ? <Link className={`app-nav__item${active ? " app-nav__item--active" : ""}`} href={item.href} title={t(item.label)} aria-label={t(item.label)} aria-current={active ? "page" : undefined} onNavigationComplete={onNavigate}>{content}</Link>
+  return item.href ? <Link icon={<item.icon size={19} />} className={`app-nav__item${active ? " app-nav__item--active" : ""}`} href={item.href} title={t(item.label)} aria-label={t(item.label)} aria-current={active ? "page" : undefined} onNavigationComplete={onNavigate}><span>{t(item.label)}</span></Link>
     : <span className="app-nav__item app-nav__item--disabled" aria-disabled="true" title={t("{v0} · 规划中", { v0: t(item.label) })}><item.icon size={19} /><span>{t(item.label)}</span></span>;
 }
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -101,15 +100,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className={`app-shell${collapsed ? " app-shell--collapsed" : ""}`}>
       <aside id="app-sidebar" ref={sidebar} className={`app-sidebar${menuOpen ? " app-sidebar--open" : ""}`} inert={isMobile && !menuOpen} role={isMobile && menuOpen ? "dialog" : undefined} aria-modal={isMobile && menuOpen ? true : undefined} aria-label={t("主菜单")}>
         <div className="app-sidebar__brand-row"><Brand compact /><button className="app-sidebar__collapse" type="button" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? t("展开侧栏") : t("收起侧栏")} aria-expanded={!collapsed} aria-controls="app-sidebar" title={collapsed ? t("展开侧栏") : t("收起侧栏")}>{collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}</button><button className="app-sidebar__close" type="button" onClick={closeMenu} aria-label={t("关闭菜单")}><X size={20} /></button></div>
-        <Link className="app-search" href="/app/repairs" aria-label={t("搜索工单")} title={t("搜索工单")} onNavigationComplete={closeMenu}><Search size={19} /><span>{t("搜索工单")}</span></Link>
+        <Link className="app-search" href="/app/repairs" aria-label={t("搜索工单")} title={t("搜索工单")} onNavigationComplete={closeMenu} icon={<Search size={19} />}><span>{t("搜索工单")}</span></Link>
         <nav className="app-nav" aria-label={t("内部系统主导航")}><small className="app-nav__label">{t("主菜单")}</small>{primaryNav.filter(item => !item.href || !routePermission(item.href) || staff.can(routePermission(item.href)!)).map((item) => <NavItem item={item} active={isActive(item.href)} key={item.label} onNavigate={closeMenu} />)}</nav>
         <details ref={account} className="sidebar-account" open={accountOpen} onToggle={event => setAccountOpen(event.currentTarget.open)} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); event.preventDefault(); setAccountOpen(false); account.current?.querySelector("summary")?.focus(); } }}>
           <summary aria-label={t("账号菜单")} title={t("账号菜单")} onClick={event => { event.preventDefault(); setAccountOpen(!accountOpen); }}><span className="profile-menu__avatar"><UserRound size={20} /></span><span className="sidebar-account__text"><strong>{staff.member?.name || t("预览身份待核对")}</strong><small>{backendMode?t("门店账号"):t("本地预览")} · {staff.member ? t(staffRoles[staff.member.role]) : t("访问不可用")}</small></span><ChevronUp size={16} /></summary>
           <div className="sidebar-account__actions">
             <LanguageSwitcher />
-            {backendMode ? <Link className="sidebar-account__action" href="/account/settings" onNavigationComplete={closeMenu}><UserRound size={18} /><span>{t("账号设置")}</span></Link> : null}
-            <Link className="sidebar-account__action" href="/app/catalog" onNavigationComplete={closeMenu}><Boxes size={18} /><span>{t("设备目录")}</span></Link>
-            {staff.can("settings.edit") || staff.can("financial.read") || staff.can("staff.manage") ? <Link className="sidebar-account__action" href="/app/settings" onNavigationComplete={closeMenu}><Settings size={18} /><span>{t("门店设置")}</span></Link> : null}
+            {backendMode ? <Link className="sidebar-account__action" href="/account/settings" onNavigationComplete={closeMenu} icon={<UserRound size={18} />}><span>{t("账号设置")}</span></Link> : null}
+            <Link className="sidebar-account__action" href="/app/catalog" onNavigationComplete={closeMenu} icon={<Boxes size={18} />}><span>{t("设备目录")}</span></Link>
+            {staff.can("settings.edit") || staff.can("financial.read") || staff.can("staff.manage") ? <Link className="sidebar-account__action" href="/app/settings" onNavigationComplete={closeMenu} icon={<Settings size={18} />}><span>{t("门店设置")}</span></Link> : null}
             {!backendMode ? <label className="field sidebar-preview-identity"><span>{t("预览身份")}</span><SelectControl aria-label={t("预览身份")} value={staff.data.currentId} onChange={event => {try {selectPreviewMember(event.target.value);setIdentityError("");closeMenu();}catch(reason){setIdentityError(reason instanceof Error ? reason.message : "切换失败");}}}>{staff.data.members.filter(isActiveMember).map(member=><option key={member.id} value={member.id}>{member.name} · {t(staffRoles[member.role])}</option>)}</SelectControl>{identityError ? <small role="alert">{t(identityError)}</small> : null}</label> : null}
             <button type="button" className="sidebar-account__action" onClick={() => { setAccountOpen(false); account.current?.querySelector("summary")?.focus(); notifications.current?.showModal(); }} aria-label={t("通知")} title={t("通知")}><Bell size={18} /><span>{t("通知")}</span></button>
             <LogoutButton supabaseMode={backendMode} />

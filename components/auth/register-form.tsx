@@ -70,7 +70,7 @@ export function RegisterForm({ supabaseMode = false, previewAvailable = true }: 
     {!supabaseMode ? <label className="checkbox-label checkbox-label--terms"><input type="checkbox" required disabled={busy || unavailable} /><span>{t("我了解当前提交仅为界面样板，不会创建真实账号。")}</span></label> : null}
     {!supabaseMode && !previewAvailable ? <p className="form-error" role="alert">{t("注册服务尚未开放，请联系门店。")}</p> : null}
     {error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}
-    <button className="button button--primary auth-submit" type="submit" disabled={busy || unavailable}>{isSubmitting ? <><LoaderCircle className="spin" size={18} />{t("正在创建账号")}</> : t("创建账号")}</button>
+    <button className="button button--primary auth-submit" type="submit" aria-busy={isSubmitting} disabled={busy || unavailable}>{isSubmitting ? <><LoaderCircle className="spin" size={18} />{t("正在创建账号")}</> : t("创建账号")}</button>
     <p className={styles.hint}>{t("完成验证后，由门店老板授予访问权限。注册不会自动加入门店或获得管理员身份。")}</p>
   </form>;
 }

@@ -1,5 +1,13 @@
 /** Static display messages. Do not use these translations as business values. */
 export const interfaceMessages: Record<string, readonly [string, string]> = {
+  "界面组件预览": ["Anteprima componenti UI", "UI component preview"],
+  "DEMO 演示": ["DEMO", "DEMO"],
+  "模拟等待时间": ["Attesa simulata", "Simulated wait"],
+  "等待时间仅为模拟，不代表正式网站速度。": ["L’attesa è simulata e non rappresenta la velocità del sito ufficiale.", "Waiting times are simulated and do not represent the live website speed."],
+  "{v0} 秒": ["{v0} secondi", "{v0} seconds"],
+  "演示供应商": ["Fornitore DEMO", "DEMO supplier"],
+  "重试": ["Riprova", "Retry"],
+  "核对": ["Verifica", "Review"],
   "照片暂时无法读取，请重试。": ["La foto non è disponibile. Riprova.", "The photo is temporarily unavailable. Retry."],
   "重新读取照片": ["Ricarica foto", "Reload photo"],
   "报价关联待核对": ["Associazione del preventivo da verificare", "Quote association needs review"],

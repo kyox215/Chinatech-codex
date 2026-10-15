@@ -397,9 +397,9 @@ test("native downloads show only requested feedback and remain dismissible", asy
   expect(href).toBeTruthy();
   await page.route(href!, route => route.fulfill({ body: "Synthetic browser download only", contentType: "application/octet-stream", headers: { "content-disposition": 'attachment; filename="synthetic.txt"' } }));
   await Promise.all([page.waitForEvent("download"), link.click()]);
-  const notice = page.locator(".download-notice");
-  await expect(notice.getByRole("status")).toHaveText("已发起下载，请查看浏览器的下载列表。");
+  const notice = page.locator("[data-toast]");
+  await expect(notice).toHaveText("已发起下载，请查看浏览器的下载列表。");
   await expect(notice).not.toContainText("已完成");
-  await notice.getByRole("button", { name: "关闭下载提示", exact: true }).click();
+  await notice.getByRole("button", { name: /关闭操作提示/ }).click();
   await expect(notice).toHaveCount(0);
 });

@@ -1,9 +1,10 @@
 "use client";
+import { Toast } from "@/components/toast";
 import { useBackendState } from "@/components/backend-snapshot";
 
 import { useLanguage } from "@/components/language-provider";
 import { useState } from "react";
-import { Check, ClipboardList, PackageSearch } from "lucide-react";
+import { ClipboardList, PackageSearch } from "lucide-react";
 import { RepairGroupEditor } from "@/components/repairs/repair-group-editor";
 import { useStaff } from "@/components/staff/use-staff";
 import { defaultRepairGroups, visibleRepairGroups, type RepairGroupKind } from "@/lib/repair-groups";
@@ -32,7 +33,7 @@ export function OrderManagement({ settings, disabled = false, onPendingChange }:
 
   return <>
     <div className="settings-section-title"><ClipboardList size={22} /><h3>{t("订单管理")}</h3></div>
-    {saved ? <p className="settings-saved" role="status"><Check size={16} />{t(saved)}</p> : null}
+    {saved ? <Toast message={t(saved)} onDismiss={() => setSaved("")} /> : null}
     <div className="settings-order-groups">{kinds.map(({ kind, label, icon: Icon }) => <article className="settings-order-group" key={kind}>
       <header className="settings-order-group__heading"><Icon size={19} aria-hidden="true" /><h4>{t(label)}</h4>{canManage ? <button id={`manage-repair-${kind}-groups`} className="button button--secondary button--compact" type="button" disabled={disabled} onClick={() => { setSaved(""); setEditing({ kind, scope }); }} aria-label={t("管理{v0}", { v0: t(label) })}>{t("管理")}</button> : null}</header>
       <ol className="settings-order-group__names">{visibleRepairGroups(groups, kind).map(group => <li key={group.key}>{kind === "workflow" ? t(group.label) : group.label}</li>)}</ol>

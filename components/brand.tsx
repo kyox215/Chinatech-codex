@@ -13,10 +13,9 @@ type BrandProps = {
 export function Brand({ compact = false, href = "/", inverse = false }: BrandProps) {
   const { t } = useLanguage();
   return (
-    <Link className={`brand${inverse ? " brand--inverse" : ""}`} href={href} aria-label={t("ChinaTech 首页")}>
-      <span className="brand__mark" aria-hidden="true">
+    <Link className={`brand${inverse ? " brand--inverse" : ""}`} href={href} aria-label={t("ChinaTech 首页")} icon={<span className="brand__mark" aria-hidden="true">
         <Wrench size={18} strokeWidth={2.3} />
-      </span>
+      </span>}>
       <span className={compact ? "brand__copy brand__copy--compact" : "brand__copy"}>
         <strong>ChinaTech</strong>
         <small>{t("维修 · 采购 · 整机")}</small>

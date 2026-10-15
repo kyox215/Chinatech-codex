@@ -74,7 +74,7 @@ export function AndroidTransferPage() {
           {capability.permissions.length > 0 && <details><summary>{t("权限与处理方式")}</summary><ul>{capability.permissions.map((permission, index) => <li key={index}><strong>{t(permission.side === "sender" ? "旧手机" : "新手机")}</strong><code>{permission.permission}</code><span>{t(permission.explanation)}</span></li>)}</ul></details>}
         </article>)}</div>
       </section>
-      <div className={shared.bottomLink}><Link href="/toolbox" className="button button--secondary"><ArrowLeft size={16} aria-hidden="true" />{t("返回工具箱")}</Link></div>
+      <div className={shared.bottomLink}><Link href="/toolbox" className="button button--secondary" icon={<ArrowLeft size={16} aria-hidden="true" />}>{t("返回工具箱")}</Link></div>
     </main><footer className={shared.footer}><Brand compact /><p>{t("© 2026 ChinaTech · 让门店日常井井有条")}</p></footer>
   </div>;
 }

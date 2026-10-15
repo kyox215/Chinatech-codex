@@ -28,7 +28,7 @@ export function ToolboxPage() {
           <h1 id="toolbox-title">{t("工具箱")}</h1>
           <p className={styles.lead}>{t("装机、刷机、传数据。")}</p>
           <p className={styles.description}>{t("常用工具与资料，集中在这里。更多内容将陆续添加。")}</p>
-          <Link className="button button--primary" href="#categories">{t("浏览工具分类")}<ArrowDown size={17} aria-hidden="true" /></Link>
+          <Link className="button button--primary" href="#categories" icon={<ArrowDown size={17} aria-hidden="true" />} iconPosition="end">{t("浏览工具分类")}</Link>
         </div>
         <div className={styles.illustration} aria-hidden="true">
           <div className={styles.orbit} />
@@ -51,11 +51,11 @@ export function ToolboxPage() {
             <h3 id={`${id}-title`}>{t(title)}</h3>
             <p>{t(description)}</p>
             <ul className={styles.topics}>{topics.map(topic => <li key={topic}>{t(topic)}</li>)}</ul>
-            {id === "office" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/office">{t("查看 Office 助手")}<ArrowRight size={17} aria-hidden="true" /></Link> : id === "windows" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/windows">{t("查看 Windows 升级工具")}<ArrowRight size={17} aria-hidden="true" /></Link> : id === "transfer" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/transfer">{t("查看数据传输工具")}<ArrowRight size={17} aria-hidden="true" /></Link> : <div className={styles.cardFoot}><FolderOpen size={17} aria-hidden="true" /><span>{t("工具与下载链接准备中")}</span></div>}
+            {id === "office" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/office" icon={<ArrowRight size={17} aria-hidden="true" />} iconPosition="end">{t("查看 Office 助手")}</Link> : id === "windows" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/windows" icon={<ArrowRight size={17} aria-hidden="true" />} iconPosition="end">{t("查看 Windows 升级工具")}</Link> : id === "transfer" ? <Link className={`${styles.cardFoot} ${styles.cardLink}`} href="/toolbox/transfer" icon={<ArrowRight size={17} aria-hidden="true" />} iconPosition="end">{t("查看数据传输工具")}</Link> : <div className={styles.cardFoot}><FolderOpen size={17} aria-hidden="true" /><span>{t("工具与下载链接准备中")}</span></div>}
           </article>)}
         </div>
       </section>
-      <div className={styles.bottomLink}><Link href="/" className="button button--secondary"><ArrowLeft size={16} aria-hidden="true" />{t("返回首页")}</Link></div>
+      <div className={styles.bottomLink}><Link href="/" className="button button--secondary" icon={<ArrowLeft size={16} aria-hidden="true" />}>{t("返回首页")}</Link></div>
     </main>
     <footer className={styles.footer}><Brand compact /><p>{t("© 2026 ChinaTech · 让门店日常井井有条")}</p></footer>
   </div>;

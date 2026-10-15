@@ -1,17 +1,14 @@
 "use client";
-import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { CheckCircle2, X } from "lucide-react";
+import { createContext, useContext, useState, type ComponentProps, type ReactNode } from "react";
+import { Toast } from "./toast";
 import { useLanguage } from "./language-provider";
 
 const RequestedDownload = createContext<() => void>(() => {});
 export function DownloadFeedbackProvider({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
-  const [visible, setVisible] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clear = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; };
-  useEffect(() => clear, []);
-  function requested() { clear(); setVisible(true); timer.current = setTimeout(() => { setVisible(false); timer.current = null; }, 8000); }
-  return <RequestedDownload.Provider value={requested}>{children}{visible && <aside className="download-notice"><CheckCircle2 size={18} aria-hidden="true" /><p role="status">{t("已发起下载，请查看浏览器的下载列表。")}</p><button className="icon-button" type="button" aria-label={t("关闭下载提示")} onClick={() => { clear(); setVisible(false); }}><X size={18} aria-hidden="true" /></button></aside>}</RequestedDownload.Provider>;
+  const [notice, setNotice] = useState("");
+  function requested() { setNotice(crypto.randomUUID()); }
+  return <RequestedDownload.Provider value={requested}>{children}{Boolean(notice) && <Toast noticeId={`download:${notice}`} message={t("已发起下载，请查看浏览器的下载列表。")} />}</RequestedDownload.Provider>;
 }
 /** Native downloads stay native; the website cannot claim the file completed. */
 export function DownloadLink({ onClick, ...props }: ComponentProps<"a">) {

@@ -1,4 +1,5 @@
 "use client";
+import { Toast } from "@/components/toast";
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
@@ -19,7 +20,9 @@ export function RepairPhotoRegistry({ data, photos, active = true }: { data: Int
   const receipt = useOperationReceipt();
   const [revision, setRevision] = useState(data.revision ?? 1);
   const baseRevision = useRef<number | null>(null);
-  const [saving, setSaving] = useState(false), [error, setError] = useState(""), [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false), [error, setError] = useState(""), [saved, setSaved] = useState("");
+  const activeView = useRef(active);
+  useEffect(() => { activeView.current = active; }, [active]);
   const [viewing, setViewing] = useState<IntakePhoto | null>(null);
   const photoOpener = useRef<HTMLButtonElement | null>(null);
   const closeViewer = () => { setViewing(null); requestAnimationFrame(() => { if (photoOpener.current?.isConnected) photoOpener.current.focus({preventScroll:true}); }); };
@@ -30,13 +33,13 @@ export function RepairPhotoRegistry({ data, photos, active = true }: { data: Int
   async function add(slot: IntakePhoto["slot"], files: File[]) {
     if (pending || !canEdit || !files.length) return;
     if (baseRevision.current === null) { baseRevision.current = data.revision ?? 1; setRevision(baseRevision.current); }
-    setSaved(false); await draft.add(slot, files);
+    setSaved(""); await draft.add(slot, files);
   }
   async function save() {
     if (busy.current || receipt.isWaiting() || !canEdit || changed || !draft.photos.length || draft.pending.length > 0) return;
-    busy.current = true; setSaving(true); setError(""); setSaved(false);
+    busy.current = true; setSaving(true); setError(""); setSaved("");
     const requestId = crypto.randomUUID();
-    const finish = () => { draft.clear(); baseRevision.current = null; setError(""); setSaved(true); busy.current = false; };
+    const finish = () => { draft.clear(); baseRevision.current = null; setError(""); setSaved(activeView.current ? requestId : ""); busy.current = false; };
     try {
       const attachments = await draft.encode();
       if (!receipt.isActive()) return;
@@ -55,7 +58,7 @@ export function RepairPhotoRegistry({ data, photos, active = true }: { data: Int
       {draft.photos.length ? <div className={styles.actions}><button className="button button--secondary" type="button" disabled={pending} onClick={() => { draft.clear(); baseRevision.current = null; setError(""); }}>{t("放弃照片草稿")}</button><button className="button button--primary" type="button" aria-busy={saving} disabled={pending || changed || draft.pending.length > 0} onClick={() => void save()}>{saving ? t("正在保存…") : receipt.waiting ? t("待核对") : t("保存照片登记")}</button></div> : null}
     </details> : null}
     {error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}
-    {saved ? <p role="status" className={styles.note}>{t("照片登记已保存")}</p> : null}
+    {active && saved ? <Toast noticeId={saved} message={t("照片登记已保存")} onDismiss={() => setSaved("")} /> : null}
     <OperationRecoveryControls requestId={active ? receipt.requestId : null}/>
     {viewing ? <PhotoViewer photo={viewing} onClose={closeViewer}/> : null}
   </section>;

@@ -20,6 +20,7 @@ export function useLocalRecoveryControls(requestId?: string) {
 
 /** Only an exact original request receipt can finish a retained operation draft. */
 export function useOperationReceipt() {
+  const recovery = useSyncExternalStore(subscribeRecovery, backendRecovery, backendRecovery);
   const active = useRef(true);
   type Tracked = { requestId: string; confirmed: (isCurrent: () => boolean) => void | Promise<void>; settled?: () => void; finishing: boolean };
   const tracked = useRef<Tracked | null>(null);
@@ -61,7 +62,8 @@ export function useOperationReceipt() {
     if (recovery.receipt?.requestId === requestId) finish(own);
     return true;
   }, [finish]);
-  return { waiting, requestId, watch, isWaiting: () => tracked.current !== null, isActive: () => active.current };
+  const executing = Boolean(waiting && requestId && recovery.busy && recovery.pending?.command.requestId === requestId);
+  return { waiting, executing, requestId, watch, isWaiting: () => tracked.current !== null, isActive: () => active.current };
 }
 
 /** Place outside any disabled fieldset, including a containing modal's fieldset. */

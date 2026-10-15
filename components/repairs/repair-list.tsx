@@ -1,4 +1,5 @@
 "use client";
+import { Toast, toastNoticeId } from "@/components/toast";
 import { ReadPending } from "@/components/page-recovery";
 import { useBackendState } from "@/components/backend-snapshot";
 
@@ -12,7 +13,7 @@ import {
   ArrowUpDown, ChevronRight, CircleHelp,
   ClipboardList, Clock3, Flag, Gamepad2, Laptop, SlidersHorizontal, RotateCcw, Layers,
   PackageCheck, PackageSearch, Plus, Search,
-  Smartphone, Tablet, Truck, X, CheckCircle2,
+  Smartphone, Tablet, Truck,
 } from "lucide-react";
 import { PageTitle } from "@/components/page-title";
 import { SelectControl } from "@/components/select-control";
@@ -79,7 +80,7 @@ function ScopedRepairList({ scope }: { scope: string }) {
   const repairOrders = useRepairDirectory();
   const { ready: intakesReady } = useLocalIntakes();
   const { workflows, ready: workflowReady, error: workflowError } = useRepairWorkflows();
-  const { records, feedback, dispatch, repairUpdates, storageError } = useProcurement();
+  const { records, feedback, repairUpdates, storageError } = useProcurement();
   const [query, setQuery] = useState(restored?.query ?? "");
   const [status, setStatus] = useState<StatusFilter>(restored?.status === "including_cancelled" ? "all" : restored?.status ?? "all");
   const [view, setView] = useState<"active" | "history" | "all">(restored?.view ?? (["completed", "cancelled", "handover"].includes(restored?.status ?? "") ? "history" : "active"));
@@ -190,7 +191,8 @@ function ScopedRepairList({ scope }: { scope: string }) {
   }
 
   return <main className="module-page repair-page repair-parts-list repair-unified-list">
-    <header className="module-heading"><PageTitle title={t("维修工单")} /><div className="module-heading__actions"><RepairScanner iconOnly />{canEdit ? <><button className="button button--secondary button--compact" type="button" onClick={() => setBatchAction("arrival")}><PackageCheck size={17} />{t("批量到货")}</button></> : null}{canEdit ? <Link className="button button--primary button--compact" href="/app/repairs/new"><Plus size={17} />{t("新建工单")}</Link> : null}</div></header>
+    <header className="module-heading"><PageTitle title={t("维修工单")} /><div className="module-heading__actions"><RepairScanner iconOnly />{canEdit ? <><button className="button button--secondary button--compact" type="button" onClick={() => setBatchAction("arrival")}><PackageCheck size={17} />{t("批量到货")}</button></> : null}{canEdit ? <Link className="button button--primary button--compact" href="/app/repairs/new" icon={<Plus size={17} />}>{t("新建工单")}</Link> : null}</div></header>
+    {feedback && !feedback.error && !activeRepairId ? <Toast message={systemText(feedback.message)} noticeId={toastNoticeId(feedback)} /> : null}
     <section className="panel repair-module-panel">
       <div className="segmented-control repair-list-scope" role="group" aria-label={t("工单范围")}>
         <button type="button" className={view === "active" ? "active" : ""} aria-pressed={view === "active"} onClick={() => switchView("active")}>{t("日常工单 ")}{repairOrders.length-historyCount}</button>
@@ -241,6 +243,5 @@ function ScopedRepairList({ scope }: { scope: string }) {
     </section>
     {batchAction && canEdit ? <SupplierBatchDialog key={`${staff.member?.id}:${staff.member?.revision}:${batchAction}`} action={batchAction} onSaved={ids => { const affected = filteredRepairs.find(row => ids.includes(row.id)) ?? repairOrders.find(row => ids.includes(row.id)); if (affected) followSaved(affected,"parts",false); setOpenGroups(previous => ({...previous,processing:true,rework:true,purchase:true,ready:true})); }} onClose={() => setBatchAction(null)} /> : null}
     <RepairProcurementDialog key={`${staff.member?.id}:${staff.member?.revision}:${activeRepairId ?? "closed"}`} repairId={activeRepairId} onClose={closeShortcut} />
-    {feedback && !feedback.error && !activeRepairId ? <div className="repair-parts-notification" role="status"><CheckCircle2 size={18} aria-hidden="true" /><span>{systemText(feedback.message)}</span><button className="icon-button" type="button" aria-label={t("关闭操作提示")} onClick={() => dispatch({ type: "clear-feedback" })}><X size={18} /></button></div> : null}
   </main>;
 }

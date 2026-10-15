@@ -155,7 +155,7 @@ export function RepairItemsForm({ repairId, confirmedProject, onSaved, onCancel,
     } catch (reason) { if (!receipt.watch(requestId, confirmed, settled)) setError(reason instanceof Error ? reason.message : "保存失败，输入已保留。"); }
     finally { if (!receipt.isWaiting()) release(); setPending(false); }
   }
-  return <form className="repair-item-editor" aria-busy={pending} onSubmit={submit}>
+  return <form className="repair-item-editor" aria-busy={pendingBase || receipt.executing} onSubmit={submit}>
     <DeviceDraftNotice draft={deviceDraft} disabled={pending} />
     <div className="repair-item-editor__cards">{draft.rows.filter(row => !requirementId || row.requirementId === requirementId).map(row => {
       const itemTitle = repairItemText(row.title, locale);

@@ -42,6 +42,8 @@ jobs:
       - run: npx playwright install --with-deps chromium webkit
       - name: Toolbox management component and identity recovery checks
         run: node tests/toolbox-control.ui.mjs
+      - name: Shared feedback lifecycle and UI catalog checks
+        run: node tests/ui-feedback.ui.mjs
       - run: npm run test:controls
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -49,6 +51,7 @@ jobs:
           name: control-regression-results
           path: |
             test-results/
+            .local/ui-feedback/
             .local/ui-proof/controls/
             .local/device-catalog/picker-performance-*.json
             .local/device-catalog/separated-performance-*.json

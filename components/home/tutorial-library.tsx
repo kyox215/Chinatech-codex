@@ -151,7 +151,7 @@ function TutorialLibraryContent({ tutorials, aspectRatio, onAction, selectedId, 
           <div className={styles.metadata}><span>{t("第 {number} 集", { number: tutorial.number })}</span><span><Clock3 size={14} aria-hidden="true" />{tutorial.duration}</span><span><Volume2 size={14} aria-hidden="true" />{t("中文配音")}</span><span><Captions size={15} aria-hidden="true" />{t("中文字幕")}</span></div>
           <div className={styles.descriptionRow}>
             <div><h3 id="current-tutorial-title">{tutorial.title}</h3><p>{tutorial.description}</p></div>
-            <Link className={`button button--secondary ${styles.actionLink}`} href={tutorial.href} prefetch={false} onClick={event => { if (onAction && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) { event.preventDefault(); onAction(tutorial); } }}>{tutorial.actionLabel}<ArrowRight size={16} aria-hidden="true" /></Link>
+            <Link className={`button button--secondary ${styles.actionLink}`} href={tutorial.href} prefetch={false} onClick={event => { if (onAction && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) { event.preventDefault(); onAction(tutorial); } }} icon={<ArrowRight size={16} aria-hidden="true" />} iconPosition="end">{tutorial.actionLabel}</Link>
           </div>
           {playbackHint && <p className={styles.playbackHint} role="status">{t(playbackHint)}</p>}
         </div>

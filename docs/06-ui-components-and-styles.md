@@ -1,5 +1,17 @@
 # 公共组件与样式复用规范
 
+## UI设计目录与统一状态（2026-10-15）
+
+后续先查 [`ui-design/`](../ui-design/README.md) 的实际组件与设计映射；已有设计先复用，缺失设计先在原Figma补齐、核可编辑图层与截图，归档节点/变体/映射/预览后使用。完整类别索引和本轮79活动文件、120导航源码调用点盘点在该目录；不是每页每状态的逐像素证明。
+
+`NavigationLink.icon` / `iconPosition`把原图标交给共享固定槽，在同一几何位置替换单个等待SVG；文本链接预留16px槽。取消绝对定位的右上角圈及pending额外outline，键盘焦点样式独立保留。网格行与手机隐藏图标规则必须按原使用方检查，不能仅把元素换成span便称完成。
+
+普通确认成功复用`Toast` / 根`ToastProvider`：正常文档流、44px可点击区域、约1.8秒自动关闭、全条可提前关闭，一次仅一个可见提示；local优先global receipt fallback，但隐藏分组不能抢占。正式用原requestId作为通知身份；保留的预览feedback用`toastNoticeId`稳定对象身份。消费仅限展示，不清命令/回执/草稿；同通知重挂载不重播，新操作同文字可再提示。错误、离线、冲突、未知及必要的待验证指令继续就地持久，不能计时移除恢复入口。
+
+`useOperationReceipt.waiting`继续锁原提交，`executing`只表达当前原ID真实请求；未知静止时显示待核对，不持续转圈。兼容桥汇总可见`aria-busy`宿主，隐藏/后台活动不算前景。普通按钮有SVG则复用其尺寸画一个状态圈，纯文本按钮预留单个状态槽；显式`.spin`不叠自动圈，OAuth不使邮件提交按钮假忙碌。公共间距token新增`--space-2`/`--space-3`，与原8/12px相同。
+
+本地可操作目录：`node scripts/preview-ui-design.mjs`，仅127.0.0.1、3471–3479依次检查，不停止其他服务；纯DEMO、不挂业务Provider、不读取私有配置、不调用正式API。真实运行证据与边界在`ui-design/verification.md`补录。
+
 ## 工单详情分组与照片登记（2026-10-15）
 
 `RepairDetailWorkspace` 组合现有设备摘要、`RepairItemsForm`、`RepairProcurementDialog`、`RepairWorkflowPanel` 和签名区；维修/供应商/照片/历史是页内分组。逐项要求、客户报价、供应商和进度共用领域投影；报价沿canonical item键，同名歧义只读且服务端拒绝猜写。缺项目报价时合计未知，显式零保留，审核/联系/打印同源。
@@ -41,12 +53,12 @@ DeviceIdentityExtras为维修设备低频可选字段的响应式展示，桌面
 
 本节取代旧条目中推荐整页PageLoading/骨架的行为，适用于后续新增、维护和扩展。
 
-- `OperationFeedbackProvider`在根LanguageProvider内共享活动；`useActivityFeedback(pending,{kind,scope})`按实例登记真实navigation/read/submit/retry，卸载只清自身活动；`ContentProgress`在公开页/账号页/后台内容上沿显示2px紫色不定进度线。没有Provider的独立组件测试安全no-op。后台轮询不登记；已有可见button/form的真实aria-busy通过兼容桥聚合，后台区域标data-operation-feedback="background"。
+- `OperationFeedbackProvider`在根LanguageProvider内共享活动；`useActivityFeedback(pending,{kind,scope})`按实例登记真实navigation/read/submit/retry，卸载只清自身活动；`ContentProgress`在公开页/账号页/后台内容上沿显示2px紫色不定进度线。没有Provider的独立组件测试安全no-op。后台轮询不登记；已有可见宿主的真实aria-busy通过兼容桥聚合，后台区域标data-operation-feedback="background"。
 - 导航统一`NavigationLink`，真实onNavigate为每次点击登记最新实例token，仅“最新实例且Next真实pending”显示固定单个SVG圈、aria-live与细线活动；旧实例完成/卸载只能清自身，不能结束后来导航。同URL可能刷新动态段，必须跟随真实Next pending，不能用地址未变化当成功；页内hash也复用共享Link，让新导航废弃旧响应，若真实发请求则同样原位提示。同步交互不造等待；保留键盘/hash/新标签及无JS锚点行为。手机抽屉和账号菜单在实际路由提交后关闭（含浏览器返回/前进，前进不能复活旧open），保留桌面侧栏收起状态；不得给整个AppShell加路径key重建来关菜单。菜单按路径及查询提交归属，summary使用同一受控开关，避免原生toggle先于状态导致Escape失效。失败可继续选择/重试。一般路由保留旧页直到目标可提交，不新增整页loading.tsx或包裹全业务的骨架Suspense。共享链接默认定位使用低优先级`:where(.navigation-link)`，不能覆盖模块固定/绝对定位。跳过导航复用`NavigationLink.focusTargetId`并让目标可程序聚焦（tabIndex=-1）；仅最新实例实际提交后移交焦点，普通section锚点不强制焦点。
 - 首访无旧页时，保留真实页面框架、业务标题和工具栏，数据区域用`ReadPending`短提示。后台通过逐请求initial快照context提供SSR/首次水合数据；不得在服务端配置模块全局store，不得在clear后fallback旧initial或进入fixture分支。
 - 同范围刷新保留已确认内容与计数。新条件等待时明确提示“暂显示上次结果，当前条件尚未确认。”；响应完成再更新当前结果和分页。身份/门店/权限/可见性范围变化立即隐藏旧资料。读失败提供就地重试，有旧内容则保留；无数据、无权限与读取失败分开表达。
 - 保存只在原按钮/表单表达等待，锁定草稿，明确成功才清理；失败保留输入。冲突保留人工核对，未知提交沿原requestId/回执恢复，不自动重发新命令。读取重试不重放保存。
-- Spinner统一现有`svg.spin`，它会抑制公共按钮自动圈；不得同时画CSS border圈或多个SVG。所有状态标签、动态消息、aria名称中/意/英同步，减少动画时保留静态状态语义。
+- 显式Spinner统一现有`svg.spin`，它抑制公共按钮自动圈；默认按钮复用原SVG几何或文本预留槽，不同时显示原图形路径和状态圈，不重复画多个SVG。所有状态标签、动态消息、aria名称中/意/英同步，减少动画时保留静态状态语义。
 - 每个新增或调整交互核对适用的默认、pending、success、error/retry、empty、offline、no-access、conflict、unknown，记录不适用原因；同步交互只需即时选择/展开反馈，不制造异步等待。受影响流程验证实际请求/回执、失败输入、旧响应、身份隔离、375/390/1024/1440及键盘/触控；公共组件回归代表使用方。只能报告实际运行的证据。
 
 

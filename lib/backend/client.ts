@@ -17,6 +17,8 @@ const recoveryListeners=new Set<()=>void>();
 export type RecoveryStatus={busy:boolean;pending:PendingOperation|null;message:string;receipt?:OperationReceipt;resolution?:{requestId:string;status:"rejected"|"cancelled"}};
 let recovery:RecoveryStatus={busy:false,pending:null,message:""};
 export function backendRecovery(){return recovery;}
+/** Document-local sender activity; a retained prepared intent is not necessarily being sent. */
+export function backendWriting(){return writing;}
 export function subscribeRecovery(listener:()=>void){recoveryListeners.add(listener);return()=>{recoveryListeners.delete(listener);};}
 function recoveryUpdate(next:RecoveryStatus){recovery=next;recoveryListeners.forEach(listener=>listener());}
 export function isBackendClient(){return configured;}
@@ -143,7 +145,7 @@ export async function backendCommand(kind:string,payload:unknown,requestId=crypt
     recoveryUpdate({busy:false,pending:operation,message:"提交内容已保存在此设备，等待发送。"});
     if(typeof navigator!=="undefined" && !navigator.onLine)throw new Error("当前离线，提交内容已保存在此设备；联网后请核对并重试原提交。");
     return await send(operation,scope,false);
-  } finally {writing=false;if(sameScope(scope))void loadRecovery();}
+  } finally {writing=false;if(sameScope(scope)){recoveryUpdate({...recovery});void loadRecovery();}}
 }
 export async function recoverOperation(action:"check"|"retry"|"cancel",expectedRequestId?:string) {
   if(writing || !snapshot)return;
