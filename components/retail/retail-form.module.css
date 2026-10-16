@@ -1,5 +1,5 @@
 .create .notice { display: flex; align-items: start; gap: 8px; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
-.form { width: 100%; overflow: visible; }
+.form:global(.panel) { width: 100%; overflow: visible; }
 .classification { padding: 12px; border-bottom: 1px solid var(--border); }
 .classification :global(.single-choice) > div { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
 .classification :global(.single-choice) label { min-height: 44px; }

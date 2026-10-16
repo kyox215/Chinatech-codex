@@ -393,7 +393,7 @@ RetailRecordScanner从旧独立列表提取后复用于唯一商品入口；buil
 - [RetailCatalogControl / RetailRamControl / RetailStorageControl](../components/retail/retail-spec-controls.tsx) 将目录搜索和容量预设封装为整机私有组合，不重写SearchCombobox或SelectControl。电脑移动／桌面候选与游戏机品牌过滤由lib/retail-catalog.ts维护，实际字段仍由lib/retail.ts校验；既有及手填值可继续保存，容量对象按选项复制，不共享可变数据。
 - 新建按ready门控后首次初始化草稿；品类相关RAM／容量控件用独立key重置，仅处理未保存草稿。编号领域生成，RetailFieldButton的code为只读div，兼容旧数据而无铅笔。
 - 电池图形概览复用RetailFieldButton，移除实物区重复值；保修直接复用RetailWarrantyControl，其disabled反映权限／状态／存储。RetailWarrantyPanel只维护未保存期限草稿，核对候选交回RetailFieldEditor.initialCandidate，保存仍走原版本及单字段写边界。取消自定义同步重置控件key，不保留旧输入。
-- ColorPicker沿用常规5列／钛金属4列与其他独立行；native details／summary与按open挂载的色板在同一.color-picker内同级，仍保留原form／fieldset禁用继承。实例稳定ID通过summary的aria-controls关联实际色板；原固定定位公式、低屏滚动、radio／文字／44px目标及token保持。选择／重复选择／色板内Esc同步关闭并返回原summary，外点关闭不抢焦点；仅details或色板起源的Esc由控件消费，自定义输入继续沿父层规则。resize、scroll和外部pointer监听只在展开时安装并清理，开合不清自定义值或业务草稿。
+- ColorPicker沿用常规5列／钛金属4列与其他独立行；native details／summary与按open挂载的色板在同一.color-picker内同级，仍保留原form／fieldset禁用继承。实例稳定ID通过summary的aria-controls关联实际色板；色板相对该wrapper的padding box绝对定位，按真实边框与自身滚动换算，并只发布精确变化的坐标／尺寸。首个可见帧前测量，保留视口夹取、上下翻转和低屏内部滚动；仅摘要内色板打开时放开所属摘要的裁剪／层叠，新建表单的开放溢出不依赖样式导入顺序。radio／文字／44px目标及token保持。选择／重复选择／色板内Esc同步关闭并返回原summary，外点关闭不抢焦点；仅details或色板起源的Esc由控件消费，自定义输入继续沿父层规则。resize、scroll和外部pointer监听只在展开时安装并清理，开合不清自定义值或业务草稿。
 - RetailFieldEditor 的通用输入尺寸仅约束可见输入，必须排除 type=radio；SingleChoice 的透明原生 radio 沿公共 1px／min-height:0 规则，真实 label 保持至少44px高，并在手机断点保持至少44px宽。不得用私有通配输入 min-height 覆盖隐藏控件，也不得移除原生单选、焦点或提交锁语义。
 - 实际新建／复制／核对保存／刷新、四宽度、手机容量和CPU弹层、接机色板复用／键盘／自定义／嵌套Esc及权限代表流程已验收，详见[执行记录](12-retail-specifications-execution-plan.md)。没有新增公共token、UI框架或图标库。
 

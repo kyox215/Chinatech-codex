@@ -1,7 +1,7 @@
 "use client";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
-import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { ChevronDown, Palette } from "lucide-react";
 import { SingleChoice } from "./single-choice";
 
@@ -22,23 +22,29 @@ export function ColorSwatch({ value }: { value: string }) {
 }
 export function ColorPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const { t } = useLanguage();
+  const root = useRef<HTMLDivElement>(null);
   const disclosure = useRef<HTMLDetailsElement>(null);
   const palette = useRef<HTMLDivElement>(null);
   const paletteId = useId();
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<CSSProperties>({});
   const [custom, setCustom] = useState(Boolean(value && !deviceColors.some(item => item.value === value)));
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     const place = () => {
       const bounds = disclosure.current?.querySelector("summary")?.getBoundingClientRect();
-      if (!bounds) return;
+      const owner = root.current;
+      if (!bounds || !owner) return;
+      const origin = owner.getBoundingClientRect();
       const width = Math.min(360, window.innerWidth - 24);
       const above = Math.max(0, bounds.top - 12), below = Math.max(0, window.innerHeight - bounds.bottom - 12);
       const down = below >= 360 || below >= above;
       const maxHeight = Math.min(440, Math.max(160, down ? below : above));
       const height = Math.min(palette.current?.scrollHeight || 400, maxHeight);
-      setPosition({ width, left: Math.max(12, Math.min(bounds.left, window.innerWidth - width - 12)), top: down ? bounds.bottom + 6 : Math.max(12, bounds.top - height - 6), maxHeight });
+      const left = Math.max(12, Math.min(bounds.left, window.innerWidth - width - 12));
+      const top = down ? bounds.bottom + 6 : Math.max(12, bounds.top - height - 6);
+      const next = { width, left: left - origin.left - owner.clientLeft + owner.scrollLeft, top: top - origin.top - owner.clientTop + owner.scrollTop, maxHeight };
+      setPosition(current => current.width === next.width && current.left === next.left && current.top === next.top && current.maxHeight === next.maxHeight ? current : next);
     };
     const outside = (event: PointerEvent) => { if (!disclosure.current?.contains(event.target as Node) && !palette.current?.contains(event.target as Node)) close(false); };
     place(); window.addEventListener("resize", place); window.addEventListener("scroll", place, true); document.addEventListener("pointerdown", outside);
@@ -57,7 +63,7 @@ export function ColorPicker({ value, onChange }: { value: string; onChange: (val
     close();
   }
   const options = (metal: boolean) => deviceColors.filter(item => item.value.includes("钛金属") === metal).map(item => ({ value: item.value, label: item.value, graphic: <ColorSwatch value={item.value} /> }));
-  return <div className="field color-picker" onKeyDown={event => {
+  return <div ref={root} className="field color-picker" onKeyDown={event => {
     const target = event.target as Node;
     if (event.key === "Escape" && !event.defaultPrevented && disclosure.current?.open && (disclosure.current.contains(target) || palette.current?.contains(target))) {
       event.preventDefault(); event.stopPropagation(); close();

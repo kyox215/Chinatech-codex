@@ -1,5 +1,7 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { chooseCatalogDevice, openCatalogPicker, choosePickerFamily, choosePickerModel, pickerRoot, openDeviceExtras } from './catalog-picker';
+import { translate } from "../../lib/i18n/translate";
+import type { Locale } from "../../lib/i18n/locale";
 
 async function activate(page: Page, locator: Locator) {
   if (test.info().project.use.hasTouch) await locator.tap();
@@ -368,4 +370,118 @@ test("affected choices fit desktop and phone layouts", async ({ page }) => {
     await page.screenshot({ path: `.local/ui-proof/controls/retail-${test.info().project.name}-${width}.png` });
     await brand.press('Escape');
   }
+});
+
+async function expectAnchoredColor(owner: Locator) {
+  await expect(owner.locator(":scope > .color-picker__palette")).toBeVisible();
+  const geometry = await owner.evaluate(element => {
+    const popup = element.querySelector<HTMLElement>(":scope > .color-picker__palette")!;
+    const summary = element.querySelector("summary")!;
+    const box = popup.getBoundingClientRect(), anchor = summary.getBoundingClientRect();
+    return { position: getComputedStyle(popup).position, localOwner: popup.offsetParent === element, left: box.left, right: box.right, top: box.top, bottom: box.bottom, anchorTop: anchor.top, anchorBottom: anchor.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight };
+  });
+  expect(geometry.position).toBe("absolute");
+  expect(geometry.localOwner).toBe(true);
+  expect(geometry.left).toBeGreaterThanOrEqual(12);
+  expect(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth - 12);
+  expect(geometry.top).toBeGreaterThanOrEqual(0);
+  expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewportHeight);
+  expect(geometry.bottom <= geometry.anchorTop || geometry.top >= geometry.anchorBottom).toBe(true);
+}
+
+async function anchorLanguage(page: Page, locale: Locale) {
+  const t = (text: string, values?: Record<string, string | number>) => translate(text, locale, values);
+  if (locale === "zh-CN") { await expect(page.locator("html")).toHaveAttribute("lang", locale); return t; }
+  const select = page.getByLabel("语言 / Lingua / Language", { exact: true });
+  let openedDrawer = false, openedAccount = false;
+  if (!await select.isVisible()) {
+    const menu = page.locator(".page-menu-button");
+    if (await page.evaluate(() => innerWidth < 768) && await menu.getAttribute("aria-expanded") !== "true") { await activate(page, menu); openedDrawer = true; }
+    const account = page.locator(".sidebar-account");
+    if (await account.getAttribute("open") === null) { await activate(page, account.locator("summary")); openedAccount = true; }
+  }
+  await select.selectOption(locale);
+  await expect(page.locator("html")).toHaveAttribute("lang", locale);
+  if (openedDrawer) {
+    await activate(page, page.locator(".app-sidebar__close"));
+    await expect.poll(() => page.locator("#app-sidebar").evaluate(element => element.getBoundingClientRect().right)).toBeLessThanOrEqual(1);
+  } else if (openedAccount) await activate(page, page.locator(".sidebar-account > summary"));
+  return t;
+}
+
+test("retail summary color follows common document scrolling and escapes only its open panel", async ({ page }) => {
+  await page.setViewportSize({ width: test.info().project.use.hasTouch ? 390 : 1440, height: 1000 });
+  await page.goto("/app/retail/units/demo-unit-1");
+  const t = await anchorLanguage(page, test.info().project.use.hasTouch ? "zh-CN" : "en");
+  const panel = page.getByRole("region", { name: t("单机摘要"), exact: true });
+  await activate(page, panel.getByRole("button", { name: t("编辑{v0}", { v0: t("颜色") }), exact: true }));
+  const owner = page.getByRole("region", { name: t("编辑{v0}", { v0: t("颜色") }), exact: true }).locator(".color-picker");
+  const summary = owner.getByLabel(t("选择设备颜色"), { exact: true });
+  const popup = owner.locator(":scope > .color-picker__palette");
+  const radius = await panel.evaluate(element => getComputedStyle(element).borderRadius);
+  await summary.evaluate(element => element.scrollIntoView({ block: "start" }));
+  await activate(page, summary);
+  await expect(popup).toBeVisible();
+  await expectAnchoredColor(owner);
+  expect(await panel.evaluate(element => getComputedStyle(element).overflow)).toBe("visible");
+  const before = await owner.evaluate(element => ({ ownerTop: element.getBoundingClientRect().top, popupTop: element.querySelector(".color-picker__palette")!.getBoundingClientRect().top, style: element.querySelector(".color-picker__palette")!.getAttribute("style") }));
+  const scrollDelta = await page.evaluate(() => { const delta = window.scrollY >= 16 ? -16 : 16; window.scrollBy(0, delta); return delta; });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null)))));
+  const after = await owner.evaluate(element => ({ ownerTop: element.getBoundingClientRect().top, popupTop: element.querySelector(".color-picker__palette")!.getBoundingClientRect().top, style: element.querySelector(".color-picker__palette")!.getAttribute("style") }));
+  expect(after.ownerTop - before.ownerTop).toBe(-scrollDelta);
+  expect(after.popupTop - before.popupTop).toBe(after.ownerTop - before.ownerTop);
+  expect(after.style).toBe(before.style);
+  await summary.press("Escape");
+  expect(await panel.evaluate(element => getComputedStyle(element).overflow)).toBe("hidden");
+  await page.setViewportSize({ width: test.info().project.use.hasTouch ? 375 : 1024, height: 420 });
+  await activate(page, summary);
+  await expectAnchoredColor(owner);
+  await chooseRadio(page, t("其他颜色"), owner);
+  await expect(owner.getByRole("textbox", { name: t("其他颜色"), exact: true })).toBeVisible();
+  expect(await panel.evaluate(element => getComputedStyle(element).overflow)).toBe("hidden");
+  expect(await panel.evaluate(element => getComputedStyle(element).borderRadius)).toBe(radius);
+});
+
+test("retail creation color remains reachable across short-screen resize and form overflow", async ({ page }) => {
+  await page.setViewportSize({ width: test.info().project.use.hasTouch ? 375 : 1024, height: 420 });
+  await page.goto("/app/retail/new");
+  const t = await anchorLanguage(page, test.info().project.use.hasTouch ? "it" : "zh-CN");
+  await chooseRadio(page, t("翻新机"));
+  const owner = page.locator(".color-picker");
+  await expect(owner).toHaveCount(1);
+  const summary = owner.getByLabel(t("选择设备颜色"), { exact: true });
+  expect(await owner.evaluate(element => getComputedStyle(element.closest("form")!).overflow)).toBe("visible");
+  await activate(page, summary);
+  await expectAnchoredColor(owner);
+  await page.setViewportSize({ width: test.info().project.use.hasTouch ? 390 : 767, height: 420 });
+  await expect.poll(async () => owner.evaluate(element => {
+    const popup = element.querySelector<HTMLElement>(".color-picker__palette")!, box = popup.getBoundingClientRect();
+    return box.left >= 12 && box.right <= innerWidth - 12;
+  })).toBe(true);
+  await expectAnchoredColor(owner);
+  await chooseRadio(page, t("黑色"), owner);
+  await expect(summary).toContainText(t("黑色"));
+  await expect(owner.locator(":scope > .color-picker__palette")).toHaveCount(0);
+});
+
+test("repair device color preserves short-screen internal scrolling and native selection", async ({ page }) => {
+  await page.setViewportSize({ width: test.info().project.use.hasTouch ? 375 : 1024, height: 420 });
+  await deviceStep(page);
+  await openDeviceExtras(page);
+  const owner = page.locator(".color-picker");
+  const summary = owner.getByLabel("选择设备颜色", { exact: true });
+  await activate(page, summary);
+  await expectAnchoredColor(owner);
+  const popup = owner.locator(":scope > .color-picker__palette");
+  expect(await popup.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+  await popup.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  expect(await popup.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  await chooseRadio(page, "其他颜色", owner);
+  const custom = owner.getByRole("textbox", { name: "其他颜色", exact: true });
+  await custom.fill("DEMO 自定义颜色");
+  await activate(page, summary);
+  await expectAnchoredColor(owner);
+  await summary.press("Escape");
+  await expect(popup).toHaveCount(0);
+  await expect(custom).toHaveValue("DEMO 自定义颜色");
 });
