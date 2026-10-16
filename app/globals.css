@@ -1320,7 +1320,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .single-choice svg { flex: 0 0 auto; }
 .color-swatch { display: inline-block; width: 18px; height: 18px; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--swatch); flex: 0 0 auto; box-shadow: inset 0 0 0 2px rgb(255 255 255 / 25%); }
 .color-picker { position: relative; }
-.color-picker details { position: relative; }
+.color-picker details { position: relative; overflow-anchor: none; }
 .color-picker summary { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); font-size: 14px; cursor: pointer; list-style: none; }
 .color-picker summary::-webkit-details-marker { display: none; }
 .color-picker summary > span:not(.color-swatch) { flex: 1; overflow-wrap: anywhere; }

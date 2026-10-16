@@ -3,6 +3,39 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { chromium, webkit } from "playwright";
 
+async function stableNavigationBox(link) {
+  return link.evaluate(element => new Promise((resolve, reject) => {
+    const started = performance.now();
+    let frame, previous, previousAnimations = [], stable = 0, closed = false;
+    const finish = (error, box) => {
+      if (closed) return;
+      closed = true;
+      cancelAnimationFrame(frame); clearTimeout(timer);
+      if (error) reject(error); else resolve(box);
+    };
+    const timer = setTimeout(() => finish(new Error("Navigation motion did not settle within 2 seconds")), 2000);
+    const sample = () => {
+      if (closed) return;
+      try {
+        if (!element.isConnected) throw new Error("Navigation control detached during motion measurement");
+        if (performance.now() - started >= 2000) throw new Error("Navigation motion did not settle within 2 seconds");
+        const animations = element.getAnimations({ subtree: false }).filter(animation => animation.effect?.target === element && (animation instanceof CSSAnimation || animation instanceof CSSTransition));
+        if (animations.some(animation => !Number.isFinite(animation.effect.getComputedTiming().endTime))) throw new Error("Navigation control has non-finite motion");
+        const changed = animations.length !== previousAnimations.length || animations.some(animation => !previousAnimations.includes(animation));
+        const moving = animations.some(animation => animation.pending || !["finished", "idle"].includes(animation.playState));
+        const rect = element.getBoundingClientRect();
+        const box = { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        const same = previous && Object.keys(box).every(key => box[key] === previous[key]);
+        stable = !moving && !changed ? same ? stable + 1 : 1 : 0;
+        previous = box; previousAnimations = animations;
+        if (stable >= 2) { finish(null, box); return; }
+        frame = requestAnimationFrame(sample);
+      } catch (error) { finish(error); }
+    };
+    frame = requestAnimationFrame(sample);
+  }));
+}
+
 mkdirSync(".local/ui-feedback/previews", { recursive: true });
 const runId = crypto.randomUUID();
 const child = spawn(process.execPath, ["scripts/preview-ui-design.mjs"], { env: { ...process.env, UI_FEEDBACK_TEST: "1", UI_FEEDBACK_RUN: runId }, stdio: ["ignore", "pipe", "pipe"] });
@@ -52,9 +85,9 @@ try {
         if (!(await page.url()).endsWith("feedback-test")) await page.goto(`${origin}feedback-test`);
         let release; const gate = new Promise(resolve => { release = resolve; });
         await page.route("**/destination?*", async route => { const response = await route.fetch(); await gate; await route.fulfill({ response }); });
-        const link = page.locator(`#${id}`); await link.hover(); await page.waitForTimeout(180); const box = await link.boundingBox();
+        const link = page.locator(`#${id}`); await link.hover(); const box = await stableNavigationBox(link);
         try {
-          await link.click(); await link.locator('.navigation-feedback[data-pending="true"]').waitFor(); assert.deepEqual(await link.boundingBox(), box);
+          await link.click(); await link.locator('.navigation-feedback[data-pending="true"]').waitFor(); assert.deepEqual(await stableNavigationBox(link), box);
           assert.equal(await page.locator("#retained-content").isVisible(), true); assert.equal(await link.evaluate(e => getComputedStyle(e).outlineStyle), "none");
           const geometry = await link.locator(".navigation-feedback").evaluate(e => { const a = e.getBoundingClientRect(), b = e.parentElement.getBoundingClientRect(); return a.left >= b.left && a.right <= b.right && a.top >= b.top && a.bottom <= b.bottom; }); assert.equal(geometry, true);
         } finally { release(); await page.unrouteAll({ behavior: "wait" }); }
