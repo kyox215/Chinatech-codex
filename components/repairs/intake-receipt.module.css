@@ -21,20 +21,20 @@
 .root .copy :is(p,dd,li) { white-space: normal; }
 .root .copy :is(h1,h3) { font-size: 18pt; font-weight: 700; line-height: 1; }
 .root .copy :is(h2,h4) { font-size: 14.4pt; font-weight: 700; line-height: 1; }
-.root .shop { padding-bottom: .8mm; border-bottom: .5px solid #777; }
+.root .shop { padding-bottom: .3mm; border-bottom: .5px solid #777; }
 .root .brand { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 2mm; }
 .root .brand :is(strong,h3) { min-width: 0; white-space: normal; }
 .root .brand strong { font-size: 18pt; line-height: 1; }
 .root .brand h3 { font-size: 16pt; }
 .root .shop p + p { margin-top: .4mm; }
-.root .summary { padding: .8mm 0; border-bottom: .5px solid #777; }
+.root .summary { padding: .4mm 0; border-bottom: .5px solid #777; }
 .root .factFlow { display: flow-root; }
 .root .fact { display: inline; }
 .root .fact::after { content: " · "; }
 .root .model { margin: .4mm 0; }
 .root .copy .core { font-size: 16pt; line-height: 1; }
 .root .total { margin-top: .5mm; }
-.root .work { padding: .8mm 0; border-bottom: .5px solid #777; }
+.root .work { padding: .4mm 0; border-bottom: .5px solid #777; }
 .root .requests { display: table; table-layout: fixed; width: 100%; margin: 0; border: 0; border-collapse: collapse; color: inherit; background: transparent; font: inherit; }
 .root .requests :is(th,td) { padding: .35mm 0; vertical-align: top; text-align: left; border: 0; border-bottom: .5px solid #ccc; color: inherit; background: transparent; font: inherit; white-space: normal; line-height: 1; }
 .root .requests :is(th,td):last-child { width: 28mm; text-align: right; padding-left: 2mm; white-space: nowrap; }
@@ -45,18 +45,18 @@
 .root .work section + section { margin-top: .6mm; }
 .root .separateIntake { padding-top: .5mm; }
 .root .separateIntake h4 { margin-bottom: .3mm; }
-.root .scope { padding: .5mm 0; border-bottom: .5px solid #777; }
-.root .faults { padding: .8mm 0; border-bottom: .5px solid #777; }
+.root .scope { padding: .25mm 0; border-bottom: .5px solid #777; }
+.root .faults { padding: .4mm 0; border-bottom: .5px solid #777; }
 .root .faults p { white-space: pre-wrap; }
 .root .faults p + p { margin-top: .3mm; }
-.root .service { padding-top: .7mm; }
-.root .warrantyHead { padding-bottom: .6mm; border-bottom: .5px solid #777; }
+.root .service { padding-top: .3mm; }
+.root .warrantyHead { padding-bottom: .25mm; border-bottom: .5px solid #777; }
 .root .warrantyHead h3 { font-size: 16pt; }
-.root .terms { padding: .6mm 0; }
+.root .terms { padding: .25mm 0; }
 .root .terms ol { padding-left: 4mm; }
-.root .terms li { padding-left: .1mm; margin-bottom: .4mm; break-inside: auto; }
-.root .terms p { margin: .4mm 0; }
-.root .footer { display: grid; grid-template-columns: 43mm minmax(0, 1fr) 29mm; gap: 2mm; padding-top: .7mm; border-top: .5px solid #777; align-items: start; }
+.root .terms li { padding-left: .1mm; margin-bottom: 0; break-inside: auto; }
+.root .terms p { margin: .1mm 0; }
+.root .footer { display: grid; grid-template-columns: 43mm minmax(0, 1fr) 29mm; gap: 2mm; padding-top: .25mm; border-top: .5px solid #777; align-items: start; }
 .root .signatureInk { width: 41.6mm; height: 13mm; min-height: 13mm; border-bottom: .5px solid #333; }
 .root .signatureInk svg { display: block; width: 41.6mm; height: 13mm; max-height: none; color: #161616; }
 .root .signatureMeta { font-size: 14.4pt; min-width: 0; }
@@ -68,7 +68,7 @@
 .root .signature > .signatureMeta { margin-top: .4mm; }
 .root .footer > .qr { grid-column: 3; }
 .root .footer[data-signature-history="true"] .qr { grid-column: 2; grid-row: 1; }
-.root .tracking { padding-top: .5mm; }
+.root .tracking { padding-top: .15mm; }
 .root .qr { display: block; width: 29mm; height: 29mm; background: white; }
 .root .cut { position: absolute; top: 148.5mm; left: 0; width: 210mm; border-top: .15mm dashed #aaa; pointer-events: none; }
 .root .blocked { display: none; }

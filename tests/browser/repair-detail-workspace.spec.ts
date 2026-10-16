@@ -2,6 +2,7 @@ import {test,expect,type Page} from "@playwright/test";
 import {emptyIntakeServices} from "../../lib/intake-services";
 import {defaultStaffData} from "../../lib/staff";
 import {translate} from "../../lib/i18n/translate";
+import {printLabel,printMoney} from "../../lib/print-language";
 import {intakeDirectoryEntry,type IntakeReceiptData} from "../../lib/repair-intake-record";
 import {initialRepairWorkflow} from "../../lib/repair-workflow";
 
@@ -57,7 +58,7 @@ test("desktop stage dialog restores its visible instance after close with no dup
 });
 
 test("missing project quote remains unknown in details, contact and receipt",async({page})=>{
-  await detail(page);await page.evaluate(key=>{const envelope=JSON.parse(localStorage.getItem(key)!);envelope.records[0].itemQuotes=envelope.records[0].itemQuotes.filter((row:{item:string})=>row.item!=="尾插");localStorage.setItem(key,JSON.stringify(envelope));window.dispatchEvent(new Event("chinatech-local-intake-change"));},key);await expect(page.getByLabel("维修报价",{exact:true})).toContainText("待补全报价");await page.getByRole("button",{name:`${id} 联系与跟进`,exact:true}).click();const contact=page.getByRole("dialog",{name:"工单联系与跟进"});await expect(contact.locator(".repair-quote-context strong")).toHaveText("报价待补全");await contact.getByRole("button",{name:"关闭",exact:true}).click();await page.getByRole("button",{name:"打印接机单",exact:true}).click();const receipt=page.locator(".intake-receipt-dialog");await receipt.locator("select").nth(1).selectOption("zh");const amounts=receipt.locator(".intake-receipt-block").filter({hasText:"工单总额"}).first();await expect(amounts).toContainText("未报价");await expect(amounts).not.toContainText("150.00");
+  await detail(page);await page.evaluate(key=>{const envelope=JSON.parse(localStorage.getItem(key)!);envelope.records[0].itemQuotes=envelope.records[0].itemQuotes.filter((row:{item:string})=>row.item!=="尾插");localStorage.setItem(key,JSON.stringify(envelope));window.dispatchEvent(new Event("chinatech-local-intake-change"));},key);await expect(page.getByLabel("维修报价",{exact:true})).toContainText("待补全报价");await page.getByRole("button",{name:`${id} 联系与跟进`,exact:true}).click();const contact=page.getByRole("dialog",{name:"工单联系与跟进"});await expect(contact.locator(".repair-quote-context strong")).toHaveText("报价待补全");await contact.getByRole("button",{name:"关闭",exact:true}).click();await page.getByRole("button",{name:"打印接机单",exact:true}).click();const receipt=page.locator(".intake-receipt-dialog");await receipt.locator("select").nth(1).selectOption("zh");const sheet=receipt.locator('.intake-receipt-sheet[data-copy="customerCopy"]:visible');await expect(sheet).toHaveCount(1);const amounts=sheet.locator('[data-fact="total"]');await expect(amounts).toHaveText(`${printLabel("total","zh")}: ${printLabel("unquoted","zh")}`);await expect(amounts).not.toContainText(printMoney(0,"zh"));await expect(amounts).not.toContainText("150.00");
 });
 
 test("actual-order confirmation expires when another editor changes the same purchase",async({page})=>{

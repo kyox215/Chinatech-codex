@@ -26,6 +26,7 @@ let classes: Record<string, string>;
 let cssModules: Record<string, Record<string, string>>;
 let cssInputs: Record<string, string>;
 let sourceInputs: Record<string, string>;
+const pageObservations = new WeakMap<Page, { requests: string[]; errors: string[] }>();
 const provider = `
 export const useBackendState = () => ({formal:true,active:window.printFixture.active!==false,snapshot:{storeId:window.printFixture.scope??'DEMO-STORE',staff:{currentId:'DEMO-MEMBER',members:[{id:'DEMO-MEMBER',revision:1,permissions:['repairs.view'],accountStatus:'active',membershipStatus:'active',role:'technician'}]}}});
 export const useBackendMode = () => true;
@@ -151,6 +152,7 @@ type PrintFixture = ReturnType<typeof fixture> & {
 };
 async function mount(page: Page, data: PrintFixture = fixture(false), moduleFirst = false) {
     const requests: string[] = [], errors: string[] = [];
+    pageObservations.set(page, { requests, errors });
     page.on("pageerror", e => errors.push(e.message));
     await page.route("**/*", route => { requests.push(route.request().url()); return route.abort(); });
     await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div>');
@@ -165,6 +167,60 @@ async function mount(page: Page, data: PrintFixture = fixture(false), moduleFirs
     return { requests, errors };
 }
 test.beforeAll(async () => { mkdirSync(evidence, { recursive: true }); await buildFixture(); });
+
+// Diagnostic reads never decide fit. Capture before its assertion so the first
+// cross-platform RED retains real line boxes, font declarations and geometry.
+async function recordPrintDiagnostics(page: Page, browserName: string, name: string) {
+    const directory = resolve(evidence, 'diagnostics'); mkdirSync(directory, { recursive: true });
+    const file = resolve(directory, `${name.replace(/[^a-zA-Z0-9_.-]/g, '_')}-${test.info().project.name}.json`);
+    try {
+        const geometry = await page.evaluate(names => {
+            const rect = (r: DOMRect) => ({ x: r.x, y: r.y, width: r.width, height: r.height, top: r.top, right: r.right, bottom: r.bottom, left: r.left });
+            const style = (element: Element) => { const s = getComputedStyle(element); return Object.fromEntries(['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontStretch', 'fontVariationSettings', 'letterSpacing', 'lineHeight', 'whiteSpace', 'overflowWrap', 'paddingTop', 'paddingBottom', 'marginTop', 'marginBottom', 'width', 'height', 'zoom'].map(key => [key, s[key as keyof CSSStyleDeclaration]])); };
+            const ranges = (element: Element) => {
+                const result = [], walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT); let node: Node | null;
+                while ((node = walker.nextNode())) if (node.textContent?.trim()) {
+                    const range = document.createRange(); range.selectNodeContents(node);
+                    result.push({ text: node.textContent, parent: node.parentElement?.tagName, style: node.parentElement ? style(node.parentElement) : null, rects: [...range.getClientRects()].map(rect) });
+                }
+                return result;
+            };
+            const blocks = [['shop', '.' + names.shop], ['summary', '.' + names.summary], ['work', '.' + names.work], ['scope', '.' + names.scope], ['faults', '.' + names.faults], ['service', '.' + names.service], ['warrantyHead', '.' + names.warrantyHead], ['terms', '.' + names.terms], ['termLi', '.' + names.terms + ' li'], ['termP', '.' + names.terms + ' p'], ['footer', '.' + names.footer], ['signatureMeta', '.' + names.signatureMeta], ['history', '.' + names.signatureHistory], ['tracking', '.' + names.tracking]];
+            return {
+                url: location.href, userAgent: navigator.userAgent, platform: navigator.platform, viewport: { width: innerWidth, height: innerHeight, devicePixelRatio },
+                dialog: Object.fromEntries([...(document.querySelector('dialog')?.attributes ?? [])].filter(attribute => attribute.name.startsWith('data-')).map(attribute => [attribute.name, attribute.value])),
+                fonts: { status: document.fonts.status, bodyCheck: document.fonts.check('14.4pt "Source Sans 3"'), coreCheck: document.fonts.check('700 16pt "Source Sans 3"'), faces: [...document.fonts].map(face => ({ family: face.family, style: face.style, weight: face.weight, stretch: face.stretch, display: face.display, status: face.status, unicodeRange: face.unicodeRange })) },
+                masters: [...document.querySelectorAll(`.${names.measure} [data-master-content]`)].map(content => {
+                    const small = Boolean(content.closest('[data-small-probe]')), scale = small ? 74 / 105 : 1;
+                    return { small, scale, box: rect(content.getBoundingClientRect()), style: style(content), panels: [...content.querySelectorAll('[data-fold]')].map(panel => ({ name: panel.getAttribute('data-fold'), box: rect(panel.getBoundingClientRect()), style: style(panel), ranges: ranges(panel) })), blocks: blocks.flatMap(([name, selector]) => [...content.querySelectorAll(selector)].map((block, index) => ({ name, index, box: rect(block.getBoundingClientRect()), normalizedBoxHeightMm: block.getBoundingClientRect().height * 25.4 / 96 / scale, style: style(block), ranges: ranges(block) }))) };
+                }),
+            };
+        }, classes);
+        let usedFonts: unknown = { status: 'not requested; declarations/loaded status do not prove actual used fonts' };
+        if (browserName === 'chromium' && process.env.REPAIR_PRINT_FONT_DIAGNOSTICS === '1') {
+            const session = await page.context().newCDPSession(page);
+            try {
+                await session.send('DOM.enable'); await session.send('CSS.enable');
+                const document = await session.send('DOM.getDocument');
+                const selector = `.${classes.measure} .${classes.terms} li,.${classes.measure} .${classes.tracking} p,.${classes.measure} .${classes.signatureMeta} p,.${classes.measure} .${classes.faults} p,.${classes.measure} .${classes.brand} strong`;
+                const nodes = await session.send('DOM.querySelectorAll', { nodeId: document.root.nodeId, selector });
+                const records = [];
+                for (const nodeId of nodes.nodeIds) {
+                    const node = await session.send('DOM.describeNode', { nodeId, depth: 1 });
+                    const fonts = await session.send('CSS.getPlatformFontsForNode', { nodeId });
+                    records.push({ nodeId, nodeName: node.node.nodeName, attributes: node.node.attributes, childText: node.node.children?.filter(child => child.nodeType === 3).map(child => child.nodeValue), fonts: fonts.fonts });
+                }
+                usedFonts = { status: 'captured', method: 'CSS.getPlatformFontsForNode', records, limit: 'Font family/PostScript name alone does not establish variable-font drawn weight.' };
+            } finally { await session.detach(); }
+        }
+        writeFileSync(file, JSON.stringify({ name, actualNode: process.version, platform: process.platform, arch: process.arch, browserName, browserVersion: page.context().browser()?.version(), playwrightVersion: native('@playwright/test/package.json').version, geometry, usedFonts, observed: pageObservations.get(page), sourceInputs, cssInputs, testSourceSha256: createHash('sha256').update(readFileSync(resolve(root, 'tests/browser/repair-print-layout.spec.ts'))).digest('hex'), fontSha256: createHash('sha256').update(readFileSync(resolve(root, 'public/fonts/source-sans-3/source-sans-3-roman.woff2'))).digest('hex') }, null, 2));
+    } catch (error) {
+        writeFileSync(file, JSON.stringify({ name, diagnosticError: String(error), sourceInputs, cssInputs }, null, 2));
+    }
+}
+test.afterEach(async ({ page, browserName }, info) => {
+    if (info.status !== info.expectedStatus) await recordPrintDiagnostics(page, browserName, `failure-${info.testId}`);
+});
 const coverageScenarios = ["partial-quotes", "fault-only", "workflow-project", "same-title", "unmatched-quote", "zero-unknown", "multiple-purchases", "free-mainboard", "free-corrosion", "free-fault-phrase", "free-long-text", "apple-no-request", "legacy-no-requirements", "legacy-no-fingerprint", "apple-history", "mixed-quote-groups"] as const;
 function coverageFixture(scenario: typeof coverageScenarios[number]) {
     const input = fixture(false);
@@ -341,6 +397,7 @@ for (const paper of ['a4', 'a5', 'half', 'double'] as const)
             expect(validIntakeSignature(input.signatures[0])).toBe(true);
             const observed = await mount(page, input);
             await selectPrint(page, paper, language);
+            await recordPrintDiagnostics(page, browserName, `before-normal-${paper}-${language}`);
             await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
             const projection = await contentProof(page, input, language);
             expect(projection.merged).toBe(true);
@@ -408,6 +465,7 @@ for (const scenario of coverageScenarios)
             const observed = await mount(page, input);
             await selectPrint(page, 'a5', language);
             await expect.poll(async () => (await fitMetrics(page)).phase).toMatch(/^(fit|overflow)$/);
+            await recordPrintDiagnostics(page, browserName, `before-coverage-${scenario}-${language}`);
             const projection = await contentProof(page, input, language), metrics = await fitMetrics(page);
             const name = `coverage-${scenario}-${language}-${info.project.name}`;
             if (scenario.startsWith('legacy-') || scenario === 'apple-no-request' || scenario === 'apple-history') expect(metrics.phase).toBe('fit');
