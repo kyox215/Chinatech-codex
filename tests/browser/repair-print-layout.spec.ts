@@ -8,10 +8,14 @@ import { intakeDirectoryEntry, matchingIntakeSignature, intakeSignatureSnapshot,
 import { currentRepairRequirements, validateRepairRequirements } from "../../lib/repair-requirements";
 import { initialRepairWorkflow } from "../../lib/repair-workflow";
 import { validateProcurementDraft } from "../../lib/procurement";
-import { repairPrintProjection, canonicalPrintJson, receiptProjectionHash, receiptMaster, receiptSmallScale, receiptPaperGeometry } from "../../lib/repair-print-layout";
+import { repairPrintProjection, canonicalPrintJson, receiptSmallScale, receiptPaperGeometry } from "../../lib/repair-print-layout";
 import { itemQuoteTotal } from "../../lib/repair-item-pricing";
-import { printDate, printLabel, printMoney, type PrintLanguage } from "../../lib/print-language";
-import { repairIntakeTerms, repairIntakeTermsVersion } from "../../lib/repair-print-terms";
+import { printLabel, printMoney, type PrintLanguage } from "../../lib/print-language";
+import { repairIntakeTermsVersion } from "../../lib/repair-print-terms";
+import { renderRepairReceipt, launchReceiptBrowser, ReceiptRenderError } from "../../lib/backend/repair-receipt-renderer";
+import { repairReceiptHtml } from "../../lib/repair-receipt-template";
+import { PDFDocument } from "pdf-lib";
+import type { Browser } from "playwright-core";
 // A real React receipt on about:blank. Only in-memory providers, icons and the
 // platform origin are seams. No server, storage, account or HTTP is involved.
 const root = process.cwd();
@@ -22,13 +26,11 @@ const globalsFile = "app/globals.css";
 let bundle: string;
 let moduleCss: string;
 let globalCss: string;
-let classes: Record<string, string>;
 let cssModules: Record<string, Record<string, string>>;
 let cssInputs: Record<string, string>;
 let sourceInputs: Record<string, string>;
-const pageObservations = new WeakMap<Page, { requests: string[]; errors: string[] }>();
 const provider = `
-export const useBackendState = () => ({formal:true,active:window.printFixture.active!==false,snapshot:{storeId:window.printFixture.scope??'DEMO-STORE',staff:{currentId:'DEMO-MEMBER',members:[{id:'DEMO-MEMBER',revision:1,permissions:['repairs.view'],accountStatus:'active',membershipStatus:'active',role:'technician'}]}}});
+export const useBackendState = () => ({formal:window.printFixture.formal!==false,active:window.printFixture.active!==false,snapshot:{intakes:[window.printFixture.data],signatures:window.printFixture.signatures,workflows:window.printFixture.workflows,storeId:window.printFixture.scope??'DEMO-STORE',staff:{currentId:'DEMO-MEMBER',members:[{id:'DEMO-MEMBER',revision:1,permissions:window.printFixture.permissions??['repairs.view'],accountStatus:'active',membershipStatus:'active',role:'technician'}]}}});
 export const useBackendMode = () => true;
 export const useStoreSettings = () => ({settings:window.printFixture.settings,ready:!window.printFixture.unavailable,error:null});
 export const useLocalIntakes = () => ({signatures:window.printFixture.signatures,ready:true,error:null});
@@ -43,13 +45,13 @@ import {IntakeReceipt} from '@/components/repairs/intake-receipt';
 import {OperationFeedbackProvider} from '@/components/operation-feedback';
 import {printDate} from '@/lib/print-language';
 window.fixturePrintDate=printDate;
-function Fixture(){const[open,setOpen]=useState(true);const[,update]=useState(0);window.updatePrintFixture=value=>{window.printFixture=value;update(n=>n+1)};return <><button id="trigger" onClick={()=>setOpen(true)}>DEMO print</button>{open&&<IntakeReceipt data={window.printFixture.data} onClose={()=>setOpen(false)}/>}</>}
+function Fixture(){const trigger=React.useRef(null);const[open,setOpen]=useState(true);const[,update]=useState(0);window.updatePrintFixture=value=>{window.printFixture=value;update(n=>n+1)};return <><button id="trigger" ref={trigger} onClick={()=>setOpen(true)}>DEMO print</button>{open&&<IntakeReceipt restoreFocusRef={trigger} data={window.printFixture.data} onClose={()=>setOpen(false)}/>}</>}
 document.getElementById('root').innerHTML='<button id="initial-focus">DEMO focus</button>';
 document.getElementById('initial-focus').focus();
 createRoot(document.getElementById('root')).render(<OperationFeedbackProvider><Fixture/></OperationFeedbackProvider>);
 `;
 async function buildFixture() {
-    sourceInputs = Object.fromEntries(["components/repairs/intake-receipt.tsx", moduleFile, globalsFile, "lib/print-language.ts", "lib/repair-print-terms.ts", "lib/repair-requirements.ts", "lib/repair-detail-view.ts", "lib/repair-item-pricing.ts", "lib/repair-requirement-display.ts", "lib/repair-print-layout.ts", "components/operation-feedback.tsx", "components/operation-feedback.module.css"].map(file => [file, createHash("sha256").update(readFileSync(resolve(root, file))).digest("hex")]));
+    sourceInputs = Object.fromEntries(["components/repairs/intake-receipt.tsx", "components/repairs/receipt-pdf-preview.tsx", "lib/repair-receipt-template.ts", "lib/backend/repair-receipt-renderer.ts", "lib/backend/repair-receipt.ts", "app/api/backend/repair-receipt/route.ts", "server-assets/receipt/NotoSansSC-400.ttf", "server-assets/receipt/NotoSansSC-700.ttf", "package-lock.json", "next.config.ts", moduleFile, globalsFile, "lib/print-language.ts", "lib/repair-print-terms.ts", "lib/repair-requirements.ts", "lib/repair-detail-view.ts", "lib/repair-item-pricing.ts", "lib/repair-requirement-display.ts", "lib/repair-print-layout.ts", "components/operation-feedback.tsx", "components/operation-feedback.module.css"].map(file => [file, createHash("sha256").update(readFileSync(resolve(root, file))).digest("hex")]));
     const swc = native("next/dist/build/swc");
     await swc.loadBindings();
     const moduleFiles = [moduleFile, "components/operation-feedback.module.css"];
@@ -62,7 +64,6 @@ async function buildFixture() {
         }>).map(([key, value]) => [key, value.name]));
         moduleCss += compiled.code.toString();
     }
-    classes = cssModules[moduleFile];
     globalCss = readFileSync(resolve(root, globalsFile), "utf8");
     cssInputs = Object.fromEntries([...moduleFiles, globalsFile].map(file => [file, createHash("sha256").update(readFileSync(resolve(root, file))).digest("hex")]));
     if (process.env.REPAIR_PRINT_PRODUCTION_CSS_DIR) {
@@ -74,8 +75,7 @@ async function buildFixture() {
             cssModules[file] = Object.fromEntries(Object.keys(cssModules[file]).map(name => { const found = [...new Set(all.match(new RegExp(`${prefix}[a-zA-Z0-9_-]+__${name}(?![a-zA-Z0-9_-])`, "g")))]; if (found.length !== 1)
                 throw new Error(`Missing/ambiguous production CSS ${file}:${name}`); return [name, found[0]]; }));
         }
-        classes = cssModules[moduleFile];
-        moduleCss = all;
+            moduleCss = all;
         globalCss = "";
         cssInputs = Object.fromEntries(contents.map(row => [row.file, createHash("sha256").update(row.css).digest("hex")]));
     }
@@ -95,6 +95,7 @@ async function buildFixture() {
             return "virtual:icons";
         if (request.endsWith(".css"))
             return "virtual:css:" + (request.startsWith("@/") ? request.slice(2) : resolve(dirname(parent), request).slice(root.length + 1));
+        if (request === "pdfjs-dist") return "virtual:pdfjs";
         if (request === "@zxing/library")
             return "virtual:qr";
         const file = request.startsWith("@/") ? resolve(root, request.slice(2)) : request.startsWith(".") ? resolve(dirname(parent), request) : native.resolve(request);
@@ -116,6 +117,7 @@ async function buildFixture() {
             code = 'module.exports=new Proxy({}, {get:(_t,name)=>props=>__require(REACT).createElement("svg",{...props,width:props.size??24,height:props.size??24,"data-icon":String(name)})});'.replace("REACT", String(add(native.resolve("react"))));
         else if (file.startsWith("virtual:css:"))
             code = `module.exports={__esModule:true,default:${JSON.stringify(cssModules[file.slice(12)])}};`;
+        else if (file === "virtual:pdfjs") code = "module.exports=window.fixturePdfJs";
         else if (file === "virtual:qr")
             code = `const actual=__require(${add(native.resolve("@zxing/library"))});module.exports={...actual,MultiFormatWriter:class extends actual.MultiFormatWriter{encode(...args){if(window.printFixture.qrFailure)throw new Error('DEMO QR failure');return super.encode(...args)}}};`;
         else {
@@ -124,6 +126,7 @@ async function buildFixture() {
             // preserving the real writer/QR matrix; this URL is never requested.
             if (file === resolve(root, "components/repairs/intake-receipt.tsx"))
                 raw = raw.replace("window.location.origin", '"https://print-fixture.invalid"');
+            if (file === resolve(root, "components/repairs/receipt-pdf-preview.tsx")) raw = raw.replace('new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString()', 'window.fixturePdfWorker');
             code = /\.tsx?$/.test(file) ? ts.transpileModule(raw, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText : raw;
             code = code.replaceAll("process.env.NODE_ENV", '"production"');
         }
@@ -147,80 +150,9 @@ function fixture(long: boolean, unknown = false) {
 type PrintFixture = ReturnType<typeof fixture> & {
     active?: boolean;
     scope?: string;
-    qrFailure?: boolean;
+    qrFailure?: boolean; formal?: boolean; permissions?: string[];
     fontPending?: boolean;
 };
-async function mount(page: Page, data: PrintFixture = fixture(false), moduleFirst = false) {
-    const requests: string[] = [], errors: string[] = [];
-    pageObservations.set(page, { requests, errors });
-    page.on("pageerror", e => errors.push(e.message));
-    await page.route("**/*", route => { requests.push(route.request().url()); return route.abort(); });
-    await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div>');
-    await page.addStyleTag({ content: moduleFirst ? moduleCss + globalCss : globalCss + moduleCss });
-    await page.evaluate(value => { Object.assign(window, { printFixture: value }); }, data);
-    await page.addScriptTag({ content: `(()=>{const active=new Set();const Native=window.ResizeObserver;window.ResizeObserver=class extends Native{observe(...args){active.add(this);return super.observe(...args)}disconnect(){active.delete(this);return super.disconnect()}};window.printFixtureObserverCount=()=>active.size;const descriptor=Object.getOwnPropertyDescriptor(FontFaceSet.prototype,'status');Object.defineProperty(FontFaceSet.prototype,'status',{configurable:true,get(){return window.printFixture.fontPending?'loading':descriptor.get.call(this)}})})()` });
-    await page.addScriptTag({ content: bundle });
-    await expect(page.locator("dialog[open]")).toBeVisible();
-    if (!data.qrFailure && data.active !== false)
-        await expect(page.locator(`.${classes.viewer} .${classes.qr} path`)).toHaveCount(1);
-    await page.evaluate(() => document.fonts.ready);
-    return { requests, errors };
-}
-test.beforeAll(async () => { mkdirSync(evidence, { recursive: true }); await buildFixture(); });
-
-// Diagnostic reads never decide fit. Capture before its assertion so the first
-// cross-platform RED retains real line boxes, font declarations and geometry.
-async function recordPrintDiagnostics(page: Page, browserName: string, name: string) {
-    const directory = resolve(evidence, 'diagnostics'); mkdirSync(directory, { recursive: true });
-    const file = resolve(directory, `${name.replace(/[^a-zA-Z0-9_.-]/g, '_')}-${test.info().project.name}.json`);
-    try {
-        const geometry = await page.evaluate(names => {
-            const rect = (r: DOMRect) => ({ x: r.x, y: r.y, width: r.width, height: r.height, top: r.top, right: r.right, bottom: r.bottom, left: r.left });
-            const style = (element: Element) => { const s = getComputedStyle(element); return Object.fromEntries(['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontStretch', 'fontVariationSettings', 'letterSpacing', 'lineHeight', 'whiteSpace', 'overflowWrap', 'paddingTop', 'paddingBottom', 'marginTop', 'marginBottom', 'width', 'height', 'zoom'].map(key => [key, s[key as keyof CSSStyleDeclaration]])); };
-            const ranges = (element: Element) => {
-                const result = [], walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT); let node: Node | null;
-                while ((node = walker.nextNode())) if (node.textContent?.trim()) {
-                    const range = document.createRange(); range.selectNodeContents(node);
-                    result.push({ text: node.textContent, parent: node.parentElement?.tagName, style: node.parentElement ? style(node.parentElement) : null, rects: [...range.getClientRects()].map(rect) });
-                }
-                return result;
-            };
-            const blocks = [['shop', '.' + names.shop], ['summary', '.' + names.summary], ['work', '.' + names.work], ['scope', '.' + names.scope], ['faults', '.' + names.faults], ['service', '.' + names.service], ['warrantyHead', '.' + names.warrantyHead], ['terms', '.' + names.terms], ['termLi', '.' + names.terms + ' li'], ['termP', '.' + names.terms + ' p'], ['footer', '.' + names.footer], ['signatureMeta', '.' + names.signatureMeta], ['history', '.' + names.signatureHistory], ['tracking', '.' + names.tracking]];
-            return {
-                url: location.href, userAgent: navigator.userAgent, platform: navigator.platform, viewport: { width: innerWidth, height: innerHeight, devicePixelRatio },
-                dialog: Object.fromEntries([...(document.querySelector('dialog')?.attributes ?? [])].filter(attribute => attribute.name.startsWith('data-')).map(attribute => [attribute.name, attribute.value])),
-                fonts: { status: document.fonts.status, bodyCheck: document.fonts.check('14.4pt "Source Sans 3"'), coreCheck: document.fonts.check('700 16pt "Source Sans 3"'), faces: [...document.fonts].map(face => ({ family: face.family, style: face.style, weight: face.weight, stretch: face.stretch, display: face.display, status: face.status, unicodeRange: face.unicodeRange })) },
-                masters: [...document.querySelectorAll(`.${names.measure} [data-master-content]`)].map(content => {
-                    const small = Boolean(content.closest('[data-small-probe]')), scale = small ? 74 / 105 : 1;
-                    return { small, scale, box: rect(content.getBoundingClientRect()), style: style(content), panels: [...content.querySelectorAll('[data-fold]')].map(panel => ({ name: panel.getAttribute('data-fold'), box: rect(panel.getBoundingClientRect()), style: style(panel), ranges: ranges(panel) })), blocks: blocks.flatMap(([name, selector]) => [...content.querySelectorAll(selector)].map((block, index) => ({ name, index, box: rect(block.getBoundingClientRect()), normalizedBoxHeightMm: block.getBoundingClientRect().height * 25.4 / 96 / scale, style: style(block), ranges: ranges(block) }))) };
-                }),
-            };
-        }, classes);
-        let usedFonts: unknown = { status: 'not requested; declarations/loaded status do not prove actual used fonts' };
-        if (browserName === 'chromium' && process.env.REPAIR_PRINT_FONT_DIAGNOSTICS === '1') {
-            const session = await page.context().newCDPSession(page);
-            try {
-                await session.send('DOM.enable'); await session.send('CSS.enable');
-                const document = await session.send('DOM.getDocument');
-                const selector = `.${classes.measure} .${classes.terms} li,.${classes.measure} .${classes.tracking} p,.${classes.measure} .${classes.signatureMeta} p,.${classes.measure} .${classes.faults} p,.${classes.measure} .${classes.brand} strong`;
-                const nodes = await session.send('DOM.querySelectorAll', { nodeId: document.root.nodeId, selector });
-                const records = [];
-                for (const nodeId of nodes.nodeIds) {
-                    const node = await session.send('DOM.describeNode', { nodeId, depth: 1 });
-                    const fonts = await session.send('CSS.getPlatformFontsForNode', { nodeId });
-                    records.push({ nodeId, nodeName: node.node.nodeName, attributes: node.node.attributes, childText: node.node.children?.filter(child => child.nodeType === 3).map(child => child.nodeValue), fonts: fonts.fonts });
-                }
-                usedFonts = { status: 'captured', method: 'CSS.getPlatformFontsForNode', records, limit: 'Font family/PostScript name alone does not establish variable-font drawn weight.' };
-            } finally { await session.detach(); }
-        }
-        writeFileSync(file, JSON.stringify({ name, actualNode: process.version, platform: process.platform, arch: process.arch, browserName, browserVersion: page.context().browser()?.version(), playwrightVersion: native('@playwright/test/package.json').version, geometry, usedFonts, observed: pageObservations.get(page), sourceInputs, cssInputs, testSourceSha256: createHash('sha256').update(readFileSync(resolve(root, 'tests/browser/repair-print-layout.spec.ts'))).digest('hex'), fontSha256: createHash('sha256').update(readFileSync(resolve(root, 'public/fonts/source-sans-3/source-sans-3-roman.woff2'))).digest('hex') }, null, 2));
-    } catch (error) {
-        writeFileSync(file, JSON.stringify({ name, diagnosticError: String(error), sourceInputs, cssInputs }, null, 2));
-    }
-}
-test.afterEach(async ({ page, browserName }, info) => {
-    if (info.status !== info.expectedStatus) await recordPrintDiagnostics(page, browserName, `failure-${info.testId}`);
-});
 const coverageScenarios = ["partial-quotes", "fault-only", "workflow-project", "same-title", "unmatched-quote", "zero-unknown", "multiple-purchases", "free-mainboard", "free-corrosion", "free-fault-phrase", "free-long-text", "apple-no-request", "legacy-no-requirements", "legacy-no-fingerprint", "apple-history", "mixed-quote-groups"] as const;
 function coverageFixture(scenario: typeof coverageScenarios[number]) {
     const input = fixture(false);
@@ -275,638 +207,126 @@ function coverageFixture(scenario: typeof coverageScenarios[number]) {
     const procurementRecords = scenario === "multiple-purchases" ? [1, 2].map(n => ({ id: `DEMO-PURCHASE-${n}`, repairId: input.data.id, item: "屏幕", supplier: `DEMO PRIVATE SUPPLIER ${n}`, quantity: 1, unitCostCents: 7654321, expectedAt: "", reference: "DEMO PRIVATE COST REFERENCE", events: [], requirementId: "intake:屏幕", requirementRevision: 1 })) : [];
     return { ...input, procurementRecords };
 }
-function visibleCopies(page: Page) { return page.locator(`.${classes.viewer} .${classes.copy}`); }
-async function selectPrint(page: Page, paper: string, language: PrintLanguage) { const current = await page.locator('select').nth(1).inputValue() as PrintLanguage; await page.getByRole("combobox", { name: printLabel("paper", current), exact: true }).selectOption(paper); await page.getByRole("combobox", { name: printLabel("printLanguage", current), exact: true }).selectOption(language); }
-async function fitMetrics(page: Page) { return page.evaluate(names => { const dialog = document.querySelector("dialog")!; const master = document.querySelector(`.${names.measure} [data-master-content]`)!; const rect = master.getBoundingClientRect(); return { phase: dialog.getAttribute("data-fit-phase"), allowed: dialog.getAttribute("data-print-allowed"), naturalMm: Number(dialog.getAttribute("data-natural-height-mm")), smallMm: Number(dialog.getAttribute("data-small-height-mm")), contentMm: rect.height * 25.4 / 96, masterWidthMm: master.parentElement!.getBoundingClientRect().width * 25.4 / 96, fontStatus: document.fonts.status, hash: dialog.getAttribute("data-projection-hash"), qr: [...document.querySelectorAll(`.${names.viewer} .${names.qr}`)].map(e => ({ widthMm: e.getBoundingClientRect().width * 25.4 / 96, heightMm: e.getBoundingClientRect().height * 25.4 / 96 })), bodies: [...document.querySelectorAll(`.${names.viewer} .${names.copy}`)].map(e => { const copy = e.cloneNode(true) as HTMLElement; copy.querySelector('[data-copy-label]')?.remove(); return copy.textContent; }), boxes: [...document.querySelectorAll(`.${names.viewer} .${names.copy}`)].map(e => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; }) }; }, classes); }
-async function expectedProjection(page: Page, input: ReturnType<typeof fixture>, language: PrintLanguage, qr: {
-    path: string;
-    size: number;
-}) {
-    const data = input.data, policy = data.policy!, requirements = currentRepairRequirements(input.directory[0], input.workflows[data.id]), signature = matchingIntakeSignature(input.signatures, data, policy);
-    const projection = repairPrintProjection({ data, requirements, policy, signature, hasHistory: input.signatures.length > 0, language, totalCents: itemQuoteTotal(data.itemQuotes, requirements.map(row => row.title)), technician: printLabel("unassigned", language), status: "diagnosis", custody: data.custody ?? "unknown", formal: true, qr });
-    // Intl formatting punctuation is engine-specific. Obtain only the two display
-    // dates in the tested engine; retain all raw facts and strict canonical hashing.
-    const dates = await page.evaluate(({ preview, signed, language }) => { const render = (window as unknown as {
-        fixturePrintDate: (value: string, language: PrintLanguage) => string;
-    }).fixturePrintDate; return { preview: render(preview, language), signed: signed ? render(signed, language) : null }; }, { preview: data.previewAt, signed: signature?.signedAt, language });
-    projection.identity.find(row => row.key === 'date')!.value = dates.preview;
-    if (projection.signature && signature && dates.signed)
-        projection.signature.label = projection.signature.label.replace(printDate(signature.signedAt, language), dates.signed);
-    const body = Object.fromEntries(Object.entries(projection).filter(([key]) => key !== 'serialized' && key !== 'canonicalProjectionHash'));
-    projection.serialized = canonicalPrintJson(body);
-    projection.canonicalProjectionHash = receiptProjectionHash(projection.serialized);
-    return projection;
+let renderer: Browser;
+const fixturePdfs = new Map<string, Awaited<ReturnType<typeof renderRepairReceipt>>>();
+let pdfjs: typeof import('pdfjs-dist');
+const qr = () => { const {MultiFormatWriter,BarcodeFormat}=native('@zxing/library'); const matrix=new MultiFormatWriter().encode('https://www.chinatech.in/app/repairs/LOCAL-0000000000000005',BarcodeFormat.QR_CODE,0,0,new Map());let path='';for(let y=0;y<matrix.getHeight();y++)for(let x=0;x<matrix.getWidth();x++)if(matrix.get(x,y))path+=`M${x} ${y}h1v1h-1z`;return {path,size:matrix.getWidth()}; };
+function projection(input: PrintFixture, language: PrintLanguage) { const requirements=currentRepairRequirements(input.directory[0],input.workflows[input.data.id]);return repairPrintProjection({data:input.data,requirements,policy:input.data.policy??input.settings,signature:matchingIntakeSignature(input.signatures,input.data,input.data.policy??input.settings),hasHistory:input.signatures.length>0,language,totalCents:input.data.itemQuotes?.length?itemQuoteTotal(input.data.itemQuotes,requirements.map(r=>r.title)):null,technician:printLabel('unassigned',language),status:input.workflows[input.data.id].status,custody:input.workflows[input.data.id].custody??'unknown',formal:true,qr:qr()}); }
+async function generate(input:PrintFixture,paper:'a4'|'a5'|'half'|'double',language:PrintLanguage) {const p=projection(input,language), key=canonicalPrintJson([p,paper]);let result=fixturePdfs.get(key);if(!result){result=await renderRepairReceipt(p,paper,renderer);fixturePdfs.set(key,result);}return {p,...result};}
+const normalized=(value:string)=>value.normalize('NFKC').replace(/\s+/g,'');
+async function text(bytes:Uint8Array) {const task=pdfjs.getDocument({data:bytes.slice(),useSystemFonts:false});try {const doc=await task.promise;expect(doc.numPages).toBe(1);const page=await doc.getPage(1);return (await page.getTextContent({disableNormalization:true})).items.map(item=>'str'in item?item.str:'').join(' ');}finally{await task.destroy();}}
+async function contentProof(input:PrintFixture,paper:'a4'|'a5'|'half'|'double',language:PrintLanguage) {
+ const result=await generate(input,paper,language), p=result.p, readableOutput=(await text(result.bytes)).replace(/\s+/g,' '), output=normalized(readableOutput);
+ const texts=[p.shopName,p.shopContact,p.orderId,...p.identity.map(r=>r.value),...p.device.map(r=>r.value),...p.shortFacts.map(r=>r.value),...p.serviceFacts.map(r=>r.value),p.total,...p.rows.flatMap(r=>[...r.texts,r.amount]),...p.reviewQuotes.flatMap(q=>[q.label,q.amount,q.note]),...(!p.merged?p.intakeServices:[]),...p.issue.faults,p.issue.note,...p.terms,p.rights,p.acknowledgement,p.scope,p.termsVersion,p.signature?.label??p.signatureHistory,p.labels.tracking,p.labels.scan,p.labels.trackingLimit,p.labels.keepReceipt];
+ for(const value of texts.filter(Boolean))expect(output).toContain(normalized(value!));
+ expect(output).not.toMatch(/DEMO PRIVATE|76543/);
+ for(const metric of result.measurements){expect(metric.heightMm+1).toBeLessThanOrEqual(194);expect(metric.blocks.every(b=>!b.overflow)).toBe(true);expect(metric.bodyPt*receiptSmallScale).toBeGreaterThanOrEqual(10);expect(metric.corePt*receiptSmallScale).toBeGreaterThanOrEqual(11.1);expect(metric.qrMm*receiptSmallScale).toBeGreaterThanOrEqual(20);}
+ const doc=await PDFDocument.load(result.bytes),box=doc.getPage(0).getSize(),geometry=receiptPaperGeometry(paper);expect(box.width*25.4/72).toBeCloseTo(geometry.widthMm,6);expect(box.height*25.4/72).toBeCloseTo(geometry.heightMm,6);
+ return {...result,output,readableOutput};
 }
-async function contentProof(page: Page, input: ReturnType<typeof fixture>, language: PrintLanguage) {
-    const svg = visibleCopies(page).first().locator(`.${classes.qr}`), qr = { path: (await svg.locator('path').getAttribute('d'))!, size: Number((await svg.getAttribute('viewBox'))!.split(' ')[2]) };
-    const projection = await expectedProjection(page, input, language, qr);
-    await expect(page.locator('dialog')).toHaveAttribute('data-projection-hash', projection.canonicalProjectionHash);
-    for (const copy of await visibleCopies(page).all()) {
-        await expect(copy).toContainText(input.data.model);
-        await expect(copy).toContainText(input.data.issueNote!);
-        for (const text of projection.intakeServices)
-            await expect(copy).toContainText(text);
-        for (const text of projection.issue.faults)
-            await expect(copy).toContainText(text);
-        for (const row of projection.rows)
-            for (const text of row.texts)
-                expect(await copy.textContent()).toContain(text);
-        for (const quote of projection.reviewQuotes) {
-            const row = copy.locator(`tr[data-quote-item="${quote.item}"]`);
-            await expect(row).toContainText(quote.label);
-            await expect(row.locator('td').last()).toHaveText(quote.amount);
-            await expect(row).toHaveAttribute('data-association-kind', quote.associationKind);
-            const noteId = await row.getAttribute('aria-describedby');
-            expect(await copy.locator(`[id="${noteId}"]`).textContent()).toBe(quote.note);
-        }
-        await expect(copy.locator(`.${classes.terms} ol li`)).toHaveText([...repairIntakeTerms[language]]);
-        for (const text of [projection.rights, projection.acknowledgement, projection.scope, projection.termsVersion])
-            await expect(copy).toContainText(text);
-        await expect(copy.locator('tr[data-requirement-id]')).toHaveCount(projection.rows.length);
-        for (const row of projection.rows) {
-            const tr = copy.locator(`tr[data-requirement-id="${row.id}"]`);
-            await expect(tr).toHaveAttribute('data-requirement-revision', String(row.revision));
-            await expect(tr).toHaveAttribute('data-requirement-request', row.rawRequest);
-            await expect(tr.locator('td').last()).toHaveText(row.amount);
-        }
-        if (projection.signature) {
-            await expect(copy.locator(`.${classes.signatureInk} svg`)).toHaveAttribute('viewBox', '0 0 800 250');
-            await expect(copy.locator(`.${classes.signatureInk} polyline`)).toHaveAttribute('points', '80,150 240,50 400,200 640,75');
-        } else {
-            await expect(copy.locator(`.${classes.signatureInk} svg`)).toHaveCount(0);
-            await expect(copy).toContainText(projection.signatureHistory);
-        }
-    }
-    return projection;
+test.beforeAll(async()=>{mkdirSync(evidence,{recursive:true});await buildFixture();renderer=await launchReceiptBrowser();pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');});
+test.afterAll(async()=>{await renderer?.close();});
+async function mount(page:Page,input:PrintFixture=fixture(false),mode:{delay?:boolean;error?:string;status?:number}={}) {
+ const observed={requests:[] as Array<{id:string;paper:'a4'|'a5'|'half'|'double';language:PrintLanguage;expectedRevision:number}>,errors:[] as string[],external:[] as string[]};let current=input;let release:(()=>void)|undefined;let delayed=mode.delay?new Promise<void>(r=>release=r):null;
+ page.on('pageerror',e=>observed.errors.push(e.message));await page.route('**/*',route=>{if(/^(blob:|data:)/.test(route.request().url()))return route.continue();observed.external.push(route.request().url());return route.abort();});
+ await page.exposeFunction('fixtureReceiptRequest',async(request:typeof observed.requests[number])=>{observed.requests.push(request);const captured=current;await delayed;if(mode.error)return {status:mode.status??422,code:mode.error};try{const result=await generate(captured,request.paper,request.language);return {status:200,bytes:Array.from(result.bytes)};}catch(e){if(e instanceof ReceiptRenderError)return {status:422,code:e.code==='overflow'?'printOverflow':'printLayoutError',blocks:e.blocks};throw e;}});
+ await page.setContent('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>');
+ await page.addStyleTag({content:globalCss+'\n'+moduleCss});
+ await page.evaluate(({input,worker})=>{Object.assign(window,{printFixture:input,fixturePdfWorker:worker,receiptUrls:[] as string[],receiptRevoked:[] as string[],receiptOpened:[] as string[],receiptBlobs:{} as Record<string,Blob>});const w=window as unknown as Record<string,unknown>;const create=URL.createObjectURL.bind(URL),revoke=URL.revokeObjectURL.bind(URL);URL.createObjectURL=blob=>{const url=create(blob);(w.receiptUrls as string[]).push(url);if(blob instanceof Blob)(w.receiptBlobs as Record<string,Blob>)[url]=blob;return url;};URL.revokeObjectURL=url=>{(w.receiptRevoked as string[]).push(url);revoke(url);};const fetch=window.fetch.bind(window);window.fetch=async(url,init)=>{if(String(url)!=='/api/backend/repair-receipt')return fetch(url,init);const result=await (w.fixtureReceiptRequest as (request:unknown)=>Promise<{status:number;bytes:number[];code:string;blocks:string[]}>)(JSON.parse(init!.body as string));return result.status===200?new Response(new Uint8Array(result.bytes),{status:200,headers:{'content-type':'application/pdf'}}):Response.json({code:result.code,blocks:result.blocks},{status:result.status});};}, {input,worker:'data:text/javascript;base64,'+readFileSync(native.resolve('pdfjs-dist/build/pdf.worker.min.mjs')).toString('base64')});
+ const pdfModule='data:text/javascript;base64,'+readFileSync(native.resolve('pdfjs-dist/build/pdf.min.mjs')).toString('base64');
+ await page.evaluate(async module=>{Object.assign(window,{fixturePdfJs:await import(module)});},pdfModule);
+ await page.addScriptTag({content:bundle});
+ return {observed,update:async(next:PrintFixture)=>{current=next;await page.evaluate(value=>(window as unknown as {updatePrintFixture:(v:unknown)=>void}).updatePrintFixture(value),next);},release:()=>{delayed=null;release?.();},pause:()=>{delayed=new Promise<void>(r=>release=r);},mode};
 }
-async function installPrintCounter(page: Page) { await page.evaluate(() => { Object.assign(window, { printCalls: 0 }); window.print = () => { (window as unknown as {
-    printCalls: number;
-}).printCalls++; window.dispatchEvent(new Event('beforeprint')); }; }); }
-async function updateFixture(page: Page, input: PrintFixture) { await page.evaluate(value => (window as unknown as {
-    updatePrintFixture: (value: unknown) => void;
-}).updatePrintFixture(value), input); }
-async function pdfGeometry(page: Page) {
-    return page.evaluate(names => {
-        const box = (rect: DOMRect) => ({ x: rect.x * .75, y: rect.y * .75, width: rect.width * .75, height: rect.height * .75 });
-        const elementBox = (element: Element) => box(element.getBoundingClientRect());
-        const coreTextBoxes = (element: Element) => {
-            const boxes: Array<ReturnType<typeof box>> = [], walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-            let node: Node | null;
-            while ((node = walker.nextNode())) {
-                if (!node.textContent?.trim() || node.parentElement?.closest('.' + names.rowWarning)) continue;
-                const range = document.createRange(); range.selectNodeContents(node);
-                for (const rect of range.getClientRects()) boxes.push(box(rect));
-            }
-            return boxes;
-        };
-        return [...document.querySelectorAll(`.${names.viewer} .${names.copy}`)].map(copy => ({
-            copy: copy.getAttribute('data-copy'), box: elementBox(copy), copyLabel: elementBox(copy.querySelector('[data-copy-label]')!), qr: elementBox(copy.querySelector(`.${names.qr}`)!),
-            core: [...copy.querySelectorAll(`.${names.model} .${names.core},.${names.total},.${names.requests} tbody td,.${names.faults} p,.${names.separateIntake} .${names.core}`)].flatMap(coreTextBoxes),
-            panels: [...copy.querySelectorAll('[data-fold]')].map(panel => ({ name: panel.getAttribute('data-fold'), box: elementBox(panel) })),
-            bodyPt: parseFloat(getComputedStyle(copy).fontSize) * .75,
-        }));
-    }, classes);
-}
+async function selectPrint(page:Page,paper:string,language:PrintLanguage){await page.locator('select').nth(0).selectOption(paper);await page.locator('select').nth(1).selectOption(language);}
+async function ready(page:Page){await expect(page.locator('dialog')).toHaveAttribute('data-pdf-phase','ready');await expect.poll(()=>page.locator('dialog canvas[aria-hidden="true"]').evaluate((c:HTMLCanvasElement)=>c.width)).toBeGreaterThan(0);await expect(page.locator('dialog canvas[aria-hidden="true"]')).toBeVisible();await expect(page.locator('dialog [role="document"]')).toContainText('DEMO');}
+for(const paper of ['a4','a5','half','double'] as const)for(const language of ['it','en','zh'] as PrintLanguage[])test(`单页母版真实PDF ${paper}/${language}`,async({page},info)=>{
+ const input=fixture(false);expect(validLocalIntake(input.data)).toBe(true);expect(validIntakeSignature(input.signatures[0])).toBe(true);
+ const result=await contentProof(input,paper,language);expect(result.p.merged).toBe(true);expect(result.p.rows).toHaveLength(3);expect(result.p.intakeServices).toHaveLength(4);expect(result.output).toContain(normalized(printLabel('customerCopy',language)));if(paper==='double')expect(result.output).toContain(normalized(printLabel('shopCopy',language)));
+ const mounted=await mount(page,input);await selectPrint(page,paper,language);await ready(page);
+ const href=await page.getByRole('link',{name:printLabel('pdfDownload',language)}).getAttribute('href');const actual=await page.evaluate(async url=>Array.from(new Uint8Array(await (window as unknown as {receiptBlobs:Record<string,Blob>}).receiptBlobs[url!].arrayBuffer())),href);expect(Buffer.from(actual)).toEqual(Buffer.from(result.bytes));
+ const a4=await generate(input,'a4',language),a5=await generate(input,'a5',language);expect(normalized(await text(a4.bytes))).toBe(normalized(await text(a5.bytes)));expect(a4.measurements).toEqual(a5.measurements);expect(a4.measurements[0].density).toBe(language==='zh'?'spacious':'standard');
+ writeFileSync(resolve(evidence,`${info.project.name}-${language}-${paper}.pdf`),result.bytes);writeFileSync(resolve(evidence,`${info.project.name}-${language}-${paper}.json`),JSON.stringify({measurements:result.measurements,sha256:createHash('sha256').update(result.bytes).digest('hex'),sourceInputs,cssInputs}));expect(mounted.observed.external).toEqual([]);expect(mounted.observed.errors).toEqual([]);
+});
+for(const scenario of coverageScenarios)for(const language of ['it','en','zh'] as PrintLanguage[])test(`完整原文真实PDF ${scenario}/${language}`,async({page},info)=>{
+ const input=coverageFixture(scenario),p=projection(input,language);expect(validLocalIntake(input.data)).toBe(true);validateRepairRequirements(currentRepairRequirements(input.directory[0],input.workflows[input.data.id]));for(const row of input.procurementRecords)expect(validateProcurementDraft(row)).toEqual(row);
+ const html=repairReceiptHtml(p,{latin:'',chinese:''});const plain=await page.evaluate(html=>new DOMParser().parseFromString(html,'text/html').body.textContent!,html);
+ for(const row of p.rows)for(const value of row.texts)expect(plain).toContain(value);for(const term of p.terms)expect(plain).toContain(term);
+ if(scenario==='apple-history')expect(p.signature).toBeNull();else expect(p.signature).not.toBeNull();
+ if(scenario==='legacy-no-requirements'){expect(p.merged).toBe(false);expect(p.rows).toHaveLength(0);}if(scenario==='legacy-no-fingerprint'||scenario==='apple-no-request')expect(p.merged).toBe(false);
+ if(scenario.startsWith('free-')){const raw=input.workflows[input.data.id].requirements![0].request;expect(plain).toContain(raw);if(scenario==='free-long-text')expect(raw).toHaveLength(1077);}
+ if(scenario==='partial-quotes'){expect(p.rows).toHaveLength(3);expect(p.rows[0].amount).toBe(printMoney(0,language));expect(p.rows.slice(1).every(r=>r.amount===printLabel('define',language))).toBe(true);}
+ if(scenario==='same-title'){expect(p.rows.filter(r=>r.ambiguous)).toHaveLength(2);expect(p.reviewQuotes.filter(r=>r.item==='屏幕')).toHaveLength(1);}
+ if(scenario==='unmatched-quote')expect(p.reviewQuotes).toHaveLength(1);
+ if(scenario==='zero-unknown'){expect(p.rows[0].amount).toBe(printMoney(0,language));expect(p.rows[1].amount).toBe(printLabel('define',language));expect(p.total).toBe(printLabel('unquoted',language));}
+ if(scenario==='multiple-purchases'){expect(p.rows).toHaveLength(3);expect(plain).not.toMatch(/DEMO PRIVATE|76543/);}
+ if(scenario==='mixed-quote-groups'){expect(p.reviewQuotes.map(r=>r.item)).toEqual(['DEMO unmatched before 1','DEMO unmatched before 2','屏幕','DEMO unmatched after']);expect(p.rows.filter(r=>r.ambiguous)).toHaveLength(2);expect(plain.split(printMoney(9876,language)).length-1).toBe(1);const groups=await page.evaluate(html=>[...new DOMParser().parseFromString(html,'text/html').querySelectorAll('[data-quote-association]')].map(el=>({kind:el.getAttribute('data-quote-association'),text:el.textContent})),html);expect(groups.map(g=>g.kind)).toEqual(['unmatched','ambiguous','unmatched']);expect(groups[0].text).toContain('DEMO unmatched before 1');expect(groups[0].text).toContain('DEMO unmatched before 2');expect(groups[2].text).toContain('DEMO unmatched after');}
+ try{const result=await contentProof(input,'a5',language);if(scenario==='apple-history'){const a4=await contentProof(input,'a4',language);expect(a4.output).toBe(result.output);expect(a4.measurements).toEqual(result.measurements);writeFileSync(resolve(evidence,`${info.project.name}-${scenario}-${language}-a4.pdf`),a4.bytes);}expect(scenario).not.toBe('free-long-text');if(language==='en'&&['partial-quotes','zero-unknown'].includes(scenario))expect(result.readableOutput.split(printLabel('define',language)).length-1).toBe(p.rows.filter(row=>!row.ambiguous&&row.amountCents==null).length+1);writeFileSync(resolve(evidence,`${info.project.name}-${scenario}-${language}.pdf`),result.bytes);writeFileSync(resolve(evidence,`${info.project.name}-${scenario}-${language}.json`),JSON.stringify({measurements:result.measurements,sha256:createHash('sha256').update(result.bytes).digest('hex')}));}catch(e){if(!(e instanceof ReceiptRenderError))throw e;expect(e.code).toBe('overflow');expect(e.blocks.length).toBeGreaterThan(0);writeFileSync(resolve(evidence,`${info.project.name}-${scenario}-${language}-overflow.json`),JSON.stringify({code:e.code,blocks:e.blocks,measurements:e.measurements}));if(scenario.startsWith('legacy-')||['apple-no-request','apple-history','partial-quotes','zero-unknown','multiple-purchases'].includes(scenario))throw e;}
+});
+for(const paper of ['a4','a5','half','double'] as const)for(const language of ['it','en','zh'] as PrintLanguage[])test(`长原文全纸拒绝PDF ${paper}/${language}`,async({page})=>{const input=fixture(true);const mounted=await mount(page,input);await selectPrint(page,paper,language);await expect(page.locator('dialog')).toHaveAttribute('data-pdf-phase','error');await expect(page.getByRole('alert')).toContainText(printLabel('printOverflow',language));await expect(page.getByRole('button',{name:printLabel('pdfOpenPrint',language),exact:true})).toBeDisabled();await expect(page.getByRole('link',{name:printLabel('pdfDownload',language)})).toHaveCount(0);expect(await page.evaluate('window.receiptUrls')).toEqual([]);expect(mounted.observed.external).toEqual([]);});
+for(const width of [1440,1024,390,375])test(`四宽真实PDF预览触控 ${width}`,async({page},info)=>{
+ await page.setViewportSize({width,height:900});const mounted=await mount(page);await ready(page);
+ for(const target of await page.locator('dialog button:not(select button),dialog a[download],dialog select').all()){if(!await target.isVisible())continue;const b=await target.boundingBox();expect(b!.height).toBeGreaterThanOrEqual(44);expect(b!.width).toBeGreaterThanOrEqual(44);}
+ const widths=await page.evaluate(()=>({body:document.body.scrollWidth,window:window.innerWidth,dialog:document.querySelector('dialog')!.getBoundingClientRect().width}));expect(widths.body).toBeLessThanOrEqual(widths.window);expect(widths.dialog).toBeLessThanOrEqual(width);
+ const pixels=await page.locator('dialog canvas[aria-hidden="true"]').evaluate((canvas:HTMLCanvasElement)=>{const data=canvas.getContext('2d')!.getImageData(0,0,canvas.width,canvas.height).data;let dark=0;for(let i=0;i<data.length;i+=4)if(data[i]<150&&data[i+1]<150&&data[i+2]<150)dark++;return dark;});expect(pixels).toBeGreaterThan(100);
+ await page.screenshot({path:resolve(evidence,`pdfjs-${info.project.name}-${width}.png`),fullPage:true});
+ await page.locator('select').nth(2).selectOption('1');await expect.poll(()=>page.locator('dialog canvas[aria-hidden="true"]').evaluate((c:HTMLCanvasElement)=>parseFloat(c.style.width))).toBeGreaterThan(700);
+ await page.locator('select').nth(2).selectOption('fit');await expect.poll(()=>page.locator('dialog canvas[aria-hidden="true"]').evaluate((c:HTMLCanvasElement)=>c.getBoundingClientRect().width)).toBeLessThan(width);
+ expect(mounted.observed.errors).toEqual([]);expect(mounted.observed.external).toEqual([]);
+});
+test('同一PDF字节供预览 下载 打印 纸型语言缓存',async({page})=>{
+ const mounted=await mount(page);await ready(page);const link=page.getByRole('link',{name:printLabel('pdfDownload','it')});const initial=await link.getAttribute('href');
+ await page.evaluate(()=>{window.open=()=>({opener:null,location:{replace:(url:string)=>(window as unknown as {receiptOpened:string[]}).receiptOpened.push(url)},close:()=>{}} as unknown as Window);});await page.getByRole('button',{name:printLabel('pdfOpenPrint','it'),exact:true}).click();expect(await page.evaluate('window.receiptOpened')).toEqual([initial]);await expect(page.getByRole('status')).toContainText(printLabel('pdfPrintHelp','it'));
+ const download=page.waitForEvent('download');await link.click();const saved=await download;expect(saved.suggestedFilename()).toBe('LOCAL-0000000000000005-it-a5.pdf');
+ await selectPrint(page,'a5','en');await ready(page);await selectPrint(page,'a5','it');await ready(page);expect(await page.getByRole('link',{name:printLabel('pdfDownload','it')}).getAttribute('href')).toBe(initial);expect(mounted.observed.requests).toHaveLength(2);
+ await selectPrint(page,'a4','it');await ready(page);expect(mounted.observed.requests).toHaveLength(3);expect(Object.keys(mounted.observed.requests[0]).sort()).toEqual(['expectedRevision','id','language','paper']);
+});
+test('保留上一份预览明确标记 当前未ready禁下载打印',async({page})=>{const mounted=await mount(page);await ready(page);const previous=await page.getByRole('link',{name:printLabel('pdfDownload','it')}).getAttribute('href');mounted.pause();await selectPrint(page,'a4','it');await expect(page.getByRole('note')).toHaveText(printLabel('pdfPreviousPreview','it'));await expect(page.locator('dialog [role="document"]')).toContainText('DEMO');await expect(page.getByRole('button',{name:printLabel('pdfOpenPrint','it'),exact:true})).toBeDisabled();await expect(page.getByRole('link',{name:printLabel('pdfDownload','it')})).toHaveCount(0);mounted.mode.error='printFontError';mounted.release();await expect(page.locator('dialog')).toHaveAttribute('data-pdf-phase','error');await expect(page.getByRole('note')).toHaveText(printLabel('pdfPreviousPreview','it'));expect(await page.evaluate('window.receiptRevoked')).not.toContain(previous);});
+for(const status of [401,403])test(`服务端${status}即使前端身份未刷新仍销毁旧PDF`,async({page})=>{const mode={error:'',status};const mounted=await mount(page,fixture(false),mode);await ready(page);const previous=await page.getByRole('link',{name:printLabel('pdfDownload','it')}).getAttribute('href');mode.error='receiptUnavailable';await selectPrint(page,'a4','it');await expect(page.locator('dialog')).toHaveAttribute('data-pdf-phase','unavailable');await expect(page.locator('dialog [role="document"]')).toHaveCount(0);await expect(page.getByRole('link',{name:printLabel('pdfDownload','it')})).toHaveCount(0);expect(await page.evaluate('window.receiptRevoked')).toContain(previous);await selectPrint(page,'a5','it');expect(mounted.observed.requests).toHaveLength(2);});
+test('生成失败就地重试 保留选择且无PDF成功',async({page})=>{const mode={error:'printFontError'};const mounted=await mount(page,fixture(false),mode);await expect(page.locator('dialog')).toHaveAttribute('data-pdf-phase','error');await expect(page.getByRole('alert')).toContainText(printLabel('printFontError','it'));expect(await page.evaluate('window.receiptUrls')).toEqual([]);mode.error='';await page.getByRole('button',{name:printLabel('printCheckRetry','it')}).click();await ready(page);expect(mounted.observed.requests).toHaveLength(2);});
+test('初始资料未就绪阻止生成 就绪后自动生成',async({page})=>{const input=fixture(false);input.unavailable=true;const mounted=await mount(page,input);await expect(page.locator('dialog')).toHaveAttribute('data-pdf-phase','unavailable');expect(mounted.observed.requests).toHaveLength(0);input.unavailable=false;input.settings.paper='a4';await mounted.update(input);await ready(page);expect(mounted.observed.requests).toHaveLength(1);expect(mounted.observed.requests[0].paper).toBe('a4');});
+test('跨scope立即销毁PDF与迟到结果 不能重新回填',async({page})=>{const input=fixture(false);const mounted=await mount(page,input,{delay:true});await expect(page.locator('dialog')).toHaveAttribute('data-pdf-phase','generating');await expect.poll(()=>mounted.observed.requests.length).toBe(1);await mounted.update({...input,scope:'OTHER-STORE'});mounted.release();await expect(page.locator('dialog')).toHaveAttribute('data-pdf-phase','unavailable');await expect(page.locator('dialog canvas[aria-hidden="true"]')).toHaveCount(0);await expect(page.getByRole('link',{name:printLabel('pdfDownload','it')})).toHaveCount(0);await expect.poll(()=>page.evaluate('window.receiptUrls.length')).toBe(0);});
+test('撤权清除现有Blob URL与预览',async({page})=>{const input=fixture(false),mounted=await mount(page,input);await ready(page);const url=await page.getByRole('link',{name:printLabel('pdfDownload','it')}).getAttribute('href');await mounted.update({...input,permissions:[]});await expect(page.locator('dialog')).toHaveAttribute('data-pdf-phase','unavailable');await expect(page.locator('dialog canvas[aria-hidden="true"]')).toHaveCount(0);expect(await page.evaluate('window.receiptRevoked')).toContain(url);});
+test('资料版本变化立即销毁原文件并重新生成',async({page})=>{const input=fixture(false),mounted=await mount(page,input);await ready(page);const url=await page.getByRole('link',{name:printLabel('pdfDownload','it')}).getAttribute('href');const next=structuredClone(input);next.data.revision=2;next.data.model='DEMO Revised Model';await mounted.update(next);await expect.poll(()=>page.evaluate('window.receiptRevoked')).toContain(url);await ready(page);expect(mounted.observed.requests).toHaveLength(2);expect(mounted.observed.requests[1].expectedRevision).toBe(2);});
+test('打印窗口失败有三语错误且预览仍可用',async({page})=>{await mount(page);await ready(page);await page.evaluate(()=>{window.open=()=>null;});await page.getByRole('button',{name:printLabel('pdfOpenPrint','it'),exact:true}).click();await expect(page.getByRole('alert')).toContainText(printLabel('printWindowError','it'));await expect(page.locator('dialog canvas[aria-hidden="true"]')).toBeVisible();await expect(page.getByRole('link',{name:printLabel('pdfDownload','it')})).toBeVisible();});
+test('关闭清理URL恢复焦点 重新打开重新生成',async({page},info)=>{const mounted=await mount(page);await ready(page);const url=await page.getByRole('link',{name:printLabel('pdfDownload','it')}).getAttribute('href');await page.getByRole('button',{name:printLabel('close','it')}).click();await expect(page.locator('dialog')).toHaveCount(0);expect(await page.evaluate('window.receiptRevoked')).toContain(url);await expect(page.locator('#trigger')).toBeFocused();if(info.project.name==='webkit-touch')await page.locator('#trigger').tap();else await page.locator('#trigger').click();await ready(page);expect(mounted.observed.requests).toHaveLength(2);await page.keyboard.press('Escape');await expect(page.locator('#trigger')).toBeFocused();});
+test('DEMO只显示三语限制不创建客户PDF',async({page})=>{const mounted=await mount(page,{...fixture(false),formal:false});for(const language of ['it','en','zh'] as PrintLanguage[]){await selectPrint(page,'a5',language);await expect(page.getByRole('alert')).toContainText(printLabel('receiptFormalOnly',language));await expect(page.getByRole('button',{name:printLabel('pdfOpenPrint',language),exact:true})).toBeDisabled();}expect(mounted.observed.requests).toHaveLength(0);});
+test('历史签名失配保留原文提示无原笔迹',async({page},info)=>{const input=fixture(false);input.data.serial='DEMO-SERIAL-CHANGED';for(const language of ['it','en','zh'] as PrintLanguage[]){const p=projection(input,language);expect(p.signature).toBeNull();const html=repairReceiptHtml(p,{latin:'',chinese:''});expect(html).not.toContain('<polyline');expect(html).toContain(p.signatureHistory);const result=await contentProof(input,'a5',language);writeFileSync(resolve(evidence,`${info.project.name}-signature-mismatch-${language}.pdf`),result.bytes);}await mount(page,input);await ready(page);});
+test('折线长无空格型号完整保留且跨栏拒绝',async()=>{const input=fixture(false);input.data.model='M'.repeat(160);input.data.policy!.shopName='S'.repeat(200);const p=projection(input,'it');try{const result=await contentProof(input,'a5','it');expect(result.output).toContain(input.data.model);}catch(e){if(!(e instanceof ReceiptRenderError))throw e;expect(e.code).toBe('overflow');expect(e.blocks.length).toBeGreaterThan(0);}expect(repairReceiptHtml(p,{latin:'',chinese:''})).toContain(input.data.model);});
+test('签名比例和全部原笔迹保留纯SVG不依赖界面语言',async()=>{const p=projection(fixture(false),'en');const html=repairReceiptHtml(p,{latin:'',chinese:''});expect(html).toContain('viewBox="0 0 800 250"');expect(html).toContain('points="80,150 240,50 400,200 640,75"');expect(html).toContain('preserveAspectRatio="xMinYMid meet"');});
+test('打印语言同步zoom标签和值',async({page})=>{await mount(page);await ready(page);for(const language of ['zh','en','it'] as PrintLanguage[])for(const value of ['1','fit']){await page.locator('select').nth(2).selectOption(value);await page.locator('select').nth(1).selectOption(language);await ready(page);const select=page.getByRole('combobox',{name:printLabel('previewZoom',language)});await expect(select).toHaveValue(value);await expect(select.locator('option')).toHaveText([printLabel('fitScreen',language),'100%']);}});
 
-async function nativeBlocked(page: Page, name: string, browserName: string, language: PrintLanguage) {
-    await page.emulateMedia({ media: 'print' });
-    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
-    await expect(page.locator('dialog')).toHaveAttribute('data-print-allowed', 'false');
-    await expect(page.locator('[data-print-blocked]')).toBeVisible();
-    await expect(page.locator('[data-print-blocked]')).toContainText(printLabel('printBlocked', language));
-    await expect(page.locator(`.${classes.viewer}`)).not.toBeVisible();
-    let pages: number | undefined;
-    if (browserName === 'chromium') {
-        const bytes = await page.pdf({ path: resolve(evidence, name + '.pdf'), preferCSSPageSize: true, printBackground: true });
-        pages = (bytes.toString('latin1').match(/\/Type\s*\/Page\b/g) ?? []).length;
-        expect(pages).toBe(1);
-    }
-    await page.emulateMedia({ media: 'screen' });
-    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
-    return pages;
-}
-const normalBodies = new Map<string, {
-    hash: string;
-    body: string;
-}>();
-for (const paper of ['a4', 'a5', 'half', 'double'] as const)
-    for (const language of ['it', 'en', 'zh'] as PrintLanguage[]) {
-        test(`单页母版 normal ${paper}/${language}`, async ({ page, browserName }, info) => {
-            const input = fixture(false);
-            expect(validLocalIntake(input.data)).toBe(true);
-            expect(validIntakeSignature(input.signatures[0])).toBe(true);
-            const observed = await mount(page, input);
-            await selectPrint(page, paper, language);
-            await recordPrintDiagnostics(page, browserName, `before-normal-${paper}-${language}`);
-            await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-            const projection = await contentProof(page, input, language);
-            expect(projection.merged).toBe(true);
-            expect(projection.rows).toHaveLength(3);
-            expect(projection.intakeServices).toHaveLength(4);
-            await expect(visibleCopies(page)).toHaveCount(paper === 'double' ? 2 : 1);
-            const metrics = await fitMetrics(page);
-            expect(metrics.naturalMm + receiptMaster.reserveMm).toBeLessThanOrEqual(receiptMaster.innerHeightMm);
-            expect(metrics.smallMm + receiptMaster.reserveMm).toBeLessThanOrEqual(receiptMaster.innerHeightMm);
-            expect(metrics.masterWidthMm).toBeCloseTo(receiptMaster.widthMm, 2);
-            for (const body of metrics.bodies)
-                expect(body).toBe(metrics.bodies[0]);
-            const cache = normalBodies.get(info.project.name + language);
-            if (cache) {
-                expect(projection.canonicalProjectionHash).toBe(cache.hash);
-                expect(metrics.bodies[0]).toBe(cache.body);
-            }
-            else
-                normalBodies.set(info.project.name + language, { hash: projection.canonicalProjectionHash, body: metrics.bodies[0]! });
-            await installPrintCounter(page);
-            await page.getByRole('button', { name: printLabel('print', language), exact: true }).click();
-            expect(await page.evaluate('window.printCalls')).toBe(1);
-            await expect(page.getByRole('button', { name: printLabel('print', language), exact: true })).toBeDisabled();
-            await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
-            await expect(page.getByRole('button', { name: printLabel('print', language), exact: true })).toBeEnabled();
-            await page.emulateMedia({ media: 'print' });
-            await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
-            await expect(page.locator('dialog')).toHaveAttribute('data-print-allowed', 'true');
-            const name = `normal-${paper}-${language}-${info.project.name}`, geometry = await pdfGeometry(page);
-            let pages: number | undefined;
-            if (browserName === 'chromium') {
-                const bytes = await page.pdf({ path: resolve(evidence, name + '.pdf'), preferCSSPageSize: true, printBackground: true });
-                pages = (bytes.toString('latin1').match(/\/Type\s*\/Page\b/g) ?? []).length;
-                expect(pages).toBe(1);
-            }
-            const expectedGeometry = receiptPaperGeometry(paper);
-            for (const [index, copy] of geometry.entries()) {
-                const expected = expectedGeometry.slots[index];
-                expect(copy.box.x / 72 * 25.4).toBeCloseTo(expected.xMm, 1);
-                expect(copy.box.y / 72 * 25.4).toBeCloseTo(expected.yMm, 1);
-                expect(copy.qr.width / 72 * 25.4).toBeGreaterThanOrEqual(20);
-                expect(copy.qr.height / 72 * 25.4).toBeGreaterThanOrEqual(20);
-                if (paper !== 'a4')
-                    expect(expected.scale).toBe(receiptSmallScale);
-            }
-            writeFileSync(resolve(evidence, name + '.json'), JSON.stringify({ paper, language, projection, metrics, geometry, pages, observed, sourceInputs, cssInputs }, null, 2));
-            await page.emulateMedia({ media: 'screen' });
-            await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
-            await page.evaluate(async () => { await document.fonts.ready; for (let frame = 0; frame < 3; frame++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve())); });
-            await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-            await expect(page.getByRole('button', { name: printLabel('print', language), exact: true })).toBeEnabled();
-            await page.screenshot({ path: resolve(evidence, name + '.png'), fullPage: true, animations: 'disabled' });
-            expect(observed.requests).toEqual([]);
-            expect(observed.errors).toEqual([]);
-        });
-    }
-for (const scenario of coverageScenarios)
-    for (const language of ['it', 'en', 'zh'] as PrintLanguage[]) {
-        test(`完整原文 ${scenario}/${language}`, async ({ page, browserName }, info) => {
-            const input = coverageFixture(scenario);
-            expect(validLocalIntake(input.data)).toBe(true);
-            validateRepairRequirements(currentRepairRequirements(input.directory[0], input.workflows[input.data.id]));
-            for (const row of input.procurementRecords)
-                expect(validateProcurementDraft(row)).toEqual(row);
-            const observed = await mount(page, input);
-            await selectPrint(page, 'a5', language);
-            await expect.poll(async () => (await fitMetrics(page)).phase).toMatch(/^(fit|overflow)$/);
-            await recordPrintDiagnostics(page, browserName, `before-coverage-${scenario}-${language}`);
-            const projection = await contentProof(page, input, language), metrics = await fitMetrics(page);
-            const name = `coverage-${scenario}-${language}-${info.project.name}`;
-            if (scenario.startsWith('legacy-') || scenario === 'apple-no-request' || scenario === 'apple-history') expect(metrics.phase).toBe('fit');
-            if (scenario === 'apple-history') expect(projection.signature).toBeNull();
-            else expect(projection.signature).not.toBeNull();
-            if (scenario === 'free-long-text')
-                expect(metrics.phase).toBe('overflow');
-            if (scenario === 'legacy-no-requirements') {
-                expect(projection.merged).toBe(false);
-                expect(projection.rows).toHaveLength(0);
-            }
-            if (scenario === 'legacy-no-fingerprint' || scenario === 'apple-no-request')
-                expect(projection.merged).toBe(false);
-            if (scenario.startsWith('free-')) {
-                const raw = input.workflows[input.data.id].requirements![0].request;
-                expect(raw.length).toBeGreaterThan(0);
-                expect(await visibleCopies(page).first().textContent()).toContain(raw);
-                if (scenario === 'free-long-text')
-                    expect(raw).toHaveLength(1077);
-            }
-            if (scenario === 'partial-quotes') {
-                expect(projection.rows).toHaveLength(3);
-                expect(projection.rows[0].amount).toBe(printMoney(0, language));
-                expect(projection.rows.slice(1).every(row => row.amount === printLabel('define', language))).toBe(true);
-            }
-            if (scenario === 'same-title') {
-                expect(projection.rows.filter(row => row.ambiguous)).toHaveLength(2);
-                expect(projection.reviewQuotes.filter(row => row.item === '屏幕')).toHaveLength(1);
-                expect(await visibleCopies(page).first().textContent()).not.toContain('76543');
-            }
-            if (scenario === 'unmatched-quote')
-                expect(projection.reviewQuotes).toHaveLength(1);
-            if (scenario === 'zero-unknown') {
-                expect(projection.rows[0].amount).toBe(printMoney(0, language));
-                expect(projection.rows[1].amount).toBe(printLabel('define', language));
-                expect(projection.total).toBe(printLabel('unquoted', language));
-            }
-            if (scenario === 'multiple-purchases') {
-                expect(projection.rows).toHaveLength(3);
-                expect(await visibleCopies(page).first().textContent()).not.toMatch(/DEMO PRIVATE|76543/);
-            }
-            if (scenario === 'mixed-quote-groups') {
-                const copy = visibleCopies(page).first();
-                expect(projection.reviewQuotes.map(row => row.item)).toEqual(['DEMO unmatched before 1', 'DEMO unmatched before 2', '屏幕', 'DEMO unmatched after']);
-                expect(await copy.locator('[data-quote-group]').evaluateAll(groups => groups.map(group => group.getAttribute('data-quote-group')))).toEqual(['unmatched', 'ambiguous', 'unmatched']);
-                expect(await copy.locator('[data-quote-group]').evaluateAll(groups => groups.map(group => [...group.querySelectorAll('[data-quote-item]')].map(row => row.getAttribute('data-quote-item'))))).toEqual([['DEMO unmatched before 1', 'DEMO unmatched before 2'], ['屏幕'], ['DEMO unmatched after']]);
-                expect(await copy.locator('[data-quote-group]').evaluateAll(groups => groups.map(group => group.querySelectorAll('p[id]').length))).toEqual([1, 1, 1]);
-                expect(projection.rows.filter(row => row.ambiguous)).toHaveLength(2);
-                expect((await copy.textContent())!.split(printMoney(9876, language)).length - 1).toBe(1);
-            }
-            await installPrintCounter(page);
-            let pages: number | undefined, geometry: Awaited<ReturnType<typeof pdfGeometry>> | undefined;
-            if (metrics.phase === 'overflow') {
-                await expect(page.getByRole('button', { name: printLabel('print', language), exact: true })).toBeDisabled();
-                expect(await page.evaluate('window.printCalls')).toBe(0);
-                pages = await nativeBlocked(page, name, browserName, language);
-            }
-            else {
-                expect(metrics.naturalMm + 1).toBeLessThanOrEqual(194);
-                expect(metrics.smallMm + 1).toBeLessThanOrEqual(194);
-                await page.emulateMedia({ media: 'print' });
-                await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
-                geometry = await pdfGeometry(page);
-                if (browserName === 'chromium') {
-                    const bytes = await page.pdf({ path: resolve(evidence, name + '.pdf'), preferCSSPageSize: true, printBackground: true });
-                    pages = (bytes.toString('latin1').match(/\/Type\s*\/Page\b/g) ?? []).length;
-                    expect(pages).toBe(1);
-                }
-                await page.emulateMedia({ media: 'screen' });
-                await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
-            }
-            writeFileSync(resolve(evidence, name + '.json'), JSON.stringify({ scenario, paper: 'a5', language, projection, metrics, geometry, pages, observed, sourceInputs, cssInputs }, null, 2));
-            if (process.env.REPAIR_PRINT_LEGACY_DESIGN_DIR && scenario.startsWith('legacy-') && language === 'it') {
-                const destination = resolve(process.env.REPAIR_PRINT_LEGACY_DESIGN_DIR);
-                mkdirSync(destination, { recursive: true });
-                const master = await visibleCopies(page).first().evaluate(element => element.outerHTML);
-                writeFileSync(resolve(destination, scenario + '.html'), `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DEMO ${scenario}</title><style>${globalCss}\n${moduleCss}</style></head><body><div class="${classes.root}">${master}</div></body></html>`);
-                writeFileSync(resolve(destination, scenario + '.full-dom.html'), await page.content());
-                writeFileSync(resolve(destination, scenario + '.json'), JSON.stringify({ scenario, fixture: input, projection, metrics, classes, sourceInputs, cssInputs, notes: 'Actual React master outerHTML at unscaled 297 mm; all font bytes, QR paths and original signature strokes inline. Separate intake/current blocks retained. Full DOM also retained, with offscreen measurement clones.' }, null, 2));
-            }
-            if (language === 'it')
-                await page.screenshot({ path: resolve(evidence, name + '.png'), fullPage: true, animations: 'disabled' });
-            expect(observed.requests).toEqual([]);
-            expect(observed.errors).toEqual([]);
-        });
-    }
-for (const paper of ['a4', 'a5', 'half', 'double'])
-    for (const language of ['it', 'en', 'zh'] as PrintLanguage[]) {
-        test(`长原文全纸阻印 ${paper}/${language}`, async ({ page, browserName }, info) => {
-            const input = fixture(true, true), observed = await mount(page, input);
-            await selectPrint(page, paper, language);
-            await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'overflow');
-            const projection = await contentProof(page, input, language);
-            expect(projection.rows).toHaveLength(27);
-            expect(projection.rows.at(-1)!.amount).toBe(printLabel('define', language));
-            expect(projection.total).toBe(printLabel('unquoted', language));
-            const metrics = await fitMetrics(page);
-            expect(Math.max(metrics.naturalMm, metrics.smallMm) + 1).toBeGreaterThan(194);
-            await expect(visibleCopies(page)).toHaveCount(1);
-            expect(await visibleCopies(page).first().textContent()).toContain(input.data.issueNote!);
-            await installPrintCounter(page);
-            await expect(page.getByRole('button', { name: printLabel('print', language), exact: true })).toBeDisabled();
-            expect(await page.evaluate('window.printCalls')).toBe(0);
-            const name = `overflow-${paper}-${language}-${info.project.name}`, pages = await nativeBlocked(page, name, browserName, language);
-            await expect(visibleCopies(page)).toHaveCount(1);
-            writeFileSync(resolve(evidence, name + '.json'), JSON.stringify({ paper, language, projection, metrics, pages, blocked: true, observed, sourceInputs, cssInputs }, null, 2));
-            if (paper === 'a5' && language === 'it')
-                await page.screenshot({ path: resolve(evidence, name + '.png'), fullPage: true, animations: 'disabled' });
-            expect(observed.requests).toEqual([]);
-            expect(observed.errors).toEqual([]);
-        });
-    }
-test('状态 workflow pending/error 恢复需新测量', async ({ page, browserName }, info) => {
-    const input = fixture(false), observed = await mount(page, input);
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-    const before = await page.locator('dialog').getAttribute('data-fit-generation');
-    const body = await visibleCopies(page).first().textContent();
-    await installPrintCounter(page);
-    for (const failure of [{ workflowReady: false, workflowError: '' }, { workflowReady: true, workflowError: 'DEMO workflow parse error' }]) {
-        await updateFixture(page, { ...input, ...failure });
-        await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'unavailable');
-        await expect(page.getByRole('button', { name: printLabel('print', 'it'), exact: true })).toBeDisabled();
-        expect(await visibleCopies(page).first().textContent()).toBe(body);
-        expect(await page.evaluate('window.printCalls')).toBe(0);
-        await nativeBlocked(page, `workflow-${failure.workflowReady ? 'error' : 'pending'}-${info.project.name}`, browserName, 'it');
-        await updateFixture(page, input);
-        await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-        expect(Number(await page.locator('dialog').getAttribute('data-fit-generation'))).toBeGreaterThan(Number(before));
-    }
-    await page.getByRole('button', { name: printLabel('print', 'it'), exact: true }).click();
-    expect(await page.evaluate('window.printCalls')).toBe(1);
-    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
-    expect(observed.errors).toEqual([]);
-    expect(observed.requests).toEqual([]);
-});
-test('状态 initial unavailable 与同scope读取恢复重绑预览', async ({ page }) => {
-    const input = fixture(false), observed = await mount(page, { ...input, active: false });
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'unavailable');
-    await expect(visibleCopies(page)).toHaveCount(0);
-    await updateFixture(page, input);
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-    await expect.poll(() => page.evaluate('window.printFixtureObserverCount()')).toBe(2);
-    const body = await visibleCopies(page).first().textContent();
-    await updateFixture(page, { ...input, unavailable: true });
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'unavailable');
-    expect(await visibleCopies(page).first().textContent()).toBe(body);
-    await updateFixture(page, input);
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-    const metrics = await fitMetrics(page);
-    expect(metrics.boxes[0].width).toBeLessThanOrEqual(await page.locator(`.${classes.viewer}`).evaluate(e => e.clientWidth));
-    expect(observed.errors).toEqual([]);
-    expect(observed.requests).toEqual([]);
-});
-test('状态 跨scope立即隔离且迟到旧资料不回填', async ({ page, browserName }, info) => {
-    const input = fixture(false), observed = await mount(page, input);
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-    await updateFixture(page, { ...input, scope: 'DEMO-STORE-B' });
-    await expect(visibleCopies(page)).toHaveCount(0);
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'unavailable');
-    await expect(page.locator('dialog')).not.toContainText(input.data.customerName);
-    await updateFixture(page, { ...input, scope: 'DEMO-STORE-C' });
-    await expect(visibleCopies(page)).toHaveCount(0);
-    await expect(page.locator('dialog')).not.toContainText(input.data.model);
-    await nativeBlocked(page, `scope-blocked-${info.project.name}`, browserName, 'it');
-    await expect(visibleCopies(page)).toHaveCount(0);
-    expect(observed.errors).toEqual([]);
-    expect(observed.requests).toEqual([]);
-});
-test('状态 print抛错就地反馈 保预览可重试取消无假成功', async ({ page }) => {
-    const input = fixture(false), observed = await mount(page, input);
-    await selectPrint(page, 'half', 'en');
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-    const body = await visibleCopies(page).first().textContent(), hash = await page.locator('dialog').getAttribute('data-projection-hash');
-    await page.evaluate(() => { window.print = () => { throw new Error('DEMO print window refused'); }; });
-    await page.getByRole('button', { name: printLabel('print', 'en'), exact: true }).click();
-    await expect(page.getByRole('alert')).toHaveText(printLabel('printWindowError', 'en'));
-    await expect(page.getByRole('button', { name: printLabel('print', 'en'), exact: true })).toBeEnabled();
-    expect(await visibleCopies(page).first().textContent()).toBe(body);
-    await expect(page.locator('dialog')).toHaveAttribute('data-projection-hash', hash!);
-    await expect(page.locator('select').nth(0)).toHaveValue('half');
-    await expect(page.locator('select').nth(1)).toHaveValue('en');
-    await installPrintCounter(page);
-    await page.getByRole('button', { name: printLabel('print', 'en'), exact: true }).click();
-    expect(await page.evaluate('window.printCalls')).toBe(1);
-    await expect(page.getByRole('alert')).toHaveCount(0);
-    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
-    await expect(page.getByRole('button', { name: printLabel('print', 'en'), exact: true })).toBeEnabled();
-    await expect(page.getByRole('status')).toHaveCount(0);
-    expect(await visibleCopies(page).first().textContent()).toBe(body);
-    expect(observed.errors).toEqual([]);
-    expect(observed.requests).toEqual([]);
-});
-test('状态 QR失败保内容 重试真实QR后恢复', async ({ page }) => {
-    const input = fixture(false), observed = await mount(page, { ...input, qrFailure: true });
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'error');
-    await expect(visibleCopies(page).first()).toContainText(input.data.issueNote!);
-    await expect(page.getByRole('button', { name: printLabel('print', 'it'), exact: true })).toBeDisabled();
-    await updateFixture(page, input);
-    await page.getByRole('button', { name: printLabel('qrRetry', 'it'), exact: true }).click();
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-    await expect(visibleCopies(page).first().locator(`.${classes.qr} path`)).toHaveCount(1);
-    expect(observed.errors).toEqual([]);
-    expect(observed.requests).toEqual([]);
-});
-test('状态 fonts pending/error/恢复与native同步门控', async ({ page, browserName }, info) => {
-    const input = fixture(false), observed = await mount(page, { ...input, fontPending: true });
-    await selectPrint(page, 'a5', 'zh');
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'measuring');
-    await expect(page.getByRole('button', { name: printLabel('print', 'zh'), exact: true })).toBeDisabled();
-    await nativeBlocked(page, `font-pending-${info.project.name}`, browserName, 'zh');
-    await updateFixture(page, input);
-    await page.evaluate(() => document.fonts.dispatchEvent(new Event('loadingdone')));
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-    await page.evaluate(async () => { const bad = new FontFace('Source Sans 3', 'url(data:font/woff2;base64,AAAA)'); document.fonts.add(bad); Object.assign(window, { badPrintFont: bad }); await bad.load().catch(() => { }); document.fonts.dispatchEvent(new Event('loadingerror')); });
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'error');
-    await expect(page.getByRole('alert')).toContainText(printLabel('printFontError', 'zh'));
-    await expect(visibleCopies(page).first()).toContainText(input.data.customerName);
-    await nativeBlocked(page, `font-error-${info.project.name}`, browserName, 'zh');
-    await page.getByRole('button', { name: printLabel('printCheckRetry', 'zh'), exact: true }).click();
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'error');
-    await expect(page.getByRole('button', { name: printLabel('print', 'zh'), exact: true })).toBeDisabled();
-    const failedRecheck = { metrics: await fitMetrics(page), faceStatus: await page.evaluate(() => (window as unknown as { badPrintFont: FontFace }).badPrintFont.status) };
-    await page.evaluate(() => { document.fonts.delete((window as unknown as {
-        badPrintFont: FontFace;
-    }).badPrintFont); document.fonts.dispatchEvent(new Event('loadingdone')); });
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-    await expect(page.locator('dialog')).toHaveAttribute('data-print-allowed', 'true');
-    await expect(page.getByRole('button', { name: printLabel('print', 'zh'), exact: true })).toBeEnabled();
-    const externallyRecovered = await fitMetrics(page);
-    const allowed = await page.evaluate(() => { document.fonts.dispatchEvent(new Event('loading')); window.dispatchEvent(new Event('beforeprint')); return document.querySelector('dialog')!.getAttribute('data-print-allowed'); });
-    expect(allowed).toBe('false');
-    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-    expect(observed.errors).toEqual([]);
-    expect(observed.requests).toEqual([]);
-    writeFileSync(resolve(evidence, `font-state-${info.project.name}.json`), JSON.stringify({ actualNode: process.version, failedRecheck, externallyRecovered, sameTickNativeAllowed: allowed, observed, sourceInputs, cssInputs }, null, 2));
-});
-test('状态 快速纸型语言切换 点击复测 双击锁 关闭清理焦点', async ({ page }) => {
-    const input = fixture(false), observed = await mount(page, input);
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-    await selectPrint(page, 'double', 'zh');
-    await selectPrint(page, 'a4', 'en');
-    await selectPrint(page, 'a5', 'it');
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-    await installPrintCounter(page);
-    await page.getByRole('button', { name: printLabel('print', 'it'), exact: true }).evaluate(e => { (e as HTMLButtonElement).click(); (e as HTMLButtonElement).click(); });
-    expect(await page.evaluate('window.printCalls')).toBe(1);
-    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
-    const originalHeight = await visibleCopies(page).first().locator('[data-master-content]').evaluate(e => e.getBoundingClientRect().height);
-    await page.locator(`.${classes.measure} [data-master-content]`).first().evaluate(e => { (e as HTMLElement).style.paddingBottom = '100mm'; });
-    await page.getByRole('button', { name: printLabel('print', 'it'), exact: true }).evaluate(e => (e as HTMLButtonElement).click());
-    expect(await page.evaluate('window.printCalls')).toBe(1);
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'overflow');
-    expect(await visibleCopies(page).first().locator('[data-master-content]').evaluate(e => e.getBoundingClientRect().height)).toBe(originalHeight);
-    await page.keyboard.press('Escape');
-    await expect(page.locator('dialog')).toHaveCount(0);
-    await expect.poll(() => page.evaluate('window.printFixtureObserverCount()')).toBe(0);
-    await page.locator('#trigger').focus();
-    await page.keyboard.press('Enter');
-    await expect(page.locator('dialog')).toBeVisible();
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-    await page.keyboard.press('Escape');
-    await expect(page.locator('#trigger')).toBeFocused();
-    await expect.poll(() => page.evaluate('window.printFixtureObserverCount()')).toBe(0);
-    expect(observed.errors).toEqual([]);
-    expect(observed.requests).toEqual([]);
-});
-for (const width of [1440, 1024, 390, 375])
-    test(`四宽触控与预览 ${width}`, async ({ page }) => {
-        await page.setViewportSize({ width, height: 900 });
-        const observed = await mount(page, fixture(false), width === 390);
-        await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-        for (const target of await page.locator('.intake-receipt-toolbar > button,.intake-receipt-options > button,.intake-receipt-options select').all()) {
-            const box = await target.boundingBox();
-            expect(box!.width).toBeGreaterThanOrEqual(44);
-            expect(box!.height).toBeGreaterThanOrEqual(44);
-            if (width < 768 && await target.evaluate(e => e.tagName === 'SELECT'))
-                expect(await target.evaluate(e => parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(16);
-        }
-        const geometry = await fitMetrics(page), viewerWidth = await page.locator(`.${classes.viewer}`).evaluate(e => e.clientWidth);
-        expect(geometry.boxes[0].width).toBeLessThanOrEqual(viewerWidth);
-        expect(await page.locator('dialog').evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true);
-        await page.getByRole('combobox', { name: printLabel('previewZoom', 'it'), exact: true }).selectOption('1');
-        await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-        expect((await fitMetrics(page)).masterWidthMm).toBeCloseTo(297, 2);
-        expect(observed.errors).toEqual([]);
-        expect(observed.requests).toEqual([]);
-    });
+test('中文与兼容部首客户原文逐码点保留可选文本',async()=>{const input=fixture(false),raw='DEMO 原文 客户 戶 门 門 ⻔ 日 ⽇ 月 ⽉ ⼾';input.data.issueNote=raw;input.data.issue=[input.data.faults!.join('、'),raw].join('；');const result=await generate(input,'a5','zh');expect((await text(result.bytes)).replace(/\s+/g,'')).toContain(raw.replace(/\s+/g,''));expect(repairReceiptHtml(result.p,{latin:'',chinese:''})).toContain(raw);});
 
-test('历史签名真实资料失配 无旧笔迹保留历史提示和原文', async ({ page }, info) => {
-    const input = fixture(false, true);
-    expect(validLocalIntake(input.data)).toBe(true);
-    expect(validIntakeSignature(input.signatures[0])).toBe(true);
-    expect(matchingIntakeSignature(input.signatures, input.data, input.data.policy!)).toBe(input.signatures[0]);
-    const originalSignature = JSON.stringify(input.signatures[0]);
-    const originalSerial = input.data.serial;
-    input.data.serial = originalSerial + '-CORRECTED';
-    input.directory = [intakeDirectoryEntry(input.data)];
-    input.workflows = { [input.data.id]: initialRepairWorkflow(input.directory[0]) };
-    expect(validLocalIntake(input.data)).toBe(true);
-    expect(matchingIntakeSignature(input.signatures, input.data, input.data.policy!)).toBeUndefined();
-    expect(input.signatures.some(row => row.orderId === input.data.id)).toBe(true);
-    expect(JSON.stringify(input.signatures[0])).toBe(originalSignature);
-
-    const observed = await mount(page, input);
-    // Open from a connected, focused trigger so focus restoration is observable.
-    await page.keyboard.press('Escape');
-    await expect(page.locator('dialog')).toHaveCount(0);
-    await page.locator('#trigger').focus();
-    await page.keyboard.press('Enter');
-    await expect(page.locator('dialog[open]')).toBeVisible();
-    const checks: Array<Record<string, unknown>> = [];
-    for (const language of ['it', 'en', 'zh'] as PrintLanguage[]) {
-        await selectPrint(page, 'a5', language);
-        await expect.poll(async () => (await fitMetrics(page)).phase).toMatch(/^(fit|overflow)$/);
-        const copy = visibleCopies(page).first();
-        await expect(copy.locator(`.${classes.signatureInk} svg`)).toHaveCount(0);
-        await expect(copy.locator(`.${classes.signatureInk} polyline`)).toHaveCount(0);
-        await expect(copy.locator(`.${classes.signature}`)).toContainText(printLabel('historicalSignature', language));
-        await expect(copy.locator(`svg.${classes.qr} path`)).toHaveCount(1);
-        await expect(copy.locator('[data-fact="serial"] span')).toHaveText(input.data.serial);
-        expect(await copy.textContent()).toContain(input.data.issueNote!);
-        expect(await copy.textContent()).toContain(input.data.model);
-        const qr = copy.locator(`.${classes.qr}`);
-        const projection = await expectedProjection(page, input, language, {
-            path: (await qr.locator('path').getAttribute('d'))!,
-            size: Number((await qr.getAttribute('viewBox'))!.split(' ')[2]),
-        });
-        expect(projection.signature).toBeNull();
-        expect(projection.signatureHistory).toBe(printLabel('historicalSignature', language));
-        expect(projection.facts.hasHistory).toBe(true);
-        expect(projection.total).toBe(printLabel('unquoted', language));
-        await expect(page.locator('dialog')).toHaveAttribute('data-projection-hash', projection.canonicalProjectionHash);
-        await expect(copy.locator('[data-fact="total"]')).toContainText(projection.total);
-        await expect(copy.locator('tr[data-requirement-id="intake:屏幕"] td').last()).toHaveText(printMoney(0, language));
-        await expect(copy.locator('tr[data-requirement-id="intake:电池"] td').last()).toHaveText(printLabel('define', language));
-        for (const text of [...projection.intakeServices, ...projection.issue.faults, projection.issue.note, projection.rights, projection.scope, projection.acknowledgement, projection.termsVersion]) {
-            expect(await copy.textContent()).toContain(text);
-        }
-        await expect(copy.locator(`.${classes.terms} ol li`)).toHaveText([...repairIntakeTerms[language]]);
-        checks.push({ language, metrics: await fitMetrics(page), canonicalProjectionHash: projection.canonicalProjectionHash,
-            signature: projection.signature, hasHistory: projection.facts.hasHistory, signatureHistory: projection.signatureHistory,
-            signatureSvgCount: await copy.locator(`.${classes.signatureInk} svg`).count(), qrPathCount: await copy.locator(`svg.${classes.qr} path`).count(),
-            rawNote: input.data.issueNote, serial: input.data.serial, total: projection.total, amounts: projection.rows.map(row => ({ id: row.id, amount: row.amount })) });
-    }
-    await page.screenshot({ path: resolve(evidence, `signature-mismatch-${info.project.name}.png`), fullPage: true, animations: 'disabled' });
-    await page.keyboard.press('Escape');
-    await expect(page.locator('dialog')).toHaveCount(0);
-    await expect(page.locator('#trigger')).toBeFocused();
-    await expect.poll(() => page.evaluate('window.printFixtureObserverCount()')).toBe(0);
-    expect(JSON.stringify(input.signatures[0])).toBe(originalSignature);
-    expect(observed.requests).toEqual([]);
-    expect(observed.errors).toEqual([]);
-    writeFileSync(resolve(evidence, `signature-mismatch-${info.project.name}.json`), JSON.stringify({
-        actualNode: process.version, originalSerial, correctedSerial: input.data.serial,
-        originalSignatureSha256: createHash('sha256').update(originalSignature).digest('hex'),
-        originalSignatureUnchanged: JSON.stringify(input.signatures[0]) === originalSignature,
-        realMatchingIntakeSignatureAfterChange: 'undefined', hasHistory: true, checks, restoredFocus: '#trigger', observersAfterClose: 0,
-        observed, sourceInputs, cssInputs,
-    }, null, 2));
-});
-
-test('折线 长不换行型号门店名完整换行且不串栏', async ({ page, browserName }, info) => {
-    const input = fixture(false);
-    input.data.model = 'DEMO-' + 'M'.repeat(72);
-    input.data.policy!.shopName = 'DEMO-' + 'SHOP'.repeat(14);
-    input.settings.shopName = input.data.policy!.shopName;
-    input.directory = [intakeDirectoryEntry(input.data)];
-    input.workflows = { [input.data.id]: initialRepairWorkflow(input.directory[0]) };
-    input.signatures[0].snapshot = intakeSignatureSnapshot(input.data, input.data.policy!);
-    expect(validLocalIntake(input.data)).toBe(true);
-    const observed = await mount(page, input);
-    await selectPrint(page, 'a5', 'it');
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-    const projection = await contentProof(page, input, 'it'), metrics = await fitMetrics(page);
-    expect(await visibleCopies(page).first().textContent()).toContain(input.data.policy!.shopName);
-    await page.emulateMedia({ media: 'print' });
-    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
-    const geometry = await pdfGeometry(page), name = `long-token-a5-it-${info.project.name}`;
-    let pages: number | undefined;
-    if (browserName === 'chromium') {
-        const bytes = await page.pdf({ path: resolve(evidence, name + '.pdf'), preferCSSPageSize: true, printBackground: true });
-        pages = (bytes.toString('latin1').match(/\/Type\s*\/Page\b/g) ?? []).length;
-        expect(pages).toBe(1);
-    }
-    writeFileSync(resolve(evidence, name + '.json'), JSON.stringify({ paper: 'a5', language: 'it', projection, metrics, geometry, pages, observed, sourceInputs, cssInputs }, null, 2));
-    expect(observed.requests).toEqual([]);
-    expect(observed.errors).toEqual([]);
-});
-
-test('折线 栏内溢出同步禁印即使仍在整体281mm内', async ({ page, browserName }, info) => {
-    const input = fixture(false), observed = await mount(page, input);
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'fit');
-    await installPrintCounter(page);
-    const before = await fitMetrics(page);
-    const synchronous = await page.evaluate(names => {
-        const content = document.querySelector<HTMLElement>(`.${names.measure} [data-master-content]`)!;
-        const panel = content.querySelector<HTMLElement>('[data-fold="order"]')!;
-        panel.style.position = 'relative';
-        const text = document.createElement('span');
-        text.textContent = 'DEMO PANEL BOUNDARY';
-        Object.assign(text.style, { position: 'absolute', left: '130mm', top: '0', width: '40mm' });
-        panel.append(text);
-        const span = text.getBoundingClientRect(), outer = content.getBoundingClientRect(), inner = panel.getBoundingClientRect();
-        const button = [...document.querySelectorAll<HTMLButtonElement>('dialog button')].find(button => button.textContent === 'Stampa')!;
-        button.click();
-        return { textRight: span.right, panelRight: inner.right, masterRight: outer.right, allowed: document.querySelector('dialog')!.getAttribute('data-print-allowed'), calls: (window as unknown as { printCalls: number }).printCalls };
-    }, classes);
-    expect(synchronous.textRight).toBeGreaterThan(synchronous.panelRight);
-    expect(synchronous.textRight).toBeLessThan(synchronous.masterRight);
-    expect(synchronous.allowed).toBe('false');
-    expect(synchronous.calls).toBe(0);
-    await expect(page.locator('dialog')).toHaveAttribute('data-fit-phase', 'overflow');
-    const after = await fitMetrics(page);
-    expect(after.masterWidthMm).toBe(before.masterWidthMm);
-    expect(after.naturalMm + 1).toBeLessThanOrEqual(194);
-    const name = `panel-overflow-${info.project.name}`, pages = await nativeBlocked(page, name, browserName, 'it');
-    writeFileSync(resolve(evidence, name + '.json'), JSON.stringify({ blocked: true, paper: 'a5', language: 'it', before, after, synchronous, pages, observed, sourceInputs, cssInputs }, null, 2));
-    expect(observed.requests).toEqual([]);
-    expect(observed.errors).toEqual([]);
-});
-
-test('打印语言刷新zoom实际显示标签并保fit或100值', async ({ page }, info) => {
-    const observed = await mount(page), checks: Array<Record<string, unknown>> = [];
-    for (const value of ['fit', '1']) {
-        for (const language of ['it', 'en', 'zh'] as PrintLanguage[]) {
-            const current = await page.locator('select').nth(1).inputValue() as PrintLanguage;
-            await page.getByRole('combobox', { name: printLabel('previewZoom', current), exact: true }).selectOption(value);
-            await selectPrint(page, 'a5', language);
-            const select = page.getByRole('combobox', { name: printLabel('previewZoom', language), exact: true });
-            await expect(select).toHaveValue(value);
-            await expect(select.locator('option')).toHaveText([printLabel('fitScreen', language), '100%']);
-            const selected = value === 'fit' ? printLabel('fitScreen', language) : '100%';
-            if (await select.evaluate(() => CSS.supports('appearance', 'base-select'))) {
-                await expect(select.locator('selectedcontent')).toHaveText(selected);
-            }
-            expect(await select.evaluate(element => (element as HTMLSelectElement).selectedOptions[0].textContent)).toBe(selected);
-            checks.push({ language, value, selected, enhancedValue: await select.locator('selectedcontent').count() ? await select.locator('selectedcontent').textContent() : null });
-        }
-    }
-    writeFileSync(resolve(evidence, `zoom-language-${info.project.name}.json`), JSON.stringify({ checks, observed, sourceInputs, cssInputs }, null, 2));
-    expect(observed.requests).toEqual([]);
-    expect(observed.errors).toEqual([]);
+// Each natural note length gets its own normal test budget. The ordinary
+// browser fixture above has three faults and a longer accessory description;
+// this boundary fixture starts from the two-fault display sample.
+for (let lines = 1; lines <= 12; lines++) test(`自然内容留白边界 ${lines} 行`, async () => {
+ const input = fixture(false);
+ input.data.faults = input.data.faults!.slice(0, 2);
+ input.data.accessories = ['SIM 卡', '数据线'];
+ input.data.issueNote = Array.from({ length: lines }, (_, index) => `DEMO original customer detail ${index + 1}. Keep every word.`).join('\n');
+ input.data.issue = [...input.data.faults, input.data.issueNote].join('；');
+ input.signatures[0].snapshot = intakeSignatureSnapshot(input.data, input.data.policy!);
+ input.directory = [intakeDirectoryEntry(input.data)];
+ input.workflows = { [input.data.id]: initialRepairWorkflow(input.directory[0]) };
+ try {
+  const a4 = await contentProof(input, 'a4', 'en'), a5 = await contentProof(input, 'a5', 'en');
+  expect(a4.measurements).toEqual(a5.measurements);
+  expect(a4.output).toBe(a5.output);
+  const metric = a4.measurements[0];
+  expect(metric.attempts.at(-1)?.overflow).toEqual([]);
+  expect(metric.attempts.slice(0, -1).every(attempt => attempt.overflow.length > 0)).toBe(true);
+  if (lines === 1) expect(metric.density).toBe('spacious');
+  expect(lines).toBeLessThan(12);
+  writeFileSync(resolve(evidence, `natural-density-${lines}.json`), JSON.stringify({ lines, density: metric.density, measurements: a4.measurements }, null, 2));
+ } catch (error) {
+  if (!(error instanceof ReceiptRenderError)) throw error;
+  expect(lines).toBeGreaterThan(1);
+  expect(error.code).toBe('overflow');
+  expect(error.measurements?.attempts.map(attempt => attempt.density)).toEqual(['spacious', 'standard', 'compact']);
+  expect(error.measurements?.attempts.every(attempt => attempt.overflow.length > 0)).toBe(true);
+  await expect(generate(input, 'a5', 'en')).rejects.toMatchObject({ code: 'overflow', measurements: error.measurements });
+  writeFileSync(resolve(evidence, `natural-density-${lines}.json`), JSON.stringify({ lines, density: 'refused', measurements: error.measurements }, null, 2));
+ }
 });

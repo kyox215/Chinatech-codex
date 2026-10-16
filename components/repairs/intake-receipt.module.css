@@ -1,88 +1,21 @@
 .root:global(.intake-receipt-dialog) { overflow: auto; }
 .root .options { align-items: flex-end; }
-.root .options :global(.field) { flex: 1 1 170px; }
+.root .options :global(.field) { flex: 1 1 145px; }
 .root .feedback { flex-basis: 100%; margin: 0; }
-.root .viewer { overflow: auto; padding: 16px; }
-.root .viewport { margin: auto; width: calc(var(--paper-width) * var(--preview-zoom)); height: calc(var(--preview-height) * var(--preview-zoom)); position: relative; }
-.root .paper { width: var(--paper-width); min-height: var(--paper-height); height: var(--preview-height); position: relative; background: white; box-shadow: var(--shadow-sm); transform: scale(var(--preview-zoom)); transform-origin: top left; }
-.root .slot { position: absolute; left: var(--slot-x); top: var(--slot-y); width: var(--slot-width); height: var(--slot-height); }
-.root .slot > .copy { zoom: var(--paper-scale); }
-.root .paper[data-complete-preview="true"] .slot { position: relative; left: var(--slot-x); top: 0; height: auto; }
-.root .measure { position: fixed; left: -20000px; top: 0; width: 297mm; visibility: hidden; pointer-events: none; }
-.root .scaleProbe { width: 209.31428571428572mm; }
-.root .scaleProbe > .copy { zoom: .7047619047619048; }
-.root .copy { box-sizing: border-box; display: block; width: 297mm; min-height: 210mm; height: auto; margin: 0; padding: 8mm; border: 0; border-radius: 0; color: #161616; background: white; font-size: 14.4pt; line-height: 1; overflow: visible; overflow-wrap: anywhere; }
-.root .copy { position: relative; }
-.root .copy::after { content: ""; position: absolute; left: 148.5mm; top: 8mm; bottom: 8mm; border-left: .15mm dashed #aaa; pointer-events: none; }
-.root .content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4mm; width: 281mm; align-items: start; }
-.root .order,.root .warranty { min-width: 0; }
-.root .copy :is(h1,h2,h3,h4,p,ol,ul,dl) { margin: 0; }
-.root .copy :is(p,small,dt,dd,li,th,td) { font-size: inherit; line-height: inherit; }
-.root .copy :is(p,dd,li) { white-space: normal; }
-.root .copy :is(h1,h3) { font-size: 18pt; font-weight: 700; line-height: 1; }
-.root .copy :is(h2,h4) { font-size: 14.4pt; font-weight: 700; line-height: 1; }
-.root .shop { padding-bottom: .3mm; border-bottom: .5px solid #777; }
-.root .brand { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 2mm; }
-.root .brand :is(strong,h3) { min-width: 0; white-space: normal; }
-.root .brand strong { font-size: 18pt; line-height: 1; }
-.root .brand h3 { font-size: 16pt; }
-.root .shop p + p { margin-top: .4mm; }
-.root .summary { padding: .4mm 0; border-bottom: .5px solid #777; }
-.root .factFlow { display: flow-root; }
-.root .fact { display: inline; }
-.root .fact::after { content: " · "; }
-.root .model { margin: .4mm 0; }
-.root .copy .core { font-size: 16pt; line-height: 1; }
-.root .total { margin-top: .5mm; }
-.root .work { padding: .4mm 0; border-bottom: .5px solid #777; }
-.root .requests { display: table; table-layout: fixed; width: 100%; margin: 0; border: 0; border-collapse: collapse; color: inherit; background: transparent; font: inherit; }
-.root .requests :is(th,td) { padding: .35mm 0; vertical-align: top; text-align: left; border: 0; border-bottom: .5px solid #ccc; color: inherit; background: transparent; font: inherit; white-space: normal; line-height: 1; }
-.root .requests :is(th,td):last-child { width: 28mm; text-align: right; padding-left: 2mm; white-space: nowrap; }
-.root .requests th { font-size: 14.4pt; font-weight: 600; }
-.root .requests tr[data-service-detail] td { width: auto; text-align: left; white-space: normal; padding-left: 0; }
-.root .rowWarning,.root .associationNote { font-size: 14.4pt; }
-.root .associationNote { margin: .35mm 0; }
-.root .work section + section { margin-top: .6mm; }
-.root .separateIntake { padding-top: .5mm; }
-.root .separateIntake h4 { margin-bottom: .3mm; }
-.root .scope { padding: .25mm 0; border-bottom: .5px solid #777; }
-.root .faults { padding: .4mm 0; border-bottom: .5px solid #777; }
-.root .faults p { white-space: pre-wrap; }
-.root .faults p + p { margin-top: .3mm; }
-.root .service { padding-top: .3mm; }
-.root .warrantyHead { padding-bottom: .25mm; border-bottom: .5px solid #777; }
-.root .warrantyHead h3 { font-size: 16pt; }
-.root .terms { padding: .25mm 0; }
-.root .terms ol { padding-left: 4mm; }
-.root .terms li { padding-left: .1mm; margin-bottom: 0; break-inside: auto; }
-.root .terms p { margin: .1mm 0; }
-.root .footer { display: grid; grid-template-columns: 43mm minmax(0, 1fr) 29mm; gap: 2mm; padding-top: .25mm; border-top: .5px solid #777; align-items: start; }
-.root .signatureInk { width: 41.6mm; height: 13mm; min-height: 13mm; border-bottom: .5px solid #333; }
-.root .signatureInk svg { display: block; width: 41.6mm; height: 13mm; max-height: none; color: #161616; }
-.root .signatureMeta { font-size: 14.4pt; min-width: 0; }
-.root .signatureHistory { white-space: normal; }
-.root .signatureMeta p + p { margin-top: .4mm; }
-.root .footer[data-signature-history="true"] { grid-template-columns: minmax(0, 1fr) 29mm; }
-.root .footer[data-signature-history="true"] .signature { grid-column: 1; }
-.root .footer[data-signature-history="true"] .signatureInk { width: 100%; height: 10mm; min-height: 10mm; }
-.root .signature > .signatureMeta { margin-top: .4mm; }
-.root .footer > .qr { grid-column: 3; }
-.root .footer[data-signature-history="true"] .qr { grid-column: 2; grid-row: 1; }
-.root .tracking { padding-top: .15mm; }
-.root .qr { display: block; width: 29mm; height: 29mm; background: white; }
-.root .cut { position: absolute; top: 148.5mm; left: 0; width: 210mm; border-top: .15mm dashed #aaa; pointer-events: none; }
-.root .blocked { display: none; }
+.root .feedback :global(.button) { margin-inline-start: 8px; }
+.root .viewer { overflow: auto; padding: 16px; min-height: 160px; }
+.root .pdfHost { width: 100%; min-width: 0; }
+.root .pdfHost canvas { display: block; background: white; box-shadow: var(--shadow-sm); margin-inline: auto; }
+.root .pdfSheet { position: relative; margin-inline: auto; }
+/* PDF.js text coordinates; the text comes from these exact PDF bytes. */
+.root .textLayer { position: absolute; inset: 0; text-align: initial; line-height: 1; letter-spacing: normal; word-spacing: normal; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; --min-font-size: 1; --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size)); --min-font-size-inv: calc(1 / var(--min-font-size)); }
+.root .textLayer :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0 0; user-select: text; }
+.root .textLayer > :not(:global(.markedContent)), .root .textLayer :global(.markedContent) span:not(:global(.markedContent)) { z-index: 1; --font-height: 0; font-size: calc(var(--text-scale-factor) * var(--font-height)); --scale-x: 1; --rotate: 0deg; transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv)); }
+.root .textLayer :global(.markedContent) { display: contents; }
+.root .textLayer ::selection { background: rgb(95 87 255 / 25%); }
 @media screen and (max-width: 767px) {
   .root .viewer { padding: 10px; }
   .root .options :global(.field) { max-width: none; }
+  .root .options :global(.button) { min-height: 44px; }
 }
-@media print {
-  .root:global(.intake-receipt-dialog)[open] { position: static; display: block; margin: 0; padding: 0; width: auto; max-width: none; height: auto; max-height: none; overflow: visible; border: 0; border-radius: 0; background: white; color: #161616; }
-  .root :global(.intake-receipt-toolbar),.root [data-content-progress] { display: none; }
-  .root .viewer { padding: 0; overflow: visible; }
-  .root .viewport { margin: 0; width: var(--paper-width); height: var(--paper-height); }
-  .root .paper { width: var(--paper-width); height: var(--paper-height); min-height: 0; box-shadow: none; transform: none; }
-  .root[data-print-allowed="false"] .viewer { display: none; }
-  .root[data-print-allowed="false"] .blocked { display: block; padding: 8mm; font-size: 14.4pt; color: #161616; }
-  .root[data-print-allowed="false"] .blocked h3 { font-size: 18pt; margin: 0 0 4mm; }
-}
+@media print { .root:global(.intake-receipt-dialog)[open] { display: none; } }

@@ -4,7 +4,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   distDir: process.env.BACKEND_MODE === "supabase" && process.env.VERCEL !== "1" ? ".next-backend" : ".next",
   devIndicators: false,
-  outputFileTracingIncludes: { '/api/toolbox/office': ['./server-assets/office/*.ps1.txt'], '/api/toolbox/office/script': ['./server-assets/office/*.ps1.txt'], '/api/toolbox/office-desktop/package': ['./server-assets/office-desktop/runner.ps1.txt'] },
+  serverExternalPackages: ["@sparticuz/chromium", "playwright-core"],
+  outputFileTracingIncludes: { '/api/backend/repair-receipt': ['./node_modules/@sparticuz/chromium/bin/**', './server-assets/receipt/*', './public/fonts/source-sans-3/source-sans-3-roman.woff2'], '/api/toolbox/office': ['./server-assets/office/*.ps1.txt'], '/api/toolbox/office/script': ['./server-assets/office/*.ps1.txt'], '/api/toolbox/office-desktop/package': ['./server-assets/office-desktop/runner.ps1.txt'] },
   async redirects() {
     return [
       {
