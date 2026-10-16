@@ -20,7 +20,8 @@
     "test:office-desktop": "node --test tests/office-desktop.test.mjs tests/office-desktop-admission.test.mjs tests/office-desktop-public.test.mjs tests/office-desktop-v3.test.mjs",
     "test:android-transfer": "node --test tests/android-transfer.test.mjs",
     "test:device-catalog": "node --test tests/device-catalog.test.mjs",
-    "build:device-catalog": "node scripts/device-catalog/build.mjs"
+    "build:device-catalog": "node scripts/device-catalog/build.mjs",
+    "test:catalog-rls": "node tests/catalog-rls.integration.mjs"
   },
   "dependencies": {
     "@sparticuz/chromium": "153.0.0",

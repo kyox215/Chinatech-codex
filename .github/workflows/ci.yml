@@ -102,6 +102,8 @@ jobs:
         env:
           BACKEND_MODE: supabase
           LOCAL_PREVIEW: "0"
+      - name: Verify packaged receipt runtime and Chromium PDF generation
+        run: node scripts/verify-receipt-trace.mjs .next-backend .local/ui-proof/receipt-trace --render
       - name: Verify production design and stylesheet order
         run: node scripts/check-ui-production.mjs .next-backend
       - name: Verify repair print layout against production CSS

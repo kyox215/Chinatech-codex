@@ -26,6 +26,10 @@ export default defineConfig([
     "out/**",
     "build/**",
     ".local/**",
+    // Generated browser/build evidence and isolated dependency copies. First-
+    // party implementation remains checked under app/, components/, lib/,
+    // scripts/ and tests/; do not exclude those source roots.
+    ".company-tmp/**",
     "next-env.d.ts",
     "history/**",
     "prototypes/**",
