@@ -470,9 +470,16 @@ test("repair device color preserves short-screen internal scrolling and native s
   await openDeviceExtras(page);
   const owner = page.locator(".color-picker");
   const summary = owner.getByLabel("选择设备颜色", { exact: true });
+  await summary.evaluate(element => element.scrollIntoView({ block: "center" }));
   await activate(page, summary);
   await expectAnchoredColor(owner);
   const popup = owner.locator(":scope > .color-picker__palette");
+  const geometry = await popup.evaluate(element => {
+    const anchor = element.parentElement!.querySelector("summary")!.getBoundingClientRect(), box = element.getBoundingClientRect();
+    return { summary: { x: anchor.x, y: anchor.y, width: anchor.width, height: anchor.height }, popup: { x: box.x, y: box.y, width: box.width, height: box.height }, viewport: { width: innerWidth, height: innerHeight }, spaceAbove: anchor.top, spaceBelow: innerHeight - anchor.bottom, rootScrollTop: document.scrollingElement?.scrollTop, maxHeight: getComputedStyle(element).maxHeight, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight };
+  });
+  await test.info().attach("repair-color-scroll-geometry", { body: JSON.stringify(geometry, null, 2), contentType: "application/json" });
+  expect(Math.max(geometry.spaceAbove, geometry.spaceBelow), JSON.stringify(geometry)).toBeLessThan(geometry.scrollHeight);
   expect(await popup.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
   await popup.evaluate(element => { element.scrollTop = element.scrollHeight; });
   expect(await popup.evaluate(element => element.scrollTop)).toBeGreaterThan(0);

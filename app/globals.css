@@ -956,6 +956,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .app-sidebar--open { transform: translateX(0); box-shadow: 18px 0 40px rgba(20,22,30,.15); }
   .app-sidebar__close { display: grid; width: 44px; height: 44px; }
   .app-sidebar__collapse { display: none; }
+  .app-sidebar > .sidebar-account[open] > .sidebar-account__actions { max-height: var(--sidebar-account-available-height, 0px); }
   .sidebar-scrim { position: fixed; z-index: 35; inset: 0; display: block; border: 0; background: rgba(17,18,24,.28); }
   .app-main { margin-left: 0; }
   .app-sidebar .brand__copy small, .app-nav__item small { display: none; }
