@@ -12,10 +12,9 @@ import { repairPrintProjection, canonicalPrintJson, receiptSmallScale, receiptPa
 import { itemQuoteTotal } from "../../lib/repair-item-pricing";
 import { printLabel, printMoney, type PrintLanguage } from "../../lib/print-language";
 import { repairIntakeTermsVersion } from "../../lib/repair-print-terms";
-import { renderRepairReceipt, launchReceiptBrowser, ReceiptRenderError } from "../../lib/backend/repair-receipt-renderer";
+import { renderRepairReceipt, ReceiptRenderError } from "../../lib/backend/repair-receipt-renderer";
 import { repairReceiptHtml } from "../../lib/repair-receipt-template";
 import { PDFDocument } from "pdf-lib";
-import type { Browser } from "playwright-core";
 // A real React receipt on about:blank. Only in-memory providers, icons and the
 // platform origin are seams. No server, storage, account or HTTP is involved.
 const root = process.cwd();
@@ -207,12 +206,11 @@ function coverageFixture(scenario: typeof coverageScenarios[number]) {
     const procurementRecords = scenario === "multiple-purchases" ? [1, 2].map(n => ({ id: `DEMO-PURCHASE-${n}`, repairId: input.data.id, item: "屏幕", supplier: `DEMO PRIVATE SUPPLIER ${n}`, quantity: 1, unitCostCents: 7654321, expectedAt: "", reference: "DEMO PRIVATE COST REFERENCE", events: [], requirementId: "intake:屏幕", requirementRevision: 1 })) : [];
     return { ...input, procurementRecords };
 }
-let renderer: Browser;
 const fixturePdfs = new Map<string, Awaited<ReturnType<typeof renderRepairReceipt>>>();
 let pdfjs: typeof import('pdfjs-dist');
 const qr = () => { const {MultiFormatWriter,BarcodeFormat}=native('@zxing/library'); const matrix=new MultiFormatWriter().encode('https://www.chinatech.in/app/repairs/LOCAL-0000000000000005',BarcodeFormat.QR_CODE,0,0,new Map());let path='';for(let y=0;y<matrix.getHeight();y++)for(let x=0;x<matrix.getWidth();x++)if(matrix.get(x,y))path+=`M${x} ${y}h1v1h-1z`;return {path,size:matrix.getWidth()}; };
 function projection(input: PrintFixture, language: PrintLanguage) { const requirements=currentRepairRequirements(input.directory[0],input.workflows[input.data.id]);return repairPrintProjection({data:input.data,requirements,policy:input.data.policy??input.settings,signature:matchingIntakeSignature(input.signatures,input.data,input.data.policy??input.settings),hasHistory:input.signatures.length>0,language,totalCents:input.data.itemQuotes?.length?itemQuoteTotal(input.data.itemQuotes,requirements.map(r=>r.title)):null,technician:printLabel('unassigned',language),status:input.workflows[input.data.id].status,custody:input.workflows[input.data.id].custody??'unknown',formal:true,qr:qr()}); }
-async function generate(input:PrintFixture,paper:'a4'|'a5'|'half'|'double',language:PrintLanguage) {const p=projection(input,language), key=canonicalPrintJson([p,paper]);let result=fixturePdfs.get(key);if(!result){result=await renderRepairReceipt(p,paper,renderer);fixturePdfs.set(key,result);}return {p,...result};}
+async function generate(input:PrintFixture,paper:'a4'|'a5'|'half'|'double',language:PrintLanguage) {const p=projection(input,language), key=canonicalPrintJson([p,paper]);let result=fixturePdfs.get(key);if(!result){result=await renderRepairReceipt(p,paper);fixturePdfs.set(key,result);}return {p,...result};}
 const normalized=(value:string)=>value.normalize('NFKC').replace(/\s+/g,'');
 async function text(bytes:Uint8Array) {const task=pdfjs.getDocument({data:bytes.slice(),useSystemFonts:false});try {const doc=await task.promise;expect(doc.numPages).toBe(1);const page=await doc.getPage(1);return (await page.getTextContent({disableNormalization:true})).items.map(item=>'str'in item?item.str:'').join(' ');}finally{await task.destroy();}}
 async function contentProof(input:PrintFixture,paper:'a4'|'a5'|'half'|'double',language:PrintLanguage) {
@@ -224,8 +222,7 @@ async function contentProof(input:PrintFixture,paper:'a4'|'a5'|'half'|'double',l
  const doc=await PDFDocument.load(result.bytes),box=doc.getPage(0).getSize(),geometry=receiptPaperGeometry(paper);expect(box.width*25.4/72).toBeCloseTo(geometry.widthMm,6);expect(box.height*25.4/72).toBeCloseTo(geometry.heightMm,6);
  return {...result,output,readableOutput};
 }
-test.beforeAll(async()=>{mkdirSync(evidence,{recursive:true});await buildFixture();renderer=await launchReceiptBrowser();pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');});
-test.afterAll(async()=>{await renderer?.close();});
+test.beforeAll(async()=>{mkdirSync(evidence,{recursive:true});await buildFixture();pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');});
 async function mount(page:Page,input:PrintFixture=fixture(false),mode:{delay?:boolean;error?:string;status?:number}={}) {
  const observed={requests:[] as Array<{id:string;paper:'a4'|'a5'|'half'|'double';language:PrintLanguage;expectedRevision:number}>,errors:[] as string[],external:[] as string[]};let current=input;let release:(()=>void)|undefined;let delayed=mode.delay?new Promise<void>(r=>release=r):null;
  page.on('pageerror',e=>observed.errors.push(e.message));await page.route('**/*',route=>{if(/^(blob:|data:)/.test(route.request().url()))return route.continue();observed.external.push(route.request().url());return route.abort();});
@@ -302,6 +299,7 @@ test('中文与兼容部首客户原文逐码点保留可选文本',async()=>{co
 // browser fixture above has three faults and a longer accessory description;
 // this boundary fixture starts from the two-fault display sample.
 for (let lines = 1; lines <= 12; lines++) test(`自然内容留白边界 ${lines} 行`, async () => {
+ const expectedDensity = lines === 1 ? 'spacious' : lines === 2 ? 'standard' : lines <= 7 ? 'compact' : 'refused';
  const input = fixture(false);
  input.data.faults = input.data.faults!.slice(0, 2);
  input.data.accessories = ['SIM 卡', '数据线'];
@@ -317,11 +315,12 @@ for (let lines = 1; lines <= 12; lines++) test(`自然内容留白边界 ${lines
   const metric = a4.measurements[0];
   expect(metric.attempts.at(-1)?.overflow).toEqual([]);
   expect(metric.attempts.slice(0, -1).every(attempt => attempt.overflow.length > 0)).toBe(true);
-  if (lines === 1) expect(metric.density).toBe('spacious');
+  expect(metric.density).toBe(expectedDensity);
   expect(lines).toBeLessThan(12);
   writeFileSync(resolve(evidence, `natural-density-${lines}.json`), JSON.stringify({ lines, density: metric.density, measurements: a4.measurements }, null, 2));
  } catch (error) {
   if (!(error instanceof ReceiptRenderError)) throw error;
+  expect(expectedDensity).toBe('refused');
   expect(lines).toBeGreaterThan(1);
   expect(error.code).toBe('overflow');
   expect(error.measurements?.attempts.map(attempt => attempt.density)).toEqual(['spacious', 'standard', 'compact']);
