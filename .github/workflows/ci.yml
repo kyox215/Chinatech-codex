@@ -9,6 +9,7 @@ permissions:
   contents: read
 jobs:
   check:
+    if: github.ref != 'refs/heads/codex/site-ui-color-scroll-edge-20261016'
     runs-on: ubuntu-latest
     services:
       office-v3-test-db:

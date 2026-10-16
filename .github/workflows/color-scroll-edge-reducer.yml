@@ -1,0 +1,33 @@
+name: Color scroll edge diagnostic
+on:
+  push:
+    branches: [codex/site-ui-color-scroll-edge-20261016]
+permissions:
+  contents: read
+jobs:
+  reducer:
+    if: github.ref == 'refs/heads/codex/site-ui-color-scroll-edge-20261016'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Prepare immutable runtime and locked dependencies outside namespace
+        run: node tests/diagnostics/color-scroll-edge-reducer.mjs --prepare
+      - name: Run once in isolated loopback-only Linux network namespace
+        run: |
+          sudo env -i "PATH=$PATH" "HOME=$HOME" "LANG=${LANG:-C.UTF-8}" "TMPDIR=${TMPDIR:-/tmp}" "GITHUB_ACTIONS=$GITHUB_ACTIONS" "CI=$CI" "GITHUB_REF=$GITHUB_REF" "GITHUB_SHA=$GITHUB_SHA" unshare --net -- bash -euo pipefail -c 'ip link set lo up; exec node tests/diagnostics/color-scroll-edge-reducer.mjs --run'
+      - name: Preserve only diagnostic artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: color-scroll-edge-reducer
+          path: .local/color-scroll-edge/artifacts/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
