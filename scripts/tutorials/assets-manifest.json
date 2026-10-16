@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-15T12:35:53.658Z",
+  "generatedAt": "2026-10-16T10:31:03.379Z",
   "format": "H.264 / AAC, 1280x960, 24fps",
-  "totalBytes": 35611345,
+  "totalBytes": 35660002,
   "episodes": [
     {
       "locale": "zh-CN",
@@ -95,43 +95,54 @@
       "id": "follow-up",
       "voice": "macos-Tingting",
       "rate": "190wpm",
-      "seconds": 64.666667,
-      "bytes": 2013766,
+      "seconds": 53.666667,
+      "bytes": 2033994,
       "assets": [
         {
           "path": "/tutorials/follow-up.mp4",
           "extension": "mp4",
-          "bytes": 2013766,
-          "sha256": "28b1d978a68be90f2664f0b94b51a1b6a7b41ceafaf90d48299ce7761a7afe7e"
+          "bytes": 2033994,
+          "sha256": "d4b7858ab3f5257d5e2048183b88c86dc3a22f31b5b90dfafd769ce7e8c62e2f"
         },
         {
           "path": "/tutorials/follow-up.webp",
           "extension": "webp",
-          "bytes": 31520,
-          "sha256": "c99f6663806add0f5056913dcab88dba69772d17febcce6076b8f3a10836714c"
+          "bytes": 31526,
+          "sha256": "bf6fb2a5e65a8696e648548d794ed815ab24dd186d7a834bed80fd2e22a9a19b"
         },
         {
           "path": "/tutorials/follow-up.vtt",
           "extension": "vtt",
-          "bytes": 1247,
-          "sha256": "f7d73850e8521548176a18a7e7202e31be7c492ba35b5c16e27d7b90b59d611c"
+          "bytes": 1039,
+          "sha256": "fc8397e5394680743f2ca97e5c56528688d1c5ee9788f2bf4da8e64f19e73d29"
         }
       ],
-      "sha256": "28b1d978a68be90f2664f0b94b51a1b6a7b41ceafaf90d48299ce7761a7afe7e",
+      "sha256": "d4b7858ab3f5257d5e2048183b88c86dc3a22f31b5b90dfafd769ce7e8c62e2f",
       "decoded": true,
       "meanDb": -16,
       "peakDb": -1.5,
       "faststart": true,
-      "captions": 12,
+      "captions": 10,
       "chapters": [
         0,
         10.208,
         20.208,
         31.792,
-        42.875,
-        53.667
+        42.875
       ],
-      "verifiedMovingSteps": 6
+      "verifiedMovingSteps": 5,
+      "maintenance": {
+        "kind": "retained-five-chapter-prefix-with-chapter-markers-corrected",
+        "sourceVideoSha256": "28b1d978a68be90f2664f0b94b51a1b6a7b41ceafaf90d48299ce7761a7afe7e",
+        "newCapture": false,
+        "newSpeechSynthesis": false,
+        "newPointerTargetValidation": false,
+        "verification": "Full decode, exact frame cutoff, original PCM prefix, all-frame business-region SSIM and existing first-five chapter text/timings; historical six-step private verifier not rerun",
+        "posterAtSeconds": 2.2,
+        "posterSize": "960x720",
+        "posterWebpQuality": 87,
+        "posterSourceVideoSha256": "d4b7858ab3f5257d5e2048183b88c86dc3a22f31b5b90dfafd769ce7e8c62e2f"
+      }
     },
     {
       "locale": "zh-CN",
@@ -310,43 +321,54 @@
       "id": "follow-up",
       "voice": "macos-Alice",
       "rate": "170wpm",
-      "seconds": 64.5,
-      "bytes": 2235111,
+      "seconds": 53.875,
+      "bytes": 2286572,
       "assets": [
         {
           "path": "/tutorials/it/follow-up.mp4",
           "extension": "mp4",
-          "bytes": 2235111,
-          "sha256": "cc98aecff5ff32add24b41052a18d31e1693dd4068377c75154e184a32b9ba3c"
+          "bytes": 2286572,
+          "sha256": "8da28a29b570767d3e9fd563f22563270abc972b486446817c13135a70890af0"
         },
         {
           "path": "/tutorials/it/follow-up.webp",
           "extension": "webp",
-          "bytes": 38860,
-          "sha256": "4f6b28f1d267ba02f66d69cf3fa125abd86e243e4cda7e75dd22614aeb4dc141"
+          "bytes": 38902,
+          "sha256": "c27c9a7aeb9ac5386af9661251686eafc1103ace0f85ee1211c5b7852f3d5e12"
         },
         {
           "path": "/tutorials/it/follow-up.vtt",
           "extension": "vtt",
-          "bytes": 1494,
-          "sha256": "4f8e10704f145bdf68a641c9b24b99f6bb8dfcab70496bd523e0ac7da9b1e91c"
+          "bytes": 1265,
+          "sha256": "2e85ee9b0aabcbc65eb65ae1c9482cd3a53290f3f0d91755b89e4ffcba3fab75"
         }
       ],
-      "sha256": "cc98aecff5ff32add24b41052a18d31e1693dd4068377c75154e184a32b9ba3c",
+      "sha256": "8da28a29b570767d3e9fd563f22563270abc972b486446817c13135a70890af0",
       "decoded": true,
       "meanDb": -16,
-      "peakDb": -1.2,
+      "peakDb": -1.4,
       "faststart": true,
-      "captions": 14,
+      "captions": 12,
       "chapters": [
         0,
         11.542,
         21.417,
         32,
-        43.375,
-        53.875
+        43.375
       ],
-      "verifiedMovingSteps": 6
+      "verifiedMovingSteps": 5,
+      "maintenance": {
+        "kind": "retained-five-chapter-prefix-with-chapter-markers-corrected",
+        "sourceVideoSha256": "cc98aecff5ff32add24b41052a18d31e1693dd4068377c75154e184a32b9ba3c",
+        "newCapture": false,
+        "newSpeechSynthesis": false,
+        "newPointerTargetValidation": false,
+        "verification": "Full decode, exact frame cutoff, original PCM prefix, all-frame business-region SSIM and existing first-five chapter text/timings; historical six-step private verifier not rerun",
+        "posterAtSeconds": 2.2,
+        "posterSize": "960x720",
+        "posterWebpQuality": 87,
+        "posterSourceVideoSha256": "8da28a29b570767d3e9fd563f22563270abc972b486446817c13135a70890af0"
+      }
     },
     {
       "locale": "it",
@@ -525,43 +547,54 @@
       "id": "follow-up",
       "voice": "macos-Samantha",
       "rate": "175wpm",
-      "seconds": 64.625,
-      "bytes": 2118617,
+      "seconds": 52.25,
+      "bytes": 2096209,
       "assets": [
         {
           "path": "/tutorials/en/follow-up.mp4",
           "extension": "mp4",
-          "bytes": 2118617,
-          "sha256": "0796ec011ef00b8ab4736622d044dc8f6014a8b6ebf45e3775066c05b764d961"
+          "bytes": 2096209,
+          "sha256": "e050678646b9b33888e409e10b8c43f3d31402416eea7938e314f010221f6dfc"
         },
         {
           "path": "/tutorials/en/follow-up.webp",
           "extension": "webp",
-          "bytes": 37088,
-          "sha256": "9d9f056049c7e27843f22bf14711377f1d8e5b7b450dc9a7e1dc0bcea84cb2df"
+          "bytes": 37102,
+          "sha256": "25dd6088bc953538b764a3084f568f22d56d9ef3421ab0fadfbda69175055126"
         },
         {
           "path": "/tutorials/en/follow-up.vtt",
           "extension": "vtt",
-          "bytes": 1461,
-          "sha256": "ec09b246d88b2ac43ae01d6474db68cbe8048d49c626d54ac5e0f08828eb5f00"
+          "bytes": 1212,
+          "sha256": "c8354b5f7e742f62f6c7cf7337bdb7084be596b31f2efdafe5353f2f9815be19"
         }
       ],
-      "sha256": "0796ec011ef00b8ab4736622d044dc8f6014a8b6ebf45e3775066c05b764d961",
+      "sha256": "e050678646b9b33888e409e10b8c43f3d31402416eea7938e314f010221f6dfc",
       "decoded": true,
       "meanDb": -15.8,
       "peakDb": -1.2,
       "faststart": true,
-      "captions": 14,
+      "captions": 12,
       "chapters": [
         0,
         11.083,
         21.25,
         31.083,
-        41.5,
-        52.25
+        41.5
       ],
-      "verifiedMovingSteps": 6
+      "verifiedMovingSteps": 5,
+      "maintenance": {
+        "kind": "retained-five-chapter-prefix-with-chapter-markers-corrected",
+        "sourceVideoSha256": "0796ec011ef00b8ab4736622d044dc8f6014a8b6ebf45e3775066c05b764d961",
+        "newCapture": false,
+        "newSpeechSynthesis": false,
+        "newPointerTargetValidation": false,
+        "verification": "Full decode, exact frame cutoff, original PCM prefix, all-frame business-region SSIM and existing first-five chapter text/timings; historical six-step private verifier not rerun",
+        "posterAtSeconds": 2.2,
+        "posterSize": "960x720",
+        "posterWebpQuality": 87,
+        "posterSourceVideoSha256": "e050678646b9b33888e409e10b8c43f3d31402416eea7938e314f010221f6dfc"
+      }
     },
     {
       "locale": "en",

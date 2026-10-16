@@ -62,6 +62,17 @@ jobs:
         run: npx playwright test tests/browser/site-ui-recheck.spec.ts --reporter=line --output=.local/ui-proof/site-ui-smoke/test-results
       - name: Early color anchor regression gate
         run: npx playwright test tests/browser/controls.spec.ts --grep '(retail summary color follows common document scrolling and escapes only its open panel|retail creation color remains reachable across short-screen resize and form overflow|repair device color preserves short-screen internal scrolling and native selection)$' --reporter=line --output=.local/ui-proof/site-ui-smoke/color-anchor-results
+      - name: Early repair feedback gate
+        run: npx playwright test tests/browser/repair-feedback.spec.ts tests/browser/repair-list-ui.spec.ts --grep '(repair feedback three tabs retain all scoped purchases and orphan records|repair supplier pending-project controls stay inline and retain native form ownership|long synthetic models, suppliers and follow-up facts leave list controls readable and clickable|detail demand, parts and signature flow together independently of a tall sidebar)$' --reporter=line --output=.local/ui-proof/site-ui-smoke/repair-feedback-results
+      - name: Early repair print source layout gate
+        run: npx playwright test -c playwright.repair-print.config.ts --max-failures=1 --reporter=line,json --output=.local/ui-proof/repair-print-layout/early-source-test-results
+        env:
+          REPAIR_PRINT_PRODUCTION_CSS_DIR: ""
+          REPAIR_PRINT_FONT_DIAGNOSTICS: "1"
+          REPAIR_PRINT_EVIDENCE_DIR: .local/ui-proof/repair-print-layout/early-source-css
+          PLAYWRIGHT_JSON_OUTPUT_FILE: .local/ui-proof/repair-print-layout/early-source-results.json
+      - name: Early routed repair receipt consumers
+        run: npx playwright test tests/browser/repair-detail-workspace.spec.ts tests/browser/repair-operations.spec.ts --grep '(missing project quote remains unknown in details, contact and receipt|intake quotes save per selected item, invalid decimals block, details and multilingual receipt agree)$' --reporter=line --output=.local/ui-proof/site-ui-smoke/repair-receipt-consumer-results
       - run: npm run test:controls
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -93,12 +104,27 @@ jobs:
           LOCAL_PREVIEW: "0"
       - name: Verify production design and stylesheet order
         run: node scripts/check-ui-production.mjs .next-backend
+      - name: Verify repair print layout against production CSS
+        run: npx playwright test -c playwright.repair-print.config.ts
+        env:
+          REPAIR_PRINT_PRODUCTION_CSS_DIR: .next-backend/static
       - name: Preserve production design verification
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: production-design-verification
           path: .local/ui-proof/production-design/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Preserve repair feedback and print layout proof
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: repair-feedback-and-print-layout-proof
+          path: |
+            .local/ui-proof/repair-feedback/
+            .local/ui-proof/repair-print-layout/
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7

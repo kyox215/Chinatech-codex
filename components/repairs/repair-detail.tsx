@@ -2,7 +2,7 @@
 import { useLanguage } from "@/components/language-provider";
 import { repairCustomerName, repairIssueText, repairKnownText } from "@/lib/i18n/repair-display";
 import { NavigationLink as Link } from "@/components/navigation-link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Banknote, CalendarClock, CheckCircle2, ClipboardCheck, FileClock, Flag, Gamepad2, Laptop, Package, Phone, Printer, ScanLine, Smartphone, Tablet, UserRound, Wrench, ChevronDown } from "lucide-react";
 import { IntakeReceipt } from "./intake-receipt";
 import { fixtureIntakeReceipt } from "@/lib/repair-intake-record";
@@ -22,6 +22,7 @@ const deviceIcons = { 手机: Smartphone, 电脑: Laptop, 平板: Tablet, 游戏
 export function RepairDetail({ initialOrder }: { initialOrder: RepairOrder }) {
   const { t, locale } = useLanguage();
   const [printOpen, setPrintOpen] = useState(false);
+  const printTrigger = useRef<HTMLButtonElement>(null);
   const directory = useRepairDirectory();
   const reworks = useLocalIntakes().records.filter(row => row.repairOrigin?.repairId === initialOrder.id);
   const repair = { ...initialOrder, ...directory.find(order => order.id === initialOrder.id) };
@@ -34,7 +35,7 @@ export function RepairDetail({ initialOrder }: { initialOrder: RepairOrder }) {
     <div className="module-heading repair-detail__toolbar">
       <PageTitle title={repair.id} backHref="/app/repairs" backLabel={t("工单列表")} backScroll={false} />
       <div className="module-heading__actions module-heading__actions--icons">
-        <button className="button button--secondary button--compact page-toolbar-action" type="button" onClick={() => setPrintOpen(true)} aria-label={t("打印接机单")} title={t("打印接机单")}><Printer size={16} /><span>{t("打印接机单")}</span></button>
+        <button className="button button--secondary button--compact page-toolbar-action" type="button" ref={printTrigger} onClick={() => setPrintOpen(true)} aria-label={t("打印接机单")} title={t("打印接机单")}><Printer size={16} /><span>{t("打印接机单")}</span></button>
         {order ? <RepairReworkControl order={order}/> : null}
       </div>
     </div>
@@ -68,6 +69,6 @@ export function RepairDetail({ initialOrder }: { initialOrder: RepairOrder }) {
 
     </div>
     <IntakeSignatureSection data={receiptData}/>
-    {printOpen ? <IntakeReceipt data={receiptData} onClose={() => setPrintOpen(false)} /> : null}
+    {printOpen ? <IntakeReceipt restoreFocusRef={printTrigger} data={receiptData} onClose={() => setPrintOpen(false)} /> : null}
   </main>;
 }

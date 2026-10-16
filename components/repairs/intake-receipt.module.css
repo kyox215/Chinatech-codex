@@ -1,0 +1,21 @@
+.root:global(.intake-receipt-dialog) { overflow: auto; }
+.root .options { align-items: flex-end; }
+.root .options :global(.field) { flex: 1 1 145px; }
+.root .feedback { flex-basis: 100%; margin: 0; }
+.root .feedback :global(.button) { margin-inline-start: 8px; }
+.root .viewer { overflow: auto; padding: 16px; min-height: 160px; }
+.root .pdfHost { width: 100%; min-width: 0; }
+.root .pdfHost canvas { display: block; background: white; box-shadow: var(--shadow-sm); margin-inline: auto; }
+.root .pdfSheet { position: relative; margin-inline: auto; }
+/* PDF.js text coordinates; the text comes from these exact PDF bytes. */
+.root .textLayer { position: absolute; inset: 0; text-align: initial; line-height: 1; letter-spacing: normal; word-spacing: normal; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; --min-font-size: 1; --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size)); --min-font-size-inv: calc(1 / var(--min-font-size)); }
+.root .textLayer :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0 0; user-select: text; }
+.root .textLayer > :not(:global(.markedContent)), .root .textLayer :global(.markedContent) span:not(:global(.markedContent)) { z-index: 1; --font-height: 0; font-size: calc(var(--text-scale-factor) * var(--font-height)); --scale-x: 1; --rotate: 0deg; transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv)); }
+.root .textLayer :global(.markedContent) { display: contents; }
+.root .textLayer ::selection { background: rgb(95 87 255 / 25%); }
+@media screen and (max-width: 767px) {
+  .root .viewer { padding: 10px; }
+  .root .options :global(.field) { max-width: none; }
+  .root .options :global(.button) { min-height: 44px; }
+}
+@media print { .root:global(.intake-receipt-dialog)[open] { display: none; } }

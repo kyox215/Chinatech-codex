@@ -64,7 +64,6 @@ test("failed project keeps its inputs and settled retry releases the modal after
 
 test("failed no-purchase confirmation retains its note and exact retry settles once", async ({ page }) => {
   const dialog = await openDialog(page, ["屏幕：碎裂"]);
-  await dialog.locator(".repair-workflow-history > summary").filter({ hasText: "维修项目核对" }).click();
   const note = dialog.getByLabel("无需采购说明", { exact: true });
   await note.fill("DEMO 仅检测无需采购"); await failWorkflow(page);
   await dialog.getByRole("button", { name: "确认无需采购", exact: true }).click();

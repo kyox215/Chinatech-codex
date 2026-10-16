@@ -1,0 +1,31 @@
+{
+  "family": "Noto Sans SC",
+  "source": "https://github.com/google/fonts/blob/47d54ca1ebb14fd864695f1d39dc734f39017c33/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf",
+  "commit": "47d54ca1ebb14fd864695f1d39dc734f39017c33",
+  "license": "OFL.txt",
+  "bytes": 17772300,
+  "sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+  "preparation": {
+    "tool": "fonttools==4.60.1",
+    "script": "scripts/receipt/prepare-fonts.py",
+    "purpose": "Static weights and one-to-one Unicode glyph aliases preserve PDF ToUnicode text; outlines and metrics retained.",
+    "artifacts": [
+      {
+        "file": "NotoSansSC-400.ttf",
+        "weight": 400,
+        "unicodeEntries": 30890,
+        "aliasGlyphsCopied": 497,
+        "bytes": 10699708,
+        "sha256": "8606a1c5cfc6b119294607ccd8b8b6d047b02aea3e1a667667ac4c03c9050376"
+      },
+      {
+        "file": "NotoSansSC-700.ttf",
+        "weight": 700,
+        "unicodeEntries": 30890,
+        "aliasGlyphsCopied": 497,
+        "bytes": 10689100,
+        "sha256": "aff1dc048eb4a2eec6aa537dd5c050b88b276bab6904575d6351da30e0c0631b"
+      }
+    ]
+  }
+}

@@ -1,94 +1,115 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { Printer, X, RotateCcw } from "lucide-react";
-import { useLocalIntakes, useRepairDirectory } from "./local-intake-store";
-import { useRepairWorkflows } from "./repair-workflow-store";
-import { initialRepairWorkflow } from "@/lib/repair-workflow";
-import { useBackendMode } from "@/components/backend-snapshot";
-import { intakeRequirements, currentRepairRequirements } from "@/lib/repair-requirements";
-import { itemQuoteTotal } from "@/lib/repair-item-pricing";
-import { getRepairOrder } from "@/lib/repair-fixtures";
+import { Printer, X, RotateCcw, Download } from "lucide-react";
+import { useBackendState } from "@/components/backend-snapshot";
+import { ContentProgress, useActivityFeedback } from "@/components/operation-feedback";
 import { useStoreSettings } from "@/components/settings/settings-store";
 import { SelectControl } from "@/components/select-control";
-import { matchingIntakeSignature, type IntakeReceiptData } from "@/lib/repair-intake-record";
-import { printAccessories, printCustody, printDate, printIssue, printKnownOrOriginal, printLabel, printLanguageName, printLanguages, printMoney, printMonths, printRepairStage, printServiceRequests, type PrintLabel, type PrintLanguage } from "@/lib/print-language";
-import { repairIntakeAcknowledgement, repairIntakeStatutoryRights, repairIntakeTerms, repairIntakeTermsVersion } from "@/lib/repair-print-terms";
-import { SignatureImage } from "./intake-signature";
+import { can } from "@/lib/staff";
+import type { IntakeReceiptData } from "@/lib/repair-intake-record";
+import { printLabel, printLanguages, type PrintLabel, type PrintLanguage } from "@/lib/print-language";
+import { canonicalPrintJson, type ReceiptPaper } from "@/lib/repair-print-layout";
+import styles from "./intake-receipt.module.css";
 export type { IntakeReceiptData } from "@/lib/repair-intake-record";
+const PdfPreview = lazy(() => import("./receipt-pdf-preview"));
+type PdfFile = { bytes: Uint8Array; url: string; name: string };
+const fallbackError: PrintLabel = "receiptUnavailable";
+type Result = { source: string; selection: string; file?: PdfFile; error?: PrintLabel; blocks?: string[] };
 
-const formats = { a5: "A5 landscape", a4: "A4 landscape", half: "A4 portrait", double: "A4 portrait" } as const;
-type QrData = { path: string; size: number };
-export function IntakeReceipt({ data, onClose }: { data: IntakeReceiptData; onClose: () => void }) {
-  const formal = useBackendMode();
+export function IntakeReceipt({ data, onClose, restoreFocusRef }: { data: IntakeReceiptData; onClose: () => void; restoreFocusRef?: RefObject<HTMLElement | null> }) {
+  const backend = useBackendState();
   const { settings, ready: settingsReady, error: settingsError } = useStoreSettings();
-  const { signatures, ready: intakesReady, error: intakesError } = useLocalIntakes();
-  const unavailable = !settingsReady || !!settingsError || !intakesReady || !!intakesError;
-  const directory = useRepairDirectory();
-  const order = directory.find(order => order.id === data.id);
-  const { workflows } = useRepairWorkflows();
-  const workflow = order ? workflows[data.id] ?? initialRepairWorkflow(order) : null;
-  const quoteTotal=itemQuoteTotal(data.itemQuotes,(order ? currentRepairRequirements(order,workflow??undefined) : intakeRequirements(data)).map(row=>row.title));
-  const quote = formal ? undefined : getRepairOrder(data.id)?.quote;
-  const policy = data.policy ?? { months: settings.repairWarrantyMonths, shopName: settings.shopName, address: settings.address, phone: settings.phone };
-  const signature = matchingIntakeSignature(signatures, data, policy);
-  const hasHistory = signatures.some(item => item.orderId === data.id);
-  const dialog = useRef<HTMLDialogElement>(null);
-  const title = useId();
-  const [format, setFormat] = useState<keyof typeof formats>(settings.paper);
-  const [language, setLanguage] = useState<PrintLanguage>("it");
-  const [qr, setQr] = useState<QrData | null>(null);
-  const [qrError, setQrError] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  const [paperChoice, setPaper] = useState<ReceiptPaper | null>(null), [language, setLanguage] = useState<PrintLanguage>("it"), [zoom, setZoom] = useState("fit"), [attempt, setAttempt] = useState(0);
+  const paper = paperChoice ?? settings.paper;
+  const [result, setResult] = useState<Result | null>(null), [printHelp, setPrintHelp] = useState(false), [printError, setPrintError] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [lastSuccess, setLastSuccess] = useState<{ source: string; file: PdfFile } | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null), cache = useRef(new Map<string, Promise<PdfFile>>()), urls = useRef(new Set<string>()), controllers = useRef(new Set<AbortController>()), windows = useRef(new Set<Window>());
+  const generation = useRef(0), title = useId();
+  const member = backend.snapshot?.staff.members.find(m => m.id === backend.snapshot?.staff.currentId);
+  const current = backend.snapshot?.intakes.find(row => row.id === data.id);
+  const scope = canonicalPrintJson([backend.snapshot?.storeId, backend.snapshot?.staff.currentId, member]);
+  const [openedScope, setOpenedScope] = useState<string | null>(member ? scope : null);
+  if (openedScope === null && member) setOpenedScope(scope);
+  const unavailable = accessDenied || !backend.formal || !backend.active || !member || !can(member, "repairs.view") || !current || scope !== openedScope || !settingsReady || Boolean(settingsError);
+  const source = canonicalPrintJson([scope, backend.active, unavailable, current, backend.snapshot?.workflows[data.id], backend.snapshot?.signatures.filter(s => s.orderId === data.id), { shopName: settings.shopName, address: settings.address, phone: settings.phone, repairWarrantyMonths: settings.repairWarrantyMonths }]);
+  const selection = canonicalPrintJson([paper, language]);
+  const live = useRef({ source, selection, unavailable });
+  useLayoutEffect(() => { live.current = { source, selection, unavailable }; }, [source, selection, unavailable]);
+  const shown = result?.source === source && result.selection === selection ? result : null;
+  const file = !unavailable ? shown?.file : undefined;
+  const previewFile = !unavailable && lastSuccess?.source === source ? lastSuccess.file : undefined;
+  const busy = !unavailable && !shown;
   const t = (key: PrintLabel) => printLabel(key, language);
-  const fact = (key: PrintLabel, value: string) => <div key={key}><dt>{t(key)}:</dt><dd>{value}</dd></div>;
+  useActivityFeedback(busy, { kind: "read", scope: "receipt-pdf" });
+  useLayoutEffect(() => {
+    const previous = restoreFocusRef?.current ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    const element = dialog.current; element?.showModal();
+    return () => { element?.close(); if (previous?.isConnected) previous.focus({ preventScroll: true }); };
+  }, [restoreFocusRef]);
+  useLayoutEffect(() => {
+    const epochs = generation;
+    epochs.current++;
+    const pending = controllers.current, knownUrls = urls.current, opened = windows.current, entries = cache.current;
+    return () => {
+      epochs.current++;
+      for (const controller of pending) controller.abort(); pending.clear(); entries.clear();
+      for (const url of knownUrls) URL.revokeObjectURL(url); knownUrls.clear();
+      for (const window of opened) { try { window.close(); } catch {} } opened.clear();
+    };
+  }, [source]);
   useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const current = dialog.current; current?.showModal();
-    return () => { current?.close(); if (previous?.isConnected) previous.focus(); };
-  }, []);
-  useEffect(() => {
-    let active = true;
-    import("@zxing/library").then(({ MultiFormatWriter, BarcodeFormat }) => {
-      const payload = new URL("/app/repairs/" + data.id, window.location.origin).href;
-      const matrix = new MultiFormatWriter().encode(payload, BarcodeFormat.QR_CODE, 0, 0, new Map());
-      let path = "";
-      for (let y = 0; y < matrix.getHeight(); y++) for (let x = 0; x < matrix.getWidth(); x++) if (matrix.get(x, y)) path += "M" + x + " " + y + "h1v1h-1z";
-      if (active) { setQr({ path, size: matrix.getWidth() }); setQrError(false); }
-    }).catch(() => { if (active) setQrError(true); });
-    return () => { active = false; };
-  }, [data.id, attempt]);
-  const copies: PrintLabel[] = format === "double" ? ["customerCopy", "shopCopy"] : ["customerCopy"];
-  const requests = printServiceRequests(data.services, language);
-  const issue = printIssue(data, language);
-  const pricedRequests=data.itemQuotes?.map(row=>{const label=printKnownOrOriginal(row.item,language);const details=requests.filter(request=>request.startsWith(label+" · ")||(row.item==="电池"&&request.startsWith("Apple · "+label)));return {label:details.length?details.join("; "):label,amount:row.amountCents===null?t("define"):printMoney(row.amountCents,language)};});
-  const contact = policy.phone ? `${t("contact")}: ${policy.phone}` : "";
-  return createPortal(<dialog ref={dialog} className="intake-receipt-dialog" aria-labelledby={title} onCancel={event => { event.preventDefault(); onClose(); }}>
-    <style media="print">{"@page { size: " + formats[format] + "; margin: 8mm; }"}</style>
-    <header className="intake-receipt-toolbar"><h2 id={title}>{t("repairPreview")}</h2><button type="button" className="icon-button" aria-label={t("close")} onClick={onClose}><X size={20} /></button></header>
-    <div className="intake-receipt-toolbar intake-receipt-options">
-      <label className="field"><span>{t("paper")}</span><SelectControl key={language} value={format} aria-label={t("paper")} onChange={event => setFormat(event.target.value as keyof typeof formats)}>{Object.keys(formats).map(value => <option key={value} value={value}>{t(value as keyof typeof formats)}</option>)}</SelectControl></label>
-      <label className="field"><span>{t("printLanguage")}</span><SelectControl value={language} aria-label={t("printLanguage")} onChange={event => setLanguage(event.target.value as PrintLanguage)}>{printLanguages.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</SelectControl></label>
-      <button type="button" className="button button--primary" disabled={!qr || unavailable} onClick={() => window.print()}><Printer size={17} />{t("print")}</button>
-      {unavailable ? <span className="form-error" role="alert">{t("receiptUnavailable")}</span> : null}
-      {qrError ? <span className="form-error" role="alert">{t("qrError")}<button className="icon-button" type="button" aria-label={t("qrRetry")} onClick={() => setAttempt(value => value + 1)}><RotateCcw size={17} /></button></span> : null}
+    if (unavailable || !current) return;
+    const epoch = generation.current;
+    let subscribed = true;
+    let pending = cache.current.get(selection);
+    if (!pending) {
+      const controller = new AbortController(); controllers.current.add(controller);
+      pending = (async () => {
+        const response = await fetch("/api/backend/repair-receipt", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", cache: "no-store", signal: controller.signal, body: JSON.stringify({ id: data.id, paper, language, expectedRevision: current.revision ?? 1 }) });
+        if (!response.ok) {
+          if ((response.status === 401 || response.status === 403) && epoch === generation.current && live.current.source === source) setAccessDenied(true);
+          const body = await response.json().catch(() => ({}));
+          const code: PrintLabel = ["receiptChanged", "receiptBusy", "printOverflow", "printFontError", "printLayoutError"].includes(body.code) ? body.code : "receiptUnavailable";
+          throw { code, blocks: Array.isArray(body.blocks) ? body.blocks.filter((b: unknown) => typeof b === "string") : [] };
+        }
+        if (!response.headers.get("content-type")?.startsWith("application/pdf")) throw { code: "printLayoutError" };
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        if (bytes.length > 4 * 1024 * 1024 || new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-") throw { code: "printLayoutError" };
+        if (epoch !== generation.current || live.current.source !== source || live.current.unavailable) throw new DOMException("Stale receipt", "AbortError");
+        const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" })); urls.current.add(url);
+        return { bytes, url, name: `${data.id}-${language}-${paper}.pdf` };
+      })().finally(() => controllers.current.delete(controller));
+      cache.current.set(selection, pending);
+    }
+    pending.then(file => { if (subscribed && epoch === generation.current && live.current.source === source && live.current.selection === selection && !live.current.unavailable) { setResult({ source, selection, file }); setLastSuccess({ source, file }); } }).catch((error: { code?: PrintLabel; blocks?: string[] }) => {
+      if (subscribed && epoch === generation.current && live.current.source === source && live.current.selection === selection) { cache.current.delete(selection); setResult({ source, selection, error: error.code ?? fallbackError, blocks: error.blocks }); }
+    });
+    return () => { subscribed = false; };
+  }, [source, selection, attempt, unavailable, current, data.id, paper, language]);
+  const retry = () => { setResult(null); setAttempt(n => n + 1); };
+  const print = () => {
+    if (!file || live.current.unavailable || live.current.source !== source || live.current.selection !== selection) return;
+    const opened = window.open("about:blank", "_blank");
+    if (!opened) { setPrintError(true); return; }
+    opened.opener = null; opened.location.replace(file.url); windows.current.add(opened); setPrintHelp(true); setPrintError(false);
+  };
+  return createPortal(<dialog ref={dialog} className={"intake-receipt-dialog " + styles.root} aria-labelledby={title} data-pdf-phase={unavailable ? "unavailable" : busy ? "generating" : file ? "ready" : "error"} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <header className="intake-receipt-toolbar"><h2 id={title}>{t("repairPreview")}</h2><button type="button" className="icon-button" aria-label={t("close")} onClick={onClose}><X size={20}/></button></header>
+    <div className={"intake-receipt-toolbar intake-receipt-options " + styles.options}>
+      <label className="field"><span>{t("paper")}</span><SelectControl key={language} value={paper} aria-label={t("paper")} onChange={e => setPaper(e.target.value as ReceiptPaper)}>{(["a4", "a5", "half", "double"] as const).map(value => <option key={value} value={value}>{t(value)}</option>)}</SelectControl></label>
+      <label className="field"><span>{t("printLanguage")}</span><SelectControl value={language} aria-label={t("printLanguage")} onChange={e => setLanguage(e.target.value as PrintLanguage)}>{printLanguages.map(row => <option key={row.value} value={row.value}>{row.label}</option>)}</SelectControl></label>
+      <label className="field"><span>{t("previewZoom")}</span><SelectControl key={language} value={zoom} aria-label={t("previewZoom")} onChange={e => setZoom(e.target.value)}><option value="fit">{t("fitScreen")}</option><option value="1">100%</option></SelectControl></label>
+      <button type="button" className="button button--primary" disabled={!file} onClick={print}><Printer size={17}/>{t("pdfOpenPrint")}</button>
+      {file ? <a className="button button--secondary" href={file.url} download={file.name}><Download size={17}/>{t("pdfDownload")}</a> : <button type="button" className="button button--secondary" disabled><Download size={17}/>{t("pdfDownload")}</button>}
+      {busy ? <p className={styles.feedback} role="status">{t("pdfGenerating")}</p> : null}
+      {previewFile && !file ? <p className={styles.feedback} role="note">{t("pdfPreviousPreview")}</p> : null}
+      {unavailable || shown?.error ? <p className={styles.feedback + " form-error"} role="alert">{t(!backend.formal ? "receiptFormalOnly" : unavailable ? "receiptUnavailable" : shown!.error!)}{shown?.blocks?.length ? " " + shown.blocks.join(" · ") : null}{!unavailable ? <button type="button" className="button button--secondary" onClick={retry}><RotateCcw size={17}/>{t("printCheckRetry")}</button> : null}</p> : null}
+      {printError ? <p className={styles.feedback + " form-error"} role="alert">{t("printWindowError")}</p> : null}
+      {printHelp && file ? <p className={styles.feedback} role="status">{t("pdfPrintHelp")}</p> : null}
     </div>
-    <div className={"intake-receipt-sheets intake-receipt-sheets--" + format}>{copies.map(copy => <article className="intake-receipt-sheet" key={copy} lang={language}>
-      <section className="intake-receipt-order">
-        <header className="intake-receipt-brand"><strong>{policy.shopName}</strong><p>{[policy.address, contact].filter(Boolean).join(" · ")}</p><h3>{t("repairTitle")}</h3><small>{t("customerDocument")} · {t(copy)}</small></header>
-        <dl className="intake-receipt-identity">{fact("orderNumber", data.id)}{fact("date", printDate(data.previewAt, language))}{fact("customer", data.customerName || "—")}{fact("phone", data.phone)}</dl>
-        <section className="intake-receipt-block"><h4>{t("device")}</h4><dl>{fact("category", printKnownOrOriginal(data.category, language))}{fact("brand", data.brand)}{fact("model", data.model)}{fact("serial", data.serial || "—")}{fact("color", printKnownOrOriginal(data.color, language, true))}</dl></section>
-        <section className="intake-receipt-block"><h4>{t("requested")}</h4><table><thead><tr><th>{t("description")}</th><th>{t("amount")}</th></tr></thead><tbody>{(data.itemQuotes?.length ? pricedRequests! : (requests.length?requests:[t("evaluate")]).map(label=>({label,amount:t("define")}))).map(request=><tr key={request.label}><td>{request.label}</td><td>{request.amount}</td></tr>)}</tbody></table><p><b>{t("reportedFault")}:</b> {issue.faults.join("; ") || "—"}</p>{issue.note ? <p><b>{t("issueNote")}:</b> {issue.note}</p> : null}<p><b>{t("diagnosis")}:</b> {t("incomplete")}</p></section>
-        <section className="intake-receipt-block"><h4>{t("amounts")}</h4><dl>{fact("total", data.itemQuotes?.length ? quoteTotal===null?t("unquoted"):printMoney(quoteTotal,language) : quote && quote.version > 0 ? printMoney(Math.round(quote.total * 100), language) : t("unquoted"))}{fact("deposit", t("unrecorded"))}{fact("balance", t("define"))}</dl></section>
-        <section className="intake-receipt-block"><h4>{t("service")}</h4><dl>{fact("technician", order?.technician && order.technician !== "未分配" ? order.technician : t("unassigned"))}{fact("orderType", t("repair"))}{fact("status", printRepairStage(workflow?.status ?? order?.status ?? "diagnosis", language))}{fact("custody", printCustody(workflow?.custody ?? data.custody ?? "unknown", language))}{fact("warrantyDuration", printMonths(policy.months, language))}{fact("accessories", printAccessories(data.accessories, language))}{fact("priority", printKnownOrOriginal(data.priority, language))}</dl></section>
-        {!formal ? <small className="intake-receipt-local">{t("local")}</small> : null}
-      </section>
-      <section className="intake-receipt-warranty">
-        <header className="intake-receipt-brand"><h3>{t("repairWarrantyTitle")}</h3><p>{policy.shopName}<br />{policy.address}<br />{contact}</p></header>
-        <section className="intake-receipt-tracking">{qr ? <svg role="img" aria-label={t("qr") + " " + data.id} viewBox={"0 0 " + qr.size + " " + qr.size} className="intake-receipt-qr" shapeRendering="crispEdges"><rect width={qr.size} height={qr.size} fill="white" /><path d={qr.path} fill="black" /></svg> : <span className="intake-receipt-qr" role="status">{t("qrLoading")}</span>}<div><h4>{t("trackingTitle")}</h4><p>{t("scan")}</p><strong>{data.id}</strong><small>{t("trackingLimit")}</small></div></section>
-        <section className="intake-receipt-terms"><h4>{t("warrantyTerms")}</h4><p><b>{printMonths(policy.months, language)}</b></p><ul>{repairIntakeTerms[language].map((term, index) => <li key={index}>{term}</li>)}</ul><p>{repairIntakeStatutoryRights[language]}</p></section>
-        <section className="intake-receipt-signature"><h4>{t("customerSignature")}</h4>{signature ? <><div className="intake-receipt-signature-image"><SignatureImage strokes={signature.strokes} aspectRatio={signature.aspectRatio} label={t("customerSignature")} /></div><small>{t("signatureLanguage")}: {printLanguageName(signature.language, language)} · {t("signedAt")}: {printDate(signature.signedAt, language)}</small></> : <><div />{hasHistory ? <p>{t("historicalSignature")}</p> : null}</>}<p>{repairIntakeAcknowledgement[language]}</p><small>{signature?.termsVersion ?? repairIntakeTermsVersion}</small><p>{t("keepReceipt")}</p></section>
-      </section>
-    </article>)}</div>
+    <ContentProgress scope="receipt-pdf"/>
+    <div className={styles.viewer} aria-busy={busy}>{previewFile ? <Suspense fallback={<p role="status">{t("pdfPreview")}</p>}><PdfPreview key={previewFile.url} bytes={previewFile.bytes} zoom={zoom} language={language}/></Suspense> : null}</div>
   </dialog>, document.body);
 }

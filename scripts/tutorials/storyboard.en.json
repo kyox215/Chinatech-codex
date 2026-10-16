@@ -111,11 +111,6 @@
         "title": "Review and record the result",
         "body": "After selecting, press Record result. Record only contact that actually occurred. It does not confirm repair consent, send messages, or change the repair stage.",
         "frame": "follow-contact-filled"
-      },
-      {
-        "title": "Review the four detail sections",
-        "body": "Repair details have repair, suppliers, photos, and history sections. Requirements, quote, and supplier are grouped per item, with separate photo registration and source-specific history.",
-        "frame": "follow-detail"
       }
     ]
   },

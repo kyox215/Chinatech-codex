@@ -111,11 +111,6 @@
         "title": "Controlla e registra l’esito",
         "body": "Dopo la scelta, premi Registra esito. Registra solo un contatto realmente avvenuto: non conferma il consenso alla riparazione, non invia messaggi e non cambia la fase.",
         "frame": "follow-contact-filled"
-      },
-      {
-        "title": "Consulta le quattro sezioni",
-        "body": "La scheda contiene riparazione, fornitori, foto e cronologia. Requisiti, preventivo e fornitore sono riuniti per intervento; le foto hanno una registrazione separata.",
-        "frame": "follow-detail"
       }
     ]
   },

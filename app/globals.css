@@ -1689,7 +1689,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .repair-unified-list .module-table-scroll > .repair-parts-group--expanded { min-width: 972px; }
 }
 @media (max-width:767px) {
-  .repair-unified-list .module-heading__actions { display: grid; grid-template-columns: 44px repeat(3,minmax(0,1fr)); gap: 6px; }
+  .repair-unified-list .module-heading__actions { display: grid; grid-template-columns: 44px repeat(2,minmax(0,1fr)); gap: 6px; }
   .repair-unified-list .module-heading__actions .button { min-width: 0; min-height: 44px; padding: 8px 5px; gap: 5px; font-size: 13px; white-space: normal; flex-wrap: wrap; text-align: center; }
   .repair-list-scope button, .repair-notice-filters button { min-width: 0; white-space: normal; text-align: center; }
   .repair-unified-list .module-heading__actions .button svg { flex-shrink: 0; }
@@ -1898,3 +1898,35 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-table__head, .repair-module-table__head, .procurement-table-head, .retail-table-head { min-height: 48px; }
 
 .procurement-row:has(> .navigation-feedback[data-pending="true"]) { background: var(--primary-50); }
+
+/* Repair feedback: only the supplier dialog owns this scrolling boundary. */
+.repair-procurement-dialog[open] { display:flex; flex-direction:column; overflow:hidden; max-height:calc(100dvh - 32px); }
+.repair-procurement-dialog > header { flex:none; }
+.repair-procurement-dialog > .repair-procurement-dialog__body { flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
+.repair-procurement-dialog__footer { flex:none; }
+.repair-procurement-dialog__footer:empty { display:none; }
+.repair-procurement-dialog__footer > footer { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); }
+.repair-procurement-dialog__footer .button { min-height:44px; }
+.repair-procurement-dialog .repair-project-review { grid-column:1 / -1; min-width:0; }
+.repair-procurement-dialog .repair-project-review .repair-requirement { padding-top:12px; border-top:1px solid var(--border); }
+.repair-procurement-dialog .search-combobox__menu { max-height:var(--combobox-space,240px); padding:min(4px,calc(var(--combobox-space,240px) / 4)); border-width:min(1px,calc(var(--combobox-space,240px) / 4)); }
+@media(min-width:768px) { .repair-procurement-dialog { width:min(1040px,calc(100vw - 48px)); } }
+
+/* Visible photo actions; previews never activate the file input. */
+.intake-photos .intake-photo-slot__preview { display:grid; min-width:0; width:100%; min-height:44px; padding:0; border:0; border-radius:0; color:var(--primary-600); background:var(--surface); cursor:pointer; }
+.intake-photos .intake-photo-slot__preview > span { display:block; padding:8px; font-size:13px; }
+.intake-photos .intake-photo-slot__preview:focus-visible { outline:2px solid var(--primary-600); outline-offset:-2px; }
+.intake-photos .intake-photo-slot__images > button { min-width:0; }
+.intake-photos .intake-photo-slot__upload { min-height:64px; }
+
+/* Keep the existing repair column and row budget while naming actual items. */
+.repair-unified-list .repair-row-parts__chips { display:flex; flex-wrap:wrap; gap:3px; max-height:43px; overflow:hidden; }
+.repair-unified-list .repair-row-parts__chip { display:block; flex:0 1 auto; min-width:0; max-width:calc(50% - 2px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:1px 5px; border:1px solid var(--primary-100); border-radius:4px; font-size:12px; line-height:16px; color:var(--primary-600); background:var(--surface); }
+.repair-unified-list .repair-row-parts__chip:only-child { max-width:100%; }
+.repair-unified-list .repair-row-parts .repair-row-parts__suppliers { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.repair-unified-list .repair-filterbar > .module-search { height:48px; min-height:48px; padding-block:1px; }
+.repair-unified-list .repair-filterbar > .module-search .input-control { flex:1; min-width:0; }
+.repair-unified-list .repair-filterbar > .module-search .input-control__body, .repair-unified-list .repair-filterbar > .module-search .input-control__native, .repair-unified-list .repair-filterbar > .module-search > button { height:44px; min-height:44px; }
+.repair-unified-list .repair-filterbar > .module-select, .repair-unified-list .repair-filterbar > .module-select .select-control, .repair-unified-list .repair-filterbar > .module-select select, .repair-unified-list .repair-filterbar > .repair-filter-trigger { height:48px; min-height:48px; }
+.repair-unified-list .module-heading__actions > .button, .repair-unified-list .module-heading__actions > .icon-button { height:44px; min-height:44px; }
+@media(max-width:767px) { .repair-unified-list .repair-filterbar input { font-size:16px; } }

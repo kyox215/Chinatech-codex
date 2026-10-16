@@ -1,0 +1,22 @@
+import { createRequire } from 'node:module';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+import ts from 'typescript';
+const require = createRequire(import.meta.url);
+require.extensions['.ts'] = (module, file) => module._compile(ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, file);
+const { repairPrintProjection } = require('../../lib/repair-print-layout.ts');
+const { renderRepairReceipt, launchReceiptBrowser } = require('../../lib/backend/repair-receipt-renderer.ts');
+const { intakeRequirements } = require('../../lib/repair-requirements.ts');
+const { intakeSignatureSnapshot } = require('../../lib/repair-intake-record.ts');
+const { MultiFormatWriter, BarcodeFormat } = require('@zxing/library');
+const evidence = resolve(process.env.RECEIPT_EVIDENCE_DIR ?? '.local/receipt-pdf'); mkdirSync(evidence, { recursive: true });
+const policy = { months: 6, shopName: 'DEMO ChinaTech', address: 'DEMO Via di prova 1, Roma', phone: '+390000000001' };
+const data = { id: 'LOCAL-0000000000000005', createdAt: '2026-10-16 09:00:00', updatedAt: '2026-10-16 09:00:00', previewAt: '2026-10-16 09:00:00', customerName: 'DEMO 客户 TEST', phone: '+390000000002', email: '', category: '手机', brand: 'Apple', model: 'DEMO Phone 16', serial: 'DEMO-SERIAL-0005', color: '黑色', issue: '屏幕：碎裂、电池：不充电；DEMO customer note.', faults: ['屏幕：碎裂','电池：不充电'], issueNote: 'DEMO customer note.', services: { screen: { quality: 'assembled', technology: 'oled' }, battery: { quality: 'original', appleService: 'both' }, port: { quality: 'original' } }, accessories: ['SIM 卡','数据线'], priority: '普通', photoCount: 0, custody: 'store', policy, itemQuotes: [{ item:'屏幕',amountCents:0 },{ item:'电池',amountCents:6000 },{ item:'尾插',amountCents:4000 }] };
+const matrix = new MultiFormatWriter().encode('https://www.chinatech.in/app/repairs/'+data.id, BarcodeFormat.QR_CODE, 0, 0, new Map()); let path = '';
+for(let y=0;y<matrix.getHeight();y++) for(let x=0;x<matrix.getWidth();x++) if(matrix.get(x,y)) path += 'M'+x+' '+y+'h1v1h-1z';
+const signature = { id:'DEMO-SIGNATURE',orderId:data.id,actorId:'DEMO-ACTOR',signedAt:'2026-10-16 09:00:00',language:'it',termsVersion:'repair-intake-2026-10-v1',aspectRatio:3.2,strokes:[[{x:.1,y:.6},{x:.3,y:.2},{x:.5,y:.8},{x:.8,y:.3}]],snapshot:intakeSignatureSnapshot(data,policy) };
+if(process.env.RECEIPT_SIGNATURE_MISMATCH==='1') data.serial='DEMO-SERIAL-CHANGED';
+const browser = await launchReceiptBrowser();
+const results = [];
+try { for (const language of ['it','en','zh']) { const p = repairPrintProjection({data,requirements:intakeRequirements(data),policy,signature:process.env.RECEIPT_SIGNATURE_MISMATCH==='1'?undefined:signature,hasHistory:true,language,totalCents:10000,technician:'—',status:'diagnosis',custody:'store',formal:true,qr:{path,size:matrix.getWidth()}}); for(const paper of ['a4','a5']) { try { const result = await renderRepairReceipt(p,paper,browser); writeFileSync(resolve(evidence,language+'-'+paper+'.pdf'),result.bytes); results.push({language,paper,bytes:result.bytes.length,measurements:result.measurements}); } catch (e) { results.push({language,paper,error:e.message,blocks:e.blocks,measurements:e.measurements}); } } } } finally {await browser.close();}
+writeFileSync(resolve(evidence,'measurements.json'),JSON.stringify(results,null,2)); console.log(JSON.stringify(results,null,2));
