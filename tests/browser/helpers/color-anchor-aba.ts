@@ -1,259 +1,179 @@
-import { createHash } from "node:crypto";
 import { appendFileSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { performance as clock } from "node:perf_hooks";
-import { expect, type Page, type TestInfo } from "@playwright/test";
+import { expect, type Browser, type BrowserContext, type BrowserContextOptions, type Page, type TestInfo } from "@playwright/test";
 import { installColorAnchorABAObservation, shouldRunColorAnchorABA } from "./color-picker-observation";
 
 type Entry = Record<string, unknown>;
+type SampleId = "A0" | "B" | "A1";
 export type ABASample = { time: number; scrollY: number; inline: { top: string }; targetRect: { y: number }; open: boolean; paletteConnected: boolean; experiment?: { phase: string; valid: boolean } };
 
-/** Exact raw-value classifier. Synthetic tests establish this classifier only. */
 export function summarizeColorAnchorPhase(samples: ABASample[], phase: string, start: number, end: number) {
-  const window = samples.filter(frame => frame.time >= start + 2000 && frame.time < end && frame.experiment?.phase === phase);
-  const triples = window.map(frame => [frame.scrollY, Number.parseFloat(frame.inline.top), frame.targetRect?.y]);
-  const complete = window.length >= 8 && window.every((frame, index) => frame.open && frame.paletteConnected && frame.experiment?.valid && (index === 0 || frame.time > window[index - 1].time)) && triples.every(values => values.every(Number.isFinite));
+  const selected = samples.filter(frame => frame.time >= start + 2000 && frame.time < end && frame.experiment?.phase === phase);
+  const triples = selected.map(frame => [frame.scrollY, Number.parseFloat(frame.inline.top), frame.targetRect?.y]);
+  const complete = selected.length >= 8 && selected.every((frame, index) => frame.open && frame.paletteConnected && frame.experiment?.valid && (index === 0 || frame.time > selected[index - 1].time)) && triples.every(values => values.every(Number.isFinite));
   const distinct = [0, 1, 2].map(axis => [...new Set(triples.map(values => values[axis]))].sort((a, b) => a - b));
-  const deltas = triples.slice(1).map((values, index) => values.map((value, axis) => value - triples[index][axis]));
-  const changes = deltas.filter(values => values.some(value => value !== 0));
+  const changes = triples.slice(1).map((values, index) => values.map((value, axis) => value - triples[index][axis])).filter(values => values.some(value => value !== 0));
   const loop = complete && distinct.every(values => values.length === 2 && values[1] - values[0] === 1) && changes.length >= 6 && changes.every(values => Math.abs(values[0]) === 1 && values[1] === values[0] && values[2] === values[0]);
-  const stable = complete && distinct.every(values => values.length === 1);
-  return { phase, fixedWindow: { start: start + 2000, end }, samples: window.length, complete, distinct, changes: changes.length, kind: !complete ? "insufficient" : loop ? "loop" : stable ? "stable" : "other" };
+  return { phase, fixedWindow: { start: start + 2000, end }, samples: selected.length, complete, distinct, changes: changes.length, kind: !complete ? "insufficient" : loop ? "loop" : distinct.every(values => values.length === 1) ? "stable" : "other" };
 }
 
-export function applyColorAnchorFactor(palette: HTMLElement, phase: string, original: { value: string; priority: string }) {
-  if (phase === "B") palette.style.setProperty("overflow-anchor", "none");
-  else if (phase === "A1" || phase === "cleanup") {
-    if (palette.style.getPropertyValue("overflow-anchor") !== original.value || palette.style.getPropertyPriority("overflow-anchor") !== original.priority) {
-      if (original.value === "") palette.style.removeProperty("overflow-anchor");
-      else palette.style.setProperty("overflow-anchor", original.value, original.priority);
-    }
+export function restoreFreshColorPolicy(palette: HTMLElement, original: { value: string; priority: string }) {
+  if (palette.style.getPropertyValue("overflow-anchor") !== original.value || palette.style.getPropertyPriority("overflow-anchor") !== original.priority) {
+    if (original.value === "") palette.style.removeProperty("overflow-anchor");
+    else palette.style.setProperty("overflow-anchor", original.value, original.priority);
   }
   return { value: palette.style.getPropertyValue("overflow-anchor"), priority: palette.style.getPropertyPriority("overflow-anchor"), computed: getComputedStyle(palette).getPropertyValue("overflow-anchor") };
 }
 
-/** Public fixed L/R1/R2/H/R3 protocol. No actionability/private API/native input. */
-export function fixedColorAnchorDriver(options: { phase: string; token: number; baseX: number; baseY: number; deadline: number; current: () => boolean; read: () => Entry; natural: () => Entry[]; log: (value: Entry) => void }) {
-  const ids = new Set<number>();
-  const receipt: Entry = { phase: options.phase, token: options.token, started: performance.now(), low: options.baseY - 1, high: options.baseY, left: options.baseX, records: [] };
-  const records = receipt.records as Entry[];
-  let done = false, timer: number | null = null, resolve!: (value: Entry) => void;
-  const promise = new Promise<Entry>(complete => { resolve = complete; });
-  function finish(valid: boolean, reason: string) {
-    if (done) return;
-    done = true; for (const id of ids) cancelAnimationFrame(id); ids.clear(); if (timer !== null) clearTimeout(timer); timer = null;
-    Object.assign(receipt, { valid, reason, finished: performance.now(), rafRemaining: ids.size, timerRemaining: timer !== null }); options.log({ kind: "driver-finish", ...receipt }); resolve(receipt);
-  }
-  const record = (step: string, extra: Entry = {}) => { const value = { step, time: performance.now(), actual: options.read(), ...extra }; records.push(value); options.log({ kind: "driver", phase: options.phase, token: options.token, ...value }); return value; };
-  const valid = () => !done && options.current() && performance.now() < options.deadline;
-  const queue = (callback: () => void) => { const id = requestAnimationFrame(() => { ids.delete(id); if (!valid()) { finish(false, "DRIVER_EXPIRED_OR_IDENTITY_CHANGED"); return; } callback(); }); ids.add(id); };
-  if (!valid()) finish(false, "DRIVER_EXPIRED_OR_IDENTITY_CHANGED");
-  else {
-    record("before-L"); window.scrollTo({ left: options.baseX, top: options.baseY - 1, behavior: "instant" });
-    record("immediate-L", { command: { method: "scrollTo", left: options.baseX, top: options.baseY - 1, behavior: "instant" } });
-    if (scrollX !== options.baseX || scrollY !== options.baseY - 1) finish(false, "DRIVER_L_CLAMP_OR_MISMATCH");
-    else {
-      timer = window.setTimeout(() => finish(false, "DRIVER_NOT_PROCESSED_IN_FIXED_WINDOW"), Math.max(0, Math.ceil(options.deadline - performance.now())));
-      queue(() => { record("R1", { naturalEvents: options.natural() }); queue(() => {
-        record("R2-before-H"); window.scrollTo({ left: options.baseX, top: options.baseY, behavior: "instant" });
-        record("immediate-H", { command: { method: "scrollTo", left: options.baseX, top: options.baseY, behavior: "instant" } });
-        if (scrollX !== options.baseX || scrollY !== options.baseY) { finish(false, "DRIVER_H_CLAMP_OR_MISMATCH"); return; }
-        queue(() => { const natural = options.natural(); record("R3", { naturalEvents: natural }); finish(natural.length > 0, natural.length ? "FIXED_DRIVER_PROCESSED" : "DRIVER_NOT_PROCESSED_IN_FIXED_WINDOW"); });
-      }); });
-    }
-  }
-  return { promise, cancel: (reason: string) => finish(false, reason), state: () => ({ done, rafRemaining: ids.size, timerRemaining: timer !== null }) };
-}
+export const freshColorToolsSource = () => `window.__siteUIColorAnchorSummarize=(${summarizeColorAnchorPhase.toString()});window.__siteUIColorAnchorRestore=(${restoreFreshColorPolicy.toString()});`;
 
-/** Installed tools are first-party diagnostic functions, never application callbacks. */
-export const colorAnchorToolsSource = () => `window.__siteUIColorAnchorSummarize=(${summarizeColorAnchorPhase.toString()});window.__siteUIColorAnchorFactor=(${applyColorAnchorFactor.toString()});window.__siteUIColorAnchorDriver=(${fixedColorAnchorDriver.toString()});`;
-
-export async function colorAnchorABABrowserExperiment() {
+/** Closed-state arming only. Clock is supplied by the existing true-toggle capture. */
+export function prepareFreshColorOpen(options: { sampleId: SampleId; contextId: string }) {
   const globals = window as unknown as Record<string, unknown>;
-  const summarize = globals.__siteUIColorAnchorSummarize as typeof summarizeColorAnchorPhase;
-  const factor = globals.__siteUIColorAnchorFactor as typeof applyColorAnchorFactor;
-  const driver = globals.__siteUIColorAnchorDriver as typeof fixedColorAnchorDriver;
   const observation = globals.__siteUIColorObservation as { frames: () => ABASample[]; state: () => Entry; finish: (reason: string) => Promise<unknown> } | undefined;
-  const report: Entry = { status: "INCONCLUSIVE", p2: "OPEN", events: [], phases: [], identityStarted: performance.now(), timeOrigin: performance.timeOrigin };
-  const events = report.events as Entry[], phases = report.phases as Entry[];
-  const stream = globals.__siteUIColorAnchorABAStream as (packet: Entry) => Promise<unknown>;
-  const pending = new Set<Promise<unknown>>(); let dropped = 0, eventSequence = 0;
-  const log = (value: Entry) => {
-    if (events.length >= 1024) { dropped++; if (!stopped) queueMicrotask(() => { void stop("INCONCLUSIVE", "ABA_EVENT_LIMIT"); }); return; }
-    const entry = { time: performance.now(), ...value }; events.push(entry);
-    if (pending.size >= 8) { dropped++; if (!stopped) queueMicrotask(() => { void stop("INCONCLUSIVE", "ABA_STREAM_BACKPRESSURE_DROP"); }); return; }
-    const promise = Promise.resolve(stream({ sequence: ++eventSequence, ...entry })).catch(() => { dropped++; }).finally(() => pending.delete(promise)); pending.add(promise);
-  };
-  const structural = (node: Element | null) => node ? { tag: node.tagName, classes: [...node.classList].slice(0, 12) } : null;
-  const regions = document.querySelectorAll('main.retail-detail section[aria-label="编辑颜色"]');
-  const region = regions.length === 1 ? regions[0] : null;
+  const summarize = globals.__siteUIColorAnchorSummarize as typeof summarizeColorAnchorPhase;
+  const restore = globals.__siteUIColorAnchorRestore as typeof restoreFreshColorPolicy;
+  const send = globals.__siteUIColorAnchorABAStream as (entry: Entry) => Promise<unknown>;
+  const report: Entry = { experiment: "fresh-open-v2", ...options, documentId: `color-document-${performance.timeOrigin}`, timeOrigin: performance.timeOrigin, status: "INCONCLUSIVE", p2: "OPEN", events: [] };
+  const events = report.events as Entry[], pending = new Set<Promise<unknown>>(), cleanups: (() => void)[] = [];
+  let sequence = 0, dropped = 0, stopped = false, firstOpen: number | null = null, deadline: number | null = null, timer: number | null = null, ready = false, openMutationSeen = false;
+  let resolve!: (value: Entry) => void; const result = new Promise<Entry>(done => { resolve = done; });
+  const structure = (node: EventTarget | null) => node instanceof Element ? { tag: node.tagName, classes: [...node.classList].slice(0, 12) } : node === document ? { tag: "DOCUMENT" } : null;
+  const regions = document.querySelectorAll('main.retail-detail section[aria-label="编辑颜色"]'), region = regions.length === 1 ? regions[0] : null;
   const pickers = region?.querySelectorAll(".color-picker"), picker = pickers?.length === 1 ? pickers[0] : null;
   const palettes = picker?.querySelectorAll<HTMLElement>(".color-picker__palette"), palette = palettes?.length === 1 ? palettes[0] : null;
-  const details = picker?.querySelector("details"), anchor = details?.querySelector("summary");
-  const radios = palette?.querySelectorAll<HTMLInputElement>('input[type="radio"][value="custom"]'), radio = radios?.length === 1 ? radios[0] : null, label = radio?.parentElement;
-  const ancestors: Element[] = []; for (let parent = palette?.parentElement; parent && ancestors.length < 32; parent = parent.parentElement) ancestors.push(parent);
-  const original = palette ? { value: palette.style.getPropertyValue("overflow-anchor"), priority: palette.style.getPropertyPriority("overflow-anchor"), computed: getComputedStyle(palette).getPropertyValue("overflow-anchor") } : null;
-  const baseX = scrollX, baseY = scrollY;
-  const rect = (node: Element | null | undefined) => { if (!node) return null; const r = node.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
-  const factorState = () => palette ? { value: palette.style.getPropertyValue("overflow-anchor"), priority: palette.style.getPropertyPriority("overflow-anchor"), computed: getComputedStyle(palette).getPropertyValue("overflow-anchor") } : null;
-  const read = () => ({ S: scrollY, x: scrollX, P: palette?.style.top ?? null, L: label ? label.getBoundingClientRect().y : null, target: rect(label), radio: rect(radio), anchor: rect(anchor), palette: rect(palette), open: details?.open ?? null, factor: factorState() });
-  const initialViewport = JSON.stringify([innerWidth, innerHeight, devicePixelRatio, window.visualViewport?.width ?? null, window.visualViewport?.height ?? null, window.visualViewport?.scale ?? null, window.visualViewport?.offsetLeft ?? null, window.visualViewport?.offsetTop ?? null]);
-  const originalActive = document.activeElement;
-  const baselineOtherStyle = () => palette ? [...palette.style].filter(key => !["overflow-anchor", "top", "left", "max-height"].includes(key)).map(key => [key, palette.style.getPropertyValue(key), palette.style.getPropertyPriority(key)]) : [];
-  const otherStyle = JSON.stringify(baselineOtherStyle());
-  const computedAncestors = ancestors.map(node => ({ node: structural(node), overflowAnchor: getComputedStyle(node).getPropertyValue("overflow-anchor") }));
-  report.preconditions = { supports: CSS.supports("overflow-anchor", "none"), original, ancestors: computedAncestors, counts: { regions: regions.length, pickers: pickers?.length ?? 0, palettes: palettes?.length ?? 0, radios: radios?.length ?? 0 }, baseX, baseY, snapshot: read(), activeElement: structural(document.activeElement), fontStatus: document.fonts?.status ?? null, viewport: initialViewport, pendingControls: document.querySelectorAll('[data-operation-recovery], [aria-busy="true"]').length };
-  let phase = "precondition", token = 0, stopped = false, activeDriver: ReturnType<typeof fixedColorAnchorDriver> | null = null, phaseTimer: number | null = null, totalTimer: number | null = null, phaseStart = 0, phaseDeadline = 0, finalPhaseEnd: (() => void) | null = null;
-  const cleanups: (() => void)[] = []; const natural: Entry[] = [];
-  let resolve!: (value: Entry) => void; const result = new Promise<Entry>(done => { resolve = done; });
-  async function stop(status: string, reason: string) {
-    if (stopped) return; stopped = true; token++; activeDriver?.cancel("EXPERIMENT_STOPPED"); if (phaseTimer !== null) clearTimeout(phaseTimer); if (totalTimer !== null) clearTimeout(totalTimer); phaseTimer = null; totalTimer = null;
-    const cleanupStart = performance.now(), beforeRestore = read();
-    const restored = palette && original ? factor(palette, "cleanup", original) : null;
-    const exact = !original || Boolean(restored && restored.value === original.value && restored.priority === original.priority && restored.computed === original.computed);
-    for (const cleanup of cleanups.splice(0)) cleanup();
-    log({ kind: "cleanup", status, reason, beforeRestore, restored, exact, topAfterRestore: palette?.style.top ?? null, timersRemaining: 0, listenersRemaining: cleanups.length, driver: activeDriver?.state() ?? null });
-    const cleanup = observation ? await observation.finish("anchor-aba-cleanup") : null;
-    await Promise.allSettled([...pending]);
-    Object.assign(report, { status: exact && !dropped && performance.now() - cleanupStart <= 2000 ? status : "INCONCLUSIVE", reason: exact ? reason : "FACTOR_RESTORE_NOT_EXACT", dropped, cleanup: { start: cleanupStart, end: performance.now(), exact, rawObservation: cleanup, timersRemaining: 0, listenersRemaining: cleanups.length, pendingPackets: pending.size }, stoppedAt: performance.now() });
-    resolve(report);
-  }
-  const invalidate = (reason: string) => { log({ kind: "invalidation", phase, token, reason, actual: read() }); void stop("INCONCLUSIVE", reason); };
-  const validHost = () => Boolean(region?.isConnected && picker?.isConnected && palette?.isConnected && details?.open && anchor?.isConnected && label?.isConnected && radio?.isConnected && region.contains(palette) && radio.parentElement === label && document.activeElement === originalActive);
-  const factorValid = () => {
-    if (!palette || !original) return false;
-    const current = factorState();
-    return phase === "B" ? current?.value === "none" && current.priority === "" && current.computed === "none" : current?.value === original.value && current.priority === original.priority && current.computed === original.computed;
+  const details = picker?.querySelector("details"), anchor = details?.querySelector("summary"), radios = palette?.querySelectorAll<HTMLInputElement>('input[type="radio"][value="custom"]'), radio = radios?.length === 1 ? radios[0] : null, label = radio?.parentElement;
+  const ancestors: Element[] = []; for (let node = palette?.parentElement; node && ancestors.length < 32; node = node.parentElement) ancestors.push(node);
+  const policy = () => palette ? { value: palette.style.getPropertyValue("overflow-anchor"), priority: palette.style.getPropertyPriority("overflow-anchor"), computed: getComputedStyle(palette).getPropertyValue("overflow-anchor") } : null;
+  const original = policy();
+  const viewport = () => [innerWidth, innerHeight, devicePixelRatio, window.visualViewport?.width ?? null, window.visualViewport?.height ?? null, window.visualViewport?.scale ?? null, window.visualViewport?.offsetLeft ?? null, window.visualViewport?.offsetTop ?? null];
+  const initialViewport = JSON.stringify(viewport());
+  const otherStyle = () => palette ? [...palette.style].filter(key => !["overflow-anchor", "top", "left", "width", "max-height"].includes(key)).map(key => [key, palette.style.getPropertyValue(key), palette.style.getPropertyPriority(key)]) : [];
+  const initialOtherStyle = JSON.stringify(otherStyle());
+  const fonts = [label, radio, anchor, palette].map(node => { if (!node) return null; const style = getComputedStyle(node); return { node: structure(node), family: style.fontFamily, size: style.fontSize, weight: style.fontWeight, lineHeight: style.lineHeight, textAdjust: style.getPropertyValue("text-size-adjust"), webkitTextAdjust: style.getPropertyValue("-webkit-text-size-adjust") }; });
+  const originalAncestors = ancestors.map(node => ({ node: structure(node), overflowAnchor: getComputedStyle(node).getPropertyValue("overflow-anchor") }));
+  const signature = { viewport: viewport(), scroll: { x: scrollX, y: scrollY }, fonts, fontStatus: document.fonts?.status ?? null, position: palette ? { computedPosition: getComputedStyle(palette).position, width: palette.style.width, left: palette.style.left, top: palette.style.top, maxHeight: palette.style.maxHeight } : null, original, ancestors: originalAncestors };
+  report.signature = signature; report.preconditions = { supports: CSS.supports("overflow-anchor", "none"), original, counts: { regions: regions.length, pickers: pickers?.length ?? 0, palettes: palettes?.length ?? 0, radios: radios?.length ?? 0 }, closed: details?.open === false, activeElement: structure(document.activeElement), S: scrollY, x: scrollX, pendingControls: document.querySelectorAll('[data-operation-recovery], [aria-busy="true"]').length };
+  const log = (kind: string, extra: Entry = {}) => {
+    const value = { sequence: ++sequence, experiment: "fresh-open-v2", ...options, time: performance.now(), kind, S: scrollY, x: scrollX, open: details?.open ?? null, factor: policy(), ...extra };
+    if (events.length >= 1024 || pending.size >= 8) { dropped++; if (!stopped) queueMicrotask(() => { void finish("INCONCLUSIVE", "EVENT_OR_STREAM_LIMIT"); }); return; }
+    events.push(value); const task = Promise.resolve(send(value)).catch(() => { dropped++; }).finally(() => pending.delete(task)); pending.add(task);
   };
-  const current = () => !stopped && validHost() && JSON.stringify([innerWidth, innerHeight, devicePixelRatio, window.visualViewport?.width ?? null, window.visualViewport?.height ?? null, window.visualViewport?.scale ?? null, window.visualViewport?.offsetLeft ?? null, window.visualViewport?.offsetTop ?? null]) === initialViewport && JSON.stringify(baselineOtherStyle()) === otherStyle && factorValid();
-  globals.__siteUIColorAnchorABA = { metadata() { const valid = current(); if (!stopped && !valid) queueMicrotask(() => invalidate("HOST_FACTOR_VIEWPORT_OR_STYLE_CHANGED")); return { phase, token, phaseStart, phaseDeadline, valid, factor: factorState(), activeElement: structural(document.activeElement) }; }, abort(reason: string) { return stop("INCONCLUSIVE", reason); } };
-  log({ kind: "preconditions", ...report.preconditions as Entry });
-  if (!observation?.frames || !region || !picker || !palette || !details?.open || !anchor || !radio || !label || !palette.isConnected || getComputedStyle(palette).position !== "fixed") { await stop("INCONCLUSIVE", "UNIQUE_OPEN_FIXED_HOST_NOT_PROVEN"); return result; }
-  if (performance.now() - (report.identityStarted as number) > 2000) { await stop("INCONCLUSIVE", "IDENTITY_SUPPORT_BUDGET_EXCEEDED"); return result; }
-  if (!CSS.supports("overflow-anchor", "none") || original?.computed !== "auto" || computedAncestors.some(value => value.overflowAnchor !== "auto")) { await stop("UNSUPPORTED_OR_NO_FACTOR_CONTRAST", "SUPPORT_COMPUTED_OR_ANCESTOR_NOT_CLEAN"); return result; }
-  if ((report.preconditions as Entry).pendingControls !== 0 || document.fonts?.status === "loading" || !validHost() || baseY < 1) { await stop("INCONCLUSIVE", "INITIAL_IDENTITY_PENDING_FONT_OR_DRIVER_RANGE"); return result; }
-  if (innerWidth !== 1024 || innerHeight !== 1000) { await stop("INCONCLUSIVE", "VIEWPORT_NOT_ORIGINAL_1024_1000"); return result; }
-  const listen = (source: EventTarget, kind: string, callback: EventListener, capture = false) => { source.addEventListener(kind, callback, capture); cleanups.push(() => source.removeEventListener(kind, callback, capture)); };
-  listen(document, "scroll", event => { if (event.target === document) { const entry = { time: performance.now(), phase, source: "document", trusted: event.isTrusted, x: scrollX, S: scrollY }; natural.push(entry); if (natural.length > 2048) { invalidate("NATURAL_EVENT_LIMIT"); return; } log({ kind: "natural-scroll", ...entry }); } }, true);
-  for (const kind of ["pointerdown", "click", "keydown", "focusin", "focusout"]) listen(document, kind, event => { invalidate(`UNEXPECTED_${event.type}`); }, true);
-  listen(window, "resize", () => invalidate("WINDOW_RESIZE"));
-  if (window.visualViewport) listen(window.visualViewport, "resize", () => invalidate("VISUAL_VIEWPORT_CHANGE"));
-  if (document.fonts) for (const kind of ["loading", "loadingdone", "loadingerror"]) listen(document.fonts, kind, () => invalidate("FONT_CHANGE"));
-  const mutation = new MutationObserver(records => {
-    for (const record of records) {
-      log({ kind: "factor-or-ancestor-mutation", phase, token, source: structural(record.target as Element), attribute: record.attributeName, actual: read() });
-      if (record.target !== palette || !current()) { invalidate("FACTOR_ANCESTOR_OR_OTHER_STYLE_MUTATION"); return; }
-    }
-  });
-  mutation.observe(palette, { attributes: true, attributeFilter: ["style"] }); for (const ancestor of ancestors) mutation.observe(ancestor, { attributes: true, attributeFilter: ["style", "class", "open"] }); cleanups.push(() => mutation.disconnect());
-  const experimentStart = performance.now(); report.experimentStart = experimentStart; report.experimentalDeadline = experimentStart + 12000;
-  async function begin(index: number) {
-    if (stopped) return;
-    phase = ["A0", "B", "A1"][index]; token++; const ownToken = token;
-    phaseStart = experimentStart + index * 4000; phaseDeadline = phaseStart + 4000;
-    if (performance.now() >= phaseDeadline || !validHost()) { invalidate("PHASE_START_EXPIRED_OR_IDENTITY"); return; }
-    const stage: Entry = { phase, token, scheduledStart: phaseStart, deadline: phaseDeadline, factorBefore: read(), actualStart: performance.now(), driftMs: performance.now() - phaseStart }; phases.push(stage);
-    factor(palette!, phase, original!); log({ kind: "phase-factor", phase, token, scheduledStart: phaseStart, deadline: phaseDeadline, actual: read() });
-    if (!current()) { invalidate("PHASE_FACTOR_NOT_EFFECTIVE"); return; }
-    const driverStart = performance.now(); let receipt: Entry | null = null;
-    activeDriver = driver({ phase, token, baseX, baseY, deadline: phaseDeadline, current: () => token === ownToken && current(), read, log, natural: () => natural.filter(event => (event.time as number) >= driverStart && event.trusted === true) });
-    void activeDriver.promise.then(value => { receipt = value; stage.driver = value; if (!stopped && token === ownToken && value.valid !== true) invalidate(String(value.reason)); });
-    const end = () => {
-      phaseTimer = null; if (stopped || token !== ownToken) return;
-      if (!receipt || receipt.valid !== true || !current()) { invalidate("DRIVER_MISSING_OR_STAGE_INVALID"); return; }
-      const state = observation!.state();
-      if (["droppedFrames", "droppedEvents", "sendFailures", "discoveryGaps"].some(key => state[key] !== 0)) { invalidate("OBSERVATION_GAP_OR_DROP"); return; }
-      const summary = summarize(observation!.frames(), phase, phaseStart, phaseDeadline); stage.summary = summary; stage.actualEnd = performance.now(); stage.endDriftMs = performance.now() - phaseDeadline; log({ kind: "phase-end", phase, token, summary, actual: read() });
-      if (!summary.complete) { void stop("INCONCLUSIVE", "INSUFFICIENT_FIXED_WINDOW_SAMPLES"); return; }
-      if (index === 0 && summary.kind !== "loop") { void stop("BASELINE_NOT_REPRODUCED", "A0_NO_SUSTAINED_ONE_PIXEL_LOOP"); return; }
-      if (index === 1 && summary.kind !== "stable") { void stop("FACTOR_DID_NOT_ELIMINATE_OBSERVED_LOOP", "B_NOT_SINGLE_VALUED"); return; }
-      if (index === 2) { void stop(summary.kind === "loop" ? "palette-policy-causal-control-supported" : "NON_REVERSIBLE_OR_PATH_DEPENDENT", summary.kind === "loop" ? "MATCHED_DRIVER_A_LOOP_B_STABLE_A_LOOP" : "A1_DID_NOT_RESTORE_LOOP"); return; }
-      void begin(index + 1);
-    };
-    if (index === 2) finalPhaseEnd = end;
-    else phaseTimer = window.setTimeout(end, Math.max(0, Math.ceil(phaseDeadline - performance.now())));
+  const validHost = () => Boolean(region?.isConnected && picker?.isConnected && palette?.isConnected && radio?.isConnected && label?.isConnected && anchor?.isConnected && region.contains(palette) && radio.parentElement === label);
+  const validPolicy = () => { const current = policy(); return options.sampleId === "B" ? current?.value === "none" && current.priority === "" && current.computed === "none" : current?.value === original?.value && current?.priority === original?.priority && current?.computed === "auto"; };
+  const valid = () => validHost() && validPolicy() && JSON.stringify(viewport()) === initialViewport && JSON.stringify(otherStyle()) === initialOtherStyle && (firstOpen === null || details?.open === true);
+  async function finish(status: string, reason: string) {
+    if (stopped) return; stopped = true; ready = false; const cleanupStart = performance.now(); if (timer !== null) clearTimeout(timer); timer = null;
+    for (const cleanup of cleanups.splice(0)) cleanup();
+    const summary = firstOpen !== null && deadline !== null && observation?.frames ? summarize(observation.frames(), options.sampleId, firstOpen, deadline) : null;
+    const restored = palette && original ? restore(palette, original) : null;
+    const exact = Boolean(original && restored && restored.value === original.value && restored.priority === original.priority && restored.computed === original.computed);
+    log("cleanup", { reason, restored, exact, topAfter: palette?.style.top ?? null, listenersRemaining: cleanups.length, timerRemaining: false });
+    const rawCleanup = observation ? await observation.finish("fresh-open-v2-cleanup") : null; await Promise.allSettled([...pending]);
+    const state = observation?.state(); const gaps = state ? ["droppedFrames", "droppedEvents", "sendFailures", "discoveryGaps"].some(key => state[key] !== 0) : true;
+    Object.assign(report, { status: exact && !gaps && !dropped && performance.now() - cleanupStart <= 2000 ? status : "INCONCLUSIVE", reason, firstOpen, deadline, windowStoppedAt: cleanupStart, windowStopDriftMs: deadline === null ? null : cleanupStart - deadline, actualEnd: performance.now(), summary, dropped, cleanup: { exact, restored, rawCleanup, durationMs: performance.now() - cleanupStart, listenersRemaining: cleanups.length, timerRemaining: false, pendingPackets: pending.size } }); resolve(report);
   }
-  totalTimer = window.setTimeout(() => { totalTimer = null; if (stopped) return; if (phase === "A1" && finalPhaseEnd) finalPhaseEnd(); else invalidate("EXPERIMENT_WINDOW_DEADLINE"); }, Math.ceil(experimentStart + 12000 - performance.now()));
-  void begin(0); return result;
+  const abort = (reason: string) => { if (stopped) return; log("invalidation", { reason }); return finish("INCONCLUSIVE", reason); };
+  globals.__siteUIColorAnchorABA = {
+    metadata() { const current = valid(); if (!stopped && !current) queueMicrotask(() => { void abort("HOST_POLICY_VIEWPORT_OR_STYLE_CHANGED"); }); return { experiment: "fresh-open-v2", ...options, phase: options.sampleId, valid: current && !stopped, firstOpen, deadline, factor: policy() }; },
+    onToggle(open: boolean, time: number) {
+      if (stopped) return; log("true-toggle-capture", { capturedTime: time });
+      if (!open || firstOpen !== null || !valid()) { void abort("UNEXPECTED_TOGGLE_OR_IDENTITY"); return; }
+      firstOpen = time; deadline = time + 4000;
+      timer = window.setTimeout(() => { timer = null; void finish("SAMPLE_OBSERVED", "FIXED_FIRST_OPEN_WINDOW_COMPLETE"); }, Math.max(0, Math.ceil(deadline - performance.now())));
+    }, wait: () => result, abort, snapshot: () => ({ ready, firstOpen, deadline, timeOrigin: performance.timeOrigin, signature, stopped }),
+  };
+  log("closed-preconditions", { signature, preconditions: report.preconditions });
+  if (!observation?.frames || !validHost() || !details || details.open || !original || original.value !== "" || original.priority !== "" || original.computed !== "auto" || !CSS.supports("overflow-anchor", "none") || originalAncestors.some(value => value.overflowAnchor !== "auto")) { void finish("INCONCLUSIVE", "UNSUPPORTED_OR_UNIQUE_CLOSED_POLICY_NOT_PROVEN"); return { ready: false, signature }; }
+  if (document.fonts?.status !== "loaded" || innerWidth !== 1024 || innerHeight !== 1000 || (report.preconditions as Entry).pendingControls !== 0) { void finish("INCONCLUSIVE", "FONT_VIEWPORT_OR_PENDING_PRECONDITION"); return { ready: false, signature }; }
+  const listen = (source: EventTarget, kind: string, callback: EventListener, capture = false) => { source.addEventListener(kind, callback, capture); cleanups.push(() => source.removeEventListener(kind, callback, capture)); };
+  for (const kind of ["pointerdown", "click", "keydown", "focusin", "focusout"]) listen(document, kind, event => {
+    log(event.type, { source: structure(event.target), activeElement: structure(document.activeElement) });
+    if (firstOpen !== null || event.type === "keydown" || (["pointerdown", "click"].includes(event.type) && !(event.target instanceof Node && anchor?.contains(event.target)))) void abort("UNEXPECTED_INPUT_OR_FOCUS");
+  }, true);
+  listen(window, "resize", () => { void abort("RESIZE"); }); if (window.visualViewport) listen(window.visualViewport, "resize", () => { void abort("VISUAL_VIEWPORT_CHANGE"); });
+  if (document.fonts) for (const kind of ["loading", "loadingdone", "loadingerror"]) listen(document.fonts, kind, () => { void abort("FONT_CHANGE"); });
+  const mutation = new MutationObserver(records => { for (const record of records) {
+    log("mutation", { source: structure(record.target), attribute: record.attributeName });
+    const expectedOpen = record.target === details && record.attributeName === "open" && details.open && !openMutationSeen;
+    if (expectedOpen) openMutationSeen = true;
+    if (!expectedOpen && (record.target !== palette || !valid())) { void abort("HOST_FACTOR_OR_ANCESTOR_MUTATION"); return; }
+  } });
+  mutation.observe(palette!, { attributes: true, attributeFilter: ["style"], attributeOldValue: true }); for (const ancestor of ancestors) mutation.observe(ancestor, { attributes: true, attributeFilter: ["class", "style", "open"] }); cleanups.push(() => mutation.disconnect());
+  if (options.sampleId === "B") palette!.style.setProperty("overflow-anchor", "none");
+  log("policy-before-original-click"); if (!valid()) { void abort("POLICY_NOT_EFFECTIVE_BEFORE_OPEN"); return { ready: false, signature }; }
+  ready = true; return { ready, signature };
 }
 
-export async function runColorAnchorABA(page: Page, info: TestInfo) {
-  const started = clock.now(), setupDeadline = started + 10000;
-  const report: Entry = { schemaVersion: 1, diagnosticOnly: true, p2: "OPEN", status: "INCONCLUSIVE", started, budget: { total: 30000, setup: 10000, identity: 2000, phases: [4000, 4000, 4000], cleanup: 2000, reserve: 4000 }, businessHashes: [], actions: [] };
-  const actions = report.actions as Entry[], businessHashes = report.businessHashes as Entry[];
-  const output = info.outputPath("color-anchor-aba.json"), streamPath = info.outputPath("color-anchor-aba-stream.jsonl"); mkdirSync(dirname(output), { recursive: true });
-  let streamSequence = 0; const streamEntries: Entry[] = []; const streamErrors: string[] = [], streamCostsMs: number[] = [];
-  let observation: Awaited<ReturnType<typeof installColorAnchorABAObservation>> | null = null;
-  async function bounded<T>(operation: string, action: (remaining: number) => Promise<T>, deadline = setupDeadline): Promise<T> {
-    const remaining = Math.floor(deadline - clock.now()); if (remaining <= 0) throw new Error(`BUDGET_EXHAUSTED:${operation}`);
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try { const result = await Promise.race([action(remaining), new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error(`BUDGET_EXHAUSTED:${operation}`)), remaining); })]); actions.push({ operation, remainingAtStart: remaining, finished: clock.now() - started }); return result; }
-    finally { if (timer) clearTimeout(timer); }
-  }
-  const hashStore = () => bounded("hash-DEMO-retail-store", () => page.evaluate(async () => {
-    if (!crypto.subtle) throw new Error("DEMO_HASH_API_UNAVAILABLE");
-    const data = new TextEncoder().encode(JSON.stringify(localStorage.getItem("chinatech.m1.retail.v1")));
-    return [...new Uint8Array(await crypto.subtle.digest("SHA-256", data))].map(value => value.toString(16).padStart(2, "0")).join("");
-  }));
-  try {
-    if (!shouldRunColorAnchorABA(info)) throw new Error("INDEPENDENT_ABA_GUARD_NOT_MATCHED");
-    observation = await bounded("install-ABA-raw-collector", () => installColorAnchorABAObservation(page, info));
-    await bounded("install-ABA-tools", () => page.addInitScript({ content: colorAnchorToolsSource() }));
-    await bounded("install-ABA-stream", () => page.exposeBinding("__siteUIColorAnchorABAStream", (source, packet: Entry) => {
-      const bindingStart = clock.now();
-      if (source.frame !== page.mainFrame() || !packet || typeof packet !== "object" || JSON.stringify(packet).length > 512000) { streamErrors.push("ABA_STREAM_SOURCE_OR_SIZE"); return; }
-      if (streamEntries.length >= 4096) { streamErrors.push("ABA_STREAM_LIMIT"); return; }
-      if (packet.sequence !== streamSequence + 1) streamErrors.push("ABA_STREAM_SEQUENCE_GAP");
-      streamEntries.push(packet); streamSequence++;
-      try { appendFileSync(streamPath, JSON.stringify(packet) + "\n"); } catch (error) { streamErrors.push(String(error)); }
-      streamCostsMs.push(clock.now() - bindingStart);
-    }));
-    const response = await bounded("preview-session", timeout => page.request.post("/api/preview-session", { timeout, data: { email: "demo@chinatech.local", password: "Preview2026!" } }));
-    if (response.status() !== 200) throw new Error("PREVIEW_SESSION_NOT_200");
-    await bounded("initial-retail-route", timeout => page.goto("/app/retail/units/demo-unit-1", { timeout }));
-    for (const width of [1440, 1024]) {
-      await bounded(`viewport-${width}`, () => page.setViewportSize({ width, height: 1000 }));
-      const toggles = await bounded(`groups-${width}`, () => page.locator('[data-retail-group] > button[aria-expanded="false"]').all());
-      for (const toggle of toggles) if (await bounded("group-visible", () => toggle.isVisible())) await bounded("group-toggle", timeout => toggle.click({ timeout }));
-      await bounded(`edit-color-${width}`, timeout => page.getByRole("button", { name: "编辑颜色", exact: true }).click({ timeout }));
-      const editor = page.getByRole("region", { name: "编辑颜色", exact: true });
-      await bounded("editor-visible", timeout => expect(editor).toBeVisible({ timeout }));
-      const before = await hashStore(); businessHashes.push({ width, stage: "before-color", sha256: before });
-      await bounded(`open-palette-${width}`, timeout => editor.getByLabel("选择设备颜色", { exact: true }).click({ timeout }));
-      if (width === 1024) break;
-      await bounded("original-1440-label-click", timeout => editor.getByRole("radio", { name: "其他颜色", exact: true }).locator("..").click({ timeout }));
-      await bounded("original-1440-fill", timeout => editor.getByRole("textbox", { name: "其他颜色", exact: true }).fill("DEMO unsaved custom color", { timeout }));
-      await bounded("original-1440-cancel", timeout => editor.getByRole("button", { name: "取消", exact: true }).click({ timeout }));
-      await bounded("editor-closed", timeout => expect(editor).toHaveCount(0, { timeout }));
-      await bounded("original-real-reload", timeout => page.reload({ timeout }));
-      const after = await hashStore(); businessHashes.push({ width, stage: "after-real-reload", sha256: after });
-      if (before !== after) throw new Error("DEMO_STORE_CHANGED_AFTER_CANCEL_RELOAD");
-      await bounded("retail-heading-after-reload", timeout => expect(page.getByRole("heading", { name: "商品档案", exact: true })).toBeVisible({ timeout }));
-      if (!await bounded("original-overflow-check", () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))) throw new Error("ORIGINAL_HORIZONTAL_OVERFLOW");
+async function storeHash(page: Page) {
+  return page.evaluate(async () => { const input = new TextEncoder().encode(JSON.stringify(localStorage.getItem("chinatech.m1.retail.v1"))); return [...new Uint8Array(await crypto.subtle.digest("SHA-256", input))].map(value => value.toString(16).padStart(2, "0")).join(""); });
+}
+
+export async function runColorAnchorABA(browser: Browser, info: TestInfo) {
+  const outerStart = clock.now(), samples: Entry[] = [];
+  const report: Entry = { experiment: "fresh-open-v2", diagnosticOnly: true, p2: "OPEN", ciSha: process.env.GITHUB_SHA ?? null, status: "INCONCLUSIVE", samples, notExecuted: ["A0", "B", "A1"], budget: { sample: 18000, setup: 10000, policyAndOriginalOpen: 2000, firstOpenWindow: 4000, cleanup: 2000, outer: 60000 } };
+  if (!shouldRunColorAnchorABA(info)) throw new Error("FRESH_OPEN_GUARD_NOT_MATCHED");
+  const output = info.outputPath("color-anchor-aba.json"); mkdirSync(dirname(output), { recursive: true });
+  let expectedSignature: string | null = null, expectedStoreHash: string | null = null;
+  for (const sampleId of ["A0", "B", "A1"] as const) {
+    const start = clock.now(), setupDeadline = start + 10000, sample: Entry = { experiment: "fresh-open-v2", sampleId, contextId: `fresh-${sampleId}`, status: "INCONCLUSIVE", actions: [], storeHashes: [], stream: [] }; samples.push(sample); report.notExecuted = (["A0", "B", "A1"] as const).slice(samples.length);
+    let context: BrowserContext | null = null, page: Page | null = null, observer: Awaited<ReturnType<typeof installColorAnchorABAObservation>> | null = null, cleanupDeadline = start + 18000;
+    let lateContext = false; const streamPath = info.outputPath(`color-anchor-aba-${sampleId}-stream.jsonl`); const streamCosts: number[] = [];
+    async function bounded<T>(name: string, action: (remaining: number) => Promise<T>, deadline = setupDeadline): Promise<T> {
+      const remaining = Math.floor(Math.min(deadline, outerStart + 60000) - clock.now()); if (remaining <= 0) throw new Error(`BUDGET:${name}`); let timer: ReturnType<typeof setTimeout> | undefined;
+      try { const value = await Promise.race([action(remaining), new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error(`BUDGET:${name}`)), remaining); })]); (sample.actions as Entry[]).push({ name, remaining, finishedMs: clock.now() - start }); return value; }
+      finally { if (timer) clearTimeout(timer); }
     }
-    report.setupFinished = clock.now() - started;
-    report.experiment = await bounded("fixed-ABA-browser-experiment", () => page.evaluate(colorAnchorABABrowserExperiment), clock.now() + 16000);
-    report.status = (report.experiment as Entry).status;
-    const finalHash = await bounded("final-DEMO-hash", () => page.evaluate(async () => {
-      const input = new TextEncoder().encode(JSON.stringify(localStorage.getItem("chinatech.m1.retail.v1")));
-      return [...new Uint8Array(await crypto.subtle.digest("SHA-256", input))].map(value => value.toString(16).padStart(2, "0")).join("");
-    }), clock.now() + 1000);
-    businessHashes.push({ stage: "after-experiment", sha256: finalHash }); if (businessHashes.some(value => value.sha256 !== finalHash)) { report.status = "INCONCLUSIVE"; report.reason = "DEMO_STORE_HASH_CHANGED"; }
-  } catch (error) { report.status = "INCONCLUSIVE"; report.reason = String(error); }
-  finally {
-    const cleanupStart = clock.now(), cleanupDeadline = cleanupStart + 2000;
-    if (!page.isClosed()) {
-      try { await bounded("abort-or-confirm-ABA-cleanup", () => page.evaluate(async () => { const controller = (window as unknown as Record<string, { abort?: (reason: string) => Promise<unknown> }>).__siteUIColorAnchorABA; await controller?.abort?.("NODE_FINALLY"); }), cleanupStart + 1000); }
-      catch (error) { report.status = "INCONCLUSIVE"; report.abortCleanupError = String(error); }
-    } else { report.status = "INCONCLUSIVE"; report.abortCleanupError = "page closed; exact restoration and cleanup could not be checked"; }
-    if (observation) {
-      try { const raw = await bounded("raw-collector-cleanup", () => observation!.finish(), cleanupDeadline); report.rawInputSha256 = raw.inputSha256; report.rawTransport = raw.transport; const seq = new Map<string, number>(); const gap = raw.packets.some(packet => { const previous = seq.get(packet.documentId) ?? 0; seq.set(packet.documentId, packet.sequence); return packet.sequence !== previous + 1; }); report.rawSequenceGap = gap; if (gap || raw.cleanupUnavailable || raw.transport.rejectedPackets || raw.transport.collectorErrors.length || raw.transport.lastStates && Object.values(raw.transport.lastStates).some(state => state && ["droppedFrames", "droppedEvents", "sendFailures", "discoveryGaps"].some(key => (state as Entry)[key] !== 0))) report.status = "INCONCLUSIVE"; }
-      catch (error) { report.status = "INCONCLUSIVE"; report.rawCleanupError = String(error); }
+    try {
+      const use = info.project.use; const options: BrowserContextOptions = { baseURL: use.baseURL, viewport: use.viewport, userAgent: use.userAgent, deviceScaleFactor: use.deviceScaleFactor, isMobile: use.isMobile, hasTouch: use.hasTouch, locale: use.locale, colorScheme: use.colorScheme, reducedMotion: use.reducedMotion, forcedColors: use.forcedColors, timezoneId: use.timezoneId };
+      const creation = browser.newContext(options); void creation.then(value => { if (lateContext) void value.close().catch(() => { sample.lateContextCleanupUnconfirmed = true; }); }, () => undefined); context = await bounded("fresh-context", () => creation); page = await bounded("fresh-page", () => context!.newPage());
+      observer = await bounded("raw-collector", () => installColorAnchorABAObservation(page!, info, sampleId)); await bounded("tools", () => page!.addInitScript({ content: freshColorToolsSource() }));
+      await bounded("sample-stream", () => page!.exposeBinding("__siteUIColorAnchorABAStream", (source, packet: Entry) => {
+        const before = clock.now(); const stream = sample.stream as Entry[];
+        if (source.frame !== page!.mainFrame() || stream.length >= 1024 || JSON.stringify(packet).length > 512000) { sample.streamGap = true; return; }
+        if (packet.sequence !== stream.length + 1) sample.streamGap = true; stream.push(packet); try { appendFileSync(streamPath, JSON.stringify(packet) + "\n"); } catch (error) { sample.streamError = String(error); } streamCosts.push(clock.now() - before);
+      }));
+      const session = await bounded("preview-session", timeout => context!.request.post("/api/preview-session", { timeout, data: { email: "demo@chinatech.local", password: "Preview2026!" } })); if (session.status() !== 200) throw new Error("PREVIEW_SESSION_NOT_200");
+      await bounded("retail-route", timeout => page!.goto("/app/retail/units/demo-unit-1", { timeout }));
+      for (const width of [1440, 1024]) {
+        await bounded(`viewport-${width}`, () => page!.setViewportSize({ width, height: 1000 }));
+        const toggles = await bounded("original-group-targets", () => page!.locator('[data-retail-group] > button[aria-expanded="false"]').all());
+        for (const toggle of toggles) if (await bounded("group-visible", () => toggle.isVisible())) await bounded("original-group-click", timeout => toggle.click({ timeout }));
+        await bounded("original-editor-click", timeout => page!.getByRole("button", { name: "编辑颜色", exact: true }).click({ timeout })); const editor = page!.getByRole("region", { name: "编辑颜色", exact: true }); await bounded("editor-visible", timeout => expect(editor).toBeVisible({ timeout }));
+        const before = await bounded("DEMO-store-hash", () => storeHash(page!)); (sample.storeHashes as string[]).push(before); if (expectedStoreHash === null) expectedStoreHash = before; if (before !== expectedStoreHash) throw new Error("FRESH_INITIAL_DEMO_HASH_MISMATCH");
+        if (width === 1024) break;
+        await bounded("original1440-open", timeout => editor.getByLabel("选择设备颜色", { exact: true }).click({ timeout })); await bounded("original1440-custom-label", timeout => editor.getByRole("radio", { name: "其他颜色", exact: true }).locator("..").click({ timeout }));
+        await bounded("original1440-fill", timeout => editor.getByRole("textbox", { name: "其他颜色", exact: true }).fill("DEMO unsaved custom color", { timeout })); await bounded("original1440-cancel", timeout => editor.getByRole("button", { name: "取消", exact: true }).click({ timeout }));
+        await bounded("editor-closed", timeout => expect(editor).toHaveCount(0, { timeout })); await bounded("real-reload", timeout => page!.reload({ timeout })); const after = await bounded("DEMO-reload-hash", () => storeHash(page!)); (sample.storeHashes as string[]).push(after); if (after !== before) throw new Error("DEMO_CANCEL_RELOAD_HASH_CHANGED");
+        await bounded("original-heading", timeout => expect(page!.getByRole("heading", { name: "商品档案", exact: true })).toBeVisible({ timeout })); if (!await bounded("original-overflow", () => page!.evaluate(() => document.documentElement.scrollWidth <= innerWidth))) throw new Error("ORIGINAL_OVERFLOW");
+      }
+      sample.setupMs = clock.now() - start; const policyDeadline = clock.now() + 2000;
+      const prepared = await bounded("closed-policy-arm", () => page!.evaluate(prepareFreshColorOpen, { sampleId, contextId: `fresh-${sampleId}` }), policyDeadline); sample.prepared = prepared;
+      if (!prepared.ready) { sample.observation = await bounded("precondition-stop-report", () => page!.evaluate(() => (window as unknown as Record<string, { wait: () => Promise<Entry> }>).__siteUIColorAnchorABA.wait()), policyDeadline); throw new Error("CLOSED_POLICY_PRECONDITION_FAILED"); } const signature = JSON.stringify(prepared.signature); if (expectedSignature === null) expectedSignature = signature; if (signature !== expectedSignature) throw new Error("FRESH_FONT_STYLE_VIEWPORT_STATE_MISMATCH");
+      await bounded("original1024-summary-click-only", timeout => page!.getByRole("region", { name: "编辑颜色", exact: true }).getByLabel("选择设备颜色", { exact: true }).click({ timeout }), policyDeadline);
+      const opened = await bounded("first-toggle-receipt", () => page!.evaluate(() => (window as unknown as Record<string, { snapshot: () => { firstOpen: number | null; deadline: number | null; timeOrigin: number } }>).__siteUIColorAnchorABA.snapshot()), policyDeadline);
+      if (opened.firstOpen === null || opened.deadline === null) throw new Error("FIRST_TRUE_TOGGLE_NOT_CAPTURED");
+      cleanupDeadline = Math.min(start + 18000, clock.now() + Math.max(0, opened.timeOrigin + opened.deadline + 2000 - Date.now()));
+      sample.observation = await bounded("fixed-first-open-window", () => page!.evaluate(() => (window as unknown as Record<string, { wait: () => Promise<Entry> }>).__siteUIColorAnchorABA.wait()), cleanupDeadline);
+      const finalHash = await bounded("DEMO-final-hash", () => storeHash(page!), cleanupDeadline); (sample.storeHashes as string[]).push(finalHash); if (finalHash !== expectedStoreHash) throw new Error("DEMO_STORE_CHANGED");
+      sample.status = (sample.observation as Entry).status;
+    } catch (error) { lateContext = true; sample.status = "INCONCLUSIVE"; sample.reason = String(error); }
+    finally {
+      cleanupDeadline = Math.min(cleanupDeadline, clock.now() + 2000, start + 18000);
+      if (page && !page.isClosed()) { try { await bounded("abort-confirm-cleanup", () => page!.evaluate(async () => { await (window as unknown as Record<string, { abort?: (reason: string) => Promise<unknown> }>).__siteUIColorAnchorABA?.abort?.("NODE_FINALIZATION"); }), cleanupDeadline); } catch (error) { sample.cleanupError = String(error); sample.status = "INCONCLUSIVE"; } }
+      if (observer) { try { const raw = await bounded("raw-finalization", () => observer!.finish(), cleanupDeadline); sample.inputSha256 = raw.inputSha256; sample.rawTransport = raw.transport; sample.rawCleanup = raw.browserCleanup; const sequence = new Map<string, number>(); sample.rawGap = raw.packets.some(packet => { const previous = sequence.get(packet.documentId) ?? 0; sequence.set(packet.documentId, packet.sequence); return packet.sequence !== previous + 1; }); if (sample.rawGap || raw.cleanupUnavailable || raw.collectionGaps.length || raw.transport.rejectedPackets || raw.transport.collectorErrors.length || Object.values(raw.transport.lastStates).some(state => state && ["droppedFrames", "droppedEvents", "sendFailures", "discoveryGaps"].some(key => (state as Entry)[key] !== 0))) sample.status = "INCONCLUSIVE"; } catch (error) { sample.rawError = String(error); sample.status = "INCONCLUSIVE"; } }
+      if (context) { try { await bounded("close-fresh-context", () => context!.close(), cleanupDeadline); sample.contextClosed = true; } catch (error) { sample.contextClosed = false; sample.closeError = String(error); sample.status = "INCONCLUSIVE"; } }
+      sample.totalMs = clock.now() - start; sample.streamCostsMs = streamCosts; if ((sample.totalMs as number) > 18000 || sample.streamGap || sample.streamError) sample.status = "INCONCLUSIVE";
+      const sampleOutput = info.outputPath(`color-anchor-aba-${sampleId}.json`); const temporary = sampleOutput + ".tmp"; writeFileSync(temporary, JSON.stringify(sample, null, 2) + "\n"); renameSync(temporary, sampleOutput); await info.attach(`color-anchor-aba-${sampleId}`, { path: sampleOutput, contentType: "application/json" });
     }
-    report.cleanupNodeMs = clock.now() - cleanupStart; report.finishedMs = clock.now() - started; report.stream = { entries: streamSequence, errors: streamErrors, bindingCostsMs: streamCostsMs, path: streamPath }; if ((report.finishedMs as number) > 30000 || (report.cleanupNodeMs as number) > 2000 || streamErrors.length) report.status = "INCONCLUSIVE";
-    report.causalLimit = "Diagnostic only; neither observed green nor B convergence is a product fix or P2 closure. Exact original native case remains required.";
-    report.streamSha256 = streamEntries.length ? createHash("sha256").update(streamEntries.map(entry => JSON.stringify(entry)).join("\n") + "\n").digest("hex") : null;
-    const temporary = output + ".tmp"; writeFileSync(temporary, JSON.stringify(report, null, 2) + "\n"); renameSync(temporary, output); await info.attach("color-anchor-aba", { path: output, contentType: "application/json" });
+    const observation = sample.observation as { summary?: { complete: boolean; kind: string } } | undefined;
+    if (sample.status !== "SAMPLE_OBSERVED" || !sample.contextClosed || !observation?.summary?.complete) { report.status = "INCONCLUSIVE"; break; }
+    if (observation.summary.kind !== (sampleId === "B" ? "stable" : "loop")) { report.status = sampleId === "A0" ? "BASELINE_NOT_REPRODUCED" : sampleId === "B" ? "FACTOR_DID_NOT_ELIMINATE_OBSERVED_LOOP" : "FRESH_ORIGINAL_POLICY_NOT_REPRODUCED"; break; }
+    if (sampleId === "A1") report.status = "palette-policy-at-open-causal-control-supported";
   }
-  return report;
+  report.executedSamples = samples.length; report.totalMs = clock.now() - outerStart; if ((report.totalMs as number) > 60000) report.status = "INCONCLUSIVE";
+  report.notExecuted = (["A0", "B", "A1"] as const).slice(samples.length).map(sampleId => ({ sampleId, status: "NOT_EXECUTED_CONTRACT_STOP" }));
+  report.limit = "Fresh A1 is an independent original-policy reproduction, not same-host state reversibility. No product/P2/release GO; original native30s gate remains required.";
+  const temporary = output + ".tmp"; writeFileSync(temporary, JSON.stringify(report, null, 2) + "\n"); renameSync(temporary, output); await info.attach("color-anchor-aba", { path: output, contentType: "application/json" }); return report;
 }

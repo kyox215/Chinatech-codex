@@ -5,7 +5,7 @@ import { arch, release } from "node:os";
 import type { Page, TestInfo } from "@playwright/test";
 
 export const colorObservationTitle = "routed retail editor cancels without persisting and restores after reload at four widths";
-export const colorAnchorABATitle = "diagnostic palette overflow-anchor A0 B A1 with fixed RAF scroll driver";
+export const colorAnchorABATitle = "diagnostic fresh-open-v2 palette policy A0 B A1 in isolated contexts";
 const bindingName = "__siteUIColorObservationStream";
 const controllerName = "__siteUIColorObservation";
 type Entry = Record<string, unknown>;
@@ -144,7 +144,10 @@ export function colorPickerObservationInit(options: { binding: string; controlle
   for (const kind of ["pointerdown", "click"]) listen(document, kind, interaction, true);
   listen(document, "toggle", e => {
     if (!(e.target instanceof Element) || !e.target.matches(".color-picker details") || !locate(e.target)) return;
-    event("toggle", details); if (details?.open) start(); else stop("closed", true);
+    const captureTime = performance.now();
+    event("toggle", details, { captureTime });
+    if (options.experiment) (globals.__siteUIColorAnchorABA as { onToggle?: (open: boolean, time: number) => void } | undefined)?.onToggle?.(details?.open ?? false, captureTime);
+    if (details?.open) start(); else stop("closed", true);
   }, true);
   for (const kind of ["focusin", "focusout"]) listen(document, kind, e => { if (picker && e.target instanceof Node && picker.contains(e.target)) event(kind, e.target); }, true);
   listen(document, "scroll", e => { if (picker && (e.target === document || e.target === palette || ancestors.includes(e.target as Element))) event("scroll", e.target); }, true);
@@ -157,9 +160,10 @@ export function colorPickerObservationInit(options: { binding: string; controlle
   event("document-start", null, { timeOrigin: performance.timeOrigin, userAgent: navigator.userAgent, fontStatus: document.fonts?.status ?? null }); flush();
 }
 
-async function installColorObservation(page: Page, info: ObservationContext, experiment = false) {
-  const output = info.outputPath("color-layout-observation.json");
-  const streamPath = info.outputPath("color-layout-observation-stream.jsonl");
+async function installColorObservation(page: Page, info: ObservationContext, experiment = false, sampleId?: "A0" | "B" | "A1") {
+  const suffix = sampleId ? `-${sampleId}` : "";
+  const output = info.outputPath(`color-layout-observation${suffix}.json`);
+  const streamPath = info.outputPath(`color-layout-observation${suffix}-stream.jsonl`);
   mkdirSync(dirname(output), { recursive: true });
   const packets: Packet[] = [], collectorErrors: string[] = [], receivedDocuments = new Set<string>();
   const bindingCostsMs: number[] = [];
@@ -191,9 +195,9 @@ async function installColorObservation(page: Page, info: ObservationContext, exp
         ]);
       } catch (error) { cleanupUnavailable = String(error); }
       finally { if (timeout) clearTimeout(timeout); }
-      const report = { schemaVersion: 1, diagnosticOnly: true, title: info.title, project: info.project.name, status: info.status, environment: { platform: process.platform, arch: arch(), osRelease: release(), node: process.version, browserVersion: page.context().browser()?.version() ?? null, ciSha: process.env.GITHUB_SHA ?? null, device: Object.fromEntries(["browserName", "viewport", "userAgent", "isMobile", "hasTouch", "deviceScaleFactor", "locale"].map(key => [key, (info.project.use as Record<string, unknown>)[key] ?? null])) }, inputSha256, collectionGaps: acceptedFrames ? [] : ["no geometry frames received; not evidence of stability or a normal picker"], limits: { maxFramesPerDocument: 2048, maxDurationMsPerOpen: 30000, batchFrames: 8, maxInFlightPackets: 4, maxDocuments: 8, maxPackets: 1024, maxTotalFrames: 16384 }, transport: { packets: packets.length, acceptedFrames, rejectedPackets, bindingCostsMs, collectorErrors, streamPath, lastStates: Object.fromEntries([...receivedDocuments].map(id => [id, packets.filter(packet => packet.documentId === id).at(-1)?.state ?? null])) }, browserCleanup, cleanupUnavailable, observationPerturbation: "RAF reads, sparse computed-style reads and binding/stream I/O can perturb layout/timing; a green observed run is not a product fix. Last in-flight or not-yet-batched samples may be absent if the page closes; missing final computed/cleanup is explicit.", packets };
+      const report = { schemaVersion: 1, diagnosticOnly: true, ...(experiment ? { experiment: "fresh-open-v2", sampleId, contextId: `fresh-${sampleId}` } : {}), title: info.title, project: info.project.name, status: info.status, environment: { platform: process.platform, arch: arch(), osRelease: release(), node: process.version, browserVersion: page.context().browser()?.version() ?? null, ciSha: process.env.GITHUB_SHA ?? null, device: Object.fromEntries(["browserName", "viewport", "userAgent", "isMobile", "hasTouch", "deviceScaleFactor", "locale"].map(key => [key, (info.project.use as Record<string, unknown>)[key] ?? null])) }, inputSha256, collectionGaps: acceptedFrames ? [] : ["no geometry frames received; not evidence of stability or a normal picker"], limits: { maxFramesPerDocument: 2048, maxDurationMsPerOpen: 30000, batchFrames: 8, maxInFlightPackets: 4, maxDocuments: 8, maxPackets: 1024, maxTotalFrames: 16384 }, transport: { packets: packets.length, acceptedFrames, rejectedPackets, bindingCostsMs, collectorErrors, streamPath, lastStates: Object.fromEntries([...receivedDocuments].map(id => [id, packets.filter(packet => packet.documentId === id).at(-1)?.state ?? null])) }, browserCleanup, cleanupUnavailable, observationPerturbation: "RAF reads, sparse computed-style reads and binding/stream I/O can perturb layout/timing; a green observed run is not a product fix. Last in-flight or not-yet-batched samples may be absent if the page closes; missing final computed/cleanup is explicit.", packets };
       const temporary = output + ".tmp"; writeFileSync(temporary, JSON.stringify(report, null, 2) + "\n"); renameSync(temporary, output);
-      await info.attach("color-layout-observation", { path: output, contentType: "application/json" });
+      await info.attach(`color-layout-observation${suffix}`, { path: output, contentType: "application/json" });
       return report;
     },
   };
@@ -203,7 +207,7 @@ export async function installColorPickerObservation(page: Page, info: Observatio
   return installColorObservation(page, info);
 }
 
-export async function installColorAnchorABAObservation(page: Page, info: ObservationContext) {
-  if (!shouldRunColorAnchorABA(info)) throw new Error("Color anchor ABA observation guard did not match");
-  return installColorObservation(page, info, true);
+export async function installColorAnchorABAObservation(page: Page, info: ObservationContext, sampleId: "A0" | "B" | "A1") {
+  if (!shouldRunColorAnchorABA(info) || !["A0", "B", "A1"].includes(sampleId)) throw new Error("Fresh open observation guard did not match");
+  return installColorObservation(page, info, true, sampleId);
 }
