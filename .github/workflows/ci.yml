@@ -62,6 +62,8 @@ jobs:
         run: npx playwright test tests/browser/site-ui-recheck.spec.ts --reporter=line --output=.local/ui-proof/site-ui-smoke/test-results
       - name: Early color anchor regression gate
         run: npx playwright test tests/browser/controls.spec.ts --grep '(retail summary color follows common document scrolling and escapes only its open panel|retail creation color remains reachable across short-screen resize and form overflow|repair device color preserves short-screen internal scrolling and native selection)$' --reporter=line --output=.local/ui-proof/site-ui-smoke/color-anchor-results
+      - name: Early repair feedback gate
+        run: npx playwright test tests/browser/repair-feedback.spec.ts tests/browser/repair-list-ui.spec.ts --grep '(repair feedback three tabs retain all scoped purchases and orphan records|repair supplier pending-project controls stay inline and retain native form ownership|long synthetic models, suppliers and follow-up facts leave list controls readable and clickable|detail demand, parts and signature flow together independently of a tall sidebar)$' --reporter=line --output=.local/ui-proof/site-ui-smoke/repair-feedback-results
       - run: npm run test:controls
       - uses: actions/upload-artifact@v4
         if: failure()

@@ -319,13 +319,18 @@ test("long synthetic models, suppliers and follow-up facts leave list controls r
         const stage = row.getByRole("button", { name: `${record.id} 更改维修阶段`, exact: true });
         const contact = row.getByRole("button", { name: `${record.id} 联系与跟进`, exact: true });
         await expect(parts.getByText(longSupplier, { exact: true })).toBeVisible();
-        if (width < 768) expect(await parts.locator("strong").evaluate(element =>
+        const supplier = parts.locator(".repair-row-parts__suppliers");
+        await expect(supplier).toHaveText(longSupplier); await expect(supplier).toBeVisible();
+        await expect(parts.locator(".repair-row-parts__chip")).toHaveText(["屏幕", "电池 · 无需采购"]);
+        await expect(parts).toHaveAccessibleDescription("屏幕；电池 · 无需采购");
+        await expect(parts).toHaveAttribute("aria-describedby", `repair-parts-items-${record.id}`);
+        if (width < 768) expect(await supplier.evaluate(element =>
           element.scrollWidth > element.clientWidth && getComputedStyle(element).textOverflow === "ellipsis")).toBe(true);
         await expectNoOverlap(model, stage);
         await expectNoOverlap(parts, stage);
         await expectNoOverlap(parts, contact);
         expect(await parts.evaluate(element => {
-          const text = element.querySelector("strong")!.getBoundingClientRect();
+          const text = element.querySelector(".repair-row-parts__suppliers")!.getBoundingClientRect();
           const button = element.getBoundingClientRect();
           return text.left >= button.left && text.right <= button.right &&
             text.top >= button.top && text.bottom <= button.bottom;
@@ -336,6 +341,14 @@ test("long synthetic models, suppliers and follow-up facts leave list controls r
         await expect(partsDialog).toBeVisible();
         await expect(partsDialog.getByRole("group", { name: "屏幕", exact: true })).toContainText(longSupplier);
         await expect(partsDialog.getByRole("combobox", { name: "供应商（选填）" })).toHaveCount(0);
+        if (width === 375) {
+          const existing = partsDialog.locator(".repair-existing-parts");
+          await existing.locator(":scope > summary").click();
+          const history = existing.locator(":scope > details.repair-workflow-history");
+          await history.locator(":scope > summary").click();
+          await expect(history.getByText("DEMO已下单", { exact: true })).toBeVisible();
+          await expect(history.getByText("DEMO已到齐", { exact: true })).toBeVisible();
+        }
         await partsDialog.getByRole("button", { name: "取消", exact: true }).press("Enter");
         await expect(partsDialog).not.toBeVisible();
         await expectReturnedFocus(parts);
@@ -393,7 +406,15 @@ test("detail demand, parts and signature flow together independently of a tall s
       expect(gaps.length).toBe(width>=768?1:2);
       for(const gap of gaps)expect(gap).toBe(16);
       await expect(page.locator('[data-repair-project]')).toHaveCount(record.itemQuotes!.length);
-      await expect(page.getByRole('tab',{name:/^供应商/})).toBeVisible();
+      const tabs = page.getByRole("tablist", { name: "工单详情分组", exact: true });
+      await expect(tabs.getByRole("tab")).toHaveCount(3);
+      for (const label of ["维修", "照片", "历史"]) await expect(tabs.getByRole("tab", { name: new RegExp(`^${label}\\s*\\d+$`) })).toBeVisible();
+      await expect(tabs.getByRole("tab", { name: /^供应商/ })).toHaveCount(0);
+      for (const quote of record.itemQuotes!) await expect(page.getByRole("button", { name: `选择${quote.item}供应商`, exact: true })).toBeVisible();
+      const allParts = page.getByRole("button", { name: /^全部配件记录\s*0$/ });
+      await expect(allParts).toBeVisible(); await expect(allParts).toBeEnabled(); await allParts.click();
+      const partsDialog = page.getByRole("dialog", { name: "供应商与配件", exact: true }); await expect(partsDialog).toBeVisible();
+      await partsDialog.getByRole("button", { name: "关闭配件操作", exact: true }).click(); await expect(partsDialog).not.toBeVisible();
     }
     const before = await page.evaluate(() => localStorage.getItem("chinatech.m1.local-intakes.v1"));
     await signature.getByRole("button", { name: "添加签名", exact: true }).click();
