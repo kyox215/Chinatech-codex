@@ -5,16 +5,6 @@ import { emptyIntakeServices } from "../../lib/intake-services";
 import type { IntakeReceiptData } from "../../lib/repair-intake-record";
 import { customerId } from "../../lib/customers";
 import { procurementRecords } from "../../lib/procurement-fixtures";
-import { installColorPickerObservation, shouldObserveColorPicker } from "./helpers/color-picker-observation";
-
-const colorObservations = new WeakMap<Page, Awaited<ReturnType<typeof installColorPickerObservation>>>();
-test.beforeEach(async ({ page }, testInfo) => {
-  if (shouldObserveColorPicker(testInfo)) colorObservations.set(page, await installColorPickerObservation(page, testInfo));
-});
-test.afterEach(async ({ page }) => {
-  const observation = colorObservations.get(page);
-  if (observation) { colorObservations.delete(page); await observation.finish(); }
-});
 
 const pending = { pending: { command: { requestId: "request-original", version: 7, payload: { note: "DEMO immutable original", value: 0 } } }, busy: false, message: "提交结果待核对" };
 const snapshot = (page: Page) => page.evaluate(() => window.adapter.snapshot());
