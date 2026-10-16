@@ -72,6 +72,25 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 7
+      - name: Run color anchor ABA causal diagnostic
+        id: color_anchor_aba
+        if: ${{ always() && (steps.site_ui_early.outcome == 'success' || steps.site_ui_early.outcome == 'failure') }}
+        run: npx playwright test tests/browser/color-anchor-aba.spec.ts --project=webkit-touch --reporter=line --output=.local/ui-proof/color-anchor-aba/test-results
+        env:
+          SITE_UI_COLOR_ANCHOR_ABA: "1"
+      - name: Preserve color anchor ABA diagnostic
+        if: ${{ always() && (steps.color_anchor_aba.outcome == 'success' || steps.color_anchor_aba.outcome == 'failure') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: color-anchor-aba-proof
+          path: |
+            .local/ui-proof/color-anchor-aba/test-results/**/color-anchor-aba*.json
+            .local/ui-proof/color-anchor-aba/test-results/**/color-anchor-aba*.jsonl
+            .local/ui-proof/color-anchor-aba/test-results/**/color-layout-observation*.json
+            .local/ui-proof/color-anchor-aba/test-results/**/color-layout-observation*.jsonl
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 7
       - run: npm run test:controls
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -82,6 +101,7 @@ jobs:
             .local/ui-feedback/
             .local/ui-proof/controls/
             .local/ui-proof/site-ui-smoke/
+            .local/ui-proof/color-anchor-aba/
             .local/device-catalog/picker-performance-*.json
             .local/device-catalog/separated-performance-*.json
           include-hidden-files: true
