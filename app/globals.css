@@ -1923,7 +1923,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-unified-list .repair-row-parts__chips { display:flex; flex-wrap:wrap; gap:3px; max-height:43px; overflow:hidden; }
 .repair-unified-list .repair-row-parts__chip { display:block; flex:0 1 auto; min-width:0; max-width:calc(50% - 2px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:1px 5px; border:1px solid var(--primary-100); border-radius:4px; font-size:12px; line-height:16px; color:var(--primary-600); background:var(--surface); }
 .repair-unified-list .repair-row-parts__chip:only-child { max-width:100%; }
-.repair-unified-list .repair-row-parts__suppliers { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.repair-unified-list .repair-row-parts .repair-row-parts__suppliers { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 .repair-unified-list .repair-filterbar > .module-search { height:48px; min-height:48px; padding-block:1px; }
 .repair-unified-list .repair-filterbar > .module-search .input-control { flex:1; min-width:0; }
 .repair-unified-list .repair-filterbar > .module-search .input-control__body, .repair-unified-list .repair-filterbar > .module-search .input-control__native, .repair-unified-list .repair-filterbar > .module-search > button { height:44px; min-height:44px; }
