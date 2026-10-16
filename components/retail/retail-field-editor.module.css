@@ -27,9 +27,9 @@
 .editor h4 { margin: 4px 0 0; font-size: 16px; }
 .editor > footer { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
 .editor :global(.button), .editor :global(.icon-button) { min-height: 44px; }
-.editor :global(.field) input, .editor :global(.field) select, .editor :global(.field) textarea { min-height: 44px; }
+.editor :global(.field) input:where(:not([type="radio"])), .editor :global(.field) select, .editor :global(.field) textarea { min-height: 44px; }
 .editor :global(.field) textarea { min-height: 72px; }
 .editor :global(.single-choice) label { min-height: 44px; }
 .editor .compare { grid-template-columns: repeat(2,minmax(0,1fr)); }
 .noteDetails summary { min-height: 44px; align-content: center; cursor: pointer; color: var(--text-secondary); font-size: 13px; }
-@media(max-width:767px) { .editor { margin: 6px; scroll-margin-top: 88px; } .editor .compare { grid-template-columns: minmax(0,1fr); } .editor input, .editor select, .editor textarea { font-size: 16px; } }
+@media(max-width:767px) { .editor { margin: 6px; scroll-margin-top: 88px; } .editor .compare { grid-template-columns: minmax(0,1fr); } .editor input, .editor select, .editor textarea { font-size: 16px; } .editor :global(.single-choice) label { min-width: 44px; } }

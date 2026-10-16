@@ -394,7 +394,7 @@ RetailRecordScanner从旧独立列表提取后复用于唯一商品入口；buil
 - 新建按ready门控后首次初始化草稿；品类相关RAM／容量控件用独立key重置，仅处理未保存草稿。编号领域生成，RetailFieldButton的code为只读div，兼容旧数据而无铅笔。
 - 电池图形概览复用RetailFieldButton，移除实物区重复值；保修直接复用RetailWarrantyControl，其disabled反映权限／状态／存储。RetailWarrantyPanel只维护未保存期限草稿，核对候选交回RetailFieldEditor.initialCandidate，保存仍走原版本及单字段写边界。取消自定义同步重置控件key，不保留旧输入。
 - ColorPicker稳定公共扩展为常规5列／钛金属4列与其他独立行；色板固定定位按触发点及视口计算，低屏内部滚动。radio／文字／44px目标保留，resize、scroll和外部pointer监听仅展开时安装并清理；Esc只在展开时消费，不越级关闭父dialog。主题沿用原token，动态位置不是第二套主题。
-- ColorPicker 的滚动锚定策略限定于 `.color-picker details`，由触发器与色板共用 `overflow-anchor: none`；不扩展到页面、表单或外部自定义输入。维护时保留原定位、滚动监听、提交锁和焦点恢复，并验证商品逐项编辑、新建／复制、维修接机的滚动、选项可达、重复选择及嵌套 Esc 行为。
+- RetailFieldEditor 的通用输入尺寸仅约束可见输入，必须排除 type=radio；SingleChoice 的透明原生 radio 沿公共 1px／min-height:0 规则，真实 label 保持至少44px高，并在手机断点保持至少44px宽。不得用私有通配输入 min-height 覆盖隐藏控件，也不得移除原生单选、焦点或提交锁语义。
 - 实际新建／复制／核对保存／刷新、四宽度、手机容量和CPU弹层、接机色板复用／键盘／自定义／嵌套Esc及权限代表流程已验收，详见[执行记录](12-retail-specifications-execution-plan.md)。没有新增公共token、UI框架或图标库。
 
 ## 单机售卖、照片与员工权限（2026-10-01）
