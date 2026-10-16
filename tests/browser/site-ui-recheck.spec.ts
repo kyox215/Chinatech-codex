@@ -4,6 +4,17 @@ import { translate } from "../../lib/i18n/translate";
 import { emptyIntakeServices } from "../../lib/intake-services";
 import type { IntakeReceiptData } from "../../lib/repair-intake-record";
 import { customerId } from "../../lib/customers";
+import { procurementRecords } from "../../lib/procurement-fixtures";
+import { installColorPickerObservation, shouldObserveColorPicker } from "./helpers/color-picker-observation";
+
+const colorObservations = new WeakMap<Page, Awaited<ReturnType<typeof installColorPickerObservation>>>();
+test.beforeEach(async ({ page }, testInfo) => {
+  if (shouldObserveColorPicker(testInfo)) colorObservations.set(page, await installColorPickerObservation(page, testInfo));
+});
+test.afterEach(async ({ page }) => {
+  const observation = colorObservations.get(page);
+  if (observation) { colorObservations.delete(page); await observation.finish(); }
+});
 
 const pending = { pending: { command: { requestId: "request-original", version: 7, payload: { note: "DEMO immutable original", value: 0 } } }, busy: false, message: "提交结果待核对" };
 const snapshot = (page: Page) => page.evaluate(() => window.adapter.snapshot());
@@ -222,9 +233,13 @@ for (const locale of ["zh-CN", "it", "en"] as const) test(`routed customer and p
     await page.setViewportSize({ width, height: 1000 });
     for (const area of ["customers", "procurement"] as const) {
       await page.goto(`/app/${area}`);
-      const row = page.locator(`main a[href^="/app/${area}/"]`).filter({ has: page.locator(".navigation-feedback") }).first();
+      const row = area === "procurement" ? page.locator("main .procurement-row").first() : page.locator(`main a[href^="/app/${area}/"]`).filter({ has: page.locator(".navigation-feedback") }).first();
       await expect(row).toBeVisible();
       const href = (await row.getAttribute("href"))!;
+      if (area === "procurement") {
+        expect(href).not.toBe("/app/procurement/new");
+        expect(procurementRecords.map(record => `/app/procurement/${record.id}`)).toContain(href);
+      }
       const slot = row.locator(":scope > .navigation-feedback");
       await expect(slot).toBeVisible(); const before = await slot.boundingBox();
       let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });

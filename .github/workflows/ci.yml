@@ -59,7 +59,19 @@ jobs:
           path: .local/ui-feedback/
           if-no-files-found: error
       - name: Early site UI regression gate
+        id: site_ui_early
         run: npx playwright test tests/browser/site-ui-recheck.spec.ts --reporter=line --output=.local/ui-proof/site-ui-smoke/test-results
+        env:
+          SITE_UI_COLOR_OBSERVATION: "1"
+      - name: Preserve color layout observation
+        if: ${{ always() && (steps.site_ui_early.outcome == 'success' || steps.site_ui_early.outcome == 'failure') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: color-layout-observation-proof
+          path: .local/ui-proof/site-ui-smoke/test-results/**/color-layout-observation*
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 7
       - run: npm run test:controls
       - uses: actions/upload-artifact@v4
         if: failure()
