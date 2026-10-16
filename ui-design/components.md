@@ -15,6 +15,7 @@
 | 分组 / 页内 Tab | `repairs/repair-detail-workspace.tsx` 及领域分组 | 原 Tab `12327:116162`；同记录切换保留草稿，不制造导航等待 |
 | 读取 / 错误 / 权限 | `components/page-recovery.tsx` 与共享读取状态 | 真实标题框架保留；首次局部等待、失败就地重试、无权限隔离 |
 | 保存 / 恢复 | `components/use-operation-receipt.tsx` | 原 requestId/版本/回执；失败留输入、未知需核对、禁止假成功 |
+| 恢复呈现辅助（2026-10-16候选） | `components/recovery-visibility.ts`，由 `RecoveryPresentationProvider` 唯一使用 | 技术辅助入口；按真实呈现条件分配局部/全局恢复入口，保留原草稿与回执；不新增设计控件或Figma变体。详docs/06候选规范，正式交互/发布状态另验 |
 | 照片 / 查看 | `repairs/intake-photos.tsx` / `repairs/repair-photo-registry.tsx`（含 PhotoViewer） | 现有真实读图、失败重试；专用登记和不可变历史；占位不代替照片 |
 | 成功通知 / 下载提示 | 统一 Toast（本轮新增） | 本轮原 Figma 中补齐；1.8秒/点击关闭；下载只表示已发起 |
 | 公开首页 | `components/home/` | 保留现有营销布局、品牌、教程；公共控件遵循同一组件目录 |

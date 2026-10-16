@@ -1,5 +1,7 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { chooseCatalogDevice, openCatalogPicker, choosePickerFamily, choosePickerModel, pickerRoot, openDeviceExtras } from './catalog-picker';
+import { translate } from "../../lib/i18n/translate";
+import type { Locale } from "../../lib/i18n/locale";
 
 async function activate(page: Page, locator: Locator) {
   if (test.info().project.use.hasTouch) await locator.tap();
@@ -187,21 +189,23 @@ test("colors close on repeat selection and preserve custom text", async ({ page 
   await deviceStep(page);
   await openDeviceExtras(page);
   const summary = page.getByLabel("选择设备颜色");
-  const details = page.locator(".color-picker details");
+  const owner = page.locator(".color-picker").filter({ has: summary });
+  await expect(owner).toHaveCount(1);
+  const details = owner.locator(":scope > details");
   await activate(page, summary);
-  await chooseRadio(page, "未记录", details);
+  await chooseRadio(page, "未记录", owner);
   await expect(details).not.toHaveAttribute("open", "");
   await activate(page, summary);
-  await chooseRadio(page, "黑色", details);
+  await chooseRadio(page, "黑色", owner);
   await expect(summary).toContainText("黑色");
   await activate(page, summary);
-  await chooseRadio(page, "黑色", details);
+  await chooseRadio(page, "黑色", owner);
   await expect(details).not.toHaveAttribute("open", "");
   await activate(page, summary);
-  await chooseRadio(page, "其他颜色", details);
+  await chooseRadio(page, "其他颜色", owner);
   await page.getByRole("textbox", { name: "其他颜色", exact: true }).fill("玫瑰金");
   await activate(page, summary);
-  await chooseRadio(page, "其他颜色", details);
+  await chooseRadio(page, "其他颜色", owner);
   await expect(details).not.toHaveAttribute("open", "");
   await expect(page.getByRole("textbox", { name: "其他颜色", exact: true })).toHaveValue("玫瑰金");
 });
@@ -235,12 +239,105 @@ test("retail catalog and color state follow the selected category", async ({ pag
   const brand = page.getByRole("combobox", { name: "品牌" });
   await chooseCatalogDevice(page, 'Apple', 'iPhone', 'iPhone 16');
   await expect(brand).toHaveValue("Apple");
+  const owner = page.locator(".color-picker").filter({ has: page.getByLabel("选择设备颜色") });
+  await expect(owner).toHaveCount(1);
   await activate(page, page.getByLabel("选择设备颜色"));
-  await chooseRadio(page, "其他颜色", page.locator(".color-picker details"));
+  await chooseRadio(page, "其他颜色", owner);
   await page.getByRole("textbox", { name: "其他颜色", exact: true }).fill("玫瑰金");
   await page.getByLabel("商品类型", { exact: true }).selectOption("laptop");
   await expect(page.getByLabel("选择设备颜色")).toContainText("未记录");
   await expect(page.getByRole("textbox", { name: "其他颜色", exact: true })).toHaveCount(0);
+});
+
+test("color selection, repeat and popup Escape restore the summary before parent Escape", async ({ page }) => {
+  await page.goto("/app/retail/units/demo-unit-1");
+  const summaryPanel = page.getByRole("region", { name: "单机摘要", exact: true });
+  await expect(summaryPanel).toBeVisible();
+  await activate(page, summaryPanel.getByRole("button", { name: "编辑颜色", exact: true }));
+  const editor = page.getByRole("region", { name: "编辑颜色", exact: true });
+  const owner = editor.locator(".color-picker");
+  await expect(owner).toHaveCount(1);
+  const summary = owner.getByLabel("选择设备颜色", { exact: true });
+  const details = owner.locator(":scope > details"), popup = owner.locator(":scope > .color-picker__palette");
+  await activate(page, summary);
+  await chooseRadio(page, "黑色", owner);
+  await expect(popup).toHaveCount(0);
+  await expect(summary).toContainText("黑色");
+  await expect(summary).toBeFocused();
+  await activate(page, summary);
+  await chooseRadio(page, "黑色", owner);
+  await expect(popup).toHaveCount(0);
+  await expect(summary).toBeFocused();
+  await summary.press("Enter"); await summary.press("Escape"); await summary.press("Enter");
+  await expect(details).toHaveAttribute("open", "");
+  await expect(popup).toHaveCount(1);
+  const radio = owner.getByRole("radio", { name: "白色", exact: true });
+  await radio.focus(); await radio.press("Escape");
+  await expect(popup).toHaveCount(0);
+  await expect(details).not.toHaveAttribute("open", "");
+  await expect(editor).toBeVisible();
+  await expect(summary).toBeFocused();
+  await summary.press("Escape");
+  await expect(editor).toHaveCount(0);
+});
+
+test("custom color is a real outside pointer target and its Escape reaches the editor", async ({ page }) => {
+  await page.setViewportSize({ width: page.viewportSize()!.width, height: 420 });
+  await page.goto("/app/retail/units/demo-unit-1");
+  const summaryPanel = page.getByRole("region", { name: "单机摘要", exact: true });
+  await expect(summaryPanel).toBeVisible();
+  await activate(page, summaryPanel.getByRole("button", { name: "编辑颜色", exact: true }));
+  const editor = page.getByRole("region", { name: "编辑颜色", exact: true });
+  const owner = editor.locator(".color-picker");
+  await expect(owner).toHaveCount(1);
+  const summary = owner.getByLabel("选择设备颜色", { exact: true });
+  const popup = owner.locator(":scope > .color-picker__palette");
+  await activate(page, summary);
+  await chooseRadio(page, "其他颜色", owner);
+  const custom = owner.getByRole("textbox", { name: "其他颜色", exact: true });
+  await custom.fill("DEMO retained custom color");
+  await activate(page, summary);
+  await expect(popup).toBeVisible();
+  await activate(page, custom);
+  await expect(popup).toHaveCount(0);
+  await expect(custom).toBeFocused();
+  await expect(custom).toHaveValue("DEMO retained custom color");
+  await custom.press("Escape");
+  await expect(editor).toHaveCount(0);
+});
+
+test("an open color popup inherits a disabled fieldset without changing value or unlocking it", async ({ page }) => {
+  await page.goto("/app/retail/units/demo-unit-1");
+  const summaryPanel = page.getByRole("region", { name: "单机摘要", exact: true });
+  await expect(summaryPanel).toBeVisible();
+  await activate(page, summaryPanel.getByRole("button", { name: "编辑颜色", exact: true }));
+  const editor = page.getByRole("region", { name: "编辑颜色", exact: true });
+  const owner = editor.locator(".color-picker");
+  await expect(owner).toHaveCount(1);
+  const summary = owner.getByLabel("选择设备颜色", { exact: true });
+  await activate(page, summary);
+  const fieldset = editor.locator("fieldset.form-fields");
+  const blue = owner.getByRole("radio", { name: "蓝色", exact: true });
+  const black = owner.getByRole("radio", { name: "黑色", exact: true });
+  await expect(blue).toBeChecked();
+  await fieldset.evaluate(element => element.setAttribute("disabled", ""));
+  await expect(fieldset).toHaveAttribute("disabled", "");
+  await expect(fieldset.locator(".color-picker__palette")).toHaveCount(1);
+  await expect(black).toBeDisabled();
+  const label = black.locator("..");
+  expect(await label.evaluate(element => { const r = element.getBoundingClientRect(); const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return hit === element || element.contains(hit); })).toBe(true);
+  const box = (await label.boundingBox())!;
+  // A real native pointer gesture tests disabled inheritance; locator activation
+  // correctly refuses a disabled radio and is not used to bypass that guard.
+  if (test.info().project.use.hasTouch) await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+  else await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(blue).toBeChecked();
+  await expect(black).not.toBeChecked();
+  await expect(summary).toContainText("蓝色");
+  await summary.press("Escape");
+  await expect(owner.locator(":scope > .color-picker__palette")).toHaveCount(0);
+  await expect(editor).toBeVisible();
+  await expect(fieldset).toHaveAttribute("disabled", "");
 });
 
 test("affected choices fit desktop and phone layouts", async ({ page }) => {
@@ -273,4 +370,125 @@ test("affected choices fit desktop and phone layouts", async ({ page }) => {
     await page.screenshot({ path: `.local/ui-proof/controls/retail-${test.info().project.name}-${width}.png` });
     await brand.press('Escape');
   }
+});
+
+async function expectAnchoredColor(owner: Locator) {
+  await expect(owner.locator(":scope > .color-picker__palette")).toBeVisible();
+  const geometry = await owner.evaluate(element => {
+    const popup = element.querySelector<HTMLElement>(":scope > .color-picker__palette")!;
+    const summary = element.querySelector("summary")!;
+    const box = popup.getBoundingClientRect(), anchor = summary.getBoundingClientRect();
+    return { position: getComputedStyle(popup).position, localOwner: popup.offsetParent === element, left: box.left, right: box.right, top: box.top, bottom: box.bottom, anchorTop: anchor.top, anchorBottom: anchor.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight };
+  });
+  expect(geometry.position).toBe("absolute");
+  expect(geometry.localOwner).toBe(true);
+  expect(geometry.left).toBeGreaterThanOrEqual(12);
+  expect(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth - 12);
+  expect(geometry.top).toBeGreaterThanOrEqual(0);
+  expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewportHeight);
+  expect(geometry.bottom <= geometry.anchorTop || geometry.top >= geometry.anchorBottom).toBe(true);
+}
+
+async function anchorLanguage(page: Page, locale: Locale) {
+  const t = (text: string, values?: Record<string, string | number>) => translate(text, locale, values);
+  if (locale === "zh-CN") { await expect(page.locator("html")).toHaveAttribute("lang", locale); return t; }
+  const select = page.getByLabel("语言 / Lingua / Language", { exact: true });
+  let openedDrawer = false, openedAccount = false;
+  if (!await select.isVisible()) {
+    const menu = page.locator(".page-menu-button");
+    if (await page.evaluate(() => innerWidth < 768) && await menu.getAttribute("aria-expanded") !== "true") { await activate(page, menu); openedDrawer = true; }
+    const account = page.locator(".sidebar-account");
+    if (await account.getAttribute("open") === null) { await activate(page, account.locator("summary")); openedAccount = true; }
+  }
+  await select.selectOption(locale);
+  await expect(page.locator("html")).toHaveAttribute("lang", locale);
+  if (openedDrawer) {
+    await activate(page, page.locator(".app-sidebar__close"));
+    await expect.poll(() => page.locator("#app-sidebar").evaluate(element => element.getBoundingClientRect().right)).toBeLessThanOrEqual(1);
+  } else if (openedAccount) await activate(page, page.locator(".sidebar-account > summary"));
+  return t;
+}
+
+test("retail summary color follows common document scrolling and escapes only its open panel", async ({ page }) => {
+  await page.setViewportSize({ width: test.info().project.use.hasTouch ? 390 : 1440, height: 1000 });
+  await page.goto("/app/retail/units/demo-unit-1");
+  const t = await anchorLanguage(page, test.info().project.use.hasTouch ? "zh-CN" : "en");
+  const panel = page.getByRole("region", { name: t("单机摘要"), exact: true });
+  await activate(page, panel.getByRole("button", { name: t("编辑{v0}", { v0: t("颜色") }), exact: true }));
+  const owner = page.getByRole("region", { name: t("编辑{v0}", { v0: t("颜色") }), exact: true }).locator(".color-picker");
+  const summary = owner.getByLabel(t("选择设备颜色"), { exact: true });
+  const popup = owner.locator(":scope > .color-picker__palette");
+  const radius = await panel.evaluate(element => getComputedStyle(element).borderRadius);
+  await summary.evaluate(element => element.scrollIntoView({ block: "start" }));
+  await activate(page, summary);
+  await expect(popup).toBeVisible();
+  await expectAnchoredColor(owner);
+  expect(await panel.evaluate(element => getComputedStyle(element).overflow)).toBe("visible");
+  const before = await owner.evaluate(element => ({ ownerTop: element.getBoundingClientRect().top, popupTop: element.querySelector(".color-picker__palette")!.getBoundingClientRect().top, style: element.querySelector(".color-picker__palette")!.getAttribute("style") }));
+  const scrollDelta = await page.evaluate(() => { const delta = window.scrollY >= 16 ? -16 : 16; window.scrollBy(0, delta); return delta; });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null)))));
+  const after = await owner.evaluate(element => ({ ownerTop: element.getBoundingClientRect().top, popupTop: element.querySelector(".color-picker__palette")!.getBoundingClientRect().top, style: element.querySelector(".color-picker__palette")!.getAttribute("style") }));
+  expect(after.ownerTop - before.ownerTop).toBe(-scrollDelta);
+  expect(after.popupTop - before.popupTop).toBe(after.ownerTop - before.ownerTop);
+  expect(after.style).toBe(before.style);
+  await summary.press("Escape");
+  expect(await panel.evaluate(element => getComputedStyle(element).overflow)).toBe("hidden");
+  await page.setViewportSize({ width: test.info().project.use.hasTouch ? 375 : 1024, height: 420 });
+  await activate(page, summary);
+  await expectAnchoredColor(owner);
+  await chooseRadio(page, t("其他颜色"), owner);
+  await expect(owner.getByRole("textbox", { name: t("其他颜色"), exact: true })).toBeVisible();
+  expect(await panel.evaluate(element => getComputedStyle(element).overflow)).toBe("hidden");
+  expect(await panel.evaluate(element => getComputedStyle(element).borderRadius)).toBe(radius);
+});
+
+test("retail creation color remains reachable across short-screen resize and form overflow", async ({ page }) => {
+  await page.setViewportSize({ width: test.info().project.use.hasTouch ? 375 : 1024, height: 420 });
+  await page.goto("/app/retail/new");
+  const t = await anchorLanguage(page, test.info().project.use.hasTouch ? "it" : "zh-CN");
+  await chooseRadio(page, t("翻新机"));
+  const owner = page.locator(".color-picker");
+  await expect(owner).toHaveCount(1);
+  const summary = owner.getByLabel(t("选择设备颜色"), { exact: true });
+  expect(await owner.evaluate(element => getComputedStyle(element.closest("form")!).overflow)).toBe("visible");
+  await activate(page, summary);
+  await expectAnchoredColor(owner);
+  await page.setViewportSize({ width: test.info().project.use.hasTouch ? 390 : 767, height: 420 });
+  await expect.poll(async () => owner.evaluate(element => {
+    const popup = element.querySelector<HTMLElement>(".color-picker__palette")!, box = popup.getBoundingClientRect();
+    return box.left >= 12 && box.right <= innerWidth - 12;
+  })).toBe(true);
+  await expectAnchoredColor(owner);
+  await chooseRadio(page, t("黑色"), owner);
+  await expect(summary).toContainText(t("黑色"));
+  await expect(owner.locator(":scope > .color-picker__palette")).toHaveCount(0);
+});
+
+test("repair device color preserves short-screen internal scrolling and native selection", async ({ page }) => {
+  await page.setViewportSize({ width: test.info().project.use.hasTouch ? 375 : 1024, height: 420 });
+  await deviceStep(page);
+  await openDeviceExtras(page);
+  const owner = page.locator(".color-picker");
+  const summary = owner.getByLabel("选择设备颜色", { exact: true });
+  await summary.evaluate(element => element.scrollIntoView({ block: "center" }));
+  await activate(page, summary);
+  await expectAnchoredColor(owner);
+  const popup = owner.locator(":scope > .color-picker__palette");
+  const geometry = await popup.evaluate(element => {
+    const anchor = element.parentElement!.querySelector("summary")!.getBoundingClientRect(), box = element.getBoundingClientRect();
+    return { summary: { x: anchor.x, y: anchor.y, width: anchor.width, height: anchor.height }, popup: { x: box.x, y: box.y, width: box.width, height: box.height }, viewport: { width: innerWidth, height: innerHeight }, spaceAbove: anchor.top, spaceBelow: innerHeight - anchor.bottom, rootScrollTop: document.scrollingElement?.scrollTop, maxHeight: getComputedStyle(element).maxHeight, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight };
+  });
+  await test.info().attach("repair-color-scroll-geometry", { body: JSON.stringify(geometry, null, 2), contentType: "application/json" });
+  expect(Math.max(geometry.spaceAbove, geometry.spaceBelow), JSON.stringify(geometry)).toBeLessThan(geometry.scrollHeight);
+  expect(await popup.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+  await popup.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  expect(await popup.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  await chooseRadio(page, "其他颜色", owner);
+  const custom = owner.getByRole("textbox", { name: "其他颜色", exact: true });
+  await custom.fill("DEMO 自定义颜色");
+  await activate(page, summary);
+  await expectAnchoredColor(owner);
+  await summary.press("Escape");
+  await expect(popup).toHaveCount(0);
+  await expect(custom).toHaveValue("DEMO 自定义颜色");
 });

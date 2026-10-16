@@ -29,6 +29,9 @@ const detail = Object.fromEntries(["detail", "layout", "column", "group", "group
 const surface = { page: moduleClass("retail-surface", "page"), head: moduleClass("retail-surface", "sectionHead") };
 const office = { dialog: moduleClass("office-tools", "downloadDialog"), heading: moduleClass("office-tools", "dialogHeading") };
 const catalog = { table: moduleClass("device-catalog", "table"), name: moduleClass("device-catalog", "name") };
+const customer = Object.fromEntries(["listPanel", "row", "identity", "avatar", "recordCount", "activity", "recordLink", "recordIcon", "recordInfo"]
+  .map(key => [key, moduleClass("customers", key)]));
+const repairTotal = moduleClass("repair-detail-workspace", "total");
 const font = await readFile("public/fonts/source-sans-3/source-sans-3-roman.woff2");
 assert.equal(font.subarray(0, 4).toString(), "wOF2");
 const fontHash = createHash("sha256").update(font).digest("hex");
@@ -40,6 +43,21 @@ function group(id, embedded = false) {
     <button class="detail-section__head ${surface.head} ${detail.groupToggle}" aria-expanded="false"><div><span>◇</span><h3>${id}</h3></div></button>
     <div class="detail-section__head ${surface.head} ${detail.groupDesktopHead}"><div><span>◇</span><h3>${id}</h3></div></div>
     <div class="${detail.groupBody}" id="${id}-body">Saved business facts</div></section>`;
+}
+function navigationSlot(pending) {
+  return `<span class="navigation-feedback" data-pending="${pending}" data-has-icon="true" aria-hidden="true"><span class="navigation-feedback__icon"><svg width="17" height="17"><path d="M6 3l5 5-5 5" /></svg></span><svg class="spin" width="16" height="16"><circle cx="8" cy="8" r="6" /></svg></span><span class="sr-only" aria-live="polite">${pending ? "Opening page" : ""}</span>`;
+}
+function listSamples() {
+  const labels = [
+    { locale: "zh-CN", status: "已下单 · 待到货", repairs: "维修", sales: "销售记录", item: "笔记本电脑显示屏及触摸组件待核对规格", name: "离线测试客户长称呼", units: "件", records: "条" },
+    { locale: "it", status: "Ordinato · In attesa di arrivo", repairs: "Riparazione", sales: "Storico vendite", item: "Schermo notebook e gruppo touch con specifiche da verificare", name: "Cliente di prova con nome lungo", units: "pezzi", records: "record" },
+    { locale: "en", status: "Ordered · Awaiting arrival", repairs: "Repair", sales: "Sales records", item: "Notebook display and touch assembly with specifications to review", name: "Offline test customer with a long name", units: "items", records: "records" },
+  ];
+  return labels.map(label => `<section lang="${label.locale}" data-list-locale="${label.locale}">
+    <div class="procurement-group"><div class="module-table-scroll">${[false, true].map(pending => `<a href="/app/procurement/OFFLINE-PO" class="procurement-row navigation-link" data-list-row="procurement" data-state="${pending}"><div class="procurement-row__item"><span class="procurement-icon">◇</span><div><strong>${label.item}</strong><small>OFFLINE-PO-20261016</small></div></div><div class="procurement-row__repair"><strong>Notebook model</strong><small>OFFLINE-CT-20261016</small></div><div class="procurement-row__progress"><span class="status-pill status-pill--progress">${label.status}</span><small>12 / 123 ${label.units}</small></div><div class="procurement-row__date"><strong>2026-10-20</strong><small>ETA</small></div>${navigationSlot(pending)}</a>`).join("")}</div></div>
+    ${[false, true].map(pending => `<div class="panel ${customer.listPanel}"><div class="module-table-scroll"><a href="/app/customers/OFFLINE-CUSTOMER" class="${customer.row} navigation-link" data-list-row="customer" data-state="${pending}"><span class="${customer.identity}"><span class="${customer.avatar}">◇</span><span><strong>${label.name}</strong><small>+39 000 000 0000</small></span></span><span class="${customer.recordCount}"><small>${label.repairs}</small>123 ${label.records}</span><span class="${customer.recordCount}"><small>${label.sales}</small>456 ${label.records}</span><span class="${customer.activity}">2026-10-16 12:34</span>${navigationSlot(pending)}</a></div></div>`).join("")}
+    ${[false, true].map(pending => `<a href="/app/repairs/OFFLINE-CT" class="${customer.recordLink} navigation-link" data-list-row="customer-record" data-state="${pending}"><span class="${customer.recordIcon}">◇</span><span class="${customer.recordInfo}"><strong>${label.item}</strong><small>OFFLINE-CT-20261016</small><p>${label.status}</p></span>${navigationSlot(pending)}</a>`).join("")}
+  </section>`).join("");
 }
 function markup(css) {
   return `<!doctype html><html lang="en"><head><base href="https://ui-style.test/"><style>${css}</style></head><body>
@@ -60,6 +78,8 @@ function markup(css) {
     <div class="repair-module-table__head" id="table-header">Model</div>
     <div class="repair-unified-list"><div class="repair-module-row"><div class="repair-module-row__device"><div><strong id="repair-name">Repair model</strong></div></div></div></div>
     <table class="${catalog.table}"><tbody><tr><td class="${catalog.name}"><strong id="catalog-name">Catalog model</strong></td></tr></tbody></table>
+    <div class="app-shell"><div class="app-main module-page" id="list-samples">${listSamples()}</div></div>
+    <div class="${repairTotal}" id="repair-total"><strong>Total</strong><strong>€ 123.00</strong></div>
     <dialog open class="repair-parts-dialog" id="dialog"><header><h2>Confirm action</h2></header><p>Actual saved facts remain unchanged.</p><footer><button class="button button--secondary">Cancel</button></footer></dialog>
     <dialog open class="${office.dialog}" id="office-dialog"><div class="${office.heading}" id="office-heading"><h2>Download versions</h2><button class="icon-button" aria-label="Close versions">×</button></div><p>Available architecture</p></dialog>
   </body></html>`;
@@ -121,8 +141,16 @@ for (const engine of [chromium, webkit]) {
             catalogName: { size: style("#catalog-name").fontSize, weight: style("#catalog-name").fontWeight },
             office: { margin: style("#office-heading").marginBottom, padding: style("#office-heading").paddingBottom, border: style("#office-heading").borderBottomWidth, titleSize: style("#office-heading h2").fontSize, titleWeight: style("#office-heading h2").fontWeight, titleLine: style("#office-heading h2").lineHeight, radius: style("#office-dialog").borderTopLeftRadius },
             inputSize: style("#input").fontSize, label: { size: style("#field-label").fontSize, weight: style("#field-label").fontWeight }, tiny: rect("#tiny"), icon: rect("#icon"),
+            repairTotalColor: style("#repair-total strong:last-child").color, textColor: style("body").color,
           };
         });
+        const listRows = await page.locator("[data-list-row]").evaluateAll(elements => elements.map(element => {
+          const box = node => { const r = node.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom }; };
+          const slot = element.querySelector(":scope > .navigation-feedback"), slotStyle = getComputedStyle(slot);
+          const kind = element.dataset.listRow;
+          const children = [...element.children].filter(node => !node.matches(".navigation-feedback, .sr-only"));
+          return { kind, locale: element.closest("[data-list-locale]").dataset.listLocale, pending: element.dataset.state === "true", row: box(element), slot: box(slot), slotDisplay: slotStyle.display, slotPosition: slotStyle.position, slotMarginTop: slotStyle.marginTop, gridColumn: slotStyle.gridColumn, gridRow: slotStyle.gridRow, columns: getComputedStyle(element).gridTemplateColumns.split(" ").length, spinnerVisibility: getComputedStyle(slot.querySelector(":scope > svg")).visibility, iconVisibility: getComputedStyle(slot.querySelector(".navigation-feedback__icon")).visibility, overflow: element.scrollWidth > element.clientWidth + 1, children: children.map(node => ({ ...box(node), display: getComputedStyle(node).display })) };
+        }));
         const mobile = width < 768;
         assert.deepEqual(result.identity, [mobile ? "BUTTON" : "DIV"], `One visible heading at${width}/${order}`);
         assert.deepEqual(result.history, ["BUTTON"]);
@@ -149,6 +177,42 @@ for (const engine of [chromium, webkit]) {
         assert.equal(result.office.titleWeight, "500");
         assert.equal(result.office.titleLine, "24px");
         assert.equal(result.office.radius, mobile ? "24px" : "16px");
+        assert.equal(result.repairTotalColor, result.textColor, "Repair total uses the existing body text token");
+        for (const row of listRows) {
+          const context = `${row.kind}/${row.locale}/${row.pending}/${width}/${order}`;
+          assert.ok(["grid", "inline-grid"].includes(row.slotDisplay), `Visible navigation slot: ${context}`);
+          assert.ok(row.slot.width >= 17 && row.slot.height >= 17, `The original icon reserves its slot: ${context}`);
+          assert.equal(row.slotPosition, "static", `Navigation feedback stays in flow: ${context}`);
+          assert.equal(row.spinnerVisibility, row.pending ? "visible" : "hidden", context);
+          assert.equal(row.iconVisibility, row.pending ? "hidden" : "visible", context);
+          assert.ok(row.row.height >= 44 && !row.overflow, `Readable row and touch target: ${context}`);
+          assert.ok(row.slot.right <= row.row.right + 1, `Slot stays within its row: ${context}`);
+          if (row.kind === "customer-record") {
+            assert.equal(row.slotMarginTop, "10px", `Record arrow keeps its existing alignment: ${context}`);
+            assert.ok(row.children[1].right <= row.slot.x, `Record content leaves the slot clear: ${context}`);
+          } else if (mobile) {
+            assert.equal(row.columns, 3, context);
+            assert.equal(row.gridColumn, "3", `Explicit third slot column: ${context}`);
+            assert.equal(row.gridRow, "1 / 3", `Slot spans both content rows: ${context}`);
+            if (row.kind === "customer") {
+              assert.ok(row.children[0].right <= row.slot.x, `Customer identity leaves the slot clear: ${context}`);
+              assert.ok(Math.abs(row.children[1].y - row.children[2].y) < 1 && row.children[1].right <= row.children[2].x, `Customer counts stay side by side: ${context}`);
+              assert.ok(row.children[2].right <= row.slot.x && row.children[3].y >= row.children[1].bottom - 1, `Customer activity stays below counts: ${context}`);
+            } else {
+              assert.ok(row.children[0].right <= row.children[2].x && row.children[1].right <= row.children[2].x, `Procurement facts leave progress clear: ${context}`);
+              assert.ok(row.children[2].right <= row.slot.x, `Procurement progress leaves the slot clear: ${context}`);
+            }
+          } else {
+            assert.equal(row.columns, 5, `All desktop columns remain: ${context}`);
+            for (const child of row.children) assert.notEqual(child.display, "none", `Desktop facts remain visible: ${context}`);
+          }
+          if (!row.pending) {
+            const pending = listRows.find(other => other.kind === row.kind && other.locale === row.locale && other.pending);
+            for (const dimension of ["x", "width", "height"]) assert.equal(pending.slot[dimension], row.slot[dimension], `Stable slot ${dimension}: ${context}`);
+            assert.equal(pending.row.height, row.row.height, `Pending retains row geometry: ${context}`);
+            assert.equal(pending.slot.y - pending.row.y, row.slot.y - row.row.y, `Stable slot vertical offset: ${context}`);
+          }
+        }
         if (!mobile) {
           assert.deepEqual(result.repairName, { size: "16px", weight: "500" });
           assert.deepEqual(result.catalogName, { size: "16px", weight: "500" });
@@ -168,7 +232,7 @@ for (const engine of [chromium, webkit]) {
           assert.equal(result.headingNavigation.labelDisplay, "none");
           for (const target of [result.tiny, result.icon]) assert.ok(target.width >= 44 && target.height >= 44);
         }
-        rows.push({ engine: engine.name(), order, width, ...result });
+        rows.push({ engine: engine.name(), order, width, ...result, listRows });
       }
       assert.ok(fontRequests > 0);
       assert.deepEqual(unexpectedRequests, []);
@@ -176,6 +240,7 @@ for (const engine of [chromium, webkit]) {
     }
   } finally { await browser.close(); }
 }
+assert.match(all, new RegExp(`\\.${repairTotal}\\s*>\\s*strong:last-child\\s*\\{[^}]*color:\\s*var\\(--text\\)`), "Compiled repair total uses the defined --text token");
 const result = {
   at: new Date().toISOString(), buildId,
   classification: "Actual production CSS, synthetic stable component DOM; both stylesheet orders and two real browser engines. React interactions are verified separately.",

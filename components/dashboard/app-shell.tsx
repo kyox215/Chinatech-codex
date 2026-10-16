@@ -4,7 +4,7 @@ import { useBackendMode } from "@/components/backend-snapshot";
 
 import { NavigationLink as Link } from "@/components/navigation-link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Bell, Boxes, ChevronUp, ClipboardList, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Search, Settings, UserRound, UsersRound, Wrench, X } from "lucide-react";
 import { Brand } from "@/components/brand";
@@ -71,6 +71,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     document.addEventListener("pointerdown", closeOutside);
     return () => document.removeEventListener("pointerdown", closeOutside);
   }, [setAccountOpen]);
+  useLayoutEffect(() => {
+    if (!isMobile || !menuOpen || !accountOpen) return;
+    const panel = sidebar.current, menu = account.current;
+    const brand = panel?.querySelector<HTMLElement>(".app-sidebar__brand-row");
+    const summary = menu?.querySelector<HTMLElement>(":scope > summary");
+    const actions = menu?.querySelector<HTMLElement>(":scope > .sidebar-account__actions");
+    if (!panel || !menu || !brand || !summary || !actions) return;
+    let active = true, previous: number | undefined;
+    const measure = () => {
+      if (!active || !panel.isConnected || !menu.open) return;
+      const brandBounds = brand.getBoundingClientRect(), summaryBounds = summary.getBoundingClientRect(), actionsBounds = actions.getBoundingClientRect();
+      const gap = Math.max(0, summaryBounds.top - actionsBounds.bottom);
+      const available = Math.max(0, actionsBounds.bottom - brandBounds.bottom - gap);
+      if (available === previous) return;
+      previous = available;
+      menu.style.setProperty("--sidebar-account-available-height", `${available}px`);
+    };
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    for (const element of [panel, brand, summary]) observer?.observe(element);
+    window.addEventListener("resize", measure);
+    return () => { active = false; observer?.disconnect(); window.removeEventListener("resize", measure); menu.style.removeProperty("--sidebar-account-available-height"); };
+  }, [isMobile, menuOpen, accountOpen]);
   useEffect(() => {
     if (!isMobile || !menuOpen || !sidebar.current) return;
     const panel = sidebar.current;

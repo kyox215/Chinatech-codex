@@ -1,7 +1,7 @@
 "use client";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { ChevronDown, Palette } from "lucide-react";
 import { SingleChoice } from "./single-choice";
 
@@ -22,37 +22,53 @@ export function ColorSwatch({ value }: { value: string }) {
 }
 export function ColorPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const { t } = useLanguage();
+  const root = useRef<HTMLDivElement>(null);
   const disclosure = useRef<HTMLDetailsElement>(null);
   const palette = useRef<HTMLDivElement>(null);
+  const paletteId = useId();
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<CSSProperties>({});
   const [custom, setCustom] = useState(Boolean(value && !deviceColors.some(item => item.value === value)));
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     const place = () => {
       const bounds = disclosure.current?.querySelector("summary")?.getBoundingClientRect();
-      if (!bounds) return;
+      const owner = root.current;
+      if (!bounds || !owner) return;
+      const origin = owner.getBoundingClientRect();
       const width = Math.min(360, window.innerWidth - 24);
       const above = Math.max(0, bounds.top - 12), below = Math.max(0, window.innerHeight - bounds.bottom - 12);
       const down = below >= 360 || below >= above;
       const maxHeight = Math.min(440, Math.max(160, down ? below : above));
       const height = Math.min(palette.current?.scrollHeight || 400, maxHeight);
-      setPosition({ width, left: Math.max(12, Math.min(bounds.left, window.innerWidth - width - 12)), top: down ? bounds.bottom + 6 : Math.max(12, bounds.top - height - 6), maxHeight });
+      const left = Math.max(12, Math.min(bounds.left, window.innerWidth - width - 12));
+      const top = down ? bounds.bottom + 6 : Math.max(12, bounds.top - height - 6);
+      const next = { width, left: left - origin.left - owner.clientLeft + owner.scrollLeft, top: top - origin.top - owner.clientTop + owner.scrollTop, maxHeight };
+      setPosition(current => current.width === next.width && current.left === next.left && current.top === next.top && current.maxHeight === next.maxHeight ? current : next);
     };
-    const outside = (event: PointerEvent) => { if (!disclosure.current?.contains(event.target as Node)) { if (disclosure.current) disclosure.current.open = false; } };
+    const outside = (event: PointerEvent) => { if (!disclosure.current?.contains(event.target as Node) && !palette.current?.contains(event.target as Node)) close(false); };
     place(); window.addEventListener("resize", place); window.addEventListener("scroll", place, true); document.addEventListener("pointerdown", outside);
     return () => { window.removeEventListener("resize", place); window.removeEventListener("scroll", place, true); document.removeEventListener("pointerdown", outside); };
   }, [open]);
-  function close() {
-    if (disclosure.current) { disclosure.current.open = false; disclosure.current.querySelector("summary")?.focus(); }
+  function close(restoreFocus = true) {
+    setOpen(false);
+    const details = disclosure.current;
+    if (!details) return;
+    details.open = false;
+    const summary = details.querySelector("summary");
+    if (restoreFocus && summary?.isConnected) summary.focus();
   }
   function select(selected: string) {
     setCustom(selected === "custom"); onChange(selected === "custom" ? "" : selected);
     close();
   }
   const options = (metal: boolean) => deviceColors.filter(item => item.value.includes("钛金属") === metal).map(item => ({ value: item.value, label: item.value, graphic: <ColorSwatch value={item.value} /> }));
-  return <div className="field color-picker"><span>{t("颜色")}</span><details ref={disclosure} onToggle={event => setOpen(event.currentTarget.open)} onKeyDown={event => { if (event.key === "Escape" && disclosure.current?.open) { event.preventDefault(); event.stopPropagation(); disclosure.current.open = false; disclosure.current.querySelector("summary")?.focus(); } }}>
-    <summary aria-label={t("选择设备颜色")}><ColorSwatch value={value} /><span>{custom ? value || t("其他颜色") : t(value || "未记录")}</span><ChevronDown size={16} /></summary>
-    <div ref={palette} className="color-picker__palette" style={position}><SingleChoice label={t("常规颜色")} className="single-choice--colors" value={custom ? "custom" : value} options={options(false)} onChange={select} onRepeatSelect={close} /><SingleChoice label={t("钛金属")} className="single-choice--colors" value={custom ? "custom" : value} options={options(true)} onChange={select} onRepeatSelect={close} /><SingleChoice label={t("其他")} className="single-choice--color-actions" value={custom ? "custom" : value} options={[{value:"",label:"未记录",icon:Palette},{value:"custom",label:"其他颜色",icon:Palette}]} onChange={select} onRepeatSelect={close} /></div>
-  </details>{custom ? <InputControl onClear={() => onChange("")} clearLabel={t("清空其他颜色")} aria-label={t("其他颜色")} value={value} onChange={event => onChange(event.target.value)} placeholder={t("填写颜色")} maxLength={60} /> : null}</div>;
+  return <div ref={root} className="field color-picker" onKeyDown={event => {
+    const target = event.target as Node;
+    if (event.key === "Escape" && !event.defaultPrevented && disclosure.current?.open && (disclosure.current.contains(target) || palette.current?.contains(target))) {
+      event.preventDefault(); event.stopPropagation(); close();
+    }
+  }}><span>{t("颜色")}</span><details ref={disclosure} onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary aria-label={t("选择设备颜色")} aria-controls={open ? paletteId : undefined} onClick={() => { if (disclosure.current?.open) setOpen(false); }}><ColorSwatch value={value} /><span>{custom ? value || t("其他颜色") : t(value || "未记录")}</span><ChevronDown size={16} /></summary>
+  </details>{open ? <div ref={palette} id={paletteId} className="color-picker__palette" style={position}><SingleChoice label={t("常规颜色")} className="single-choice--colors" value={custom ? "custom" : value} options={options(false)} onChange={select} onRepeatSelect={() => close()} /><SingleChoice label={t("钛金属")} className="single-choice--colors" value={custom ? "custom" : value} options={options(true)} onChange={select} onRepeatSelect={() => close()} /><SingleChoice label={t("其他")} className="single-choice--color-actions" value={custom ? "custom" : value} options={[{value:"",label:"未记录",icon:Palette},{value:"custom",label:"其他颜色",icon:Palette}]} onChange={select} onRepeatSelect={() => close()} /></div> : null}{custom ? <InputControl onClear={() => onChange("")} clearLabel={t("清空其他颜色")} aria-label={t("其他颜色")} value={value} onChange={event => onChange(event.target.value)} placeholder={t("填写颜色")} maxLength={60} /> : null}</div>;
 }

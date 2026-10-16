@@ -1,4 +1,5 @@
 .summary { margin-bottom: 16px; }
+.summary:has(:global(.color-picker__palette)) { position: relative; z-index: 1; overflow: visible; }
 .hero { display: grid; grid-template-columns: minmax(180px, 230px) minmax(0, 1fr); gap: 22px; padding: 18px; align-items: start; }
 .heroContent { min-width: 0; display: grid; gap: 14px; }
 .heroHeading { display: grid; grid-template-columns: minmax(0, 1fr) minmax(170px, .65fr); align-items: start; gap: 16px; }

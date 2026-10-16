@@ -2,14 +2,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { backendRecovery, loadRecovery, recoverOperation, subscribeRecovery } from "@/lib/backend/client";
 import { useLanguage } from "@/components/language-provider";
+import { createRecoveryVisibilityRegistry } from "@/components/recovery-visibility";
 
-const RecoveryPresentation = createContext<{ register: (id: string) => () => void; local: Record<string, number> } | null>(null);
+const RecoveryPresentation = createContext<{ register: (id: string, host: HTMLElement) => () => void; local: Record<string, number> } | null>(null);
 export function RecoveryPresentationProvider({ children }: { children: ReactNode }) {
   const [local, setLocal] = useState<Record<string, number>>({});
-  const register = useCallback((id: string) => {
-    setLocal(current => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
-    return () => setLocal(current => { const next = { ...current }; if ((next[id] ?? 0) <= 1) delete next[id]; else next[id]--; return next; });
-  }, []);
+  const [registry] = useState(() => createRecoveryVisibilityRegistry(setLocal));
+  const register = registry.register;
+  useEffect(() => () => registry.dispose(), [registry]);
   const value = useMemo(() => ({ local, register }), [local, register]);
   return <RecoveryPresentation.Provider value={value}>{children}</RecoveryPresentation.Provider>;
 }
@@ -71,7 +71,9 @@ export function OperationRecoveryControls({requestId, global=false}:{requestId?:
   const {t,systemText}=useLanguage();
   const presentation = useContext(RecoveryPresentation);
   const register = presentation?.register;
-  useEffect(() => { if (requestId && !global && register) return register(requestId); }, [requestId, global, register]);
+  const hostRef = useCallback((host: HTMLElement | null) => {
+    if (host && requestId && !global && register) return register(requestId, host);
+  }, [requestId, global, register]);
   const recovery=useSyncExternalStore(subscribeRecovery,backendRecovery,backendRecovery);
   const [action,setAction]=useState<"check"|"retry"|"cancel"|"read"|null>(null);
   if(!requestId)return null;
@@ -80,7 +82,7 @@ export function OperationRecoveryControls({requestId, global=false}:{requestId?:
     setAction("read");
     try {await loadRecovery();} finally {setAction(null);}
   }
-  if(recovery.pending?.command.requestId!==requestId)return <section className="sync-recovery" data-operation-recovery aria-label={t("提交恢复")}>
+  if(recovery.pending?.command.requestId!==requestId)return <section ref={hostRef} className="sync-recovery" data-operation-recovery aria-label={t("提交恢复")} aria-busy={action==="read"}>
     <p role="status">{systemText(recovery.message)||t("此设备有尚待核对的提交，请先处理原提交。")}</p>
     <button className="button button--secondary" type="button" disabled={Boolean(action)} aria-busy={action==="read"} onClick={()=>void read()}>{t(action==="read"?"正在核对原提交…":"重新读取恢复记录")}</button>
   </section>;
@@ -89,7 +91,7 @@ export function OperationRecoveryControls({requestId, global=false}:{requestId?:
     setAction(next);
     try {await recoverOperation(next,requestId!);} finally {setAction(null);}
   }
-  return <section className="sync-recovery" data-operation-recovery aria-label={t("提交恢复")}>
+  return <section ref={hostRef} className="sync-recovery" data-operation-recovery aria-label={t("提交恢复")} aria-busy={recovery.busy||Boolean(action)}>
     <p role="status">{systemText(recovery.message)||t("提交结果待核对，请处理原提交，勿重复新建。")}</p>
     <div className="sync-recovery__actions">
       <button className="button button--secondary" type="button" disabled={recovery.busy||Boolean(action)} aria-busy={action==="check"} onClick={()=>void recover("check")}>{t(action==="check"?"正在核对原提交…":"核对提交结果")}</button>

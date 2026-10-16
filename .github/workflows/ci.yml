@@ -58,6 +58,10 @@ jobs:
           name: shared-ui-feedback-proof
           path: .local/ui-feedback/
           if-no-files-found: error
+      - name: Early site UI regression gate
+        run: npx playwright test tests/browser/site-ui-recheck.spec.ts --reporter=line --output=.local/ui-proof/site-ui-smoke/test-results
+      - name: Early color anchor regression gate
+        run: npx playwright test tests/browser/controls.spec.ts --grep '(retail summary color follows common document scrolling and escapes only its open panel|retail creation color remains reachable across short-screen resize and form overflow|repair device color preserves short-screen internal scrolling and native selection)$' --reporter=line --output=.local/ui-proof/site-ui-smoke/color-anchor-results
       - run: npm run test:controls
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -67,6 +71,7 @@ jobs:
             test-results/
             .local/ui-feedback/
             .local/ui-proof/controls/
+            .local/ui-proof/site-ui-smoke/
             .local/device-catalog/picker-performance-*.json
             .local/device-catalog/separated-performance-*.json
           include-hidden-files: true

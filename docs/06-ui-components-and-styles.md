@@ -1,5 +1,17 @@
 # 公共组件与样式复用规范
 
+## 2026-10-16 候选：恢复呈现与列表状态槽
+
+本节登记当前修复候选，不更新已上线组件数量、正式版本或既有验收结论。正式构建、独立回归、准确提交的CI及发布绑定完成后，另记实际交付证据。
+
+`components/recovery-visibility.ts` 是 `RecoveryPresentationProvider` 的技术辅助入口，不是第二套恢复控件。它只统计已登记宿主及祖先的呈现条件：连接在文档中、有布局盒，且不处于 hidden、aria-hidden、inert、关闭的任一级 details、summary 或隐藏的 visibility 中。滚动到屏幕外不等于隐藏。每个provider共享一组观察器，事件合并到单次RAF；最后注销或卸载清理观察器、监听器和待执行帧，旧实例不能清理替代实例。
+
+`OperationRecoveryControls` 继续使用原公开接口和原requestId；局部宿主实际隐藏后释放呈现占用，由全局入口接管，重新显示再回到局部。观察器只决定入口显示，不卸载草稿、停止回执观察或重发命令。恢复入口放在禁用fieldset之外；核对、重试和撤销仍处理原提交。商品字段编辑用原提交锁覆盖输入、备注、恢复草稿、继续/返回/关闭和版本重核对，并在处理函数入口同步检查；静止未知结果显示已有三语“待核对”，真实执行才显示busy和进度线。
+
+采购手机行给既有 `NavigationLink` 单槽保留第三列，客户手机行把同一槽明确定位到第三列并跨两行；默认箭头与真实等待占相同位置。客户关联记录复用同一包装槽的原箭头对齐，桌面字段和列保留。工单合计复用已定义 `--text`；采购历史仅在显式预览模式附加已有演示标签，正式事件与历史数据不改写。
+
+`tests/recovery-presentation.test.mjs` 与 `tests/retail-editor-lock.test.mjs` 纳入默认Node测试。纯内存/处理函数合同、实际React离线夹具、生产编译CSS以及正常隔离CI分别记证；合成pending不当作真实导航，静态数量或旧截图不代替当前交互验收。
+
 ## UI设计目录与统一状态（2026-10-15）
 
 后续先查 [`ui-design/`](../ui-design/README.md) 的实际组件与设计映射；已有设计先复用，缺失设计先在原Figma补齐、核可编辑图层与截图，归档节点/变体/映射/预览后使用。完整类别索引和本轮79活动文件、120导航源码调用点盘点在该目录；不是每页每状态的逐像素证明。
@@ -346,7 +358,7 @@ RetailRecordScanner从旧独立列表提取后复用于唯一商品入口；buil
 
 ## 紧凑详情与账号菜单（2026-10-01）
 
-- `AppShell` 账号摘要固定在侧栏底部；原生 `details` 的菜单绝对定位向上展开，侧栏收起时仍显示完整操作名称。菜单仅保留门店设置、通知、退出；供应商、经营收支、打印由门店设置内部导航承载。外部点击关闭菜单，Esc 先关闭账号菜单再关闭手机抽屉；通知关闭返回账号摘要。主导航独立滚动，菜单不推动头像或被侧栏裁切。
+- `AppShell` 账号摘要固定在侧栏底部；原生 `details` 的菜单绝对定位向上展开，侧栏收起时仍显示完整操作名称。手机账号菜单按实际顶栏、账号摘要及既有间隔限定可用高度，全部操作在菜单内滚动可达，原44px关闭入口不与菜单重叠，一次关闭同时收起抽屉与账号菜单；测量仅在手机抽屉及账号菜单打开时维护并清理。菜单仅保留门店设置、通知、退出；供应商、经营收支、打印由门店设置内部导航承载。外部点击关闭菜单，Esc 先关闭账号菜单再关闭手机抽屉；通知关闭返回账号摘要。主导航独立滚动，菜单不推动头像或被侧栏裁切。
 - `RepairWorkflowPanel` 使用 [作用域样式](../components/repairs/repair-workflow-panel.module.css)，`metadata` 组合接收时间、负责人等只读事实，`historyContent` 合并既有时间线。保管用小标记展开 `SelectControl`，保存保留打开时版本；通知条件和阶段规则仍由共享工作流维护。
 - Fixture 工单详情使用 [模块样式](../components/repairs/repair-detail.module.css)：设备、故障、随件合为主卡，标识折叠；概况与客户为辅助列，报价紧凑显示。手机为单栏，阶段、标识、历史和保管触发点至少44px。
 - 单机详情使用 [模块样式](../components/retail/retail-detail.module.css)：照片、品牌型号、售价与指标为摘要；颜色／分类归基本规格，外观等级归实物情况。编号、SN、包装码、IMEI 在紧凑资料格直接显示，自动编号只读，其余逐项编辑；历史默认折叠。金额、来源、位置和入库日期集中在辅助列；手机单栏。待检测三项核验只在操作区编辑，其他状态保留只读核验记录。
@@ -381,7 +393,8 @@ RetailRecordScanner从旧独立列表提取后复用于唯一商品入口；buil
 - [RetailCatalogControl / RetailRamControl / RetailStorageControl](../components/retail/retail-spec-controls.tsx) 将目录搜索和容量预设封装为整机私有组合，不重写SearchCombobox或SelectControl。电脑移动／桌面候选与游戏机品牌过滤由lib/retail-catalog.ts维护，实际字段仍由lib/retail.ts校验；既有及手填值可继续保存，容量对象按选项复制，不共享可变数据。
 - 新建按ready门控后首次初始化草稿；品类相关RAM／容量控件用独立key重置，仅处理未保存草稿。编号领域生成，RetailFieldButton的code为只读div，兼容旧数据而无铅笔。
 - 电池图形概览复用RetailFieldButton，移除实物区重复值；保修直接复用RetailWarrantyControl，其disabled反映权限／状态／存储。RetailWarrantyPanel只维护未保存期限草稿，核对候选交回RetailFieldEditor.initialCandidate，保存仍走原版本及单字段写边界。取消自定义同步重置控件key，不保留旧输入。
-- ColorPicker稳定公共扩展为常规5列／钛金属4列与其他独立行；色板固定定位按触发点及视口计算，低屏内部滚动。radio／文字／44px目标保留，resize、scroll和外部pointer监听仅展开时安装并清理；Esc只在展开时消费，不越级关闭父dialog。主题沿用原token，动态位置不是第二套主题。
+- ColorPicker沿用常规5列／钛金属4列与其他独立行；native details／summary与按open挂载的色板在同一.color-picker内同级，仍保留原form／fieldset禁用继承。实例稳定ID通过summary的aria-controls关联实际色板；色板相对该wrapper的padding box绝对定位，按真实边框与自身滚动换算，并只发布精确变化的坐标／尺寸。首个可见帧前测量，保留视口夹取、上下翻转和低屏内部滚动；仅摘要内色板打开时放开所属摘要的裁剪／层叠，新建表单的开放溢出不依赖样式导入顺序。radio／文字／44px目标及token保持。选择／重复选择／色板内Esc同步关闭并返回原summary，外点关闭不抢焦点；仅details或色板起源的Esc由控件消费，自定义输入继续沿父层规则。resize、scroll和外部pointer监听只在展开时安装并清理，开合不清自定义值或业务草稿。
+- RetailFieldEditor 的通用输入尺寸仅约束可见输入，必须排除 type=radio；SingleChoice 的透明原生 radio 沿公共 1px／min-height:0 规则，真实 label 保持至少44px高，并在手机断点保持至少44px宽。不得用私有通配输入 min-height 覆盖隐藏控件，也不得移除原生单选、焦点或提交锁语义。
 - 实际新建／复制／核对保存／刷新、四宽度、手机容量和CPU弹层、接机色板复用／键盘／自定义／嵌套Esc及权限代表流程已验收，详见[执行记录](12-retail-specifications-execution-plan.md)。没有新增公共token、UI框架或图标库。
 
 ## 单机售卖、照片与员工权限（2026-10-01）

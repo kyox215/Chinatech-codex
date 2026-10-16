@@ -39,7 +39,7 @@
 .projectState { display:flex; flex-wrap:wrap; gap:5px; min-width:0; }
 .projectState :global(.status-pill) { white-space:normal; overflow-wrap:anywhere; }
 .total { display:flex; justify-content:space-between; gap:12px; padding:16px; background:var(--bg); }
-.total > strong:last-child { color:var(--text-primary); }
+.total > strong:last-child { color:var(--text); }
 .facts { padding:16px; display:grid; gap:10px; overflow-wrap:anywhere; }
 .facts > a { display:flex; align-items:center; gap:6px; color:var(--primary-600); }
 .facts p, .facts h4 { margin:0; }
