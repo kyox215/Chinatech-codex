@@ -35,6 +35,7 @@ export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "
   const [selectedId, setSelectedId] = useState(initialRecordId);
   const [legacyEdit, setLegacyEdit] = useState(false);
   const [pending, setPending] = useState(false);
+  const [footerTarget, setFooterTarget] = useState<HTMLDivElement | null>(null);
   const [recoveryRequestId,setRecoveryRequestId]=useState<string|null>(null);
   const [confirmedProject, setConfirmedProject] = useState<RepairProjectConfirmation | null>(null);
   const busy = useRef(false);
@@ -78,15 +79,15 @@ export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "
   useEffect(() => { if (repairId) dialog.current?.showModal(); }, [repairId]);
   if (!repairId) return null;
   const close = () => { if (!busy.current) onClose(); };
-  return createPortal(<dialog className="repair-parts-dialog repair-part-dialog repair-items-dialog" ref={dialog} aria-labelledby={titleId} aria-busy={pending} onClose={close} onCancel={event => { if (busy.current) event.preventDefault(); }} onClickCapture={event => { if (busy.current && !(event.target instanceof Element && event.target.closest("[data-operation-recovery]"))) { event.preventDefault(); event.stopPropagation(); } }} onSubmitCapture={event => { if (busy.current) { event.preventDefault(); event.stopPropagation(); } }}>
+  return createPortal(<dialog className="repair-parts-dialog repair-part-dialog repair-items-dialog repair-procurement-dialog" ref={dialog} aria-labelledby={titleId} aria-busy={pending} onClose={close} onCancel={event => { if (busy.current) event.preventDefault(); }} onClickCapture={event => { if (busy.current && !(event.target instanceof Element && event.target.closest("[data-operation-recovery]"))) { event.preventDefault(); event.stopPropagation(); } }} onSubmitCapture={event => { if (busy.current) { event.preventDefault(); event.stopPropagation(); } }}>
     <header><div><small>{repairId}</small><h2 id={titleId}>{t("供应商与配件")}</h2></div><button className="icon-button" type="button" disabled={pending} onClick={close} aria-label={t("关闭配件操作")}><X size={20} /></button></header>
-    <fieldset className="form-fields" disabled={pending}>
+    <div className="repair-procurement-dialog__body" data-combobox-boundary><fieldset className="form-fields" disabled={pending}>
     {storageError ? <p className="form-error" role="alert">{systemText(storageError)}</p> : null}
-    {order ? <RepairProjectControls order={order} records={records} onPendingChange={setOperationPending}/> : null}
-    <RepairItemsForm key={repairId} repairId={repairId} requirementId={initialRequirementId} confirmedProject={confirmedProject} onSaved={close} onCancel={close} onPendingChange={setOperationPending} />
+    {order && currentRepairRequirements(order, workflows[order.id]).length === 0 ? <RepairProjectControls order={order} records={records} onPendingChange={setOperationPending}/> : null}
+    <RepairItemsForm key={repairId} repairId={repairId} requirementId={initialRequirementId} confirmedProject={confirmedProject} onSaved={close} onCancel={close} onPendingChange={setOperationPending} footerTarget={footerTarget} dialogPending={pending} />
     {selected ? <details className="repair-workflow-history repair-existing-parts" open={initialRecordId ? true : undefined}>
       <summary><PackageSearch size={16} />{t("配件记录 ")}<small>{relatedRows.length}</small></summary>
-      {relatedRows.length > 1 ? <label className="field"><span>{t("查看配件记录")}</span><SelectControl disabled={pending} aria-label={t("本次操作的配件")} value={selected.id} onChange={event => { if (busy.current) return; setSelectedId(event.target.value); setLegacyEdit(false); }}>{relatedRows.map(row => <option key={row.id} value={row.id}>{repairItemText(row.item, locale)} · {row.supplier}{row.required === false ? t(" · 备选") : ""}</option>)}</SelectControl></label> : null}
+      {relatedRows.length > 1 ? <label className="field"><span>{t("查看配件记录")}</span><SelectControl disabled={pending} aria-label={t("本次操作的配件")} value={selected.id} onChange={event => { if (busy.current) return; setSelectedId(event.target.value); setLegacyEdit(false); }}>{relatedRows.map(row => <option key={row.id} value={row.id}>{repairItemText(row.item, locale)} · {row.supplier} · {row.id}{row.required === false ? t(" · 备选") : ""}</option>)}</SelectControl></label> : null}
       {legacyEdit ? <RepairPartForm key={selected.id} repairId={repairId} record={selected} onSaved={() => { if (!busy.current) setLegacyEdit(false); }} onCancel={() => { if (!busy.current) setLegacyEdit(false); }} onPendingChange={setOperationPending} /> : <>
         <div className="repair-parts-dialog__item"><strong>{repairItemText(selected.item, locale)}</strong><span>{t(procurementStatuses[procurementStatus(selected)].label)}</span>{selected.specification ? <p>{selected.specification}</p> : null}<span>{selected.supplier} · {selected.quantity} {t(" 件")}{selected.required === false ? t(" · 备选") : ""}</span>{canEdit && !selected.requirementId ? <button className="button button--secondary button--tiny" type="button" onClick={() => setLegacyEdit(true)}><Pencil size={14} />{t("编辑旧配件记录")}</button> : null}</div>
         {order && selected.requirementId ? <RepairPartReconfirmation key={selected.requirementId} order={order} requirement={currentRepairRequirements(order, workflows[order.id]).find(row => row.id === selected.requirementId)} rows={rows.filter(row => row.requirementId === selected.requirementId)} onPendingChange={setOperationPending} /> : null}
@@ -94,8 +95,9 @@ export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "
         {selected.events.length ? <details className="repair-workflow-history"><summary><History size={16} />{t("配件历史 ")}<small>{selected.events.length}</small></summary><ol className="detail-timeline">{selected.events.toReversed().map(event => <li key={event.id}><i className="timeline-dot timeline-dot--info" /><div><strong>{t(procurementEventLabel(event))}</strong><p>{event.note}</p><small>{event.time}</small></div></li>)}</ol></details> : null}
       </>}
     </details> : null}
-    </fieldset>
+    </fieldset></div>
     <OperationRecoveryControls requestId={pending?recoveryRequestId:null}/>
+    <div className="repair-procurement-dialog__footer" ref={setFooterTarget}/>
   </dialog>, document.body);
 }
 

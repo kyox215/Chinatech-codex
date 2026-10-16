@@ -25,12 +25,33 @@ function atoms(buffer) {
   return result;
 }
 function seconds(value) { const [h, m, s] = value.split(":").map(Number); return h * 3600 + m * 60 + s; }
+function verifyChapterContract(story, measured, tutorial, evidence, name) {
+  const expectedCount = story.id === "follow-up" ? 5 : 6;
+  assert.equal(story.steps.length, expectedCount, `${name}: storyboard chapter contract`);
+  assert(tutorial, `${name}: missing tutorial catalog entry`);
+  for (const [label, steps] of [["audio measurement", measured.steps], ["tutorial catalog", tutorial.steps], ["motion evidence", evidence.motion]]) {
+    assert(Array.isArray(steps), `${name}: stale ${label}; chapter array missing`);
+    assert.equal(steps.length, expectedCount, `${name}: stale ${label}; expected ${expectedCount} chapters, regenerate matching authoring data`);
+  }
+  for (let index = 0; index < expectedCount; index++) {
+    const step = measured.steps[index], declared = story.steps[index], published = tutorial.steps[index];
+    assert(step && declared && published && evidence.motion[index], `${name}: stale chapter ${index + 1}; missing step or motion evidence`);
+    for (const key of ["title", "body"]) {
+      assert.equal(step[key], declared[key], `${name}: stale audio ${key} in chapter ${index + 1}`);
+      assert.equal(published[key], declared[key], `${name}: stale catalog ${key} in chapter ${index + 1}`);
+    }
+  }
+  return expectedCount;
+}
 const report = { format: "H.264 / AAC, 1280x960, 24fps", generatedAt: new Date().toISOString(), items: [] };
 for (const locale of locales.filter(value => requested === "all" || value === requested)) {
   const catalog = getTutorials(locale), directory = path.join(output, locale === "zh-CN" ? "" : locale);
   for (const story of (await storiesFor(locale)).filter(story => !selectedStories || selectedStories.has(story.id))) {
     const name = `${locale}-${story.id}`, video = path.join(directory, `${story.id}.mp4`);
     const measured = await json(path.join(work, `audio/${name}.json`));
+    const tutorial = catalog.find(item => item.id === story.id);
+    const evidence = await json(path.join(work, `evidence/${name}.json`));
+    const expectedCount = verifyChapterContract(story, measured, tutorial, evidence, name);
     const details = await probe(video), v = details.streams.find(stream => stream.codec_type === "video"), a = details.streams.find(stream => stream.codec_type === "audio");
     assert.equal(v.codec_name, "h264"); assert.equal(v.width, 1280); assert.equal(v.height, 960);
     assert.equal(v.avg_frame_rate, `${fps}/1`); assert.equal(v.pix_fmt, "yuv420p");
@@ -55,8 +76,6 @@ for (const locale of locales.filter(value => requested === "all" || value === re
       assert(Math.abs(seconds(cue[2]) - expectedCues[i].start - expectedCues[i].duration) <= .001);
       assert.equal(cue[3].replace(/\s/g, ""), expectedCues[i].text.replace(/\s/g, ""));
     });
-    const tutorial = catalog.find(item => item.id === story.id);
-    assert(tutorial); assert.equal(tutorial.steps.length, 6);
     tutorial.steps.forEach((step, i) => assert(Math.abs(step.at - measured.steps[i].at) <= .001));
     for (const step of measured.steps) for (const cue of step.cues) {
       const wave = await probe(cue.file);
@@ -64,8 +83,6 @@ for (const locale of locales.filter(value => requested === "all" || value === re
     }
     const poster = await sharp(path.join(directory, `${story.id}.webp`)).metadata();
     assert.equal(poster.width, 960); assert.equal(poster.height, 720);
-    const evidence = await json(path.join(work, `evidence/${name}.json`));
-    assert.equal(evidence.motion.length, 6);
     const motion = [];
     // Compare only the screen region, excluding headers/subtitles. The camera
     // has stopped at 1.5s, so these frames document the mouse's visible route.
@@ -97,7 +114,7 @@ for (const locale of locales.filter(value => requested === "all" || value === re
       return { path: `/${path.relative(path.join(root, "public"), file)}`, extension, bytes: data.length, sha256: createHash("sha256").update(data).digest("hex") };
     }));
     report.items.push({ locale, id: story.id, voice: measured.voice, rate: measured.rate, seconds: duration, bytes: bytes.length, assets: assetBytes, sha256: createHash("sha256").update(bytes).digest("hex"), decoded: true, meanDb, peakDb, faststart: true, captions: cues.length, chapters: tutorial.steps.map(step => step.at), motion });
-    console.log(`Verified ${name}: ${duration}s, 6 moving steps, ${cues.length} aligned cues`);
+    console.log(`Verified ${name}: ${duration}s, ${expectedCount} moving steps, ${cues.length} aligned cues`);
   }
 }
 report.totalBytes = report.items.reduce((sum, item) => sum + item.assets.reduce((sum, asset) => sum + asset.bytes, 0), 0);

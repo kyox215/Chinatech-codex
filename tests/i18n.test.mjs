@@ -107,9 +107,10 @@ test("all three tutorial languages have complete independent media and ordered c
     const tutorials = getTutorials(locale);
     assert.deepEqual(tutorials.map(item => item.id), ids);
     for (const tutorial of tutorials) {
-      assert.equal(tutorial.steps.length, 6);
+      const expectedSteps = tutorial.id === "follow-up" ? 5 : 6;
+      assert.equal(tutorial.steps.length, expectedSteps);
       assert.equal(tutorial.steps[0].at, 0);
-      for (let index = 1; index < 6; index++) assert.ok(tutorial.steps[index].at > tutorial.steps[index - 1].at);
+      for (let index = 1; index < expectedSteps; index++) assert.ok(tutorial.steps[index].at > tutorial.steps[index - 1].at);
       for (const asset of [tutorial.src, tutorial.poster, tutorial.captions]) assert.ok(readFileSync(resolve(root, "public" + asset)).length > 0, asset);
       const captions = readFileSync(resolve(root, "public" + tutorial.captions), "utf8");
       assert.match(captions, /^WEBVTT/);

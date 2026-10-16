@@ -14,16 +14,15 @@ import type { ProcurementRecord } from "@/lib/procurement";
 export type RepairProjectConfirmation = Readonly<{ requestId: string; repairId: string; requirementId: string; intakeRevision: number; beforeWorkflowRevision: number; workflowRevision: number }>;
 type ProjectPendingChange = (value: boolean, requestId?: string, project?: RepairProjectConfirmation) => boolean | void;
 
-export function RepairProjectControls({ order, records, onPendingChange }: { order: RepairDirectoryEntry; records: ProcurementRecord[]; onPendingChange: ProjectPendingChange }) {
-  const { t } = useLanguage();
+export function RepairProjectControls({ order, records, onPendingChange, requirementId }: { order: RepairDirectoryEntry; records: ProcurementRecord[]; onPendingChange: ProjectPendingChange; requirementId?: string }) {
   const staff = useStaff();
   const { workflows } = useRepairWorkflows();
   const workflow = workflows[order.id] ?? initialRepairWorkflow(order);
   const requirements = currentRepairRequirements(order, workflow);
   if (!staff.can("repairs.edit") || isRepairHistory(order, workflow) || isRepairReady(workflow)) return null;
-  if (!requirements.length) return <AddProject key={`${staff.member?.id}:${staff.member?.revision}`} order={order} records={records} onPendingChange={onPendingChange}/>;
-  const unresolved = requirements.filter(row => (row.mode === "pending" || !row.confirmed) && !records.some(record => record.repairId === order.id && record.requirementId === row.id && record.required !== false));
-  return unresolved.length ? <details className="repair-workflow-history"><summary>{t("维修项目核对")}</summary>{unresolved.map(item => <NoPurchaseProject key={`${item.id}:${staff.member?.id}:${staff.member?.revision}`} order={order} item={item} records={records} onPendingChange={onPendingChange}/>)}</details> : null;
+  if (!requirements.length) return requirementId ? null : <AddProject key={`${staff.member?.id}:${staff.member?.revision}`} order={order} records={records} onPendingChange={onPendingChange}/>;
+  const unresolved = requirements.filter(row => (!requirementId || row.id === requirementId) && (row.mode === "pending" || !row.confirmed) && !records.some(record => record.repairId === order.id && record.requirementId === row.id && record.required !== false));
+  return unresolved.length ? <div className="repair-project-review">{unresolved.map(item => <NoPurchaseProject key={`${item.id}:${staff.member?.id}:${staff.member?.revision}`} order={order} item={item} records={records} onPendingChange={onPendingChange}/>)}</div> : null;
 }
 function AddProject({ order, records, onPendingChange }: { order: RepairDirectoryEntry; records: ProcurementRecord[]; onPendingChange: ProjectPendingChange }) {
   const { t , systemText } = useLanguage();
@@ -64,5 +63,5 @@ function NoPurchaseProject({ order, item, records, onPendingChange }: { order: R
     catch (failure) { if (!receipt.watch(requestId, release, release)) setError(failure instanceof Error ? failure.message : "核对未保存。"); }
     finally { if (!receipt.isWaiting()) { busy.current = false; onPendingChange(false, requestId); } setPending(false); }
   }
-  return <div className="repair-requirement"><strong>{repairItemText(item.title, locale)}</strong><label className="field"><span>{t("无需采购说明")}</span><InputControl disabled={pending} value={note} maxLength={1200} onChange={event => { if (revision.current === null) revision.current = workflows[order.id]?.revision ?? 0; setNote(event.target.value); }} onClear={() => setNote("")} placeholder={t("仅人工处理时填写")} /></label><button type="button" className="button button--secondary" disabled={pending || !note.trim() || Boolean(storageError)} onClick={() => void save()}>{submitting ? t("正在保存…") : receipt.waiting ? t("待核对") : t("确认无需采购")}</button>{error || storageError ? <p role="alert" className="form-error">{systemText(error || storageError)}</p> : null}</div>;
+  return <div className="repair-requirement"><strong>{repairItemText(item.title, locale)}</strong><label className="field"><span>{t("无需采购说明")}</span><InputControl form="" disabled={pending} value={note} maxLength={1200} onChange={event => { if (revision.current === null) revision.current = workflows[order.id]?.revision ?? 0; setNote(event.target.value); }} onClear={() => setNote("")} placeholder={t("仅人工处理时填写")} /></label><button type="button" className="button button--secondary" disabled={pending || !note.trim() || Boolean(storageError)} onClick={() => void save()}>{submitting ? t("正在保存…") : receipt.waiting ? t("待核对") : t("确认无需采购")}</button>{error || storageError ? <p role="alert" className="form-error">{systemText(error || storageError)}</p> : null}</div>;
 }

@@ -3,6 +3,9 @@ import { readFile, readdir, mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { chromium, webkit } from "@playwright/test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { Menu, ScanLine, PackageCheck, Plus } from "lucide-react";
 
 // This checks real compiled CSS against stable component semantics. It does not
 // replace the React interaction, authorization or business-flow browser tests.
@@ -83,6 +86,87 @@ function markup(css) {
     <dialog open class="repair-parts-dialog" id="dialog"><header><h2>Confirm action</h2></header><p>Actual saved facts remain unchanged.</p><footer><button class="button button--secondary">Cancel</button></footer></dialog>
     <dialog open class="${office.dialog}" id="office-dialog"><div class="${office.heading}" id="office-heading"><h2>Download versions</h2><button class="icon-button" aria-label="Close versions">×</button></div><p>Available architecture</p></dialog>
   </body></html>`;
+}
+
+// New repair selectors are checked against this same production payload.
+// This is native stable DOM/CSS evidence; real React positioning is separate.
+async function repairFeedbackStyle(page, width) {
+  await page.setViewportSize({ width, height: 420 });
+  const value = await page.evaluate(() => {
+    const host = document.createElement("section"); host.id = "repair-feedback-css";
+    host.innerHTML = `<div class="repair-unified-list"><header class="module-heading"><div class="module-title"><h2>DEMO</h2></div><div class="module-heading__actions"><button class="icon-button">Scan</button><button class="button button--compact">Batch</button><a class="button button--compact">Create</a></div></header><div class="repair-filterbar"><label class="module-search"><span class="input-control"><span class="input-control__body"><input class="input-control__native" value="DEMO" aria-label="DEMO search"></span></span><button>Clear</button><span class="repair-result-count">2</span></label><button class="button repair-filter-trigger">Filter</button><label class="module-select"><span class="select-control"><select><option>DEMO</option></select></span></label><label class="module-select"><span class="select-control"><select><option>DEMO</option></select></span></label></div><div class="repair-row-parts-cell" style="width:220px"><button class="button repair-row-parts"><span class="repair-row-parts__body"><svg width="17" height="17"></svg><span><span class="repair-row-parts__chips"><span class="repair-row-parts__chip">DEMO long display and touch requirement</span><span class="repair-row-parts__chip">DEMO battery requirement</span><span class="repair-row-parts__chip">DEMO legacy item</span><span class="repair-row-parts__chip">+4</span></span><small class="repair-row-parts__suppliers">DEMO supplier</small></span></span></button></div></div><dialog class="repair-parts-dialog repair-part-dialog repair-items-dialog repair-procurement-dialog"><header><h2>DEMO supplier</h2><button class="icon-button">×</button></header><div class="repair-procurement-dialog__body" data-combobox-boundary><fieldset class="form-fields"><div class="field search-combobox"><label>DEMO supplier</label><span class="input-control"><span class="input-control__body"><input class="input-control__native"></span></span><div class="search-combobox__menu" style="--combobox-space:20px"><ul>${Array.from({length:12},(_,i)=>`<li><button type="button">DEMO option ${i+1}</button></li>`).join("")}</ul></div></div>${Array.from({length:14},(_,i)=>`<p>DEMO repair requirement ${i+1}</p>`).join("")}</fieldset></div><div class="repair-procurement-dialog__footer"><footer><button class="button">Cancel</button><button class="button">Save</button></footer></div></dialog>`;
+    document.body.append(host);
+    const box = node => {const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom};};
+    const heights = selector => [...host.querySelectorAll(selector)].map(node=>box(node).height);
+    const toolbar = heights(".repair-filterbar > .module-search,.repair-filterbar > .repair-filter-trigger,.repair-filterbar > .module-select");
+    const actions = heights(".module-heading__actions > .button,.module-heading__actions > .icon-button");
+    const chips=box(host.querySelector(".repair-row-parts__chips"));
+    const chipsCount=host.querySelectorAll(".repair-row-parts__chip").length;
+    const singleCell=host.querySelector(".repair-row-parts-cell").cloneNode(true);singleCell.style.width="129px";
+    singleCell.querySelector(".repair-row-parts__chips").innerHTML='<span class="repair-row-parts__chip">DEMO complete single replacement request</span>';
+    host.querySelector(".repair-unified-list").append(singleCell);
+    const singleContainer=box(singleCell.querySelector(".repair-row-parts__chips")),singleChip=box(singleCell.querySelector(".repair-row-parts__chip"));
+    const dialog=host.querySelector("dialog"),body=dialog.querySelector(".repair-procurement-dialog__body"),header=dialog.querySelector("header"),footer=dialog.querySelector(".repair-procurement-dialog__footer"),menu=dialog.querySelector(".search-combobox__menu");
+    dialog.showModal();
+    const before={header:box(header),footer:box(footer)};body.scrollTop=100;
+    const after={header:box(header),footer:box(footer)};
+    const menu20=box(menu).height;menu.style.setProperty("--combobox-space","0px");const menu0=box(menu).height;
+    const result={toolbar,actions,chipsHeight:chips.height,chipsCount,singleContainer,singleChip,dialog:box(dialog),body:box(body),header:after.header,footer:after.footer,bodyScrollHeight:body.scrollHeight,bodyClientHeight:body.clientHeight,bodyScrollTop:body.scrollTop,outerOverflow:getComputedStyle(dialog).overflowY,bodyOverflow:getComputedStyle(body).overflowY,headerFixedDuringBodyScroll:before.header.y===after.header.y,footerFixedDuringBodyScroll:before.footer.y===after.footer.y,close:box(header.querySelector("button")),footerActions:[...footer.querySelectorAll("button")].map(box),menu20,menu0,unrelatedDialogWidth:document.getElementById("dialog").getBoundingClientRect().width,inputFont:getComputedStyle(host.querySelector(".repair-filterbar input")).fontSize};
+    dialog.close();host.remove();return result;
+  });
+  assert.ok(value.toolbar.length===4&&value.toolbar.every(height=>height===48),"Repair filter outer boxes remain48px");
+  assert.ok(value.actions.length===3&&value.actions.every(height=>height===44),"Repair heading actions remain44px");
+  assert.ok(value.chipsCount===4&&value.chipsHeight<=43,"Concrete item chips stay within two-line budget");
+  assert.ok(value.singleContainer.width>40&&Math.abs(value.singleChip.width-value.singleContainer.width)<.02,"Single repair chip uses the available label width");
+  assert.ok(value.dialog.width<=width-24,"Supplier dialog stays inside the viewport");
+  if(width>=768)assert.equal(value.dialog.width,Math.min(1040,width-48),"Only supplier dialog expands to1040/viewport-48");
+  assert.ok(value.dialog.height<=388&&value.bodyScrollHeight>value.bodyClientHeight&&value.bodyScrollTop>0,`Short supplier body really scrolls within420px: ${JSON.stringify({dialog:value.dialog,body:value.body,scrollHeight:value.bodyScrollHeight,clientHeight:value.bodyClientHeight,scrollTop:value.bodyScrollTop})}`);
+  assert.equal(value.outerOverflow,"hidden");assert.equal(value.bodyOverflow,"auto");
+  assert.ok(value.headerFixedDuringBodyScroll&&value.footerFixedDuringBodyScroll,"Header/footer remain outside the body scroll");
+  assert.ok(value.header.bottom<=value.body.y&&value.body.bottom<=value.footer.y,"Body never overlaps header/footer");
+  assert.ok(value.close.width>=44&&value.close.height>=44&&value.footerActions.every(box=>box.height>=44),"Close and footer targets remain44px");
+  assert.equal(value.menu20,20,"Candidate CSS consumes the actual20px boundary without a44px floor");
+  assert.equal(value.menu0,0,"Zero candidate space does not create overflow padding or border");
+  assert.ok(value.unrelatedDialogWidth<=500,"Unmarked dialog width remains unchanged");
+  if(width<768)assert.ok(Number.parseFloat(value.inputFont)>=16,"Repair mobile input remains16px");
+  await page.setViewportSize({width,height:1000});
+  return value;
+}
+
+async function repairHeaderActions(page, width) {
+  if (width >= 768) return [];
+  const icons = Object.fromEntries([["menu", Menu], ["scan", ScanLine], ["batch", PackageCheck], ["create", Plus]].map(([key, Icon]) => [key, renderToStaticMarkup(createElement(Icon, { size: key === "menu" ? 20 : 17, "aria-hidden": true }))]));
+  const rows = [];
+  await page.setViewportSize({ width, height: 600 });
+  for (const [locale, title, batch, create] of [["zh-CN", "维修工单", "批量到货", "新建工单"], ["it", "Riparazioni", "Arrivi multipli", "Nuova riparazione"], ["en", "Repair orders", "Batch arrivals", "New repair"]]) {
+    const value = await page.evaluate(({ locale, title, batch, create, icons }) => {
+      const host = document.createElement("section"); host.lang = locale;
+      host.innerHTML = `<div class="app-shell"><main class="app-main"><div class="app-content"><main class="module-page repair-page repair-parts-list repair-unified-list"><header class="module-heading"><div class="module-title"><button class="icon-button page-menu-button" type="button" aria-label="DEMO menu">${icons.menu}</button><div class="module-title__content"><div class="module-title__line"><h2>${title}</h2></div></div></div><div class="module-heading__actions"><button class="icon-button" type="button" aria-label="DEMO scanner">${icons.scan}</button><dialog></dialog><button class="button button--secondary button--compact" type="button">${icons.batch}${batch}</button><a class="button button--primary button--compact navigation-link" data-navigation-icon="true" href="#demo"><span class="navigation-feedback" data-pending="false" data-has-icon="true" aria-hidden="true"><span class="navigation-feedback__icon">${icons.create}</span><svg class="spin" width="16" height="16"></svg></span>${create}<span class="sr-only" aria-live="polite" aria-atomic="true"></span></a></div></header></main></div></main></div>`;
+      document.body.append(host);
+      const box = node => { const r = node.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom }; };
+      const actions = [...host.querySelectorAll(".module-heading__actions > button,.module-heading__actions > a")].map(action => {
+        const content = [], walker = document.createTreeWalker(action, NodeFilter.SHOW_TEXT); let node;
+        while ((node = walker.nextNode())) {
+          if (!node.textContent.trim() || node.parentElement.closest(".sr-only,.visually-hidden")) continue;
+          const range = document.createRange(); range.selectNodeContents(node);
+          for (const rect of range.getClientRects()) if (rect.width && rect.height) content.push({ kind: "text", text: node.textContent, x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom });
+        }
+        for (const svg of action.querySelectorAll("svg")) { const r = box(svg), style = getComputedStyle(svg); if (r.width && r.height && style.visibility !== "hidden" && style.display !== "none") content.push({ kind: "svg", ...r }); }
+        return { label: action.textContent.trim() || action.getAttribute("aria-label"), ...box(action), content };
+      });
+      const closedDialogDisplay = getComputedStyle(host.querySelector("dialog")).display;
+      host.remove(); return { locale, actions, closedDialogDisplay };
+    }, { locale, title, batch, create, icons });
+    assert.equal(value.actions.length, 3, "Repair heading keeps exactly scanner, batch and create actions");
+    assert.equal(value.closedDialogDisplay, "none", "Closed scanner dialog never occupies an action grid slot");
+    for (const action of value.actions) {
+      assert.ok(action.width >= 44 && action.height === 44, `Repair heading action keeps its44px target: ${JSON.stringify(action)}`);
+      assert.ok(action.content.length && action.content.every(rect => rect.x >= action.x - .1 && rect.y >= action.y - .1 && rect.right <= action.right + .1 && rect.bottom <= action.bottom + .1), `Visible ${locale} action text and SVG stay inside its button: ${JSON.stringify(action)}`);
+    }
+    rows.push(value);
+  }
+  await page.setViewportSize({ width, height: 1000 });
+  return rows;
 }
 
 const rows = [];
@@ -232,7 +316,9 @@ for (const engine of [chromium, webkit]) {
           assert.equal(result.headingNavigation.labelDisplay, "none");
           for (const target of [result.tiny, result.icon]) assert.ok(target.width >= 44 && target.height >= 44);
         }
-        rows.push({ engine: engine.name(), order, width, ...result, listRows });
+        const repairFeedback = await repairFeedbackStyle(page, width);
+        const repairHeader = await repairHeaderActions(page, width);
+        rows.push({ engine: engine.name(), order, width, ...result, listRows, repairFeedback, repairHeader });
       }
       assert.ok(fontRequests > 0);
       assert.deepEqual(unexpectedRequests, []);
@@ -248,4 +334,5 @@ const result = {
   externalNetworkRequests: 0, productionBusinessWrites: 0, rows,
 };
 await writeFile(path.join(proof, "verification.json"), JSON.stringify(result, null, 2));
+const repairProof=path.resolve(".local/ui-proof/repair-feedback/production-css");await mkdir(repairProof,{recursive:true});await writeFile(path.join(repairProof,"verification.json"),JSON.stringify({buildId,assets:result.assets,passed:rows.length,classification:"Same production CSS, synthetic native repair DOM; real React boundary/flows verified separately",rows:rows.map(({engine,order,width,repairFeedback,repairHeader})=>({engine,order,width,...repairFeedback,headerActions:repairHeader}))},null,2));
 console.log(`Production design contracts passed: ${rows.length} conditions, ${assets.length} compiled CSS assets, font${font.length}B, zero external requests.`);

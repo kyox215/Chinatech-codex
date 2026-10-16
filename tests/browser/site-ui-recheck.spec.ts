@@ -296,7 +296,7 @@ test("routed repair groups, nested mobile overview and stage cancel preserve zer
     const print = page.getByRole("button", { name: "打印接机单", exact: true });
     expect((await print.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     const tabs = page.getByRole("tablist", { name: "工单详情分组", exact: true });
-    for (const label of ["供应商", "照片", "历史", "维修"]) {
+    for (const label of ["照片", "历史", "维修"]) {
       await tabs.getByRole("tab", { name: new RegExp(`^${label}`) }).click();
       await expect(page.locator('[role="tabpanel"]:visible')).toHaveCount(1);
     }

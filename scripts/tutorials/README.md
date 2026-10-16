@@ -48,3 +48,9 @@ node scripts/tutorials/verify.mjs all
 采购/跟进两集的三语画面、讲稿、字幕和封面同步新流程：保存为待采购，实际下单逐项确认；联系先选结果再记录，无必填备注；详情四分组。原Edge作者配音端点返回403，本次明确使用本机macOS系统语音：中文Tingting/意大利语Alice/英语Samantha，分别190/170/175词每分钟；整集重制避免同集混音，网站运行不请求TTS。`TUTORIAL_TTS_ENGINE=macos node scripts/tutorials/prepare-audio.mjs all procurement`（follow-up同理）；默认Edge路径保持原有用途。
 
 `verify.mjs all procurement,follow-up`支持同时验收指定多集：新6个视频仍逐句测时/全文解码/字幕章节/鼠标运动/封面检查，旧9集须匹配原manifest完整字节与SHA并全量解码，最后原子更新15集manifest。不得把旧9集的哈希/解码复用称为本轮重拍或重验鼠标目标。
+
+## 2026-10-16 跟进教程裁尾维护
+
+三语 follow-up 删除已退役的第六章“四个详情分组”，保留前五章查单、阶段和联系结果的原画面、文案与配音 PCM；按各自原第六章起点截尾，实际时长为中文 53.666667 秒、意大利语 53.875 秒、英语 52.25 秒。仅修补烧录的章节分母与进度格为五章后以 H.264/AAC 重编码，未重拍、未生成新语音，也未重新验收页面鼠标目标；不是整段像素或文件字节不变。其他十二集的三类资产共36条保持原 SHA；三语 follow-up 封面另从新成片2.2秒按960×720、WebP质量87重取，章节分母和五格进度与新成片一致。此前39条未变资产包括这三张旧封面，封面同步后为36/45条未变，旧验收记录保留历史；封面证据见同目录 poster-sync.json。
+
+渲染器按实际故事章数生成分母和进度，原六章输入的标记布局保持；本次未改写旧六章私有 audio/evidence 或旧成功记录。verify.mjs 现按明确产品契约校验：follow-up 五章、其余六章，故事、配音测量、网页章节与 motion 证据数量必须一致，标题和讲稿也须匹配；旧六章 follow-up 缓存会明确拒绝为 stale，不能直接复用。全部 WAV、字幕、时码、运动、编码与质量门禁保留。以后从源码重生成五章时，须在独立作者工作区生成相符测量与证据后再运行完整验证；本轮只通过章节契约、语法和定向 lint，未声称完整 verify.mjs 已通过。此前成片的独立切点、字幕全文/时码、格式/faststart、全量解码、PCM 与业务画面质量证据仍见项目 .company-tmp/repair-feedback-20261016/tutorial/final.json，作者工具维护证据另见同目录 verify-maintenance.json。

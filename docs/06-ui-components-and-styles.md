@@ -1,5 +1,15 @@
 # 公共组件与样式复用规范
 
+## 2026-10-16 待验候选：维修反馈与采购弹窗
+
+本节对应 `codex/repair-feedback-20261016` 候选，尚未上线；正式基线与既有验收不在本轮实施阶段改写。复用原Tab、SearchCombobox、InputControl、PhotoCapture／同一照片Viewer及语义token，不新增主题或Figma变体；联系与跟进仅规划，打印由独立owner维护。
+
+维修详情保留维修／照片／历史三个Tab，键盘按实际tabs.length循环；项目卡只去采购进度的重复呈现，项目／要求、客户报价及本项供应商保留。维修分组内“全部配件记录”直达原repairId范围弹窗，不按当前requirement过滤，包含旧孤立、备选和多采购；只读也可查看。未确认／无需采购操作直接在项目卡呈现，保留原版本、说明及requestId门控；stale关联核对和配件历史不退休，不伪造confirmed。
+
+仅 `.repair-procurement-dialog` 扩展桌面宽度，正文单独滚动，原头部关闭与底部操作保持可达。底部保存通过原form的稳定id保持原生表单校验／提交归属；另一个“无需采购”说明不加入报价form，原操作owner仍统一防重入。SearchCombobox只有adaptiveMenu且祖先标记 `data-combobox-boundary` 时，才将上下空间与该祖先真实client内框／visualViewport求交；真实空间不足44px时不造44px下限，保留输入及正文滚动。边界加入既有RO／捕获scroll／resize单RAF和cleanup，相同几何不写style；默认及无标记调用行为不变。候选菜单尺寸消费局部 `--combobox-space`，不靠全局panel开放overflow或新公共portal逃离边界。
+
+已登记与草稿缩略图显式“查看”，上传和拍照为独立可见主操作，点图不触发文件替换。正背替换展示、其他追加、旧私有原件、草稿／权限／冲突／未知原ID及相机停止协议不变。维修列表配件格沿当前requirement与repairId采购投影生成具体项目／要求标签，最多三项加余量计数、保留两行预算；全文由可访问描述和原弹窗读取，未知legacy保留原文。只在维修列表作用域统一48px筛选外框／44px页头操作，手机输入16px；不改其他模块控件。
+
 ## 2026-10-16 候选：恢复呈现与列表状态槽
 
 本节登记当前修复候选，不更新已上线组件数量、正式版本或既有验收结论。正式构建、独立回归、准确提交的CI及发布绑定完成后，另记实际交付证据。

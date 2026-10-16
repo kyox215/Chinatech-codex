@@ -100,7 +100,7 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
       "description": "查单、改阶段、记沟通，每一步都有可追溯记录。",
       "href": "/app/repairs",
       "actionLabel": "打开维修工单",
-      "duration": "1:05",
+      "duration": "0:54",
       "src": "/tutorials/follow-up.mp4",
       "poster": "/tutorials/follow-up.webp",
       "captions": "/tutorials/follow-up.vtt",
@@ -129,11 +129,6 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
           "title": "核对后记录结果",
           "body": "选择后点击记录结果。只记录已经实际发生的联系，不表示客户同意维修，也不会自动发送消息或更改维修阶段。",
           "at": 42.875
-        },
-        {
-          "title": "四个分组查看详情",
-          "body": "详情分为维修、供应商、照片和历史。每项要求、报价和供应商集中展示；照片独立登记，历史按来源核对。",
-          "at": 53.667
         }
       ]
     },
@@ -322,7 +317,7 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
       "description": "Trova la scheda, aggiorna la fase e registra i contatti effettivi.",
       "href": "/app/repairs",
       "actionLabel": "Apri le riparazioni",
-      "duration": "1:05",
+      "duration": "0:54",
       "src": "/tutorials/it/follow-up.mp4",
       "poster": "/tutorials/it/follow-up.webp",
       "captions": "/tutorials/it/follow-up.vtt",
@@ -351,11 +346,6 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
           "title": "Controlla e registra l’esito",
           "body": "Dopo la scelta, premi Registra esito. Registra solo un contatto realmente avvenuto: non conferma il consenso alla riparazione, non invia messaggi e non cambia la fase.",
           "at": 43.375
-        },
-        {
-          "title": "Consulta le quattro sezioni",
-          "body": "La scheda contiene riparazione, fornitori, foto e cronologia. Requisiti, preventivo e fornitore sono riuniti per intervento; le foto hanno una registrazione separata.",
-          "at": 53.875
         }
       ]
     },
@@ -544,7 +534,7 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
       "description": "Find the right order, update its stage and record actual contact.",
       "href": "/app/repairs",
       "actionLabel": "Open repair orders",
-      "duration": "1:05",
+      "duration": "0:53",
       "src": "/tutorials/en/follow-up.mp4",
       "poster": "/tutorials/en/follow-up.webp",
       "captions": "/tutorials/en/follow-up.vtt",
@@ -573,11 +563,6 @@ const catalog: Record<TutorialLocale, readonly Tutorial[]> = {
           "title": "Review and record the result",
           "body": "After selecting, press Record result. Record only contact that actually occurred. It does not confirm repair consent, send messages, or change the repair stage.",
           "at": 41.5
-        },
-        {
-          "title": "Review the four detail sections",
-          "body": "Repair details have repair, suppliers, photos, and history sections. Requirements, quote, and supplier are grouped per item, with separate photo registration and source-specific history.",
-          "at": 52.25
         }
       ]
     },

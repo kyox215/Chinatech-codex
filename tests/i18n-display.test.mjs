@@ -71,3 +71,77 @@ test("every finite part specification displays fully in Italian and English with
   assert.deepEqual(services,before);
  }
 });
+
+const { repairRequirementRequest } = await load("lib/repair-requirement-display.ts");
+const { intakeRequirements } = await load("lib/repair-requirements.ts");
+const { repairItemText } = await load("lib/i18n/repair-display.ts");
+const requestSourceData = { category: "手机", brand: "Apple", model: "DEMO source phone", faults: [], services: { screen: { quality: "assembled", technology: "oled" }, battery: { quality: "original", appleService: "both" }, port: { quality: "original" } } };
+const requestLocales = ["zh-CN", "it", "en"];
+for (const locale of requestLocales) {
+  test(`free repair requests keep exact original text despite preset-word collisions (${locale})`, () => {
+    if (locale !== "zh-CN") assert.notEqual(repairItemText("主板", locale), "主板");
+    for (const request of ["主板", "需检查腐蚀", "进水：需检查腐蚀", "  DEMO 自由要求：主板与进水，保留每一字符。\n第二行 · 原文🙂  "]) {
+      const requirement = { id: "project:DEMO-custom", title: "屏幕", request, revision: 1, mode: "pending", confirmed: false };
+      let called = 0;
+      assert.equal(repairRequirementRequest(requirement, intakeRequirements(requestSourceData), source => { called++; return repairItemText(source.request, locale); }), request);
+      assert.equal(called, 0);
+    }
+  });
+  test(`only a unique unchanged current intake request reaches its existing preset renderer (${locale})`, () => {
+    const sources = intakeRequirements(requestSourceData);
+    assert.deepEqual(sources.map(source => source.request), ["组装 · OLED", "原装 · 扩容跑诊断", "原装"]);
+    for (const requirement of sources) {
+      let called = 0;
+      const displayed = repairRequirementRequest(requirement, sources, source => { called++; assert.equal(source, requirement); return repairItemText(source.request, locale); });
+      assert.equal(displayed, repairItemText(requirement.request, locale));
+      assert.equal(called, 1);
+    }
+  });
+}
+
+test("missing, stale, duplicate and text-only repair-source claims all keep raw requests", () => {
+  const original = intakeRequirements(requestSourceData)[0];
+  const changedDevice = intakeRequirements({ ...requestSourceData, model: "DEMO changed phone" });
+  const cases = [
+    [original, []],
+    [{ ...original, id: "project:DEMO-new" }, [original]],
+    [{ ...original, title: "主板" }, [original]],
+    [{ ...original, request: original.request + " " }, [original]],
+    [{ ...original, sourceFingerprint: undefined }, [original]],
+    [{ ...original, sourceFingerprint: "" }, [original]],
+    [original, [{ ...original, sourceFingerprint: undefined }]],
+    [original, [{ ...original, sourceFingerprint: "" }]],
+    [{ ...original, sourceFingerprint: undefined }, [{ ...original, sourceFingerprint: undefined }]],
+    [{ ...original, sourceFingerprint: "DEMO old source" }, [original]],
+    [original, changedDevice],
+    [original, [original, { ...original }]],
+    [original, [original, { ...original, sourceFingerprint: "DEMO stale duplicate" }]],
+    [{ ...original, id: "intake:主板", request: "主板", sourceFingerprint: undefined }, []],
+  ];
+  for (const locale of requestLocales) for (const [requirement, sources] of cases) {
+    let called = 0;
+    assert.equal(repairRequirementRequest(requirement, sources, source => { called++; return repairItemText(source.request, locale); }), requirement.request);
+    assert.equal(called, 0);
+  }
+  assert.equal(repairRequirementRequest({ ...original, request: "" }, [{ ...original, request: "" }], () => { throw Error("Empty original must stay empty"); }), "");
+});
+
+test("ordinary confirmation/revision changes preserve source identity and unknown history stays original", () => {
+  const sources = intakeRequirements(requestSourceData), original = sources[0];
+  for (const state of [{ revision: 20, mode: "parts", confirmed: true }, { revision: 21, mode: "none", confirmed: true }]) {
+    let called = 0;
+    assert.equal(repairRequirementRequest({ ...original, ...state }, sources, source => { called++; return "DEMO preset: " + source.request; }), "DEMO preset: " + original.request);
+    assert.equal(called, 1);
+  }
+  const legacy = { ...original, request: "DEMO unknown historical request" };
+  assert.equal(repairRequirementRequest(legacy, [legacy], source => repairItemText(source.request, "en")), legacy.request);
+});
+
+test("repair request display reads frozen source objects without changing fields or source order", () => {
+  const sources = intakeRequirements(requestSourceData).map(source => Object.freeze(source));
+  Object.freeze(sources);
+  const requirement = Object.freeze({ ...sources[0], mode: "parts", revision: 8, confirmed: true });
+  const before = JSON.stringify({ requirement, sources });
+  assert.equal(repairRequirementRequest(requirement, sources, source => repairItemText(source.request, "en")), repairItemText(requirement.request, "en"));
+  assert.equal(JSON.stringify({ requirement, sources }), before);
+});

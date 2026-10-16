@@ -1,5 +1,9 @@
 /** Static display messages. Do not use these translations as business values. */
 export const interfaceMessages: Record<string, readonly [string, string]> = {
+  "全部配件记录": ["Tutti i ricambi", "All part records"],
+  "有未关联当前项目的采购，请在全部配件记录中核对。": ["Alcuni acquisti non sono associati agli interventi attuali. Verificali in Tutti i ricambi.", "Some purchases are not linked to current items. Review them in All part records."],
+  "上传照片或拍照": ["Carica o scatta foto", "Upload or take photos"],
+  "未填写项目": ["Intervento non indicato", "No items entered"],
   "界面组件预览": ["Anteprima componenti UI", "UI component preview"],
   "DEMO 演示": ["DEMO", "DEMO"],
   "模拟等待时间": ["Attesa simulata", "Simulated wait"],

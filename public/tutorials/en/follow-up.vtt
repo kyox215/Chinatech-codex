@@ -43,11 +43,3 @@ Record only contact that actually occurred.
 00:00:47.000 --> 00:00:52.250
 It does not confirm repair consent, send messages, or change
 the repair stage.
-
-00:00:52.250 --> 00:00:57.375
-Repair details have repair, suppliers, photos, and history
-sections.
-
-00:00:57.375 --> 00:01:04.625
-Requirements, quote, and supplier are grouped per item, with
-separate photo registration and source-specific history.

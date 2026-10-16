@@ -118,6 +118,7 @@ export function SearchCombobox({
   useEffect(() => {
     if (!expanded || !adaptiveMenu || !menu.current || !root.current || !input.current) return;
     const node = menu.current;
+    const boundary = root.current.closest<HTMLElement>("[data-combobox-boundary]");
     let frame = 0;
     const position = () => {
       frame = 0;
@@ -125,13 +126,20 @@ export function SearchCombobox({
       const bounds = root.current.getBoundingClientRect();
       const anchor = input.current.closest(".input-control__body")?.getBoundingClientRect() ?? input.current.getBoundingClientRect();
       const viewport = window.visualViewport;
-      const top = viewport?.offsetTop ?? 0;
-      const bottom = top + (viewport?.height ?? window.innerHeight);
-      const below = Math.max(44, bottom - anchor.bottom - 12);
-      const above = Math.max(44, anchor.top - top - 12);
+      let top = viewport?.offsetTop ?? 0;
+      let bottom = top + (viewport?.height ?? window.innerHeight);
+      if (boundary) {
+        const clientTop = boundary.getBoundingClientRect().top + boundary.clientTop;
+        top = Math.max(top, clientTop);
+        bottom = Math.max(top, Math.min(bottom, clientTop + boundary.clientHeight));
+      }
+      const anchorTop = boundary ? Math.min(bottom, Math.max(top, anchor.top)) : anchor.top;
+      const anchorBottom = boundary ? Math.min(bottom, Math.max(top, anchor.bottom)) : anchor.bottom;
+      const below = boundary ? Math.max(0, bottom - anchorBottom - 4) : Math.max(44, bottom - anchor.bottom - 12);
+      const above = boundary ? Math.max(0, anchorTop - top - 4) : Math.max(44, anchor.top - top - 12);
       const upwards = below < 260 && above > below;
-      const nextTop = upwards ? "auto" : (anchor.bottom - bounds.top + 4) + "px";
-      const nextBottom = upwards ? (bounds.bottom - anchor.top + 4) + "px" : "auto";
+      const nextTop = upwards ? "auto" : (anchorBottom - bounds.top + 4) + "px";
+      const nextBottom = upwards ? (bounds.bottom - anchorTop + 4) + "px" : "auto";
       const space = Math.min(360, upwards ? above : below) + "px";
       if (node.style.top !== nextTop) node.style.top = nextTop;
       if (node.style.bottom !== nextBottom) node.style.bottom = nextBottom;
@@ -142,6 +150,7 @@ export function SearchCombobox({
     const observer = new ResizeObserver(schedule);
     observer.observe(node);
     observer.observe(root.current);
+    if (boundary) observer.observe(boundary);
     window.addEventListener("resize", schedule);
     window.addEventListener("scroll", schedule, true);
     window.visualViewport?.addEventListener("resize", schedule);

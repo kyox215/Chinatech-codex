@@ -3,7 +3,9 @@ import { useLanguage } from "@/components/language-provider";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ImagePlus, X } from "lucide-react";
+import { useActivityFeedback } from "@/components/operation-feedback";
 import { PhotoCapture } from "@/components/photo-capture";
+import styles from "./repair-detail-workspace.module.css";
 import { intakePhotoError } from "@/lib/repair-intake";
 import { validIntakePhotos, type IntakePhotoAttachment, type IntakePhotoReference } from "@/lib/repair-intake-record";
 type DraftPhotoFile = {name:string;type:string;lastModified:number;bytes:ArrayBuffer};
@@ -127,9 +129,21 @@ export function useIntakePhotos() {
 }
 export function IntakePhotos({ photos, add, remove, error, pending, disabled = false }: {disabled?: boolean} & Pick<ReturnType<typeof useIntakePhotos>, "photos" | "add" | "remove" | "error" | "pending">) {
   const { t , systemText } = useLanguage();
+  const [viewing,setViewing]=useState<IntakePhoto|null>(null);
+  const opener=useRef<HTMLButtonElement|null>(null);
+  const closeViewer=()=>{setViewing(null);requestAnimationFrame(()=>{if(opener.current?.isConnected)opener.current.focus({preventScroll:true});});};
   return <section className="intake-photos" aria-label={t("接机照片")}><strong className="intake-field-title">{t("接机照片")}</strong><div className="intake-photos__grid">{slots.map(slot => { const selected = photos.filter(photo => photo.slot === slot.value); return <div className="intake-photo-slot" key={slot.value} aria-busy={pending.includes(slot.value)}>
-    <label className="intake-photo-slot__upload">{selected.length ? <><span className="intake-photo-slot__images">{selected.map(photo => <span key={photo.id}><Image unoptimized width={240} height={160} src={photo.url} alt={t("{v0}照片 {v1}", { v0: t(slot.label), v1: photo.name })} onError={event => { event.currentTarget.alt = t("此格式无法预览，请改用 JPG / PNG"); }} /></span>)}</span><span>{t(slot.label)} · {pending.includes(slot.value) ? t("读取中…") : t("{v0} 张", { v0: selected.length })}</span></> : <><ImagePlus size={27} /><span>{t(slot.label)}{pending.includes(slot.value) ? t(" · 读取中…") : ""}</span></>}<input type="file" className="visually-hidden" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple={slot.value === "other"} disabled={disabled || pending.includes(slot.value)} aria-label={t("上传{v0}照片", { v0: t(slot.label) })} onChange={event => { void add(slot.value,Array.from(event.target.files ?? [])); event.target.value = ""; }} /></label>
+    {selected.length ? <div className="intake-photo-slot__images">{selected.map(photo => <button className="intake-photo-slot__preview" type="button" key={photo.id} aria-label={t("查看{v0}照片",{v0:t(slot.label)})} onClick={event=>{opener.current=event.currentTarget;setViewing(photo);}}><Image unoptimized width={240} height={160} src={photo.url} alt={t("{v0}照片 {v1}", { v0: t(slot.label), v1: photo.name })} onError={event => { event.currentTarget.alt = t("此格式无法预览，请改用 JPG / PNG"); }} /><span>{t("查看")} · {t(slot.label)}</span></button>)}</div> : null}
+    <label className="intake-photo-slot__upload"><ImagePlus size={22}/><span>{t("上传{v0}照片",{v0:t(slot.label)})}</span>{pending.includes(slot.value)?<small>{t("读取中…")}</small>:selected.length?<small>{t("{v0} 张",{v0:selected.length})}</small>:null}<input type="file" className="visually-hidden" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple={slot.value === "other"} disabled={disabled || pending.includes(slot.value)} aria-label={t("上传{v0}照片", { v0: t(slot.label) })} onChange={event => { void add(slot.value,Array.from(event.target.files ?? [])); event.target.value = ""; }} /></label>
     <PhotoCapture label={t("拍摄{v0}照片", { v0: t(slot.label) })} triggerClassName="intake-photo-slot__camera" disabled={disabled || pending.includes(slot.value)} onConfirm={file => add(slot.value,[file])} />
     {selected.map(photo => <button className="intake-photo-slot__remove" type="button" key={photo.id} aria-label={t("删除{v0}照片 {v1}", { v0: t(slot.label), v1: photo.name })} disabled={disabled} onClick={() => remove(photo)}><X size={15} /><span>{photo.name}</span></button>)}
-  </div>; })}</div>{error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}</section>;
+  </div>; })}</div>{error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}{viewing?<IntakePhotoViewer photo={viewing} onClose={closeViewer}/>:null}</section>;
+}
+
+export function IntakePhotoViewer({photo,onClose}:{photo:IntakePhoto;onClose:()=>void}) {
+  const {t}=useLanguage(); const dialog=useRef<HTMLDialogElement>(null);
+  const [state,setState]=useState<"loading"|"ready"|"error">("loading"), [attempt,setAttempt]=useState(0);
+  useActivityFeedback(state==="loading",{kind:"read",scope:"repair-photo-viewer"});
+  useEffect(()=>{dialog.current?.showModal();},[]);
+  return <dialog ref={dialog} className={`repair-parts-dialog ${styles.photoViewer}`} aria-label={t("接机照片")} onCancel={event=>{event.preventDefault();onClose();}}><header><h3>{t(photo.slot==="front"?"正面":photo.slot==="back"?"背面":"其他")}</h3><button className="icon-button" type="button" onClick={onClose} aria-label={t("关闭照片")}><X size={20}/></button></header>{state==="loading"?<p role="status">{t("正在读取照片…")}</p>:null}{state==="error"?<p className="form-error" role="alert">{t("照片暂时无法读取，请重试。")}<button className="button button--secondary" type="button" onClick={()=>{setState("loading");setAttempt(n=>n+1);}}>{t("重新读取照片")}</button></p>:null}<Image key={attempt} unoptimized src={photo.url} width={1000} height={1000} alt={t("接机照片")} onLoad={()=>setState("ready")} onError={()=>setState("error")}/></dialog>;
 }

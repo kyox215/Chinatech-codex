@@ -1,0 +1,198 @@
+/* Paper content owns its typography; legacy receipt and application table rules
+   cannot shrink it through stylesheet ordering. Millimetres describe the paper. */
+.sheets {
+  padding: 18px;
+  overflow-x: auto;
+}
+.continuation { flex-basis: 100%; margin: 0; color: var(--text-secondary); }
+
+.sheets .copy {
+  display: block;
+  box-sizing: border-box;
+  width: 194mm;
+  min-height: 132mm;
+  margin: 0 auto;
+  padding: 4mm;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: #161616;
+  font-size: 10.1pt;
+  line-height: 1.3;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+
+.sheets[data-format="a4"] .copy {
+  width: 281mm;
+  min-height: 194mm;
+}
+
+.sheets .copy + .copy { margin-top: 18px; }
+
+.sheets .document,
+.sheets .requests {
+  display: table;
+  table-layout: fixed;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  border-collapse: collapse;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+}
+
+.sheets .document > :is(thead, tbody) > tr > td {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  white-space: normal;
+  vertical-align: top;
+}
+.sheets .document > tbody > .columns > td { width: 50%; padding: 0 3mm; }
+.sheets .document > tbody > .columns > td:first-child { padding-left: 0; border-right: 1px dashed #aaa; }
+.sheets .document > tbody > .columns > td:last-child { padding-right: 0; }
+
+.sheets .copy :is(h3, h4, p, dl) { margin: 0; }
+.sheets .copy :is(p, small, dt, dd, li, th, td) { font-size: inherit; }
+.sheets .copy :is(p, dd, li) { white-space: pre-wrap; }
+.sheets .copy small { display: block; line-height: inherit; color: inherit; }
+.sheets .copy h3 { font-size: 14.1pt; line-height: 1.2; }
+.sheets .copy h4 { font-size: 11.1pt; line-height: 1.3; margin-bottom: 1mm; }
+.sheets .copy p + p { margin-top: 1mm; }
+.sheets .brand { border-bottom: 1px solid #888; padding-bottom: 2mm; }
+.sheets .brand > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1mm 4mm; align-items: baseline; }
+.sheets .pageIdentity { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1mm 4mm; padding: 1mm 0; border-bottom: 1px solid #888; }
+.sheets .brand strong { font-size: 14.1pt; }
+.sheets .brand span { font-weight: 700; }
+.sheets .brand h3 { margin: 1mm 0; }
+
+.sheets .identity,
+.sheets .facts,
+.sheets .amounts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1mm 4mm;
+}
+
+.sheets .identity { padding: 2mm 0; border-bottom: 1px solid #aaa; }
+.sheets .identity { grid-template-columns: 1fr; }
+.sheets .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sheets[data-format="a4"] .identity { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sheets[data-format="a4"] .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sheets[data-format="a4"] .identity { padding-block: 1mm; }
+.sheets[data-format="a4"] .block { padding-block: 1mm; }
+.sheets[data-format="a4"] .requests :is(th, td) { padding-block: .75mm; }
+.sheets .copy dl > div { min-width: 0; display: flex; flex-wrap: wrap; gap: 0 1mm; }
+.sheets .copy dt { font-weight: 700; }
+.sheets .copy dd { margin: 0; min-width: 0; }
+.sheets .copy .model { grid-column: 1 / -1; font-size: 11.1pt; }
+.sheets .block { padding: 1.5mm 0; border-bottom: 1px solid #aaa; }
+.sheets .copy .issue,
+.sheets .requests,
+.sheets .amounts { font-size: 11.1pt; }
+.sheets .amounts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sheets .amounts > div { display: block; }
+.sheets .amounts dd { font-weight: 700; }
+
+.sheets .requests :is(th, td) {
+  padding: 1mm 0;
+  border: 0;
+  border-bottom: 1px solid #ccc;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  white-space: normal;
+  font: inherit;
+  line-height: inherit;
+}
+
+.sheets .requests th { font-weight: 700; }
+.sheets .requests :is(th, td):last-child {
+  width: 38mm;
+  text-align: right;
+  padding-left: 3mm;
+  white-space: nowrap;
+}
+
+.sheets .local { margin-top: 1mm; }
+.sheets .terms { padding: 2mm 0; }
+.sheets .terms h3 { margin-bottom: 1mm; font-size: 12pt; }
+.sheets .terms ul { margin: 0 0 2mm; padding-left: 4mm; }
+.sheets .terms li { margin-bottom: 1mm; }
+
+.sheets .signature {
+  padding-top: 2mm;
+  border-top: 1px solid #888;
+}
+.sheets .signatureTop {
+  display: flex;
+  align-items: flex-start;
+  gap: 3mm;
+}
+
+.sheets .signatureDetails { flex: 1; min-width: 0; }
+.sheets .signatureImage { min-height: 14mm; margin: 1mm 0; border-bottom: 1px solid #333; }
+.sheets .signatureImage > svg { display: block; height: 14mm; width: auto; max-width: 100%; color: #161616; }
+.sheets .signatureDetails > :is(p, small) { margin-top: 1mm; }
+.sheets .tracking { flex: 0 0 32mm; min-width: 0; }
+.sheets .qr { display: block; width: 29mm; height: 29mm; background: white; }
+.sheets .tracking :is(p, strong, small) { display: block; margin-top: 1mm; }
+.sheets .trackingInfo { margin: 1mm 0; }
+
+@media screen and (max-width: 767px) {
+  .sheets { padding: 10px; }
+  .sheets .copy,
+  .sheets[data-format="a4"] .copy { width: 100%; min-height: 0; padding: 12px; }
+  .sheets .identity,
+  .sheets .facts,
+  .sheets[data-format="a4"] .identity,
+  .sheets[data-format="a4"] .facts { grid-template-columns: 1fr; }
+  .sheets .amounts { grid-template-columns: 1fr; gap: 2mm; }
+  .sheets .document,
+  .sheets .document > :is(thead, tbody),
+  .sheets .document > :is(thead, tbody) > tr,
+  .sheets .document > :is(thead, tbody) > tr > td { display: block; width: 100%; }
+  .sheets .document > tbody > .columns { display: block; }
+  .sheets .document > tbody > .columns > td { display: block; width: 100%; padding: 0; border: 0; }
+  .sheets .document > tbody > .columns > td:first-child,
+  .sheets .document > tbody > .columns > td:last-child { padding: 0; border: 0; }
+  .sheets .signatureTop { flex-wrap: wrap; }
+  .sheets .signatureDetails { flex-basis: 100%; }
+  .sheets .tracking { flex-basis: 100%; }
+}
+
+@media print {
+  .dialog:global(.intake-receipt-dialog)[open] { overflow: visible; }
+  .sheets { padding: 0; overflow: visible; }
+  .sheets .copy,
+  .sheets[data-format="a4"] .copy {
+    width: 194mm;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: white;
+    break-inside: auto;
+  }
+  .sheets[data-format="a4"] .copy { width: 281mm; }
+  .sheets .pageHeader { display: table-header-group; }
+  .sheets .document > tbody { break-inside: auto; }
+  .sheets .document > tbody > tr { break-inside: auto; }
+  .sheets .document > tbody > tr > td { break-inside: auto; }
+  .sheets .copy :is(h3, h4) { break-after: avoid; }
+  .sheets .copy dl > div,
+  .sheets .requests tr,
+  .sheets .terms li,
+  .sheets .signatureTop { break-inside: avoid; }
+  .sheets .copy :is(p, li) { orphans: 2; widows: 2; }
+  .sheets .copy + .copy { margin: 0; break-before: page; }
+  .sheets[data-format="double"][data-paired="true"] .copy { break-inside: avoid; }
+  .sheets[data-format="double"][data-paired="true"] .copy + .copy {
+    break-before: auto;
+    margin-top: 5mm;
+    padding-top: 3mm;
+    border-top: 1px dashed #888;
+  }
+}

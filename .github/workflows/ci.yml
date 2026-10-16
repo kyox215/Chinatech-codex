@@ -93,12 +93,27 @@ jobs:
           LOCAL_PREVIEW: "0"
       - name: Verify production design and stylesheet order
         run: node scripts/check-ui-production.mjs .next-backend
+      - name: Verify repair print layout against production CSS
+        run: npx playwright test -c playwright.repair-print.config.ts
+        env:
+          REPAIR_PRINT_PRODUCTION_CSS_DIR: .next-backend/static
       - name: Preserve production design verification
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: production-design-verification
           path: .local/ui-proof/production-design/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Preserve repair feedback and print layout proof
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: repair-feedback-and-print-layout-proof
+          path: |
+            .local/ui-proof/repair-feedback/
+            .local/ui-proof/repair-print-layout/
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7
