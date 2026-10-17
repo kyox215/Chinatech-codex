@@ -3,7 +3,7 @@ import {AsyncLocalStorage} from "node:async_hooks";
 type Sample={milliseconds:number;calls:number};
 type Observation={samples:Map<string,Sample>};
 const observations=new AsyncLocalStorage<Observation>();
-const names=new Set(["command_lock","command_dependencies","command_apply","command_receipt","command_legacy_snapshot","command_serialize","command_total","operation_total","auth_user","auth_refresh","auth_keys","auth_other","db_acquire","db_session","db_lock","db_live","db_work","db_finish","db_query","db_retry","db_total","db_40001","db_40p01","db_error","db_enroll","db_enroll_40001","db_enroll_40p01","db_enroll_needed"]);
+const names=new Set(["command_prepare","command_replay_check","command_lock","command_dependencies","command_apply","command_receipt","command_legacy_snapshot","command_serialize","command_total","operation_total","auth_user","auth_refresh","auth_keys","auth_other","db_acquire","db_session","db_lock","db_live","db_work","db_finish","db_query","db_retry","db_total","db_40001","db_40p01","db_error","db_enroll","db_enroll_40001","db_enroll_40p01","db_enroll_needed"]);
 // Only fixed names and numeric aggregates enter diagnostics. SQL, parameters,
 // URLs, cookies, identities and response bodies are deliberately excluded.
 export function observe(name:string,milliseconds:number,calls=1){
