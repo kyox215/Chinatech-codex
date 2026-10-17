@@ -3,6 +3,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync,
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import {receiptProbePermissions}from'./lib/receipt-probe-permissions.mjs';
 
 // Verify the files emitted by Next, rather than the developer's node_modules.
 // Node's permission boundary prevents a missing dependency from falling back to
@@ -43,7 +44,7 @@ console.log(JSON.stringify({chromium:chromium.name(),browserMetadata:true}));\n`
 // browsers.json is private to the package's exports: load exactly the same file
 // as coreBundle does, without adding a public export to third-party packages.
 writeFileSync(probe, readFileSync(probe, 'utf8').replace("require('playwright-core/browsers.json')", "require(require('node:path').join(require('node:path').dirname(require.resolve('playwright-core/package.json')),'browsers.json'))"));
-const run = spawnSync(process.execPath, ['--permission', '--allow-fs-read=' + sandbox, probe], { cwd: sandbox, env: { PATH: process.env.PATH ?? '', NODE_ENV: 'production' }, encoding: 'utf8', timeout: 15000 });
+const run = spawnSync(process.execPath, [...receiptProbePermissions(sandbox), probe], { cwd: sandbox, env: { PATH: process.env.PATH ?? '', NODE_ENV: 'production' }, encoding: 'utf8', timeout: 15000 });
 const result = { trace: relative(root, traceFile), sandbox: relative(root, sandbox), isolated: true, node: process.version, status: run.status, output: run.stdout.trim(), error: run.stderr.trim(), files: copied };
 writeFileSync(join(directory, 'verification.json'), JSON.stringify(result, null, 2) + '\n');
 assert.equal(run.status, 0, run.stderr || run.stdout);

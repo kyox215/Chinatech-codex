@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {readFileSync} from 'node:fs';
+import {readFileSync,mkdirSync,mkdtempSync,writeFileSync,rmSync} from 'node:fs';
+import{spawnSync}from'node:child_process';
+import{receiptProbePermissions}from'../scripts/lib/receipt-probe-permissions.mjs';
 import {createRequire} from 'node:module';
 import {resolve,dirname} from 'node:path';
 import ts from 'typescript';
@@ -30,3 +32,9 @@ test('legacy absent months uses existing six-month default, frozen policy takes 
 test('ordinary generation never serializes sensitive rows or errors and preview has no rendering entry',async()=>{const h=harness();h.mode=false;assert.equal((await h.call()).status,404);assert.equal(h.rendered.length,0);assert.equal(h.queries.length,0);});
 
 test('receipt requires explicit valid store scope and reuses it on post-render authorization',async()=>{for(const storeId of [null,'invalid','11111111-1111-0111-8111-111111111111']){const h=harness();assert.equal((await h.call(undefined,{storeId})).status,400);assert.equal(h.queries.length,0);assert.equal(h.rendered.length,0);}const h=harness();assert.equal((await h.call()).status,200);assert.deepEqual(h.accessScopes,['11111111-1111-4111-8111-111111111111','11111111-1111-4111-8111-111111111111']);});
+
+test('isolated receipt probe allows only exact Linux WSL reads and keeps untraced dependencies denied',()=>{
+ mkdirSync(resolve('.local'),{recursive:true});const directory=mkdtempSync(resolve('.local/receipt-probe-permissions-')),sandbox=resolve(directory,'copied');mkdirSync(sandbox);mkdirSync(resolve(directory,'node_modules/escaped'),{recursive:true});writeFileSync(resolve(directory,'node_modules/escaped/index.js'),"throw new Error('UNTRACED_PACKAGE_EXECUTED')");writeFileSync(resolve(directory,'outside.txt'),'DEMO untraced file');
+ try{const probe=resolve(sandbox,'probe.cjs');writeFileSync(probe,`const assert=require('node:assert/strict'),fs=require('node:fs');for(const path of ['/proc/version','/proc/sys/fs/binfmt_misc/WSLInterop','/run/WSL'])assert.doesNotThrow(()=>fs.existsSync(path));assert.throws(()=>fs.readFileSync(${JSON.stringify(resolve(directory,'outside.txt'))}),{code:'ERR_ACCESS_DENIED'});assert.throws(()=>require('escaped'),{code:'ERR_ACCESS_DENIED'});console.log('exact-probes-and-isolation-passed');`);const run=spawnSync(process.execPath,[...receiptProbePermissions(sandbox,'linux'),probe],{cwd:sandbox,encoding:'utf8',env:{NODE_ENV:'production'},timeout:10000});assert.equal(run.status,0,run.stderr);assert.equal(run.stdout.trim(),'exact-probes-and-isolation-passed');const denied=spawnSync(process.execPath,[...receiptProbePermissions(sandbox,'darwin'),'-e',"require('node:fs').existsSync('/proc/sys/fs/binfmt_misc/WSLInterop')"],{cwd:sandbox,encoding:'utf8',env:{NODE_ENV:'production'},timeout:10000});assert.notEqual(denied.status,0);assert.match(denied.stderr,/ERR_ACCESS_DENIED/);
+ }finally{rmSync(directory,{recursive:true,force:true});}
+});
