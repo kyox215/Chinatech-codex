@@ -25,3 +25,8 @@
 | 工作台 / 详情 | `components/dashboard/` 及领域组件 | 现有桌面/手机两套结构；工单设计详 `docs/37-repair-detail-redesign-plan.md` |
 
 此表为项目全部现有组件类别的复用索引，不声称每页每状态与 Figma 逐像素相同。自定义业务组合由对应模块所有；新设计必须补齐具体 Figma 节点与代码入口后登记。
+
+
+2026-10-17 多门店发布候选：新增 [MyStores / JoinStore / StoreManagement](previews/multistore-pilot-20261017.md)，原 Figma 15181:209494；复用 AccountBrand、AppShell、InputControl、SelectControl、MultiChoice、NavigationLink 与 B 反馈。发布源从正式 main 独立整合，仅纳本轮多店与容量，保留正式分页和 PDF 模板；本地 Supabase 生产构建、双引擎三语四宽与真实邀请审批均通过，发布状态以最终控制面绑定为准。
+
+2026-10-17 多门店与正式打印组合验收：`repairReceiptHtml` 的空项目／未报价合计复用既有 `text-amounts` 变体，不新增样式或控件；三语真实PDF、零值／正常金额27mm及超容量拒绝见 [本轮记录](previews/multistore-pilot-20261017.md)。

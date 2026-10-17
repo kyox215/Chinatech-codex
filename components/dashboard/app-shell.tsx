@@ -1,5 +1,6 @@
 "use client";
 import { useLanguage } from "@/components/language-provider";
+import { useBackendState } from "@/components/backend-snapshot";
 import { useBackendMode } from "@/components/backend-snapshot";
 
 import { NavigationLink as Link } from "@/components/navigation-link";
@@ -39,6 +40,7 @@ function NavItem({ item, active, onNavigate }: { item: NavItemConfig; active: bo
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { t } = useLanguage();
   const backendMode = useBackendMode();
+  const { snapshot } = useBackendState();
   const staff = useStaff();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -117,7 +119,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => { panel.removeEventListener("keydown", onKeyDown); document.body.style.overflow = previousOverflow; if (previousFocus?.isConnected) previousFocus.focus(); };
   }, [isMobile, menuOpen, setAccountOpen, setMenuOpen]);
   const routePermission = (href: string): Permission | null => href.startsWith("/app/retail") ? "retail.view" : href.startsWith("/app/repairs") || href.startsWith("/app/procurement") ? "repairs.view" : href.startsWith("/app/customer") ? "customers.view" : null;
-  const allowed = Boolean(staff.ready && !staff.error && staff.member && (pathname.startsWith("/app/settings") ? staff.can("settings.edit") || staff.can("financial.read") || staff.can("staff.manage") : pathname === "/app/dashboard" ? staff.can("retail.view") && staff.can("repairs.view") && staff.can("customers.view") : !routePermission(pathname) || staff.can(routePermission(pathname)!)));
+  const allowed = Boolean(staff.ready && !staff.error && staff.member && (pathname.startsWith("/app/settings") ? pathname==="/app/settings/store" || staff.can("settings.edit") || staff.can("financial.read") || staff.can("staff.manage") : pathname === "/app/dashboard" ? staff.can("retail.view") && staff.can("repairs.view") && staff.can("customers.view") : !routePermission(pathname) || staff.can(routePermission(pathname)!)));
   const closeMenu = useCallback(() => { setMenus(current => current.route !== route || !current.drawer && !current.account ? current : { ...current, drawer: false, account: false }); }, [route]);
   return <AppNavigationContext.Provider value={{ isMobile, expanded: isMobile ? menuOpen : !collapsed, toggle: () => isMobile ? setMenuOpen((value) => !value) : setCollapsed((value) => !value) }}>
     <div className={`app-shell${collapsed ? " app-shell--collapsed" : ""}`}>
@@ -126,9 +128,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Link className="app-search" href="/app/repairs" aria-label={t("搜索工单")} title={t("搜索工单")} onNavigationComplete={closeMenu} icon={<Search size={19} />}><span>{t("搜索工单")}</span></Link>
         <nav className="app-nav" aria-label={t("内部系统主导航")}><small className="app-nav__label">{t("主菜单")}</small>{primaryNav.filter(item => !item.href || !routePermission(item.href) || staff.can(routePermission(item.href)!)).map((item) => <NavItem item={item} active={isActive(item.href)} key={item.label} onNavigate={closeMenu} />)}</nav>
         <details ref={account} className="sidebar-account" open={accountOpen} onToggle={event => setAccountOpen(event.currentTarget.open)} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); event.preventDefault(); setAccountOpen(false); account.current?.querySelector("summary")?.focus(); } }}>
-          <summary aria-label={t("账号菜单")} title={t("账号菜单")} onClick={event => { event.preventDefault(); setAccountOpen(!accountOpen); }}><span className="profile-menu__avatar"><UserRound size={20} /></span><span className="sidebar-account__text"><strong>{staff.member?.name || t("预览身份待核对")}</strong><small>{backendMode?t("门店账号"):t("本地预览")} · {staff.member ? t(staffRoles[staff.member.role]) : t("访问不可用")}</small></span><ChevronUp size={16} /></summary>
+          <summary aria-label={backendMode&&snapshot ? t("{v0} · 账号菜单",{v0:snapshot.settings.shopName}) : t("账号菜单")} title={backendMode&&snapshot ? snapshot.settings.shopName : t("账号菜单")} onClick={event => { event.preventDefault(); setAccountOpen(!accountOpen); }}><span className="profile-menu__avatar"><UserRound size={20} /></span><span className="sidebar-account__text"><strong>{staff.member?.name || t("预览身份待核对")}</strong><small>{backendMode?(snapshot?.settings.shopName??t("门店账号")):t("本地预览")} · {staff.member ? t(staffRoles[staff.member.role]) : t("访问不可用")}</small></span><ChevronUp size={16} /></summary>
           <div className="sidebar-account__actions">
             <LanguageSwitcher />
+            {backendMode ? <Link className="sidebar-account__action" href="/account/stores" onNavigationComplete={closeMenu} icon={<UsersRound size={18} />}><span>{t("我的门店")}</span></Link> : null}
+            {backendMode ? <Link className="sidebar-account__action" href="/app/settings/store" onNavigationComplete={closeMenu} icon={<Settings size={18} />}><span>{t("门店容量与邀请")}</span></Link> : null}
             {backendMode ? <Link className="sidebar-account__action" href="/account/settings" onNavigationComplete={closeMenu} icon={<UserRound size={18} />}><span>{t("账号设置")}</span></Link> : null}
             <Link className="sidebar-account__action" href="/app/catalog" onNavigationComplete={closeMenu} icon={<Boxes size={18} />}><span>{t("设备目录")}</span></Link>
             {staff.can("settings.edit") || staff.can("financial.read") || staff.can("staff.manage") ? <Link className="sidebar-account__action" href="/app/settings" onNavigationComplete={closeMenu} icon={<Settings size={18} />}><span>{t("门店设置")}</span></Link> : null}

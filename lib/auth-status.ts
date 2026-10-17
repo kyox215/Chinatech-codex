@@ -6,5 +6,5 @@ export type AuthStatus = {
   store: { name: string; role: StaffRole | null } | null;
 };
 export function authDestination(state: AuthState) {
-  return state === "workspace" ? "/app/dashboard" : state === "account" ? "/account/pending" : state === "unverified" ? "/verify-email" : "/login";
+  return state === "workspace" ? "/app/dashboard" : state === "account" ? "/account/stores" : state === "unverified" ? "/verify-email" : "/login";
 }

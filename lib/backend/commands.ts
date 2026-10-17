@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import type { TransactionSql } from "postgres";
 import { can, updateStaffMember, type Permission, type StaffMember } from "../staff";
 import { parseStoreSettings, type StoreSettings } from "../store-settings";
@@ -20,6 +20,7 @@ import { memberInTransaction } from "./context";
 import { retailCommandPermission, requireRetailAfterSaleRepair } from "../retail-access";
 import { BackendError, withDatabase, type AuthIdentity } from "./database";
 import type { BackendCommand, BackendSnapshot } from "./contracts";
+import { prepareStoredPhotos, storeRetailPhotos } from "@/lib/server/attachment-storage";
 import { parseIntakePhotoAttachments, putIntakePhotos } from "./intake-photos";
 import { prepareIntakePhotoUpdate, RepairPhotoUpdateError } from "../repair-photo-update";
 import { fields, intakeFields, procurementFields, workflowCommandFields, customerFields, settingsFields, memberFields, retailFields, commandFields } from "./input";
@@ -97,7 +98,13 @@ async function ensureCustomer(tx:TransactionSql,state:BackendSnapshot,data:Intak
   if(existing) return existing.id as string;
   return putCustomer(tx,state.storeId,{phone,name:data.customerName,email:data.email,note:"",version:1,updatedAt:intakeRecordTime()});
 }
-async function putRetail(tx:TransactionSql,storeId:string,unit:RetailUnit) {await tx`insert into chinatech_v2_private.retail_units(store_id,id,data) values(${storeId},${unit.id},${tx.json(unit)}) on conflict(store_id,id) do update set data=excluded.data`;}
+async function putRetail(tx:TransactionSql,storeId:string,unit:RetailUnit) {
+  for(const photo of unit.photos){if(!photo.startsWith('ct-photo:'))continue;
+    const [reference]=await tx`select u.id from chinatech_v2_private.attachment_usage u join chinatech_v2_private.attachment_reservations r on r.store_id=u.store_id and r.id=u.id where u.store_id=${storeId} and u.id=${photo.slice(9)} and r.domain='retail' and r.status='confirmed'`;
+    if(!reference)throw new BackendError("照片不存在。",403);
+  }
+  await tx`insert into chinatech_v2_private.retail_units(store_id,id,data) values(${storeId},${unit.id},${tx.json(unit)}) on conflict(store_id,id) do update set data=excluded.data`;
+}
 
 async function putProcurementRecords(tx:TransactionSql,storeId:string,records:ProcurementRecord[],time:string) {
   // All records have already been checked against the transaction's current state.
@@ -491,19 +498,14 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
   }
   if(kind==="staff.save") {
     exactKeys(p,["draft","revision"]);authorize(member,"staff.manage");
-    fields(p.draft,memberFields);let draft=p.draft as StaffMember;const existing=state.staff.members.find(row=>row.id===draft.id);
-    let accountId:string|undefined;
-    if(!existing) {
-      if(!draft || draft.role==="owner" || draft.accountStatus!=="active" || typeof draft.email!=="string") throw new BackendError("只能审核已验证的普通员工账号。");
-      const [account]=await tx`select * from chinatech_v2_private.verified_account(${state.storeId},${draft.email.trim().toLowerCase()})`;
-      if(!account) throw new BackendError("未找到已验证账号，请让员工先注册并验证邮箱。");
-      accountId=account.id;draft={...draft,id:randomUUID(),name:account.display_name||account.email,email:account.email,revision:0};
-    } else if(draft.email!==existing.email || draft.name!==existing.name || draft.accountStatus!==existing.accountStatus) throw new BackendError("成员必须绑定已验证账号，不能在员工表改写真实身份。");
+    fields(p.draft,memberFields);const draft=p.draft as StaffMember;const existing=state.staff.members.find(row=>row.id===draft.id);
+    if(!existing) throw new BackendError("请通过邀请与申请审核添加员工。",403);
+    if(draft.email!==existing.email || draft.name!==existing.name || draft.accountStatus!==existing.accountStatus) throw new BackendError("成员必须绑定已验证账号，不能在员工表改写真实身份。");
+    if(member.role!=="owner" && draft.permissions.includes("staff.manage") && !existing.permissions.includes("staff.manage")) throw new BackendError("仅老板可以授予人员管理权限。",403);
     if(state.staff.revision!==integer(p.revision) || (existing?.revision??0)!==draft.revision) throw new BackendError("员工资料已变化，请重新核对。",409);
     const next=updateStaffMember(state.staff,draft,integer(p.revision),member.id,requestId,time);
     const saved=next.members.find(row=>row.id===draft.id)!;
-    if(accountId) await tx`insert into chinatech_v2.store_memberships(id,store_id,user_id,role,permissions,membership_status,revision) values(${saved.id},${state.storeId},${accountId},${saved.role},${saved.permissions},${saved.membershipStatus},${saved.revision})`;
-    else await tx`update chinatech_v2.store_memberships set role=${saved.role},permissions=${saved.permissions},membership_status=${saved.membershipStatus},revision=${saved.revision} where store_id=${state.storeId} and id=${saved.id}`;
+    await tx`update chinatech_v2.store_memberships set role=${saved.role},permissions=${saved.permissions},membership_status=${saved.membershipStatus},revision=${saved.revision} where store_id=${state.storeId} and id=${saved.id}`;
     await tx`update chinatech_v2_private.store_state set staff_audit=${tx.json(next.audit)} where store_id=${state.storeId}`;return draft.id;
   }
   throw new BackendError("此操作尚未接入正式后台。",400);
@@ -512,6 +514,16 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
 export async function executeCommand(identity:AuthIdentity,command:BackendCommand) {
   if(!uuid.test(command.requestId) || !uuid.test(command.storeId) || typeof command.kind!=="string") throw new BackendError("请求标识无效。");
   const payload=object(command.payload);const digest=createHash("sha256").update(JSON.stringify({kind:command.kind,payload})).digest("hex");
+  if((command.kind==="intake.save" || command.kind==="intake.photos") && Array.isArray(payload.photos) && payload.photos.length) {
+    const photos=await parseIntakePhotoAttachments(payload.photos,payload.photos.length);
+    await prepareStoredPhotos(identity,command.storeId,photos,"repairs",command.kind==="intake.photos"?String(payload.id):String((payload.data as {id?:unknown})?.id));
+  }
+  if(command.kind==="retail"){
+    if(payload.type==="create" && payload.photos!==undefined)payload.photos=await storeRetailPhotos(identity,command.storeId,command.requestId,validateRetailPhotos(payload.photos));
+    else if(payload.type==="command" && payload.command && typeof payload.command==="object" && (payload.command as {type?:unknown}).type==="photos"){
+      const next=payload.command as {photos:unknown};next.photos=await storeRetailPhotos(identity,command.storeId,command.requestId,validateRetailPhotos(next.photos));
+    }
+  }
   return withDatabase(identity,command.storeId,async tx=>{
     await tx`select pg_advisory_xact_lock(hashtextextended(${'ct:'+command.storeId},0))`;
     // Establish a current write version before reading receipts or applying intent.

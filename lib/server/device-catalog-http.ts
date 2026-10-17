@@ -20,8 +20,8 @@ export async function catalogAccess(request: NextRequest, response: NextResponse
   if (write) requireSameOrigin(request);
   const { identity } = await requireAccountSession(request,response,write);
   if (write && request.headers.get('x-ct-session-id') !== identity.sessionId) throw new CatalogError('登录会话已变化，请刷新后重试。',409);
-  const selected = request.headers.get('x-ct-store-id') ?? request.cookies.get('ct_store')?.value;
-  if (selected && !/^[a-f0-9-]{36}$/i.test(selected)) throw new CatalogError('目录门店范围无效。');
+  const selected = request.headers.get('x-ct-store-id') ?? request.nextUrl.searchParams.get('storeId') ?? undefined;
+  if (!selected || !/^[a-f0-9-]{36}$/i.test(selected)) throw new CatalogError('目录门店范围无效。');
   const storeId = await withDatabase(identity,null, async tx => {
     const rows = selected
       ? await tx`select store_id from chinatech_v2.store_memberships where user_id=${identity.userId} and store_id=${selected} and membership_status='active' limit 1`
@@ -38,8 +38,8 @@ export async function catalogReadAccess<T>(request: NextRequest, response: NextR
     const { identity } = await requireAccountIdentity(request, response, request.headers.has('x-ct-account-id'));
     identityFinished = performance.now();
     if (request.headers.has('x-ct-session-id') && request.headers.get('x-ct-session-id') !== identity.sessionId) throw new CatalogError('登录会话已变化，请刷新后重试。',409);
-    const selected = request.headers.get('x-ct-store-id') ?? request.cookies.get('ct_store')?.value;
-    if (selected && !/^[a-f0-9-]{36}$/i.test(selected)) throw new CatalogError('目录门店范围无效。');
+    const selected = request.headers.get('x-ct-store-id') ?? request.nextUrl.searchParams.get('storeId') ?? undefined;
+    if (!selected || !/^[a-f0-9-]{36}$/i.test(selected)) throw new CatalogError('目录门店范围无效。');
     databaseStarted = performance.now();
     return await withCatalogRead(identity, selected, async access => {
       const scope = request.headers.get('x-ct-catalog-scope');

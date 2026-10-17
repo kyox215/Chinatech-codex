@@ -28,6 +28,9 @@ export const sourceExceptions = new Map([
 // Exact source text exceptions are intentionally reviewable. Runtime customer data
 // is never scraped, sent for translation or rewritten by this tool.
 export const literalExceptions = [
+  { file: "lib/backend/context.ts", text: "STORE_REQUIRED", reason: "Stable machine transport code; localized message is carried separately." },
+  { file: "lib/server/stores.ts", text: "MEMBER_QUOTA", reason: "Stable machine transport code; localized message is carried separately." },
+  { file: "lib/server/attachment-storage.ts", text: "ATTACHMENT_QUOTA", reason: "Stable machine transport code; localized message is carried separately." },
   ...["苹果", "三星", "小米", "红米", "华为", "荣耀", "欧珀", "真我", "一加", "谷歌", "摩托罗拉", "联想", "惠普", "戴尔", "华硕", "宏碁", "微星", "微软", "索尼", "任天堂", "诺基亚", "中兴", "乐金", "技嘉"].map(text => ({ file: "lib/device-catalog.ts", owner: "brandAliases", text, reason: "Exact canonical brand search alias. Alias text is a naming fact, never a translated saved value." })),
   { file: "ui-design/catalog.tsx", text: "DEMO-0001", reason: "Explicit fictional record identifier in the UI catalog; preserve the original identifier." },
   { file: "components/language-switcher.tsx", text: "语言 / Lingua / Language", reason: "The language picker identifies itself in all three supported languages." },
@@ -65,7 +68,7 @@ export const literalExceptions = [
 
 // Exact shared technical symbols and sample addresses, not a rule allowing English
 // prose or arbitrary uppercase text. Adding a new item requires semantic review.
-export const invariantLabels = new Set(["ChinaTech", "CT", "SN", "SN：", "SN / IMEI", "SN / IMEI：", "IMEI", "IMEI 1", "IMEI 2", "IMEI 1：", "IMEI 2：", "CPU", "GPU", "RAM（GB）", "GB", "TB", "SSD", "HDD", "NVMe SSD", "name@example.com", "customer@example.com", "sales@demo.chinatech.local"]);
+export const invariantLabels = new Set(["MB", "ChinaTech", "CT", "SN", "SN：", "SN / IMEI", "SN / IMEI：", "IMEI", "IMEI 1", "IMEI 2", "IMEI 1：", "IMEI 2：", "CPU", "GPU", "RAM（GB）", "GB", "TB", "SSD", "HDD", "NVMe SSD", "name@example.com", "customer@example.com", "sales@demo.chinatech.local"]);
 
 const translatedCalls = new Set(["t", "translate", "systemText", "translateSystemMessage", "printText", "printStructured", "printIssue", "printKnownOrOriginal", "repairDisplayIssue", "repairDisplayMessage"]);
 // These local helpers translate only the named argument; other arguments are facts.

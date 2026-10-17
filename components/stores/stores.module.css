@@ -1,0 +1,12 @@
+.page { max-width: 1120px; margin: 0 auto; padding: 24px; display: grid; gap: 20px; min-width: 0; }
+.page > :global(.panel) { padding: 20px; display: grid; gap: 16px; }
+.page form { display: grid; gap: 12px; min-width: 0; }
+.page h1,.page h2,.page p { margin: 0; }
+.page h2 { font-size: 18px; overflow-wrap: anywhere; }
+.page p { overflow-wrap: anywhere; }
+.page progress { width: 100%; accent-color: var(--primary-600); }
+.page :global(.button) { justify-self: start; }
+.application { display: grid; gap: 12px; padding-block: 16px; border-top: 1px solid var(--border); }
+.application fieldset { min-width: 0; border: 0; padding: 0; margin: 0; display: grid; gap: 12px; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; }
+@media(max-width:767px) { .page { padding: 16px; gap: 16px; } .page > :global(.panel) { padding: 16px; } }

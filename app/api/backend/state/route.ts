@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     return new NextResponse(body,{status,headers:{"Content-Type":"application/json","Cache-Control":"private, no-store","Server-Timing":`access;dur=${accessTime.toFixed(1)}, read;dur=${readTime.toFixed(1)}, serialize;dur=${(performance.now()-serializationStart).toFixed(1)}`}});
   }
   try {
-    const access=await getServerAccess();if(!access) throw new BackendError("当前账号尚未获得门店授权。",403);
+    const access=await getServerAccess(request);if(!access) throw new BackendError("当前账号尚未获得门店授权。",403);
     accessTime = performance.now() - started;
     const known = new URL(request.url).searchParams.get("known");
     const readStarted = performance.now();

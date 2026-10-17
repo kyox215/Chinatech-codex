@@ -47,7 +47,7 @@ function accept(next:BackendSnapshot,scope:ReturnType<typeof requestScope>){
 export function reconcileBackendInitial(next:BackendSnapshot){if(snapshot)accept(next,requestScope());}
 async function request(url:string,init:RequestInit={}) {
   const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);
-  try {const response=await fetch(url,{...init,cache:"no-store",signal:controller.signal});const data=await response.json();return {response,data};}
+  try {const response=await fetch(url,{...init,headers:{...Object.fromEntries(new Headers(init.headers)),...(snapshot?{"x-ct-store-id":snapshot.storeId}:{})},cache:"no-store",signal:controller.signal});const data=await response.json();return {response,data};}
   finally {clearTimeout(timer);}
 }
 function redirectIdentity(status:number,code?:string){

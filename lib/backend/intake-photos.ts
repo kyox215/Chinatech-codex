@@ -26,14 +26,14 @@ export async function parseIntakePhotoAttachments(value:unknown, count:number):P
 export async function putIntakePhotos(tx:TransactionSql,storeId:string,repairId:string,photos:IntakePhotoAttachment[]) {
   for(const photo of photos) {
     const bytes=Buffer.from(photo.base64,"base64");
-    const created=await tx`insert into chinatech_v2_private.intake_photos(store_id,repair_id,id,slot,mime,bytes) values(${storeId},${repairId},${photo.id},${photo.slot},${photo.mime},${bytes}) on conflict(store_id,repair_id,id) do nothing returning id`;
-    if(!created.length) {
-      const [previous]=await tx`select slot,mime,bytes from chinatech_v2_private.intake_photos where store_id=${storeId} and repair_id=${repairId} and id=${photo.id}`;
-      if(!previous || previous.slot!==photo.slot || previous.mime!==photo.mime || !bytes.equals(Buffer.from(previous.bytes))) throw new BackendError("照片编号已用于其他内容，请重新选择照片。",409);
-    }
+    const [legacy]=await tx`select slot,mime,bytes from chinatech_v2_private.intake_photos where store_id=${storeId} and repair_id=${repairId} and id=${photo.id}`;
+    if(legacy){if(legacy.slot!==photo.slot||legacy.mime!==photo.mime||!bytes.equals(Buffer.from(legacy.bytes)))throw new BackendError("照片编号已用于其他内容，请重新选择照片。",409);continue;}
+    const [usage]=await tx`select u.bytes,u.content_hash from chinatech_v2_private.attachment_usage u join chinatech_v2_private.attachment_reservations r on r.store_id=u.store_id and r.id=u.id where u.store_id=${storeId} and u.id=${photo.id} and r.domain='repairs' and r.status='confirmed'`;
+    if(!usage||Number(usage.bytes)!==bytes.length)throw new BackendError("照片尚未确认保存，请重试原请求。",409);
+    const rows=await tx`insert into chinatech_v2_private.intake_photo_objects(store_id,repair_id,id,slot,mime) values(${storeId},${repairId},${photo.id},${photo.slot},${photo.mime}) on conflict(store_id,repair_id,id) do nothing returning id`;
+    if(!rows.length){const [old]=await tx`select slot,mime from chinatech_v2_private.intake_photo_objects where store_id=${storeId} and repair_id=${repairId} and id=${photo.id}`;if(!old||old.slot!==photo.slot||old.mime!==photo.mime)throw new BackendError("照片编号已用于其他内容，请重新选择照片。",409);}
   }
-  if(photos.length) {
-    const [history]=await tx`select count(*)::int as count,coalesce(sum(octet_length(bytes)),0)::int as bytes from chinatech_v2_private.intake_photos where store_id=${storeId} and repair_id=${repairId}`;
-    if(history.count>30 || history.bytes>7200000) throw new BackendError("此工单已达到30张照片历史上限，原照片和工单未被更改。");
+  if(photos.length){const [history]=await tx`select count(*)::int as count,coalesce(sum(bytes),0)::bigint as bytes from (select octet_length(bytes) as bytes from chinatech_v2_private.intake_photos where store_id=${storeId} and repair_id=${repairId} union all select u.bytes from chinatech_v2_private.intake_photo_objects p join chinatech_v2_private.attachment_usage u on u.store_id=p.store_id and u.id=p.id where p.store_id=${storeId} and p.repair_id=${repairId}) h`;
+    if(history.count>30||Number(history.bytes)>7200000)throw new BackendError("此工单已达到30张照片历史上限，原照片和工单未被更改。");
   }
 }

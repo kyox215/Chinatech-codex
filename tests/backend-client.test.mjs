@@ -128,7 +128,7 @@ function harness({requestDeadline}={}) {
   const navigator={onLine:true};
   const context = createContext({
     require:name=>{assert.equal(name,"./recovery-store");return storage;},
-    AbortController,URLSearchParams,setTimeout:requestDeadline?((fn,ms)=>setTimeout(fn,ms===20000?requestDeadline:ms)):setTimeout,clearTimeout,navigator,
+    AbortController,Headers,URLSearchParams,setTimeout:requestDeadline?((fn,ms)=>setTimeout(fn,ms===20000?requestDeadline:ms)):setTimeout,clearTimeout,navigator,
     exports: {},
     crypto: { randomUUID },
     fetch: (url, options) => new Promise((resolve, reject) => {
