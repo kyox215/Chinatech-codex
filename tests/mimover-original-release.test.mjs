@@ -23,5 +23,5 @@ test("Retired vendor package and metadata are absent from public deployment",()=
 test("Rejected lab2 cannot be reached from the toolbox or its old public URL",()=>{
   assert.equal(existsSync(new URL("../public/toolbox/mimover-universal/MiMover-4.5.7.5-universal-coexist-lab2.apk",import.meta.url)),false);
   const page=readFileSync(new URL("../components/toolbox/android-transfer-page.tsx",import.meta.url),"utf8");
-  assert.ok(page.includes("<MimoverOriginalDownload />"));assert.equal(page.includes("<MimoverDownload />"),false);
+  assert.equal(page.includes("<MimoverOriginalDownload />"),false);assert.equal(page.includes("<MimoverDownload />"),false);
 });

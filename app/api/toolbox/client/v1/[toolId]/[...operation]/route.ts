@@ -14,6 +14,8 @@ export async function GET(request:NextRequest,context:Context){try{
  const {toolId,operation}=await context.params;if(!isToolId(toolId)||request.nextUrl.search)throw new DesktopError('INVALID_REQUEST');
  const op=operation.join('/');if(toolId==='office'&&op==='status')return officeResponse(NextResponse.json(await statusV3()));
  if(toolId==='office'&&op==='update')return officeResponse(NextResponse.json(await updateV3()));
+ if(toolId==='phone-assistant'&&op==='status')return officeResponse(NextResponse.json({toolId,activeReleaseId:null,enabled:false,ready:false,acceptingNewJobs:false,retired:true,code:'TOOL_RETIRED',updateUrl:'https://www.chinatech.in/toolbox/transfer'}));
+ if(toolId==='phone-assistant'&&op==='update')return officeResponse(NextResponse.json({code:'TOOL_RETIRED',retired:true,updateUrl:'https://www.chinatech.in/toolbox/transfer'},{status:410}));
  if(op==='status'){const tool=await toolStatus(toolId);return officeResponse(NextResponse.json({...tool,acceptingNewJobs:tool.enabled&&tool.ready,code:tool.ready?'CURRENT_RELEASE':'INTEGRATION_PENDING',updateUrl:'https://www.chinatech.in/toolbox'}));}
  if(op==='update')return officeResponse(NextResponse.json(await toolUpdate(toolId)));
  return officeResponse(NextResponse.json({code:'INTEGRATION_PENDING'}, {status:409}));
