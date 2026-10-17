@@ -25,3 +25,5 @@
 此表为项目全部现有组件类别的复用索引，不声称每页每状态与 Figma 逐像素相同。自定义业务组合由对应模块所有；新设计必须补齐具体 Figma 节点与代码入口后登记。
 
 2026-10-17性能候选新增非视觉辅助：`WindowedListRows`管理已授权摘要的测量/窗口/焦点，`BackendPageFrame`/`BackendPageData`提供按页SSR资料；实际列表、输入、导航与反馈继续使用本表唯一组件，不新增主题或Figma变体。接口与实际客户验收范围见docs/06“性能候选的实际客户读取与渲染”；其他模块的兼容读取仍明确保留，未发布。
+
+采购候选继续复用本表原列表/按钮/输入/候选/弹窗语言：唯一模块内`ProcurementListBody`与`SupplierBatchView`分别接旧事实和有界API，不维护第二套模板。`WindowedListRows.scrollRoot/anchorSelector`只控制滚动/定位，`SearchCombobox.loadingLabel`保留原目录默认。共同横向视口、真实groupFirst、低频候选与实际检查范围见docs/06“性能候选的采购摘要与批量读取”；正式baseline保持原绑定，未部署。

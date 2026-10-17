@@ -77,7 +77,7 @@ const visibleProps = new Set(["title", "label", "text", "tooltip", "placeholder"
 const translatedComponentProps = new Map([
   ["ReadPending", new Set(["label"])],
   ["SingleChoice", new Set(["label", "options"])], ["MultiChoice", new Set(["label", "options"])],
-  ["SearchCombobox", new Set(["placeholder", "emptyText"])],
+  ["SearchCombobox", new Set(["placeholder", "emptyText", "loadingLabel"])],
 ]);
 
 function location(source, node) {

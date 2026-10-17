@@ -17,7 +17,9 @@ const bootstrapCompiled = ts.transpileModule(readFileSync(new URL("../lib/backen
 }).outputText;
 const readPlanCompiled = ts.transpileModule(readFileSync(new URL("../lib/backend/read-plan.ts", import.meta.url), "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const readPlan = {};
-runInContext(readPlanCompiled, createContext({ exports: readPlan }));
+const procurementContract={};
+runInContext(ts.transpileModule(readFileSync(new URL("../lib/backend/procurement-list-contract.ts",import.meta.url),"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,createContext({exports:procurementContract,Buffer}));
+runInContext(readPlanCompiled, createContext({ exports: readPlan,require:name=>{assert.equal(name,"./procurement-list-contract");return procurementContract;} }));
 
 const storeId = "00000000-0000-4000-8000-000000000001";
 const ownerId = "00000000-0000-4000-8000-000000000002";
@@ -525,10 +527,11 @@ test("v2同成员新会话使旧会话读取失效，错误页面响应不能填
 });
 
 test("v2旧命令兼容回执保留页面协议，后续刷新不恢复整店state轮询", async () => {
-  const h = harness(); h.client.configureBackend(pageSnapshot("retail"));
+  const h = harness(),initial=pageSnapshot("retail");initial.customerListEnabled=true;initial.procurementListEnabled=true;h.client.configureBackend(initial);
   const pending = h.client.backendCommand("synthetic.command", {}); await setImmediate();
   h.requests[0].resolve(response(200, mockSnapshot({ revision: 2 }))); await pending;
   assert.equal(h.client.backendSnapshot().read.plan.kind, "retail");
+  assert.equal(h.client.backendSnapshot().customerListEnabled,true);assert.equal(h.client.backendSnapshot().procurementListEnabled,true);
   const refresh = h.client.refreshBackend(); assert.match(h.requests[1].url, /^\/api\/backend\/v2\/page\?/);
   h.requests[1].resolve(response(200, pageSnapshot("retail", { revision: 2 }))); await refresh;
 });

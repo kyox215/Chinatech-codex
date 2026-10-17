@@ -12,6 +12,8 @@ export type BackendSnapshot = {
   read?: BackendReadState;
   customerListEnabled?: boolean;
   customerList?: import("./customer-list-contract").CustomerListPage;
+  procurementListEnabled?: boolean;
+  procurementList?: import("./procurement-list-contract").ProcurementListPage;
   operation?: OperationReceipt;
   stateToken?: string;
   storeId: string; revision: number; staff: StaffData; settings: StoreSettings | null;

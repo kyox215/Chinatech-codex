@@ -58,6 +58,9 @@ test("canonical comparisons and translated custom component props are not mutate
   assert.deepEqual(kinds(scan('const view = <MultiChoice label="随件" options={["充电器", "数据线"]} />;', ["随件", "充电器", "数据线"])), []);
   assert.deepEqual(kinds(scan('const view = <ReadPending label="正在读取账号…" />;', ["正在读取账号…"])), []);
   assert.ok(kinds(scan('const view = <ReadPending label="缺少翻译的等待" />;')).includes("missing-message"));
+  assert.deepEqual(kinds(scan('const view = <SearchCombobox loadingLabel="正在处理…" />;', ["正在处理…"])), []);
+  assert.ok(kinds(scan('const view = <SearchCombobox loadingLabel="缺少翻译的等待" />;')).includes("missing-message"));
+  assert.ok(kinds(scan('const view = <OtherCombobox loadingLabel="正在处理…" />;', ["正在处理…"])).includes("unwrapped-visible"));
 });
 
 test("original facts have exact scoped exceptions, not a blanket Chinese exclusion", () => {

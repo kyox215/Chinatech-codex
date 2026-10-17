@@ -15,7 +15,7 @@ type Props = {
   displaySelectedLabel?: boolean; optionDetailsAsDescription?: boolean;
   optionLimit?: number; menuClassName?: string; menuHeader?: ReactNode;
   menuFooter?: ReactNode; manualActionLabel?: string;
-  onOpenChange?: (open: boolean) => void; loading?: boolean;
+  onOpenChange?: (open: boolean) => void; loading?: boolean; loadingLabel?: string;
   windowed?: boolean; onEndReached?: () => void; persistentMenu?: boolean; selectedKey?: string;
   className?: string; inputLabel?: string;
   commitOnBlur?: boolean; showAllOnOpen?: boolean; adaptiveMenu?: boolean;
@@ -28,7 +28,7 @@ export function SearchCombobox({
   label, value, onChange, options, onSelect, placeholder, inputMode = "text",
   emptyText = "没有匹配，可保留手动输入", filterOptions = true, displaySelectedLabel = false,
   optionDetailsAsDescription = false, optionLimit = 12, menuClassName, menuHeader, menuFooter, manualActionLabel,
-  onOpenChange, loading = false, windowed = false, onEndReached, persistentMenu = false,
+  onOpenChange, loading = false, loadingLabel = "正在查询设备目录…", windowed = false, onEndReached, persistentMenu = false,
   selectedKey, className, inputLabel, commitOnBlur = false, showAllOnOpen = false,
   adaptiveMenu = false, onQueryChange, required, autoFocus, maxLength, disabled, readOnly, error, hint, validate,
 }: Props) {
@@ -224,7 +224,7 @@ export function SearchCombobox({
         })}
         {windowed && end < matches.length ? <li role="presentation" aria-hidden="true" style={{ height: offsets[matches.length] - offsets[end] }} /> : null}
       </ul>
-      {loading ? <p role="status">{t("正在查询设备目录…")}</p> : !matches.length && emptyText !== null ? <p role="status">{t(emptyText)}</p> : null}
+      {loading ? <p role="status">{t(loadingLabel)}</p> : !matches.length && emptyText !== null ? <p role="status">{t(emptyText)}</p> : null}
       {manualActionLabel ? <div className="search-combobox__footer">
         {currentEdit ? <button type="button" className="button button--secondary" onMouseDown={event => event.preventDefault()} onClick={() => close(true)}>{t(manualActionLabel)}</button> : null}
         {menuFooter}

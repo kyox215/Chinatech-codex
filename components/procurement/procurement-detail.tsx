@@ -2,6 +2,10 @@
 import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 
 import { useLanguage } from "@/components/language-provider";
+import {useSearchParams} from "next/navigation";
+import {backendScopeKey} from "@/lib/backend/read-plan";
+import {useBackendState} from "@/components/backend-snapshot";
+import {safeProcurementListLocation,procurementListReturnPosition} from "@/lib/procurement-list-location";
 import { useBackendMode } from "@/components/backend-snapshot";
 import { repairItemText } from "@/lib/i18n/repair-display";
 import { InputControl, TextareaControl } from "@/components/input-control";
@@ -72,18 +76,19 @@ export function ProcurementActions({ record, embedded = false, onPendingChange }
 
 export function ProcurementDetail({ id }: { id: string }) {
   const { t, locale } = useLanguage();
-  const formal = useBackendMode();
+  const formal = useBackendMode(),backend=useBackendState(),params=useSearchParams();
+  const scope=backend.snapshot?.read?.scope,backHref=(scope?procurementListReturnPosition(backendScopeKey(scope),id):null)??safeProcurementListLocation(params.get("returnTo"));
   const canCost=useStaff().can("financial.read");
   const { records, storageError } = useProcurement();
   const repairOrders = useRepairDirectory();
   const record = records.find((row) => row.id === id);
-  if (storageError) return <main className="module-page"><header className="module-heading"><PageTitle title={t("采购记录")} backHref="/app/procurement" backLabel={t("返回采购列表")} /></header><ReadFailure message={storageError} /></main>;
-  if (!record) return <main className="module-page"><header className="module-heading"><PageTitle title={t("采购记录")} backHref="/app/procurement" backLabel={t("返回采购列表")} /></header><div className="panel module-empty"><PackageSearch size={28} /><strong>{t("没有找到采购记录")}</strong><p>{t("请在创建记录的浏览器查看，或返回关联工单核对。")}</p><Link className="button button--primary" href="/app/procurement">{t("返回采购列表")}</Link></div></main>;
+  if (storageError) return <main className="module-page"><header className="module-heading"><PageTitle title={t("采购记录")} backHref={backHref} backScroll={!backHref.includes("anchor=")} backLabel={t("返回采购列表")} /></header><ReadFailure message={storageError} /></main>;
+  if (!record) return <main className="module-page"><header className="module-heading"><PageTitle title={t("采购记录")} backHref={backHref} backScroll={!backHref.includes("anchor=")} backLabel={t("返回采购列表")} /></header><div className="panel module-empty"><PackageSearch size={28} /><strong>{t("没有找到采购记录")}</strong><p>{t("请在创建记录的浏览器查看，或返回关联工单核对。")}</p><Link className="button button--primary" href={backHref} scroll={!backHref.includes("anchor=")}>{t("返回采购列表")}</Link></div></main>;
   const repair = repairOrders.find(repair => repair.id === record.repairId);
   const arrived = arrivedQuantity(record);
   const status = procurementStatuses[procurementStatus(record)];
   return <main className="module-page procurement-detail">
-    <header className="module-heading module-heading--compact"><PageTitle title={record.id} backHref="/app/procurement" backLabel={t("返回采购列表")} badge={<span className={`status-pill status-pill--${status.tone}`}>{t(status.label)}</span>} subtitle={`${repairItemText(record.item, locale)} · ${record.supplier}`} /><Link className="button button--secondary button--compact page-toolbar-action" href={`/app/repairs/${record.repairId}`} aria-label={t("关联工单")} title={t("关联工单")} icon={<ClipboardList size={17} />}><span>{t("关联工单")}</span></Link></header>
+    <header className="module-heading module-heading--compact"><PageTitle title={record.id} backHref={backHref} backScroll={!backHref.includes("anchor=")} backLabel={t("返回采购列表")} badge={<span className={`status-pill status-pill--${status.tone}`}>{t(status.label)}</span>} subtitle={`${repairItemText(record.item, locale)} · ${record.supplier}`} /><Link className="button button--secondary button--compact page-toolbar-action" href={`/app/repairs/${record.repairId}`} aria-label={t("关联工单")} title={t("关联工单")} icon={<ClipboardList size={17} />}><span>{t("关联工单")}</span></Link></header>
     
     <section className="detail-metrics procurement-metrics" aria-label={t("采购摘要")}><article><span><PackageSearch size={18} /></span><div><small>{t("采购数量")}</small><strong>{record.quantity} {t(" 件")}</strong></div></article><article><span><PackageCheck size={18} /></span><div><small>{t("已到货 / 待到货")}</small><strong data-testid="arrival-summary">{arrived} / {record.quantity - arrived} {t(" 件")}</strong></div></article><article><span><Truck size={18} /></span><div><small>{t("预计到货")}</small><strong>{record.expectedAt || t("待确认")}</strong></div></article>{canCost?<article><span><FileClock size={18} /></span><div><small>{t("采购总额")}</small><strong>{t(formatCost(record.unitCostCents === null ? null : record.unitCostCents * record.quantity))}</strong></div></article>:null}</section>
     <div className="procurement-detail-grid"><div className="repair-detail-main">

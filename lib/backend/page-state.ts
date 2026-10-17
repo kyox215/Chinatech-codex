@@ -1,6 +1,10 @@
 import "server-only";
 import { customerModelGeneration, customerListToken, readCustomerList } from "./customer-list";
 import { customerListQuery } from "./customer-list-contract";
+import {procurementModelGeneration,procurementListToken,readProcurementList} from "./procurement-list";
+import {procurementListQuery,type ProcurementListQuery} from "./procurement-list-contract";
+import {readProcurementBatch} from "./procurement-batch-read";
+import type {ProcurementBatchQuery} from "./procurement-batch-contract";
 import { cache } from "react";
 import { createHash } from "node:crypto";
 import type { TransactionSql } from "postgres";
@@ -16,6 +20,7 @@ import { backendIdentityChangedCode, backendScopeKey, pageDomains, pagePlanKey, 
 export const getPageAccess = cache(() => getServerAccess());
 type ReadAccess = Pick<NonNullable<Awaited<ReturnType<typeof getServerAccess>>>,"identity"|"storeId">;
 export function backendCustomerListsEnabled() { return process.env.BACKEND_CUSTOMER_LIST_READS === "1"; }
+export function backendProcurementListsEnabled() { return process.env.BACKEND_PROCUREMENT_LIST_READS === "1"; }
 export function backendV2ReadsEnabled() { return process.env.BACKEND_V2_READS !== "0"; }
 function scopeFor(access: ReadAccess, member: StaffMember): BackendReadScope {
   return { formatVersion: 2, accountId: access.identity.userId, sessionId: access.identity.sessionId, storeId: access.storeId, memberId: member.id, memberRevision: member.revision, permissions: [...member.permissions].sort() };
@@ -27,11 +32,12 @@ async function sessionInTransaction(tx: TransactionSql, access: ReadAccess, memb
 }
 export function sessionSnapshot(bootstrap: SessionBootstrap): BackendSnapshot {
   const snapshot: BackendSnapshot = { customerListEnabled: backendCustomerListsEnabled(), storeId: bootstrap.scope.storeId, revision: bootstrap.revision, staff: { revision: bootstrap.revision, currentId: bootstrap.member.id, members: [bootstrap.member], audit: [] }, settings: null, intakes: [], signatures: [], workflows: {}, procurement: [], retail: [], retailHistory: [], customers: [], read: { formatVersion: 2, scope: bootstrap.scope, plan: { kind: "session" }, ready: ["staff"] } };
+  snapshot.procurementListEnabled=backendProcurementListsEnabled();
   snapshot.stateToken = pageToken(snapshot);
   return snapshot;
 }
-function pageToken(snapshot: BackendSnapshot, listGeneration?: string) {
-  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.customerListEnabled, listGeneration])).digest("hex");
+function pageToken(snapshot: BackendSnapshot, listGeneration?: string,procurementGeneration?:string) {
+  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.customerListEnabled,snapshot.procurementListEnabled, listGeneration,procurementGeneration])).digest("hex");
 }
 export async function loadSessionBootstrap(access: ReadAccess) {
   return withDatabase(access.identity, access.storeId, async tx => sessionInTransaction(tx, access, await memberInTransaction(tx, access.storeId, access.identity.userId)));
@@ -51,7 +57,7 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
     const member = await memberInTransaction(tx, access.storeId, access.identity.userId);
     const bootstrap = await sessionInTransaction(tx, access, member);
     if (expectedScope && expectedScope !== backendScopeKey(bootstrap.scope)) throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。", 409, backendIdentityChangedCode);
-    const state = sessionSnapshot(bootstrap), domains = pageDomains(plan,{customerLists:backendCustomerListsEnabled()});
+    const state = sessionSnapshot(bootstrap), domains = pageDomains(plan,{customerLists:backendCustomerListsEnabled(),procurementLists:backendProcurementListsEnabled()});
     state.read = { formatVersion: 2, scope: bootstrap.scope, plan, ready: domains };
     if (plan.kind === "settings") {
       // Existing staff/settings semantics remain explicit to this page while its
@@ -61,10 +67,12 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
       if (plan.kind === "settings" && can(member, "staff.manage")) { const [row] = await tx`select staff_audit from chinatech_v2_private.store_state where store_id=${access.storeId}`; state.staff.audit = row.staff_audit; }
     }
     const customerGeneration = plan.kind === "customers" && backendCustomerListsEnabled() && can(member,"customers.view") ? await customerModelGeneration(tx,access.storeId) : undefined;
-    state.stateToken = pageToken(state,customerGeneration);
+    const procurementGeneration=plan.kind==="procurement"&&backendProcurementListsEnabled()&&can(member,"repairs.view")?await procurementModelGeneration(tx,access.storeId):undefined;
+    state.stateToken = pageToken(state,customerGeneration,procurementGeneration);
     if (known === state.stateToken) return { unchanged: true as const, stateToken: state.stateToken, storeId: state.storeId, memberId: member.id, revision: state.revision };
     if(plan.kind === "customer" && !can(member,"customers.view")) { state.read.ready=["staff"]; return state; }
     if (customerGeneration !== undefined) state.customerList = await readCustomerList(tx,bootstrap.scope,plan.q??"",undefined,customerGeneration,"directory",plan.anchor);
+    if(procurementGeneration!==undefined)state.procurementList=await readProcurementList(tx,bootstrap.scope,plan.query,{generation:procurementGeneration,anchor:plan.anchor});
     if (domains.includes("settings")) {
       // Finance is read only by its own settings page. A print/default policy
       // read never transfers the whole finance ledger into another module.
@@ -124,4 +132,23 @@ export async function loadCustomerListPage(access: ReadAccess, query: string, cu
     if(!cursor && seek===undefined && known===token)return {unchanged:true as const,stateToken:token};
     return readCustomerList(tx,scope,query,cursor,generation,mode,anchor,seek);
   });
+}
+
+export async function loadProcurementListPage(access:ReadAccess,raw:Partial<ProcurementListQuery>,options:{cursor?:string;known?:string;anchor?:string;seek?:number;expectedScope?:string}={}) {
+ return withDatabase(access.identity,access.storeId,async tx=>{
+  const member=await memberInTransaction(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
+  if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);
+  if(!can(member,"repairs.view"))throw new BackendError("当前账号没有此操作权限。",403);
+  const generation=await procurementModelGeneration(tx,access.storeId),query=procurementListQuery(raw),token=procurementListToken(scope,generation,query);
+  if(!options.cursor&&options.seek===undefined&&options.known===token)return{unchanged:true as const,stateToken:token};
+  return readProcurementList(tx,scope,query,{...options,generation});
+ });
+}
+export async function loadProcurementBatchPage(access:ReadAccess,query:Partial<ProcurementBatchQuery>,options:{cursor?:string;ids?:string[];seek?:number;expectedScope?:string}={}) {
+ return withDatabase(access.identity,access.storeId,async tx=>{
+  const member=await memberInTransaction(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
+  if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);
+  if(!can(member,"repairs.view")||query.kind!=="repairs"&&!can(member,"repairs.edit"))throw new BackendError("当前账号没有此操作权限。",403);
+  return readProcurementBatch(tx,scope,query,options);
+ });
 }

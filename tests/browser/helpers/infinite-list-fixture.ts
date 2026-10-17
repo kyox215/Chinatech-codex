@@ -46,9 +46,9 @@ function Cases({kind}){return kind==='sessions'?<LoginDevicesPanel/>:kind==='sta
 api.mount=(kind='lists',locale='zh-CN')=>{root?.unmount();document.getElementById('root').replaceChildren();root=createRoot(document.getElementById('root'));root.render(<StrictMode><LanguageProvider><Locale locale={locale}><OperationFeedbackProvider><ContentProgress/><Cases kind={kind}/></OperationFeedbackProvider></Locale></LanguageProvider></StrictMode>);};api.unmount=()=>root?.unmount();api.ready=true;
 `;
 
-export function buildInfiniteListFixture(source = process.cwd()) {
+export function buildInfiniteListFixture(source = process.cwd(), custom?: {adapter:string;entry:string;seams:string[]}) {
   const native = createRequire(resolve(source, "package.json"));
-  const seams = new Set(["components/backend-snapshot", "components/staff/use-staff", "lib/backend/client", "lib/staff-client"]);
+  const seams = new Set(custom?.seams ?? ["components/backend-snapshot", "components/staff/use-staff", "lib/backend/client", "lib/staff-client"]);
   const modules: string[] = [], ids = new Map<string, number>();
   function pathFor(request: string, parent: string): string {
     if (request === "virtual:adapter" || request === "next/navigation") return "virtual:adapter.tsx";
@@ -69,7 +69,7 @@ export function buildInfiniteListFixture(source = process.cwd()) {
     else if (file === "virtual:css") code = 'module.exports={__esModule:true,default:new Proxy({},{get:(_t,name)=>String(name)})};';
     else if (file.endsWith(".json")) code = "module.exports=" + readFileSync(file, "utf8");
     else {
-      const raw = file === "virtual:adapter.tsx" ? adapter : file === "virtual:entry.tsx" ? entry : readFileSync(file, "utf8");
+      const raw = file === "virtual:adapter.tsx" ? custom?.adapter ?? adapter : file === "virtual:entry.tsx" ? custom?.entry ?? entry : readFileSync(file, "utf8");
       code = /\.tsx?$/.test(file) ? ts.transpileModule(raw, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText : raw;
       code = code.replaceAll("process.env.NODE_ENV", '"development"');
     }

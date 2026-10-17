@@ -19,6 +19,7 @@ function harness() {
       state.queries.push({sql,values});
       if(sql.includes('select ready,generation::text')) return [{ready:true,generation:'3'}];
       if(sql.trimStart().startsWith('with grouped as')) return [{total:1,items:[{phone:'+390000000001',name:'DEMO',email:'',repairs:1,sales:0,history:0,activity:'2026-10-10 00:00:00'}]}];
+      if(sql.trimStart().startsWith('with scoped as'))return[{total:1,group_total:1,stats:{all:1,draft:1,open:0,complete:0},point_found:false,point_rank:0,items:[{id:'DEMO-PROC-1',repairId:state.intake.id,repairModel:'DEMO',item:'DEMO part',supplier:'DEMO supplier',quantity:1,arrived:0,status:'draft',expectedAt:'',ledgerRevision:0,groupKey:'DEMO supplier',groupFirst:'DEMO-PROC-1',groupCount:1}]}];
       if(sql.includes('select st.revision,s.name')) return [{revision:state.revision,name:'DEMO'}];
       if(sql.includes('select settings')||sql.includes('select (settings')) return [{settings:state.settings}];
       if(sql.includes('select staff_audit')) return [{staff_audit:[]}];
@@ -105,4 +106,16 @@ test('V2 selector adds no authorization transaction; actual read still rejects a
  assert.deepEqual(selected,{identity:h.access.identity,storeId:h.access.storeId});assert.equal(h.state.transactions,0);
  await assert.rejects(h.api.loadPageState(selected,{kind:'catalog'}),error=>error.status===401);assert.equal(h.state.transactions,1);assert.equal(h.state.queries.length,0);
  await assert.rejects(h.api.getV2Access(new Request('http://localhost/api/backend/v2/page')),error=>error.status===400);assert.equal(h.state.transactions,1);
+});
+
+test('procurement opt-in SSR reads only narrow summaries; its known token and no-access path avoid business queries',async()=>{
+ const h=harness();h.state.env.BACKEND_PROCUREMENT_LIST_READS='1';
+ const initial=await h.api.loadPageState(h.access,{kind:'procurement'});
+ assert.equal(initial.procurementListEnabled,true);assert.equal(initial.procurementList.total,1);assert.equal(initial.procurementList.query.groupBy,'supplier');assert.equal(initial.settings,null);
+ for(const key of ['intakes','procurement','retail','retailHistory','customers','signatures'])assert.deepEqual(initial[key],[]);
+ assert.ok(h.state.queries.every(row=>!row.sql.includes('select data')&&!row.sql.includes('select settings')));
+ h.state.queries.length=0;const unchanged=await h.api.loadPageState(h.access,{kind:'procurement'},initial.stateToken);
+ assert.equal(unchanged.unchanged,true);assert.ok(h.state.queries.every(row=>!row.sql.trimStart().startsWith('with scoped')));
+ h.state.queries.length=0;h.state.member={...h.member,permissions:[]};await h.api.loadPageState(h.access,{kind:'procurement'});
+ assert.ok(h.state.queries.every(row=>!row.sql.includes('procurement_list_')));
 });

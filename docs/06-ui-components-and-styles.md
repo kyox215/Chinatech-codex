@@ -652,3 +652,15 @@ ToolboxControl替换账号设置旧三套Office管理卡片与双导航，复用
 `BackendPageFrame`/`BackendPageData`保留服务端必要首屏，领域ready明确区分未读取与空集合，未读取设置为null。身份/门店/会话/成员权限变化清除旧投影；当前范围刷新保留内容、局部错误重试和共享2px细线。列表详情返回仅记文档级scope/query/phone/像素位置，不向浏览历史或sessionStorage写完整客户资料；返回仍重新检查授权。
 
 受影响客户界面已在本地正式构建做四宽×三语Chromium，以及HTTPS独立Origin的WebKit375三语；纯单次触底静置、可变行高500缓存/回查、深处浏览器后退/页面返回、403非JSON且跳转失败时同文档清资料分别验收。证据、构建和未完成模块由性能交付记录绑定，不代表生产P95或Linux PDF通过。
+
+## 2026-10-17 性能候选的采购摘要与批量读取（本地，未发布）
+
+`ProcurementListBody`是采购模块唯一的标题、状态卡、工具栏、分组行、空态和触底footer；原数组与显式开启的服务端摘要只提供真实视图适配，关联工单候选采用原`SearchCombobox` slot。状态卡仍统计完整门店授权集合，当前结果及组计数才应用筛选；旧draft/cart共用待采购显示组。每次50摘要、不含事件/成本/规格；主列表在单一`.procurement-list-viewport`共用桌面660px横向视口，手机沿原行布局，不能每行各自横滚。
+
+`WindowedListRows`增加可选`scrollRoot`适配真实dialog滚动，`anchorSelector`以采购Link实际像素恢复；组头只在实际groupFirst出现，seek/缓存首行不重复插入。渲染阈值使用完整列表总数；跨未挂载行的Tab/Shift+Tab选择该行首/末真实可见控件，焦点与业务草稿保持。批量列表传当前授权stateToken重建高度。
+
+`SupplierBatchView`是旧预览和正式摘要共用的唯一Dialog：规格/到货/供应商ID与账本版本来自真实事实，适配不构造假的events。正式供应商候选12，清单50，独立保存最多100份所选数量草稿；前100/本供应商全部按完整集合取两次50，确认前按IDs重新授权核对。停用供应商仍能登记实际到货，作废工单仍是原提示。批量提交继续原requestId/回执/未知恢复。
+
+`SearchCombobox.loadingLabel`可选，默认仍是目录原文字；采购传既有通用三语“正在处理…”，只在真实请求期间显示等待。维修候选打开后才查、150ms去抖、同scope短结果复用，读取失败显示就地重试；无page且错误idle时不得常驻ReadPending。
+
+本地xc4b-FztHQF1WlRktYeHb：Chromium五宽1440/1024/769/390/375×三语及深Link返回/500回查/候选/批量草稿/一次DEMO保存共20项通过；独立真实React503停忙与dialog正反键盘/代际高度2项通过。同build的HTTPS独立Origin WebKit375三语3项通过；生产P95、Linux及全站剩余域仍按后续准确证据分别登记。本次未新增视觉主题/控件或Figma变体。
