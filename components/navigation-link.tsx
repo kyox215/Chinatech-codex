@@ -3,19 +3,21 @@
 import { useBackendState } from "./backend-snapshot";
 import { scopedStoreUrl } from "@/lib/store-scope";
 import NextLink, { useLinkStatus } from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition, type ComponentProps, type ReactNode } from "react";
+import { backendSnapshot } from "@/lib/backend/client";
+import { backendScopeKey } from "@/lib/backend/read-plan";
 import { useLanguage } from "./language-provider";
 import { useActivityFeedback, useNavigationIntent } from "./operation-feedback";
 
 type NavigationAttempt = { token: symbol; destination: string; refresh: boolean };
 
-function NavigationFeedback({ attempt, onSettled, icon, iconClassName }: { attempt: NavigationAttempt | null; onSettled: (token: symbol, committed: boolean) => void; icon?: ReactNode; iconClassName?: string }) {
+function NavigationFeedback({ attempt, onSettled, icon, iconClassName, resolvedPending=false }: { attempt: NavigationAttempt | null; onSettled: (token: symbol, committed: boolean) => void; icon?: ReactNode; iconClassName?: string; resolvedPending?:boolean }) {
   const { pending: nextPending } = useLinkStatus();
   const navigation = useNavigationIntent();
   const current = Boolean(attempt && (!navigation || navigation.current === attempt.token));
-  const pending = nextPending && current;
+  const pending = (nextPending || resolvedPending) && current;
   const pathname = usePathname();
   const observed = useRef<{ token: symbol; pending: boolean } | null>(null);
   const { t } = useLanguage();
@@ -33,8 +35,12 @@ function NavigationFeedback({ attempt, onSettled, icon, iconClassName }: { attem
 }
 
 /** Next supplies real pending; the latest click owns its presentation. */
-export function NavigationLink({ children, icon, iconClassName, iconPosition = "start", className, prefetch = false, onClick, onNavigate, onNavigationComplete, focusTargetId, ...props }: ComponentProps<typeof NextLink> & { icon?: ReactNode; iconClassName?: string; iconPosition?: "start" | "end"; onNavigationComplete?: () => void; focusTargetId?: string }) {
-  const { snapshot } = useBackendState();
+export function NavigationLink({ children, icon, iconClassName, iconPosition = "start", className, prefetch = false, onClick, onNavigate, onPointerDown, onFocus, onContextMenu, onAuxClick, onNavigationComplete, focusTargetId, resolveHref, ...props }: ComponentProps<typeof NextLink> & { icon?: ReactNode; iconClassName?: string; iconPosition?: "start" | "end"; onNavigationComplete?: () => void; focusTargetId?: string; resolveHref?:(anchor:HTMLAnchorElement)=>string|null }) {
+  const backend = useBackendState(),{snapshot}=backend,router=useRouter();
+  const [resolvedPending,startResolvedTransition]=useTransition();
+  const owner=snapshot?.read?.scope?backendScopeKey(snapshot.read.scope):"";
+  const resolved=useRef<{href:string;owner:string}|null>(null);
+  const previousOwner=useRef({owner,resolving:Boolean(resolveHref)});
   if(typeof props.href === "string") props.href=scopedStoreUrl(props.href,snapshot?.storeId);
   const clickedHref = useRef("");
   const [attempt, setAttempt] = useState<NavigationAttempt | null>(null);
@@ -51,13 +57,28 @@ export function NavigationLink({ children, icon, iconClassName, iconPosition = "
   }, [finish, onNavigationComplete, focusTargetId]);
   const token = attempt?.token;
   useEffect(() => () => { if (token) finish?.(token); }, [token, finish]);
-  const feedback = <NavigationFeedback attempt={attempt} onSettled={settled} icon={icon} iconClassName={iconClassName} />;
-  return <NextLink {...props} prefetch={prefetch} data-navigation-icon={Boolean(icon)} className={[className, "navigation-link"].filter(Boolean).join(" ")} onClick={event => { onClick?.(event); clickedHref.current = event.currentTarget.href; }} onNavigate={event => {
+  useEffect(()=>{const previous=previousOwner.current,resolving=Boolean(resolveHref);if((previous.resolving||resolving)&&(previous.owner!==owner||previous.resolving!==resolving)){resolved.current=null;const attempt=liveAttempt.current;if(attempt)settled(attempt.token,false);}previousOwner.current={owner,resolving};},[owner,resolveHref,settled]);
+  function currentOwner(){const scope=backendSnapshot()?.read?.scope;return scope?backendScopeKey(scope):"";}
+  function prepare(anchor:HTMLAnchorElement){
+    if(!resolveHref)return true;
+    resolved.current=null;
+    if(backend.formal&&(!backend.active||!owner||currentOwner()!==owner))return false;
+    try{const raw=resolveHref(anchor);if(typeof raw!=="string"||!raw.startsWith("/")||raw.startsWith("//"))return false;
+      const url=new URL(raw,window.location.origin);if(url.origin!==window.location.origin||url.username||url.password)return false;
+      if(snapshot?.storeId&&url.pathname.startsWith('/app/')){const requested=url.searchParams.get('storeId');if(requested&&requested!==snapshot.storeId)return false;url.searchParams.set('storeId',snapshot.storeId);}
+      if(backend.formal&&currentOwner()!==owner)return false;
+      anchor.href=url.href;resolved.current={href:url.href,owner};return true;
+    }catch{return false;}
+  }
+  const feedback = <NavigationFeedback attempt={attempt} onSettled={settled} icon={icon} iconClassName={iconClassName} resolvedPending={resolvedPending} />;
+  return <NextLink {...props} prefetch={prefetch} data-navigation-icon={Boolean(icon)} className={[className, "navigation-link"].filter(Boolean).join(" ")} onPointerDown={event=>{if(resolveHref)prepare(event.currentTarget);onPointerDown?.(event);}} onFocus={event=>{if(resolveHref)prepare(event.currentTarget);onFocus?.(event);}} onContextMenu={event=>{if(resolveHref)prepare(event.currentTarget);onContextMenu?.(event);}} onAuxClick={event=>{if(resolveHref&&!prepare(event.currentTarget))event.preventDefault();onAuxClick?.(event);}} onClick={event => { if(resolveHref&&!prepare(event.currentTarget)){event.preventDefault();return;}onClick?.(event); clickedHref.current = event.currentTarget.href; }} onNavigate={event => {
     let prevented = false;
     onNavigate?.({ preventDefault: () => { prevented = true; event.preventDefault(); } });
     if (prevented) return;
+    if(resolveHref&&(!resolved.current||resolved.current.owner!==owner||backend.formal&&currentOwner()!==owner)){event.preventDefault();return;}
     const next = { token: Symbol("navigation"), destination: clickedHref.current, refresh: clickedHref.current === window.location.href };
     navigation?.start(next.token);
     liveAttempt.current = next; setAttempt(next);
+    if(resolveHref){event.preventDefault();const href=resolved.current!.href;startResolvedTransition(()=>{if(props.replace)router.replace(href,{scroll:props.scroll});else router.push(href,{scroll:props.scroll});});}
   }}>{icon && iconPosition === "start" ? feedback : null}{children}{!icon || iconPosition === "end" ? feedback : null}</NextLink>;
 }

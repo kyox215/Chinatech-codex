@@ -15,7 +15,7 @@ export const useBackendMode=()=>true;export const usePathname=()=>route;export c
 export const backendSnapshot=()=>snapshot;export const subscribeBackend=subscribe;export const backendReadGeneration=()=>0;export const replaceBackendDocumentUrl=()=>{};export const clearBackend=()=>{};
 export const useRepairDirectory=()=>[];export const useLocalIntakes=()=>({ready:true});export const useRetail=()=>({units:[],ready:true});
 window.fetch=async url=>{const params=new URL(url,'https://fixture.invalid').searchParams,kind=params.get('kind'),query={kind,q:params.get('q')??'',deviceId:params.get('deviceId')??''};api.calls.push({kind,permissions:[...permissions]});if(kind!=='records')throw Error('Unexpected metadata read');return new Response(JSON.stringify({formatVersion:1,scope:snapshot.read.scope,generation:'1',stateToken:'DEMO-'+member.revision,query,total:1,startIndex:0,previousCursor:null,nextCursor:null,items:[{id:'DEMO-record',type:permissions.includes('repairs.view')?'repair':'sale',displayId:'DEMO-RECORD',phone:'+39000000001',time:'2026-10-17',href:permissions.includes('repairs.view')?'/app/repairs/DEMO-RECORD':'/app/retail/DEMO-UNIT'}]}),{headers:{'Content-Type':'application/json'}});};
-export const NavigationLink=({children,icon,iconPosition,iconClassName,onNavigationComplete,focusTargetId,prefetch,...props})=>React.createElement('a',props,children);
+export const NavigationLink=({children,icon,iconPosition,iconClassName,onNavigationComplete,focusTargetId,resolveHref,prefetch,...props})=>React.createElement('a',props,children);
 export const selectPreviewMember=()=>{throw Error('Preview identity writes forbidden');};
 export const LogoutButton=()=>React.createElement('button',null,'DEMO Logout');
 `;

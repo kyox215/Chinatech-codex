@@ -37,3 +37,5 @@
 未发布性能候选兼容维护：`RepairListBody.partsChips` 只恢复已授权 legacy 全文的可访问描述，正式 DTO 仍有界；`RepairIntakeForm` 同步候选与正式异步读取各沿原更新入口，`RetailScannerResults` 只为真实空结果补原生状态语义。无新增组件/主题/token/Figma视觉变体，实际回归范围见docs/06“未发布性能候选的兼容列表回归”。
 
 客户设备未发布性能候选：原设备卡片／details／记录行继续唯一展示；`CustomerDeviceGrid`、`useCustomerDevicePage` 与 `CustomerDeviceOriginal` 仅负责受限窗口、按需完整原文及身份代际隔离。复用 InputControl、NavigationLink、ReadFailure、ListPagination 和 WindowedListRows，无新主题、控件外观或 Figma 变体；精确两域入口与嵌套键盘／语义返回位置见 docs/06“客户设备读取”。
+
+设备记录链接维护复用 `NavigationLink.resolveHref` 可选交互解析：原链接槽和 B 反馈不变，逐记录 SSR 身份与点击时的 returnTo 持久进入目标 URL，目标刷新后仍可按相同记录／语义目标返回。此为既有导航逻辑扩展，无新增 Figma 视觉；默认链接、取消／scope 隔离及原生鼠标／键盘行为分别验收，详见 docs/06。

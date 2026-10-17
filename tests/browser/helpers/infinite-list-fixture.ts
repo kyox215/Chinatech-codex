@@ -51,7 +51,7 @@ export function buildInfiniteListFixture(source = process.cwd(), custom?: {adapt
   const seams = new Set(custom?.seams ?? ["components/backend-snapshot", "components/staff/use-staff", "lib/backend/client", "lib/staff-client"]);
   const modules: string[] = [], ids = new Map<string, number>();
   function pathFor(request: string, parent: string): string {
-    if (request === "virtual:adapter" || request === "next/navigation") return "virtual:adapter.tsx";
+    if (request === "virtual:adapter" || request === "next/navigation" || request === "next/link" && seams.has("next/link")) return "virtual:adapter.tsx";
     const rel = request.startsWith("@/") ? request.slice(2) : request.startsWith(".") ? resolve(dirname(parent), request).slice(source.length + 1) : null;
     if (rel && seams.has(rel)) return "virtual:adapter.tsx";
     if (request === "lucide-react") return "virtual:icons";
