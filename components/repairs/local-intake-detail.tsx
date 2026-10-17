@@ -1,4 +1,5 @@
 "use client";
+import{safeCustomerDeviceLocation,customerDeviceReturnPosition}from"@/lib/customer-device-location";
 import{safeCustomerRecordLocation,customerRecordReturnPosition}from"@/lib/customer-record-location";
 import {useSearchParams} from "next/navigation";
 import {useBackendState} from "@/components/backend-snapshot";
@@ -21,7 +22,7 @@ import styles from "./repair-detail-workspace.module.css";
 import { IntakeReceipt } from "./intake-receipt";
 
 export function LocalIntakeDetail({ id }: { id: string }) {
-  const backend=useBackendState(),params=useSearchParams(),scope=backend.snapshot?.read?.scope,customerReturn=safeCustomerRecordLocation(params.get("returnTo")),returnTo=(customerReturn?(scope?customerRecordReturnPosition(backendScopeKey(scope),`/app/repairs/${encodeURIComponent(id)}`):null)??customerReturn:null)??(scope?repairListReturnPosition(backendScopeKey(scope),id):null)??safeRepairListLocation(params.get("returnTo"));
+  const backend=useBackendState(),params=useSearchParams(),scope=backend.snapshot?.read?.scope,deviceReturn=safeCustomerDeviceLocation(params.get("returnTo")),customerReturn=safeCustomerRecordLocation(params.get("returnTo")),returnTo=(deviceReturn?(scope?customerDeviceReturnPosition(backendScopeKey(scope),`/app/repairs/${encodeURIComponent(id)}`):null)??deviceReturn:null)??(customerReturn?(scope?customerRecordReturnPosition(backendScopeKey(scope),`/app/repairs/${encodeURIComponent(id)}`):null)??customerReturn:null)??(scope?repairListReturnPosition(backendScopeKey(scope),id):null)??safeRepairListLocation(params.get("returnTo"));
   const formal = useBackendMode();
   const staff = useStaff();
   const { t , systemText } = useLanguage();

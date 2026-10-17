@@ -1775,7 +1775,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .customer-device-card small { display: block; font-size: 12px; color: var(--text-secondary); margin-top: 4px; overflow-wrap: anywhere; }
 .customer-device-card summary { min-height: 44px; display: flex; align-items: center; gap: 8px; color: var(--text-secondary); cursor: pointer; margin-top: 6px; }
 .customer-device-card summary small { margin: 0 0 0 auto; }
-.customer-device-card details > div { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 10px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.customer-device-card .customer-device-record { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 10px 0; border-top: 1px solid var(--border); font-size: 13px; }
 .customer-device-card a { display: inline-flex; align-items: center; gap: 5px; color: var(--primary-600); }
 @media (max-width:767px) { .customer-device-panel { padding: 12px; } .customer-device-panel input { font-size: 16px; min-height: 44px; } .customer-device-card details a { min-height: 44px; } }
 
@@ -1942,3 +1942,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .repair-unified-list .repair-filterbar > .module-select, .repair-unified-list .repair-filterbar > .module-select .select-control, .repair-unified-list .repair-filterbar > .module-select select, .repair-unified-list .repair-filterbar > .repair-filter-trigger { height:48px; min-height:48px; }
 .repair-unified-list .module-heading__actions > .button, .repair-unified-list .module-heading__actions > .icon-button { height:44px; min-height:44px; }
 @media(max-width:767px) { .repair-unified-list .repair-filterbar input { font-size:16px; } }
+
+/* Physical-device cards retain their existing grid while windowing whole rows. */
+.customer-device-window > [data-windowed-list] { margin-top: 14px; }
+.customer-device-grid.customer-device-window-row { margin-top: 0; padding-bottom: 12px; }
+.customer-device-grid.customer-device-window-row[data-last-device-row] { padding-bottom: 0; }
+.customer-device-record-window { max-height: 480px; overflow: auto; overscroll-behavior: contain; }
+
+.customer-device-grid > div > .customer-device-card { height: 100%; box-sizing: border-box; }
+
+.customer-device-original { max-height: 240px; overflow: auto; overflow-wrap: anywhere; white-space: pre-wrap; }

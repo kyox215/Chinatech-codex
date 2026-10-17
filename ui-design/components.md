@@ -35,3 +35,5 @@
 2026-10-17 多门店与正式打印组合验收：`repairReceiptHtml` 的空项目／未报价合计复用既有 `text-amounts` 变体，不新增样式或控件；三语真实PDF、零值／正常金额27mm及超容量拒绝见 [本轮记录](previews/multistore-pilot-20261017.md)。
 
 未发布性能候选兼容维护：`RepairListBody.partsChips` 只恢复已授权 legacy 全文的可访问描述，正式 DTO 仍有界；`RepairIntakeForm` 同步候选与正式异步读取各沿原更新入口，`RetailScannerResults` 只为真实空结果补原生状态语义。无新增组件/主题/token/Figma视觉变体，实际回归范围见docs/06“未发布性能候选的兼容列表回归”。
+
+客户设备未发布性能候选：原设备卡片／details／记录行继续唯一展示；`CustomerDeviceGrid`、`useCustomerDevicePage` 与 `CustomerDeviceOriginal` 仅负责受限窗口、按需完整原文及身份代际隔离。复用 InputControl、NavigationLink、ReadFailure、ListPagination 和 WindowedListRows，无新主题、控件外观或 Figma 变体；精确两域入口与嵌套键盘／语义返回位置见 docs/06“客户设备读取”。

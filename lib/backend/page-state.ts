@@ -1,3 +1,5 @@
+import{readCustomerDevices,customerDeviceGeneration}from'./customer-device-read';
+import type{CustomerDeviceQuery}from'./customer-device-contract';
 import{customerDetailReadContext,readCustomerDetail}from"./customer-detail-read";
 import type{CustomerRecordsQuery}from"./customer-detail-contract";
 import "server-only";
@@ -32,6 +34,7 @@ export const getPageAccess = cache(() => getServerAccess());
 type ReadAccess = Pick<NonNullable<Awaited<ReturnType<typeof getServerAccess>>>,"identity"|"storeId">;
 export function backendRetailListsEnabled(){return process.env.BACKEND_RETAIL_LIST_READS==="1";}
 export function backendRetailFormsEnabled(){return process.env.BACKEND_RETAIL_FORM_READS==='1';}
+export function backendCustomerDevicesEnabled(){return process.env.BACKEND_CUSTOMER_DEVICE_READS==="1";}
 export function backendCustomerDetailsEnabled(){return process.env.BACKEND_CUSTOMER_DETAIL_READS==="1";}
 export function backendCustomerListsEnabled() { return process.env.BACKEND_CUSTOMER_LIST_READS === "1"; }
 export function backendRepairListsEnabled() { return process.env.BACKEND_REPAIR_LIST_READS === "1"; }
@@ -48,12 +51,12 @@ async function sessionInTransaction(tx: TransactionSql, access: ReadAccess, memb
 }
 export function sessionSnapshot(bootstrap: SessionBootstrap): BackendSnapshot {
   const snapshot: BackendSnapshot = { customerListEnabled: backendCustomerListsEnabled(), storeId: bootstrap.scope.storeId, storeName:bootstrap.storeName, revision: bootstrap.revision, staff: { revision: bootstrap.revision, currentId: bootstrap.member.id, members: [bootstrap.member], audit: [] }, settings: null, intakes: [], signatures: [], workflows: {}, procurement: [], retail: [], retailHistory: [], customers: [], read: { formatVersion: 2, scope: bootstrap.scope, plan: { kind: "session" }, ready: ["staff"] } };
-  snapshot.commandResultVersion=backendV2CommandsEnabled()?2:undefined;snapshot.customerDetailEnabled=backendCustomerDetailsEnabled();snapshot.retailFormEnabled=backendRetailFormsEnabled();snapshot.retailListEnabled=backendRetailListsEnabled();snapshot.procurementListEnabled=backendProcurementListsEnabled();snapshot.repairListEnabled=backendRepairListsEnabled();
+  snapshot.customerDeviceEnabled=backendCustomerDevicesEnabled();snapshot.commandResultVersion=backendV2CommandsEnabled()?2:undefined;snapshot.customerDetailEnabled=backendCustomerDetailsEnabled();snapshot.retailFormEnabled=backendRetailFormsEnabled();snapshot.retailListEnabled=backendRetailListsEnabled();snapshot.procurementListEnabled=backendProcurementListsEnabled();snapshot.repairListEnabled=backendRepairListsEnabled();
   snapshot.stateToken = pageToken(snapshot);
   return snapshot;
 }
-function pageToken(snapshot: BackendSnapshot, listGeneration?: string,procurementGeneration?:string,repairToken?:string,retailGeneration?:string,customerDetailToken?:string) {
-  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, snapshot.storeName, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.commandResultVersion, snapshot.customerListEnabled,snapshot.customerDetailEnabled,snapshot.retailListEnabled,snapshot.retailFormEnabled,snapshot.procurementListEnabled,snapshot.repairListEnabled,snapshot.customerListEnabled?customerListResponseVersion:null,snapshot.procurementListEnabled?procurementListResponseVersion:null, listGeneration,procurementGeneration,repairToken,retailGeneration,customerDetailToken])).digest("hex");
+function pageToken(snapshot: BackendSnapshot, listGeneration?: string,procurementGeneration?:string,repairToken?:string,retailGeneration?:string,customerDetailToken?:string,deviceGeneration?:string) {
+  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, snapshot.storeName, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.commandResultVersion, snapshot.customerListEnabled,snapshot.customerDeviceEnabled,snapshot.customerDetailEnabled,snapshot.retailListEnabled,snapshot.retailFormEnabled,snapshot.procurementListEnabled,snapshot.repairListEnabled,snapshot.customerListEnabled?customerListResponseVersion:null,snapshot.procurementListEnabled?procurementListResponseVersion:null, listGeneration,procurementGeneration,repairToken,retailGeneration,customerDetailToken,deviceGeneration])).digest("hex");
 }
 export async function loadSessionBootstrap(access: ReadAccess) {
   return withReadDatabase(access.identity, access.storeId, async tx => sessionInTransaction(tx, access, await memberForRead(tx, access.storeId, access.identity.userId)));
@@ -73,7 +76,7 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
     const member = await memberForRead(tx, access.storeId, access.identity.userId);
     const bootstrap = await sessionInTransaction(tx, access, member);
     if (expectedScope && expectedScope !== backendScopeKey(bootstrap.scope)) throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。", 409, backendIdentityChangedCode);
-    const state = sessionSnapshot(bootstrap), domains = pageDomains(plan,{customerDetails:backendCustomerDetailsEnabled(),customerLists:backendCustomerListsEnabled(),procurementLists:backendProcurementListsEnabled(),repairLists:backendRepairListsEnabled(),retailLists:backendRetailListsEnabled(),retailForms:backendRetailFormsEnabled()});
+    const state = sessionSnapshot(bootstrap), domains = pageDomains(plan,{customerDevices:backendCustomerDevicesEnabled(),customerDetails:backendCustomerDetailsEnabled(),customerLists:backendCustomerListsEnabled(),procurementLists:backendProcurementListsEnabled(),repairLists:backendRepairListsEnabled(),retailLists:backendRetailListsEnabled(),retailForms:backendRetailFormsEnabled()});
     state.read = { formatVersion: 2, scope: bootstrap.scope, plan, ready: domains };
     if (plan.kind === "settings") {
       // Existing staff/settings semantics remain explicit to this page while its
@@ -87,9 +90,11 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
     const repairContext=plan.kind==="repairs"&&backendRepairListsEnabled()&&can(member,"repairs.view")?await repairReadContext(tx,bootstrap.scope,plan.repairQuery):undefined;
     const retailGeneration=plan.kind==="retail"&&backendRetailListsEnabled()&&can(member,"retail.view")?await retailModelGeneration(tx,access.storeId):undefined;
     const customerContext=plan.kind==="customer"&&backendCustomerDetailsEnabled()&&can(member,"customers.view")?await customerDetailReadContext(tx,bootstrap.scope,plan.customerQuery??{id:plan.id!,kind:"auto",q:""}):undefined;
-    state.stateToken = pageToken(state,customerGeneration,procurementGeneration,repairContext?.stateToken,retailGeneration,customerContext?.stateToken);
+    const deviceGeneration=plan.kind==="customer-devices"&&backendCustomerDevicesEnabled()&&(can(member,"repairs.view")||can(member,"retail.view"))?await customerDeviceGeneration(tx,access.storeId):undefined;
+    state.stateToken = pageToken(state,customerGeneration,procurementGeneration,repairContext?.stateToken,retailGeneration,customerContext?.stateToken,deviceGeneration);
     if (known === state.stateToken) return { unchanged: true as const, stateToken: state.stateToken, storeId: state.storeId, memberId: member.id, revision: state.revision };
     if(plan.kind === "customer" && !can(member,"customers.view")) { state.read.ready=["staff"]; return state; }
+    if(deviceGeneration!==undefined){const value=await readCustomerDevices(tx,bootstrap.scope,{q:plan.q??""},{generation:deviceGeneration,anchor:plan.anchor});if(!("unchanged"in value))state.customerDevices=value as NonNullable<BackendSnapshot["customerDevices"]>;return projectState(state,member);}
     if(customerContext){const value=await readCustomerDetail(tx,bootstrap.scope,customerContext.query,{context:customerContext,anchor:plan.anchor});if(!("unchanged"in value))state.customerDetail=value;return projectState(state,member);}
     if(retailGeneration!==undefined)state.retailList=await readRetailList(tx,bootstrap.scope,plan.retailQuery,{generation:retailGeneration,anchor:plan.anchor});
     if (customerGeneration !== undefined) state.customerList = await readCustomerList(tx,bootstrap.scope,plan.q??"",undefined,customerGeneration,"directory",plan.anchor);
@@ -267,4 +272,8 @@ export async function loadRetailIdentityCheck(access:ReadAccess,raw:Parameters<t
 
 export async function loadCustomerDetailPage(access:ReadAccess,query:CustomerRecordsQuery,options:{cursor?:string;anchor?:string;seek?:number;known?:string;expectedScope?:string}={}){
  return withReadDatabase(access.identity,access.storeId,async tx=>{const member=await memberForRead(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);return readCustomerDetail(tx,scope,query,options);});
+}
+
+export async function loadCustomerDevicePage(access:ReadAccess,query:CustomerDeviceQuery,options:{cursor?:string;anchor?:string;seek?:number;known?:string;expectedScope?:string}={}){
+ return withReadDatabase(access.identity,access.storeId,async tx=>{const member=await memberForRead(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);return readCustomerDevices(tx,scope,query,options);});
 }

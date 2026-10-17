@@ -11,6 +11,8 @@ import type { BackendReadState } from "./read-plan";
 export type BackendSnapshot = {
   commandResultVersion?:2;
   read?: BackendReadState;
+  customerDeviceEnabled?:boolean;
+  customerDevices?:import("./customer-device-contract").CustomerDevicePage<import("./customer-device-contract").CustomerDeviceSummary>;
   customerDetailEnabled?:boolean;
   customerDetail?:import("./customer-detail-contract").CustomerDetailPage;
   customerListEnabled?: boolean;

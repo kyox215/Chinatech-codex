@@ -24,11 +24,11 @@ export function backendDomainReady(value: { read?: BackendReadState } | null | u
 export function parsePageReadPlan(value: unknown): PageReadPlan {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("请求资料无效。");
   const plan = value as Record<string, unknown>;
-  if (Object.keys(plan).some(key => !["kind", "id", ...(plan.kind === "customer" ? ["customerQuery","anchor"]:plan.kind === "customers" ? ["q","anchor"] : plan.kind==="procurement"?["query","anchor"]:plan.kind==="repairs"?["repairQuery","group","anchor"]:plan.kind==="repair-operation"?["purpose"]:plan.kind==="retail"?["retailQuery","anchor"]:plan.kind==="retail-unit"?["retailSource"]:[])].includes(key)) || !pageKinds.includes(plan.kind as PageReadPlan["kind"])) throw new Error("请求资料无效。");
+  if (Object.keys(plan).some(key => !["kind", "id", ...(plan.kind === "customer" ? ["customerQuery","anchor"]:["customers","customer-devices"].includes(String(plan.kind)) ? ["q","anchor"] : plan.kind==="procurement"?["query","anchor"]:plan.kind==="repairs"?["repairQuery","group","anchor"]:plan.kind==="repair-operation"?["purpose"]:plan.kind==="retail"?["retailQuery","anchor"]:plan.kind==="retail-unit"?["retailSource"]:[])].includes(key)) || !pageKinds.includes(plan.kind as PageReadPlan["kind"])) throw new Error("请求资料无效。");
   const optionalId=["procurement-new","retail-new"].includes(String(plan.kind))&&plan.id!==undefined;
   const needsId = ["repair", "repair-operation", "procurement-detail", "retail-unit", "customer"].includes(plan.kind as string);
   if (needsId||optionalId ? typeof plan.id !== "string" || !plan.id || plan.id.length > 100 : plan.id !== undefined) throw new Error("请求资料无效。");
-  if(plan.q!==undefined&&(typeof plan.q!=="string"||plan.q.length>160)||plan.anchor!==undefined&&(typeof plan.anchor!=="string"||!(["procurement","repairs","retail","customer"].includes(String(plan.kind))?plan.anchor.length>0&&plan.anchor.length<=(plan.kind==="customer"?1024:plan.kind==="retail"?108:100):/^\+[1-9]\d{6,14}$/.test(plan.anchor))))throw new Error("请求资料无效。");
+  if(plan.q!==undefined&&(typeof plan.q!=="string"||plan.q.length>160)||plan.anchor!==undefined&&(typeof plan.anchor!=="string"||!(["procurement","repairs","retail","customer"].includes(String(plan.kind))?plan.anchor.length>0&&plan.anchor.length<=(plan.kind==="customer"?1024:plan.kind==="retail"?108:100):plan.kind==="customer-devices"?/^[a-f0-9]{64}$/.test(plan.anchor):/^\+[1-9]\d{6,14}$/.test(plan.anchor))))throw new Error("请求资料无效。");
   if(plan.retailSource!==undefined&&(typeof plan.retailSource!=="string"||!["unit","history"].includes(plan.retailSource)))throw new Error("请求资料无效。");
   if(plan.kind==="customer"&&plan.customerQuery!==undefined&&customerRecordsQuery(plan.customerQuery as Partial<CustomerRecordsQuery>).id!==plan.id)throw new Error("请求资料无效。");
   const query=plan.kind==="procurement"&&plan.query!==undefined?procurementListQuery(plan.query as Partial<ProcurementListQuery>):undefined;
@@ -40,7 +40,8 @@ export function parsePageReadPlan(value: unknown): PageReadPlan {
 // These compatibility plans preserve the existing full-domain semantics until
 // each list is moved to its versioned summary API. They are never advertised as
 // paginated lists; unrelated store domains and signature history are omitted.
-export function pageDomains(plan: PageReadPlan, options?: {customerDetails?:boolean;customerLists?:boolean;procurementLists?:boolean;repairLists?:boolean;retailLists?:boolean;retailForms?:boolean}): BackendDomain[] {
+export function pageDomains(plan: PageReadPlan, options?: {customerDevices?:boolean;customerDetails?:boolean;customerLists?:boolean;procurementLists?:boolean;repairLists?:boolean;retailLists?:boolean;retailForms?:boolean}): BackendDomain[] {
+  if(plan.kind==="customer-devices"&&options?.customerDevices)return["staff"];
   if(plan.kind==="customer"&&options?.customerDetails)return["staff"];
   if (plan.kind === "session" || plan.kind === "catalog" || plan.kind === "customers" && options?.customerLists ||plan.kind==="procurement"&&options?.procurementLists||plan.kind==="repairs"&&options?.repairLists||plan.kind==="retail"&&options?.retailLists) return ["staff"];
   if(plan.kind==="repair-new"&&options?.repairLists&&options.customerLists||plan.kind==="procurement-new"&&options?.procurementLists)return ["staff"];

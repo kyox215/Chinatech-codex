@@ -1,0 +1,2 @@
+export const customerDeviceRulesHash="597d101fc55f9e21357a3b810a04a2b9a59a814523a4ad52c5e0b1dec953ea98";
+export const customerDeviceFormat=1;

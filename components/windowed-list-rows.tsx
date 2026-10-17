@@ -17,8 +17,16 @@ function moveScroll(root:RefObject<HTMLElement|null>|undefined,top:number,resetR
  compensatedScrolls.set(target,compensatedScroll(root)+after-before);
 }
 type RowProps={ref:RefCallback<HTMLElement>;"data-window-key":string;"data-window-index":number};
+// Nested record windows own their keyboard navigation. Ancestors pin the
+// enclosing outer row while focus is anywhere inside that row's child window.
+function ownedWindowRow(target:EventTarget|null,list:HTMLElement|null):HTMLElement|null{
+ if(!(target instanceof HTMLElement)||!list)return null;
+ let row=target.closest<HTMLElement>('[data-window-key]');
+ while(row&&list.contains(row)){if(row.closest('[data-windowed-list]')===list)return row;row=row.parentElement?.closest<HTMLElement>('[data-window-key]')??null;}return null;
+}
+function windowRows(list:HTMLElement){return [...list.querySelectorAll<HTMLElement>('[data-window-key]')].filter(row=>row.closest('[data-windowed-list]')===list);}
 function rowControls(row:HTMLElement) {
- const selector='a[href],button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled),[tabindex="0"]';
+ const selector='summary,a[href],button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled),[tabindex="0"]';
  const controls=[...row.querySelectorAll<HTMLElement>(selector)];if(row.matches(selector))controls.unshift(row);
  return controls.filter(control=>control.getClientRects().length>0&&getComputedStyle(control).visibility!=="hidden");
 }
@@ -50,7 +58,7 @@ export function WindowedListRows<T>({items,startIndex=0,total,thresholdTotal=tot
     const node=root.current;if(!node)return;
     const rect=node.getBoundingClientRect(),container=scrollRoot?.current,boundary=container?.getBoundingClientRect(),top=boundary?boundary.top+container!.clientTop:0,height=container?.clientHeight??window.innerHeight;
     setViewport(previous=>Math.abs(previous.top+rect.top-top)<.5&&previous.height===height&&previous.ready?previous:{top:top-rect.top,height,ready:true});
-    const visible=[...node.querySelectorAll<HTMLElement>('[data-window-key]')].find(row=>{const rect=row.getBoundingClientRect();return rect.bottom>top&&rect.top<top+height;});
+    const visible=windowRows(node).find(row=>{const rect=row.getBoundingClientRect();return rect.bottom>top&&rect.top<top+height;});
     if(visible&&!restorePending){anchor.current={key:visible.dataset.windowKey!,top:anchorElement(visible).getBoundingClientRect().top,scrollPosition:scrollPosition(scrollRoot),compensatedScroll:compensatedScroll(scrollRoot)};const item=items.find(item=>rowKey(item)===visible.dataset.windowKey);if(item)anchorChanged(item);}
   });
   useEffect(()=>{const update=()=>{cancelAnimationFrame(frame.current);frame.current=requestAnimationFrame(()=>measureViewport());};update();window.addEventListener("scroll",update,{passive:true});window.addEventListener("resize",update,{passive:true});const container=scrollRoot?.current;container?.addEventListener("scroll",update,{passive:true});return()=>{container?.removeEventListener("scroll",update);cancelAnimationFrame(frame.current);window.removeEventListener("scroll",update);window.removeEventListener("resize",update);};},[scrollRoot]);
@@ -67,7 +75,7 @@ export function WindowedListRows<T>({items,startIndex=0,total,thresholdTotal=tot
   useLayoutEffect(()=>{
     const node=root.current;if(!node)return;
     const saved=anchor.current;
-    if(saved&&!restorePending){const target=[...node.querySelectorAll<HTMLElement>('[data-window-key]')].find(row=>row.dataset.windowKey===saved.key);if(target){
+    if(saved&&!restorePending){const target=windowRows(node).find(row=>row.dataset.windowKey===saved.key);if(target){
       // A scroll event updates the viewport on the next animation frame. A
       // synchronous row commit may arrive first: preserve that real movement
       // and compensate only for the layout change since this anchor sample.
@@ -75,7 +83,7 @@ export function WindowedListRows<T>({items,startIndex=0,total,thresholdTotal=tot
       if(Math.abs(difference)>=1/64)moveScroll(scrollRoot,difference);
       anchor.current={key:saved.key,top:element.getBoundingClientRect().top,scrollPosition:scrollPosition(scrollRoot),compensatedScroll:compensatedScroll(scrollRoot)};
     }}
-    if(forced!==null){const target=node.querySelector<HTMLElement>(`[data-window-index="${forced}"]`);if(target){const controls=rowControls(target);((forcedReverse.current?controls.at(-1):controls[0])??anchorElement(target)).focus();queueMicrotask(()=>setForced(current=>current===forced?null:current));}}
+    if(forced!==null){const target=windowRows(node).find(row=>Number(row.dataset.windowIndex)===forced);if(target){const controls=rowControls(target);((forcedReverse.current?controls.at(-1):controls[0])??anchorElement(target)).focus();queueMicrotask(()=>setForced(current=>current===forced?null:current));}}
   },[heights,items,startIndex,forced,initialAnchor,initialOffset,active,restorePending,scrollRoot,anchorElement]);
   useEffect(()=>{
     if(!active||!restorePending||!initialAnchor||!items.some(item=>rowKey(item)===initialAnchor))return;
@@ -84,7 +92,7 @@ export function WindowedListRows<T>({items,startIndex=0,total,thresholdTotal=tot
     const cancel=()=>{stop();setRestorePending(false);};
     const restore=()=>{
       if(stopped)return;
-      const target=[...(root.current?.querySelectorAll<HTMLElement>('[data-window-key]')??[])].find(row=>row.dataset.windowKey===initialAnchor);
+      const target=(root.current?windowRows(root.current):[]).find(row=>row.dataset.windowKey===initialAnchor);
       if(target){const element=anchorElement(target),difference=element.getBoundingClientRect().top-initialOffset;moveScroll(scrollRoot,difference,true);element.focus({preventScroll:true});anchor.current={key:initialAnchor,top:element.getBoundingClientRect().top,scrollPosition:scrollPosition(scrollRoot),compensatedScroll:compensatedScroll(scrollRoot)};}
       stop();setRestorePending(false);measureViewport();
     };
@@ -112,10 +120,17 @@ export function WindowedListRows<T>({items,startIndex=0,total,thresholdTotal=tot
     seekFlight.current=approximate;seek(approximate);
   },[viewport,startIndex,end,total,retainedEnd,estimate,offset,pending,onSeek,onLoadPrevious,items.length,active,restorePending]);
   const previous=(displayed.at(-1)?.index??-1)+1;
-  return <div ref={root} data-windowed-list data-window-cache={items.length} style={{overflowAnchor:"none"}} onFocusCapture={event=>{
-    const row=(event.target as HTMLElement).closest<HTMLElement>('[data-window-key]');if(!row)return;const item=items.find(item=>rowKey(item)===row.dataset.windowKey);if(item)setPinned({item,index:Number(row.dataset.windowIndex),key:row.dataset.windowKey!});
-  }} onBlurCapture={event=>{if(!(event.relatedTarget instanceof HTMLElement)||event.relatedTarget.closest('[data-window-key]')?.getAttribute('data-window-key')!==pinned?.key)setPinned(null);}} onKeyDownCapture={event=>{
-    if(event.key!=="Tab")return;const row=(event.target as HTMLElement).closest<HTMLElement>('[data-window-index]');if(!row)return;
+  return <div ref={root} data-windowed-list data-window-cache={items.length} data-window-start={startIndex} data-window-end={end} data-window-total={total} style={{overflowAnchor:"none"}} onFocusCapture={event=>{
+    const row=ownedWindowRow(event.target,root.current);if(!row)return;const item=items.find(item=>rowKey(item)===row.dataset.windowKey);if(item)setPinned({item,index:Number(row.dataset.windowIndex),key:row.dataset.windowKey!});
+  }} onBlurCapture={event=>{if(ownedWindowRow(event.relatedTarget,root.current)?.dataset.windowKey!==pinned?.key)setPinned(null);}} onKeyDownCapture={event=>{
+    if(event.key!=="Tab")return;const target=event.target as HTMLElement;
+    // An inner list owns its middle rows. At its actual complete boundary the
+    // ancestor must still bridge to an unrendered logical outer row.
+    for(let nested=target.closest<HTMLElement>('[data-windowed-list]');nested&&nested!==root.current;nested=nested.parentElement?.closest<HTMLElement>('[data-windowed-list]')??null){
+      const nestedRow=ownedWindowRow(target,nested),boundary=event.shiftKey?0:Number(nested.dataset.windowTotal)-1;
+      if(!nestedRow||Number(nestedRow.dataset.windowIndex)!==boundary)return;
+    }
+    const row=ownedWindowRow(target,root.current);if(!row)return;
     const controls=rowControls(row);
     if(event.target!==(event.shiftKey?controls[0]:controls.at(-1)))return;
     const next=Number(row.dataset.windowIndex)+(event.shiftKey?-1:1);if(next<startIndex||next>=end)return;
