@@ -11,7 +11,9 @@ import {readTool} from './tool-registry-server';
 import {acceptsRelease,type ToolId} from './tool-registry';
 const origin='https://www.chinatech.in';
 export function toolProofCanonical(path:string,payload:string,body:V3Proof){return ['CT-TOOLBOX-V1','POST',path,body.requestId,body.installationId,body.timestamp,body.nonce,hashV3(base64V3(payload)),hashV3('')].join('\n');}
-export async function toolUpdate(toolId:ToolId){return transactionV3(null,'','tool-update','',async tx=>{
+export async function toolUpdate(toolId:ToolId){
+ if(toolId==='phone-assistant')throw new DesktopError('TOOL_RETIRED',410);
+ return transactionV3(null,'','tool-update','',async tx=>{
  await lockV3(tx,'control');const tool=await readTool(tx,toolId);if(!tool.ready||!tool.release)throw new DesktopError('SERVICE_UNAVAILABLE',503);
  const release=tool.release;
  if(release.releaseId!==tool.activeReleaseId||release.files.length<1||release.files.length>4||release.files.some(file=>{try{const url=new URL(file.href);return !/^[a-f0-9]{64}$/.test(file.sha256)||!Number.isSafeInteger(file.bytes)||file.bytes<=0||file.bytes>1024*1024*1024||url.origin!==origin||url.search!==''||url.hash!==''||url.username!==''||url.password!==''||!url.pathname.startsWith(toolId==='windows-check'?'/toolbox/windows-current/':'/toolbox/phone-current/');}catch{return true;}}))throw new DesktopError('SERVICE_UNAVAILABLE',503);
@@ -49,6 +51,8 @@ export async function toolOperation(request:NextRequest,toolId:ToolId,op:'start'
     }
     if(row.completed_at)throw new DesktopError('JOB_COMPLETED',409);return {permit:row.permit};}
    if(op!=='start')throw new DesktopError('SESSION_INVALID',401);
+   // Existing receipts above retain their original recovery path. Only new phone jobs retire.
+   if(toolId==='phone-assistant')throw new DesktopError('TOOL_RETIRED',410);
    const tool=await readTool(tx,toolId);if(!tool.enabled)throw new DesktopError('DESKTOP_PAUSED',403);if(!acceptsRelease(tool,body.releaseId)||tool.release?.version!==body.appVersion)throw new DesktopError('UPDATE_REQUIRED',426);
    if(!known)await tx`insert into chinatech_v2_private.toolbox_devices(installation_id,key_hash,public_key) values(${body.installationId},${keyHash},${String(body.publicKey)})`;
    const now=Math.floor(Date.now()/1000),expires=now+30*86400;
