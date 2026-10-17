@@ -5,6 +5,8 @@ import { LegacyServiceWorkerCleanup } from "@/components/legacy-service-worker-c
 import { LanguageProvider } from "@/components/language-provider";
 import { OperationFeedbackProvider } from "@/components/operation-feedback";
 import { ToastProvider } from "@/components/toast";
+import { LocalWebVitals } from "@/components/local-web-vitals";
+import { localWebVitalsEnabled } from "@/lib/local-web-vitals";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,9 +18,10 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const measure = localWebVitalsEnabled({enabled:process.env.LOCAL_WEB_VITALS,vercel:process.env.VERCEL,origin:process.env.APP_ORIGIN});
   return (
     <html lang="zh-CN">
-      <body><LegacyServiceWorkerCleanup /><LanguageProvider><ToastProvider><OperationFeedbackProvider><LoginActivity enabled={isSupabaseMode()} />{children}</OperationFeedbackProvider></ToastProvider></LanguageProvider></body>
+      <body>{measure ? <LocalWebVitals /> : null}<LegacyServiceWorkerCleanup /><LanguageProvider><ToastProvider><OperationFeedbackProvider><LoginActivity enabled={isSupabaseMode()} />{children}</OperationFeedbackProvider></ToastProvider></LanguageProvider></body>
     </html>
   );
 }
