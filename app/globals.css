@@ -1835,6 +1835,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .input-control__native { width: 100%; min-width: 0; caret-color: var(--primary-600); color: var(--text); }
 .input-control__body > .input-control__native { min-height: 44px; }
 .input-control__native::placeholder { color: var(--text-tertiary); opacity: 1; }
+.input-control__body:has(.input-control__clear) > input[type="search"]::-webkit-search-cancel-button { display: none; -webkit-appearance: none; appearance: none; }
 .input-control__body:not(.input-shell)[data-actions="1"] > input { padding-right: 44px; }
 .input-control__body:not(.input-shell)[data-actions="2"] > input { padding-right: 88px; }
 .input-control__body:not(.input-shell)[data-leading="true"] > input { padding-left: 34px; }

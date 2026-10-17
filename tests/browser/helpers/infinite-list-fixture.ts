@@ -46,7 +46,7 @@ function Cases({kind}){return kind==='sessions'?<LoginDevicesPanel/>:kind==='sta
 api.mount=(kind='lists',locale='zh-CN')=>{root?.unmount();document.getElementById('root').replaceChildren();root=createRoot(document.getElementById('root'));root.render(<StrictMode><LanguageProvider><Locale locale={locale}><OperationFeedbackProvider><ContentProgress/><Cases kind={kind}/></OperationFeedbackProvider></Locale></LanguageProvider></StrictMode>);};api.unmount=()=>root?.unmount();api.ready=true;
 `;
 
-export function buildInfiniteListFixture(source = process.cwd(), custom?: {adapter:string;entry:string;seams:string[]}) {
+export function buildInfiniteListFixture(source = process.cwd(), custom?: {adapter:string;entry:string;seams:string[];actualIcons?:boolean}) {
   const native = createRequire(resolve(source, "package.json"));
   const seams = new Set(custom?.seams ?? ["components/backend-snapshot", "components/staff/use-staff", "lib/backend/client", "lib/staff-client"]);
   const modules: string[] = [], ids = new Map<string, number>();
@@ -54,7 +54,7 @@ export function buildInfiniteListFixture(source = process.cwd(), custom?: {adapt
     if (request === "virtual:adapter" || request === "next/navigation" || request === "next/link" && seams.has("next/link")) return "virtual:adapter.tsx";
     const rel = request.startsWith("@/") ? request.slice(2) : request.startsWith(".") ? resolve(dirname(parent), request).slice(source.length + 1) : null;
     if (rel && seams.has(rel)) return "virtual:adapter.tsx";
-    if (request === "lucide-react") return "virtual:icons";
+    if (request === "lucide-react" && !custom?.actualIcons) return "virtual:icons";
     if (request.endsWith(".css")) return "virtual:css";
     const file = request.startsWith("@/") ? resolve(source, request.slice(2)) : request.startsWith(".") ? resolve(dirname(parent), request) : native.resolve(request);
     if (existsSync(file) && extname(file)) return file;
