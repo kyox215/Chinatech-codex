@@ -871,4 +871,10 @@ export const errorMessages: Record<string, readonly [string, string]> = {
   "正在核对账号权限…": ["Verifica delle autorizzazioni dell'account…", "Checking account permissions…"],
   "请在账号菜单核对当前身份，员工权限由门店管理者分配。": ["Verifica l'identità attuale nel menu dell'account. Le autorizzazioni del personale sono assegnate dal responsabile del negozio.", "Check the current identity in the account menu. Staff permissions are assigned by the store manager."],
   "正在读取单机档案…": ["Caricamento della scheda dell'unità…", "Loading unit record…"],
+"分页请求无效。": ["Richiesta di pagina non valida.", "Invalid page request."],
+"暂时无法保存邀请，请保留原邀请链接后重试。": ["Impossibile conservare l’invito. Mantieni il link originale e riprova.", "Cannot save the invitation right now. Keep the original invitation link and retry."],
+"当前登录账号与填写邮箱不同，请核对后重新登录。": ["L’account attivo non corrisponde all’email inserita. Verifica e accedi di nuovo.", "The signed-in account does not match the entered email. Check it and sign in again."],
+"请先完成邮箱验证，再登录。": ["Verifica prima l’email, poi accedi.", "Verify your email before signing in."],
+"当前尚未登录，请核对邮箱和密码后重试。": ["Non hai ancora effettuato l’accesso. Controlla email e password e riprova.", "You are not signed in yet. Check your email and password and retry."],
+"暂时无法核对登录状态，请保留输入后重试核对。": ["Impossibile verificare l’accesso. Mantieni i dati inseriti e riprova la verifica.", "Cannot check sign-in status right now. Keep your input and retry the check."],
 };

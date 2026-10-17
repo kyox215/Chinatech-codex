@@ -28,7 +28,7 @@ export function LogoutButton({ compact = false, supabaseMode = false, className 
   }
 
   return (
-    <><button className={`${compact ? "icon-button" : "profile-menu__logout"} ${className ?? ""}`} type="button" onClick={logout} disabled={isPending || navigating} title={supabaseMode ? t("退出登录") : t("退出本地预览")} aria-label={supabaseMode ? t("退出登录") : t("退出本地预览")}>
+    <><button className={`${compact ? "icon-button" : "profile-menu__logout"} ${className ?? ""}`} type="button" onClick={logout} disabled={isPending || navigating} aria-busy={isPending || navigating} title={supabaseMode ? t("退出登录") : t("退出本地预览")} aria-label={supabaseMode ? t("退出登录") : t("退出本地预览")}>
       <LogOut size={18} />{compact ? null : <span>{isPending || navigating ? t("正在退出") : supabaseMode ? t("退出登录") : t("退出预览")}</span>}
     </button>{error ? <small className="form-error" role="alert">{systemText(error)}</small> : null}</>
   );

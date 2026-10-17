@@ -1,12 +1,36 @@
-.page { max-width: 1120px; margin: 0 auto; padding: 24px; display: grid; gap: 20px; min-width: 0; }
-.page > :global(.panel) { padding: 20px; display: grid; gap: 16px; }
-.page form { display: grid; gap: 12px; min-width: 0; }
+.page { max-width: 1120px; width: 100%; margin: 0 auto; padding: 24px; display: grid; gap: 12px; min-width: 0; }
+.page > :global(.panel),.formColumns > :global(.panel) { padding: 12px; display: grid; align-content: start; gap: 8px; min-width: 0; }
+.page form { display: grid; gap: 8px; min-width: 0; }
 .page h1,.page h2,.page p { margin: 0; }
 .page h2 { font-size: 18px; overflow-wrap: anywhere; }
-.page p { overflow-wrap: anywhere; }
+.page p,.page strong,.page time { overflow-wrap: anywhere; }
 .page progress { width: 100%; accent-color: var(--primary-600); }
-.page :global(.button) { justify-self: start; }
-.application { display: grid; gap: 12px; padding-block: 16px; border-top: 1px solid var(--border); }
-.application fieldset { min-width: 0; border: 0; padding: 0; margin: 0; display: grid; gap: 12px; }
-.actions { display: flex; flex-wrap: wrap; gap: 12px; }
-@media(max-width:767px) { .page { padding: 16px; gap: 16px; } .page > :global(.panel) { padding: 16px; } }
+.page :global(.button) { min-height: 44px; min-width: 44px; justify-self: start; white-space: normal; overflow-wrap: anywhere; }
+.heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.heading > h1,.heading > h2 { flex: 1; min-width: 0; }
+.storeRow,.invitationRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.storeRow > div,.invitationRow > div { min-width: 0; display: grid; gap: 8px; }
+.storeRow > :global(.button),.invitationRow > :global(.button) { flex-shrink: 0; max-width: 55%; }
+.formColumns { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; min-width: 0; }
+.choiceBody,.inviteOutput { display: grid; gap: 8px; min-width: 0; }
+.choicePanel > .mobileChoice { display: none; }
+.applicationFact { display: grid; gap: 8px; min-width: 0; }
+.applicationFact + .applicationFact,.invitationRow + .invitationRow { border-top: 1px solid var(--border); padding-top: 8px; }
+.application { display: grid; gap: 8px; }
+.application fieldset { min-width: 0; border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+.actions,.footer { display: flex; flex-wrap: wrap; gap: 8px; }
+.capacityGrid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+.capacityGrid > div { display: grid; align-content: start; gap: 8px; min-width: 0; }
+.capacityGrid span,.storeRow p { color: var(--text-secondary); }
+@media(max-width:767px) {
+ .page { padding: 16px; gap: 8px; }
+ .formColumns { grid-template-columns: minmax(0,1fr); }
+ .choicePanel > .desktopHeading { display: none; }
+ .choicePanel > .mobileChoice { display: flex; justify-self: stretch; width: 100%; }
+ .choicePanel[data-expanded="false"] > .choiceBody { display: none; }
+ .choicePanel[data-expanded="false"] { padding: 0; background: transparent; border: 0; box-shadow: none; }
+ .capacityGrid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+ .footer { display: grid; }
+ .footer > :global(.button) { width: 100%; justify-self: stretch; }
+ .inviteOutput > .actions > :global(.button) { flex: 1; }
+}

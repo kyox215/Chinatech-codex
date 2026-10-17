@@ -13,6 +13,12 @@ async function seedUnits(page: Page, units=fixtures) {
   parseStoredRetailUnits(JSON.stringify({version:1,units}), []);
   await page.addInitScript(data=>localStorage.setItem("chinatech.m1.retail.v1",JSON.stringify({version:1,units:data})),units);
 }
+async function openFilters(page: Page) {
+  const toggle=page.getByRole("button",{name:/^筛选(?: · \d+)?$/});
+  if(await toggle.getAttribute("aria-expanded")!=="true") await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded","true");
+  return toggle;
+}
 test("整机首页先显示在售，新机翻新机独立切换并在刷新后保留",async({page})=>{
   await seedUnits(page);
   await page.goto("/app/retail");
@@ -37,6 +43,8 @@ test("已售和其他状态仍在同一商品入口，识码查找不再跳转",
   await expect(table).toContainText("Galaxy S21");
   await page.getByRole("link",{name:/^其他状态 \d+$/}).click();
   await expect(table.getByRole("link")).toHaveCount(fixtures.filter(u=>u.status!=="available"&&u.status!=="sold").length);
+  await expect(page.getByRole("button",{name:"筛选",exact:true})).toHaveAttribute("aria-expanded","false");
+  await openFilters(page);
   await expect(page.getByRole("combobox",{name:"其他状态筛选",exact:true})).toBeVisible();
   await expect(page.getByRole("link",{name:"单机管理",exact:true})).toHaveCount(0);
   await page.getByRole("button",{name:"识码查找",exact:true}).click();
@@ -53,6 +61,9 @@ test("默认名称排序、精简空字段，搜索编号及详情返回继续�
   const titles=table.locator("a strong");
   const expected=["Apple iPad 9","Apple iPhone 13","Nintendo Switch OLED","Sony PS5 Digital"];
   await expect(titles).toHaveText(expected);
+  await expect(page.getByRole("button",{name:"筛选",exact:true})).toHaveAttribute("aria-expanded","false");
+  await expect(page.getByRole("combobox",{name:"整机排序",exact:true})).toHaveCount(0);
+  const filters=await openFilters(page);
   await expect(page.getByRole("combobox",{name:"整机排序",exact:true})).toHaveValue("name-asc");
   await expect(table).not.toContainText("未记录");
   for (const row of await table.getByRole("link").all()) {
@@ -68,7 +79,14 @@ test("默认名称排序、精简空字段，搜索编号及详情返回继续�
   }
   await page.getByRole("combobox",{name:"整机排序",exact:true}).selectOption("newest");
   await expect(titles.first()).toHaveText("Apple iPhone 13");
+  await filters.click();
+  await expect(filters).toHaveAttribute("aria-expanded","false");
+  await expect(page.locator('select[aria-label="整机排序"]')).toHaveValue("newest");
+  await expect.poll(()=>new URL(page.url()).searchParams.get("sort")).toBe("newest");
   await page.reload();
+  await expect(filters).toHaveAttribute("aria-expanded","false");
+  await expect.poll(()=>new URL(page.url()).searchParams.get("sort")).toBe("newest");
+  await openFilters(page);
   await expect(page.getByRole("combobox",{name:"整机排序",exact:true})).toHaveValue("newest");
   await page.getByRole("button",{name:"清除筛选",exact:true}).click();
   await expect(titles).toHaveText(expected);
@@ -91,6 +109,7 @@ test("已售按售出时间倒序，切换视图与刷新保留正确默认",asy
   const table=page.getByRole("region",{name:"整机商品表格",exact:true});
   const titles=table.locator("a strong");
   await expect(titles).toHaveText(["Samsung Galaxy S22","Samsung Galaxy S21","Samsung Galaxy S20"]);
+  await openFilters(page);
   await expect(page.getByRole("combobox",{name:"整机排序",exact:true})).toHaveValue("sold-newest");
   for(const width of [1440,1024,390,375]) {
     await page.setViewportSize({width,height:950});
@@ -99,6 +118,7 @@ test("已售按售出时间倒序，切换视图与刷新保留正确默认",asy
   }
   await page.reload();await expect(titles.first()).toHaveText("Samsung Galaxy S22");
   await page.getByRole("link",{name:/^在售商品 \d+$/}).click();
+  await openFilters(page);
   await expect(page.getByRole("combobox",{name:"整机排序",exact:true})).toHaveValue("name-asc");
   await page.getByRole("link",{name:/^已售历史 \d+$/}).click();
   await expect(titles.first()).toHaveText("Samsung Galaxy S22");

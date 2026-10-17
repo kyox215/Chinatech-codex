@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const origin = requireSameOrigin(request);
     const body = await readAuthBody(request, ["email"]);
     const email = authEmail(body.email);
-    const response = preventAuthCaching(NextResponse.json({ ok: true, message: "如果此邮箱尚待验证，你会收到新的验证邮件。请在注册时使用的浏览器打开链接。" }));
+    const response = preventAuthCaching(NextResponse.json({ ok: true, message: "如果此邮箱尚待验证，你会收到新的验证邮件。请在本次发起验证的浏览器打开链接，验证后可创建或加入门店。" }));
     const supabase = createSupabaseRouteClient(request, response);
     const { error } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: `${origin}/auth/confirm` } });
     emailDeliveryFailure(error);

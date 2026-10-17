@@ -6,6 +6,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseMode } from "@/lib/supabase/config";
 import { authFailure, createSupabaseRouteClient, preventAuthCaching, requireSameOrigin } from "@/lib/supabase/server";
 import { clearRecoveryProof } from "@/lib/server/auth-flows";
+import { clearInvitationContext } from "@/lib/server/store-invitation-context";
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseMode()) return preventAuthCaching(NextResponse.json({ message: "正式登录未开放。" }, { status: 404 }));
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
     // Provider availability cannot undo it or discard the local deletions.
     try { await supabase.auth.signOut({ scope: "local" }); } catch { /* Local cleanup still completes. */ }
     clearLocalAuthCookies(request, response);
+    clearInvitationContext(response);
     return response;
   } catch (reason) { return authFailure(reason, "退出失败，请稍后重试。"); }
 }
