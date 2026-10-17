@@ -93,3 +93,7 @@
 @media (min-width: 768px) { .product > strong { font-size: 16px; font-weight: 500; } }
 
 .tableHead { min-height: 48px; }
+
+/* Bounded searchable facets reuse the existing toolbar input and menu. */
+.facet { min-width: 190px; flex: 1 1 190px; }
+@media (max-width:767px) { .facet { min-width: 0; grid-column: 1 / -1; } }

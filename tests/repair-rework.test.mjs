@@ -15,7 +15,7 @@ function moduleUrl(name) {
   let code = overrides[name] ?? ts.transpileModule(readFileSync(new URL(`../${name}.ts`, import.meta.url), "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
   code = adaptPreviewHookImports(code, { compile: file => ts.transpileModule(readFileSync(new URL(`../${file}`, import.meta.url), "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText, library: dependency => moduleUrl(`lib/${dependency}`), dataUrl: source => "data:text/javascript;base64," + Buffer.from(source).toString("base64") });
   code = code.replace(/import \{[^}]+\} from "react";/g, 'const useSyncExternalStore=(_subscribe,getSnapshot)=>getSnapshot();');
-  code = code.replace(/from "(@\/lib\/[^\"]+|\.\.?\/[^\"]+)"/g, (_match, dependency) => {
+  code = code.replace(/from ["'](@\/lib\/[^"']+|\.\.?\/[^"']+)["']/g, (_match, dependency) => {
     const key = dependency.startsWith("@/") ? dependency.slice(2) : path.posix.normalize(path.posix.join(path.posix.dirname(name), dependency));
     return `from "${moduleUrl(key)}"`;
   });

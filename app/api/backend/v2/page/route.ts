@@ -16,7 +16,7 @@ async function read(request: Request) {
   try {
     const url = new URL(request.url), raw = url.searchParams.get("plan");
     let plan;
-    try { if (!raw || raw.length > 512) throw new Error(); plan = parsePageReadPlan(JSON.parse(raw)); } catch { throw new BackendError("请求资料无效。", 400); }
+    try { if (!raw || raw.length > 1024) throw new Error(); plan = parsePageReadPlan(JSON.parse(raw)); } catch { throw new BackendError("请求资料无效。", 400); }
     const access = await getV2Access(request); accessMs = performance.now() - started;
     const reading = performance.now();
     const result = await loadPageState(access, plan, url.searchParams.get("known") ?? undefined, request.headers.get("x-ct-read-scope") ?? undefined);

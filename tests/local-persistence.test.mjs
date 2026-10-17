@@ -9,7 +9,7 @@ function library(name) {
   name=posix.normalize(name);
   if (dependencies.has(name)) return dependencies.get(name);
   let code = compile(`lib/${name}.ts`);
-  code = code.replace(/from "(\.{1,2}\/[^\"]+)"/g, (_, dep) => `from "${library([...name.split("/").slice(0,-1),dep].join("/"))}"`);
+  code = code.replace(/from ["'](\.{1,2}\/[^"']+)["']/g, (_, dep) => `from "${library([...name.split("/").slice(0,-1),dep].join("/"))}"`);
   const url = dataUrl(code); dependencies.set(name, url); return url;
 }
 function compile(path) { return ts.transpileModule(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022, jsx: ts.JsxEmit.React } }).outputText; }

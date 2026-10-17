@@ -43,7 +43,7 @@ function dependencyUrl(name) {
  name=posix.normalize(name);
  if(dependencyUrls.has(name)) return dependencyUrls.get(name);
  let code=ts.transpileModule(readFileSync(new URL(`../lib/${name}.ts`,import.meta.url),"utf8"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
- code=code.replace(/from "(\.{1,2}\/[^\"]+)"/g,(_,dep)=>`from "${dependencyUrl([...name.split("/").slice(0,-1),dep].join("/"))}"`);
+ code=code.replace(/from ["'](\.{1,2}\/[^"']+)["']/g,(_,dep)=>`from "${dependencyUrl([...name.split("/").slice(0,-1),dep].join("/"))}"`);
  const url="data:text/javascript;base64,"+Buffer.from(code).toString("base64");dependencyUrls.set(name,url);return url;
 }
 const recordUrl = dependencyUrl("repair-intake-record");

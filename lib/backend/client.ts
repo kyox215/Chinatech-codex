@@ -49,7 +49,7 @@ function accept(next:BackendSnapshot,scope:ReturnType<typeof requestScope>,allow
   // The v1 command/recovery adapter remains compatible during migration. It may
   // return canonical state, but must never reset the page's v2 polling protocol.
   if (snapshot.read && !next.read) {
-    next={...next,procurementListEnabled:snapshot.procurementListEnabled,repairListEnabled:snapshot.repairListEnabled};
+    next={...next,retailListEnabled:snapshot.retailListEnabled,procurementListEnabled:snapshot.procurementListEnabled,repairListEnabled:snapshot.repairListEnabled};
     const member = next.staff.members.find(row => row.id === next.staff.currentId);
     // Derive form metadata only from this newly authorized canonical v1 result.
     // An earlier page's defaults are not evidence of current policy after a save.

@@ -3,7 +3,7 @@ import type { Locale } from "./locale";
 import { translate, translateSystemMessage } from "./translate";
 
 /** Format known specification labels for display; keep stored and searchable facts original. */
-export function retailDisplaySpec(unit: RetailUnit, locale: Locale) {
+export function retailDisplaySpec(unit: Pick<RetailUnit,"category"|"ramGb"|"bodyStorage"|"disks"|"edition">, locale: Locale) {
   const t = (value: string) => translate(value, locale);
   const disks = unit.disks.map(disk => `${disk.capacity ?? t("容量待确认")} ${disk.unit} ${disk.type}`);
   const body = unit.bodyStorage ? `${unit.bodyStorage.capacity ?? t("容量待确认")} ${unit.bodyStorage.unit} ${t("机身存储")}` : "";

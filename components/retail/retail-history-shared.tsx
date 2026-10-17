@@ -18,7 +18,7 @@ export function historyTitle(record: RetailHistoryRecord, locale: Locale = "zh-C
   return [record.brand, record.model].filter(Boolean).join(" ") || translate("商品名称未记录", locale);
 }
 export function historyDetailHref(id: string, returnTo = "/app/retail?view=sold") {
-  return retailRecordHref(id, returnTo) + "&original=1";
+  return retailRecordHref(id, returnTo, "history") + "&original=1";
 }
 export function historyReturnHref(value: string | null) {
   if (value && (/^\/app\/retail(?:\?|$)/.test(value) || /^\/app\/customers\/PHONE-\d+(?:\?|$)/.test(value))) return value;

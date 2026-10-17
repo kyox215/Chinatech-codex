@@ -43,8 +43,8 @@
 .scan > form { display: grid; grid-template-columns: 150px minmax(0,1fr) auto; align-items: end; gap: 10px; padding: 12px; }
 .scanResult { padding: 0 12px 12px; font-size: 13px; }
 .scanResult p { color: var(--text-secondary); line-height: 1.5; }
-.scanResult > a:not(:global(.button)) { display: flex; justify-content: space-between; gap: 10px; min-height: 44px; padding: 12px 0; border-top: 1px solid var(--border); }
-.scanResult > a > span { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); }
+.scanResult > a:not(:global(.button)), .scanCandidate { display: flex; justify-content: space-between; gap: 10px; min-height: 44px; padding: 12px 0; border-top: 1px solid var(--border); }
+.scanResult > a > span, .scanCandidate > span { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); }
 @media (max-width:767px) {
   .stats { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 8px; padding-block: 2px; }
   .stat { flex: 0 0 auto; min-height: 44px; padding: 8px 10px; gap: 6px; border-radius: var(--radius-control); box-shadow: none; }

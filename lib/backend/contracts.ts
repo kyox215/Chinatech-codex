@@ -15,6 +15,8 @@ export type BackendSnapshot = {
   procurementListEnabled?: boolean;
   procurementRepairCandidate?:import("./procurement-batch-contract").ProcurementRepairCandidate|null;
   procurementList?: import("./procurement-list-contract").ProcurementListPage;
+  retailListEnabled?:boolean;
+  retailList?:import("./retail-list-contract").RetailListPage;
   repairListEnabled?:boolean;
   repairList?:import("./repair-list-contract").RepairListPage;
   intakeDefaults?:{revision:number;policy:import("../repair-intake-record").IntakePolicy;paper:import("../store-settings").PaperFormat};

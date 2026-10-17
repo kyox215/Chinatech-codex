@@ -19,7 +19,7 @@ export type CustomerSaleRecord = { id: string; unitId: string; unitCode: string;
 export type Customer = CustomerProfile & { id: string; address: string; repairs: RepairDirectoryEntry[]; sales: CustomerSaleRecord[]; history: RetailHistoryRecord[]; lastActivity: string };
 
 export function customerSaleHref(sale: Pick<CustomerSaleRecord, "unitId" | "id">): string {
-  return `/app/retail/units/${encodeURIComponent(sale.unitId)}?sale=${encodeURIComponent(sale.id)}#${encodeURIComponent(`sale-${sale.id}`)}`;
+  return `/app/retail/units/${encodeURIComponent(sale.unitId)}?sale=${encodeURIComponent(sale.id)}&source=unit#${encodeURIComponent(`sale-${sale.id}`)}`;
 }
 
 export function buildCustomerDirectory(repairs: readonly RepairDirectoryEntry[], units: readonly RetailUnit[], profiles: readonly CustomerProfile[] = [], seeds: readonly CustomerSeed[] = [], history: readonly RetailHistoryRecord[] = []): Customer[] {

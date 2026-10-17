@@ -12,7 +12,7 @@ const compile = path => ts.transpileModule(readFileSync(new URL(`../${path}`, im
 function library(name) {
   name=posix.normalize(name);
   if (modules.has(name)) return modules.get(name);
-  const code = compile(`lib/${name}.ts`).replace(/from "(\.{1,2}\/[^\"]+)"/g, (_, dep) => `from "${library([...name.split("/").slice(0,-1),dep].join("/"))}"`);
+  const code = compile(`lib/${name}.ts`).replace(/from ["'](\.{1,2}\/[^"']+)["']/g, (_, dep) => `from "${library([...name.split("/").slice(0,-1),dep].join("/"))}"`);
   const url = dataUrl(code); modules.set(name, url); return url;
 }
 let instance = 0;

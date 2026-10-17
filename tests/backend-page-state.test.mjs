@@ -15,8 +15,10 @@ function harness() {
     settings:{revision:1,shopName:'DEMO',address:'',phone:'',paper:'a4',repairWarrantyMonths:6,retailWarrantyMonths:12,suppliers:[],finance:[]} };
   const tx = (parts,...values) => {
     const sql = parts.reduce((text,part,i)=>text+part+(i<values.length?values[i]?.sql??'?':''),'');
-    return { sql, then:(resolve,reject)=>Promise.resolve().then(()=>{
+    return { sql, values, then:(resolve,reject)=>Promise.resolve().then(()=>{
       state.queries.push({sql,values});
+      if(sql.includes('retail_list_models'))return[{ready:true,generation:'3',vocabulary_hash:JSON.parse(readFileSync('lib/backend/retail-vocabulary-version.ts','utf8').match(/retailVocabularyHash=("[^"]+")/)[1])}];
+      if(sql.includes('retail_list_sources')&&sql.trimStart().startsWith('with scoped'))return[{total:1,point_found:false,point_rank:0,view_counts:{available:1,sold:0,other:0},condition_counts:{all:1,新机:0,翻新机:1},items:[{key:'unit:DEMO-RETAIL',id:'DEMO-RETAIL',source:'unit',title:'DEMO',view:'available'}]}];
       if(sql.includes('select ready,generation::text')) return [{ready:true,generation:'3'}];
       if(sql.trimStart().startsWith('with grouped as')) return [{total:1,items:[{phone:'+390000000001',name:'DEMO',email:'',repairs:1,sales:0,history:0,activity:'2026-10-10 00:00:00'}]}];
       if(sql.trimStart().startsWith('with scoped as'))return[{total:1,group_total:1,stats:{all:1,draft:1,open:0,complete:0},point_found:false,point_rank:0,items:[{id:'DEMO-PROC-1',repairId:state.intake.id,repairModel:'DEMO',item:'DEMO part',supplier:'DEMO supplier',quantity:1,arrived:0,status:'draft',expectedAt:'',ledgerRevision:0,groupKey:'DEMO supplier',groupFirst:'DEMO-PROC-1',groupCount:1}]}];
@@ -134,3 +136,24 @@ test('procurement opt-in SSR reads only narrow summaries; its known token and no
   h.state.env.BACKEND_CUSTOMER_LIST_READS='0';assert(h.plans.pageDomains({kind:'repair-new'},{repairLists:true,customerLists:false}).includes('intakes'));
   assert.throws(()=>h.plans.parsePageReadPlan({kind:'procurement-new',id:'x'.repeat(101)}));
  });
+
+test('retail opt-in SSR carries real bounded list facts and explicit ready; rollback/no-access never pretend empty canonical arrays are loaded',async()=>{
+ const h=harness();h.state.env.BACKEND_RETAIL_LIST_READS='1';const plan=h.plans.parsePageReadPlan({kind:'retail',retailQuery:{q:'İ'.repeat(100)}}),initial=await h.api.loadPageState(h.access,plan);
+ assert.equal(initial.retailListEnabled,true);assert.equal(initial.retailList.total,1);assert.deepEqual(initial.read.ready,['staff']);assert.equal(initial.settings,null);assert.equal(initial.retailList.query.q,'İ'.repeat(100));
+ for(const field of['intakes','signatures','procurement','retail','retailHistory','customers'])assert.deepEqual(initial[field],[]);
+ assert(h.state.queries.every(row=>!row.sql.includes('select data')&&!row.sql.includes('select settings')&&!row.sql.includes('staff_audit')));
+ h.state.queries.length=0;const unchanged=await h.api.loadPageState(h.access,plan,initial.stateToken);assert(unchanged.unchanged);assert(h.state.queries.every(row=>!row.sql.includes('retail_list_sources')));
+ h.state.queries.length=0;const apiUnchanged=await h.api.loadRetailListPage(h.access,initial.retailList.query,{known:initial.retailList.stateToken,anchor:'unit:DEMO-RETAIL'});assert(apiUnchanged.unchanged);assert(Buffer.byteLength(JSON.stringify(apiUnchanged))<=1024);assert(h.state.queries.every(row=>!row.sql.includes('retail_list_sources')));
+ h.state.queries.length=0;h.state.member={...h.member,permissions:[]};const denied=await h.api.loadPageState(h.access,plan);assert.equal(denied.retailList,undefined);assert(h.state.queries.every(row=>!row.sql.includes('retail_list_')));assert.deepEqual(denied.read.ready,['staff']);
+ h.state.member=h.member;h.state.env.BACKEND_RETAIL_LIST_READS='0';const legacy=await h.api.loadPageState(h.access,{kind:'retail'});assert.equal(legacy.retailListEnabled,false);assert(legacy.read.ready.includes('retail'));assert(legacy.read.ready.includes('retailHistory'));assert(h.state.queries.some(row=>row.sql.includes('from chinatech_v2_private.retail_units')));
+});
+
+
+test('retail source is part of the read owner and limits unit/original selection; legacy URLs keep no-unit fallback',async()=>{
+ const arrays=values=>values.flatMap(value=>value?.sql==='ARRAY'?[value.values]:value?.values?arrays(value.values):[]);
+ const h=harness(),unit={kind:'retail-unit',id:'11111111-1111-4111-8111-111111111111',retailSource:'unit'},history={...unit,retailSource:'history'};
+ assert.notEqual(h.plans.pagePlanKey(unit),h.plans.pagePlanKey(history));assert.deepEqual(h.plans.parsePageReadPlan(history),history);assert.throws(()=>h.plans.parsePageReadPlan({...unit,retailSource:'arbitrary'}));assert.throws(()=>h.plans.parsePageReadPlan({kind:'retail',retailSource:'history'}));
+ await h.api.loadPageState(h.access,history);const historyUnit=h.state.queries.find(row=>row.sql.startsWith('select data from chinatech_v2_private.retail_units'));assert.match(historyUnit.sql,/and data->'historyOrigin'->>'recordId'=\?/);assert.doesNotMatch(historyUnit.sql,/or id=|and id=\?/);const original=h.state.queries.find(row=>row.sql.startsWith('select data from chinatech_v2_private.retail_history_records'));assert.match(original.sql,/and id=any\(ARRAY\)/);assert.deepEqual(arrays(original.values)[0],[unit.id]);
+ h.state.queries.length=0;await h.api.loadPageState(h.access,unit);const unitQuery=h.state.queries.find(row=>row.sql.startsWith('select data from chinatech_v2_private.retail_units'));assert.match(unitQuery.sql,/and id=\?/);assert.doesNotMatch(unitQuery.sql,/or data/);const linked=h.state.queries.find(row=>row.sql.startsWith('select data from chinatech_v2_private.retail_history_records'));assert.match(linked.sql,/id=any\(ARRAY\)/);assert.deepEqual(arrays(linked.values)[0],[]);
+ h.state.queries.length=0;await h.api.loadPageState(h.access,{kind:'retail-unit',id:unit.id});assert.deepEqual(arrays(h.state.queries.find(row=>row.sql.startsWith('select data from chinatech_v2_private.retail_history_records')).values)[0],[unit.id]);
+});

@@ -17,7 +17,7 @@ type Props = {
   menuFooter?: ReactNode; manualActionLabel?: string;
   onOpenChange?: (open: boolean) => void; loading?: boolean; loadingLabel?: string;
   windowed?: boolean; onEndReached?: () => void; persistentMenu?: boolean; selectedKey?: string;
-  className?: string; inputLabel?: string;
+  className?: string; inputLabel?: string; hideLabel?: boolean;
   commitOnBlur?: boolean; showAllOnOpen?: boolean; adaptiveMenu?: boolean;
   onQueryChange?: (query: string) => void;
   disabled?: boolean; readOnly?: boolean; error?: string; hint?: string; validate?: (value: string) => string;
@@ -29,7 +29,7 @@ export function SearchCombobox({
   emptyText = "没有匹配，可保留手动输入", filterOptions = true, displaySelectedLabel = false,
   optionDetailsAsDescription = false, optionLimit = 12, menuClassName, menuHeader, menuFooter, manualActionLabel,
   onOpenChange, loading = false, loadingLabel = "正在查询设备目录…", windowed = false, onEndReached, persistentMenu = false,
-  selectedKey, className, inputLabel, commitOnBlur = false, showAllOnOpen = false,
+  selectedKey, className, inputLabel, hideLabel=false, commitOnBlur = false, showAllOnOpen = false,
   adaptiveMenu = false, onQueryChange, required, autoFocus, maxLength, disabled, readOnly, error, hint, validate,
 }: Props) {
   const { t } = useLanguage();
@@ -168,13 +168,13 @@ export function SearchCombobox({
   return <div ref={root} className={["field search-combobox", className].filter(Boolean).join(" ")} onBlur={event => {
     if (!persistentMenu && !event.currentTarget.contains(event.relatedTarget as Node | null)) close(true);
   }}>
-    <label htmlFor={id}>{label}{required ? " *" : ""}</label>
+    {!hideLabel?<label htmlFor={id}>{label}{required ? " *" : ""}</label>:null}
     <InputControl validate={displaySelectedLabel && validate ? () => validate(value) : validate}
       leading={<Search size={16} aria-hidden="true" />} error={error} hint={hint} disabled={disabled} readOnly={readOnly}
       clearLabel={t("清空{v0}", { v0: t(label) })} onClear={() => { resetQuery(); onChange(""); setOpen(true); }}
       trailing={<button type="button" disabled={disabled || readOnly} aria-label={t("显示{v0}候选", { v0: t(label) })} aria-expanded={expanded} aria-busy={expanded && loading || undefined}
         onClick={() => { input.current?.focus({ preventScroll: true }); setOpen(!expanded); }}>{expanded && loading ? <LoaderCircle className="spin" size={17} aria-hidden="true" /> : <ChevronDown size={17} aria-hidden="true" />}</button>}
-      id={id} ref={input} role="combobox" aria-label={inputLabel} aria-autocomplete="list" aria-expanded={expanded}
+      id={id} ref={input} role="combobox" aria-label={inputLabel??(hideLabel?label:undefined)} aria-autocomplete="list" aria-expanded={expanded}
       aria-controls={expanded ? id + "-list" : undefined}
       aria-activedescendant={expanded && active >= 0 && active < matches.length ? id + "-option-" + active : undefined}
       value={displayedValue} required={required} aria-required={required || undefined} maxLength={maxLength} autoFocus={autoFocus}

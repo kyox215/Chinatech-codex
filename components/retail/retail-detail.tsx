@@ -1,4 +1,7 @@
 "use client";
+import{useBackendState}from"@/components/backend-snapshot";
+import{backendScopeKey}from"@/lib/backend/read-plan";
+import{retailListReturnPosition}from"@/lib/retail-list-location";
 import { Toast, toastNoticeId } from "@/components/toast";
 import { ReadPending } from "@/components/page-recovery";
 import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
@@ -17,7 +20,7 @@ import { RetailCheckoutForm } from "./retail-checkout";
 import { intakeRecordTime } from "@/lib/repair-intake-record";
 import { applyRetailCommand, parseRetailMoney, type Inspection, type RetailCommand, type RetailUnit } from "@/lib/retail";
 import { useRetailHistory } from "./retail-history-store";
-import { historyDisplayUnit, isSoldSource } from "@/lib/retail-record";
+import { selectRetailRecord, isSoldSource } from "@/lib/retail-record";
 import { historyReturnHref } from "./retail-history-shared";
 import { RetailRecordPreparation, RetailRecordOriginalSale } from "./retail-record-preparation";
 import { useRetail } from "./retail-provider";
@@ -96,17 +99,16 @@ function RetailActions({ unit }: { unit: RetailUnit }) {
   </div>{pending ? <RetailOperationConfirmation unit={unit} pending={pending} restoreFocusRef={operationTrigger} onClose={() => setPending(null)} /> : null}<OperationRecoveryControls requestId={receipt.requestId}/></section>;
 }
 
-export function RetailDetail({ id, selectedSale, returnTo: requestedReturn, showOriginal }: { id: string; selectedSale?: string; returnTo?: string; showOriginal?: boolean }) {
+export function RetailDetail({ id, selectedSale, returnTo: requestedReturn, showOriginal, source }: { id: string; selectedSale?: string; returnTo?: string; showOriginal?: boolean; source?:"unit"|"history" }) {
   const { t, systemText } = useLanguage(); const staff = useStaff();
   const { units, returnTo, ready, error } = useRetail(); const history = useRetailHistory();
-  const saved = units.find(unit => unit.id === id);
-  const original = history.records.find(record => record.id === id && (!saved?.historyOrigin || saved.historyOrigin.sourceSnapshot === record.sourceSnapshot));
-  const unit = saved ?? (original ? historyDisplayUnit(original) : undefined);
+  const {saved,original,unit}=selectRetailRecord(units,history.records,id,source);
   const fallback = original && isSoldSource(original) ? "/app/retail?view=sold" : "/app/retail";
-  const backHref = historyReturnHref(requestedReturn || (returnTo !== "/app/retail" ? returnTo : fallback));
+  const backend=useBackendState(),scope=backend.snapshot?.read?.scope,remembered=scope?retailListReturnPosition(backendScopeKey(scope),(saved?"unit:":"history:")+id):null;
+  const backHref = historyReturnHref((requestedReturn?.startsWith("/app/customers/")?requestedReturn:remembered||requestedReturn) || (returnTo !== "/app/retail" ? returnTo : fallback));
   const loading = !ready || !history.ready;
   if (error || history.error) return <main className="module-page"><header className="module-heading"><PageTitle title={t("商品档案")} backHref={backHref} backLabel={t("返回商品列表")} /></header><ReadFailure message={error || history.error} /></main>;
   if (loading) return <main className="module-page"><header className="module-heading"><PageTitle title={t("商品档案")} backHref={backHref} backLabel={t("返回商品列表")} /></header><ReadPending label="正在读取整机记录…" /></main>;
   if (!unit || !staff.can("retail.view")) return <main className="module-page"><header className="module-heading"><PageTitle title={t("商品档案")} backHref={backHref} backLabel={t("返回商品列表")} /></header><div className="panel module-empty"><Boxes size={28} /><strong>{!staff.can("retail.view") ? t("当前账号无权查看整机记录") : t("没有找到商品档案")}</strong>{error || history.error ? <p role="alert">{systemText(error || history.error)}</p> : null}<Link className="button button--primary" href={backHref}>{t("返回商品列表")}</Link></div></main>;
-  return <RetailDetailView key={unit.id + ":" + staff.member?.id + ":" + staff.member?.revision} unit={unit} returnTo={backHref} original={original} showOriginal={showOriginal} sourcePreview={!saved} selectedSale={selectedSale} storageError={error || history.error}>{saved ? <RetailActions key={unit.id + ":" + unit.status} unit={unit} /> : original && (isSoldSource(original) ? <RetailRecordOriginalSale record={original} /> : <RetailRecordPreparation key={original.id + ":" + original.sourceSnapshot} record={original} />)}</RetailDetailView>;
+  return <RetailDetailView key={(saved?"unit:":"history:")+unit.id + ":" + staff.member?.id + ":" + staff.member?.revision} unit={unit} returnTo={backHref} original={original} showOriginal={showOriginal} sourcePreview={!saved} selectedSale={selectedSale} storageError={error || history.error}>{saved ? <RetailActions key={unit.id + ":" + unit.status} unit={unit} /> : original && (isSoldSource(original) ? <RetailRecordOriginalSale record={original} /> : <RetailRecordPreparation key={original.id + ":" + original.sourceSnapshot} record={original} />)}</RetailDetailView>;
 }

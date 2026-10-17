@@ -75,3 +75,23 @@ repair-new 在 repair/customer 两开关均启用时，SSR `ready`只有staff，
 生产构建a603oe8WOmno41boKTig4（445运行输入）Chrome新表单完整9项通过，涵盖三语四宽、部分号完整回填/迟到手改、10000字历史姓名第一步校验、550SN真实50→100/related展开、采购精确预选/搜索/真实回执导航，以及首次保存时迟到revision0→编辑读取revision1→再次保存→真实PDF ready→第二新单保存。WebKit同构建初6项5过，测试移除尚未完成的route拦截造成harness失败；等待真实迟到响应完成再移除后，保存链及三语四宽4项通过，产品断言不变。旧selector/route与409失败原件保留。Node596=595过+1本机无PowerShell跳过；类型/4219三语通过，定向lint0错1既有Next导航warning。此为本地条件功能证据，不是线上/P95/容量结论。
 
 长客户页头旧xY8真实Chrome RED高度5560px；新vQY及准确同源组件的双引擎三语四宽均验证原名全文10000字保留、标题81字符、页头74/100/205/229px、实际返回Link与焦点/像素可达。候选未发布，剩余整机/历史/客户设备与偏斜客户详情、P5/P6/P7仍未完成。
+
+## 整机列表与识码（本地候选）
+
+第7条候选迁移 `20261017050521_performance_retail_read_model.sql` 增加同事务的整机／已发布历史摘要、独立财务搜索事实、模型ready/generation和私有第一方翻译词表。原始canonical／销售／照片不回写。模型绑定生成器输入与译器的词表hash，变更译文后旧模型拒读，须明确重建。仅投影触发器owner可派生；runtime只能经原门店及域RLS读取，词表与派生函数不授予runtime、anon、authenticated或public执行。`financial.read`控制原历史notes参与搜索和计数，类别／状态候选只搜自己的独立原文及三语标签，不因其他字段或财务备注命中。
+
+排序按原 `buildRetailListIndex/queryRetailList` 对照：所有historyOrigin已接管来源全域排除；ICU numeric/base名称排序、原稳定key tie、未知价格两向最后、日期原文／首个T替换。PG17.11 ICU153.128与Node ICU78.3只是本地实际条件，不声明与正式PG17.6 ICU153.121完全等价。已运行完整旧oracle矩阵，之后仅新模板替换／合法legacy时间／facet／scanner等变化子集定向复验；完整与子集报告分别保留。
+
+`/api/backend/v2/retail`最多50条，按实际UTF8自适应裁到100000B；长合法历史字段有明确preview标记，全文保留在目标详情／原文搜索，preview不进入过滤身份、写值或复制事实。双向cursor、seek、原位置anchor绑定实际会话／门店／权限／query／generation／词表格式。类别／状态使用完整原值hash，只在打开后150ms读12项和精确总数，selected元数据不把hash显示为业务标签。新扫码API保留四种既有归一化差异及全部重复候选，深位置在结果缩小时夹到合法窗口；无猜测建档或自动出售。
+
+`RetailListBody`及唯一扫码表单／结果模板由原compat和新正式源共同适配，未复制页面。共享单query摘要hook保留10个实际响应批、最多500摘要，source-qualified key区分同ID历史／实物。SSR首批仍包含必要事实。返回记录绑定scope和source:key，真实Link像素／焦点及前邻可见窗口一起复核。history用既有明确 `/history/[id]`；unit链接明确source=unit，旧URL仅无unit时保留历史fallback。只有真实historyOrigin与snapshot匹配才能把原记录附到单机；UUID历史目标经小集合校验和typed UUID数组主键查询，不把文本JSON字段与UUID直接比较。
+
+通用hook手动retry在SSR已ready时仍注册取消生命周期；scope／query／invalid变更会abort并及时复位反馈，迟到响应不回填。公共SearchCombobox的hideLabel仅opt-in，省去可见标签时提供明确输入aria-label；默认调用保持原htmlFor标签。新手机facet占整行，桌面最小190px，保留现有两个44px动作，避免动作挡输入中心。扫码结果套窗口后用原模块scanCandidate行规则恢复44px/flex/padding；不扩展全站native滚动禁用。
+
+本地实际专项包括：受限runtime十组授权反例及清理0；两库11函数／3表／9索引等68项独立元数据检查；合法长历史摘要最大98975B；原译器4399×2、最小正浮点／Unicode标识／同ID来源合同；真实operator1551源事实按200条复核后激活owned功能店。另operator自有411事实专项含六张真实合成PNG：原canonical1629148B、选定窄目标1229B、照片SHA原样，注入多余投影时失败保持unready，恢复仍完整复核。以上不是生产迁移／线上P95／10在线最终验收；真实浏览器结果按准确BUILD_ID和输入清单另记，旧SQL类型、fixture／selector和布局失败原件保留。
+
+本切片之后仍需整机新建／复制／prepare按需候选与完整查重、偏斜客户详情历史／设备及其他兼容读取、P5最小回执和写放大、P6认证暂时失败分类／精确失效和PDF缓存、P7整体容量与运维／发布门禁。当前普通v1保存仍全快照，十身份unchanged旧测量713ms高于700ms目标，均未因本节变成完成或预算通过。
+
+整机阶段冻结构建为 `0HhgtE2Q7XvRZnaH4kWnQ`（461运行输入）。此前同源未变范围的三语五宽布局、三视图首50／真实触底100／尾搜、1000包装码候选／10批500及深位置恢复已分别运行；最终Chromium受影响4项与WebKit7项全部通过。覆盖独立同ID实物／历史的实际Link目标、返回像素／焦点／前邻、原10000字历史详情、Unicode查询reload、503保留／重试及同一旧document非JSON拒绝立即撤私有资料。原footer、标签、SQL参数类型和selector失败保留。Node604项为603过及本机无PowerShell跳过1项，4219三语／词表检查通过；不把这些本地功能矩阵称为P95或正式上线。
+
+关闭整机读取flag后的旧URL兼容仍待P7实际核验：新categoryKey/statusKey链接不能静默失去筛选，也不能借未ready投影猜标签或将超长原文塞回URL。其余按需表单及最终容量／保存／跨设备门禁继续实施。
