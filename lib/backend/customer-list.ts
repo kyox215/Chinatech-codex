@@ -4,7 +4,7 @@ import type { TransactionSql } from "postgres";
 import { BackendError } from "./database";
 import { backendScopeKey, type BackendReadScope } from "./read-plan";
 import {listSearchNeedle} from "./list-search";
-import { customerReadVersionChangedCode, customerCursor, customerListQuery, type CustomerListPage, type CustomerListQuery, type CustomerListSummary } from "./customer-list-contract";
+import { customerListResponseVersion,customerReadVersionChangedCode, customerCursor, customerListQuery, type CustomerListPage, type CustomerListQuery, type CustomerListSummary } from "./customer-list-contract";
 
 export async function customerModelGeneration(tx: TransactionSql, storeId: string) {
   const [model] = await tx`select ready,generation::text from chinatech_v2_private.customer_directory_models where store_id=${storeId} and format_version=1`;
@@ -12,7 +12,7 @@ export async function customerModelGeneration(tx: TransactionSql, storeId: strin
   return String(model.generation);
 }
 export function customerListToken(scope: BackendReadScope, generation: string, query: CustomerListQuery) {
-  return createHash("sha256").update(JSON.stringify([1, backendScopeKey(scope), generation, query])).digest("hex");
+  return createHash("sha256").update(JSON.stringify([customerListResponseVersion, backendScopeKey(scope), generation, query])).digest("hex");
 }
 export async function readCustomerList(tx: TransactionSql, scope: BackendReadScope, q = "", cursor?: string, generation?: string, mode: CustomerListQuery["mode"] = "directory", anchor?: string, seek?: number): Promise<CustomerListPage> {
   if (!scope.permissions.includes("customers.view")) throw new BackendError("当前账号没有此操作权限。", 403);
@@ -31,15 +31,16 @@ export async function readCustomerList(tx: TransactionSql, scope: BackendReadSco
     } catch (error) { if (error instanceof BackendError) throw error; throw new BackendError("请求资料无效。", 400); }
   }
   const rows = await customerDirectorySql(tx,scope,query,after,false,anchor,seek);
-  const row = rows[0], values: { phone: string; name: string; email: string; repairs: number; sales: number; history: number; activity: string }[] = row.items;
+  const row = rows[0], values: { phone: string; name: string;namePreview?:boolean; email: string; repairs: number; sales: number; history: number; activity: string }[] = row.items;
   if (after && !row.point_found) throw new BackendError("请求资料无效。",400);
   const limit=query.mode === "directory" ? 50 : query.mode === "exact" ? 1 : 12;
   const selected=after?.direction==="before"?values.slice(-limit):values.slice(0,limit);
-  const items: CustomerListSummary[] = selected.map(item => ({ id: "PHONE-"+item.phone.slice(1), phone: item.phone, name: item.name, email: item.email, repairCount: item.repairs, saleCount: item.sales, historyCount: item.history, lastActivity: item.activity }));
-  const last = items.at(-1), first = items[0];
-  const rank=Number(row.point_rank), startIndex=after ? after.direction === "before" ? Math.max(0,rank-items.length) : rank+1 : (anchor || seek !== undefined) && row.point_found ? rank : 0;
-  return { formatVersion: 1, scope, generation: current, query, total: Number(row.total), items, stateToken,
-    startIndex, previousCursor: startIndex > 0 && first ? customerCursor(stateToken,first,"before") : null, nextCursor: startIndex+items.length < Number(row.total) && last ? customerCursor(stateToken,last,"after") : null };
+  const items: CustomerListSummary[] = selected.map(item => ({ id: "PHONE-"+item.phone.slice(1), phone: item.phone, name: item.name,...(item.namePreview?{namePreview:true}:{}), email: item.email, repairCount: item.repairs, saleCount: item.sales, historyCount: item.history, lastActivity: item.activity }));
+  const rank=Number(row.point_rank);let startIndex=after ? after.direction === "before" ? Math.max(0,rank-items.length) : rank+1 : (anchor || seek !== undefined) && row.point_found ? rank : 0;
+  const response=():CustomerListPage=>({ formatVersion: customerListResponseVersion, scope, generation: current, query, total: Number(row.total), items, stateToken,
+    startIndex, previousCursor: startIndex > 0 && items[0] ? customerCursor(stateToken,items[0],"before") : null, nextCursor: startIndex+items.length < Number(row.total) && items.at(-1) ? customerCursor(stateToken,items.at(-1)!,"after") : null });
+  while(items.length>1&&Buffer.byteLength(JSON.stringify(response()))>100000){if(after?.direction==="before"){items.shift();startIndex++;}else items.pop();}
+  return response();
 }
 
 // The verification path uses this exact query, including RLS, aggregation,
@@ -82,5 +83,5 @@ export function customerDirectorySql(tx: TransactionSql, scope: BackendReadScope
   ) select (select count(*)::integer from filtered) as total,
     exists(select 1 from point) as point_found,
     (select count(*)::integer from filtered where activity collate "C">(select activity from point) collate "C" or activity=(select activity from point) and phone collate "C"<(select phone from point) collate "C") as point_rank,
-    coalesce((select jsonb_agg(to_jsonb(page) order by activity collate "C" desc,phone collate "C" asc) from page),'[]'::jsonb) as items`;
+    coalesce((select jsonb_agg(jsonb_build_object('phone',phone,'name',case when ${query.mode}='exact' then name else left(name,200) end,'namePreview',${query.mode}<>'exact' and length(name)>200,'email',email,'repairs',repairs,'sales',sales,'history',history,'activity',activity) order by activity collate "C" desc,phone collate "C" asc) from page),'[]'::jsonb) as items`;
 }

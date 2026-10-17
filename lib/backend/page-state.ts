@@ -3,7 +3,7 @@ import {readRepairScan} from "./repair-scan-read";
 import {repairReadContext,readRepairList,validateRepairListOptions} from "./repair-list";
 import type {RepairListQuery} from "./repair-list-contract";
 import { customerModelGeneration, customerListToken, readCustomerList } from "./customer-list";
-import { customerListQuery } from "./customer-list-contract";
+import { customerListQuery,customerListResponseVersion } from "./customer-list-contract";
 import {procurementModelGeneration,procurementListToken,readProcurementList} from "./procurement-list";
 import {procurementListResponseVersion,procurementListQuery,type ProcurementListQuery} from "./procurement-list-contract";
 import {readProcurementBatch} from "./procurement-batch-read";
@@ -41,7 +41,7 @@ export function sessionSnapshot(bootstrap: SessionBootstrap): BackendSnapshot {
   return snapshot;
 }
 function pageToken(snapshot: BackendSnapshot, listGeneration?: string,procurementGeneration?:string,repairToken?:string) {
-  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.customerListEnabled,snapshot.procurementListEnabled,snapshot.repairListEnabled,snapshot.procurementListEnabled?procurementListResponseVersion:null, listGeneration,procurementGeneration,repairToken])).digest("hex");
+  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.customerListEnabled,snapshot.procurementListEnabled,snapshot.repairListEnabled,snapshot.customerListEnabled?customerListResponseVersion:null,snapshot.procurementListEnabled?procurementListResponseVersion:null, listGeneration,procurementGeneration,repairToken])).digest("hex");
 }
 export async function loadSessionBootstrap(access: ReadAccess) {
   return withReadDatabase(access.identity, access.storeId, async tx => sessionInTransaction(tx, access, await memberForRead(tx, access.storeId, access.identity.userId)));

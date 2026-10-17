@@ -6,7 +6,7 @@
 
 - 根layout只提供真实会话、当前成员及必要门店身份；页面保留授权SSR首屏。未读设置为null，不能以默认值制造政策或财务事实。
 - 客户及采购分别由显式默认0的模块flag开启。查询、游标、known、锚点和响应绑定真实account/session/store/member revision/permissions/格式/完整规范查询/投影generation。每次请求仍在同一serializable事务核实时会话、成员与范围。
-- 客户50摘要、采购wire2至多50摘要（实际UTF8≤100KB自适应）；完整授权计数和搜索由服务端查询，当前窗口不能用于查重或全选。主列表不传无关域canonical数组。身份拒绝在JSON解析前清当前私有资料，迟到拒绝不影响新身份，普通503保留已获授权内容。
+- 客户与采购wire2至多50摘要（实际UTF8≤100KB自适应）；完整授权计数和搜索由服务端查询，当前窗口不能用于查重或全选。主列表不传无关域canonical数组。身份拒绝在JSON解析前清当前私有资料，迟到拒绝不影响新身份，普通503保留已获授权内容。
 - 单一领域Body复用原控件、行、分组、反馈与手机布局。变量高度窗口共用原横向视口；真实首组才出现组头，返回定位实际导航Link。虚拟行不拥有业务草稿或原requestId。
 - 采购批量供应商12候选、清单50；选前100/本供应商全部来自完整供应商范围，所选草稿最多100，确认前按IDs再次授权核对。规格与ledgerRevision是实际事实，不能构造假events。
 
@@ -57,3 +57,9 @@
 只读Supabase client的factory在单次请求内、确切GET/user URL+全部有效headers+credentials键复用Response各自clone，最多4个键；不同token/请求/身份不能共用。Request或带AbortSignal请求不去重，refresh及账号修改的RouteClient不缓存。原getUser/getClaims、邮箱确认/sub/session匹配、数据库实时live/member/RLS全部保留；不使用JWT解码替代验证。实际本地HS SDK两身份与正常refresh/invalid cookie已验。
 
 首次同店十session已实证原SERIALIZABLE读内登记发生40001并耗尽原三次重试。读取改为memberForRead只核当前成员与自己的登记存在；缺行在业务读取前抛精确内部StoreSessionRequired，回滚后用同身份/门店的短READ COMMITTED登记，再新开SERIALIZABLE完整重验。内部登记仍锁项目session FOR SHARE、验live/member/RLS，ON CONFLICT不更新tombstone；只此类型允许有界一次重启，普通错误不当登记。warm读取仍单一事务且不写登记。getServerAccess的SSR选择也走此边界；命令memberInTransaction、店级写锁、隔离级别及原重试不变。独立真实Auth/受限SQL的冷10、禁用/撤权/跨店与登记前后反例过；实际HTTP/SSR及最终30轮预算另记。
+
+## 客户 wire2 与共享窗口位置
+
+客户目录及电话候选的推断姓名超过200个Unicode字符时，以显式namePreview显示前缀加省略号，原文仍参与完整授权搜索；常规短姓名不变。电话查询保留原12候选与完整总数。mode=exact每次一个客户，返回完整原名，选择填入或编辑不得把显示前缀当业务原文。HTTP响应及状态token包含wire2；目录正反游标使用实际送达边界。客户与采购只共享数值批次/位置辅助mergeSummaryBatches，身份、权限、格式、版本、查询及领域游标仍分别检查；最多十个实际响应/500摘要，刷新最多十次，原已看范围只留数值extent。
+
+共享WindowedListRows采锚时同时记录真实滚动位置；行提交若早于scroll的下一RAF，只补布局位移，不抵消用户刚完成的滚动，补偿后更新真实锚点以免重复补偿。多个可见组共用滚动目标时，WeakMap仅累计该window或dialog的实际补偿数值，采锚后实际scroll差须扣除此累计差，不能将另一组已处理的布局位移再补一次；不保存行、客户或身份资料，独立滚动目标不共用累计。深处返回后，视口与已读窗口起点相交且前邻摘要缺失时，onLoadPrevious按原游标授权追加前批，保留当前目标、像素和焦点；整组屏外不触发补邻，pending及错误由原读取状态门控。较远的旧占位仍按位置seek，不假造行。纯组件/SQL证据与准确正式构建的实际Link返回验收分别记录，不能只以targetTop正确代替整个可见视口有真实行。

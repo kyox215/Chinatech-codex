@@ -20,10 +20,10 @@ export function useRepairListPage(raw:RepairListQuery,returnGroup?:string,return
  const returnKey=JSON.stringify([returnGroup,returnAnchor]),consumedReturn=useRef(initial&&initial.group===returnGroup&&initial.items.some(row=>row.id===returnAnchor)?returnKey:"");
  const visible=view?.scope===scopeKey?view:null,active=Object.values(pending).some(Boolean)&&!invalid;
  useActivityFeedback(active,{kind:"read"});
- const inputs=useRef({returnGroup,returnAnchor,returnKey,errors}),loadRef=useRef<(group?:string,kind?:"refresh"|"ensure"|"append"|"seek",rank?:number)=>Promise<void>>(async()=>{});
+ const inputs=useRef({returnGroup,returnAnchor,returnKey,errors}),loadRef=useRef<(group?:string,kind?:"refresh"|"ensure"|"append"|"previous"|"seek",rank?:number)=>Promise<void>>(async()=>{});
  useLayoutEffect(()=>{inputs.current={returnGroup,returnAnchor,returnKey,errors};},[returnGroup,returnAnchor,returnKey,errors]);
  const assign=useCallback((next:View)=>{current.current=next;setView(next);},[]);
- const load=useCallback(async(group?:string,kind:"refresh"|"ensure"|"append"|"seek"="refresh",rank?:number):Promise<void>=>{
+ const load=useCallback(async(group?:string,kind:"refresh"|"ensure"|"append"|"previous"|"seek"="refresh",rank?:number):Promise<void>=>{
   const {returnGroup,returnAnchor,returnKey,errors}=inputs.current;
   const expected=latest.current;if(!expected.scope||expected.invalid)return;
   const previous=current.current,same=Boolean(previous&&previous.scope===expected.scopeKey&&JSON.stringify(previous.page.query)===expected.queryKey),old=same?previous:null;
@@ -31,6 +31,7 @@ export function useRepairListPage(raw:RepairListQuery,returnGroup?:string,return
   const selected=group??(restoring?returnGroup:old?anchors.current.recent??returnGroup:returnGroup),oldWindow=old&&selected?repairGroupWindow(old.cache,old.page,selected):null,key=selected??"_meta";
   if(kind==="ensure"&&oldWindow?.items.length&&!errors[key])return;
   if(kind==="append"&&oldWindow?.items.length&&!oldWindow.nextCursor)return;
+  if(kind==="previous"&&(!oldWindow?.items.length||!oldWindow.previousCursor||errors[key]))return;
   if(flights.current.has(key)){if(kind==="refresh")reload.current=true;return;}
   const controller=new AbortController();flights.current.set(key,controller);
   const isCurrent=()=>flights.current.get(key)===controller&&!controller.signal.aborted&&latest.current.scopeKey===expected.scopeKey&&latest.current.queryKey===expected.queryKey;
@@ -41,7 +42,7 @@ export function useRepairListPage(raw:RepairListQuery,returnGroup?:string,return
   const focused=document.activeElement instanceof HTMLElement?document.activeElement.closest<HTMLElement>("[data-window-key]")?.dataset.windowKey:undefined;
   try{
    const missingReturn=restoring&&returnGroup===selected;
-   const first=await requestRepairList(expected.scope,JSON.parse(expected.queryKey),{group:selected,cursor:kind==="append"&&oldWindow?.items.length?oldWindow.nextCursor??undefined:undefined,known:kind==="refresh"&&old&&!missingReturn?old.page.stateToken:undefined,anchor:kind!=="append"&&kind!=="seek"?missingReturn?returnAnchor:selected?anchors.current.ids[selected]??oldWindow?.items[0]?.id:undefined:undefined,seek:kind==="seek"?rank:undefined,signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])});
+   const first=await requestRepairList(expected.scope,JSON.parse(expected.queryKey),{group:selected,cursor:kind==="append"&&oldWindow?.items.length?oldWindow.nextCursor??undefined:kind==="previous"?oldWindow?.previousCursor??undefined:undefined,known:kind==="refresh"&&old&&!missingReturn?old.page.stateToken:undefined,anchor:kind!=="append"&&kind!=="previous"&&kind!=="seek"?missingReturn?returnAnchor:selected?anchors.current.ids[selected]??oldWindow?.items[0]?.id:undefined:undefined,seek:kind==="seek"?rank:undefined,signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])});
    if(!isCurrent()||"unchanged" in first)return;
    const before=current.current,compatible=before&&before.scope===expected.scopeKey&&JSON.stringify(before.page.query)===expected.queryKey;
    if(compatible&&["stale","inconsistent"].includes(repairReadVersionRelation(before.page,first))){reload.current=true;return;}
@@ -85,6 +86,6 @@ export function useRepairListPage(raw:RepairListQuery,returnGroup?:string,return
  const page=visible?.page??null,matching=Boolean(page&&JSON.stringify(page.query)===queryKey);
  return{page,cache:visible?.cache??emptyRepairWindowCache(),pending:active,error:invalid?"请求资料无效。":errors._meta??"",resetKey:scopeKey+JSON.stringify(page?.query??query),scopeKey,
   group:(key:string)=>({...page&&visible?repairGroupWindow(visible.cache,page,key):{items:[],startIndex:0,extent:0,hasMore:true},pending:pending[key],error:errors[key]}),
-  ensure:(key:string)=>{if(matching)void load(key,"ensure");},loadMore:(key:string)=>{if(matching)void load(key,"append");},seek:(key:string,index:number)=>{if(matching)void load(key,"seek",index);},
+  ensure:(key:string)=>{if(matching)void load(key,"ensure");},loadMore:(key:string)=>{if(matching)void load(key,"append");},loadPrevious:(key:string)=>{if(matching)void load(key,"previous");},seek:(key:string,index:number)=>{if(matching)void load(key,"seek",index);},
   remember:(key:string,id:string)=>{anchors.current.recent=key;anchors.current.ids[key]=id;},refresh:()=>void load()};
 }

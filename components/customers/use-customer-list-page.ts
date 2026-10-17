@@ -6,7 +6,7 @@ import { useActivityFeedback } from "@/components/operation-feedback";
 import { mergeCustomerWindow } from "@/lib/backend/customer-list-window";
 import { backendSnapshot, clearBackend } from "@/lib/backend/client";
 import { backendScopeKey, type BackendReadScope } from "@/lib/backend/read-plan";
-import { customerListQuery, type CustomerListPage, type CustomerListQuery } from "@/lib/backend/customer-list-contract";
+import { customerListQuery,customerListResponseVersion, type CustomerListPage, type CustomerListQuery } from "@/lib/backend/customer-list-contract";
 import { can } from "@/lib/staff";
 
 export async function requestCustomerList(scope: BackendReadScope, query: CustomerListQuery, options: { cursor?: string; known?: string; anchor?: string; seek?: number; signal?: AbortSignal } = {}) {
@@ -28,14 +28,14 @@ export async function requestCustomerList(scope: BackendReadScope, query: Custom
   if (payload.code === "IDENTITY_CHANGED") { flushSync(()=>clearBackend()); window.location.reload(); }
   if (!response.ok) throw Object.assign(new Error(payload.message || "后台资料暂不可用。"), { code: payload.code, status: response.status });
   if (payload.unchanged === true) return payload as { unchanged: true; stateToken: string };
-  if (!payload.scope || backendScopeKey(payload.scope) !== backendScopeKey(scope) || payload.query?.q !== query.q || payload.query?.mode !== query.mode || !Array.isArray(payload.items) || payload.items.length > (query.mode === "directory" ? 50 : 12)) throw new Error("后台资料暂不可用。");
+  if (payload.formatVersion!==customerListResponseVersion||!payload.scope || backendScopeKey(payload.scope) !== backendScopeKey(scope) || payload.query?.q !== query.q || payload.query?.mode !== query.mode || !Array.isArray(payload.items) || payload.items.length > (query.mode === "directory" ? 50 : query.mode==="exact"?1:12)) throw new Error("后台资料暂不可用。");
   return payload as CustomerListPage;
 }
 export function useCustomerListPage(query: string, mode: CustomerListQuery["mode"] = "directory", returnAnchor?: string) {
   const backend = useBackendState(), member=backend.snapshot?.staff.members.find(row=>row.id===backend.snapshot?.staff.currentId);
   const scope = backend.snapshot?.customerListEnabled && can(member,"customers.view") ? backend.snapshot.read?.scope : undefined;
   const scopeKey = scope ? backendScopeKey(scope) : "";
-  const initial = scope && mode === "directory" ? backend.snapshot?.customerList : undefined;
+  const initial = scope && mode === "directory"&&backend.snapshot?.customerList?.formatVersion===customerListResponseVersion ? backend.snapshot.customerList : undefined;
   const invalidQuery=query.length>160;
   const normalized = customerListQuery(invalidQuery?"":query, mode), queryKey = JSON.stringify(normalized);
   const [data, setData] = useState<{ scope: string; page: CustomerListPage } | null>(() => initial ? { scope: scopeKey, page: initial } : null);
@@ -44,7 +44,7 @@ export function useCustomerListPage(query: string, mode: CustomerListQuery["mode
   const latest = useRef({ scope, scopeKey, queryKey });
   const anchor = useRef<string | undefined>(undefined);
   const loadRef = useRef<(direction?: "before"|"after"|"seek",seek?:number) => Promise<void>>(async () => {});
-  const visible = data?.scope === scopeKey && (mode === "directory" || JSON.stringify(data.page.query) === queryKey) ? data : null;
+  const visible = data?.scope === scopeKey &&data.page.formatVersion===customerListResponseVersion&& (mode === "directory" || JSON.stringify(data.page.query) === queryKey) ? data : null;
   useActivityFeedback(pending&&!invalidQuery, { kind: "read" });
   const load = useCallback(async (direction?: "before"|"after"|"seek",seek?:number) => {
     const expected = latest.current;
@@ -69,13 +69,16 @@ export function useCustomerListPage(query: string, mode: CustomerListQuery["mode
       // Refresh the loaded window around the current visible anchor. A changed
       // generation cannot collapse a 500-row window into its first 50 rows.
       const target = !append && !seeking && sameQuery ? Math.min(500,previous.items.length) : window.items.length;
-      while (!append && isCurrent() && window.items.length < target) {
+      let responses=1;
+      while (!append && isCurrent() && window.items.length < target&&responses<10) {
         const forward = Boolean(window.nextCursor), cursor = window.nextCursor ?? window.previousCursor;
         if (!cursor) break;
         const next = await requestCustomerList(expected.scope, JSON.parse(expected.queryKey), { cursor, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) });
         if (!isCurrent() || "unchanged" in next) return;
         window = mergeCustomerWindow(window,next,forward ? "after" : "before");
+        responses++;
       }
+      if(sameQuery)window={...window,windowExtent:Math.max(previous.windowExtent??previous.startIndex+previous.items.length,window.startIndex+window.items.length)};
       if (isCurrent()) setData({ scope: expected.scopeKey, page: window });
     } catch (reason) {
       if (!isCurrent()) return;
@@ -95,5 +98,5 @@ export function useCustomerListPage(query: string, mode: CustomerListQuery["mode
     const timeout = setTimeout(() => { if (live) void loadRef.current(); }, 150);
     return () => { live = false; clearTimeout(timeout); active.current?.controller.abort(); active.current = null; };
   }, [scopeKey, queryKey, initial, hasCurrentInitial,invalidQuery]);
-  return { page: visible?.page ?? (initial && backendScopeKey(initial.scope) === scopeKey ? initial : null), removed: visible?.page.startIndex ?? 0, pending:pending&&!invalidQuery, error:invalidQuery?"请求资料无效。":error, loadMore: () => void load("after"), loadPrevious: () => void load("before"), seek: (position:number) => { if (!active.current) void load("seek",position); }, rememberAnchor: (phone: string) => { anchor.current = phone; }, retry: () => void load(), resetKey: scopeKey+queryKey };
+  return { page: visible?.page ?? (initial && backendScopeKey(initial.scope) === scopeKey ? initial : null),extent:visible?.page.windowExtent, removed: visible?.page.startIndex ?? 0, pending:pending&&!invalidQuery, error:invalidQuery?"请求资料无效。":error, loadMore: () => void load("after"), loadPrevious: () => void load("before"), seek: (position:number) => { if (!active.current) void load("seek",position); }, rememberAnchor: (phone: string) => { anchor.current = phone; }, retry: () => void load(), resetKey: scopeKey+queryKey };
 }
