@@ -32,3 +32,6 @@
 ## 独立发布整合验收
 
 用户授权上线后，从正式main bcbc6914定向抽取本轮多店源码，未引入打印样式/无限滚动/Phone/Office/性能候选。生产构建SvVc5Rwzh-V5En56VkRZh，独立TLS3125；三语四宽双引擎30场景和真实邀请/登录/申请/审批happy均通过。全Node545=544通过/1既有PowerShell运行时skip，lint0错1旧warning，i18n4270。构建专用turbopack.root绝对路径未进发布源码。迁移和域名正式状态等待控制面绑定，不能以本节提前声明上线。
+
+
+发布集成终查发现旧77路径清单遗漏了LocalIntakeDetail照片URL的storeId依赖，原7c2ef1d3/BbMF候选不准上线；真实旧build浏览器RED保留photo-browser-red.log。补入同一原实现两行后，新生产build zJ1Hb88gP5J1rzNu48UDE，双引擎4项真实维修/零售图片加载及缺scope400/跨店404通过；其余未改输入复用前述30+happy与完整Node证据，非全部重复运行。实际API客户端scope矩阵见本轮发布证据client-scope-matrix.json。
