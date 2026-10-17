@@ -1,0 +1,77 @@
+{
+  "originalReportSHA256": "67666aa7646ca506f25aa0f53b14ad73dda12476d75e48e0ed828a2c2113b199",
+  "values": [
+    {
+      "key": "unit:DEMO-000",
+      "normalized": "demo ꟏ 2"
+    },
+    {
+      "key": "unit:DEMO-001",
+      "normalized": "demo ꟏ 2"
+    },
+    {
+      "key": "unit:DEMO-002",
+      "normalized": "demo ꟏ 10"
+    },
+    {
+      "key": "unit:DEMO-003",
+      "normalized": "demo ꟏ 09"
+    },
+    {
+      "key": "unit:DEMO-004",
+      "normalized": "demo a 2"
+    },
+    {
+      "key": "unit:DEMO-005",
+      "normalized": "demo a 02"
+    },
+    {
+      "key": "unit:DEMO-006",
+      "normalized": "demo café 2"
+    },
+    {
+      "key": "unit:DEMO-007",
+      "normalized": "demo cafe 2"
+    },
+    {
+      "key": "unit:DEMO-008",
+      "normalized": "demo σ 2"
+    },
+    {
+      "key": "unit:DEMO-009",
+      "normalized": "demo σ 2"
+    },
+    {
+      "key": "unit:DEMO-010",
+      "normalized": "demo 中 2"
+    },
+    {
+      "key": "unit:DEMO-011",
+      "normalized": "demo 中 10"
+    },
+    {
+      "key": "unit:DEMO-012",
+      "normalized": "demo 𖺻 2"
+    },
+    {
+      "key": "unit:DEMO-013",
+      "normalized": "demo 𖺻 2"
+    }
+  ],
+  "nodeOrder": [
+    "unit:DEMO-004",
+    "unit:DEMO-005",
+    "unit:DEMO-006",
+    "unit:DEMO-007",
+    "unit:DEMO-000",
+    "unit:DEMO-001",
+    "unit:DEMO-003",
+    "unit:DEMO-002",
+    "unit:DEMO-008",
+    "unit:DEMO-009",
+    "unit:DEMO-012",
+    "unit:DEMO-013",
+    "unit:DEMO-010",
+    "unit:DEMO-011"
+  ]
+}

@@ -2,6 +2,9 @@ import { test, expect, type Page } from "@playwright/test";
 import{readFileSync}from"node:fs";
 import { retailUnits } from "../../lib/retail-fixtures";
 import { emptyIntakeServices } from "../../lib/intake-services";
+import {intakeDirectoryEntry} from "../../lib/repair-intake-record";
+import {repairOrders} from "../../lib/repair-fixtures";
+import {buildCustomerDevices} from "../../lib/customer-devices";
 import type { IntakeReceiptData } from "../../lib/repair-intake-record";
 import type { CatalogRow } from "../../lib/device-catalog";
 import type { RetailHistoryRecord } from "../../lib/retail-history";
@@ -73,11 +76,17 @@ test("customer devices append complete physical identities and reset after searc
   const units = Array.from({ length: 90 }, (_, i) => ({ ...sold, id: `DEMO-SCROLL-UNIT-${i}`, code: `DEMO-SCROLL-${i}`, serial: `DEMO-SALE-SERIAL-${i}`, imei1: "", imei2: "", sales: sold.sales.map(sale => ({ ...sale, id: `DEMO-SCROLL-SALE-${i}`, customerPhone: "+393200001234" })) }));
   await page.addInitScript(({ records, units }) => { localStorage.setItem("chinatech.m1.local-intakes.v1", JSON.stringify({ version: 1, records })); localStorage.setItem("chinatech.m1.retail.v1", JSON.stringify({ version: 1, units })); }, { records, units });
   await login(page); await page.goto("/app/customer-devices");
-  const rows = page.locator(".customer-device-card"), footer = page.getByRole("region", { name: "列表加载", exact: true });
-  await expect(rows).toHaveCount(50); await footer.scrollIntoViewIfNeeded(); await expect(rows).toHaveCount(100);
-  await footer.scrollIntoViewIfNeeded(); await expect(rows).toHaveCount(150);
-  await page.getByRole("textbox", { name: "搜索客户设备", exact: true }).fill("DEMO-SERIAL-89"); await expect(rows).toHaveCount(1);
-  await page.getByRole("button", { name: "清空搜索客户设备", exact: true }).click(); await expect(rows).toHaveCount(50);
+  const rows = page.locator(".customer-device-card"), cache = page.locator('.customer-device-window'), footer = page.getByRole("region", { name: "客户设备", exact: true });
+  const expectedTotal=buildCustomerDevices([...repairOrders,...records.map(intakeDirectoryEntry)],units).length;expect(expectedTotal).toBeLessThanOrEqual(200);
+  // This complete canonical fixture is below the 200-device window threshold.
+  // Verify both retained summaries and actual cards, rather than an obsolete
+  // generic footer name or an assumption about larger windowed datasets.
+  async function expectDevices(count:number){await expect(cache).toHaveAttribute('data-device-cache',String(count));await expect(rows).toHaveCount(count);expect(new Set(await rows.evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-device-id')))).size).toBe(count);await expect(footer).toContainText(new RegExp(`\\b${count}\\s*/\\s*${expectedTotal}\\b`));}
+  await expectDevices(50); await footer.scrollIntoViewIfNeeded(); await expectDevices(100);
+  await footer.scrollIntoViewIfNeeded(); await expectDevices(150);
+  await page.getByRole("searchbox", { name: "搜索客户设备", exact: true }).fill("DEMO-SERIAL-89"); await expect(rows).toHaveCount(1);
+  await expect(cache).toHaveAttribute('data-device-cache','1');await expect(rows).toContainText('DEMO-SERIAL-89');
+  await page.getByRole("button", { name: "清空搜索客户设备", exact: true }).click(); await expectDevices(50);
 });
 
 test("retail old page links cumulatively restore rows and customer history appends independently", async ({ page }) => {

@@ -46,7 +46,7 @@ function Case(){const[revision,rerender]=useState(0),[mode,setMode]=useState('re
 type Fixture={hold:()=>void;release:()=>void;rerender:()=>void;scope:()=>void;mode:(mode:string)=>void;calls:unknown[];completed:number[];href?:string|null;cancelClick?:boolean;cancelNavigate?:boolean;throwResolver?:boolean;liveOnly:()=>void};
 type FixtureWindow=Window&{navigationFixture:Fixture};
 let origin='',initial='';
-const server=createServer((request,response)=>{response.setHeader('Content-Type','text/html');const path=new URL(request.url??'/', 'http://fixture.invalid').pathname;if(path==='/__navigation-fixture')response.end('<div id="root"></div>');else if(path==='/app/repairs/DEMO')response.end('<h1>DEMO new document</h1>');else{response.statusCode=404;response.end();}});
+const server=createServer((request,response)=>{response.setHeader('Content-Type','text/html');const path=new URL(request.url??'/', 'http://fixture.invalid').pathname;if(path==='/__navigation-fixture')response.end('<div id="root"></div>');else if(path==='/__native-control')response.end('<a href="/app/repairs/DEMO?returnTo=%2Fapp%2Fcustomer-devices%3Frecord%3DDEMO-CLICK&amp;storeId=DEMO-STORE">DEMO neutral</a>');else if(path==='/app/repairs/DEMO')response.end('<h1>DEMO new document</h1>');else{response.statusCode=404;response.end();}});
 test.beforeAll(async()=>{await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));const address=server.address();if(!address||typeof address==='string')throw Error('Missing fixture address');origin='http://127.0.0.1:'+address.port;initial=origin+'/__navigation-fixture';});
 test.afterAll(async()=>{server.closeAllConnections();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));});
 async function state(page:Page){return page.evaluate(()=>{const api=(window as unknown as FixtureWindow).navigationFixture;return{calls:api.calls,completed:api.completed,url:location.href};});}
@@ -77,23 +77,42 @@ test('resolver failures, unsafe URLs, wrong store and a stale identity never dis
 test('changing authenticated owner clears presentation and cannot invoke an old completion',async({page})=>{
  await mount(page);await page.evaluate(()=>(window as unknown as FixtureWindow).navigationFixture.hold());await link(page).click();await expect(progress(page)).toHaveAttribute('data-active','true');await page.evaluate(()=>(window as unknown as FixtureWindow).navigationFixture.scope());await expect(progress(page)).toHaveAttribute('data-active','false');await page.evaluate(()=>(window as unknown as FixtureWindow).navigationFixture.release());await expect.poll(()=>page.locator('[data-destination]').innerText()).toContain('/app/repairs/DEMO');expect((await state(page)).completed).toEqual([]);
 });
+type NativeOutcome={mode:'popup'|'source';target:Page};
+async function nativeDestination(page:Page,click:()=>Promise<void>):Promise<NativeOutcome>{
+ const context=page.context();let timer:ReturnType<typeof setTimeout>|undefined;
+ let newPage:(page:Page)=>void=()=>{},navigated:()=>void=()=>{};
+ const destination=new Promise<NativeOutcome>((resolve,reject)=>{
+  timer=setTimeout(()=>reject(new Error('Native click did not commit a target document')),10000);
+  newPage=target=>{void target.waitForURL(url=>url.pathname==='/app/repairs/DEMO').then(()=>resolve({mode:'popup',target}),reject);};
+  navigated=()=>{if(new URL(page.url()).pathname==='/app/repairs/DEMO')resolve({mode:'source',target:page});};
+  context.on('page',newPage);page.on('framenavigated',navigated);
+ });
+ try{await click();const result=await destination;await expect(result.target.getByRole('heading',{name:'DEMO new document',exact:true})).toBeVisible();return result;}
+ finally{clearTimeout(timer);context.off('page',newPage);page.off('framenavigated',navigated);}
+}
 test('native modified mouse navigation keeps the resolved href without custom dispatch',async({browser,browserName})=>{
- const context=await browser.newContext({viewport:{width:1024,height:900},isMobile:false,hasTouch:false}),page=await context.newPage();
+ const context=await browser.newContext({viewport:{width:1024,height:900},isMobile:false,hasTouch:false}),conditions:unknown[]=[];
  try{
-  await mount(page);
   for(const middle of[false,true]){
-   if(middle&&browserName==='webkit'){
-    // Actual installed WebKit neutral <a> control navigates this source document
-    // for the automation middle-button event, in both desktop and touch contexts.
-    await link(page).click({button:'middle'});await page.waitForURL(url=>url.pathname==='/app/repairs/DEMO');await expect(page.getByRole('heading',{name:'DEMO new document',exact:true})).toBeVisible();
-    expect(page.url()).toContain('record%3DDEMO-CLICK');expect(new URL(page.url()).searchParams.get('storeId')).toBe('DEMO-STORE');
+   const options=middle?{button:'middle' as const}:{modifiers:[process.platform==='darwin'?'Meta' as const:'Control' as const]};
+   // Measure a neutral native <a> in this exact OS/browser/mouse context.
+   // WebKit middle-button automation differs between macOS and Linux; it is
+   // neither an application dispatch nor a physical Safari preference claim.
+   const neutral=await context.newPage();await neutral.goto(origin+'/__native-control');
+   const control=await nativeDestination(neutral,()=>neutral.getByRole('link',{name:'DEMO neutral',exact:true}).click(options));
+   const controlUrl=control.target.url();if(control.target!==neutral)await control.target.close();await neutral.close();
+   const page=await context.newPage();const errors=await mount(page);
+   const result=await nativeDestination(page,()=>link(page).click(options));
+   expect(result.mode).toBe(control.mode);expect(result.target.url()).toBe(controlUrl);
+   expect(result.target.url()).toContain('record%3DDEMO-CLICK');expect(new URL(result.target.url()).searchParams.get('storeId')).toBe('DEMO-STORE');
+   if(result.mode==='source'){
     const departed=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('navigation-departed')!));expect(departed).toEqual({calls:[],completed:[],source:initial});
    }else{
-    const popup=context.waitForEvent('page');await link(page).click(middle?{button:'middle'}:{modifiers:[process.platform==='darwin'?'Meta':'Control']});
-    const next=await popup;await next.waitForURL(url=>url.pathname==='/app/repairs/DEMO');await expect(next.getByRole('heading',{name:'DEMO new document',exact:true})).toBeVisible();
-    expect(next.url()).toContain('record%3DDEMO-CLICK');expect(new URL(next.url()).searchParams.get('storeId')).toBe('DEMO-STORE');expect((await state(page)).calls).toHaveLength(0);expect((await state(page)).completed).toHaveLength(0);expect((await state(page)).url).toBe(initial);await expect(progress(page)).toHaveAttribute('data-active','false');await next.close();
+    expect((await state(page)).calls).toHaveLength(0);expect((await state(page)).completed).toHaveLength(0);expect((await state(page)).url).toBe(initial);await expect(progress(page)).toHaveAttribute('data-active','false');
    }
+   expect(errors).toEqual([]);conditions.push({middle,neutral:control.mode,actual:result.mode,targetUrl:result.target.url(),sourceUrl:page.url()});
+   if(result.target!==page)await result.target.close();await page.close();
   }
-  await test.info().attach('native-condition',{body:JSON.stringify({browserName,platform:process.platform,isMobile:false,hasTouch:false,condition:'Task-owned ephemeral HTTP; behavior bound to actual neutral native-link controls, not an assertion about physical Safari mouse preferences'}),contentType:'application/json'});
+  await test.info().attach('native-condition',{body:JSON.stringify({browserName,platform:process.platform,isMobile:false,hasTouch:false,conditions,condition:'Task-owned ephemeral HTTP; exact neutral native-link differential, not a physical Safari mouse preference assertion'}),contentType:'application/json'});
  }finally{await context.close();}
 });

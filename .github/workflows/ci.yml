@@ -135,3 +135,30 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7
+  native-sort-key-diagnostic:
+    name: Public ICU sort-key diagnostic (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24.19.0', '24.21.0']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Compare public ICU keys with the installed Intl comparator
+        shell: bash
+        run: |
+          mkdir -p .local/native-sort-key-diagnostic-logs
+          node tests/diagnostics/icu-sort-key/run-probe.mjs --run --expected-node=v${{ matrix.node }} --out=.local/native-sort-key-diagnostic 2>&1 | tee .local/native-sort-key-diagnostic-logs/run.log
+      - name: Preserve the public diagnostic result, including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-sort-key-diagnostic-node-${{ matrix.node }}
+          path: |
+            .local/native-sort-key-diagnostic/
+            .local/native-sort-key-diagnostic-logs/
+          if-no-files-found: error
