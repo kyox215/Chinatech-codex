@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function PendingAccountPage() {
   if (!isSupabaseMode()) redirect("/login");
   const status = await getAuthStatus();
-  if (status.state === "workspace") redirect("/app/dashboard");
+  if (status.state === "workspace" || status.state === "account") redirect("/account/stores");
   if (status.state === "anonymous") redirect("/login");
   return <AuthStatusProvider initial={status}><PendingAccountContent /></AuthStatusProvider>;
 }

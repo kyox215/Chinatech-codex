@@ -66,7 +66,7 @@ function harness({ preview = false } = {}) {
   }
   const domain = load('lib/device-catalog.ts');
   const scope = () => ({ accountId, sessionId, storeId, memberId, memberRevision: state.memberRevision });
-  const get = (path, headers = {}) => load('app/api/catalog/route.ts').GET(new NextRequest('https://synthetic.example.test/api/catalog' + path, { headers: { cookie: preview ? 'preview-session=synthetic' : 'ct_store=' + storeId, ...headers } }));
+  const get = (path, headers = {}) => load('app/api/catalog/route.ts').GET(new NextRequest('https://synthetic.example.test/api/catalog' + path, { headers: { 'x-ct-store-id':storeId, cookie: preview ? 'preview-session=synthetic' : 'ct_store=' + storeId, ...headers } }));
   return { state, load, domain, scope, get };
 }
 

@@ -4,6 +4,7 @@ import { useBackendMode } from "@/components/backend-snapshot";
 import { useActivityFeedback } from "@/components/operation-feedback";
 import { notifyAuthChanged, subscribeAuthChanged } from "@/lib/auth-events";
 import { useRouter } from "next/navigation";
+import { backendSnapshot } from "@/lib/backend/client";
 import { clearBackend } from "@/lib/backend/client";
 import { useId, useCallback, useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
@@ -41,7 +42,7 @@ export function LoginDevicesPanel({ storeMode = false }: { storeMode?: boolean }
   const endpoint = storeMode ? "/api/backend/staff/sessions" : "/api/auth/account/sessions";
   const allowed = !storeMode || (formal && staff.member?.role === "owner");
   const selected = memberId || staff.data.members.find(row => row.membershipStatus === "active")?.id || "";
-  const viewKey=endpoint+":"+(storeMode?selected:"");
+  const viewKey=JSON.stringify([endpoint, storeMode ? selected : "", staff.member?.id, staff.member?.revision]);
   const visibleData=dataKey===viewKey?data:null;
   useActivityFeedback(loading&&(!visibleData||foreground),{kind:"read"});
   const load = useCallback(async (visible=false) => {
@@ -52,7 +53,7 @@ export function LoginDevicesPanel({ storeMode = false }: { storeMode?: boolean }
     setLoading(true);
     try {
       const params = new URLSearchParams({ offset: String(offset), ...(storeMode ? { memberId: selected } : {}) });
-      const response = await fetch(endpoint + "?" + params, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) });
+      const response = await fetch(endpoint + "?" + params, { cache: "no-store", headers:storeMode?{"x-ct-store-id":backendSnapshot()?.storeId??""}:{}, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) });
       const payload = await response.json();
       if (controller.signal.aborted) return;
       if (response.status === 401) { retry.current = null; setConfirmation(null); dialog.current?.close(); setData(null); clearBackend(); router.replace("/login"); router.refresh(); return; }
@@ -106,7 +107,7 @@ export function LoginDevicesPanel({ storeMode = false }: { storeMode?: boolean }
     inFlight.current = true; setBusy(true); setError("");
     const generation = epoch.current;
     try {
-      const response = await fetch(endpoint + "/revoke", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json", "X-CT-Account-ID": data.accountId, "X-CT-Session-ID": data.sessionId }, body: JSON.stringify(confirmation), signal: AbortSignal.timeout(15000) });
+      const response = await fetch(endpoint + "/revoke", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json", "X-CT-Account-ID": data.accountId, "X-CT-Session-ID": data.sessionId, ...(storeMode?{"x-ct-store-id":backendSnapshot()?.storeId??""}:{}) }, body: JSON.stringify(confirmation), signal: AbortSignal.timeout(15000) });
       const payload = await response.json();
       if (generation !== epoch.current) return;
       if (response.status === 401) { retry.current = null; setConfirmation(null); dialog.current?.close(); setData(null); clearBackend(); router.replace("/login"); router.refresh(); return; }

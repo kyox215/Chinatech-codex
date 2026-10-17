@@ -3,7 +3,7 @@
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
 import { NavigationLink as Link } from "@/components/navigation-link";
-import { useRouter } from "next/navigation";
+import { useStoreRouter as useRouter } from "@/components/use-store-router";
 import { useRef, useState } from "react";
 import { ArrowRight, Plus, Search, UsersRound } from "lucide-react";
 import { PageTitle } from "@/components/page-title";

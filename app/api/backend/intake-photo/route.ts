@@ -1,3 +1,4 @@
+import { downloadStoredPhoto } from "@/lib/server/attachment-storage";
 import { NextResponse } from "next/server";
 import { getServerAccess, memberInTransaction } from "@/lib/backend/context";
 import { withDatabase, BackendError } from "@/lib/backend/database";
@@ -12,12 +13,12 @@ export async function GET(request:Request) {
   try {
     const url=new URL(request.url);const repairId=url.searchParams.get("order")??"";const photoId=url.searchParams.get("photo")??"";
     if(!localIntakeId(repairId) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(photoId)) throw new BackendError("照片不存在。",404);
-    const access=await getServerAccess();if(!access) throw new BackendError("当前账号尚未获得门店授权。",403);
+    const access=await getServerAccess(request);if(!access) throw new BackendError("当前账号尚未获得门店授权。",403);
     const bytes=await withDatabase(access.identity,access.storeId,async tx=>{
       const member=await memberInTransaction(tx,access.storeId,access.identity.userId);
       if(!can(member,"repairs.view")) throw new BackendError("当前账号没有工单查看权限。",403);
       const [row]=await tx`select p.bytes from chinatech_v2_private.intake_photos p join chinatech_v2_private.repair_intakes r on r.store_id=p.store_id and r.id=p.repair_id where p.store_id=${access.storeId} and p.repair_id=${repairId} and p.id=${photoId} and r.data->'photos' @> ${tx.json([{id:photoId}])}`;
-      if(!row) throw new BackendError("照片不存在。",404);
+      if(!row){const [object]=await tx`select p.id from chinatech_v2_private.intake_photo_objects p join chinatech_v2_private.repair_intakes r on r.store_id=p.store_id and r.id=p.repair_id where p.store_id=${access.storeId} and p.repair_id=${repairId} and p.id=${photoId} and r.data->'photos' @> ${tx.json([{id:photoId}])}`;if(!object)throw new BackendError("照片不存在。",404);return (await downloadStoredPhoto(access.storeId,photoId)).buffer;}
       return new Uint8Array(row.bytes).buffer;
     });
     return new NextResponse(bytes,{headers:{...headers,"Content-Type":"image/jpeg","Content-Disposition":"inline"}});

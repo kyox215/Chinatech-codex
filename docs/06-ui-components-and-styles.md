@@ -632,3 +632,8 @@ OfficeDesktopControl沿用account panel/form/button/token，最低版本复用Se
 ## 2026-10-15 工具箱统一管理
 
 ToolboxControl替换账号设置旧三套Office管理卡片与双导航，复用既有panel/button、Figma 12373:157599的边框/16px面板/8px控件及B反馈；桌面紧凑行、手机名称独行+状态/44px操作。唯一当前发行与暂停开关，历史版本选择不再出现。技术信息才挂载只读公钥/任务/过期清理，未知保存只重试原requestId，冲突/身份变化隔离旧投影。具体协议及边界见docs38。
+
+
+## 2026-10-17 多门店与容量
+
+我的门店、加入门店与容量/邀请组合按[原 Figma 候选](../ui-design/previews/multistore-pilot-20261017.md)映射；继续复用原账号品牌/语言、InputControl、SelectControl、MultiChoice、NavigationLink、AppShell/PageTitle、语义 button/panel 与 B 反馈，不另建主题。内部邀请页只由 AppShell 提供唯一2px进度线，静态容量 progress 不假冒执行状态。URL/store header绑定当前文档范围，切换身份/成员权限立即隐藏旧资料并拒绝迟到响应。三语、1440/1024/390/375、双引擎正式CSS与原请求恢复已在隔离生产构建验收；没有把设计参考当生产验证。

@@ -14,7 +14,7 @@ export async function manageDevices(request: NextRequest, storeMode: boolean, wr
     if (writing) requireSameOrigin(request);
     const { identity, supabase } = await requireAccountSession(request, response, writing);
     if (writing && request.headers.get("X-CT-Session-ID") !== identity.sessionId) throw new AuthRequestError("登录会话已变化，请重新读取设备后重试。", 409);
-    const access = storeMode ? await getServerAccess() : null;
+    const access = storeMode ? await getServerAccess(request) : null;
     if (storeMode && (!access || access.identity.userId !== identity.userId || access.identity.sessionId !== identity.sessionId || access.member.role !== "owner")) throw new AuthRequestError("仅门店老板可以管理员工登录设备。", 403);
     const body = writing ? await readAuthBody(request, ["requestId", "memberId", "sessionId", "scope", "revision"]) : null;
     const memberId = storeMode ? body?.memberId ?? request.nextUrl.searchParams.get("memberId") : null;

@@ -1,5 +1,7 @@
 "use client";
 
+import { useBackendState } from "./backend-snapshot";
+import { scopedStoreUrl } from "@/lib/store-scope";
 import NextLink, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
@@ -32,6 +34,8 @@ function NavigationFeedback({ attempt, onSettled, icon, iconClassName }: { attem
 
 /** Next supplies real pending; the latest click owns its presentation. */
 export function NavigationLink({ children, icon, iconClassName, iconPosition = "start", className, prefetch = false, onClick, onNavigate, onNavigationComplete, focusTargetId, ...props }: ComponentProps<typeof NextLink> & { icon?: ReactNode; iconClassName?: string; iconPosition?: "start" | "end"; onNavigationComplete?: () => void; focusTargetId?: string }) {
+  const { snapshot } = useBackendState();
+  if(typeof props.href === "string") props.href=scopedStoreUrl(props.href,snapshot?.storeId);
   const clickedHref = useRef("");
   const [attempt, setAttempt] = useState<NavigationAttempt | null>(null);
   const liveAttempt = useRef<NavigationAttempt | null>(null);

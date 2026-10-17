@@ -113,7 +113,7 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
       {error ? <p className="form-error" id="login-error" role="alert"><AlertCircle size={17} />{systemText(error)}</p> : null}
 
       <button className="button button--primary auth-submit" type="submit" aria-busy={isSubmitting || navigating} disabled={busy || unavailable}>{isSubmitting ? <><LoaderCircle className="spin" size={18} />{t("正在验证")}</> : t("登录工作台")}</button>
-      <p className={styles.hint}>{t("使用已获授权的账号登录。新成员仍需门店授权。")}{supabaseMode ? <Link href="/verify-email" className={styles.verifyLink}>{t("未收到验证邮件？")}</Link> : null}</p>
+      <p className={styles.hint}>{t("验证邮箱后可创建门店，或通过邀请申请加入已有门店。")}{supabaseMode ? <Link href="/verify-email" className={styles.verifyLink}>{t("未收到验证邮件？")}</Link> : null}</p>
     </form>
   );
 }
