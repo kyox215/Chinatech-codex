@@ -8,5 +8,5 @@ export default async function RetailNewPage({ searchParams }: { searchParams: Pr
   const copy = typeof params.copy === "string" ? params.copy : undefined;
   const identifier = typeof params.identifier === "string" ? params.identifier : undefined;
   const kind = typeof params.kind === "string" ? params.kind : undefined;
-  return <BackendPageFrame plan={{ kind: "retail-new" }}><RetailForm key={`${copy ?? "blank"}-${identifier ?? ""}-${kind ?? ""}`} copyId={copy} identifier={identifier} kind={kind} /></BackendPageFrame>;
+  return <BackendPageFrame plan={{ kind: "retail-new",...(copy?{id:copy}:{}) }}><RetailForm key={`${copy ?? "blank"}-${identifier ?? ""}-${kind ?? ""}`} copyId={copy} identifier={identifier} kind={kind} /></BackendPageFrame>;
 }

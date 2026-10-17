@@ -27,6 +27,11 @@ import { RetailDateControl, RetailMoneyControl, RetailNumberControl } from "./re
 import { RetailGallery } from "./retail-gallery";
 import styles from "./retail-form.module.css";
 import surface from "./retail-surface.module.css";
+import{useBackendState}from'@/components/backend-snapshot';
+import{useActivityFeedback}from'@/components/operation-feedback';
+import{checkFormalRetailIdentity}from'@/lib/retail-identity-check';
+import type{RetailCreationDefaults}from'@/lib/backend/retail-form-contract';
+import{RetailFormSuggestionOwner}from'./use-retail-recorded-options';
 
 const emptyChecks: Inspection = { functional: false, ownership: false, data: false };
 function TextField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string }) {
@@ -39,17 +44,18 @@ function Section({ title, children, id }: { title: string; children: ReactNode; 
 }
 type RetailFormProps = { copyId?: string; identifier?: string; kind?: string };
 export function RetailForm(props: RetailFormProps) {
-  const { t, systemText } = useLanguage(); const staff = useStaff(); const { ready, error, returnTo } = useRetail(); const store = useStoreSettings();
-  if (!staff.ready || !ready || !store.ready) return <main className={"module-page " + surface.page}><PageTitle title={t("新建商品")} backHref={returnTo} backLabel={t("返回商品列表")} /><ReadPending label="正在读取单机资料…" /></main>;
-  if (!staff.can("retail.edit")) return <AccessPanel />;
-  if (error || store.error) return <main className={"module-page " + surface.page}><PageTitle title={t("新建商品")} backHref={returnTo} backLabel={t("返回商品列表")} /><section className="panel module-empty" role="alert">{systemText(error || store.error)}</section></main>;
-  return <RetailFormContent key={staff.member?.id + ":" + staff.member?.revision} {...props} />;
+  const { t, systemText } = useLanguage(); const staff = useStaff(); const { ready, error, returnTo } = useRetail(); const store = useStoreSettings(),backend=useBackendState(),bounded=Boolean(backend.formal&&backend.snapshot?.retailFormEnabled),defaults=bounded?backend.snapshot?.retailCreationDefaults:undefined;
+  if(!staff.ready)return <main className={"module-page " + surface.page}><PageTitle title={t("新建商品")} backHref={returnTo} backLabel={t("返回商品列表")} /><ReadPending label="正在读取单机资料…"/></main>;
+  if (!staff.can("retail.view")||!staff.can("retail.edit")) return <AccessPanel />;
+  if (bounded?!defaults:!ready||!store.ready) return <main className={"module-page " + surface.page}><PageTitle title={t("新建商品")} backHref={returnTo} backLabel={t("返回商品列表")} /><ReadPending label="正在读取单机资料…" /></main>;
+  if (!bounded&&(error || store.error)) return <main className={"module-page " + surface.page}><PageTitle title={t("新建商品")} backHref={returnTo} backLabel={t("返回商品列表")} /><section className="panel module-empty" role="alert">{systemText(error || store.error)}</section></main>;
+  return <RetailFormContent key={staff.member?.id + ":" + staff.member?.revision} {...props} defaults={defaults} />;
 }
-function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
+function RetailFormContent({ copyId, identifier, kind,defaults }: RetailFormProps&{defaults?:RetailCreationDefaults}) {
   const { t, systemText } = useLanguage(); const staff = useStaff(); const { units, returnTo, dispatch, feedback, ready, error: storageError } = useRetail(); const router = useRouter(); const { settings } = useStoreSettings();
-  const sourceUnit = units.find(unit => unit.id === copyId);
+  const sourceUnit = defaults?defaults.copy:units.find(unit => unit.id === copyId),settingsRevision=defaults?.revision??settings.revision,warrantyMonths=defaults?.warrantyMonths??settings.retailWarrantyMonths;
   const [draft, setDraft] = useState<RetailUnit>(() => {
-    const initial = sourceUnit ? copyRetailModel(sourceUnit) : emptyRetailUnit(); initial.warrantyMonths = settings.retailWarrantyMonths;
+    const initial = sourceUnit ? copyRetailModel(sourceUnit) : emptyRetailUnit(); initial.warrantyMonths = warrantyMonths;
     const raw = identifier?.trim().slice(0, 150) ?? ""; if (kind === "serial") initial.serial = raw; if (kind === "imei") initial.imei1 = raw; if (kind === "product") initial.productCode = raw; return initial;
   });
   const [goal, setGoal] = useState<"inspecting" | "available">("inspecting");
@@ -58,6 +64,7 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
   const [cost, setCost] = useState(""); const [refurb, setRefurb] = useState(""); const [price, setPrice] = useState("");
   const [creationId, setCreationId] = useState(() => crypto.randomUUID()); const operationId = useRef(crypto.randomUUID()); const submitting = useRef(false); const receipt = useOperationReceipt();
   const [savingBase, setSaving] = useState(false);
+  const[checkingIdentity,setCheckingIdentity]=useState(false);useActivityFeedback(checkingIdentity,{kind:'read'});
   const saving = savingBase || receipt.waiting;
   const unknown=receipt.waiting&&Boolean(receipt.requestId);
   const processing=savingBase||(receipt.waiting&&!receipt.requestId); const [photoBusy, setPhotoBusy] = useState(false);
@@ -94,12 +101,13 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
       if (!classificationSelected) throw new Error("请先选择新机或翻新机。");
       if (goal === "available" && !canPublish) throw new Error("当前账号没有此操作权限。");
       const unit: RetailUnit = { ...draft, id: creationId, code: "", brand: draft.brand.trim(), model: draft.model.trim(), serial: draft.serial.trim(), imei1: normalizeImei(draft.imei1), imei2: normalizeImei(draft.imei2), productCode: draft.productCode.trim(), costCents: staff.can("financial.edit") ? parseRetailMoney(cost) : null, refurbCents: staff.can("financial.edit") ? parseRetailMoney(refurb) : null, priceCents: staff.can("retail.price") ? parseRetailMoney(price) : null };
-      validateRetailUnit(unit, units);
+      validateRetailUnit(unit, defaults?[]:units);
       if (goal === "available" && (!checks.functional || !checks.ownership || !checks.data)) throw new Error("功能、所有权与账号、数据处理三项检查必须全部完成。");
       if (goal === "available" && (unit.priceCents === null || unit.priceCents <= 0)) throw new Error("请先确认有效售价。");
       submitting.current = true; setSaving(true);
+      if(defaults){setCheckingIdentity(true);try{await checkFormalRetailIdentity(unit);}finally{setCheckingIdentity(false);}}
       const event = { id: operationId.current, title: "新建商品", detail: note, time: intakeRecordTime() };
-      const saved = goal === "available" ? await dispatch({ type: "workflow", workflow: { type: "create_ready", unit, photos, checks, note, settingsRevision: settings.revision }, event }, {requestId}) : await dispatch({ type: "create", unit, photos, event: { ...event, detail: "门店自有实物，待检测。" } }, {requestId});
+      const saved = goal === "available" ? await dispatch({ type: "workflow", workflow: { type: "create_ready", unit, photos, checks, note, settingsRevision }, event }, {requestId}) : await dispatch({ type: "create", unit, photos, event: { ...event, detail: "门店自有实物，待检测。" } }, {requestId});
       if (!saved) { receipt.watch(requestId, async isCurrent => { await deviceDraft.clear(); if (isCurrent()) router.push("/app/retail/units/" + creationId); }); submitting.current = false; setSaving(false); return; }
       await deviceDraft.clear().catch(() => undefined); router.push("/app/retail/units/" + creationId);
     } catch (reason) {
@@ -107,7 +115,7 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
       checkRegion.current?.scrollIntoView({ block: "nearest", behavior: "instant" }); checkRegion.current?.focus({ preventScroll: true });
     }
   }
-  return <main className={"module-page retail-create " + surface.page + " " + styles.create}>
+  return <RetailFormSuggestionOwner owner={creationId}><main className={"module-page retail-create " + surface.page + " " + styles.create}>
     <header className="module-heading"><PageTitle title={sourceUnit ? t("同型号新建商品") : t("新建商品")} backHref={saving ? undefined : returnTo} backLabel={t("返回商品列表")} /></header>
     {sourceUnit ? <p className={"inline-notice " + styles.notice}><Copy size={17} /><span>{t("从 ")}{sourceUnit.code}{t(" 复制型号与候选规格；身份、照片、检测、电池、手柄数量、来源与金额均已清空，请逐项核对实物。")}</span></p> : identifier ? <p className={"inline-notice " + styles.notice}>{t("识别文本仅作为待核对字段，不证明机器身份或规格。")}</p> : null}
     <form className={"panel " + styles.form} aria-busy={processing} onSubmit={submit}><fieldset className="form-fields" disabled={saving}>
@@ -162,7 +170,7 @@ function RetailFormContent({ copyId, identifier, kind }: RetailFormProps) {
           <details className={styles.section}><summary>{t("来源与存放（选填）")}</summary><div className={"field-grid " + styles.fields}><TextField label={t("存放位置")} value={draft.location} onChange={value => update("location", value)} /><RetailDateControl label={t("入库日期")} value={draft.intakeDate} onChange={value => update("intakeDate", value)} clearable /><label className={"field " + styles.wide}><span>{t("来源说明")}</span><TextareaControl aria-label={t("来源说明")} value={draft.source} maxLength={600} onChange={event => update("source", event.target.value)} /></label></div></details>
         </div>
       </div></div> : null}
-      <footer className={styles.footer}><Link className="button button--secondary" href={returnTo} aria-disabled={saving} onClick={event => { if (saving) event.preventDefault(); }}>{t("取消")}</Link><button className="button button--primary" type="submit" disabled={saving || photoBusy || !ready || !!storageError || !classificationSelected || goal === "available" && !canPublish}>{unknown?t("待核对"):saving ? t("正在保存") : goal === "available" ? t("建档并设为可售") : t("创建独立档案")}</button></footer>
+      <footer className={styles.footer}><Link className="button button--secondary" href={returnTo} aria-disabled={saving} onClick={event => { if (saving) event.preventDefault(); }}>{t("取消")}</Link><button className="button button--primary" type="submit" disabled={saving || photoBusy || !defaults&&(!ready||!!storageError) || !classificationSelected || goal === "available" && !canPublish}>{unknown?t("待核对"):saving ? t("正在保存") : goal === "available" ? t("建档并设为可售") : t("创建独立档案")}</button></footer>
     </fieldset><OperationRecoveryControls requestId={receipt.requestId}/></form>
-  </main>;
+  </main></RetailFormSuggestionOwner>;
 }

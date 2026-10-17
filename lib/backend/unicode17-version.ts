@@ -1,0 +1,5 @@
+// Unicode17 data and exact approved SQL implementation; not server ICU inference.
+export const unicode17DataHash="3b05510bcbe1bd512f1d885e733f592a70aa1ea0316959a0a155c1eb0ac66fe0";
+export const unicode17ImplementationHash="868a9f52f64293544cc93b34e2b6794ddf6d0a072687669620c02c854b88f48b";
+export const retailFormModelFormat=2;
+export const retailFormProjectionHash="81f019f00cdb15014b7e4ba758a566b7b4dde8895ac930fca2a51ce30a404fa7";

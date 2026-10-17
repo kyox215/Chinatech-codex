@@ -257,7 +257,7 @@ RetailRecordScanner从旧独立列表提取后复用于唯一商品入口；buil
 | `Brand` | [brand.tsx](../components/brand.tsx) | 首页、账号页与后台的品牌标识；支持 `compact`、`inverse`、`href`，不另写 Logo 标记。 |
 | `InputControl` / `TextareaControl` | [input-control.tsx](../components/input-control.tsx) | 普通文本、邮箱、电话、密码、搜索、日期、数字与多行输入的共同状态入口；保留原生表单属性、事件与 ref，领域限制由调用方提供。图标／密码显隐用 `leading`、`trailing` 与 `shell`；清空由调用方显式提供。 |
 | `SelectControl` | [select-control.tsx](../components/select-control.tsx) | 普通下拉选择；沿用原生选项、表单属性和事件，配合 `.field` 或 `.module-select`。 |
-| `SearchCombobox` | [search-combobox.tsx](../components/search-combobox.tsx) | 可编辑搜索候选，支持键盘移动、滚入视区、确认、Esc、手动值与 `maxLength`；候选数据和选中客户的业务关联留在调用方。不是普通下拉的替代品。 |
+| `SearchCombobox` | [search-combobox.tsx](../components/search-combobox.tsx) | 可编辑搜索候选，支持键盘移动、滚入视区、确认、Esc、手动值与 `maxLength`；候选数据和选中客户的业务关联留在调用方。可选 `onOptionCommit` 专供 opaque 候选先读完整原文再提交，默认仍先 `onChange` 再 `onSelect`，不得把显示预览写入原字段。不是普通下拉的替代品。 |
 | `MultiChoice` | [multi-choice.tsx](../components/multi-choice.tsx) | 原生 checkbox 多选标签，支持图标、选中态与键盘焦点；故障细项、随件复用，互斥和自定义值由模块维护。 |
 | `SingleChoice` | [single-choice.tsx](../components/single-choice.tsx) | 原生 radio 图形单选，支持图标或图形、标签与选中态；用于直接可见的互斥选项，不复制普通下拉菜单。配件规格的条件与清理规则由维修模块维护。 |
 | `ColorPicker` / `ColorSwatch` | [color-picker.tsx](../components/color-picker.tsx) | 设备颜色使用实际色块、文字标签和 `SingleChoice`；支持未记录与自定义颜色，Esc 关闭后返回触发点。色块是业务颜色数据，不另建主题 token；未知颜色保留空值。 |
@@ -417,6 +417,7 @@ RetailRecordScanner从旧独立列表提取后复用于唯一商品入口；buil
 ## 分类前置、规格与宫格色板（2026-10-01）
 
 - [RetailCatalogControl / RetailRamControl / RetailStorageControl](../components/retail/retail-spec-controls.tsx) 将目录搜索和容量预设封装为整机私有组合，不重写SearchCombobox或SelectControl。电脑移动／桌面候选与游戏机品牌过滤由lib/retail-catalog.ts维护，实际字段仍由lib/retail.ts校验；既有及手填值可继续保存，容量对象按选项复制，不共享可变数据。
+- 正式整机新建的已登记候选由原 `DeviceIdentityPicker`／`DeviceCatalogControl` 经 `HistoricalCatalogSource` 适配：打开后才查询，最多12项和完整计数，长原文显示预览，确认时另读一份原文。领域 hook 按身份、草稿owner、字段、类别、品牌、输入及请求代际隔离迟到结果；手改、关闭、卸载和草稿重置释放执行反馈。沿用原组合框菜单、输入、B方案细线和错误重试，不新增视觉模板。新建／复制及原历史核对共用全域识别码预检查，正式写事务继续独立重复完整校验。
 - 新建按ready门控后首次初始化草稿；品类相关RAM／容量控件用独立key重置，仅处理未保存草稿。编号领域生成，RetailFieldButton的code为只读div，兼容旧数据而无铅笔。
 - 电池图形概览复用RetailFieldButton，移除实物区重复值；保修直接复用RetailWarrantyControl，其disabled反映权限／状态／存储。RetailWarrantyPanel只维护未保存期限草稿，核对候选交回RetailFieldEditor.initialCandidate，保存仍走原版本及单字段写边界。取消自定义同步重置控件key，不保留旧输入。
 - ColorPicker沿用常规5列／钛金属4列与其他独立行；native details／summary与按open挂载的色板在同一.color-picker内同级，仍保留原form／fieldset禁用继承。实例稳定ID通过summary的aria-controls关联实际色板；色板相对该wrapper的padding box绝对定位，按真实边框与自身滚动换算，并只发布精确变化的坐标／尺寸。首个可见帧前测量，保留视口夹取、上下翻转和低屏内部滚动；仅摘要内色板打开时放开所属摘要的裁剪／层叠，新建表单的开放溢出不依赖样式导入顺序。radio／文字／44px目标及token保持。选择／重复选择／色板内Esc同步关闭并返回原summary，外点关闭不抢焦点；仅details或色板起源的Esc由控件消费，自定义输入继续沿父层规则。resize、scroll和外部pointer监听只在展开时安装并清理，开合不清自定义值或业务草稿。

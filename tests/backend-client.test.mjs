@@ -6,6 +6,7 @@ import { test } from "node:test";
 import { createContext, runInContext } from "node:vm";
 import ts from "typescript";
 import {sourceLoader} from "./helpers/typescript-source.mjs";
+import{flushSync}from'react-dom';
 
 // Compile the actual client into an isolated browser-like context for each test.
 // Fetch never leaves this context; all members, amounts and responses are synthetic.
@@ -17,6 +18,8 @@ const bootstrapCompiled = ts.transpileModule(readFileSync(new URL("../lib/backen
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 const readPlan=sourceLoader()("./lib/backend/read-plan");
+const retailFormContract=sourceLoader()("./lib/backend/retail-form-contract");
+const readResponse=sourceLoader()("./lib/backend/read-response");
 
 const storeId = "00000000-0000-4000-8000-000000000001";
 const ownerId = "00000000-0000-4000-8000-000000000002";
@@ -115,6 +118,20 @@ function response(status, body) {
   return { status, ok: status >= 200 && status < 300, json: async () => body };
 }
 
+test('刷新非JSON拒绝在解码前同步隔离，临时故障保留原内容，旧范围拒绝不清新身份',async()=>{
+ for(const status of[401,403,503,200]){
+  const h=harness(),initial=mockSnapshot();h.client.configureBackend(initial);const pending=h.client.refreshBackend(),rejected=assert.rejects(pending,/权限已变化|资料暂不可用/);let decodes=0;
+  await h.requests[0].resolve({status,ok:status===200,json:async()=>{decodes++;throw new SyntaxError('DEMO invalid proxy document');}});await rejected;
+  if(status===401||status===403){assert.equal(decodes,0);assert.equal(h.client.backendSnapshot(),null);assert.deepEqual(h.redirects,[status===401?'/login':'/account/pending']);}
+  else{assert.equal(h.client.backendSnapshot(),initial);assert.equal(decodes,1);assert.deepEqual(h.redirects,[]);}
+ }
+ const h=harness();h.client.configureBackend(mockSnapshot());const pending=h.client.refreshBackend(),next=mockSnapshot({memberId:ownerId});h.client.configureBackend(next);let decodes=0;await h.requests[0].resolve({status:401,ok:false,json:async()=>{decodes++;throw Error('DEMO late body');}});await pending;assert.equal(decodes,0);assert.equal(h.client.backendSnapshot(),next);assert.deepEqual(h.redirects,[]);
+});
+
+test('提交非JSON401撤下私有资料而持久化的原requestId仍可恢复',async()=>{
+ const h=harness();h.client.configureBackend(mockSnapshot());const id=randomUUID(),pending=h.client.backendCommand('synthetic.command',{},id),rejected=assert.rejects(pending,/登录身份已变化/);await setImmediate();let decodes=0;await h.requests[0].resolve({status:401,ok:false,json:async()=>{decodes++;throw Error('DEMO unreadable denial');}});await rejected;assert.equal(decodes,0);assert.equal(h.client.backendSnapshot(),null);assert.deepEqual(h.redirects,['/login']);assert.equal(h.operations.size,1);assert.equal([...h.operations.values()][0].command.requestId,id);assert.equal([...h.operations.values()][0].phase,'unknown');
+});
+
 function harness({requestDeadline}={}) {
   const requests = [];
   const redirects = [];
@@ -129,7 +146,7 @@ function harness({requestDeadline}={}) {
   };
   const navigator={onLine:true};
   const context = createContext({
-    require:name=>{if(name==="./read-plan")return readPlan;assert.equal(name,"./recovery-store");return storage;},
+    require:name=>{if(name==='react-dom')return{flushSync};if(name==='./read-response')return readResponse;if(name==="./read-plan")return readPlan;if(name==="./retail-form-contract")return retailFormContract;assert.equal(name,"./recovery-store");return storage;},
     Headers, AbortController,URLSearchParams,setTimeout:requestDeadline?((fn,ms)=>setTimeout(fn,ms===20000?requestDeadline:ms)):setTimeout,clearTimeout,navigator,
     exports: {},
     crypto: { randomUUID },
@@ -587,4 +604,10 @@ test('v1 confirmed save restores new-form defaults from newly authorized facts, 
  h.client.configureBackend(initial);const save=h.client.backendCommand('intake.save',{});await setImmediate();const next=mockSnapshot({revision:2});next.settings={repairWarrantyMonths:18,paper:'a5',shopName:'NEW',address:'DEMO address',phone:'DEMO phone',suppliers:[],finance:[]};h.requests[0].resolve(response(200,next));await save;
  const current=h.client.backendSnapshot();assert.equal(current.intakeDefaults.revision,2);assert.equal(current.intakeDefaults.paper,'a5');assert.deepEqual(JSON.parse(JSON.stringify(current.intakeDefaults.policy)),{months:18,shopName:'NEW',address:'DEMO address',phone:'DEMO phone'});assert.deepEqual(JSON.parse(JSON.stringify(current.read.ready)),['staff']);
  const again=h.client.backendCommand('intake.save',{});await setImmediate();const missing=mockSnapshot({revision:3});missing.settings=null;h.requests[1].resolve(response(200,missing));await again;assert.equal(h.client.backendSnapshot().intakeDefaults,undefined);
+});
+test('v1 retail save preserves form protocol and derives current warranty/copy only from the newly authorized response',async()=>{
+ const h=harness(),initial=pageSnapshot('retail-new');initial.read.plan.id='DEMO-COPY';initial.retailFormEnabled=true;initial.retailCreationDefaults={revision:1,warrantyMonths:6,copy:null};h.client.configureBackend(initial);
+ const save=h.client.backendCommand('retail',{});await setImmediate();const next=mockSnapshot({revision:2});next.settings={revision:7,retailWarrantyMonths:24};next.retail=[{id:'DEMO-COPY',code:'DEMO-ORIGINAL',category:'phone',brand:'DEMO',model:'型'.repeat(4990)+'TAIL',color:'',ramGb:null,bodyStorage:null,disks:[],cpu:'',gpu:'',keyboard:'',edition:'',productCode:'',photos:['PRIVATE'],costCents:12345,events:['PRIVATE']}];h.requests[0].resolve(response(200,next));await save;
+ const current=h.client.backendSnapshot();assert.equal(current.retailFormEnabled,true);assert.equal(current.retailCreationDefaults.revision,7);assert.equal(current.retailCreationDefaults.warrantyMonths,24);assert.equal(current.retailCreationDefaults.copy.model,next.retail[0].model);assert(!JSON.stringify(current.retailCreationDefaults).includes('PRIVATE'));assert(!('costCents'in current.retailCreationDefaults.copy));
+ const again=h.client.backendCommand('retail',{});await setImmediate();const missing=mockSnapshot({revision:3});missing.settings=null;h.requests[1].resolve(response(200,missing));await again;assert.equal(h.client.backendSnapshot().retailCreationDefaults,undefined);assert.equal(h.client.backendSnapshot().retailFormEnabled,true);
 });

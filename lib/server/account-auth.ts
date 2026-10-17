@@ -5,13 +5,16 @@ import type { AccountOverview, AccountProvider } from "@/lib/account";
 import { BackendError, withDatabase } from "@/lib/backend/database";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 import { authCookieOptions, AuthRequestError, createSupabaseRouteClient, preventAuthCaching } from "@/lib/supabase/server";
+import{authVerificationFailure}from'@/lib/supabase/auth-verification-error';
 
 // Resolve verified Auth identity only. Callers using this helper must validate the
 // project session inside their own withDatabase transaction before reading data.
 export async function requireAccountIdentity(request: NextRequest, response: NextResponse, expectedAccount = false) {
   const supabase = createSupabaseRouteClient(request, response);
-  const [{ data, error }, { data: claims, error: claimsError }] = await Promise.all([supabase.auth.getUser(), supabase.auth.getClaims()]);
-  if (error || claimsError || !data.user?.email_confirmed_at || claims?.claims.sub !== data.user.id || typeof claims.claims.session_id !== "string") throw new AuthRequestError("请重新登录后管理账号。", 401);
+  const [{ data, error }, { data: claims, error: claimsError }] = await Promise.all([supabase.auth.getUser().catch(error=>({data:null,error})), supabase.auth.getClaims().catch(error=>({data:null,error}))]);
+  const failure=authVerificationFailure(error,claimsError);
+  if(failure)throw new AuthRequestError(failure===401?'请重新登录后管理账号。':'暂时无法读取登录服务，请稍后重试。',failure);
+  if (!data?.user?.email_confirmed_at || claims?.claims.sub !== data.user.id || typeof claims.claims.session_id !== "string") throw new AuthRequestError("请重新登录后管理账号。", 401);
   const identity = { userId: data.user.id, sessionId: claims.claims.session_id };
   if (expectedAccount && request.headers.get("x-ct-account-id") !== identity.userId) throw new AuthRequestError("登录账号已变化，请刷新账号资料后重试。", 409);
   return { supabase, user: data.user, identity };

@@ -171,7 +171,7 @@ export function emptyRetailUnit(): RetailUnit {
   return { id: "", code: "", category: "phone", brand: "", model: "", serial: "", imei1: "", imei2: "", productCode: "", color: "", ramGb: null, bodyStorage: null, disks: [], cpu: "", gpu: "", keyboard: "", edition: "", controllers: null, condition: "翻新机", warrantyMonths: 12, grade: "待评估", batteryPercent: null, accessories: "", knownIssues: "", photos: [], costCents: null, refurbCents: null, priceCents: null, source: "", location: "", intakeDate: "", storeOwned: false, status: "inspecting", version: 1, inspection: { functional: false, ownership: false, data: false }, events: [], reservation: null, sales: [] };
 }
 
-export function copyRetailModel(unit: RetailUnit): RetailUnit {
+export function copyRetailModel(unit: Pick<RetailUnit,"category"|"brand"|"model"|"color"|"ramGb"|"bodyStorage"|"disks"|"cpu"|"gpu"|"keyboard"|"edition"|"productCode">): RetailUnit {
   const { category, brand, model, color, ramGb, bodyStorage, disks, cpu, gpu, keyboard, edition, productCode } = unit;
   const copied = { ...emptyRetailUnit(), category, brand, model, color, ramGb, bodyStorage: bodyStorage ? { ...bodyStorage } : null, disks: disks.map((disk) => ({ ...disk })), cpu, gpu, keyboard, edition, productCode };
   for (const field of ["ramGb", "bodyStorage", "disks", "cpu", "gpu", "keyboard", "edition"] as const) {

@@ -16,6 +16,8 @@ export type BackendSnapshot = {
   procurementRepairCandidate?:import("./procurement-batch-contract").ProcurementRepairCandidate|null;
   procurementList?: import("./procurement-list-contract").ProcurementListPage;
   retailListEnabled?:boolean;
+  retailFormEnabled?:boolean;
+  retailCreationDefaults?:import('./retail-form-contract').RetailCreationDefaults;
   retailList?:import("./retail-list-contract").RetailListPage;
   repairListEnabled?:boolean;
   repairList?:import("./repair-list-contract").RepairListPage;

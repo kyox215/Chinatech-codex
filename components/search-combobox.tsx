@@ -10,6 +10,7 @@ type SearchEdit = { value: string; text: string };
 type Props = {
   label: string; value: string; onChange: (value: string) => void;
   options: readonly ComboboxOption[]; onSelect?: (option: ComboboxOption) => void;
+  onOptionCommit?: (option: ComboboxOption) => void;
   placeholder?: string; inputMode?: "text" | "tel"; emptyText?: string | null;
   filterOptions?: boolean; required?: boolean; autoFocus?: boolean; maxLength?: number;
   displaySelectedLabel?: boolean; optionDetailsAsDescription?: boolean;
@@ -25,7 +26,7 @@ type Props = {
 
 /** Defaults retain immediate editable search; catalog fields opt into explicit selection/manual commit. */
 export function SearchCombobox({
-  label, value, onChange, options, onSelect, placeholder, inputMode = "text",
+  label, value, onChange, options, onSelect, onOptionCommit, placeholder, inputMode = "text",
   emptyText = "没有匹配，可保留手动输入", filterOptions = true, displaySelectedLabel = false,
   optionDetailsAsDescription = false, optionLimit = 12, menuClassName, menuHeader, menuFooter, manualActionLabel,
   onOpenChange, loading = false, loadingLabel = "正在查询设备目录…", windowed = false, onEndReached, persistentMenu = false,
@@ -81,7 +82,7 @@ export function SearchCombobox({
   function select(option: ComboboxOption) {
     if (disabled || readOnly || input.current?.matches(":disabled")) return;
     resetQuery();
-    onChange(option.value);
+    if(onOptionCommit)onOptionCommit(option);else onChange(option.value);
     onSelect?.(option);
     input.current?.focus({ preventScroll: true });
     setOpen(false);

@@ -3,6 +3,7 @@ import {flushSync} from "react-dom";
 import {backendSnapshot,clearBackend} from "./client";
 import {backendScopeKey,pagePlanKey,type PageReadPlan} from "./read-plan";
 import type {BackendSnapshot} from "./contracts";
+import{readResponseObject}from'./read-response';
 
 export async function requestBackendEntityPage(plan:PageReadPlan,scope:string,known?:string):Promise<BackendSnapshot|{unchanged:true;stateToken:string}> {
  const matches=()=>Boolean(backendSnapshot()?.read)&&backendScopeKey(backendSnapshot()!.read!.scope)===scope;
@@ -13,7 +14,8 @@ export async function requestBackendEntityPage(plan:PageReadPlan,scope:string,kn
   // Known authorization denial must hide the current private document before
   // attempting to decode a potentially empty/HTML proxy error response.
   if(response.status===401||response.status===403){if(matches()){flushSync(()=>clearBackend());window.location.assign(response.status===401?"/login":"/account/pending");}throw new Error("账号访问权限已变化。");}
-  const data=await response.json();
+  const data=await readResponseObject(response);
+  if(!matches())throw new Error('账号访问权限已变化。');
   if(response.status===409&&data.code==="IDENTITY_CHANGED"){if(matches()){flushSync(()=>clearBackend());window.location.reload();}throw new Error("账号访问权限已变化。");}
   if(!response.ok)throw new Error(typeof data.message==="string"?data.message:"后台暂时不可用，当前输入已保留。 ");
   if(data.unchanged===true){if(!known||data.stateToken!==known)throw new Error("后台核对结果无效，请稍后重试。");return{unchanged:true,stateToken:known};}

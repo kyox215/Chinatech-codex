@@ -24,7 +24,7 @@ export function parsePageReadPlan(value: unknown): PageReadPlan {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("请求资料无效。");
   const plan = value as Record<string, unknown>;
   if (Object.keys(plan).some(key => !["kind", "id", ...(plan.kind === "customers" ? ["q","anchor"] : plan.kind==="procurement"?["query","anchor"]:plan.kind==="repairs"?["repairQuery","group","anchor"]:plan.kind==="repair-operation"?["purpose"]:plan.kind==="retail"?["retailQuery","anchor"]:plan.kind==="retail-unit"?["retailSource"]:[])].includes(key)) || !pageKinds.includes(plan.kind as PageReadPlan["kind"])) throw new Error("请求资料无效。");
-  const optionalId=plan.kind==="procurement-new"&&plan.id!==undefined;
+  const optionalId=["procurement-new","retail-new"].includes(String(plan.kind))&&plan.id!==undefined;
   const needsId = ["repair", "repair-operation", "procurement-detail", "retail-unit", "customer"].includes(plan.kind as string);
   if (needsId||optionalId ? typeof plan.id !== "string" || !plan.id || plan.id.length > 100 : plan.id !== undefined) throw new Error("请求资料无效。");
   if(plan.q!==undefined&&(typeof plan.q!=="string"||plan.q.length>160)||plan.anchor!==undefined&&(typeof plan.anchor!=="string"||!(["procurement","repairs","retail"].includes(String(plan.kind))?plan.anchor.length>0&&plan.anchor.length<=(plan.kind==="retail"?108:100):/^\+[1-9]\d{6,14}$/.test(plan.anchor))))throw new Error("请求资料无效。");
@@ -38,9 +38,10 @@ export function parsePageReadPlan(value: unknown): PageReadPlan {
 // These compatibility plans preserve the existing full-domain semantics until
 // each list is moved to its versioned summary API. They are never advertised as
 // paginated lists; unrelated store domains and signature history are omitted.
-export function pageDomains(plan: PageReadPlan, options?: {customerLists?:boolean;procurementLists?:boolean;repairLists?:boolean;retailLists?:boolean}): BackendDomain[] {
+export function pageDomains(plan: PageReadPlan, options?: {customerLists?:boolean;procurementLists?:boolean;repairLists?:boolean;retailLists?:boolean;retailForms?:boolean}): BackendDomain[] {
   if (plan.kind === "session" || plan.kind === "catalog" || plan.kind === "customers" && options?.customerLists ||plan.kind==="procurement"&&options?.procurementLists||plan.kind==="repairs"&&options?.repairLists||plan.kind==="retail"&&options?.retailLists) return ["staff"];
   if(plan.kind==="repair-new"&&options?.repairLists&&options.customerLists||plan.kind==="procurement-new"&&options?.procurementLists)return ["staff"];
+  if(plan.kind==="retail-new"&&options?.retailForms)return ["staff"];
   if (plan.kind === "repair") return ["staff", "settings", "intakes", "signatures", "workflows", "procurement"];
   if(plan.kind==="repair-operation")return ["staff",...(plan.purpose==="parts"?["settings" as const]:[]),"intakes","workflows","procurement"];
   if (["repairs", "procurement", "procurement-detail", "procurement-new"].includes(plan.kind)) return ["staff", "settings", "intakes", "workflows", "procurement"];

@@ -6,6 +6,7 @@ import { useActivityFeedback } from "@/components/operation-feedback";
 import { notifyAuthChanged, subscribeAuthChanged } from "@/lib/auth-events";
 import { useRouter } from "next/navigation";
 import { clearBackend } from "@/lib/backend/client";
+import{readResponseObject}from'@/lib/backend/read-response';
 import { useId, useCallback, useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
 import { SelectControl } from "@/components/select-control";
@@ -58,10 +59,13 @@ export function LoginDevicesPanel({ storeMode = false }: { storeMode?: boolean }
     try {
       const params = new URLSearchParams({ offset: String(offset), ...(storeMode ? { memberId: selected } : {}) });
       const response = await fetch(endpoint + "?" + params, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) });
-      const payload = await response.json();
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || abort.current!==controller) return;
       if (response.status === 401) { retry.current = null; setConfirmation(null); dialog.current?.close(); loadedWindow.current=null; setData(null); clearBackend(); router.replace("/login"); router.refresh(); return; }
-      if (!response.ok) { if([403,409].includes(response.status)) {loadedWindow.current=null;setData(null);setConfirmation(null);dialog.current?.close();retry.current=null;} throw new Error(payload.message); }
+      if([403,409].includes(response.status)){loadedWindow.current=null;setData(null);setConfirmation(null);dialog.current?.close();retry.current=null;}
+      const payload = await readResponseObject(response);
+      if (controller.signal.aborted || abort.current!==controller) return;
+      if (!response.ok) throw new Error(typeof payload.message==='string'?payload.message:'登录设备暂不可用，请稍后重试。');
+      if(typeof payload.accountId!=='string'||!payload.accountId||typeof payload.sessionId!=='string'||!payload.sessionId||!Array.isArray(payload.devices)||payload.devices.length>20||payload.devices.some((device:LoginDevice)=>!device||typeof device.id!=='string')||!Number.isSafeInteger(payload.actionableCount)||payload.actionableCount<0||payload.nextOffset!==null&&(!Number.isSafeInteger(payload.nextOffset)||payload.nextOffset<0))throw new Error('登录设备暂不可用，请稍后重试。');
       const nextScope = `${payload.accountId}:${payload.sessionId}`;
       if (identityScope.current && identityScope.current !== nextScope) {
         epoch.current++;
@@ -117,9 +121,11 @@ export function LoginDevicesPanel({ storeMode = false }: { storeMode?: boolean }
     const generation = epoch.current;
     try {
       const response = await fetch(endpoint + "/revoke", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json", "X-CT-Account-ID": data.accountId, "X-CT-Session-ID": data.sessionId }, body: JSON.stringify(confirmation), signal: AbortSignal.timeout(15000) });
-      const payload = await response.json();
       if (generation !== epoch.current) return;
       if (response.status === 401) { retry.current = null; setConfirmation(null); dialog.current?.close(); loadedWindow.current=null; setData(null); clearBackend(); router.replace("/login"); router.refresh(); return; }
+      if([403,409].includes(response.status)){retry.current=null;setConfirmation(null);dialog.current?.close();loadedWindow.current=null;setData(null);setDataKey('');}
+      const payload = await readResponseObject(response).catch(()=>{throw new Error(response.ok?'连接中断，结果尚未确认；请重试原操作。':'登录设备暂不可用，请稍后重试。');});
+      if(generation!==epoch.current)return;
       if (!response.ok) {
         if ([403, 409].includes(response.status)) {
           retry.current = null; setConfirmation(null); dialog.current?.close();
@@ -127,6 +133,7 @@ export function LoginDevicesPanel({ storeMode = false }: { storeMode?: boolean }
         }
         throw new Error(payload.message || "操作未完成，请重试。");
       }
+      if(payload.ok!==true)throw new Error('连接中断，结果尚未确认；请重试原操作。');
       retry.current = null; dialog.current?.close(); setConfirmation(null);
       notifyAuthChanged();
       if (payload.currentRevoked) { clearBackend(); router.replace("/login"); router.refresh(); return; }

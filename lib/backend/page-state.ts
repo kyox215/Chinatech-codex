@@ -1,4 +1,5 @@
 import "server-only";
+import{readRetailCreationDefaults,readRetailFormCandidates,readRetailIdentityConflict}from'./retail-form-read';
 import{readRetailScan}from"./retail-scan-read";
 import type{RetailScanQuery}from"./retail-scan-contract";
 import{retailModelGeneration,retailReadToken,readRetailList,readRetailFacets}from"./retail-list-read";
@@ -28,6 +29,7 @@ import { backendIdentityChangedCode, backendScopeKey, pageDomains, pagePlanKey, 
 export const getPageAccess = cache(() => getServerAccess());
 type ReadAccess = Pick<NonNullable<Awaited<ReturnType<typeof getServerAccess>>>,"identity"|"storeId">;
 export function backendRetailListsEnabled(){return process.env.BACKEND_RETAIL_LIST_READS==="1";}
+export function backendRetailFormsEnabled(){return process.env.BACKEND_RETAIL_FORM_READS==='1';}
 export function backendCustomerListsEnabled() { return process.env.BACKEND_CUSTOMER_LIST_READS === "1"; }
 export function backendRepairListsEnabled() { return process.env.BACKEND_REPAIR_LIST_READS === "1"; }
 export function backendProcurementListsEnabled() { return process.env.BACKEND_PROCUREMENT_LIST_READS === "1"; }
@@ -42,12 +44,12 @@ async function sessionInTransaction(tx: TransactionSql, access: ReadAccess, memb
 }
 export function sessionSnapshot(bootstrap: SessionBootstrap): BackendSnapshot {
   const snapshot: BackendSnapshot = { customerListEnabled: backendCustomerListsEnabled(), storeId: bootstrap.scope.storeId, revision: bootstrap.revision, staff: { revision: bootstrap.revision, currentId: bootstrap.member.id, members: [bootstrap.member], audit: [] }, settings: null, intakes: [], signatures: [], workflows: {}, procurement: [], retail: [], retailHistory: [], customers: [], read: { formatVersion: 2, scope: bootstrap.scope, plan: { kind: "session" }, ready: ["staff"] } };
-  snapshot.retailListEnabled=backendRetailListsEnabled();snapshot.procurementListEnabled=backendProcurementListsEnabled();snapshot.repairListEnabled=backendRepairListsEnabled();
+  snapshot.retailFormEnabled=backendRetailFormsEnabled();snapshot.retailListEnabled=backendRetailListsEnabled();snapshot.procurementListEnabled=backendProcurementListsEnabled();snapshot.repairListEnabled=backendRepairListsEnabled();
   snapshot.stateToken = pageToken(snapshot);
   return snapshot;
 }
 function pageToken(snapshot: BackendSnapshot, listGeneration?: string,procurementGeneration?:string,repairToken?:string,retailGeneration?:string) {
-  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.customerListEnabled,snapshot.retailListEnabled,snapshot.procurementListEnabled,snapshot.repairListEnabled,snapshot.customerListEnabled?customerListResponseVersion:null,snapshot.procurementListEnabled?procurementListResponseVersion:null, listGeneration,procurementGeneration,repairToken,retailGeneration])).digest("hex");
+  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.customerListEnabled,snapshot.retailListEnabled,snapshot.retailFormEnabled,snapshot.procurementListEnabled,snapshot.repairListEnabled,snapshot.customerListEnabled?customerListResponseVersion:null,snapshot.procurementListEnabled?procurementListResponseVersion:null, listGeneration,procurementGeneration,repairToken,retailGeneration])).digest("hex");
 }
 export async function loadSessionBootstrap(access: ReadAccess) {
   return withReadDatabase(access.identity, access.storeId, async tx => sessionInTransaction(tx, access, await memberForRead(tx, access.storeId, access.identity.userId)));
@@ -67,7 +69,7 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
     const member = await memberForRead(tx, access.storeId, access.identity.userId);
     const bootstrap = await sessionInTransaction(tx, access, member);
     if (expectedScope && expectedScope !== backendScopeKey(bootstrap.scope)) throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。", 409, backendIdentityChangedCode);
-    const state = sessionSnapshot(bootstrap), domains = pageDomains(plan,{customerLists:backendCustomerListsEnabled(),procurementLists:backendProcurementListsEnabled(),repairLists:backendRepairListsEnabled(),retailLists:backendRetailListsEnabled()});
+    const state = sessionSnapshot(bootstrap), domains = pageDomains(plan,{customerLists:backendCustomerListsEnabled(),procurementLists:backendProcurementListsEnabled(),repairLists:backendRepairListsEnabled(),retailLists:backendRetailListsEnabled(),retailForms:backendRetailFormsEnabled()});
     state.read = { formatVersion: 2, scope: bootstrap.scope, plan, ready: domains };
     if (plan.kind === "settings") {
       // Existing staff/settings semantics remain explicit to this page while its
@@ -96,6 +98,7 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
       state.procurementRepairCandidate=null;
       if(plan.id){const value=await readProcurementBatch(tx,bootstrap.scope,{kind:"repairs",q:"",repairId:plan.id,supplierId:""});state.procurementRepairCandidate=value.items[0] as import("./procurement-batch-contract").ProcurementRepairCandidate??null;}
     }
+    if(plan.kind==='retail-new'&&backendRetailFormsEnabled()&&can(member,'retail.view')&&can(member,'retail.edit'))state.retailCreationDefaults=await readRetailCreationDefaults(tx,bootstrap.scope,plan.id);
     if (domains.includes("settings")) {
       // Finance is read only by its own settings page. A print/default policy
       // read never transfers the whole finance ledger into another module.
@@ -239,5 +242,19 @@ export async function loadRetailScanPage(access:ReadAccess,raw:Partial<RetailSca
   const member=await memberForRead(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
   if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);
   return readRetailScan(tx,scope,raw,options);
+ });
+}
+export async function loadRetailFormCandidatePage(access:ReadAccess,raw:unknown,expectedScope?:string){
+ return withReadDatabase(access.identity,access.storeId,async tx=>{
+  const member=await memberForRead(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
+  if(expectedScope&&expectedScope!==backendScopeKey(scope))throw new BackendError('登录身份或页面版本已变化，请刷新后重新核对。',409,backendIdentityChangedCode);
+  return readRetailFormCandidates(tx,scope,raw);
+ });
+}
+export async function loadRetailIdentityCheck(access:ReadAccess,raw:Parameters<typeof readRetailIdentityConflict>[2],expectedScope?:string){
+ return withReadDatabase(access.identity,access.storeId,async tx=>{
+  const member=await memberForRead(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
+  if(expectedScope&&expectedScope!==backendScopeKey(scope))throw new BackendError('登录身份或页面版本已变化，请刷新后重新核对。',409,backendIdentityChangedCode);
+  const conflict=await readRetailIdentityConflict(tx,scope,raw);return{scope,items:conflict?[conflict]:[]};
  });
 }

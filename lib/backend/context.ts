@@ -4,12 +4,16 @@ import { withReadDatabase, BackendError,StoreSessionRequired, type AuthIdentity 
 import type { StaffMember } from "../staff";
 import type { TransactionSql } from "postgres";
 import {observe,observeTime} from "./request-observation";
+import{authVerificationFailure}from'../supabase/auth-verification-error';
 
 export async function getAuthIdentity(): Promise<AuthIdentity> {
   const client = await createSupabaseServerClient();
-  const [{ data: { user }, error }, { data: claimsData, error: claimsError }] = await Promise.all([client.auth.getUser(), client.auth.getClaims()]);
+  const [{ data: userData, error }, { data: claimsData, error: claimsError }] = await Promise.all([client.auth.getUser().catch(error=>({data:null,error})), client.auth.getClaims().catch(error=>({data:null,error}))]);
+  const failure=authVerificationFailure(error,claimsError);
+  if(failure)throw new BackendError(failure===401?'请先登录并验证邮箱。':'暂时无法读取登录服务，请稍后重试。',failure);
+  const user=userData?.user;
   const claims = claimsData?.claims;
-  if (error || claimsError || !user || !user.email_confirmed_at || claims?.sub !== user.id || typeof claims.session_id !== "string") throw new BackendError("请先登录并验证邮箱。", 401);
+  if (!user || !user.email_confirmed_at || claims?.sub !== user.id || typeof claims.session_id !== "string") throw new BackendError("请先登录并验证邮箱。", 401);
   return { userId: user.id, sessionId: claims.session_id };
 }
 async function member(tx: TransactionSql, storeId: string, userId: string,read:boolean): Promise<StaffMember> {

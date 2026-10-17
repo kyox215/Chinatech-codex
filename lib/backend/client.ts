@@ -1,4 +1,7 @@
 "use client";
+import{flushSync}from'react-dom';
+import{readResponseObject}from'./read-response';
+import{retailCopyFacts}from'./retail-form-contract';
 import type { BackendCommand, BackendSnapshot, OperationReceipt, UnchangedState } from "./contracts";
 import { memberScope, pendingOperation, reserveOperation, markOperationUnknown, forgetOperation, type PendingOperation } from "./recovery-store";
 import { backendIdentityKey, backendScopeKey, pagePlanKey } from "./read-plan";
@@ -49,12 +52,13 @@ function accept(next:BackendSnapshot,scope:ReturnType<typeof requestScope>,allow
   // The v1 command/recovery adapter remains compatible during migration. It may
   // return canonical state, but must never reset the page's v2 polling protocol.
   if (snapshot.read && !next.read) {
-    next={...next,retailListEnabled:snapshot.retailListEnabled,procurementListEnabled:snapshot.procurementListEnabled,repairListEnabled:snapshot.repairListEnabled};
+    next={...next,retailFormEnabled:snapshot.retailFormEnabled,retailListEnabled:snapshot.retailListEnabled,procurementListEnabled:snapshot.procurementListEnabled,repairListEnabled:snapshot.repairListEnabled};
     const member = next.staff.members.find(row => row.id === next.staff.currentId);
     // Derive form metadata only from this newly authorized canonical v1 result.
     // An earlier page's defaults are not evidence of current policy after a save.
     if(snapshot.read.plan.kind==="repair-new"&&next.settings){const settings=next.settings;next={...next,intakeDefaults:{revision:next.revision,paper:settings.paper,policy:{months:settings.repairWarrantyMonths,shopName:settings.shopName,address:settings.address,phone:settings.phone}}};}
     if(snapshot.read.plan.kind==="procurement-new"){const intake=next.intakes.find(row=>row.id===snapshot?.read?.plan.id);next={...next,procurementRepairCandidate:intake?{id:intake.id,model:intake.model}:null};}
+    if(snapshot.read.plan.kind==='retail-new'&&next.settings){const copied=next.retail.find(unit=>unit.id===snapshot?.read?.plan.id);next={...next,retailCreationDefaults:{revision:next.settings.revision,warrantyMonths:next.settings.retailWarrantyMonths,copy:copied?retailCopyFacts(copied):null}};}
     next = { ...next, customerListEnabled: snapshot.customerListEnabled, stateToken: undefined, read: { ...snapshot.read, scope: { ...snapshot.read.scope, memberRevision: member?.revision ?? snapshot.read.scope.memberRevision, permissions: [...(member?.permissions ?? [])].sort() } } };
   }
   const before=snapshot.staff.members.find(row=>row.id===snapshot?.staff.currentId)?.revision??0;
@@ -66,14 +70,20 @@ function accept(next:BackendSnapshot,scope:ReturnType<typeof requestScope>,allow
 }
 // A same-scope server refresh updates reads without resetting an in-flight receipt.
 export function reconcileBackendInitial(next:BackendSnapshot){if(snapshot)accept(next,requestScope(),true);}
-async function request(url:string,init:RequestInit={}) {
+async function request(url:string,init:RequestInit={},beforeDecode?:(response:Response)=>boolean|void) {
   const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);
-  try {const response=await fetch(url,{...init,headers:{"x-ct-store-id":snapshot?.storeId??"",...Object.fromEntries(new Headers(init.headers))},cache:"no-store",signal:controller.signal});const data=await response.json();return {response,data};}
+  const scope=requestScope();
+  try {const response=await fetch(url,{...init,headers:{"x-ct-store-id":snapshot?.storeId??"",...Object.fromEntries(new Headers(init.headers))},cache:"no-store",signal:controller.signal});
+    if(beforeDecode?.(response)===false)return{response,data:null};
+    // A known authentication loss is authoritative even when a proxy body is
+    // unreadable. Ordinary command403 is deliberately left to its own protocol.
+    if(response.status===401&&sameScope(scope)){redirectIdentity(response.status);throw new Error('登录身份已变化，请重新登录后核对原提交。');}
+    const data=await readResponseObject(response);return {response,data};}
   finally {clearTimeout(timer);}
 }
 function redirectIdentity(status:number,code?:string){
   if(code==="IDENTITY_CHANGED"){clearBackend();window.location.reload();return true;}
-  if(status===401){clearBackend();window.location.assign("/login");return true;}
+  if(status===401){flushSync(()=>clearBackend());window.location.assign("/login");return true;}
   return false;
 }
 export function loadRecovery():Promise<void>{
@@ -101,9 +111,11 @@ export function refreshBackend():Promise<void> {
   const promise=(async()=>{
     const page = previous.read;
     const query = page ? new URLSearchParams({ plan: JSON.stringify(page.plan), ...(known ? { known } : {}) }) : null;
-    const {response,data}=await request(page?`/api/backend/v2/page?${query}`:known?`/api/backend/state?known=${known}`:"/api/backend/state",page?{headers:{"x-ct-store-id":previous.storeId,"x-ct-read-scope":backendScopeKey(page.scope)}}:undefined);
+    const {response,data}=await request(page?`/api/backend/v2/page?${query}`:known?`/api/backend/state?known=${known}`:"/api/backend/state",page?{headers:{"x-ct-store-id":previous.storeId,"x-ct-read-scope":backendScopeKey(page.scope)}}:undefined,response=>{
+      if(!sameReadScope(scope))return false;
+      if(response.status===401||response.status===403){flushSync(()=>clearBackend());window.location.assign(response.status===401?'/login':'/account/pending');throw new Error('账号访问权限已变化。');}
+    });
     if(!sameReadScope(scope))return;
-    if(response.status===401 || response.status===403){clearBackend();window.location.assign(response.status===401?"/login":"/account/pending");throw new Error("账号访问权限已变化。");}
     if (page && response.status === 409 && data.code === "IDENTITY_CHANGED") { clearBackend(); window.location.reload(); throw new Error("账号访问权限已变化。"); }
     if(!response.ok)throw new Error("后台暂时不可用，当前输入已保留。 ");
     if(data.unchanged===true){

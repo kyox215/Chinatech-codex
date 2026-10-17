@@ -95,3 +95,19 @@ repair-new 在 repair/customer 两开关均启用时，SSR `ready`只有staff，
 整机阶段冻结构建为 `0HhgtE2Q7XvRZnaH4kWnQ`（461运行输入）。此前同源未变范围的三语五宽布局、三视图首50／真实触底100／尾搜、1000包装码候选／10批500及深位置恢复已分别运行；最终Chromium受影响4项与WebKit7项全部通过。覆盖独立同ID实物／历史的实际Link目标、返回像素／焦点／前邻、原10000字历史详情、Unicode查询reload、503保留／重试及同一旧document非JSON拒绝立即撤私有资料。原footer、标签、SQL参数类型和selector失败保留。Node604项为603过及本机无PowerShell跳过1项，4219三语／词表检查通过；不把这些本地功能矩阵称为P95或正式上线。
 
 关闭整机读取flag后的旧URL兼容仍待P7实际核验：新categoryKey/statusKey链接不能静默失去筛选，也不能借未ready投影猜标签或将超长原文塞回URL。其余按需表单及最终容量／保存／跨设备门禁继续实施。
+
+## 整机新建候选与 Unicode 版本合同（实施中）
+
+`BACKEND_RETAIL_FORM_READS`默认关闭；启用时新建页只读取staff及显式、带revision的当前保修设置，copy仅读取目标14个原始规格字段。已登记品牌／型号／CPU／GPU／键盘／版本在原组合框打开后按需查询，至多12个显示预览与完整授权总数；选择后按opaque key重新授权读取一个完整原文。原始自由文本、扫描、规格核对和完整域查重不以预览替代。当前保存仍原事务／店锁／幂等协议，最小回执属于后续P5。
+
+Node24.19使用Unicode17／ICU78.3；本地PG17.11的ICU153.128不能推断为同一Unicode版本。实际公开码位和组合上下文反例证明，旧PG的NFKC及大小写会遗漏新字符／CCC／Final_Sigma。第8迁移原SHA保留，第9增量候选使用版本固定的数据和完整NFKD→CCC重排→规范组合（含Hangul），以及语言无关完整上下文大小写；不能仅逐码位替换后调用旧PG normalize。ASCII及官方Quick_Check未变化输入走快路，快路同时覆盖组合音标、可能组合的第二字符与Hangul V/T。
+
+生成输入来自Unicode17官方UnicodeData、DerivedNormalizationProps、SpecialCasing和NormalizationTest；下载文件的URL／SHA与生成时Node／ICU版本写入`unicode17-data.json`，Unicode License V3随数据保留。生成离线运行，不读取业务资料；常量表／函数无runtime、anon、authenticated或public访问，只有投影owner派生。模型format与数据／算法／第一方规则hash绑定，变更先全部unready且清旧cursor，再按≤200源事实回填、完整独立JS oracle复核后ready，不改canonical原文。
+
+第9增量迁移SHA `2f6f20219d632ed2eec96e97d6db810109ce35f1d64408f600ceff8a45e6597f` 已仅装本轮两新验收库；format2／projection hash `81f019f00cdb15014b7e4ba758a566b7b4dde8895ac930fca2a51ce30a404fa7` 绑定规则与完整数据／算法，旧第8文件不变。SQL实际完整官方五列100170项／37671独立输入、10796码位及19402混合上下文与Node原函数一致；完整core事务证据的五函数／常量SQL另绑定到最终9，追加owner投影及有界索引另验。合法5000字符高熵品牌先触发旧宽索引54000，修成固定hash后又暴露旧整机name宽排序索引；最终移除该宽索引、保留实际SQL完整排序与窄view索引，原stored validator合法最大值写入和长相同前缀9／10数字排序均过，原文未回写。单次极长归一化／写入计时不是P95或二万条写负载。
+
+实际operator每批至多200个目标、仅选七个规格字段；完整展开norm/search/hash在数据库作摘要对照，独立JS仍验证完整原值，六张原件约1.63MB未进入目标读取、SHA不变。已ready重建先失效，失败留unready，最终同店锁完整核验总数／额外投影后激活；功能店750目标／1625候选四批按新format2重新验证。新建defaults.revision明确是 `settings.revision`，不使用每次业务保存递增的整店revision；原create_ready／prepare写合同仍按真实设置版本核对。真实连续保存曾因两版本混用返回409，修在read和v1当前事实适配，未放宽写入。
+
+P6本切片先复用共同Auth验证错误分类与安全JSON读取：真实失效401、临时网络／5xx／429／解析故障503；已验证user/sub/session和实时数据库权限保留。读取拒绝在解析非JSON之前按当前scope撤下私有数据，旧scope拒绝不清新身份；普通业务命令403不全局登出，无法读取的提交回包保留原requestId待核对，只有确认ok才清登录设备撤销intent。完整失效／缓存／PDF与容量、P5最小回执仍后续实施，不能由这些接缝测试代替实际浏览器、生产或最终预算。
+
+最终表单构建 `ozHcJruOif9DtB0OGGWx0` 绑定475运行文件，Chromium／WebKit共16项实际通过：按需12候选与4999字符精确原文、迟到exact拒绝、未加载重复SN拒绝、首建档→详情／刷新→复制清身份→按当前设置建档并可售、原历史资料核对→全域重复拒绝→确认保存同origin→刷新，以及三语四宽。旧标签／增强select同文按钮定位、设置revision409及零冲突`items:[null]`被严格schema拒绝的失败证据保留；新出口零冲突返回空数组。全Node618＝617通过、1本机无PowerShell跳过；三语4219、类型及第一方lint0错误／2已有warning。精确清理9条已提交合成单机及对应审计／回执后，原750单机＋801历史完整JSON SHA逐条相同，维修1200／采购250／客户设备1200保持。普通v1回包仍实际4.66MB，P5预算未达；不把本地链条成功称为完整性能计划或生产通过。

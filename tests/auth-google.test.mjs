@@ -28,6 +28,7 @@ function harness(google = true, apple = false) {
       if (name === "@/lib/server/account-auth") return load("lib/server/account-auth.ts");
       if (name === "@/lib/backend/database") return { BackendError: class extends Error {}, withDatabase: () => { throw new Error("No database allowed in OAuth initiation."); } };
       if (name === "./login-policy" || name === "@/lib/server/login-policy") return load("lib/server/login-policy.ts");
+      if(name==='@/lib/supabase/auth-verification-error')return load('lib/supabase/auth-verification-error.ts');
       if(name.startsWith("."))return load(resolve(dirname(path),name)+".ts");
       return require(name);
     } });

@@ -19,10 +19,13 @@ function harness() {
       state.queries.push({sql,values});
       if(sql.includes('retail_list_models'))return[{ready:true,generation:'3',vocabulary_hash:JSON.parse(readFileSync('lib/backend/retail-vocabulary-version.ts','utf8').match(/retailVocabularyHash=("[^"]+")/)[1])}];
       if(sql.includes('retail_list_sources')&&sql.trimStart().startsWith('with scoped'))return[{total:1,point_found:false,point_rank:0,view_counts:{available:1,sold:0,other:0},condition_counts:{all:1,新机:0,翻新机:1},items:[{key:'unit:DEMO-RETAIL',id:'DEMO-RETAIL',source:'unit',title:'DEMO',view:'available'}]}];
+      if(sql.startsWith('select id,code from chinatech_v2_private.retail_list_sources'))return state.identityConflict?[state.identityConflict]:[];
       if(sql.includes('select ready,generation::text')) return [{ready:true,generation:'3'}];
       if(sql.trimStart().startsWith('with grouped as')) return [{total:1,items:[{phone:'+390000000001',name:'DEMO',email:'',repairs:1,sales:0,history:0,activity:'2026-10-10 00:00:00'}]}];
       if(sql.trimStart().startsWith('with scoped as'))return[{total:1,group_total:1,stats:{all:1,draft:1,open:0,complete:0},point_found:false,point_rank:0,items:[{id:'DEMO-PROC-1',repairId:state.intake.id,repairModel:'DEMO',item:'DEMO part',supplier:'DEMO supplier',quantity:1,arrived:0,status:'draft',expectedAt:'',ledgerRevision:0,groupKey:'DEMO supplier',groupFirst:'DEMO-PROC-1',groupCount:1}]}];
       if(sql.includes('select st.revision,s.name')) return [{revision:state.revision,name:'DEMO'}];
+      if(sql.includes("settings->>'retailWarrantyMonths'"))return[{revision:state.settings.revision,warranty_months:state.settings.retailWarrantyMonths}];
+      if(sql.startsWith("select jsonb_build_object('id',id,'code'"))return[{facts:{id:'DEMO-COPY',code:'DEMO-CODE',model:'DEMO copy original'}}];
       if(sql.includes("settings->>'paper'"))return[{revision:state.revision,paper:state.settings.paper,policy:{months:state.settings.repairWarrantyMonths,shopName:state.settings.shopName,address:state.settings.address,phone:state.settings.phone}}];
       if(sql.startsWith("select id,data->>'model'"))return[{id:state.intake.id,model:'DEMO selected model'}];
       if(sql.includes('select settings')||sql.includes('select (settings')) return [{settings:state.settings}];
@@ -62,6 +65,15 @@ test('session bootstrap and catalog serialize only current identity; no settings
   assert.equal(h.state.queries.length,1);assert.match(h.state.queries[0].sql,/select st.revision,s.name/);
   for(const domain of ['settings','intakes','signatures','procurement','retail','retailHistory','customers'])assert.equal(h.plans.backendDomainReady(catalog,domain),false);
 });
+test('retail new read flag uses explicit current defaults and one copy target, never full settings/canonical arrays; no edit does not invent ready metadata',async()=>{
+ const h=harness();h.state.env.BACKEND_RETAIL_FORM_READS='1';h.state.member.permissions.push('retail.edit');h.state.revision=99;h.state.settings.revision=7;
+ const state=await h.api.loadPageState(h.access,{kind:'retail-new',id:'DEMO-COPY'});
+ assert.deepEqual(state.read.ready,['staff']);assert.equal(state.retailCreationDefaults.warrantyMonths,12);assert.equal(state.retailCreationDefaults.revision,7);assert.equal(state.retailCreationDefaults.copy.model,'DEMO copy original');assert.equal(state.settings,null);assert.deepEqual(state.retail,[]);assert.deepEqual(state.retailHistory,[]);
+ assert.equal(h.state.queries.length,3);assert.equal(h.state.queries.filter(query=>query.sql.includes('from chinatech_v2_private.retail_units')).length,1);assert.match(h.state.queries.at(-1).sql,/where store_id=\? and id=\?/);
+ h.state.member.permissions=h.state.member.permissions.filter(permission=>permission!=='retail.edit');h.state.queries.length=0;const denied=await h.api.loadPageState(h.access,{kind:'retail-new',id:'DEMO-COPY'});assert.equal(denied.retailCreationDefaults,undefined);assert.equal(h.state.queries.length,1);
+ assert.deepEqual(h.plans.parsePageReadPlan({kind:'retail-new',id:'DEMO-COPY'}),{kind:'retail-new',id:'DEMO-COPY'});assert.throws(()=>h.plans.parsePageReadPlan({kind:'retail-new',id:'x'.repeat(101)}));
+});
+test('retail identity endpoint returns zero or one real item; absence is never a null list row',async()=>{const h=harness();h.state.member.permissions.push('retail.edit');const raw={id:'DEMO-new',code:'',brand:'DEMO',serial:'DEMO-SN',imei1:'',imei2:''};const empty=await h.api.loadRetailIdentityCheck(h.access,raw);assert.deepEqual(empty.items,[]);h.state.identityConflict={id:'DEMO-original',code:'DEMO-TAIL'};const found=await h.api.loadRetailIdentityCheck(h.access,raw);assert.deepEqual(found.items,[h.state.identityConflict]);});
 test('repair detail reads only target/related IDs, exact signature and procurement scope; never unrelated domains',async()=>{
   const h=harness(), result=await h.api.loadPageState(h.access,{kind:'repair',id:h.state.intake.id});
   assert.equal(result.intakes[0].id,h.state.intake.id);assert.equal(result.settings.repairWarrantyMonths,6);
