@@ -28,7 +28,7 @@ export async function loadStateHeader(tx: TransactionSql, storeId: string, membe
   return { revision, settings: store.settings as StoreSettings, staff, stateToken };
 }
 
-export async function loadState(tx: TransactionSql, storeId: string, member: StaffMember, header?: StateHeader): Promise<BackendSnapshot> {
+export async function loadState(tx: TransactionSql, storeId: string, member: StaffMember, header?: StateHeader): Promise<BackendSnapshot & { settings: StoreSettings }> {
   const current = header ?? await loadStateHeader(tx, storeId, member);
   const intakes = await tx`select data,signatures,workflow from chinatech_v2_private.repair_intakes where store_id=${storeId} order by id`;
   const procurement = await tx`select data from chinatech_v2_private.procurement_records where store_id=${storeId} order by id`;
@@ -44,7 +44,7 @@ export async function loadState(tx: TransactionSql, storeId: string, member: Sta
 export function projectState(state: BackendSnapshot, member: StaffMember): BackendSnapshot {
   const financial = can(member,"financial.read");
   return { ...state,
-    settings: { ...state.settings, finance: financial ? state.settings.finance : [] },
+    settings: state.settings ? { ...state.settings, finance: financial ? state.settings.finance : [] } : null,
     intakes: can(member,"repairs.view") ? state.intakes : [], signatures: can(member,"repairs.view") ? state.signatures : [],
     workflows: can(member,"repairs.view") ? state.workflows : {},
     procurement: can(member,"repairs.view") ? state.procurement.map(row => financial ? row : { ...row, unitCostCents: null }) : [],

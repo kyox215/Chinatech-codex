@@ -7,7 +7,8 @@ import { InputControl } from "@/components/input-control";
 import { NavigationLink as Link } from "@/components/navigation-link";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Archive, ChevronLeft, ChevronRight, Plus, ScanLine, Search, X } from "lucide-react";
+import { Archive, ChevronRight, Plus, ScanLine, Search, X } from "lucide-react";
+import { ListPagination } from "@/components/list-pagination";
 import { PageTitle } from "@/components/page-title";
 import { SelectControl } from "@/components/select-control";
 import { useStaff } from "@/components/staff/use-staff";
@@ -98,7 +99,7 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
           </Link>)}
         </div>
         {!result.total ? <div className="module-empty"><Archive size={28} /><strong>{hasFilters ? t("没有符合条件的商品") : view === "available" ? t("暂无在售商品") : view === "sold" ? t("暂无已售记录") : t("暂无其他状态商品")}</strong>{hasFilters ? <button type="button" className="button button--secondary" onClick={clear}>{t("清除筛选")}</button> : null}</div> : null}
-        <nav className={styles.pagination} aria-label={t("整机商品分页")}><span aria-live="polite">{t("第 ")}{result.page} / {result.pageCount} {t(" 页 · 每页 50 条")}</span><div><button className="button button--secondary" type="button" aria-label={t("整机商品上一页")} disabled={result.page <= 1} onClick={() => update("page",String(result.page-1))}><ChevronLeft size={17} />{t("上一页")}</button><button className="button button--secondary" type="button" aria-label={t("整机商品下一页")} disabled={result.page >= result.pageCount} onClick={() => update("page",String(result.page+1))}>{t("下一页")}<ChevronRight size={17} /></button></div></nav>
+        <ListPagination shown={result.items.length} total={result.total} hasMore={result.page < result.pageCount} onLoadMore={() => update("page",String(result.page+1))} resetKey={[view, condition, query, category, review, sort, status].join("|")} disabled={Boolean(error)} label={t("整机商品加载")} />
       </>}
     </section>
   </main>;

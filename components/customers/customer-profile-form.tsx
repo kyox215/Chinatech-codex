@@ -11,6 +11,8 @@ import { SearchCombobox } from "@/components/search-combobox";
 import { customerCandidates, normalizeCustomerPhone, type Customer } from "@/lib/customers";
 import { intakeRecordTime } from "@/lib/repair-intake-record";
 import { saveCustomerProfile, useCustomerDirectory } from "./customer-store";
+import { useBackendState } from "@/components/backend-snapshot";
+import { requestCustomerList, useCustomerListPage } from "./use-customer-list-page";
 import styles from "./customers.module.css";
 
 export function CustomerProfileForm({ customer, onSaved, onCancel }: { customer?: Customer; onSaved: (phone: string) => void; onCancel: () => void }) {
@@ -29,14 +31,20 @@ export function CustomerProfileForm({ customer, onSaved, onCancel }: { customer?
   const busy = useRef(false);
   const [version,setVersion]=useState(customer?.version??0);
   const deviceDraft=useDeviceDraft(`customer:${customer?.id??"new"}`,{phone,name,email,note,version},value=>{setPhone(value.phone);setName(value.name);setEmail(value.email);setNote(value.note);setVersion(value.version);});
-  const candidates = customerCandidates(phone, customers);
+  const backend = useBackendState();
+  const remoteCandidates = useCustomerListPage(!customer && backend.formal ? phone : "", "phone");
+  const candidates = backend.formal && backend.snapshot?.customerListEnabled ? remoteCandidates.page?.items ?? [] : customerCandidates(phone, customers);
   async function submit(event: React.FormEvent) {
     event.preventDefault(); if (busy.current || receipt.isWaiting()) return;
     const requestId = crypto.randomUUID();
     busy.current = true; setSubmitting(true); setError("");
     try {
       const normalized = normalizeCustomerPhone(phone);
-      if (!customer && customers.some(item => item.phone === normalized)) throw new Error("该手机号已有客户档案，请打开现有档案。");
+      if (!customer) {
+        const scope = backend.snapshot?.customerListEnabled ? backend.snapshot.read?.scope : undefined;
+        const existing = scope ? await requestCustomerList(scope, {q:normalized,mode:"exact"}, {signal:AbortSignal.timeout(15000)}) : null;
+        if (existing && !("unchanged" in existing) && existing.total > 0 || !scope && customers.some(item=>item.phone===normalized)) throw new Error("该手机号已有客户档案，请打开现有档案。");
+      }
       await saveCustomerProfile({ phone: normalized, name, email, note, updatedAt: intakeRecordTime() }, version, {requestId});
       await deviceDraft.clear();onSaved(normalized);
     } catch (error) { receipt.watch(requestId, async isCurrent => { await deviceDraft.clear(); if (isCurrent()) onSaved(normalizeCustomerPhone(phone)); }, () => setError("")); setError(error instanceof Error ? error.message : "客户资料保存失败，请重试。"); }
@@ -49,6 +57,6 @@ export function CustomerProfileForm({ customer, onSaved, onCancel }: { customer?
       <label className="field"><span>{t("客户称呼（选填）")}</span><InputControl disabled={submitting} onClear={() => setName("")} clearLabel={t("清空客户称呼（选填）")} placeholder={t("例如：陈女士")} aria-label={t("客户称呼（选填）")} value={name} maxLength={80} onChange={event => setName(event.target.value)} /></label>
       <label className="field"><span>{t("电子邮件（选填）")}</span><InputControl disabled={submitting} onClear={() => setEmail("")} clearLabel={t("清空电子邮件（选填）")} placeholder="customer@example.com" aria-label={t("电子邮件（选填）")} type="email" value={email} maxLength={160} inputMode="email" onChange={event => setEmail(event.target.value)} /></label>
       <label className="field field--wide"><span>{t("客户备注（选填）")}</span><TextareaControl disabled={submitting} aria-label={t("客户备注（选填）")} placeholder={t("例如：优先使用电话联系")} value={note} maxLength={500} rows={3} onChange={event => setNote(event.target.value)} /></label>
-    </div>{error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}<div className={styles.formActions}><button className="button button--secondary" type="button" disabled={submitting} onClick={onCancel}>{t("取消")}</button><button className="button button--primary" type="submit" disabled={submitting}><Check size={17} />{unknown?t("待核对"):submitting ? t("正在保存") : t("保存客户资料")}</button></div></div>
+    </div>{remoteCandidates.error ? <p className="form-error" role="alert">{systemText(remoteCandidates.error)}</p> : null}{error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}<div className={styles.formActions}><button className="button button--secondary" type="button" disabled={submitting} onClick={onCancel}>{t("取消")}</button><button className="button button--primary" type="submit" disabled={submitting}><Check size={17} />{unknown?t("待核对"):submitting ? t("正在保存") : t("保存客户资料")}</button></div></div>
   <OperationRecoveryControls requestId={receipt.requestId}/></form>;
 }

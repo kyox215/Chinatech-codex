@@ -20,6 +20,7 @@ import { memberInTransaction } from "./context";
 import { retailCommandPermission, requireRetailAfterSaleRepair } from "../retail-access";
 import { BackendError, withDatabase, type AuthIdentity } from "./database";
 import type { BackendCommand, BackendSnapshot } from "./contracts";
+type CommandState = BackendSnapshot & { settings: StoreSettings };
 import { parseIntakePhotoAttachments, putIntakePhotos } from "./intake-photos";
 import { prepareIntakePhotoUpdate, RepairPhotoUpdateError } from "../repair-photo-update";
 import { fields, intakeFields, procurementFields, workflowCommandFields, customerFields, settingsFields, memberFields, retailFields, commandFields } from "./input";
@@ -33,7 +34,7 @@ function identifier(value: unknown) { if (typeof value!=="string" || !value || v
 function policy(settings:StoreSettings):IntakePolicy { return {months:settings.repairWarrantyMonths,shopName:settings.shopName,address:settings.address,phone:settings.phone}; }
 function exactKeys(value:Record<string,unknown>, allowed:string[]) {if(Object.keys(value).some(key=>!allowed.includes(key))) throw new BackendError("请求包含不支持的字段。");}
 
-function procurementSupplier(state:BackendSnapshot,record:ProcurementRecord,required=false,active=false) {
+function procurementSupplier(state:CommandState,record:ProcurementRecord,required=false,active=false) {
   const supplierId=resolveSupplierId(record,state.settings.suppliers);
   const supplier=state.settings.suppliers.find(row=>row.id===supplierId);
   if(!supplier) {
@@ -43,7 +44,7 @@ function procurementSupplier(state:BackendSnapshot,record:ProcurementRecord,requ
   if(active && !supplier.active) throw new BackendError("供应商已停用，请重新核对下单范围。",409);
   return supplier;
 }
-function checkRequirement(state:BackendSnapshot,record:ProcurementRecord) {
+function checkRequirement(state:CommandState,record:ProcurementRecord) {
   const intake=state.intakes.find(row=>row.id===record.repairId);
   if(!intake) throw new BackendError("关联工单不存在。",404);
   if(record.requirementId!==undefined || record.requirementRevision!==undefined) {
@@ -53,7 +54,7 @@ function checkRequirement(state:BackendSnapshot,record:ProcurementRecord) {
   }
   return intake;
 }
-function requireOpenProcurement(state:BackendSnapshot,repairId:string) {
+function requireOpenProcurement(state:CommandState,repairId:string) {
   const intake=state.intakes.find(row=>row.id===repairId);
   if(!intake) throw new BackendError("关联工单不存在。",404);
   const order=intakeDirectoryEntry(intake);
@@ -65,7 +66,7 @@ async function putCustomer(tx:TransactionSql,storeId:string, data:CustomerProfil
   const [row] = await tx`insert into chinatech_v2_private.customers(store_id,normalized_phone,data) values(${storeId},${normalizeCustomerPhone(data.phone)},${tx.json(data)}) on conflict(store_id,normalized_phone) do update set data=excluded.data returning id`;
   return row.id as string;
 }
-async function putIntake(tx:TransactionSql,state:BackendSnapshot, data:IntakeReceiptData, signatures=state.signatures.filter(row=>row.orderId===data.id)) {
+async function putIntake(tx:TransactionSql,state:CommandState, data:IntakeReceiptData, signatures=state.signatures.filter(row=>row.orderId===data.id)) {
   const previous=state.intakes.find(row=>row.id===data.id);
   let customerId:string; let deviceId:string;
   if(previous) {
@@ -91,7 +92,7 @@ async function putIntake(tx:TransactionSql,state:BackendSnapshot, data:IntakeRec
   await tx`insert into chinatech_v2_private.repair_intakes(store_id,id,customer_id,device_id,data,signatures) values(${state.storeId},${data.id},${customerId},${deviceId},${tx.json(data)},${tx.json(signatures)}) on conflict(store_id,id) do update set data=excluded.data,customer_id=excluded.customer_id,device_id=excluded.device_id,signatures=excluded.signatures`;
 }
 function deviceFacts(data:IntakeReceiptData) {return {category:data.category,brand:data.brand,model:data.model,color:data.color,serial:data.serial};}
-async function ensureCustomer(tx:TransactionSql,state:BackendSnapshot,data:IntakeReceiptData) {
+async function ensureCustomer(tx:TransactionSql,state:CommandState,data:IntakeReceiptData) {
   const phone=normalizeCustomerPhone(data.phone);
   const [existing]=await tx`select id from chinatech_v2_private.customers where store_id=${state.storeId} and normalized_phone=${phone}`;
   if(existing) return existing.id as string;
@@ -112,7 +113,7 @@ async function putProcurementRecords(tx:TransactionSql,storeId:string,records:Pr
     where store_id=${storeId} and id in ${tx(repairIds)}`;
 }
 
-async function saveRepairItem(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,p:Record<string,unknown>,requestId:string,time:string) {
+async function saveRepairItem(tx:TransactionSql,state:CommandState,member:StaffMember,p:Record<string,unknown>,requestId:string,time:string) {
   exactKeys(p,["type","record","revision","workflowRevision","intakeRevision","quoteCents","noProcurement"]);
   const submitted=p.record as ProcurementRecord;fields(submitted,procurementFields);identifier(submitted.id);identifier(submitted.repairId);
   if(p.noProcurement!==undefined && typeof p.noProcurement!=="boolean") throw new BackendError("采购选择无效。");
@@ -182,7 +183,7 @@ async function saveRepairItem(tx:TransactionSql,state:BackendSnapshot,member:Sta
   return next?.id??intake.id;
 }
 
-async function saveRepairItems(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,p:Record<string,unknown>,requestId:string,time:string) {
+async function saveRepairItems(tx:TransactionSql,state:CommandState,member:StaffMember,p:Record<string,unknown>,requestId:string,time:string) {
   exactKeys(p,["type","repairId","intakeRevision","workflowRevision","items"]);
   const {type:_type,...input}=p;void _type;
   try {
@@ -202,7 +203,7 @@ async function saveRepairItems(tx:TransactionSql,state:BackendSnapshot,member:St
   }
 }
 
-async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,kind:string,p:Record<string,unknown>,requestId:string) {
+async function apply(tx:TransactionSql,state:CommandState,member:StaffMember,kind:string,p:Record<string,unknown>,requestId:string) {
   const time=intakeRecordTime();
   if(kind==="intake.save") {
     exactKeys(p,["data","revision","signature","signatureCount","photos"]);authorize(member,"repairs.edit");
@@ -468,7 +469,7 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     exactKeys(p,["draft","version"]);authorize(member,"customers.edit");
     fields(p.draft,customerFields);const phone=normalizeCustomerPhone((p.draft as CustomerProfile).phone);
     if((state.customers.find(row=>normalizeCustomerPhone(row.phone)===phone)?.version??0)!==integer(p.version)) throw new BackendError("客户资料已变化，请重新核对。",409);
-    const draft={...p.draft as Omit<CustomerProfile,"version">,updatedAt:time};const next=updateCustomerProfile(state.customers,draft,integer(p.version));
+    const draft={...p.draft as Omit<CustomerProfile,"version">,updatedAt:time};const next=updateCustomerProfile(state.customers.filter(row=>normalizeCustomerPhone(row.phone)===phone),draft,integer(p.version));
     await putCustomer(tx,state.storeId,next.find(row=>normalizeCustomerPhone(row.phone)===normalizeCustomerPhone(draft.phone))!);return normalizeCustomerPhone(draft.phone);
   }
   if(kind==="settings.save") {

@@ -1,5 +1,15 @@
 /** Static display messages. Do not use these translations as business values. */
 export const interfaceMessages: Record<string, readonly [string, string]> = {
+  "当前窗口 {v0}–{v1} / {v2} 条": ["Finestra corrente {v0}–{v1} / {v2}", "Current window {v0}–{v1} / {v2}"],
+  "列表加载": ["Caricamento elenco", "List loading"],
+  "客户历史整机加载": ["Caricamento dispositivi storici del cliente", "Customer historical device loading"],
+  "整机商品加载": ["Caricamento dispositivi", "Device loading"],
+  "设备目录加载": ["Caricamento catalogo dispositivi", "Device catalog loading"],
+  "登录设备加载": ["Caricamento dispositivi connessi", "Login device loading"],
+  "已显示 {v0} / {v1} 条": ["Visualizzati {v0} / {v1}", "Showing {v0} / {v1}"],
+  "已显示 {v0} 条": ["Visualizzati {v0}", "Showing {v0}"],
+  "已全部显示": ["Tutti gli elementi visualizzati", "All items shown"],
+  "加载更多": ["Carica altri", "Load more"],
   "全部配件记录": ["Tutti i ricambi", "All part records"],
   "有未关联当前项目的采购，请在全部配件记录中核对。": ["Alcuni acquisti non sono associati agli interventi attuali. Verificali in Tutti i ricambi.", "Some purchases are not linked to current items. Review them in All part records."],
   "上传照片或拍照": ["Carica o scatta foto", "Upload or take photos"],

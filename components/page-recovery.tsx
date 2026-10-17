@@ -18,12 +18,13 @@ export function useOnline() {
 }
 
 /** A read failure is never presented as an empty or missing business record. */
-export function ReadFailure({ message }: { message: string }) {
+export function ReadFailure({ message, onRetry, pending: externalPending = false }: { message: string; onRetry?: () => void; pending?: boolean }) {
   const { t, systemText } = useLanguage();
   const router = useRouter();
   const online = useOnline();
-  const [pending, startTransition] = useTransition();
-  return <section className="panel read-failure" role="alert" aria-busy={pending}><AlertCircle size={18} aria-hidden="true" /><strong>{t("资料暂时无法读取")}</strong><p>{systemText(message)}</p><button type="button" className="button button--secondary" disabled={!online || pending} aria-busy={pending} onClick={() => startTransition(() => router.refresh())}>{pending ? t("正在重新读取…") : t("重试加载")}</button></section>;
+  const [transitionPending, startTransition] = useTransition();
+  const pending = transitionPending || externalPending;
+  return <section className="panel read-failure" role="alert" aria-busy={pending}><AlertCircle size={18} aria-hidden="true" /><strong>{t("资料暂时无法读取")}</strong><p>{systemText(message)}</p><button type="button" className="button button--secondary" disabled={!online || pending} aria-busy={pending} onClick={() => onRetry ? onRetry() : startTransition(() => router.refresh())}>{pending ? t("正在重新读取…") : t("重试加载")}</button></section>;
 }
 
 /** Error recovery only re-reads the route; it never repeats a business submission. */

@@ -15,6 +15,9 @@ const compiled = ts.transpileModule(source, {
 const bootstrapCompiled = ts.transpileModule(readFileSync(new URL("../lib/backend/bootstrap.ts", import.meta.url), "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
+const readPlanCompiled = ts.transpileModule(readFileSync(new URL("../lib/backend/read-plan.ts", import.meta.url), "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+const readPlan = {};
+runInContext(readPlanCompiled, createContext({ exports: readPlan }));
 
 const storeId = "00000000-0000-4000-8000-000000000001";
 const ownerId = "00000000-0000-4000-8000-000000000002";
@@ -127,8 +130,8 @@ function harness({requestDeadline}={}) {
   };
   const navigator={onLine:true};
   const context = createContext({
-    require:name=>{assert.equal(name,"./recovery-store");return storage;},
-    AbortController,URLSearchParams,setTimeout:requestDeadline?((fn,ms)=>setTimeout(fn,ms===20000?requestDeadline:ms)):setTimeout,clearTimeout,navigator,
+    require:name=>{if(name==="./read-plan")return readPlan;assert.equal(name,"./recovery-store");return storage;},
+    Headers, AbortController,URLSearchParams,setTimeout:requestDeadline?((fn,ms)=>setTimeout(fn,ms===20000?requestDeadline:ms)):setTimeout,clearTimeout,navigator,
     exports: {},
     crypto: { randomUUID },
     fetch: (url, options) => new Promise((resolve, reject) => {
@@ -490,4 +493,80 @@ test("格式无法序列化后不会永久锁住提交入口",async()=>{
 test("回执清理等待期间切换身份，旧结果不能污染新恢复状态",async()=>{
  const h=harness();h.client.configureBackend(mockSnapshot({memberId:ownerId}));let release;h.storage.forgetOperation=()=>new Promise(resolve=>release=resolve);
  const pending=h.client.backendCommand("synthetic.command",{});const rejected=assert.rejects(pending,/身份已变化/);await setImmediate();h.requests[0].resolve(response(200,mockSnapshot({memberId:ownerId,revision:2})));await setImmediate();assert.equal(typeof release,"function");h.client.configureBackend(mockSnapshot({memberId:clerkId,revision:3}));release();await rejected;await setImmediate();assert.equal(h.client.backendRecovery().pending,null);assert.equal(h.client.backendRecovery().receipt,undefined);
+});
+
+function pageSnapshot(kind = "repairs", options = {}) {
+  const state = mockSnapshot(options);
+  state.read = { formatVersion: 2, scope: { accountId: "synthetic-account", sessionId: options.sessionId ?? "synthetic-session", storeId, memberId: state.staff.currentId, memberRevision: state.staff.members[0].revision, permissions: state.staff.members[0].permissions, formatVersion: 2 }, plan: { kind }, ready: ["staff", "retail"] };
+  return state;
+}
+
+test("v2读取绑定实际会话和页面，旧页面高版本迟到不能覆盖新页或阻塞新页请求", async () => {
+  const h = harness(), initial = pageSnapshot(); h.client.configureBackend(initial);
+  const old = h.client.refreshBackend();
+  assert.match(h.requests[0].url, /^\/api\/backend\/v2\/page\?/);
+  assert.equal(h.requests[0].options.headers["x-ct-store-id"], storeId);
+  assert.match(h.requests[0].options.headers["x-ct-read-scope"], /synthetic-session/);
+  const next = pageSnapshot("retail"); h.client.reconcileBackendInitial(next);
+  const current = h.client.refreshBackend(); assert.equal(h.requests.length, 2);
+  h.requests[0].resolve(response(200, pageSnapshot("repairs", { revision: 999, costCents: 99999 })));
+  await old; assert.equal(h.client.backendSnapshot(), next);
+  const refreshed = pageSnapshot("retail", { revision: 2 }); h.requests[1].resolve(response(200, refreshed)); await current;
+  assert.equal(h.client.backendSnapshot(), refreshed);
+});
+
+test("v2同成员新会话使旧会话读取失效，错误页面响应不能填入当前页", async () => {
+  const h = harness(); h.client.configureBackend(pageSnapshot()); const old = h.client.refreshBackend();
+  const next = pageSnapshot("retail", { sessionId: "new-session" }); h.client.configureBackend(next);
+  h.requests[0].resolve(response(200, pageSnapshot("repairs", { revision: 999 }))); await old; assert.equal(h.client.backendSnapshot(), next);
+  const current = h.client.refreshBackend(), rejected = assert.rejects(current, /核对结果无效/);
+  h.requests[1].resolve(response(200, pageSnapshot("repairs", { sessionId: "new-session", revision: 2 }))); await rejected;
+  assert.equal(h.client.backendSnapshot(), next);
+});
+
+test("v2旧命令兼容回执保留页面协议，后续刷新不恢复整店state轮询", async () => {
+  const h = harness(); h.client.configureBackend(pageSnapshot("retail"));
+  const pending = h.client.backendCommand("synthetic.command", {}); await setImmediate();
+  h.requests[0].resolve(response(200, mockSnapshot({ revision: 2 }))); await pending;
+  assert.equal(h.client.backendSnapshot().read.plan.kind, "retail");
+  const refresh = h.client.refreshBackend(); assert.match(h.requests[1].url, /^\/api\/backend\/v2\/page\?/);
+  h.requests[1].resolve(response(200, pageSnapshot("retail", { revision: 2 }))); await refresh;
+});
+
+test("v2权限作用域过期立即隔离资料，不能继续使用旧页面内容", async () => {
+  const h = harness(); h.client.configureBackend(pageSnapshot()); const pending = h.client.refreshBackend(), rejected = assert.rejects(pending, /权限已变化/);
+  h.requests[0].resolve(response(409, { code: "IDENTITY_CHANGED" })); await rejected;
+  assert.equal(h.client.backendSnapshot(), null); assert.deepEqual(h.redirects, ["reload"]);
+});
+
+test("v2保存中导航不取消原请求或卡住busy，确认回执采用当前页协议", async () => {
+  const h = harness(); h.client.configureBackend(pageSnapshot("repairs"));
+  const pending = h.client.backendCommand("synthetic.command", {}); await setImmediate();
+  const requestId = JSON.parse(h.requests[0].options.body).requestId;
+  h.client.reconcileBackendInitial(pageSnapshot("retail"));
+  h.requests[0].resolve(response(200, mockSnapshot({ revision: 2 }))); await pending;
+  assert.equal(h.client.backendSnapshot().read.plan.kind, "retail");
+  assert.equal(h.client.backendRecovery().receipt.requestId, requestId);
+  assert.equal(h.client.backendRecovery().pending, null); assert.equal(h.client.backendRecovery().busy, false);
+});
+
+test("v2自身成员版本更新不把确认提交错误改成未知结果", async () => {
+  const h = harness(); h.client.configureBackend(pageSnapshot("retail"));
+  const pending = h.client.backendCommand("staff.save", {}); await setImmediate();
+  h.requests[0].resolve(response(200, mockSnapshot({ revision: 2, memberRevision: 2 }))); await pending;
+  assert.equal(h.client.backendSnapshot().read.scope.memberRevision, 2);
+  assert.equal(h.client.backendRecovery().pending, null); assert.equal(h.client.backendRecovery().busy, false);
+  assert.ok(h.client.backendRecovery().receipt);
+});
+
+test("v2原请求跨导航核对仍能清理原登记并发布真实回执", async () => {
+  const h = harness(); h.client.configureBackend(pageSnapshot("repairs"));h.navigator.onLine=false;
+  await assert.rejects(h.client.backendCommand("synthetic.command", {}), /离线/);
+  const original=h.client.backendRecovery().pending;
+  h.client.reconcileBackendInitial(pageSnapshot("retail"));h.navigator.onLine=true;
+  const check=h.client.recoverOperation("check");await setImmediate();
+  const snapshot=mockSnapshot({revision:2});snapshot.operation={requestId:original.command.requestId,entityId:"synthetic-unit",kind:"synthetic.command",committedAt:"2026-10-02T00:00:00Z",replayed:true};
+  h.requests[0].resolve(response(200,{status:"committed",snapshot}));await check;
+  assert.equal(h.client.backendRecovery().pending,null);assert.equal(h.client.backendRecovery().busy,false);
+  assert.equal(h.client.backendRecovery().receipt.requestId,original.command.requestId);assert.equal(h.client.backendSnapshot().read.plan.kind,"retail");
 });

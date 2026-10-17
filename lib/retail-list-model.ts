@@ -102,6 +102,6 @@ export function queryRetailList(items: readonly RetailListItem[], filters: Retai
   });
   const pageCount = Math.max(1, Math.ceil(scoped.length/50));
   const page = Math.min(pageCount, Number.isSafeInteger(filters.page) && filters.page > 0 ? filters.page : 1);
-  return { viewCounts, conditionCounts, total:scoped.length, page, pageCount, items:scoped.slice((page-1)*50,page*50),
+  return { viewCounts, conditionCounts, total:scoped.length, page, pageCount, items:scoped.slice(0,page*50),
     categories:[...categories].sort(), statuses:[...statuses].sort() };
 }

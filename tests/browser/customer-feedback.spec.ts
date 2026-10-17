@@ -2,22 +2,31 @@ import { test, expect } from "@playwright/test";
 import { defaultStaffData } from "../../lib/staff";
 
 test("customer rendering is bounded while search and counts cover every record", async ({ page }) => {
-  const profiles = Array.from({ length: 125 }, (_, i) => ({ phone: `+3932000${String(i).padStart(4, "0")}`, name: `Synthetic customer ${i}`, email: "", note: "", version: 1, updatedAt: "2026-10-14 10:00:00" }));
+  const profiles = Array.from({ length: 175 }, (_, i) => ({ phone: `+3932000${String(i).padStart(4, "0")}`, name: `Synthetic customer ${i}`, email: "", note: "", version: 1, updatedAt: "2026-10-14 10:00:00" }));
   await page.addInitScript(data => localStorage.setItem("chinatech.m1.customer-profiles.v1", JSON.stringify({ version: 1, profiles: data })), profiles);
   await page.request.post("/api/preview-session", { data: { email: "demo@chinatech.local", password: "Preview2026!" } });
   await page.goto("/app/customers");
   const rows = page.getByRole("region", { name: "客户列表", exact: true }).locator('a[href^="/app/customers/"]');
   await expect(rows).toHaveCount(50);
-  await page.getByRole("button", { name: "下一页", exact: true }).click();
-  await expect(rows).toHaveCount(50);
-  await expect(page.getByRole("navigation", { name: "列表分页" })).toContainText("第 2 /");
-  await page.getByRole("textbox", { name: "搜索客户", exact: true }).fill("Synthetic customer 124");
+  const footer = page.getByRole("region", { name: "列表加载", exact: true });
+  const original = await rows.first().getAttribute("href");
+  await footer.scrollIntoViewIfNeeded();
+  await expect(rows).toHaveCount(100);
+  await expect(rows.first()).toHaveAttribute("href", original!);
+  await footer.scrollIntoViewIfNeeded();
+  await expect(rows).toHaveCount(150);
+  await footer.getByRole("button", { name: "加载更多", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await expect(rows).toHaveCount(181); // 175 seeded profiles plus 6 existing preview customers.
+  await expect(footer).toContainText("已全部显示");
+  await expect(page.getByRole("button", { name: /^(上一页|下一页)$/ })).toHaveCount(0);
+  await page.getByRole("textbox", { name: "搜索客户", exact: true }).fill("Synthetic customer 174");
   await expect(rows).toHaveCount(1);
-  await expect(rows).toContainText("Synthetic customer 124");
-  await expect(page.getByRole("navigation", { name: "列表分页" })).toHaveCount(0);
+  await expect(rows).toContainText("Synthetic customer 174");
+  await expect(footer).toContainText("已全部显示");
   await page.getByRole("button", { name: "清空搜索客户", exact: true }).click();
   await expect(rows).toHaveCount(50);
-  await expect(page.getByRole("navigation", { name: "列表分页" })).toContainText("第 1 /");
+  await expect(footer).toContainText("已显示 50 /");
   for (const width of [1440, 1024, 390, 375]) { await page.setViewportSize({ width, height: 900 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); }
 });
 

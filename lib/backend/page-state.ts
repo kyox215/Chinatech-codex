@@ -1,0 +1,127 @@
+import "server-only";
+import { customerModelGeneration, customerListToken, readCustomerList } from "./customer-list";
+import { customerListQuery } from "./customer-list-contract";
+import { cache } from "react";
+import { createHash } from "node:crypto";
+import type { TransactionSql } from "postgres";
+import { getServerAccess, getAuthIdentity, memberInTransaction } from "./context";
+import { BackendError, withDatabase } from "./database";
+import { can, type StaffMember } from "../staff";
+import type { BackendSnapshot } from "./contracts";
+import { projectState } from "./state";
+import { backendIdentityChangedCode, backendScopeKey, pageDomains, pagePlanKey, type BackendReadScope, type PageReadPlan, type SessionBootstrap } from "./read-plan";
+
+// React cache is request-scoped here; no authenticated snapshot is kept in a
+// server module cache or reused by another account/request.
+export const getPageAccess = cache(() => getServerAccess());
+type ReadAccess = Pick<NonNullable<Awaited<ReturnType<typeof getServerAccess>>>,"identity"|"storeId">;
+export function backendCustomerListsEnabled() { return process.env.BACKEND_CUSTOMER_LIST_READS === "1"; }
+export function backendV2ReadsEnabled() { return process.env.BACKEND_V2_READS !== "0"; }
+function scopeFor(access: ReadAccess, member: StaffMember): BackendReadScope {
+  return { formatVersion: 2, accountId: access.identity.userId, sessionId: access.identity.sessionId, storeId: access.storeId, memberId: member.id, memberRevision: member.revision, permissions: [...member.permissions].sort() };
+}
+async function sessionInTransaction(tx: TransactionSql, access: ReadAccess, member: StaffMember): Promise<SessionBootstrap> {
+  const [row] = await tx`select st.revision,s.name from chinatech_v2_private.store_state st join chinatech_v2.stores s on s.id=st.store_id where st.store_id=${access.storeId}`;
+  if (!row) throw new BackendError("门店尚未完成初始化。", 503);
+  return { formatVersion: 2, scope: scopeFor(access, member), revision: Number(row.revision), storeName: row.name, member };
+}
+export function sessionSnapshot(bootstrap: SessionBootstrap): BackendSnapshot {
+  const snapshot: BackendSnapshot = { customerListEnabled: backendCustomerListsEnabled(), storeId: bootstrap.scope.storeId, revision: bootstrap.revision, staff: { revision: bootstrap.revision, currentId: bootstrap.member.id, members: [bootstrap.member], audit: [] }, settings: null, intakes: [], signatures: [], workflows: {}, procurement: [], retail: [], retailHistory: [], customers: [], read: { formatVersion: 2, scope: bootstrap.scope, plan: { kind: "session" }, ready: ["staff"] } };
+  snapshot.stateToken = pageToken(snapshot);
+  return snapshot;
+}
+function pageToken(snapshot: BackendSnapshot, listGeneration?: string) {
+  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.customerListEnabled, listGeneration])).digest("hex");
+}
+export async function loadSessionBootstrap(access: ReadAccess) {
+  return withDatabase(access.identity, access.storeId, async tx => sessionInTransaction(tx, access, await memberInTransaction(tx, access.storeId, access.identity.userId)));
+}
+export async function getV2Access(request: Request): Promise<ReadAccess> {
+  const identity = await getAuthIdentity();
+  const storeId = request.headers.get("x-ct-store-id");
+  if (!storeId || !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(storeId)) throw new BackendError("请明确选择门店。", 400);
+  // This is an identity and validated store selector, not an authorization
+  // result. Every loader checks the live session and member in its own read
+  // transaction, avoiding a duplicate transaction whose member was unused.
+  return {identity,storeId};
+}
+
+export async function loadPageState(access: ReadAccess, plan: PageReadPlan, known?: string, expectedScope?: string) {
+  return withDatabase(access.identity, access.storeId, async tx => {
+    const member = await memberInTransaction(tx, access.storeId, access.identity.userId);
+    const bootstrap = await sessionInTransaction(tx, access, member);
+    if (expectedScope && expectedScope !== backendScopeKey(bootstrap.scope)) throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。", 409, backendIdentityChangedCode);
+    const state = sessionSnapshot(bootstrap), domains = pageDomains(plan,{customerLists:backendCustomerListsEnabled()});
+    state.read = { formatVersion: 2, scope: bootstrap.scope, plan, ready: domains };
+    if (plan.kind === "settings") {
+      // Existing staff/settings semantics remain explicit to this page while its
+      // dedicated roster/history read is migrated; no arbitrary member cap.
+      const roster = await tx`select m.id,m.role,m.permissions,m.revision,m.membership_status,a.account_status,a.display_name,a.email from chinatech_v2.store_memberships m join chinatech_v2.accounts a on a.id=m.user_id where m.store_id=${access.storeId} order by m.id`;
+      state.staff.members = roster.map(row => ({ id: row.id, name: row.display_name || row.email, email: row.email, role: row.role, permissions: row.permissions, revision: row.revision, accountStatus: row.account_status, membershipStatus: row.membership_status }));
+      if (plan.kind === "settings" && can(member, "staff.manage")) { const [row] = await tx`select staff_audit from chinatech_v2_private.store_state where store_id=${access.storeId}`; state.staff.audit = row.staff_audit; }
+    }
+    const customerGeneration = plan.kind === "customers" && backendCustomerListsEnabled() && can(member,"customers.view") ? await customerModelGeneration(tx,access.storeId) : undefined;
+    state.stateToken = pageToken(state,customerGeneration);
+    if (known === state.stateToken) return { unchanged: true as const, stateToken: state.stateToken, storeId: state.storeId, memberId: member.id, revision: state.revision };
+    if(plan.kind === "customer" && !can(member,"customers.view")) { state.read.ready=["staff"]; return state; }
+    if (customerGeneration !== undefined) state.customerList = await readCustomerList(tx,bootstrap.scope,plan.q??"",undefined,customerGeneration,"directory",plan.anchor);
+    if (domains.includes("settings")) {
+      // Finance is read only by its own settings page. A print/default policy
+      // read never transfers the whole finance ledger into another module.
+      const [row] = plan.kind === "settings" && can(member, "financial.read")
+        ? await tx`select settings from chinatech_v2_private.store_state where store_id=${access.storeId}`
+        : await tx`select (settings-'finance')||'{"finance":[]}'::jsonb as settings from chinatech_v2_private.store_state where store_id=${access.storeId}`;
+      state.settings = row.settings;
+    }
+    const targetedCustomer=plan.kind === "customer" && backendCustomerListsEnabled();
+    const customerPhone=targetedCustomer && /^PHONE-[1-9]\d{6,14}$/.test(plan.id??"") ? "+"+plan.id!.slice(6) : null;
+    if(targetedCustomer && !customerPhone)throw new BackendError("记录标识无效。",400);
+    let intakeIds: string[] | null = null;
+    if(customerPhone) {
+      intakeIds=(await tx`select id from chinatech_v2_private.repair_intakes where store_id=${access.storeId} and chinatech_v2_private.directory_phone(data->>'phone')=${customerPhone}`).map(row=>row.id);
+    } else if (plan.kind === "repair") {
+      const rows = await tx`select id from chinatech_v2_private.repair_intakes where store_id=${access.storeId} and (id=${plan.id!} or data->'repairOrigin'->>'repairId'=${plan.id!} or id=(select data->'repairOrigin'->>'repairId' from chinatech_v2_private.repair_intakes where store_id=${access.storeId} and id=${plan.id!}))`;
+      intakeIds = rows.map(row => row.id);
+    } else if (plan.kind === "procurement-detail") {
+      const rows = await tx`select repair_id from chinatech_v2_private.procurement_records where store_id=${access.storeId} and id=${plan.id!}`;
+      intakeIds = rows.map(row => row.repair_id);
+    } else if (plan.kind === "retail-unit") {
+      const rows = await tx`select id from chinatech_v2_private.repair_intakes where store_id=${access.storeId} and data->'retailOrigin'->>'unitId' in (select id from chinatech_v2_private.retail_units where store_id=${access.storeId} and (id=${plan.id!} or data->'historyOrigin'->>'recordId'=${plan.id!}))`;
+      intakeIds = rows.map(row => row.id);
+    }
+    if (domains.includes("intakes") && can(member, "repairs.view")) {
+      const where = intakeIds === null ? tx`` : tx`and id=any(${tx.array(intakeIds, 25)})`;
+      const rows = domains.includes("signatures")
+        ? await tx`select data,workflow,signatures from chinatech_v2_private.repair_intakes where store_id=${access.storeId} ${where} order by id`
+        : await tx`select data,workflow from chinatech_v2_private.repair_intakes where store_id=${access.storeId} ${where} order by id`;
+      state.intakes = rows.map(row => row.data);
+      state.workflows = Object.fromEntries(rows.filter(row => row.workflow).map(row => [row.data.id, row.workflow]));
+      if (domains.includes("signatures")) state.signatures = rows.filter(row => row.data.id === plan.id).flatMap(row => row.signatures);
+    }
+    if (domains.includes("procurement") && can(member, "repairs.view")) {
+      const where = intakeIds === null ? tx`` : tx`and repair_id=any(${tx.array(intakeIds, 25)})`;
+      state.procurement = (await tx`select data from chinatech_v2_private.procurement_records where store_id=${access.storeId} ${where} order by id`).map(row => row.data);
+    }
+    if (domains.includes("retail") && can(member, "retail.view")) {
+      const where = customerPhone ? tx`and exists(select 1 from jsonb_array_elements(data->'sales') sale where chinatech_v2_private.directory_phone(sale->>'customerPhone')=${customerPhone})` : plan.kind === "retail-unit" ? tx`and (id=${plan.id!} or data->'historyOrigin'->>'recordId'=${plan.id!})` : tx``;
+      state.retail = (await tx`select data from chinatech_v2_private.retail_units where store_id=${access.storeId} ${where} order by id`).map(row => row.data);
+    }
+    if (domains.includes("retailHistory") && can(member, "retail.view")) {
+      const where = customerPhone ? tx`and chinatech_v2_private.directory_phone(data->>'customerPhone')=${customerPhone}` : plan.kind === "retail-unit" ? tx`and (id=${plan.id!} or id=(select data->'historyOrigin'->>'recordId' from chinatech_v2_private.retail_units where store_id=${access.storeId} and id=${plan.id!}))` : tx``;
+      state.retailHistory = (await tx`select data from chinatech_v2_private.retail_history_records where store_id=${access.storeId} ${where} order by source_row`).map(row => row.data);
+    }
+    if (domains.includes("customers") && can(member, "customers.view")) state.customers = (await tx`select data from chinatech_v2_private.customers where store_id=${access.storeId} ${customerPhone?tx`and normalized_phone=${customerPhone}`:tx``} order by normalized_phone`).map(row => row.data);
+    return projectState(state, member);
+  });
+}
+
+export async function loadCustomerListPage(access: ReadAccess, query: string, cursor?: string, known?: string, expectedScope?: string, mode: import("./customer-list-contract").CustomerListQuery["mode"] = "directory", anchor?: string, seek?: number) {
+  return withDatabase(access.identity,access.storeId,async tx=>{
+    const member=await memberInTransaction(tx,access.storeId,access.identity.userId), scope=scopeFor(access,member);
+    if(expectedScope && expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);
+    if(!can(member,"customers.view"))throw new BackendError("当前账号没有此操作权限。",403);
+    const generation=await customerModelGeneration(tx,access.storeId), token=customerListToken(scope,generation,customerListQuery(query,mode));
+    if(!cursor && seek===undefined && known===token)return {unchanged:true as const,stateToken:token};
+    return readCustomerList(tx,scope,query,cursor,generation,mode,anchor,seek);
+  });
+}

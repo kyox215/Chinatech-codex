@@ -10,7 +10,7 @@
 | 多选 / 单选 | `multi-choice.tsx` / `single-choice.tsx` | 现有 token 与组件；选择是同步反馈，不造异步等待 |
 | 设备目录 / 识码 | `catalog/device-catalog-control.tsx` / `identifier-field.tsx` | 复用候选和公共输入；不推断设备事实；原目录用户决定保留 |
 | 面板 / 表单 / 弹窗 | `app/globals.css` 既有语义类与原生 dialog | 原 Card `12373:157599`；焦点恢复/取消/保存/错误/冲突 |
-| 表头 / 列表 / 分页 | 领域列表、`components/list-pagination.tsx` | 原 `12327:116172` / `116173` / `116270`；旧结果保留及计数同步 |
+| 表头 / 列表 / 追加 | 领域列表、`components/list-pagination.tsx` | 原 `12327:116172` / `116173` / `116270`；[触底追加候选](previews/infinite-lists-20261017.md)维护原按钮与容器；旧结果保留及计数同步 |
 | 标题 / 侧栏 | `components/page-title.tsx` / `dashboard/app-shell.tsx` | 原侧栏 `12327:116271`；手机标题排菜单/返回/操作44px；单个操作及`module-heading__actions--icons`纯图标组同排，长状态在标题内换行，多文字操作保留独立工具栏；隐藏文字必须排除导航图标槽及可访问消息；不增加全局顶栏 |
 | 分组 / 页内 Tab | `repairs/repair-detail-workspace.tsx` 及领域分组 | 原 Tab `12327:116162`；同记录切换保留草稿，不制造导航等待 |
 | 读取 / 错误 / 权限 | `components/page-recovery.tsx` 与共享读取状态 | 真实标题框架保留；首次局部等待、失败就地重试、无权限隔离 |
@@ -23,3 +23,5 @@
 | 工作台 / 详情 | `components/dashboard/` 及领域组件 | 现有桌面/手机两套结构；工单设计详 `docs/37-repair-detail-redesign-plan.md` |
 
 此表为项目全部现有组件类别的复用索引，不声称每页每状态与 Figma 逐像素相同。自定义业务组合由对应模块所有；新设计必须补齐具体 Figma 节点与代码入口后登记。
+
+2026-10-17性能候选新增非视觉辅助：`WindowedListRows`管理已授权摘要的测量/窗口/焦点，`BackendPageFrame`/`BackendPageData`提供按页SSR资料；实际列表、输入、导航与反馈继续使用本表唯一组件，不新增主题或Figma变体。接口与实际客户验收范围见docs/06“性能候选的实际客户读取与渲染”；其他模块的兼容读取仍明确保留，未发布。

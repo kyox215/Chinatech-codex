@@ -1,4 +1,5 @@
 import type { BackendSnapshot } from "./contracts";
+import { backendIdentityKey } from "./read-plan";
 
 type Client = {
   generation: () => number;
@@ -19,7 +20,7 @@ export function createBackendBootstrap(initial: BackendSnapshot, client: Client)
   let invalid = false;
   const listeners = new Set<() => void>();
   const notify = () => listeners.forEach(listener => listener());
-  const matches = (snapshot: BackendSnapshot) => snapshot.storeId === scope.store && snapshot.staff.currentId === scope.member;
+  const matches = (snapshot: BackendSnapshot) => snapshot.storeId === scope.store && snapshot.staff.currentId === scope.member && (!initial.read || !snapshot.read || backendIdentityKey(initial.read.scope) === backendIdentityKey(snapshot.read.scope));
   const read = () => {
     if (invalid) return null;
     const generation = client.generation();

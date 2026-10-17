@@ -43,7 +43,7 @@ function subscribe(listener: () => void) {const stop=subscribeBackend(listener);
   window.addEventListener("storage", storage); window.addEventListener(change, listener);
   return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); };
 }
-export function useLocalIntakes() { return useBackendStore(subscribe,read,server,current=>({records:current?.intakes??[],signatures:current?.signatures??[],ready:true,error:current?"":"后台资料暂不可用。"})); }
+export function useLocalIntakes() { return useBackendStore(subscribe,read,server,current=>({records:current?.intakes??[],signatures:current?.signatures??[],ready:true,error:current?"":"后台资料暂不可用。"}),"intakes"); }
 export function useRepairDirectory() {
   const local = useLocalIntakes();
   const formal = useBackendMode();

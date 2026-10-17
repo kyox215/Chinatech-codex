@@ -34,7 +34,7 @@ function read() {if(isBackendClient()){const current=backendSnapshot();if(curren
   return snapshot;
 }
 function subscribe(listener: () => void) {const stop=subscribeBackend(listener); const storage = (event: StorageEvent) => { if (event.key === key || event.key === null) listener(); }; window.addEventListener("storage", storage); window.addEventListener(change, listener); return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); }; }
-export function useRepairWorkflows() { return useBackendStore(subscribe,read,server,current=>({workflows:current?.workflows??{},ready:true,error:current?"":"后台资料暂不可用。"})); }
+export function useRepairWorkflows() { return useBackendStore(subscribe,read,server,current=>({workflows:current?.workflows??{},ready:true,error:current?"":"后台资料暂不可用。"}),"workflows"); }
 export function updateRepairWorkflow(order: RepairDirectoryEntry, command: WorkflowCommand, records: ProcurementRecord[], revision: number, options?: { requestId?: string }) {
   if(isBackendClient()) return backendCommand("repair.workflow",{id:order.id,command,revision},options?.requestId);
   requirePreviewPermission("repairs.edit");

@@ -7,7 +7,7 @@ import { backendReadGeneration, backendSnapshot, isBackendClient } from '@/lib/b
 import { readStaffSnapshot,subscribeStaff } from '@/lib/staff-client';
 import { subscribeAuthChanged } from '@/lib/auth-events';
 import { useStaff } from '@/components/staff/use-staff';
-import { CatalogError, type CatalogPickerResponse } from '@/lib/device-catalog';
+import { CatalogError, type CatalogPage, type CatalogPickerResponse } from '@/lib/device-catalog';
 import { createCatalogIndexClient, type PickerQuery, type PickerRead } from '@/lib/device-catalog-index-client';
 type Cached = { expires: number; result: Promise<unknown>;controller:AbortController;readers:number };
 const requests=new Map<string,Cached>();
@@ -17,7 +17,7 @@ export function catalogScope(){return keyedScope(backendSnapshot(),readStaffSnap
 export function catalogHeaders():Record<string,string>{const state=backendSnapshot();return state?{'x-ct-store-id':state.storeId}:{};}
 export function useCatalogRead<T>(params:Record<string,string>,enabled=true,retainPrevious=false){
   const backend=useBackendState();const staff=useStaff();const liveScope=useSyncExternalStore(subscribeStaff,catalogScope,()=>'');const [epoch,setEpoch]=useState(0);const [foreground,setForeground]=useState(false);
-  const [value,setValue]=useState<{key:string;scope:string;query:string;data:T|null;error:string;loading:boolean}>({key:'',scope:'',query:'',data:null,error:'',loading:false});
+  const [value,setValue]=useState<{key:string;scope:string;query:string;data:T|null;error:string;status:number|null;loading:boolean}>({key:'',scope:'',query:'',data:null,error:'',status:null,loading:false});
   const kind=params.kind;const scope=keyedScope(backend.snapshot,staff.member,backend.formal);const query=new URLSearchParams(params).toString();const key='catalog-v1|'+scope+'|'+query+'|'+epoch;
   // Visibility changes are a new scope; never retain administrator rows for a viewer.
   const retentionScope=scope+'|'+kind+'|'+(params.disabled??'');
@@ -30,7 +30,7 @@ export function useCatalogRead<T>(params:Record<string,string>,enabled=true,reta
   useEffect(()=>{
     if(!enabled||!canRead)return;let live=true;const headers=catalogHeaders();let pending:Cached|undefined;
     const timeout=setTimeout(()=>{
-      setValue(previous=>({key,scope:retentionScope,query:previous.scope===retentionScope?previous.query:query,data:previous.scope===retentionScope&&(retainPrevious||previous.query===query)?previous.data:null,error:'',loading:true}));
+      setValue(previous=>({key,scope:retentionScope,query:previous.scope===retentionScope?previous.query:query,data:previous.scope===retentionScope&&(retainPrevious||previous.query===query)?previous.data:null,error:'',status:null,loading:true}));
       const cacheKey='catalog-v1|'+scope+'|'+query;
       pending=requests.get(cacheKey);if(!pending||pending.expires<Date.now()){
         const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),10000);
@@ -38,11 +38,46 @@ export function useCatalogRead<T>(params:Record<string,string>,enabled=true,reta
         pending={expires:Date.now()+15000,result,controller,readers:0};requests.set(cacheKey,pending);void result.finally(()=>{clearTimeout(timer);if(requests.get(cacheKey)?.result===result)requests.delete(cacheKey);}).catch(()=>undefined);
       }
       pending.readers++;
-      pending.result.then(data=>{if(live&&catalogScope()===scope){setValue({key,scope:retentionScope,query,data:data as T,error:'',loading:false});setForeground(false);}}).catch(error=>{if(live&&catalogScope()===scope){setValue(previous=>({...previous,key,scope:retentionScope,data:error instanceof CatalogError&&[401,403,409].includes(error.status)?null:previous.scope===retentionScope&&(retainPrevious||previous.query===query)?previous.data:null,error:error instanceof CatalogError?error.message:'设备目录暂不可用，请稍后重试。',loading:false}));setForeground(false);}});
+      pending.result.then(data=>{if(live&&catalogScope()===scope){setValue({key,scope:retentionScope,query,data:data as T,error:'',status:null,loading:false});setForeground(false);}}).catch(error=>{if(live&&catalogScope()===scope){setValue(previous=>({...previous,key,scope:retentionScope,data:error instanceof CatalogError&&[401,403,409].includes(error.status)?null:previous.scope===retentionScope&&(retainPrevious||previous.query===query)?previous.data:null,error:error instanceof CatalogError?error.message:'设备目录暂不可用，请稍后重试。',status:error instanceof CatalogError?error.status:null,loading:false}));setForeground(false);}});
     },kind==='models'?150:0);
     return()=>{live=false;clearTimeout(timeout);if(pending&&--pending.readers===0){pending.controller.abort();const cacheKey='catalog-v1|'+scope+'|'+query;if(requests.get(cacheKey)===pending)requests.delete(cacheKey);}};
   },[key,scope,query,kind,enabled,canRead,retentionScope,retainPrevious]);
-  return {data:retained,error:staff.ready&&!canRead&&!awaiting?staff.error||'当前账号没有获授权的门店。':value.key===key?value.error:'',loading,stale:Boolean(retained&&(value.key!==key||value.query!==query||value.error)),retry:()=>{setForeground(true);setEpoch(value=>value+1);}};
+  return {data:retained,blocked:value.key===key&&[401,403,409].includes(value.status??0),error:staff.ready&&!canRead&&!awaiting?staff.error||'当前账号没有获授权的门店。':value.key===key?value.error:'',loading,stale:Boolean(retained&&(value.key!==key||value.query!==query||value.error)),retry:()=>{setForeground(true);setEpoch(value=>value+1);}};
+}
+
+/** Accumulate the catalog's existing 50-row API pages without retaining another scope. */
+export function useCatalogPages(params: Record<string, string>, enabled: boolean, revision: string) {
+  const backend = useBackendState(); const staff = useStaff();
+  const scope = keyedScope(backend.snapshot, staff.member, backend.formal);
+  const key = JSON.stringify([scope, params, revision]);
+  const [window, setWindow] = useState<{ key: string; page: number; pages: CatalogPage[]; response: CatalogPage | null }>({ key, page: 1, pages: [], response: null });
+  const current = window.key === key ? window : { key, page: 1, pages: [], response: null };
+  if (window.key !== key) setWindow(current);
+  const read = useCatalogRead<CatalogPage>({ ...params, page: String(current.page) }, enabled);
+  let pages = current.pages;
+  const response = read.data;
+  if (read.blocked && pages.length) {
+    pages = [];
+    setWindow({ ...current, pages, response: null });
+  }
+  if (response && response !== current.response && !read.stale) {
+    if (pages.length && pages[0].revision !== response.revision && response.page !== 1) {
+      pages = [];
+      setWindow({ key, page: 1, pages, response: null });
+    } else if (response.page <= pages.length + 1) {
+      pages = [...pages.slice(0, response.page - 1), response];
+      setWindow({ ...current, pages, response });
+    } else {
+      // A rejected accumulated window must restart from its first authorized page.
+      setWindow({ key, page: 1, pages: [], response: null });
+    }
+  }
+  const visiblePages = enabled && !read.blocked ? pages : [];
+  const rows = [...new Map(visiblePages.flatMap(page => page.rows).map(row => [row.id, row])).values()];
+  const total = visiblePages.at(-1)?.total ?? 0;
+  return { ...read, rows, total, resetKey: key, hasMore: rows.length < total,
+    loadMore: () => { if (read.error) read.retry(); else if (!read.loading && rows.length < total) setWindow({ ...current, page: current.page + 1 }); },
+  };
 }
 
 const pickerIndex=createCatalogIndexClient({

@@ -1,6 +1,7 @@
 "use client";
 import type { BackendCommand, BackendSnapshot, OperationReceipt, UnchangedState } from "./contracts";
 import { memberScope, pendingOperation, reserveOperation, markOperationUnknown, forgetOperation, type PendingOperation } from "./recovery-store";
+import { backendIdentityKey, backendScopeKey, pagePlanKey } from "./read-plan";
 
 let snapshot:BackendSnapshot|null=null;
 let configured=false;
@@ -32,22 +33,37 @@ export function clearBackend(){generation++;releasedBootstrap=null;refreshFlight
 /** Only a valid provider cleanup grants a handoff; identity invalidation never does. */
 export function releaseBackendBootstrap(expectedGeneration:number){if(generation!==expectedGeneration)return null;clearBackend();releasedBootstrap={from:expectedGeneration,to:generation};return generation;}
 export function canAdoptBackendBootstrap(baseline:number){return releasedBootstrap?.from===baseline&&releasedBootstrap.to===generation;}
-function requestScope(){return {generation,identity:snapshot?.staff.currentId,storeId:snapshot?.storeId};}
-function sameScope(scope:ReturnType<typeof requestScope>){return scope.generation===generation && scope.identity===snapshot?.staff.currentId && scope.storeId===snapshot?.storeId;}
-function accept(next:BackendSnapshot,scope:ReturnType<typeof requestScope>){
+// A query belongs to one page/permission projection. A submitted operation
+// belongs to its authenticated identity and original requestId, even if its
+// component unmounts or the user navigates while it is committing.
+function requestScope(){return {generation,identity:snapshot?.staff.currentId,storeId:snapshot?.storeId,session:snapshot?.read?backendIdentityKey(snapshot.read.scope):undefined};}
+function sameScope(scope:ReturnType<typeof requestScope>){const current=requestScope();return scope.generation===current.generation && scope.identity===current.identity && scope.storeId===current.storeId && scope.session===current.session;}
+function readRequestScope(){return {...requestScope(),readScope:snapshot?.read?backendScopeKey(snapshot.read.scope):undefined,plan:snapshot?.read?pagePlanKey(snapshot.read.plan):undefined};}
+function sameReadScope(scope:ReturnType<typeof readRequestScope>){const current=readRequestScope();return sameScope(scope)&&scope.readScope===current.readScope&&scope.plan===current.plan;}
+function accept(next:BackendSnapshot,scope:ReturnType<typeof requestScope>,allowPlanChange=false,readScope?:ReturnType<typeof readRequestScope>){
   if(!sameScope(scope) || !snapshot) return false;
+  if (readScope && !sameReadScope(readScope)) return false;
   if(next.storeId!==scope.storeId || next.staff.currentId!==scope.identity){clearBackend();window.location.reload();return false;}
+  if (snapshot.read && next.read && backendIdentityKey(snapshot.read.scope) !== backendIdentityKey(next.read.scope)) { clearBackend();window.location.reload();return false; }
+  if (!allowPlanChange && readScope && next.read && pagePlanKey(next.read.plan) !== readScope.plan) return false;
+  // The v1 command/recovery adapter remains compatible during migration. It may
+  // return canonical state, but must never reset the page's v2 polling protocol.
+  if (snapshot.read && !next.read) {
+    const member = next.staff.members.find(row => row.id === next.staff.currentId);
+    next = { ...next, customerListEnabled: snapshot.customerListEnabled, stateToken: undefined, read: { ...snapshot.read, scope: { ...snapshot.read.scope, memberRevision: member?.revision ?? snapshot.read.scope.memberRevision, permissions: [...(member?.permissions ?? [])].sort() } } };
+  }
   const before=snapshot.staff.members.find(row=>row.id===snapshot?.staff.currentId)?.revision??0;
   const after=next.staff.members.find(row=>row.id===next.staff.currentId)?.revision??0;
   if(next.revision<snapshot.revision || after<before) return false;
   if(next.stateToken && next.stateToken===snapshot.stateToken) return true;
+  if (snapshot.read && next.read && pagePlanKey(snapshot.read.plan) !== pagePlanKey(next.read.plan)) refreshFlight = null;
   publish(next);return true;
 }
 // A same-scope server refresh updates reads without resetting an in-flight receipt.
-export function reconcileBackendInitial(next:BackendSnapshot){if(snapshot)accept(next,requestScope());}
+export function reconcileBackendInitial(next:BackendSnapshot){if(snapshot)accept(next,requestScope(),true);}
 async function request(url:string,init:RequestInit={}) {
   const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);
-  try {const response=await fetch(url,{...init,cache:"no-store",signal:controller.signal});const data=await response.json();return {response,data};}
+  try {const response=await fetch(url,{...init,headers:{"x-ct-store-id":snapshot?.storeId??"",...Object.fromEntries(new Headers(init.headers))},cache:"no-store",signal:controller.signal});const data=await response.json();return {response,data};}
   finally {clearTimeout(timer);}
 }
 function redirectIdentity(status:number,code?:string){
@@ -74,20 +90,24 @@ export function loadRecovery():Promise<void>{
 }
 export function refreshBackend():Promise<void> {
   if(refreshFlight)return refreshFlight;
-  const scope=requestScope();if(!snapshot)return Promise.resolve();
+  const scope=readRequestScope();if(!snapshot)return Promise.resolve();
   const previous=snapshot;
   const known=previous.stateToken && /^[a-f0-9]{64}$/.test(previous.stateToken)?previous.stateToken:undefined;
   const promise=(async()=>{
-    const {response,data}=await request(known?`/api/backend/state?known=${known}`:"/api/backend/state");
-    if(!sameScope(scope))return;
+    const page = previous.read;
+    const query = page ? new URLSearchParams({ plan: JSON.stringify(page.plan), ...(known ? { known } : {}) }) : null;
+    const {response,data}=await request(page?`/api/backend/v2/page?${query}`:known?`/api/backend/state?known=${known}`:"/api/backend/state",page?{headers:{"x-ct-store-id":previous.storeId,"x-ct-read-scope":backendScopeKey(page.scope)}}:undefined);
+    if(!sameReadScope(scope))return;
     if(response.status===401 || response.status===403){clearBackend();window.location.assign(response.status===401?"/login":"/account/pending");throw new Error("账号访问权限已变化。");}
+    if (page && response.status === 409 && data.code === "IDENTITY_CHANGED") { clearBackend(); window.location.reload(); throw new Error("账号访问权限已变化。"); }
     if(!response.ok)throw new Error("后台暂时不可用，当前输入已保留。 ");
     if(data.unchanged===true){
       const unchanged=data as UnchangedState;
       if(!known || unchanged.stateToken!==known || unchanged.storeId!==scope.storeId || unchanged.memberId!==scope.identity || unchanged.revision!==previous.revision)throw new Error("后台核对结果无效，请稍后重试。");
       return;
     }
-    accept(data as BackendSnapshot,scope);
+    if (page && (!data.read || pagePlanKey(data.read.plan) !== scope.plan)) throw new Error("后台核对结果无效，请稍后重试。");
+    accept(data as BackendSnapshot,scope,false,scope);
   })();
   refreshFlight=promise;
   void promise.finally(()=>{if(refreshFlight===promise)refreshFlight=null;}).catch(()=>{});

@@ -115,7 +115,10 @@ jobs:
         if: always()
         with:
           name: production-design-verification
-          path: .local/ui-proof/production-design/
+          path: |
+            .local/ui-proof/production-design/
+            .local/ui-proof/receipt-trace/verification.json
+            .local/ui-proof/receipt-trace/**/packaged-runtime-demo.pdf
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7

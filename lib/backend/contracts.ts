@@ -6,11 +6,15 @@ import type { RepairWorkflow } from "../repair-workflow";
 import type { ProcurementRecord } from "../procurement";
 import type { RetailUnit } from "../retail";
 import type { RetailHistoryRecord } from "../retail-history";
+import type { BackendReadState } from "./read-plan";
 
 export type BackendSnapshot = {
+  read?: BackendReadState;
+  customerListEnabled?: boolean;
+  customerList?: import("./customer-list-contract").CustomerListPage;
   operation?: OperationReceipt;
   stateToken?: string;
-  storeId: string; revision: number; staff: StaffData; settings: StoreSettings;
+  storeId: string; revision: number; staff: StaffData; settings: StoreSettings | null;
   intakes: IntakeReceiptData[]; signatures: IntakeSignature[];
   workflows: Record<string, RepairWorkflow>; procurement: ProcurementRecord[];
   retail: RetailUnit[]; retailHistory?: RetailHistoryRecord[]; customers: CustomerProfile[];

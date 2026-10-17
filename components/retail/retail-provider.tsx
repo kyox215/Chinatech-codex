@@ -45,7 +45,7 @@ function uiReducer(state: UiState, action: UiAction): UiState { return action.ty
 
 const RetailContext = createContext<State & { dispatch: (action: Action, options?: { requestId?: string }) => boolean | Promise<boolean> } | null>(null);
 export function RetailProvider({ children }: { children: React.ReactNode }) {
-  const stored = useBackendStore(subscribe,read,server,current=>({units:current?.retail??[],ready:true,error:current?"":"后台资料暂不可用。"}));
+  const stored = useBackendStore(subscribe,read,server,current=>({units:current?.retail??[],ready:true,error:current?"":"后台资料暂不可用。"}),"retail");
   const staff = useStaff();
   const [ui, uiDispatch] = useReducer(uiReducer, { returnTo: "/app/retail", returnScroll: 0, feedback: null });
   const recovery = useSyncExternalStore(subscribeRecovery, backendRecovery, backendRecovery);

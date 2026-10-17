@@ -86,7 +86,7 @@ function Preferences({ settings, printing, save, onPendingChange, onReceiptChang
     if (busy.current) return;
     const update = (current: StoreSettings) => printing ? { ...current, paper } : { ...current, shopName: name.trim(), address: address.trim(), phone: phone.trim(), repairWarrantyMonths: repairMonths, retailWarrantyMonths: retailMonths };
     await run(update, revision, async () => {
-      const nextRevision = backendSnapshot()?.settings.revision ?? (JSON.stringify(update(settings)) === JSON.stringify(settings) ? revision : revision + 1);
+      const nextRevision = backendSnapshot()?.settings?.revision ?? (JSON.stringify(update(settings)) === JSON.stringify(settings) ? revision : revision + 1);
       await deviceDraft.clear({ repairMonths, retailMonths, revision: nextRevision, name, address, phone, paper }); setRevision(nextRevision);
     });
   }
