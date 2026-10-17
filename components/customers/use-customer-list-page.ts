@@ -36,7 +36,8 @@ export function useCustomerListPage(query: string, mode: CustomerListQuery["mode
   const scope = backend.snapshot?.customerListEnabled && can(member,"customers.view") ? backend.snapshot.read?.scope : undefined;
   const scopeKey = scope ? backendScopeKey(scope) : "";
   const initial = scope && mode === "directory" ? backend.snapshot?.customerList : undefined;
-  const normalized = customerListQuery(query.slice(0,160), mode), queryKey = JSON.stringify(normalized);
+  const invalidQuery=query.length>160;
+  const normalized = customerListQuery(invalidQuery?"":query, mode), queryKey = JSON.stringify(normalized);
   const [data, setData] = useState<{ scope: string; page: CustomerListPage } | null>(() => initial ? { scope: scopeKey, page: initial } : null);
   const [pending, setPending] = useState(false), [error, setError] = useState("");
   const active = useRef<{ key: string; controller: AbortController } | null>(null);
@@ -44,13 +45,13 @@ export function useCustomerListPage(query: string, mode: CustomerListQuery["mode
   const anchor = useRef<string | undefined>(undefined);
   const loadRef = useRef<(direction?: "before"|"after"|"seek",seek?:number) => Promise<void>>(async () => {});
   const visible = data?.scope === scopeKey && (mode === "directory" || JSON.stringify(data.page.query) === queryKey) ? data : null;
-  useActivityFeedback(pending, { kind: "read" });
+  useActivityFeedback(pending&&!invalidQuery, { kind: "read" });
   const load = useCallback(async (direction?: "before"|"after"|"seek",seek?:number) => {
     const expected = latest.current;
     const append = direction === "before" || direction === "after", seeking = direction === "seek";
     const boundary = direction === "before" ? visible?.page.previousCursor : visible?.page.nextCursor;
-    if (!expected.scope || append && (!visible || !boundary || JSON.stringify(visible.page.query) !== expected.queryKey || active.current)) return;
-    if (mode === "phone" && JSON.parse(expected.queryKey).q.replace(/\D/g, "").length < 3) { setPending(false); return; }
+    if (invalidQuery||!expected.scope || append && (!visible || !boundary || JSON.stringify(visible.page.query) !== expected.queryKey || active.current)) return;
+    if (mode === "phone" && JSON.parse(expected.queryKey).q.normalize("NFKC").replace(/\D/g, "").length < 3) { setPending(false); return; }
     active.current?.controller.abort();
     const controller = new AbortController(), flight = { key: expected.scopeKey+expected.queryKey, controller }; active.current = flight;
     const isCurrent = () => active.current === flight && !controller.signal.aborted && latest.current.scopeKey === expected.scopeKey && latest.current.queryKey === expected.queryKey;
@@ -85,14 +86,14 @@ export function useCustomerListPage(query: string, mode: CustomerListQuery["mode
       }
       setError(reason instanceof Error ? reason.message : "后台资料暂不可用。");
     } finally { if (active.current === flight) { active.current = null; if (!controller.signal.aborted) setPending(false); } }
-  }, [visible, mode, returnAnchor]);
+  }, [visible, mode, returnAnchor,invalidQuery]);
   useLayoutEffect(() => { if (latest.current.scopeKey !== scopeKey || latest.current.queryKey !== queryKey) anchor.current = undefined; latest.current = { scope, scopeKey, queryKey }; loadRef.current = load; }, [scope, scopeKey, queryKey, load]);
   const hasCurrentInitial=Boolean(initial&&visible&&(!returnAnchor||initial.items.some(row=>row.phone===returnAnchor))&&visible.page.stateToken===initial.stateToken&&backendScopeKey(initial.scope)===scopeKey&&JSON.stringify(visible.page.query)===queryKey);
   useEffect(() => {
-    if(!scopeKey||hasCurrentInitial)return;
+    if(!scopeKey||hasCurrentInitial||invalidQuery)return;
     let live = true;
     const timeout = setTimeout(() => { if (live) void loadRef.current(); }, 150);
     return () => { live = false; clearTimeout(timeout); active.current?.controller.abort(); active.current = null; };
-  }, [scopeKey, queryKey, initial, hasCurrentInitial]);
-  return { page: visible?.page ?? (initial && backendScopeKey(initial.scope) === scopeKey ? initial : null), removed: visible?.page.startIndex ?? 0, pending, error, loadMore: () => void load("after"), loadPrevious: () => void load("before"), seek: (position:number) => { if (!active.current) void load("seek",position); }, rememberAnchor: (phone: string) => { anchor.current = phone; }, retry: () => void load(), resetKey: scopeKey+queryKey };
+  }, [scopeKey, queryKey, initial, hasCurrentInitial,invalidQuery]);
+  return { page: visible?.page ?? (initial && backendScopeKey(initial.scope) === scopeKey ? initial : null), removed: visible?.page.startIndex ?? 0, pending:pending&&!invalidQuery, error:invalidQuery?"请求资料无效。":error, loadMore: () => void load("after"), loadPrevious: () => void load("before"), seek: (position:number) => { if (!active.current) void load("seek",position); }, rememberAnchor: (phone: string) => { anchor.current = phone; }, retry: () => void load(), resetKey: scopeKey+queryKey };
 }

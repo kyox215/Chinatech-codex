@@ -1,3 +1,4 @@
+import {posix} from 'node:path';
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -6,7 +7,7 @@ import { adaptPreviewHookImports } from './helpers/preview-hook-loader.mjs';
 const modules=new Map();
 const compile=path=>ts.transpileModule(readFileSync(new URL('../'+path,import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const url=code=>'data:text/javascript;base64,'+Buffer.from(code).toString('base64');
-function library(name){if(modules.has(name))return modules.get(name);const code=compile('lib/'+name+'.ts').replace(/from "\.\/([^"]+)"/g,(_,dep)=>`from "${library([...name.split("/").slice(0,-1),dep].join("/"))}"`);const result=url(code);modules.set(name,result);return result;}
+function library(name){name=posix.normalize(name);if(modules.has(name))return modules.get(name);const code=compile('lib/'+name+'.ts').replace(/from "(\.{1,2}\/[^\"]+)"/g,(_,dep)=>`from "${library([...name.split("/").slice(0,-1),dep].join("/"))}"`);const result=url(code);modules.set(name,result);return result;}
 const domain=await import(library('repair-intake-record'));
 const {defaultStoreSettings,parseStoreSettings}=await import(library('store-settings'));
 const {emptyIntakeServices}=await import(library('intake-services'));

@@ -3,10 +3,10 @@
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
 import { backendSnapshot, isBackendClient, subscribeBackend } from "@/lib/backend/client";
 import type { BackendSnapshot } from "@/lib/backend/contracts";
-import type { createBackendBootstrap } from "@/lib/backend/bootstrap";
+import type { BackendReadSource } from "@/lib/backend/entity-source";
 import { backendDomainReady, type BackendDomain } from "@/lib/backend/read-plan";
 
-export const BackendSnapshotContext = createContext<(ReturnType<typeof createBackendBootstrap> & { hydrated?: boolean }) | null>(null);
+export const BackendSnapshotContext = createContext<BackendReadSource | null>(null);
 const noSubscription = () => () => {};
 
 export function useBackendState() {

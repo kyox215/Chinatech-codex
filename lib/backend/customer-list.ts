@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import type { TransactionSql } from "postgres";
 import { BackendError } from "./database";
 import { backendScopeKey, type BackendReadScope } from "./read-plan";
+import {listSearchNeedle} from "./list-search";
 import { customerReadVersionChangedCode, customerCursor, customerListQuery, type CustomerListPage, type CustomerListQuery, type CustomerListSummary } from "./customer-list-contract";
 
 export async function customerModelGeneration(tx: TransactionSql, storeId: string) {
@@ -46,7 +47,7 @@ export async function readCustomerList(tx: TransactionSql, scope: BackendReadSco
 export function customerDirectorySql(tx: TransactionSql, scope: BackendReadScope, query: CustomerListQuery, after: {activity:string;phone:string;direction:"before"|"after"}|null = null, explain = false, anchor?: string, seek?: number) {
   // Facts already carry only customer display fields. Existing per-domain RLS
   // removes repair/sale/history sources before aggregation for this member.
-  const needle = query.q, digits = needle.replace(/\D/g, "");
+  const needle = listSearchNeedle(query.q,query.mode!=="directory"), digits = needle.replace(/\D/g, "");
   const explicitPhone = needle.startsWith("+") || needle.startsWith("00"), phoneNeedle = needle.startsWith("00") ? digits.slice(2) : digits;
   const limit = query.mode === "directory" ? 50 : query.mode === "exact" ? 1 : 12;
   const hasPoint=Boolean(anchor)||seek!==undefined;

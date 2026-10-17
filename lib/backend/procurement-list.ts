@@ -2,6 +2,7 @@ import "server-only";
 import {createHash} from "node:crypto";
 import type {TransactionSql} from "postgres";
 import {BackendError} from "./database";
+import {listSearchNeedle} from "./list-search";
 import {backendScopeKey,type BackendReadScope} from "./read-plan";
 import {procurementListQuery,procurementCursor,procurementReadVersionChangedCode,type ProcurementListPage,type ProcurementListQuery,type ProcurementListSummary} from "./procurement-list-contract";
 
@@ -31,12 +32,12 @@ export async function readProcurementList(tx:TransactionSql,scope:BackendReadSco
 // IDs within each group use the same database collation as canonical loadState.
 // draft/cart share a display group, while each row preserves its actual status.
 export function procurementListSql(tx:TransactionSql,scope:BackendReadScope,query:ProcurementListQuery,point:Point|null=null,anchor?:string,seek?:number,explain=false) {
- const reverse=point?.direction==="before",hasPoint=Boolean(point||anchor||seek!==undefined),order=reverse?tx`group_first desc,id desc`:tx`group_first asc,id asc`;
+ const needle=listSearchNeedle(query.q),reverse=point?.direction==="before",hasPoint=Boolean(point||anchor||seek!==undefined),order=reverse?tx`group_first desc,id desc`:tx`group_first asc,id asc`;
  return tx`${explain?tx`explain (analyze,buffers,format json)`:tx``} with scoped as (
   select id,repair_id,repair_model,item,supplier,quantity,arrived,status,expected_at,ledger_revision,search from chinatech_v2_private.procurement_list_sources where store_id=${scope.storeId}
  ), filtered as (
   select *,case ${query.groupBy} when 'status' then case when status='cart' then 'draft' else status end when 'supplier' then supplier when 'repair' then repair_id else 'all' end as group_key
-  from scoped where (${query.q}='' or strpos(search,${query.q})>0) and (${query.repairId}='' or repair_id=${query.repairId})
+  from scoped where (${needle}='' or strpos(search,${needle})>0) and (${query.repairId}='' or repair_id=${query.repairId})
   and (${query.filter}='all' or ${query.filter}='draft' and status in ('draft','cart') or ${query.filter}='open' and status in ('ordered','partial') or ${query.filter}='complete' and status='complete')
  ), ranked as (
   select *,min(id) over(partition by group_key) group_first,count(*) over(partition by group_key)::integer group_count from filtered

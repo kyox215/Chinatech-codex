@@ -5,6 +5,7 @@ import { setImmediate } from "node:timers/promises";
 import { test } from "node:test";
 import { createContext, runInContext } from "node:vm";
 import ts from "typescript";
+import {sourceLoader} from "./helpers/typescript-source.mjs";
 
 // Compile the actual client into an isolated browser-like context for each test.
 // Fetch never leaves this context; all members, amounts and responses are synthetic.
@@ -15,11 +16,7 @@ const compiled = ts.transpileModule(source, {
 const bootstrapCompiled = ts.transpileModule(readFileSync(new URL("../lib/backend/bootstrap.ts", import.meta.url), "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const readPlanCompiled = ts.transpileModule(readFileSync(new URL("../lib/backend/read-plan.ts", import.meta.url), "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-const readPlan = {};
-const procurementContract={};
-runInContext(ts.transpileModule(readFileSync(new URL("../lib/backend/procurement-list-contract.ts",import.meta.url),"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,createContext({exports:procurementContract,Buffer}));
-runInContext(readPlanCompiled, createContext({ exports: readPlan,require:name=>{assert.equal(name,"./procurement-list-contract");return procurementContract;} }));
+const readPlan=sourceLoader()("./lib/backend/read-plan");
 
 const storeId = "00000000-0000-4000-8000-000000000001";
 const ownerId = "00000000-0000-4000-8000-000000000002";
@@ -266,7 +263,7 @@ test("采购旧搜索和反馈在权限/身份变化清除，未激活新scope�
   const code = ts.transpileModule(procurementSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const state = () => ({ formal: true, snapshot: activeScope.readFor(initial), active: activeScope.isActive() });
   const hooks = { useBackendState: state, useBackendStore: (_subscribe, _read, _server, project) => project(state().snapshot) };
-  const react = { createContext: () => ({ Provider: "provider" }), useSyncExternalStore: (_subscribe, read) => read() };
+  const react = { createContext: () => ({ Provider: "provider" }),useContext:()=>null, useSyncExternalStore: (_subscribe, read) => read() };
   const context = createContext({ exports: {}, Event, crypto: { randomUUID }, window: { dispatchEvent() {} }, require: name => {
     if (name === "react") return react;
     if (name === "react/jsx-runtime") return { jsx: (_type, props) => props.value };
@@ -294,6 +291,17 @@ test("采购旧搜索和反馈在权限/身份变化清除，未激活新scope�
   assert.equal(provider.readUiTest().listView.query, ""); assert.equal(provider.readUiTest().feedback, null);
   h.client.configureBackend(second);
   assert.equal(provider.readUiTest().listView.query, ""); assert.equal(provider.readUiTest().feedback, null);
+  let finishTargetRead;
+  const targetSource={read:()=>h.client.backendSnapshot(),refreshAfterCommand:()=>new Promise(resolve=>{finishTargetRead=resolve;})};
+  const pendingTarget=provider.dispatchTest({type:"create",record:{id:"synthetic-confirmed-old-scope"}},undefined,targetSource);
+  const isolatedResult=assert.rejects(pendingTarget,/账号访问权限已变化/);
+  await setImmediate();h.requests[1].resolve(response(200,mockSnapshot({revision:4})));await setImmediate();
+  assert.equal(h.operations.size,0); // Command was confirmed and original intent cleared.
+  h.client.configureBackend(mockSnapshot({memberId:ownerId,revision:5}));
+  assert.equal(provider.readUiTest().feedback,null);
+  finishTargetRead(null);await isolatedResult;
+  assert.equal(provider.readUiTest().feedback,null);
+  assert.equal(h.operations.size,0); // Late UI isolation never recreates an unknown intent.
 });
 
 test("同店老板旧命令响应不能替换随后登录的员工身份或恢复成本", async () => {

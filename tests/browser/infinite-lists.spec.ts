@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import{readFileSync}from"node:fs";
 import { retailUnits } from "../../lib/retail-fixtures";
 import { emptyIntakeServices } from "../../lib/intake-services";
 import type { IntakeReceiptData } from "../../lib/repair-intake-record";
@@ -9,7 +10,10 @@ import { customerId } from "../../lib/customers";
 import { mountInfiniteListFixture } from "./helpers/infinite-list-fixture";
 
 type FixtureWindow = Window & { infiniteFixture: { mount: (kind: string, locale?: string) => void; unmount: () => void; setIdentity: () => void; failOffset: number | null; failStatus: number; holdOffset: number | null; calls: { offset: number; selected: string }[]; releases: (() => void)[] }; infiniteObservers: () => number };
-async function login(page: Page) { await page.request.post("/api/preview-session", { data: { email: "demo@chinatech.local", password: "Preview2026!" } }); }
+async function login(page: Page) {
+  if(process.env.CT_PERF_FIXTURE){const fixture=JSON.parse(readFileSync(process.env.CT_PERF_FIXTURE,'utf8')),base=String(test.info().project.use.baseURL);expect(base).toMatch(/^https?:\/\/localhost:318[79]$/);expect(fixture.email).toMatch(/@example\.test$/);const response=await page.request.post(base+'/api/auth/login',{headers:{Origin:base},data:{email:fixture.email,password:fixture.password,remember:false}});expect(response.status()).toBe(200);await page.context().addCookies([{name:'ct_store',value:fixture.storeId,url:base}]);return;}
+  await page.request.post("/api/preview-session", { data: { email: "demo@chinatech.local", password: "Preview2026!" } });
+}
 const catalogRows: CatalogRow[] = Array.from({ length: 175 }, (_, i) => ({ id: `demo-scroll-${i}`, category: "phone", brand: "DEMO", family: "DEMO series", name: `DEMO Model ${i}`, releasedAt: null, year: null, generation: "", network: "unknown", platform: "", modelCodes: [`DEMO-${i}`], aliases: [], markets: [], status: "review", enabled: true, sourceUrls: [], checkedAt: null, notes: "", version: 1 }));
 const history: RetailHistoryRecord[] = Array.from({ length: 175 }, (_, i) => ({ id: `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`, source: "seatable", sourceSnapshot: "a".repeat(64), sourceRow: i + 2, sourceStatus: "以售", condition: "翻新机", customerName: "DEMO scroll customer", customerPhone: "+393200001234", category: "手机", brand: "DEMO", model: `Scroll phone ${i}`, color: null, memory: null, paymentMethod: null, askingPriceCents: null, salePriceCents: 100, depositCents: null, costCents: null, notes: null, batteryPercent: null, identifier: `DEMO-${i}`, intakeAt: "2026-10-17T10:00:00Z", pickupDate: "2026-10-17", sourceUpdatedAt: "2026-10-17T10:00:00Z", importedAt: "2026-10-17T10:00:00Z", reviewReasons: [] }));
 

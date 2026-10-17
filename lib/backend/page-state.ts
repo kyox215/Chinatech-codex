@@ -1,4 +1,7 @@
 import "server-only";
+import {readRepairScan} from "./repair-scan-read";
+import {repairReadContext,readRepairList,validateRepairListOptions} from "./repair-list";
+import type {RepairListQuery} from "./repair-list-contract";
 import { customerModelGeneration, customerListToken, readCustomerList } from "./customer-list";
 import { customerListQuery } from "./customer-list-contract";
 import {procurementModelGeneration,procurementListToken,readProcurementList} from "./procurement-list";
@@ -20,6 +23,7 @@ import { backendIdentityChangedCode, backendScopeKey, pageDomains, pagePlanKey, 
 export const getPageAccess = cache(() => getServerAccess());
 type ReadAccess = Pick<NonNullable<Awaited<ReturnType<typeof getServerAccess>>>,"identity"|"storeId">;
 export function backendCustomerListsEnabled() { return process.env.BACKEND_CUSTOMER_LIST_READS === "1"; }
+export function backendRepairListsEnabled() { return process.env.BACKEND_REPAIR_LIST_READS === "1"; }
 export function backendProcurementListsEnabled() { return process.env.BACKEND_PROCUREMENT_LIST_READS === "1"; }
 export function backendV2ReadsEnabled() { return process.env.BACKEND_V2_READS !== "0"; }
 function scopeFor(access: ReadAccess, member: StaffMember): BackendReadScope {
@@ -32,12 +36,12 @@ async function sessionInTransaction(tx: TransactionSql, access: ReadAccess, memb
 }
 export function sessionSnapshot(bootstrap: SessionBootstrap): BackendSnapshot {
   const snapshot: BackendSnapshot = { customerListEnabled: backendCustomerListsEnabled(), storeId: bootstrap.scope.storeId, revision: bootstrap.revision, staff: { revision: bootstrap.revision, currentId: bootstrap.member.id, members: [bootstrap.member], audit: [] }, settings: null, intakes: [], signatures: [], workflows: {}, procurement: [], retail: [], retailHistory: [], customers: [], read: { formatVersion: 2, scope: bootstrap.scope, plan: { kind: "session" }, ready: ["staff"] } };
-  snapshot.procurementListEnabled=backendProcurementListsEnabled();
+  snapshot.procurementListEnabled=backendProcurementListsEnabled();snapshot.repairListEnabled=backendRepairListsEnabled();
   snapshot.stateToken = pageToken(snapshot);
   return snapshot;
 }
-function pageToken(snapshot: BackendSnapshot, listGeneration?: string,procurementGeneration?:string) {
-  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.customerListEnabled,snapshot.procurementListEnabled, listGeneration,procurementGeneration])).digest("hex");
+function pageToken(snapshot: BackendSnapshot, listGeneration?: string,procurementGeneration?:string,repairToken?:string) {
+  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.customerListEnabled,snapshot.procurementListEnabled,snapshot.repairListEnabled, listGeneration,procurementGeneration,repairToken])).digest("hex");
 }
 export async function loadSessionBootstrap(access: ReadAccess) {
   return withDatabase(access.identity, access.storeId, async tx => sessionInTransaction(tx, access, await memberInTransaction(tx, access.storeId, access.identity.userId)));
@@ -57,7 +61,7 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
     const member = await memberInTransaction(tx, access.storeId, access.identity.userId);
     const bootstrap = await sessionInTransaction(tx, access, member);
     if (expectedScope && expectedScope !== backendScopeKey(bootstrap.scope)) throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。", 409, backendIdentityChangedCode);
-    const state = sessionSnapshot(bootstrap), domains = pageDomains(plan,{customerLists:backendCustomerListsEnabled(),procurementLists:backendProcurementListsEnabled()});
+    const state = sessionSnapshot(bootstrap), domains = pageDomains(plan,{customerLists:backendCustomerListsEnabled(),procurementLists:backendProcurementListsEnabled(),repairLists:backendRepairListsEnabled()});
     state.read = { formatVersion: 2, scope: bootstrap.scope, plan, ready: domains };
     if (plan.kind === "settings") {
       // Existing staff/settings semantics remain explicit to this page while its
@@ -68,11 +72,13 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
     }
     const customerGeneration = plan.kind === "customers" && backendCustomerListsEnabled() && can(member,"customers.view") ? await customerModelGeneration(tx,access.storeId) : undefined;
     const procurementGeneration=plan.kind==="procurement"&&backendProcurementListsEnabled()&&can(member,"repairs.view")?await procurementModelGeneration(tx,access.storeId):undefined;
-    state.stateToken = pageToken(state,customerGeneration,procurementGeneration);
+    const repairContext=plan.kind==="repairs"&&backendRepairListsEnabled()&&can(member,"repairs.view")?await repairReadContext(tx,bootstrap.scope,plan.repairQuery):undefined;
+    state.stateToken = pageToken(state,customerGeneration,procurementGeneration,repairContext?.stateToken);
     if (known === state.stateToken) return { unchanged: true as const, stateToken: state.stateToken, storeId: state.storeId, memberId: member.id, revision: state.revision };
     if(plan.kind === "customer" && !can(member,"customers.view")) { state.read.ready=["staff"]; return state; }
     if (customerGeneration !== undefined) state.customerList = await readCustomerList(tx,bootstrap.scope,plan.q??"",undefined,customerGeneration,"directory",plan.anchor);
     if(procurementGeneration!==undefined)state.procurementList=await readProcurementList(tx,bootstrap.scope,plan.query,{generation:procurementGeneration,anchor:plan.anchor});
+    if(repairContext)state.repairList=await readRepairList(tx,bootstrap.scope,plan.repairQuery,{context:repairContext,group:plan.group,anchor:plan.anchor});
     if (domains.includes("settings")) {
       // Finance is read only by its own settings page. A print/default policy
       // read never transfers the whole finance ledger into another module.
@@ -87,6 +93,9 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
     let intakeIds: string[] | null = null;
     if(customerPhone) {
       intakeIds=(await tx`select id from chinatech_v2_private.repair_intakes where store_id=${access.storeId} and chinatech_v2_private.directory_phone(data->>'phone')=${customerPhone}`).map(row=>row.id);
+    } else if(plan.kind==="repair-operation"){
+      if(!can(member,"repairs.view"))throw new BackendError("当前账号没有此操作权限。",403);
+      intakeIds=[plan.id!];
     } else if (plan.kind === "repair") {
       const rows = await tx`select id from chinatech_v2_private.repair_intakes where store_id=${access.storeId} and (id=${plan.id!} or data->'repairOrigin'->>'repairId'=${plan.id!} or id=(select data->'repairOrigin'->>'repairId' from chinatech_v2_private.repair_intakes where store_id=${access.storeId} and id=${plan.id!}))`;
       intakeIds = rows.map(row => row.id);
@@ -150,5 +159,24 @@ export async function loadProcurementBatchPage(access:ReadAccess,query:Partial<P
   if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);
   if(!can(member,"repairs.view")||query.kind!=="repairs"&&!can(member,"repairs.edit"))throw new BackendError("当前账号没有此操作权限。",403);
   return readProcurementBatch(tx,scope,query,options);
+ });
+}
+export async function loadRepairListPage(access:ReadAccess,query:Partial<RepairListQuery>,options:{group?:string;cursor?:string;anchor?:string;seek?:number;known?:string;expectedScope?:string}={}) {
+ return withDatabase(access.identity,access.storeId,async tx=>{
+  const member=await memberInTransaction(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
+  if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);
+  if(!can(member,"repairs.view"))throw new BackendError("当前账号没有此操作权限。",403);
+  const context=await repairReadContext(tx,scope,query);
+  validateRepairListOptions(context,options);
+  if(!options.cursor&&options.seek===undefined&&options.known===context.stateToken)return{unchanged:true as const,stateToken:context.stateToken};
+  return readRepairList(tx,scope,query,{...options,context});
+ });
+}
+export async function loadRepairScanPage(access:ReadAccess,raw:string,origin:string,options:{cursor?:string;seek?:number;expectedScope?:string}={}) {
+ return withDatabase(access.identity,access.storeId,async tx=>{
+  const member=await memberInTransaction(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
+  if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);
+  if(!can(member,"repairs.view"))throw new BackendError("当前账号没有此操作权限。",403);
+  return readRepairScan(tx,scope,raw,origin,options);
  });
 }

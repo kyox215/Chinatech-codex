@@ -1,3 +1,4 @@
+import {posix} from 'node:path';
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -9,8 +10,9 @@ const modules = new Map();
 const dataUrl = code => `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`;
 const compile = path => ts.transpileModule(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022, jsx: ts.JsxEmit.React } }).outputText;
 function library(name) {
+  name=posix.normalize(name);
   if (modules.has(name)) return modules.get(name);
-  const code = compile(`lib/${name}.ts`).replace(/from "\.\/([^"]+)"/g, (_, dep) => `from "${library([...name.split("/").slice(0,-1),dep].join("/"))}"`);
+  const code = compile(`lib/${name}.ts`).replace(/from "(\.{1,2}\/[^\"]+)"/g, (_, dep) => `from "${library([...name.split("/").slice(0,-1),dep].join("/"))}"`);
   const url = dataUrl(code); modules.set(name, url); return url;
 }
 let instance = 0;

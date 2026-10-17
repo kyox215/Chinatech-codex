@@ -82,7 +82,7 @@ export function buildInfiniteListFixture(source = process.cwd(), custom?: {adapt
 export async function mountInfiniteListFixture(page: Page, compiledCss = false) {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
-  let css = compiledCss ? readdirSync(resolve(".next/static/chunks")).filter(file => file.endsWith(".css")).map(file => readFileSync(resolve(".next/static/chunks", file), "utf8")).find(css => css.includes(".list-pagination")) : readFileSync(resolve("app/globals.css"), "utf8");
+  let css = compiledCss ? readdirSync(resolve(process.env.CT_PERF_BUILD_DIR??".next","static/chunks")).filter(file => file.endsWith(".css")).map(file => readFileSync(resolve(process.env.CT_PERF_BUILD_DIR??".next","static/chunks", file), "utf8")).find(css => css.includes(".list-pagination")) : readFileSync(resolve("app/globals.css"), "utf8");
   if (!css) throw new Error("The built CSS containing the real list footer is missing");
   css = css.replace(/url\((["']?)\/fonts\/([^"')]+)\1\)/g, (_match, _quote, file) => `url(data:font/woff2;base64,${readFileSync(resolve("public/fonts", file)).toString("base64")})`);
   css += readFileSync(resolve("components/account/login-devices.module.css"), "utf8");

@@ -27,13 +27,13 @@ export function CustomerList() {
   return backend.formal && backend.snapshot?.customerListEnabled ? <FormalCustomerList /> : <LegacyCustomerList />;
 }
 function FormalCustomerList() {
-  const params=useSearchParams(),query=(params.get("q")??"").slice(0,160);
-  const setQuery=(value:string)=>{const next=new URLSearchParams();if(value)next.set("q",value.slice(0,160));window.history.replaceState(null,"","/app/customers"+(next.size?"?"+next:""));};
+  const params=useSearchParams(),query=params.get("q")??"";
+  const setQuery=(value:string)=>{const next=new URLSearchParams();if(value)next.set("q",value);window.history.replaceState(null,"","/app/customers"+(next.size?"?"+next:""));};
   const rawAnchor=params.get("anchor"),returnAnchor=rawAnchor&&/^\+[1-9]\d{6,14}$/.test(rawAnchor)?rawAnchor:undefined;
   const list=useCustomerListPage(query,"directory",returnAnchor), staff=useStaff();
   useEffect(()=>bindCustomerListPosition(()=>{const scope=backendSnapshot()?.read?.scope;return scope?backendScopeKey(scope):null;},subscribeBackend),[]);
   if(!staff.can("customers.view"))return <CustomerListBody query={query} setQuery={setQuery} visible={[]} total={0} shown={0} ready error="当前账号没有此操作权限。" hasMore={false} loadMore={()=>{}} resetKey={list.resetKey}/>;
-  return <CustomerListBody query={query} setQuery={setQuery} visible={list.page?.items??[]} total={list.page?.total??0} shown={(list.page?.items.length??0)+list.removed} ready={Boolean(list.page)} error={list.error} pending={list.pending} hasMore={Boolean(list.page?.nextCursor) && list.page?.query.q===query.trim().toLowerCase()} loadMore={list.loadMore} retry={list.retry} startIndex={list.page?.startIndex??0} windowKey={list.page?JSON.stringify([list.page.scope,list.page.query]):list.resetKey} windowVersion={list.page?.stateToken} onAnchor={list.rememberAnchor} onSeek={list.seek} resetKey={list.resetKey}/>;
+  return <CustomerListBody query={query} setQuery={setQuery} visible={list.page?.items??[]} total={list.page?.total??0} shown={(list.page?.items.length??0)+list.removed} ready={Boolean(list.page)} error={list.error} pending={list.pending} hasMore={Boolean(list.page?.nextCursor) && list.page?.query.q===query.trim()&&query.length<=160} loadMore={list.loadMore} retry={list.retry} startIndex={list.page?.startIndex??0} windowKey={list.page?JSON.stringify([list.page.scope,list.page.query]):list.resetKey} windowVersion={list.page?.stateToken} onAnchor={list.rememberAnchor} onSeek={list.seek} resetKey={list.resetKey}/>;
 }
 function LegacyCustomerList() {
   const {customers,ready,error}=useCustomerDirectory();

@@ -4,7 +4,7 @@ import test from "node:test";
 import ts from "typescript";
 import zxing from "@zxing/library";
 const compiled = ts.transpileModule(readFileSync(new URL("../lib/repair-scan.ts", import.meta.url), "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
-const { repairScanMatches, cameraErrorMessage } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`);
+const { repairScanMatches, repairScanCode, cameraErrorMessage } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`);
 const orders = [{ id: "CT-2026-0927", device: { serial: "DEMO-MBA-0927" } }, { id: "CT-2026-0929", device: { serial: "DEMO-SHARED" } }, { id: "CT-2026-0916", device: { serial: "DEMO-SHARED" } }];
 const origin = "https://repair.example";
 test("扫码按完整工单号或设备序列号匹配，保留全部候选", () => {
@@ -12,6 +12,13 @@ test("扫码按完整工单号或设备序列号匹配，保留全部候选", ()
  assert.equal(repairScanMatches("demo-mba-0927",orders,origin)[0].id,"CT-2026-0927");
  assert.equal(repairScanMatches("DEMO-SHARED",orders,origin).length,2);
  for (const value of ["", "CT-2026", "MacBook Air", "x".repeat(513)]) assert.deepEqual(repairScanMatches(value,orders,origin),[]);
+});
+test("精确匹配规范不做NFKC，JS空白与Unicode uppercase保留",()=>{
+ const code="\ufeff\u00a0ﬃßς𐐨\u2028",order={id:"unrelated",device:{serial:code}};
+ assert.equal(repairScanCode(code,origin),"FFISSΣ𐐀");assert.equal(repairScanMatches(code,[order],origin).length,1);
+ assert.notEqual(repairScanCode("Ａ",origin),repairScanCode("A",origin));
+ assert.equal(repairScanCode("İ".repeat(512),origin).length,512);
+ assert.equal(repairScanCode("x".repeat(513),origin),null);
 });
 test("只接受本站已知工单路径，不从外链或恶意文本打开页面", () => {
  assert.equal(repairScanMatches(`${origin}/app/repairs/CT-2026-0927`,orders,origin).length,1);

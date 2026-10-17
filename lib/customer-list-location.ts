@@ -1,7 +1,7 @@
 /** A return location contains only the search condition, row identity and pixel
  * offset. Every return still performs a fresh authorized bounded server read. */
 export function customerListLocation(query: string, phone: string, offset = 0) {
-  const params=new URLSearchParams();if(query)params.set("q",query.slice(0,160));
+  const params=new URLSearchParams();if(query&&query.length<=160)params.set("q",query);
   if(/^\+[1-9]\d{6,14}$/.test(phone))params.set("anchor",phone);
   if(Number.isFinite(offset))params.set("offset",String(Math.max(-2000,Math.min(2000,Math.round(offset)))));
   return `/app/customers${params.size?"?"+params:""}`;
@@ -15,7 +15,7 @@ let position: {scope:string;query:string;phone:string;offset:number}|null=null;
 let bound=false;
 export function rememberCustomerListPosition(scope:string,query:string,phone:string,offset:number) {
   if(typeof window==="undefined")return;
-  position={scope,query:query.slice(0,160),phone,offset:Math.max(-2000,Math.min(2000,offset))};
+  if(query.length>160)return;position={scope,query,phone,offset:Math.max(-2000,Math.min(2000,offset))};
 }
 export function customerListReturnPosition(scope:string,id:string) {
   if(typeof window==="undefined")return null;

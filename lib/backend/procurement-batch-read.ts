@@ -2,16 +2,17 @@ import "server-only";
 import {createHash} from "node:crypto";
 import type {TransactionSql} from "postgres";
 import {BackendError} from "./database";
+import {listSearchNeedle} from "./list-search";
 import {backendScopeKey,type BackendReadScope} from "./read-plan";
 import {procurementModelGeneration} from "./procurement-list";
 import {procurementReadVersionChangedCode} from "./procurement-list-contract";
 import {procurementBatchQuery,type ProcurementBatchQuery,type ProcurementBatchPage,type ProcurementRepairCandidate} from "./procurement-batch-contract";
 
 export async function readProcurementBatch(tx:TransactionSql,scope:BackendReadScope,raw:Partial<ProcurementBatchQuery>,options:{cursor?:string;ids?:string[];seek?:number}={}):Promise<ProcurementBatchPage|{scope:BackendReadScope;items:ProcurementRepairCandidate[]}> {
- const query=procurementBatchQuery(raw);
+ const query=procurementBatchQuery(raw),needle=listSearchNeedle(query.q);
  if(!scope.permissions.includes("repairs.view")||query.kind!=="repairs"&&!scope.permissions.includes("repairs.edit"))throw new BackendError("当前账号没有此操作权限。",403);
  if(query.kind==="repairs") {
-  const rows=await tx`select id,data->>'model' as model from chinatech_v2_private.repair_intakes where store_id=${scope.storeId} and (${query.q}='' or strpos(lower(id||' '||coalesce(data->>'model','')),${query.q})>0) order by id limit 12`;
+  const rows=await tx`select id,data->>'model' as model from chinatech_v2_private.repair_intakes where store_id=${scope.storeId} and (${needle}='' or strpos(lower(id||' '||coalesce(data->>'model','')),${needle})>0) order by id limit 12`;
   return {scope,items:rows.map(row=>({id:row.id,model:row.model}))};
  }
  const generation=await procurementModelGeneration(tx,scope.storeId);
@@ -33,11 +34,11 @@ export async function readProcurementBatch(tx:TransactionSql,scope:BackendReadSc
  ), supplier_counts as (
   select s.id,s.name,s.active,count(e.id)::integer count from supplier_rows s join eligible e on e.resolved_supplier=s.id group by s.id,s.name,s.active
  ), matching as (
-  select * from eligible where resolved_supplier=${query.supplierId} and (${query.q}='' or strpos(search||' '||lower(coalesce(specification,'')),${query.q})>0)
+  select * from eligible where resolved_supplier=${query.supplierId} and (${needle}='' or strpos(search||' '||lower(coalesce(specification,'')),${needle})>0)
  ), selected as (
   select * from matching where ${options.ids?tx`id=any(${tx.array(options.ids,25)})`:tx`id>${after}`} order by id offset ${options.seek??0} limit ${options.ids?100:51}
  ) select (select count(*)::integer from matching) total,(select count(*)::integer from eligible) eligible,(select count(*)::integer from eligible where resolved_supplier is null) unresolved,
-  coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',name,'active',active,'count',count) order by id) from (select * from supplier_counts where ${query.q}='' or strpos(lower(name||' '||id),${query.q})>0 order by id limit 12) s),'[]'::jsonb) suppliers,
+  coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',name,'active',active,'count',count) order by id) from (select * from supplier_counts where ${needle}='' or strpos(lower(name||' '||id),${needle})>0 order by id limit 12) s),'[]'::jsonb) suppliers,
   (select jsonb_build_object('id',id,'name',name,'active',active,'count',count) from supplier_counts where id=${query.supplierId}) supplier,
   coalesce((select jsonb_agg(jsonb_build_object('id',id,'repairId',repair_id,'repairModel',repair_model,'repairCancelled',repair_cancelled,'item',item,'specification',specification,'quantity',quantity,'arrived',arrived,'ledgerRevision',ledger_revision,'supplierId',resolved_supplier) order by id) from selected),'[]'::jsonb) items`;
  const more=!options.ids&&result.items.length>50,items=options.ids?result.items:result.items.slice(0,50);

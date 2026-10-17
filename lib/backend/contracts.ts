@@ -14,6 +14,8 @@ export type BackendSnapshot = {
   customerList?: import("./customer-list-contract").CustomerListPage;
   procurementListEnabled?: boolean;
   procurementList?: import("./procurement-list-contract").ProcurementListPage;
+  repairListEnabled?:boolean;
+  repairList?:import("./repair-list-contract").RepairListPage;
   operation?: OperationReceipt;
   stateToken?: string;
   storeId: string; revision: number; staff: StaffData; settings: StoreSettings | null;

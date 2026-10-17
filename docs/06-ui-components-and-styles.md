@@ -270,7 +270,7 @@ RetailRecordScanner从旧独立列表提取后复用于唯一商品入口；buil
 | `ProcurementPreparation` / `ProcurementFeedback` | [procurement-preparation.tsx](../components/procurement/procurement-preparation.tsx) | 工单列表、详情与采购详情共用一键加车、取消加车及已下单标记，无需订单号或备注；读取采购提供器，业务校验归 `lib/procurement.ts`，不是公共控件或供应商发单组件。 |
 | `RepairProcurementShortcut` / `RepairProcurementDialog` | [repair-procurement-shortcut.tsx](../components/procurement/repair-procurement-shortcut.tsx) | 工单列表短图标入口与稳定快捷弹层；列表集中管理打开的工单，换组不卸载弹层。当前项目直接用 `RepairItemsForm` 图形卡片填写选填供应商、报价与获权进价，一次保存；既有采购记录的按需切换复用 `SelectControl`。原生 `dialog` 管理模态焦点和 Esc，关闭后定位目标组与工单，仍属于维修与采购关联模块。 |
 | `RepairProcurementSummary` | [procurement-summary.tsx](../components/procurement/procurement-summary.tsx) | 工单内展示同源采购事实和快捷表单；备选用途独立展示，不从外观或维修阶段推断下单。 |
-| `RepairScanner` | [repair-scanner.tsx](../components/repairs/repair-scanner.tsx) | 工作台与维修列表共用查单；相机、相册、手动输入只返回目录中的 fixture 或当前浏览器本地工单候选。解码通过公共 `IdentifierScanner` 按需加载，匹配规则归 `lib/repair-scan.ts`；工单候选逻辑不作为整机录入或通用业务写入。 |
+| `RepairScanner` | [repair-scanner.tsx](../components/repairs/repair-scanner.tsx) | 工作台与维修列表共用查单。预览/显式兼容模式使用原目录；维修摘要flag启用时，在识别后按需读取全授权精确ID/SN候选，50/批及全量计数，最多10批500摘要，超过200复用 `WindowedListRows` 与原dialog滚动视口。单一结果模板、原控件及8px间距保持，错误/重试位于dialog内。解码仍通过公共 `IdentifierScanner` 按需加载；`repairScanCode`/`repairScanMatches`保持JS trim+uppercase、精确匹配、同源无query/hash路径及全部重复SN候选，不做NFKC、不猜写。 |
 | `IntakeReview` | [intake-review.tsx](../components/repairs/intake-review.tsx) | 接机确认和本地工单详情共用图形核对区，显示联系人、设备、报告故障、维修需求与随件；当前照片可选传入，修改入口由接机流程提供。`layout="review"` 保持逐步核对顺序，`layout="detail"` 使用设备摘要＋主辅双栏；`metadata` 放工单元信息，`asideContent` 组合工单概况，`relatedContent` 组合采购摘要。手机按故障→概况及联系人→采购排列，不把工作流或采购规则塞进展示组件。属于维修模块，不作为检测、报价或正式授权组件。 |
 
 新增后台模块复用 `PageTitle` 并继承 `AppShell` 的侧栏，不恢复全局顶栏或手机底栏。页面不增加装饰性眉题、开发说明或重复功能解释，只保留业务字段与必要反馈。账号、通知与退出集中在侧栏底部。权限与会话规则仍遵循业务规格，导航可见性不等于服务端授权。
@@ -664,3 +664,13 @@ ToolboxControl替换账号设置旧三套Office管理卡片与双导航，复用
 `SearchCombobox.loadingLabel`可选，默认仍是目录原文字；采购传既有通用三语“正在处理…”，只在真实请求期间显示等待。维修候选打开后才查、150ms去抖、同scope短结果复用，读取失败显示就地重试；无page且错误idle时不得常驻ReadPending。
 
 本地xc4b-FztHQF1WlRktYeHb：Chromium五宽1440/1024/769/390/375×三语及深Link返回/500回查/候选/批量草稿/一次DEMO保存共20项通过；独立真实React503停忙与dialog正反键盘/代际高度2项通过。同build的HTTPS独立Origin WebKit375三语3项通过；生产P95、Linux及全站剩余域仍按后续准确证据分别登记。本次未新增视觉主题/控件或Figma变体。
+
+## 2026-10-17 性能候选的维修摘要与操作 owner（实施中）
+
+`RepairListBody`是维修列表唯一的标题、筛选、分组、桌面行、手机行与触底footer。旧canonical兼容读取和默认关闭flag的新摘要读取均适配此Body；不复制页面模板。所有组共用原桌面横向视口。`WindowedListRows.thresholdTotal`可选，维修按完整查询计数判断超过200的窗口化门槛，不能让多个小组绕过总渲染限制；全组共用最多十批/500摘要缓存，真正可变高度、键盘焦点与文档返回锚点沿公共实现。
+
+列表阶段、联系和配件按钮只打开原`RepairStageDialog`、`RepairContactDialog`和`RepairProcurementDialog`。`RepairEntityOperation`位于所有窗口/分组外，只按需提供真实目标资料，未提交草稿及原requestId继续由原Dialog维护。局部读取的`readFailure`复用`ReadFailure`并放入当前modal的可操作区域，不能把重试留在背景inert区域。`RepairProcurementDialog.onConfirmed`只上传本Dialog拥有且与已确认回执精确匹配的requestId；其他工单的恢复回执不得当作本Dialog已保存。
+
+本段为复用/实施合同；新维修正式CSS、五宽三语、失败重试与跨窗口交互仍按准确候选构建的运行证据登记，不能沿用采购截图声称通过。没有新增视觉主题、控件或Figma状态。
+
+2026-10-17 性能候选的共享触底边界：`ListPagination`分别记录“目前可见”和“本次进入已派发”。loading/disabled/error期间保留未消费意图，解除后用一次原生IntersectionObserver核对当前实际裁切，至多派发一次；手动加载同样消费本次进入。追加完成后静止不连抽，离开再进入或明确点击才继续。当前组件级Chrome/WebKit六个反例覆盖三个阻塞状态；真实业务/编译构建证据另记，不用此声明代替全站验收。
