@@ -1,4 +1,9 @@
 {
   "framework": "nextjs",
-  "buildCommand": "npm run build"
+  "buildCommand": "npm run build",
+  "git": {
+    "deploymentEnabled": {
+      "codex/performance-20261017": false
+    }
+  }
 }
