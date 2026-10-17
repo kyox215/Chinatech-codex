@@ -1,0 +1,9 @@
+Use case: product-mockup
+Asset type: wide hero illustration for the ChinaTech phone data-transfer download introduction page.
+Primary request: Create a refined editorial 3D illustration of two modern generic Android smartphones exchanging a small group of personal data symbols. This is a conceptual illustration, not a screenshot or an app interface.
+Scene/backdrop: seamless very pale lavender and off-white studio background, clean spacious composition.
+Subject: two elegant graphite and silver phones standing upright at a slight inward angle; a subtle purple flowing connection between them; a few softly floating rounded tiles with a photo landscape, a contact silhouette, and a document icon, representing phone-to-phone transfer. Screens show only abstract soft violet geometry, no real UI or status.
+Style/medium: polished minimal 3D product render, soft lighting, subtle realistic shadows, premium understated look.
+Composition/framing: landscape 3:2; complete phones and floating symbols centered within generous safe margins; suitable inside the right half of an existing white rounded website panel and on a small mobile screen. Keep scene readable at 340px wide.
+Color palette: off-white, light grey, graphite, accent violet #5F57FF and muted lavender.
+Constraints: no words, letters, numbers, brand marks, logos, QR codes, download buttons, completion checkmarks, percentages, cables, people, decorative text, watermarks, or frames. Do not imply all-device compatibility or verified transfer success. Do not render a whole webpage.
