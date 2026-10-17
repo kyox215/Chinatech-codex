@@ -47,20 +47,20 @@ export async function loadRepairReceipt(tx: TransactionSql, access: Access, requ
 }
 
 let activeRenders = 0;
-export async function generateRepairReceipt(request: ReceiptRequest, origin: string) {
-  const access = await getServerAccess();
+export async function generateRepairReceipt(request: ReceiptRequest, origin: string, storeId?: string) {
+  const access = await getServerAccess(undefined,storeId);
   if (!access) throw receiptFailure("receiptUnavailable", 403);
   const source = await withDatabase(access.identity, access.storeId, tx => loadRepairReceipt(tx, access, request));
   if (activeRenders >= 2) throw receiptFailure("receiptBusy", 503);
   activeRenders++;
   try {
-    const matrix = new MultiFormatWriter().encode(new URL("/app/repairs/" + request.id, origin).href, BarcodeFormat.QR_CODE, 0, 0, new Map());
+    const matrix = new MultiFormatWriter().encode(new URL("/app/repairs/" + request.id + "?storeId=" + access.storeId, origin).href, BarcodeFormat.QR_CODE, 0, 0, new Map());
     let path = "";
     for (let y = 0; y < matrix.getHeight(); y++) for (let x = 0; x < matrix.getWidth(); x++) if (matrix.get(x, y)) path += `M${x} ${y}h1v1h-1z`;
     const projection = repairPrintProjection({ ...source, language: request.language, totalCents: source.data.itemQuotes?.length ? itemQuoteTotal(source.data.itemQuotes, source.requirements.map(r => r.title)) : null, technician: printLabel("unassigned", request.language), status: source.workflow?.status ?? "diagnosis", custody: source.workflow?.custody ?? source.data.custody ?? "unknown", formal: true, qr: { path, size: matrix.getWidth() } });
     // The rendering process holds no database transaction or row lock.
     const result = await renderRepairReceipt(projection, request.paper);
-    const currentAccess = await getServerAccess();
+    const currentAccess = await getServerAccess(undefined,storeId);
     if (!currentAccess || canonicalPrintJson([currentAccess.identity, currentAccess.storeId]) !== canonicalPrintJson([access.identity, access.storeId])) throw receiptFailure("receiptUnavailable", 403);
     const current = await withDatabase(currentAccess.identity, currentAccess.storeId, tx => loadRepairReceipt(tx, currentAccess, request));
     if (current.token !== source.token) throw receiptFailure("receiptChanged", 409);

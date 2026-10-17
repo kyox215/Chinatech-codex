@@ -13,7 +13,7 @@ import { SelectControl } from "@/components/select-control";
 import { IdentifierField } from "@/components/identifier-field";
 import { ColorPicker } from "@/components/color-picker";
 import { SingleChoice } from "@/components/single-choice";
-import { useRouter } from "next/navigation";
+import { useStoreRouter as useRouter } from "@/components/use-store-router";
 import { useRef, useState, type ReactNode } from "react";
 import { Copy, Cpu, Package, ShieldCheck, Sparkles } from "lucide-react";
 import { changeRetailDraftCategory, copyRetailModel, emptyRetailUnit, hasBattery, isComputer, isRetailVerificationField, normalizeImei, parseRetailMoney, retailCategories, validateRetailUnit, type Inspection, type RetailCategory, type RetailUnit } from "@/lib/retail";

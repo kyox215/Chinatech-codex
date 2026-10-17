@@ -1,4 +1,5 @@
 "use client";
+import{scopedStoreUrl}from"../store-scope";
 import{parseCommandResult}from'./command-result-contract';
 import type{CommandResult}from'./command-result';
 import{flushSync}from'react-dom';
@@ -234,3 +235,6 @@ export async function recoverOperation(action:"check"|"retry"|"cancel",expectedR
   } catch(error){if(sameScope(scope))recoveryUpdate({...recovery,busy:false,message:error instanceof Error?error.message:"暂时无法核对，请保持原提交。"});}
   finally {writing=false;if(sameScope(scope) && recovery.busy)recoveryUpdate({...recovery,busy:false});}
 }
+
+/** Native query/anchor navigation retains this authenticated document’s tenant. */
+export function replaceBackendDocumentUrl(href:string){if(typeof window!=="undefined")window.history.replaceState(null,"",scopedStoreUrl(href,snapshot?.storeId));}

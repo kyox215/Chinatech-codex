@@ -17,6 +17,7 @@ const compiled = ts.transpileModule(source, {
 const bootstrapCompiled = ts.transpileModule(readFileSync(new URL("../lib/backend/bootstrap.ts", import.meta.url), "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
+const storeScope=sourceLoader()("./lib/store-scope");
 const readPlan=sourceLoader()("./lib/backend/read-plan");
 const retailFormContract=sourceLoader()("./lib/backend/retail-form-contract");
 const readResponse=sourceLoader()("./lib/backend/read-response");
@@ -134,6 +135,7 @@ test('提交非JSON401撤下私有资料而持久化的原requestId仍可恢复'
 
 function harness({requestDeadline}={}) {
   const requests = [];
+  const documentLocations=[];
   const redirects = [];
   const publications = [];
   const operations=new Map();
@@ -147,7 +149,7 @@ function harness({requestDeadline}={}) {
   const navigator={onLine:true};
   const commandResultContract={};
   const context = createContext({
-    require:name=>{if(name==='react-dom')return{flushSync};if(name==='./command-result-contract')return commandResultContract;if(name==='./read-response')return readResponse;if(name==="./read-plan")return readPlan;if(name==="./retail-form-contract")return retailFormContract;assert.equal(name,"./recovery-store");return storage;},
+    require:name=>{if(name==='../store-scope')return storeScope;if(name==='react-dom')return{flushSync};if(name==='./command-result-contract')return commandResultContract;if(name==='./read-response')return readResponse;if(name==="./read-plan")return readPlan;if(name==="./retail-form-contract")return retailFormContract;assert.equal(name,"./recovery-store");return storage;},
     Headers, AbortController,URLSearchParams,setTimeout:requestDeadline?((fn,ms)=>setTimeout(fn,ms===20000?requestDeadline:ms)):setTimeout,clearTimeout,navigator,
     exports: {},
     crypto: { randomUUID },
@@ -158,7 +160,7 @@ function harness({requestDeadline}={}) {
         resolve(result);
       }, reject });
     }),
-    window: { location: { assign: url => redirects.push(url), reload: () => redirects.push("reload") } },
+    window: { history:{replaceState:(_state,_title,url)=>documentLocations.push(url)},location: { assign: url => redirects.push(url), reload: () => redirects.push("reload") } },
   });
   const resultCompiled=ts.transpileModule(readFileSync(new URL("../lib/backend/command-result-contract.ts",import.meta.url),"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
   runInContext(`(function(exports){${resultCompiled}\n})`,context,{filename:"lib/backend/command-result-contract.ts"})(commandResultContract);
@@ -172,7 +174,7 @@ function harness({requestDeadline}={}) {
     release: client.releaseBackendBootstrap, canAdoptRelease: client.canAdoptBackendBootstrap,
   });
   client.subscribeBackend(() => publications.push(client.backendSnapshot()));
-  return { client, bootstrap, requests, redirects, publications, operations, navigator, storage };
+  return { client, bootstrap, documentLocations, requests, redirects, publications, operations, navigator, storage };
 }
 
 test("两个请求各自保留服务端initial，render/read不写共享客户端状态", () => {
@@ -638,3 +640,9 @@ test("native v2 own member-revision change after confirmation clears sender and 
 test("native confirmation never joins a pre-commit refresh or lets its late response replace newer facts",async()=>{
  const h=harness(),initial=pageSnapshot("retail");initial.commandResultVersion=2;h.client.configureBackend(initial);const old=h.client.refreshBackend(),save=h.client.backendCommand("retail",{});await setImmediate();assert.equal(h.requests.length,2);h.requests[1].resolve(response(200,nativeResult(h.requests[1])));await setImmediate();assert.equal(h.requests.length,3);const next=pageSnapshot("retail",{revision:2});next.commandResultVersion=2;h.requests[2].resolve(response(200,next));await save;h.requests[0].resolve(response(200,initial));await old;assert.equal(h.client.backendSnapshot(),next);assert.equal(h.client.backendRecovery().pending,null);assert.equal(h.operations.size,0);
 });
+
+ test("native list query/anchor changes stay in the authenticated document store; preview remains unscoped",()=>{
+  const h=harness();h.client.replaceBackendDocumentUrl("/app/customers?q=DEMO");assert.equal(h.documentLocations[0],"/app/customers?q=DEMO");
+  h.client.configureBackend(mockSnapshot());h.client.replaceBackendDocumentUrl("/app/repairs?anchor=LOCAL-DEMO&offset=120");let url=new URL(h.documentLocations[1],"https://demo.invalid");assert.equal(url.searchParams.get("storeId"),storeId);assert.equal(url.searchParams.get("anchor"),"LOCAL-DEMO");assert.equal(url.searchParams.get("offset"),"120");
+  const changed={...mockSnapshot(),storeId:"00000000-0000-4000-8000-000000000099"};h.client.configureBackend(changed);h.client.replaceBackendDocumentUrl("/app/retail?view=sold");url=new URL(h.documentLocations[2],"https://demo.invalid");assert.equal(url.searchParams.get("storeId"),changed.storeId);assert.equal(url.searchParams.get("view"),"sold");
+ });

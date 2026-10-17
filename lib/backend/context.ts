@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { headers } from "next/headers";
 import { createSupabaseServerClient } from "../supabase/server";
 import { withReadDatabase, BackendError,StoreSessionRequired, type AuthIdentity } from "./database";
 import type { StaffMember } from "../staff";
@@ -17,6 +17,7 @@ export async function getAuthIdentity(): Promise<AuthIdentity> {
   return { userId: user.id, sessionId: claims.session_id };
 }
 async function member(tx: TransactionSql, storeId: string, userId: string,read:boolean): Promise<StaffMember> {
+  await tx`select id from chinatech_v2.store_memberships where store_id=${storeId} and user_id=${userId} for share`;
   const [allowed] = read
     ? await tx`select chinatech_v2_private.member_access(${storeId}) as allowed,exists(select 1 from chinatech_v2_private.store_login_sessions where store_id=${storeId} and session_id=(current_setting('request.jwt.claims')::jsonb->>'session_id')::uuid and user_id=${userId}) as enrolled`
     : await tx`select chinatech_v2_private.member_access(${storeId}) as allowed`;
@@ -36,12 +37,16 @@ async function member(tx: TransactionSql, storeId: string, userId: string,read:b
 }
 export function memberInTransaction(tx:TransactionSql,storeId:string,userId:string){return member(tx,storeId,userId,false);}
 export function memberForRead(tx:TransactionSql,storeId:string,userId:string){return member(tx,storeId,userId,true);}
-export async function getServerAccess() {
+export async function getServerAccess(request?: Request, explicitStoreId?: string) {
   const identity = await getAuthIdentity();
-  const selected = (await cookies()).get("ct_store")?.value;
+  // Proxy overwrites this header from the visible URL. API callers provide
+  // explicit scope; no API is permitted to silently use the shared cookie.
+  const selected = explicitStoreId ?? (request ? request.headers.get("x-ct-store-id") ?? new URL(request.url).searchParams.get("storeId") : (await headers()).get("x-ct-document-store")) ?? undefined;
+  if(request && !selected) throw new BackendError("请明确选择门店。",400,"STORE_REQUIRED");
+  if(selected && !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(selected)) throw new BackendError("门店标识无效。",400);
   return await withReadDatabase(identity, null, async tx => {
     const rows = await tx`select m.store_id from chinatech_v2.store_memberships m join chinatech_v2.stores s on s.id=m.store_id where m.user_id=${identity.userId} and m.membership_status='active' order by s.created_at,m.store_id`;
-    const storeId: string | undefined = selected ? rows.find(row => row.store_id === selected)?.store_id : rows[0]?.store_id;
+    const storeId: string | undefined = selected ? rows.find(row => row.store_id === selected)?.store_id : rows.length===1 ? rows[0]?.store_id : undefined;
     if (!storeId) return null;
     const member=await memberForRead(tx,storeId,identity.userId);
     return { identity, storeId, member };

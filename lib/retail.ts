@@ -369,6 +369,7 @@ export function validateRetailPhotos(photos: unknown): string[] {
   if (!Array.isArray(photos) || photos.length > 6) throw new Error("实物照片最多 6 张。");
   return photos.map(photo => {
     if (typeof photo !== "string" || photo.length > 350000) throw new Error("每张照片须为不超过 250 KiB 的 JPEG / PNG / WebP 图片。");
+    if(/^ct-photo:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(photo))return photo;
     const match = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(photo);
     if (!match || match[2].length % 4 !== 0) throw new Error("照片须为有效的本地 JPEG / PNG / WebP 图片，不能使用外部地址。");
     let bytes: string; try { bytes = atob(match[2]); } catch { throw new Error("照片编码异常。"); }

@@ -1,0 +1,24 @@
+import {readFileSync} from 'node:fs';import assert from 'node:assert/strict';import {test} from 'node:test';import {createContext,runInContext} from 'node:vm';import ts from 'typescript';
+const compile=file=>ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const scopeContext=createContext({exports:{},URL});runInContext(compile('lib/store-scope.ts'),scopeContext);const {scopedStoreUrl}=scopeContext.exports;
+test('scope preserves query/hash and explicit selection, while public and preview routes stay unchanged',()=>{assert.equal(scopedStoreUrl('/app/repairs?q=a#photo','store-a'),'/app/repairs?q=a&storeId=store-a#photo');assert.equal(scopedStoreUrl('/app/dashboard?storeId=store-b','store-a'),'/app/dashboard?storeId=store-b');assert.equal(scopedStoreUrl('/account/stores','store-a'),'/account/stores');assert.equal(scopedStoreUrl('/app/dashboard',null),'/app/dashboard');});
+test('imperative save and delayed recovery callbacks retain original document scope across another store render',()=>{
+ let storeId='store-a',memo,deps;const calls=[],router={push:(...args)=>calls.push(['push',...args]),replace:(...args)=>calls.push(['replace',...args])};
+ const context=createContext({exports:{},require:name=>name==='next/navigation'?{useRouter:()=>router}:name==='@/components/backend-snapshot'?{useBackendState:()=>({snapshot:{storeId}})}:name==='@/lib/store-scope'?{scopedStoreUrl}:{useMemo:(factory,next)=>{if(!deps||next.some((value,index)=>value!==deps[index])){memo=factory();deps=next;}return memo;}}});runInContext(compile('components/use-store-router.ts'),context);
+ const a=context.exports.useStoreRouter();assert.equal(context.exports.useStoreRouter(),a);a.push('/app/retail/units/new',{scroll:false});const delayed=()=>a.push('/app/procurement/original');storeId='store-b';const b=context.exports.useStoreRouter();b.replace('/app/customers/new');delayed();
+ assert.deepEqual(calls,[['push','/app/retail/units/new?storeId=store-a',{scroll:false}],['replace','/app/customers/new?storeId=store-b',undefined],['push','/app/procurement/original?storeId=store-a',undefined]]);
+});
+test('management first reads are busy and late privileged data cannot refill a changed membership scope',async()=>{
+ let snapshot={storeId:'a',settings:{shopName:'A'},staff:{currentId:'m',members:[{id:'m',revision:1,permissions:['staff.manage']}]}};
+ let states=[],index=0,effects=[],activity,requests=[];const language={t:s=>s,systemText:s=>s};
+ const react={useState:initial=>{const n=index++;if(!(n in states))states[n]=typeof initial==='function'?initial():initial;return[states[n],value=>states[n]=typeof value==='function'?value(states[n]):value];},useRef:initial=>{const n=index++;return states[n]??(states[n]={current:initial});},useEffect:fn=>{effects.push(fn);}};
+ const jsx=(type,props)=>({type:typeof type==='string'?type:'component',props});
+ const modules={'react':react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},'@/components/backend-snapshot':{useBackendState:()=>({snapshot})},'@/components/language-provider':{useLanguage:()=>language},'@/components/operation-feedback':{useActivityFeedback:value=>{activity=value},ContentProgress:()=>null},'@/lib/staff':{can:member=>member.permissions.includes('staff.manage'),staffRoles:[],rolePermissions:{viewer:[]},permissionLabels:{}},'@/lib/backend/client':{backendSnapshot:()=>snapshot,refreshBackend:async()=>{}},'@/lib/store-scope':scopeContext.exports};
+ const context=createContext({exports:{},require:name=>modules[name]??{},AbortController,AbortSignal,fetch:path=>new Promise(resolve=>requests.push({path,resolve})),sessionStorage:{getItem:()=>null}});
+ const source=ts.transpileModule(readFileSync('components/stores/store-management.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022}}).outputText;runInContext(source,context);
+ const render=()=>{index=0;effects=[];return context.exports.StoreManagement();};render();assert.equal(activity,true,'real first read drives B progress');const cleanup=effects[0]();
+ snapshot={...snapshot,staff:{...snapshot.staff,members:[{id:'m',revision:2,permissions:[]}]}};
+ let tree=render();assert(!JSON.stringify(tree).includes('old-secret'));assert.equal(activity,true);
+ for(const request of requests)request.resolve({ok:true,json:async()=>request.path.includes('account')?{accountId:'actor'}:request.path.includes('usage')?{planVersion:'old-secret'}:{invitations:[],applications:[{id:'old-secret'}]}});
+ await new Promise(resolve=>setImmediate(resolve));tree=render();assert(!JSON.stringify(tree).includes('old-secret'),'old permission response is rejected before publication');assert.equal(activity,true,'new scope still has its own unread state');cleanup();
+});

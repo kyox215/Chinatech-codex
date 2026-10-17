@@ -1,4 +1,5 @@
 "use client";
+import { backendSnapshot } from "@/lib/backend/client";
 import { lazy, Suspense, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Printer, X, RotateCcw, Download } from "lucide-react";
@@ -67,7 +68,7 @@ export function IntakeReceipt({ data, onClose, restoreFocusRef }: { data: Intake
     if (!pending) {
       const controller = new AbortController(); controllers.current.add(controller);
       pending = (async () => {
-        const response = await fetch("/api/backend/repair-receipt", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", cache: "no-store", signal: controller.signal, body: JSON.stringify({ id: data.id, paper, language, expectedRevision: current.revision ?? 1 }) });
+        const response = await fetch("/api/backend/repair-receipt", { method: "POST", headers: { "Content-Type": "application/json", "x-ct-store-id": backendSnapshot()?.storeId ?? "" }, credentials: "same-origin", cache: "no-store", signal: controller.signal, body: JSON.stringify({ id: data.id, paper, language, expectedRevision: current.revision ?? 1 }) });
         if (!response.ok) {
           if ((response.status === 401 || response.status === 403) && epoch === generation.current && live.current.source === source) setAccessDenied(true);
           const body = await response.json().catch(() => ({}));

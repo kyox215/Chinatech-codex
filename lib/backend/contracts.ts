@@ -27,7 +27,7 @@ export type BackendSnapshot = {
   intakeDefaults?:{revision:number;policy:import("../repair-intake-record").IntakePolicy;paper:import("../store-settings").PaperFormat};
   operation?: OperationReceipt;
   stateToken?: string;
-  storeId: string; revision: number; staff: StaffData; settings: StoreSettings | null;
+  storeId: string; storeName?:string; revision: number; staff: StaffData; settings: StoreSettings | null;
   intakes: IntakeReceiptData[]; signatures: IntakeSignature[];
   workflows: Record<string, RepairWorkflow>; procurement: ProcurementRecord[];
   retail: RetailUnit[]; retailHistory?: RetailHistoryRecord[]; customers: CustomerProfile[];

@@ -6,6 +6,10 @@ import {withObservation} from "@/lib/backend/request-observation";
 
 export async function proxy(request: NextRequest) {
   request.headers.delete("x-ct-observe-proxy");
+  // Discard spoofed document scope; server components use only URL scope.
+  request.headers.delete("x-ct-document-store");
+  const selected=request.nextUrl.searchParams.get("storeId");
+  if(selected) request.headers.set("x-ct-document-store",selected);
   const path=request.nextUrl.pathname;
   const code=request.nextUrl.searchParams.get("code");
   // Existing Supabase projects may return PKCE to their site URL or legacy login route.

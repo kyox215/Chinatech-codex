@@ -37,7 +37,7 @@ export function BackendProvider({initial,children}:{initial:BackendSnapshot;chil
       }).finally(()=>{refreshing=false;if(active){setSyncing(false);setForeground(false);}if(dirty && active){dirty=false;refresh(true);}});
       void loadRecovery();
     };
-    const updates=startRealtimeUpdates(()=>refresh(true));
+    const updates=startRealtimeUpdates(()=>refresh(true),initial.storeId);
     const resume=()=>{updates.reconcile();refresh(true);};
     const offline=()=>{updates.reconcile();setError("当前离线。草稿仅在此设备，门店数据将在联网后核对。");};
     retry.current=()=>{if(navigator.onLine)refresh(true,true);else offline();};
@@ -47,7 +47,7 @@ export function BackendProvider({initial,children}:{initial:BackendSnapshot;chil
     const leaving=(event:BeforeUnloadEvent)=>{if(backendRecovery().busy){event.preventDefault();event.returnValue="";}};
     window.addEventListener("beforeunload",leaving);
     return()=>{active=false;retry.current=()=>{};updates.stop();scope.dispose();window.clearInterval(timer);window.removeEventListener("focus",resume);window.removeEventListener("online",resume);window.removeEventListener("offline",offline);document.removeEventListener("visibilitychange",resume);window.removeEventListener("beforeunload",leaving);};
-  },[scope]);
+  },[scope,initial.storeId]);
   return <BackendSnapshotContext.Provider value={view}><ConnectionError.Provider value={{error,refreshing:syncing,retry:()=>retry.current()}}><RecoveryPresentationProvider><div className="backend-snapshot-root" inert={bootstrapping}>{children}</div></RecoveryPresentationProvider></ConnectionError.Provider></BackendSnapshotContext.Provider>;
 }
 

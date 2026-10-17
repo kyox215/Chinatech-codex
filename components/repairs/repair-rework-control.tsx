@@ -3,7 +3,7 @@ import { OperationRecoveryControls, useOperationReceipt } from "@/components/use
 import { useLanguage } from "@/components/language-provider";
 import { repairCustomerName } from "@/lib/i18n/repair-display";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useStoreRouter as useRouter } from "@/components/use-store-router";
 import { createPortal } from "react-dom";
 import { RotateCcw, X } from "lucide-react";
 import { TextareaControl } from "@/components/input-control";

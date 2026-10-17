@@ -145,3 +145,9 @@ P6本切片先复用共同Auth验证错误分类与安全JSON读取：真实失�
 本阶段实际 SQL21组回滚验证、全 Node627（626过／1原 PowerShell 跳过）及后续受影响55项通过。精确生产构建 WTiX4_SsS47puXb3V9rBJ 的真实 Chromium／WebKit 共6项通过：客户确认后读503、接机确认后目标读503＋刷新恢复、提交成功后丢响应＋原请求核对，全部唯一POST。客户回执305B；每引擎2工单／设备及原回执／audit精确清0，客户原JSON和750关联事实保持。错误工具 memberId=undefined 的409与原全Node假SQL适配失败保留。计数、字节、功能与 SQL计时不是完整保存P95；全部容量模型仍unready。
 
 剩余 P5 包括照片预解码移出锁及正式 main 附件／门店安全语义整合、真实维修／采购写代表和1／3保存采样；P3 devices/dashboard/settings、P6细粒度失效／Auth真实HTTP错误／PDF缓存与完整P7容量、Unicode版本重建和回滚继续，不能将本节当全方案完成。
+
+### 正式 main 增量整合（源码阶段，尚未运行）
+
+性能候选按已上线 `b5bfc1b332fa59c1dcccc64024352591312165d1` 合并手机搬家、打印和多门店原件。冲突逐项保留 URL/API 显式门店、成员 `FOR SHARE`、邀请申请与不可管理自己规则、附件配额/私有原件及引用验证，同时保留按页读取、分离冷登记、签名保列和冻结回执。列表原生 history 更新统一绑定当前 snapshot.storeId；bootstrap 原有 storeName 明确进入快照供侧栏/容量页显示，未读 settings 继续是 null。
+
+源码整合后 Node659＝658过／1原PowerShell跳过，类型、lint（0错误／2已有warning）和4307三语通过；该结果不覆盖新数据库迁移、Storage服务、整合构建、正式CSS或浏览器。两新隔离库原先没有 Storage schema/role，main 原迁移不能在缺前置条件时强装；安装和新运行证据另记。词典增量影响投影生成输入，须用后续版本迁移/失效/回填核对，不以旧模型hash假称新翻译语义。性能分支 no-deploy guard 保持，不推送、合并main或部署。

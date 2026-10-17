@@ -1,4 +1,5 @@
 "use client";
+import{replaceBackendDocumentUrl}from"@/lib/backend/client";
 import {useEffect,useState} from "react";
 import {useSearchParams} from "next/navigation";
 import {useLanguage} from "@/components/language-provider";
@@ -22,7 +23,7 @@ export function FormalProcurementList() {
  const [repairQuery,setRepairQuery]=useState(""),[repairOpen,setRepairOpen]=useState(false),[candidatePending,setCandidatePending]=useState(false),[repairCandidates,setRepairCandidates]=useState<{key:string;options:ComboboxOption[]}>({key:"",options:[]}),[candidateError,setCandidateError]=useState("");
  const rawAnchor=params.get("anchor"),anchor=rawAnchor&&rawAnchor.length<=100?rawAnchor:undefined;
  const offset=Number(params.get("offset")??0),list=useProcurementListPage(query,anchor),page=list.page,scope=backend.snapshot?.read?.scope,scopeKey=scope?backendScopeKey(scope):"",canView=staff.can("repairs.view");
- const update=(value:Partial<ProcurementListQuery>)=>window.history.replaceState(null,"",procurementListLocation({...query,...value}));
+ const update=(value:Partial<ProcurementListQuery>)=>replaceBackendDocumentUrl(procurementListLocation({...query,...value}));
  useEffect(()=>bindProcurementListPosition(()=>{const value=backendSnapshot()?.read?.scope;return value?backendScopeKey(value):null;},subscribeBackend),[]);
  useActivityFeedback(candidatePending&&repairOpen,{kind:"read"});
  useEffect(()=>{

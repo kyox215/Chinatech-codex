@@ -212,7 +212,7 @@ export async function createBackendEventsResponse(request: Request): Promise<Res
     if (!isSupabaseMode()) throw new BackendError("正式后台未启用。", 404);
     requireEventOrigin(request);
     guardAbort(request);
-    const access = await getServerAccess();
+    const access = await getServerAccess(request);
     guardAbort(request);
     if (!access) throw new BackendError("当前账号尚未获得门店授权。", 403);
     const token = await validatedToken(access);

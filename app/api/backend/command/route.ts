@@ -1,3 +1,4 @@
+import {enforceStoreRate} from "@/lib/server/store-rate";
 import { NextResponse } from "next/server";
 import { getAuthIdentity } from "@/lib/backend/context";
 import { BackendError } from "@/lib/backend/database";
@@ -18,7 +19,7 @@ export async function POST(request:Request) {
     const body=Buffer.concat(chunks).toString("utf8");let command:BackendCommand;
     try {command=JSON.parse(body);} catch {throw new BackendError("请求资料无效。");}
     if(!command || Object.keys(command).some(key=>!["kind","payload","storeId","requestId","memberId"].includes(key))) throw new BackendError("请求字段无效。");
-    const identity=await getAuthIdentity();const state=await executeCommand(identity,command);
+    const identity=await getAuthIdentity();await enforceStoreRate(request,identity,true);const state=await executeCommand(identity,command);
     return NextResponse.json(state,{headers:{"Cache-Control":"private, no-store"}});
   } catch(error) {
     const conflict=typeof error==="object" && error!==null && "code" in error && error.code==="40001";

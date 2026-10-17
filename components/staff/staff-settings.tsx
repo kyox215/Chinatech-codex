@@ -1,4 +1,5 @@
 "use client";
+import { NavigationLink } from "@/components/navigation-link";
 import { useBackendMode } from "@/components/backend-snapshot";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
@@ -78,7 +79,7 @@ export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending:
     }
   }
   return <>
-    <div className={"settings-section-title " + styles.sectionTitle}><UsersRound size={22}/><h3>{t("员工设置")}</h3><button className="button button--primary button--compact" disabled={pending} onClick={() => open()} type="button"><Plus size={17}/>{t("新增员工")}</button></div>
+    <div className={"settings-section-title " + styles.sectionTitle}><UsersRound size={22}/><h3>{t("员工设置")}</h3>{formal ? <NavigationLink className="button button--primary button--compact" href="/app/settings/store">{t("邀请员工")}</NavigationLink> : <button className="button button--primary button--compact" disabled={pending} onClick={() => open()} type="button"><Plus size={17}/>{t("新增员工")}</button>}</div>
     <p className={styles.note}>{t(formal ? "正式门店权限保存在服务器；只能关联已注册并验证邮箱的账号，不创建账号或发送邀请。" : "本地权限演示 · 不创建真实登录或发送邀请，不保存密码。")}</p>
     <fieldset className="form-fields" disabled={pending}><DeviceDraftNotice draft={deviceDraft} disabled={pending}/></fieldset>
     {editing && needsReview ? <button type="button" className="button button--secondary" disabled={pending} onClick={reviewLatest}>{t("保留输入并核对最新版本")}</button> : null}

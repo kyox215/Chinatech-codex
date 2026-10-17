@@ -13,7 +13,7 @@ import { InputControl } from "@/components/input-control";
 import { NavigationLink as Link } from "@/components/navigation-link";
 import { PageTitle } from "@/components/page-title";
 import { SelectControl } from "@/components/select-control";
-import { useRouter } from "next/navigation";
+import { useStoreRouter as useRouter } from "@/components/use-store-router";
 import { useEffect, useRef, useState } from "react";
 import { PackageSearch, Plus } from "lucide-react";
 import { useRepairDirectory } from "@/components/repairs/local-intake-store";

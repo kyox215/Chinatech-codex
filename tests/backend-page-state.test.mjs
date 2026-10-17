@@ -58,7 +58,7 @@ function harness() {
 test('session bootstrap and catalog serialize only current identity; no settings, roster audit or business reads',async()=>{
   const h=harness();h.state.rosterSize=150;
   const bootstrap=await h.api.loadSessionBootstrap(h.access), session=h.api.sessionSnapshot(bootstrap);
-  assert.equal(session.settings,null);assert.equal(session.staff.members.length,1);assert.deepEqual(session.staff.audit,[]);
+  assert.equal(session.settings,null);assert.equal(session.storeName,"DEMO");assert.equal(session.staff.members.length,1);assert.deepEqual(session.staff.audit,[]);
   assert.ok(Buffer.byteLength(JSON.stringify(session))<20*1024);
   h.state.queries.length=0;const catalog=await h.api.loadPageState(h.access,{kind:'catalog'});
   assert.equal(catalog.settings,null);assert.equal(catalog.staff.members.length,1);

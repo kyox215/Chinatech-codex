@@ -1,4 +1,5 @@
 "use client";
+import{replaceBackendDocumentUrl}from"@/lib/backend/client";
 import{useEffect,useMemo}from'react';
 import{useSearchParams}from'next/navigation';
 import{useLanguage}from'@/components/language-provider';
@@ -43,10 +44,10 @@ export function RetailHistoryList({records,units,ready,error}:{records:RetailHis
     const next = new URLSearchParams(listParams);
     if(!value || value === "all" || key === "sort" && value === defaultSort) next.delete(key); else next.set(key,value);
     if(key !== "page") next.delete("page");
-    window.history.replaceState(null,"",`/app/retail${next.size ? `?${next}` : ""}`);
+    replaceBackendDocumentUrl(`/app/retail${next.size ? `?${next}` : ""}`);
   }
   const viewHref = (value:RetailView) => `/app/retail${value === "available" ? "" : `?view=${value}`}`;
-  const clear = () => window.history.replaceState(null,"",viewHref(view));
+  const clear = () => replaceBackendDocumentUrl(viewHref(view));
   const remember = () => dispatch({type:"remember",url:listUrl,scroll:window.scrollY});
   const unitsById=useMemo(()=>new Map(units.map(unit=>[unit.id,unit])),[units]);
   const summary=result.items.map(({search,...row})=>{

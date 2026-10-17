@@ -2,7 +2,7 @@
 
 // A notification is only an invalidation hint. State and permissions always
 // come from the authenticated HTTP read; reconnect also performs that read.
-export function startRealtimeUpdates(invalidate:()=>void) {
+export function startRealtimeUpdates(invalidate:()=>void,storeId:string) {
   let source:EventSource|null=null;
   let stopped=false;let connected=false;let failures=0;
   let retry:ReturnType<typeof setTimeout>|undefined;
@@ -16,7 +16,7 @@ export function startRealtimeUpdates(invalidate:()=>void) {
   const connect=()=>{
     retry=undefined;
     if(!available() || source || typeof EventSource==="undefined")return;
-    const current=new EventSource("/api/backend/events");source=current;
+    const current=new EventSource(`/api/backend/events?storeId=${encodeURIComponent(storeId)}`);source=current;
     const live=()=>source===current && available();
     current.addEventListener("ready",()=>{if(live()){connected=true;failures=0;changed();}});
     current.addEventListener("invalidate",()=>{if(live())changed();});

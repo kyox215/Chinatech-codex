@@ -17,7 +17,7 @@ const intake = () => ({ id: repairId, revision: 1, createdAt: time, updatedAt: t
 
 function harness() {
   class BackendError extends Error { constructor(message, status = 400, code) { super(message); this.status = status; this.code = code; } }
-  const h = { member: structuredClone(member), state: { storeId, revision: 1, intakes: [intake()], signatures: [], workflows: {}, procurement: [], customers: [], settings: {}, staff: { currentId: member.id, members: [member] }, retail: [] }, photos: new Map(), receipts: new Map(), results: new Map(), effects: new Map(), audits: new Map(), failPhotoWrite: false };
+  const h = { member: structuredClone(member), state: { storeId, revision: 1, intakes: [intake()], signatures: [], workflows: {}, procurement: [], customers: [], settings: {}, staff: { currentId: member.id, members: [member] }, retail: [] }, photos: new Map(), objects: new Map(), receipts: new Map(), results: new Map(), effects: new Map(), audits: new Map(), failPhotoWrite: false };
   const modules = new Map(), sandbox = createContext({ Buffer, console, Intl, Date, structuredClone, URL, performance, process: { env: {} } });
   const tx = (strings, ...values) => {
     if(!strings.raw)return strings;
@@ -31,12 +31,14 @@ function harness() {
     if (query.startsWith("select id,jsonb_array_length")) return h.state.procurement.filter(row => values[1].includes(row.id)).map(data => ({ id: data.id, version: data.events.length }));
     if (query.startsWith("select digest")) return h.receipts.has(values[2]) ? [{ digest: h.receipts.get(values[2]), result: h.results.get(values[2]) ?? null }] : [];
     if (query.startsWith("select a.entity_id")) return h.audits.has(values[2]) ? [h.audits.get(values[2])] : [];
-    if (query.startsWith("insert into chinatech_v2_private.intake_photos")) {
+    if (query.startsWith("insert into chinatech_v2_private.intake_photo_objects")) {
       if (h.failPhotoWrite) throw new BackendError("Synthetic photo write failure", 503);
       const key = values[1] + ":" + values[2];
       if (h.photos.has(key)) return [];
-      h.photos.set(key, { repairId: values[1], id: values[2], slot: values[3], mime: values[4], bytes: Buffer.from(values[5]) }); return [{ id: values[2] }];
+      h.photos.set(key, { repairId: values[1], id: values[2], slot: values[3], mime: values[4], bytes: Buffer.from(h.objects.get(values[2]).bytes) }); return [{ id: values[2] }];
     }
+    if (query.startsWith("select u.bytes,u.content_hash")) {const row=h.objects.get(values[1]);return row?[{bytes:row.bytes.length,content_hash:row.hash}]:[];}
+    if (query.startsWith("select slot,mime from")) {const row=h.photos.get(values[1]+":"+values[2]);return row?[row]:[];}
     if (query.startsWith("select slot,mime,bytes")) { const photo = h.photos.get(values[1] + ":" + values[2]); return photo ? [photo] : []; }
     if (query.startsWith("select count(*)::int as count")) { const photos = [...h.photos.values()].filter(photo => photo.repairId === values[1]); return [{ count: photos.length, bytes: photos.reduce((sum, photo) => sum + photo.bytes.length, 0) }]; }
     if (query.startsWith("insert into chinatech_v2_private.procurement_records")) { for(const row of values[1]){const index=h.state.procurement.findIndex(record=>record.id===row.id);if(index<0)h.state.procurement.push(row.data);else h.state.procurement[index]=row.data;}return []; }
@@ -58,6 +60,10 @@ function harness() {
       const before = structuredClone({ state: h.state, photos: h.photos, receipts: h.receipts, results: h.results, effects: h.effects, audits: h.audits });
       try { return await run(tx); } catch (error) { Object.assign(h, before); throw error; }
     } };
+    if(file.endsWith("/server/attachment-storage.ts")) return {prepareStoredPhotos:async (_identity,scope,photos)=>{
+      if(scope!==storeId || !h.member.permissions.includes("repairs.view") || !h.member.permissions.includes("repairs.edit"))throw new BackendError("Synthetic permission denied",403);
+      for(const photo of photos){const bytes=Buffer.from(photo.base64,"base64"),old=h.objects.get(photo.id);if(old&&!old.bytes.equals(bytes))throw new BackendError("Synthetic immutable object",409);h.objects.set(photo.id,{bytes});}
+    },storeRetailPhotos:async (_identity,_store,_request,photos)=>photos};
     if (file.endsWith("/backend/context.ts")) return { memberInTransaction: async () => h.member };
     if (file.endsWith("/backend/state.ts")) return { loadState: async () => h.state, projectState: state => structuredClone(state) };
     if (modules.has(file)) return modules.get(file).exports;

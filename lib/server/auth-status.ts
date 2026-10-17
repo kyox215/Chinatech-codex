@@ -30,7 +30,7 @@ export async function resolveAuthStatus(client: SupabaseClient, selectedStore?: 
       const [account] = await tx`select display_name from chinatech_v2.accounts where id=${identity.userId}`;
       const name = typeof account?.display_name === "string" && account.display_name.trim() ? account.display_name : user.email ?? "";
       const rows = await tx`select m.store_id,s.name,m.role from chinatech_v2.store_memberships m join chinatech_v2.stores s on s.id=m.store_id where m.user_id=${identity.userId} and m.membership_status='active' order by s.created_at,m.store_id`;
-      const selected = selectedStore ? rows.find(row => row.store_id === selectedStore) : rows[0];
+      const selected = selectedStore ? rows.find(row => row.store_id === selectedStore) : rows.length===1 ? rows[0] : undefined;
       const ownAccount = { name, email: user.email ?? "" };
       if (!selected) return { account: ownAccount, store: null };
       const [row] = await tx`select chinatech_v2_private.member_access(${selected.store_id}) as allowed`;
