@@ -14,7 +14,7 @@ export function historyDate(value: string | null | undefined, includeTime = fals
 export function historyMoney(value: number | null, locale: Locale = "zh-CN") {
   return value === null ? translate("未记录", locale) : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(value / 100);
 }
-export function historyTitle(record: RetailHistoryRecord, locale: Locale = "zh-CN") {
+export function historyTitle(record: Pick<RetailHistoryRecord,"brand"|"model">, locale: Locale = "zh-CN") {
   return [record.brand, record.model].filter(Boolean).join(" ") || translate("商品名称未记录", locale);
 }
 export function historyDetailHref(id: string, returnTo = "/app/retail?view=sold") {
@@ -24,7 +24,7 @@ export function historyReturnHref(value: string | null) {
   if (value && (/^\/app\/retail(?:\?|$)/.test(value) || /^\/app\/customers\/PHONE-\d+(?:\?|$)/.test(value))) return value;
   return "/app/retail?view=sold";
 }
-export function RetailHistoryStatus({ record }: { record: RetailHistoryRecord }) {
+export function RetailHistoryStatus({ record }: { record: Pick<RetailHistoryRecord,"sourceStatus"> }) {
   const { t } = useLanguage();
   const status = retailHistoryStatus(record);
   const tone = status === "在售" ? "success" : status === "已售" ? "info" : status === "作废" ? "warning" : "progress";

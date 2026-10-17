@@ -13,10 +13,10 @@ export type RetailHistoryRecord = {
   reviewReasons: string[];
 };
 
-export function retailHistoryStatus(record: RetailHistoryRecord) {
+export function retailHistoryStatus(record: Pick<RetailHistoryRecord,"sourceStatus">) {
   return record.sourceStatus === "以售" ? "已售" : record.sourceStatus || "状态未记录";
 }
-export function retailHistoryCode(record: RetailHistoryRecord) { return `ST-${String(record.sourceRow - 1).padStart(4, "0")}`; }
+export function retailHistoryCode(record: Pick<RetailHistoryRecord,"sourceRow">) { return `ST-${String(record.sourceRow - 1).padStart(4, "0")}`; }
 export function retailHistorySearch(record: RetailHistoryRecord, query: string) {
   const values = [retailHistoryCode(record), record.sourceStatus, retailHistoryStatus(record), record.condition,
     record.customerName, record.customerPhone, record.category, record.brand, record.model, record.color,

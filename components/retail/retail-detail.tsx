@@ -1,4 +1,5 @@
 "use client";
+import{customerRecordReturnPosition}from"@/lib/customer-record-location";
 import{useBackendState}from"@/components/backend-snapshot";
 import{backendScopeKey}from"@/lib/backend/read-plan";
 import{retailListReturnPosition}from"@/lib/retail-list-location";
@@ -105,7 +106,7 @@ export function RetailDetail({ id, selectedSale, returnTo: requestedReturn, show
   const {saved,original,unit}=selectRetailRecord(units,history.records,id,source);
   const fallback = original && isSoldSource(original) ? "/app/retail?view=sold" : "/app/retail";
   const backend=useBackendState(),scope=backend.snapshot?.read?.scope,remembered=scope?retailListReturnPosition(backendScopeKey(scope),(saved?"unit:":"history:")+id):null;
-  const backHref = historyReturnHref((requestedReturn?.startsWith("/app/customers/")?requestedReturn:remembered||requestedReturn) || (returnTo !== "/app/retail" ? returnTo : fallback));
+  const backHref = historyReturnHref((requestedReturn?.startsWith("/app/customers/")?(scope?customerRecordReturnPosition(backendScopeKey(scope),`/app/retail/${source==='history'?'history':'units'}/${encodeURIComponent(id)}`):null)??requestedReturn:remembered||requestedReturn) || (returnTo !== "/app/retail" ? returnTo : fallback));
   const loading = !ready || !history.ready;
   if (error || history.error) return <main className="module-page"><header className="module-heading"><PageTitle title={t("商品档案")} backHref={backHref} backLabel={t("返回商品列表")} /></header><ReadFailure message={error || history.error} /></main>;
   if (loading) return <main className="module-page"><header className="module-heading"><PageTitle title={t("商品档案")} backHref={backHref} backLabel={t("返回商品列表")} /></header><ReadPending label="正在读取整机记录…" /></main>;

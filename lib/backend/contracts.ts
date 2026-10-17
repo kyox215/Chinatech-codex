@@ -10,6 +10,8 @@ import type { BackendReadState } from "./read-plan";
 
 export type BackendSnapshot = {
   read?: BackendReadState;
+  customerDetailEnabled?:boolean;
+  customerDetail?:import("./customer-detail-contract").CustomerDetailPage;
   customerListEnabled?: boolean;
   customerList?: import("./customer-list-contract").CustomerListPage;
   procurementListEnabled?: boolean;

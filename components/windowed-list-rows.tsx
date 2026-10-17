@@ -4,8 +4,18 @@ function scrollPosition(root?:RefObject<HTMLElement|null>){return root?.current?
 // Only numeric movement belongs to this coordinator. Several visible domain
 // groups can share one scroller; a sibling's compensation is not user input.
 const compensatedScrolls=new WeakMap<HTMLElement|Window,number>();
+const scrollRounding=new WeakMap<HTMLElement|Window,{position:number;remainder:number}>();
 function compensatedScroll(root?:RefObject<HTMLElement|null>){return compensatedScrolls.get(root?.current??window)??0;}
-function moveScroll(root:RefObject<HTMLElement|null>|undefined,top:number){const target=root?.current??window,before=scrollPosition(root);target.scrollBy({top,behavior:"instant"});compensatedScrolls.set(target,compensatedScroll(root)+scrollPosition(root)-before);}
+function moveScroll(root:RefObject<HTMLElement|null>|undefined,top:number,resetRounding=false){
+ const container=root?.current,target=container??window,before=scrollPosition(root),previous=scrollRounding.get(target);
+ // Browsers may truncate fractional scrolls. Carry only that subpixel error,
+ // never a prior user's movement or a clamped request at the scroll boundary.
+ const remainder=!resetRounding&&previous?.position===before?previous.remainder:0,requested=before+top+remainder;
+ target.scrollBy({top:Math.round(requested)-before,behavior:"instant"});
+ const after=scrollPosition(root),maximum=Math.max(0,container?container.scrollHeight-container.clientHeight:(document.scrollingElement?.scrollHeight??0)-window.innerHeight),error=requested-after;
+ scrollRounding.set(target,{position:after,remainder:requested>=0&&requested<=maximum&&Math.abs(error)<=.5?error:0});
+ compensatedScrolls.set(target,compensatedScroll(root)+after-before);
+}
 type RowProps={ref:RefCallback<HTMLElement>;"data-window-key":string;"data-window-index":number};
 function rowControls(row:HTMLElement) {
  const selector='a[href],button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled),[tabindex="0"]';
@@ -62,7 +72,7 @@ export function WindowedListRows<T>({items,startIndex=0,total,thresholdTotal=tot
       // synchronous row commit may arrive first: preserve that real movement
       // and compensate only for the layout change since this anchor sample.
       const element=anchorElement(target),difference=element.getBoundingClientRect().top-saved.top+scrollPosition(scrollRoot)-saved.scrollPosition-(compensatedScroll(scrollRoot)-saved.compensatedScroll);
-      if(Math.abs(difference)>.5)moveScroll(scrollRoot,difference);
+      if(Math.abs(difference)>=1/64)moveScroll(scrollRoot,difference);
       anchor.current={key:saved.key,top:element.getBoundingClientRect().top,scrollPosition:scrollPosition(scrollRoot),compensatedScroll:compensatedScroll(scrollRoot)};
     }}
     if(forced!==null){const target=node.querySelector<HTMLElement>(`[data-window-index="${forced}"]`);if(target){const controls=rowControls(target);((forcedReverse.current?controls.at(-1):controls[0])??anchorElement(target)).focus();queueMicrotask(()=>setForced(current=>current===forced?null:current));}}
@@ -75,7 +85,7 @@ export function WindowedListRows<T>({items,startIndex=0,total,thresholdTotal=tot
     const restore=()=>{
       if(stopped)return;
       const target=[...(root.current?.querySelectorAll<HTMLElement>('[data-window-key]')??[])].find(row=>row.dataset.windowKey===initialAnchor);
-      if(target){const element=anchorElement(target),difference=element.getBoundingClientRect().top-initialOffset;moveScroll(scrollRoot,difference);element.focus({preventScroll:true});anchor.current={key:initialAnchor,top:element.getBoundingClientRect().top,scrollPosition:scrollPosition(scrollRoot),compensatedScroll:compensatedScroll(scrollRoot)};}
+      if(target){const element=anchorElement(target),difference=element.getBoundingClientRect().top-initialOffset;moveScroll(scrollRoot,difference,true);element.focus({preventScroll:true});anchor.current={key:initialAnchor,top:element.getBoundingClientRect().top,scrollPosition:scrollPosition(scrollRoot),compensatedScroll:compensatedScroll(scrollRoot)};}
       stop();setRestorePending(false);measureViewport();
     };
     for(const event of ["wheel","touchstart","pointerdown","keydown"])window.addEventListener(event,cancel,{passive:true});

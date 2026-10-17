@@ -55,7 +55,15 @@ export function customerDirectorySql(tx: TransactionSql, scope: BackendReadScope
   const reverse=after?.direction==="before";
   const order=reverse?tx`activity collate "C" asc,phone collate "C" desc`:tx`activity collate "C" desc,phone collate "C" asc`;
   const explanation = explain ? tx`explain (analyze,buffers,format json)` : tx``;
-  return tx`${explanation} with grouped as (
+  // An exact profile retains one full chosen name/email, never a wide array
+  // of every historical spelling for the same customer. Counts stay complete.
+  const grouped=query.mode==="exact"?tx`
+    select c.phone,
+      coalesce((select n.name from chinatech_v2_private.customer_directory_sources n where n.store_id=${scope.storeId} and n.phone=c.phone and(n.origin_kind='profile' or n.name<>'') order by case n.origin_kind when 'profile' then 4 when 'sale' then 3 when 'repair' then 2 else 1 end desc,n.event_at collate "C" desc,case when n.origin_kind='history' then n.event_order else 0 end desc,n.origin_id collate "C" desc,n.event_order desc,n.event_id collate "C" desc limit 1),'')name,
+      coalesce((select n.email from chinatech_v2_private.customer_directory_sources n where n.store_id=${scope.storeId} and n.phone=c.phone and(n.origin_kind='profile' or n.origin_kind in('sale','repair') and n.email<>'') order by case n.origin_kind when 'profile' then 3 when 'sale' then 2 else 1 end desc,case when n.origin_kind='sale' then n.event_at else n.origin_id end collate "C" desc,n.origin_id collate "C" desc,n.event_order desc,n.event_id collate "C" desc limit 1),'')email,
+      c.repairs,c.sales,c.history,c.activity
+    from(select phone,count(*)filter(where origin_kind='repair')::integer repairs,count(*)filter(where origin_kind='sale')::integer sales,count(*)filter(where origin_kind='history')::integer history,max(activity_at collate "C")activity from chinatech_v2_private.customer_directory_sources where store_id=${scope.storeId} and phone=chinatech_v2_private.directory_phone(${needle}) group by phone)c
+`:tx`
     select phone,
       coalesce((array_agg(name order by origin_id collate "C") filter(where origin_kind='profile'))[1],
         (array_agg(name order by case origin_kind when 'sale' then 3 when 'repair' then 2 else 1 end desc,event_at collate "C" desc,case when origin_kind='history' then event_order else 0 end desc,origin_id collate "C" desc,event_order desc,event_id collate "C" desc) filter(where origin_kind<>'profile' and name<>''))[1],'') as name,
@@ -66,7 +74,8 @@ export function customerDirectorySql(tx: TransactionSql, scope: BackendReadScope
       count(*) filter(where origin_kind='history')::integer as history,
       max(activity_at collate "C") as activity
     from chinatech_v2_private.customer_directory_sources where store_id=${scope.storeId} group by phone
-  ), filtered as (
+`;
+  return tx`${explanation} with grouped as (${grouped}), filtered as (
     select * from grouped where
       (${query.mode}='directory' and (${needle}='' or strpos(lower(name||' '||phone||' '||email),${needle})>0 or (length(${digits})>=3 and strpos(phone,${digits})>0)))
       or (${query.mode}='phone' and length(${digits})>=3 and chinatech_v2_private.directory_phone_query(${needle}) and (case when ${explicitPhone} then starts_with(substr(phone,2),${phoneNeedle}) else strpos(substr(phone,2),${phoneNeedle})>0 end))

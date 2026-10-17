@@ -111,3 +111,21 @@ Node24.19使用Unicode17／ICU78.3；本地PG17.11的ICU153.128不能推断为�
 P6本切片先复用共同Auth验证错误分类与安全JSON读取：真实失效401、临时网络／5xx／429／解析故障503；已验证user/sub/session和实时数据库权限保留。读取拒绝在解析非JSON之前按当前scope撤下私有数据，旧scope拒绝不清新身份；普通业务命令403不全局登出，无法读取的提交回包保留原requestId待核对，只有确认ok才清登录设备撤销intent。完整失效／缓存／PDF与容量、P5最小回执仍后续实施，不能由这些接缝测试代替实际浏览器、生产或最终预算。
 
 最终表单构建 `ozHcJruOif9DtB0OGGWx0` 绑定475运行文件，Chromium／WebKit共16项实际通过：按需12候选与4999字符精确原文、迟到exact拒绝、未加载重复SN拒绝、首建档→详情／刷新→复制清身份→按当前设置建档并可售、原历史资料核对→全域重复拒绝→确认保存同origin→刷新，以及三语四宽。旧标签／增强select同文按钮定位、设置revision409及零冲突`items:[null]`被严格schema拒绝的失败证据保留；新出口零冲突返回空数组。全Node618＝617通过、1本机无PowerShell跳过；三语4219、类型及第一方lint0错误／2已有warning。精确清理9条已提交合成单机及对应审计／回执后，原750单机＋801历史完整JSON SHA逐条相同，维修1200／采购250／客户设备1200保持。普通v1回包仍实际4.66MB，P5预算未达；不把本地链条成功称为完整性能计划或生产通过。
+
+## 客户详情的有界关联读（实施中）
+
+默认关闭的`BACKEND_CUSTOMER_DETAIL_READS`单独控制客户详情。开启后SSR／v2 page只提供当前成员、实际profile／三个全授权计数及选中标签≤50摘要；不读取整位客户全部canonical维修／销售／历史数组。`/api/backend/v2/customer-records`继续每次真实Auth、SERIALIZABLE/live/member与RLS检查，scope/token包含实际会话、门店、成员权限版本、查询与响应格式及目录／关联／维修进度代际。无变化含anchor返回≤1KB，小响应不重建当前窗口。
+
+第10迁移`20261017083601_performance_customer_record_reads.sql`建立私有`customer_record_sources/models`：同事务canonical触发投影，维修只保留问题与当前进度所需摘要；销售保留冻结product标识、买家资料、成交／实收（null和0分开）、交付、非void退款、退回及售后数量；历史整机保留全部已发布来源，包括已被正式实物接管的原历史。客户详情的history计数不沿用商品列表managed排除规则。成本、内部销售note、付款／售后事件正文、签名和照片不进摘要。当前user可见全文仍在目标详情；列表preview明确省略，全文搜索依据完整原文。
+
+源kind／origin_id／event_id组合是稳定记录身份，同externalID的维修／历史／不同实物销售互不覆盖。销售按原time.localeCompare及原unit输入顺序／sale ordinal；历史按原组件额外的intakeAt降序、sourceRow降序，不能只对buildCustomerDirectory排序作oracle。资料区完整推断名称／邮箱／地址／实际profile版本不由当前50条推导。exact资料读取用窄count/activity聚合及排序LIMIT1选取完整名称／邮箱，避免把同一客户所有万字姓名装进array_agg。
+
+实际operator先同店锁失效ready，再按扁平关联≤200且原文约200KB预算读取；一个实物的1,000销售也分批，不能把200个完整实物JSON或照片搬到Node。最终同锁／SERIALIZABLE逐批用独立JS canonical事实／完整search oracle比对全部源，并核无额外投影后才ready。已ready也重新回填；故障保持unready，恢复仍完整复核。当前入口只允许本轮新本地55432／55442与明确store-id，不是正式运维授权或生产迁移。
+
+目前第10精确SHA`0687fff65447ad71618ee7ccf234e8e51e96c1e74d70548325b2548f6d76485a`仅装新两验收库，规则hash`25e6e90e4f936c13fbd5e6b7dea356a87f6cd369c90b3162bc33b9373c00bbed`。实际SQL包含65维修／84销售／65历史、冻结product／对象型refund.void与returned、同日期逆序sourceRow、Unicode等价销售时间、全原文尾搜、双向cursor、seek及publication代际；另51条合法长历史＋10000字profile首44条99276B，完整原名保留。受限角色12组授权／RLS反例与清理0，根24组已装元数据独立核过。实际CLI单实物1000销售＋6合法PNG：canonical3370044B，最大104个扁平关联／207325B envelope，失败unready／恢复完整oracle及照片SHA保持，owned0。
+
+初浏览器候选vL12带484运行输入。三tab250关联首50→真实触底100／静止不连抽／全部末批搜索和known响应在两个引擎已有通过路径；整体13失败3通过，未完成客户UI验收。新250条历史各带10000字原名，连同tmpfs PGDATA使本地256MiB HTTPDB出现两次OOM／PG57P02，环境失败与UI／工具失败分别保留。根已用完整物理备份／WAL恢复该测试cluster为disk PGDATA，三库完整行／对象／ACL／角色／序列指纹一致，仍原256MiB／1CPU／shared_buffers32MiB，WAL64／32；性能条件不得与旧tmpfs样本混算。O98m_10efY3ihsvAaUwsW的484输入构建完成：客户三tab250真实读取、触底、搜索、503重试、严格返回像素／焦点／前邻与三语四宽16项通过；共享客户名单／采购／维修返回另6项通过。初次复用JSON reporter的工具覆盖已单独保留，最终唯一输出另绑定，不把旧文件名当本轮结果。
+
+旧目录手机号／识码／部分search和immutable表达式索引仍有已证Unicode17差异；第9form core通过不代表全域兼容。第10依赖的目录原规则最终须经新增版本迁移、旧索引明确重建、全受影响模型unready→完整回填核验后再整体启用；不把本地ASCII夹具通过当全部Unicode／正式GO。P5最小依赖与回执、P6及完整P7容量／回滚继续。
+
+最终候选构建`iEnlqkCfglCG9rCMP-CGO`仍484运行输入，复用原`module-search`语义壳后16项真实读／导航／三语四宽再次全过，实际截图已检查；O98的共享三域6项与两引擎确认保存→持续同客户读503→唯一POST→就地重试通过按未变逻辑单列。保存测试先以原validator把本轮SQL裸关系准备为有效profile，最终原JSON、750关联事实SHA均还原，各自回执／audit清0；夹具400与WK背景成功读取提前结束错误的工具RED保留。旧v1保存回包实测12,530,478B，P5预算明确仍失败。共享精度回归14／14及独立numeric10组通过；原两轮fractional RED保留。新disk HTTPDB矩阵后OOM计数0，峰值约164MiB／256MiB，不据此宣称万档／P95通过。

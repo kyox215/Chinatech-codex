@@ -15,7 +15,7 @@ import { useBackendState } from "@/components/backend-snapshot";
 import { requestCustomerList, useCustomerListPage } from "./use-customer-list-page";
 import styles from "./customers.module.css";
 
-export function CustomerProfileForm({ customer, onSaved, onCancel }: { customer?: Customer; onSaved: (phone: string) => void; onCancel: () => void }) {
+export function CustomerProfileForm({ customer, onSaved, onCancel }: { customer?: Pick<Customer,"id"|"phone"|"name"|"email"|"note"|"version">; onSaved: (phone: string) => void; onCancel: () => void }) {
   const { t , systemText } = useLanguage();
   const { customers } = useCustomerDirectory();
   const [phone, setPhone] = useState(customer?.phone ?? "");
