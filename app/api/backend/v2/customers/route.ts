@@ -1,9 +1,10 @@
+import {observeRoute} from "@/lib/backend/request-observation";
 import { NextResponse } from "next/server";
 import { BackendError } from "@/lib/backend/database";
 import { backendCustomerListsEnabled, getV2Access, loadCustomerListPage } from "@/lib/backend/page-state";
 import { isSupabaseMode } from "@/lib/supabase/config";
 export const dynamic="force-dynamic";
-export async function GET(request:Request) {
+async function read(request:Request) {
   const started=performance.now();
   function response(data:unknown,status=200) {const body=JSON.stringify(data);return new NextResponse(body,{status,headers:{"Content-Type":"application/json","Cache-Control":"private, no-store","CDN-Cache-Control":"no-store","Vercel-CDN-Cache-Control":"no-store","Vary":"Cookie, x-ct-store-id","X-Content-Type-Options":"nosniff","X-CT-Body-Bytes":String(Buffer.byteLength(body)),"Server-Timing":`total;dur=${(performance.now()-started).toFixed(1)}`}});}
   if(!isSupabaseMode() || !backendCustomerListsEnabled())return response({message:"正式后台未启用。"},404);
@@ -17,3 +18,5 @@ export async function GET(request:Request) {
     return response(await loadCustomerListPage(access,q,params.get("cursor")??undefined,params.get("known")??undefined,request.headers.get("x-ct-read-scope")??undefined,mode,params.get("anchor")??undefined,seek));
   } catch(error) {return response({message:error instanceof BackendError?error.message:"后台暂时不可用，请稍后重试。",code:error instanceof BackendError?error.code:undefined},error instanceof BackendError?error.status:503);}
 }
+
+export async function GET(request:Request){return observeRoute(request,read);}

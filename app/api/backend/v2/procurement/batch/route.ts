@@ -1,3 +1,4 @@
+import {observeRoute} from "@/lib/backend/request-observation";
 import {NextResponse} from "next/server";
 import {BackendError} from "@/lib/backend/database";
 import {backendProcurementListsEnabled,getV2Access,loadProcurementBatchPage} from "@/lib/backend/page-state";
@@ -17,7 +18,6 @@ async function read(request:Request,ids?:string[]) {
   return respond(await loadProcurementBatchPage(access,query,{ids,cursor:params.get("cursor")??undefined,seek:params.has("seek")?Number(params.get("seek")):undefined,expectedScope:request.headers.get("x-ct-read-scope")??undefined}));
  }catch(error){return respond({message:error instanceof BackendError?error.message:"后台暂时不可用，请稍后重试。",code:error instanceof BackendError?error.code:undefined},error instanceof BackendError?error.status:503);}
 }
-export async function GET(request:Request){return read(request);}
 export async function POST(request:Request){
  const headers={"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"};
  const origin=process.env.APP_ORIGIN||(process.env.NODE_ENV!=="production"?new URL(request.url).origin:"");
@@ -30,3 +30,5 @@ export async function POST(request:Request){
  if(!body||Object.keys(body).length!==1||!Array.isArray(body.ids)||body.ids.length>100||body.ids.some((id:unknown)=>typeof id!=="string"||!id||id.length>100))return NextResponse.json({message:"请求资料无效。"},{status:400,headers});
  return read(request,body.ids);
 }
+
+export async function GET(request:Request){return observeRoute(request,read);}

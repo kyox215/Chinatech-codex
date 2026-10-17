@@ -5,6 +5,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseConfig, isSupabaseMode } from "./config";
 import { AUTH_COOKIE_NAME, authCookieOptions, preventAuthCaching } from "./server";
+import {createRequestAuthReadFetch} from "./request-auth-fetch";
 
 export async function updateSupabaseSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -16,7 +17,7 @@ export async function updateSupabaseSession(request: NextRequest) {
     const { url, publishableKey } = getSupabaseConfig();
     const supabase = createServerClient(url, publishableKey, {
       cookieOptions: { name: AUTH_COOKIE_NAME, ...authCookieOptions() },
-      global: { fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }) },
+      global: { fetch: createRequestAuthReadFetch(url) },
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll: (values, headers) => {

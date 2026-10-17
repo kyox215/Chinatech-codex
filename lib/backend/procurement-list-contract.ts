@@ -2,8 +2,11 @@ import type { BackendReadScope } from "./read-plan";
 import type { ProcurementStatus } from "../procurement";
 import {listSearchInput} from "./list-search";
 export type ProcurementListQuery={q:string;filter:"all"|"draft"|"open"|"complete";repairId:string;groupBy:"status"|"supplier"|"repair"|"none"};
-export type ProcurementListSummary={id:string;repairId:string;repairModel:string|null;item:string;supplier:string;quantity:number;arrived:number;status:ProcurementStatus;expectedAt:string;ledgerRevision:number;groupKey:string;groupFirst:string;groupCount:number};
-export type ProcurementListPage={formatVersion:1;scope:BackendReadScope;generation:string;query:ProcurementListQuery;stateToken:string;total:number;groupTotal:number;stats:{all:number;draft:number;open:number;complete:number};items:ProcurementListSummary[];startIndex:number;previousCursor:string|null;nextCursor:string|null};
+export const procurementListResponseVersion=2;
+/** groupKey is opaque partition identity, never a display label or write value.
+ * previews only abbreviate list display; target details keep original text. */
+export type ProcurementListSummary={id:string;repairId:string;repairModel:string|null;item:string;supplier:string;quantity:number;arrived:number;status:ProcurementStatus;expectedAt:string;ledgerRevision:number;groupKey:string;groupFirst:string;groupCount:number;previews?:{item:boolean;supplier:boolean;expectedAt:boolean}};
+export type ProcurementListPage={formatVersion:2;scope:BackendReadScope;generation:string;query:ProcurementListQuery;stateToken:string;total:number;groupTotal:number;stats:{all:number;draft:number;open:number;complete:number};items:ProcurementListSummary[];startIndex:number;previousCursor:string|null;nextCursor:string|null;windowBatches?:{startIndex:number;size:number}[];windowExtent?:number};
 export const procurementReadVersionChangedCode="READ_VERSION_CHANGED";
 export function procurementListQuery(raw:Partial<ProcurementListQuery>={}):ProcurementListQuery {
  if(!raw||typeof raw!=="object"||Array.isArray(raw)||Object.keys(raw).some(key=>!["q","filter","repairId","groupBy"].includes(key)))throw new Error("请求资料无效。");

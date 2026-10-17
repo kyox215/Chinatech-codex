@@ -4,13 +4,13 @@ import type {TransactionSql} from "postgres";
 import {BackendError} from "./database";
 import {listSearchNeedle} from "./list-search";
 import {backendScopeKey,type BackendReadScope} from "./read-plan";
-import {procurementListQuery,procurementCursor,procurementReadVersionChangedCode,type ProcurementListPage,type ProcurementListQuery,type ProcurementListSummary} from "./procurement-list-contract";
+import {procurementListResponseVersion,procurementListQuery,procurementCursor,procurementReadVersionChangedCode,type ProcurementListPage,type ProcurementListQuery,type ProcurementListSummary} from "./procurement-list-contract";
 
 export async function procurementModelGeneration(tx:TransactionSql,storeId:string) {
  const [model]=await tx`select ready,generation::text from chinatech_v2_private.procurement_list_models where store_id=${storeId} and format_version=1`;
  if(!model?.ready)throw new BackendError("后台资料暂不可用。",503);return String(model.generation);
 }
-export function procurementListToken(scope:BackendReadScope,generation:string,query:ProcurementListQuery) {return createHash("sha256").update(JSON.stringify([1,backendScopeKey(scope),generation,query])).digest("hex");}
+export function procurementListToken(scope:BackendReadScope,generation:string,query:ProcurementListQuery) {return createHash("sha256").update(JSON.stringify([procurementListResponseVersion,backendScopeKey(scope),generation,query])).digest("hex");}
 type Point={groupFirst:string;id:string;direction:"before"|"after"};
 export async function readProcurementList(tx:TransactionSql,scope:BackendReadScope,raw:Partial<ProcurementListQuery>={},options:{cursor?:string;anchor?:string;seek?:number;generation?:string}={}):Promise<ProcurementListPage> {
  if(!scope.permissions.includes("repairs.view"))throw new BackendError("当前账号没有此操作权限。",403);
@@ -24,8 +24,13 @@ export async function readProcurementList(tx:TransactionSql,scope:BackendReadSco
  }catch(error){if(error instanceof BackendError)throw error;throw new BackendError("请求资料无效。",400);}
  const [row]=await procurementListSql(tx,scope,query,point,options.anchor,options.seek),values:ProcurementListSummary[]=row.items;
  if(point&&!row.point_found)throw new BackendError("请求资料无效。",400);
- const items=point?.direction==="before"?values.slice(-50):values.slice(0,50),rank=Number(row.point_rank),startIndex=point?point.direction==="before"?Math.max(0,rank-items.length):rank+1:(options.anchor||options.seek!==undefined)&&row.point_found?rank:0;
- return{formatVersion:1,scope,generation,query,stateToken,total:Number(row.total),groupTotal:Number(row.group_total),stats:row.stats,items,startIndex,previousCursor:startIndex&&items[0]?procurementCursor(stateToken,items[0],"before"):null,nextCursor:startIndex+items.length<Number(row.total)&&items.at(-1)?procurementCursor(stateToken,items.at(-1)!,"after"):null};
+ const items=point?.direction==="before"?values.slice(-50):values.slice(0,50),rank=Number(row.point_rank);
+ let startIndex=point?point.direction==="before"?Math.max(0,rank-items.length):rank+1:(options.anchor||options.seek!==undefined)&&row.point_found?rank:0;
+ const response=():ProcurementListPage=>({formatVersion:procurementListResponseVersion,scope,generation,query,stateToken,total:Number(row.total),groupTotal:Number(row.group_total),stats:row.stats,items,startIndex,previousCursor:startIndex&&items[0]?procurementCursor(stateToken,items[0],"before"):null,nextCursor:startIndex+items.length<Number(row.total)&&items.at(-1)?procurementCursor(stateToken,items.at(-1)!,"after"):null});
+ // Chinese/emoji and maximum valid names need fewer than 50 rows. Keep the
+ // nearest side of a reverse cursor and resume from the actual delivered row.
+ while(items.length>1&&Buffer.byteLength(JSON.stringify(response()))>100000){if(point?.direction==="before"){items.shift();startIndex++;}else items.pop();}
+ return response();
 }
 
 // Exactly the old insertion-ordered Map: the first canonical ID orders groups;
@@ -33,10 +38,10 @@ export async function readProcurementList(tx:TransactionSql,scope:BackendReadSco
 // draft/cart share a display group, while each row preserves its actual status.
 export function procurementListSql(tx:TransactionSql,scope:BackendReadScope,query:ProcurementListQuery,point:Point|null=null,anchor?:string,seek?:number,explain=false) {
  const needle=listSearchNeedle(query.q),reverse=point?.direction==="before",hasPoint=Boolean(point||anchor||seek!==undefined),order=reverse?tx`group_first desc,id desc`:tx`group_first asc,id asc`;
- return tx`${explain?tx`explain (analyze,buffers,format json)`:tx``} with scoped as (
-  select id,repair_id,repair_model,item,supplier,quantity,arrived,status,expected_at,ledger_revision,search from chinatech_v2_private.procurement_list_sources where store_id=${scope.storeId}
+ return tx`${explain?tx`explain (analyze,buffers,format json)`:tx``} with scoped as not materialized (
+  select id,repair_id,supplier,status,search from chinatech_v2_private.procurement_list_sources where store_id=${scope.storeId}
  ), filtered as (
-  select *,case ${query.groupBy} when 'status' then case when status='cart' then 'draft' else status end when 'supplier' then supplier when 'repair' then repair_id else 'all' end as group_key
+  select id,case ${query.groupBy} when 'status' then case when status='cart' then 'draft' else status end when 'supplier' then supplier when 'repair' then repair_id else 'all' end as group_key
   from scoped where (${needle}='' or strpos(search,${needle})>0) and (${query.repairId}='' or repair_id=${query.repairId})
   and (${query.filter}='all' or ${query.filter}='draft' and status in ('draft','cart') or ${query.filter}='open' and status in ('ordered','partial') or ${query.filter}='complete' and status='complete')
  ), ranked as (
@@ -52,5 +57,7 @@ export function procurementListSql(tx:TransactionSql,scope:BackendReadScope,quer
  ) select (select count(*)::integer from filtered) total,(select count(distinct group_key)::integer from ranked) group_total,
   (select jsonb_build_object('all',count(*)::integer,'draft',count(*) filter(where status in ('draft','cart'))::integer,'open',count(*) filter(where status in ('ordered','partial'))::integer,'complete',count(*) filter(where status='complete')::integer) from scoped) stats,
   exists(select 1 from point) point_found,(select count(*)::integer from ranked where (group_first,id)<(select group_first,id from point)) point_rank,
-  coalesce((select jsonb_agg(jsonb_build_object('id',id,'repairId',repair_id,'repairModel',repair_model,'item',item,'supplier',supplier,'quantity',quantity,'arrived',arrived,'status',status,'expectedAt',expected_at,'ledgerRevision',ledger_revision,'groupKey',group_key,'groupFirst',group_first,'groupCount',group_count) order by group_first,id) from page),'[]'::jsonb) items`;
+  coalesce((select jsonb_agg(jsonb_build_object('id',r.id,'repairId',r.repair_id,'repairModel',r.repair_model,'item',left(r.item,100),'supplier',left(r.supplier,200),'quantity',r.quantity,'arrived',r.arrived,'status',r.status,'expectedAt',left(r.expected_at,160),'ledgerRevision',r.ledger_revision,'groupKey',p.group_first,'groupFirst',p.group_first,'groupCount',p.group_count)
+   ||case when length(r.item)>100 or length(r.supplier)>200 or length(r.expected_at)>160 then jsonb_build_object('previews',jsonb_build_object('item',length(r.item)>100,'supplier',length(r.supplier)>200,'expectedAt',length(r.expected_at)>160)) else '{}'::jsonb end
+   order by p.group_first,r.id) from page p join chinatech_v2_private.procurement_list_sources r on r.store_id=${scope.storeId} and r.id=p.id),'[]'::jsonb) items`;
 }

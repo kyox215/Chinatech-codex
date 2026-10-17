@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import{resolve,dirname}from'node:path';
 import { createContext, runInContext } from 'node:vm';
 import { test } from 'node:test';
 import ts from 'typescript';
@@ -13,13 +14,14 @@ test('cookie policy cannot be replayed onto a different session; unordered chunk
 test('deletion and PKCE verifier expiration remain intact',()=>{const p=policy();assert.equal(p.sessionCookieOptions('ct_rebuild_auth',{maxAge:0}).maxAge,0);assert.equal(p.sessionCookieOptions('ct_rebuild_auth-code-verifier',{maxAge:600}).maxAge,600);});
 test('route refresh persists every chunk after whole-cookie to chunked-cookie transition',async()=>{
  const p=policy(),{NextRequest,NextResponse}=require('next/server');let configured;
- const exports={};const context=createContext({exports,Buffer,URL,process:{env:{NODE_ENV:'production'}},fetch:()=>{},require:name=>{
+ function load(path){path=resolve(path);const exports={};const context=createContext({exports,Buffer,URL,Request,Response,Headers,performance,process:{env:{NODE_ENV:'production'}},fetch:()=>{},require:name=>{
  if(name==='@/lib/server/login-policy')return p;
  if(name==='./config')return {getSupabaseConfig:()=>({url:'https://synthetic.example.test',publishableKey:'sb_publishable_synthetic'})};
  if(name==='@supabase/ssr')return {createServerClient:(_u,_k,options)=>{configured=options;return {};}};
  if(name==='next/headers')return {};
+ if(name.startsWith('.'))return load(resolve(dirname(path),name)+'.ts');
  return require(name);
- }});runInContext(ts.transpileModule(readFileSync('lib/supabase/server.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,context);
+ }});runInContext(ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,context);return exports;}const exports=load('lib/supabase/server.ts');
  const marker=p.signLoginValue({sessionId:'chunk-session',remember:true,expires:Math.floor(p.now()/1000)+600});
  const encoded='base64-'+Buffer.from(JSON.stringify({access_token:'e.'+Buffer.from(JSON.stringify({session_id:'chunk-session'})).toString('base64url')+'.s'})).toString('base64url');
  const request=new NextRequest('https://synthetic.example.test/api/auth/account',{headers:{cookie:'ct_login_policy='+marker+'; ct_rebuild_auth='+encoded}});const response=NextResponse.json({});exports.createSupabaseRouteClient(request,response);

@@ -3,6 +3,8 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseConfig } from "./config";
+import {observedAuthFetch} from "../backend/request-observation";
+import {createRequestAuthReadFetch} from "./request-auth-fetch";
 
 export const AUTH_COOKIE_NAME = "ct_rebuild_auth";
 export function authCookieOptions(options: CookieOptions = {}): CookieOptions {
@@ -15,14 +17,14 @@ export function preventAuthCaching<T extends NextResponse>(response: T): T {
   response.headers.set("Referrer-Policy", "no-referrer");
   return response;
 }
-const noStoreFetch: typeof fetch = (input, init) => fetch(input, { ...init, cache: "no-store" });
+const noStoreFetch: typeof fetch = observedAuthFetch;
 
 export async function createSupabaseServerClient() {
   const { url, publishableKey } = getSupabaseConfig();
   const cookieStore = await cookies();
   return createServerClient(url, publishableKey, {
     cookieOptions: { name: AUTH_COOKIE_NAME, ...authCookieOptions() },
-    global: { fetch: noStoreFetch },
+    global: { fetch: createRequestAuthReadFetch(url) },
     cookies: {
       getAll: () => cookieStore.getAll(),
       setAll: (values) => {

@@ -5,14 +5,14 @@ import type {RepairListQuery} from "./repair-list-contract";
 import { customerModelGeneration, customerListToken, readCustomerList } from "./customer-list";
 import { customerListQuery } from "./customer-list-contract";
 import {procurementModelGeneration,procurementListToken,readProcurementList} from "./procurement-list";
-import {procurementListQuery,type ProcurementListQuery} from "./procurement-list-contract";
+import {procurementListResponseVersion,procurementListQuery,type ProcurementListQuery} from "./procurement-list-contract";
 import {readProcurementBatch} from "./procurement-batch-read";
 import type {ProcurementBatchQuery} from "./procurement-batch-contract";
 import { cache } from "react";
 import { createHash } from "node:crypto";
 import type { TransactionSql } from "postgres";
-import { getServerAccess, getAuthIdentity, memberInTransaction } from "./context";
-import { BackendError, withDatabase } from "./database";
+import { getServerAccess, getAuthIdentity, memberForRead } from "./context";
+import { BackendError, withReadDatabase } from "./database";
 import { can, type StaffMember } from "../staff";
 import type { BackendSnapshot } from "./contracts";
 import { projectState } from "./state";
@@ -41,10 +41,10 @@ export function sessionSnapshot(bootstrap: SessionBootstrap): BackendSnapshot {
   return snapshot;
 }
 function pageToken(snapshot: BackendSnapshot, listGeneration?: string,procurementGeneration?:string,repairToken?:string) {
-  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.customerListEnabled,snapshot.procurementListEnabled,snapshot.repairListEnabled, listGeneration,procurementGeneration,repairToken])).digest("hex");
+  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.customerListEnabled,snapshot.procurementListEnabled,snapshot.repairListEnabled,snapshot.procurementListEnabled?procurementListResponseVersion:null, listGeneration,procurementGeneration,repairToken])).digest("hex");
 }
 export async function loadSessionBootstrap(access: ReadAccess) {
-  return withDatabase(access.identity, access.storeId, async tx => sessionInTransaction(tx, access, await memberInTransaction(tx, access.storeId, access.identity.userId)));
+  return withReadDatabase(access.identity, access.storeId, async tx => sessionInTransaction(tx, access, await memberForRead(tx, access.storeId, access.identity.userId)));
 }
 export async function getV2Access(request: Request): Promise<ReadAccess> {
   const identity = await getAuthIdentity();
@@ -57,8 +57,8 @@ export async function getV2Access(request: Request): Promise<ReadAccess> {
 }
 
 export async function loadPageState(access: ReadAccess, plan: PageReadPlan, known?: string, expectedScope?: string) {
-  return withDatabase(access.identity, access.storeId, async tx => {
-    const member = await memberInTransaction(tx, access.storeId, access.identity.userId);
+  return withReadDatabase(access.identity, access.storeId, async tx => {
+    const member = await memberForRead(tx, access.storeId, access.identity.userId);
     const bootstrap = await sessionInTransaction(tx, access, member);
     if (expectedScope && expectedScope !== backendScopeKey(bootstrap.scope)) throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。", 409, backendIdentityChangedCode);
     const state = sessionSnapshot(bootstrap), domains = pageDomains(plan,{customerLists:backendCustomerListsEnabled(),procurementLists:backendProcurementListsEnabled(),repairLists:backendRepairListsEnabled()});
@@ -133,8 +133,8 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
 }
 
 export async function loadCustomerListPage(access: ReadAccess, query: string, cursor?: string, known?: string, expectedScope?: string, mode: import("./customer-list-contract").CustomerListQuery["mode"] = "directory", anchor?: string, seek?: number) {
-  return withDatabase(access.identity,access.storeId,async tx=>{
-    const member=await memberInTransaction(tx,access.storeId,access.identity.userId), scope=scopeFor(access,member);
+  return withReadDatabase(access.identity,access.storeId,async tx=>{
+    const member=await memberForRead(tx,access.storeId,access.identity.userId), scope=scopeFor(access,member);
     if(expectedScope && expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);
     if(!can(member,"customers.view"))throw new BackendError("当前账号没有此操作权限。",403);
     const generation=await customerModelGeneration(tx,access.storeId), token=customerListToken(scope,generation,customerListQuery(query,mode));
@@ -144,8 +144,8 @@ export async function loadCustomerListPage(access: ReadAccess, query: string, cu
 }
 
 export async function loadProcurementListPage(access:ReadAccess,raw:Partial<ProcurementListQuery>,options:{cursor?:string;known?:string;anchor?:string;seek?:number;expectedScope?:string}={}) {
- return withDatabase(access.identity,access.storeId,async tx=>{
-  const member=await memberInTransaction(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
+ return withReadDatabase(access.identity,access.storeId,async tx=>{
+  const member=await memberForRead(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
   if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);
   if(!can(member,"repairs.view"))throw new BackendError("当前账号没有此操作权限。",403);
   const generation=await procurementModelGeneration(tx,access.storeId),query=procurementListQuery(raw),token=procurementListToken(scope,generation,query);
@@ -154,16 +154,16 @@ export async function loadProcurementListPage(access:ReadAccess,raw:Partial<Proc
  });
 }
 export async function loadProcurementBatchPage(access:ReadAccess,query:Partial<ProcurementBatchQuery>,options:{cursor?:string;ids?:string[];seek?:number;expectedScope?:string}={}) {
- return withDatabase(access.identity,access.storeId,async tx=>{
-  const member=await memberInTransaction(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
+ return withReadDatabase(access.identity,access.storeId,async tx=>{
+  const member=await memberForRead(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
   if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);
   if(!can(member,"repairs.view")||query.kind!=="repairs"&&!can(member,"repairs.edit"))throw new BackendError("当前账号没有此操作权限。",403);
   return readProcurementBatch(tx,scope,query,options);
  });
 }
 export async function loadRepairListPage(access:ReadAccess,query:Partial<RepairListQuery>,options:{group?:string;cursor?:string;anchor?:string;seek?:number;known?:string;expectedScope?:string}={}) {
- return withDatabase(access.identity,access.storeId,async tx=>{
-  const member=await memberInTransaction(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
+ return withReadDatabase(access.identity,access.storeId,async tx=>{
+  const member=await memberForRead(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
   if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);
   if(!can(member,"repairs.view"))throw new BackendError("当前账号没有此操作权限。",403);
   const context=await repairReadContext(tx,scope,query);
@@ -173,8 +173,8 @@ export async function loadRepairListPage(access:ReadAccess,query:Partial<RepairL
  });
 }
 export async function loadRepairScanPage(access:ReadAccess,raw:string,origin:string,options:{cursor?:string;seek?:number;expectedScope?:string}={}) {
- return withDatabase(access.identity,access.storeId,async tx=>{
-  const member=await memberInTransaction(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
+ return withReadDatabase(access.identity,access.storeId,async tx=>{
+  const member=await memberForRead(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
   if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);
   if(!can(member,"repairs.view"))throw new BackendError("当前账号没有此操作权限。",403);
   return readRepairScan(tx,scope,raw,origin,options);

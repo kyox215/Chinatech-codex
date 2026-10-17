@@ -37,8 +37,8 @@ function harness() {
     if(request==='react')return {cache:fn=>fn};
     if(!request.startsWith('.')&&!request.startsWith('@/'))return native(request);
     const file=resolve(request.startsWith('@/')?root:from,request.startsWith('@/')?request.slice(2):request).replace(/\.ts$/,'')+'.ts';
-    if(file.endsWith('/backend/database.ts'))return {BackendError,withDatabase:async(identity,store,run)=>{state.transactions++;assert.equal(identity.sessionId,access.identity.sessionId);assert.equal(store,access.storeId);if(!state.live)throw new BackendError('revoked',401);return run(tx);}};
-    if(file.endsWith('/backend/context.ts'))return {getServerAccess:async()=>access,getAuthIdentity:async()=>access.identity,memberInTransaction:async()=>state.member};
+    if(file.endsWith('/backend/database.ts'))return {BackendError,withReadDatabase:async(identity,store,run)=>{state.transactions++;assert.equal(identity.sessionId,access.identity.sessionId);assert.equal(store,access.storeId);if(!state.live)throw new BackendError('revoked',401);return run(tx);}};
+    if(file.endsWith('/backend/context.ts'))return {getServerAccess:async()=>access,getAuthIdentity:async()=>access.identity,memberForRead:async()=>state.member};
     if(modules.has(file))return modules.get(file).exports;
     const loaded={exports:{}};modules.set(file,loaded);
     const code=ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;

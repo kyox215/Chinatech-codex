@@ -655,7 +655,7 @@ ToolboxControl替换账号设置旧三套Office管理卡片与双导航，复用
 
 ## 2026-10-17 性能候选的采购摘要与批量读取（本地，未发布）
 
-`ProcurementListBody`是采购模块唯一的标题、状态卡、工具栏、分组行、空态和触底footer；原数组与显式开启的服务端摘要只提供真实视图适配，关联工单候选采用原`SearchCombobox` slot。状态卡仍统计完整门店授权集合，当前结果及组计数才应用筛选；旧draft/cart共用待采购显示组。每次50摘要、不含事件/成本/规格；主列表在单一`.procurement-list-viewport`共用桌面660px横向视口，手机沿原行布局，不能每行各自横滚。
+`ProcurementListBody`是采购模块唯一的标题、状态卡、工具栏、分组行、空态和触底footer；原数组与显式开启的服务端摘要只提供真实视图适配，关联工单候选采用原`SearchCombobox` slot。状态卡仍统计完整门店授权集合，当前结果及组计数才应用筛选；旧draft/cart共用待采购显示组。wire2每次至多50摘要，并按实际UTF8响应≤100KB自适应条数，不含事件/成本/规格；主列表在单一`.procurement-list-viewport`共用桌面660px横向视口，手机沿原行布局，不能每行各自横滚。
 
 `WindowedListRows`增加可选`scrollRoot`适配真实dialog滚动，`anchorSelector`以采购Link实际像素恢复；组头只在实际groupFirst出现，seek/缓存首行不重复插入。渲染阈值使用完整列表总数；跨未挂载行的Tab/Shift+Tab选择该行首/末真实可见控件，焦点与业务草稿保持。批量列表传当前授权stateToken重建高度。
 
@@ -674,3 +674,5 @@ ToolboxControl替换账号设置旧三套Office管理卡片与双导航，复用
 本段为复用/实施合同；新维修正式CSS、五宽三语、失败重试与跨窗口交互仍按准确候选构建的运行证据登记，不能沿用采购截图声称通过。没有新增视觉主题、控件或Figma状态。
 
 2026-10-17 性能候选的共享触底边界：`ListPagination`分别记录“目前可见”和“本次进入已派发”。loading/disabled/error期间保留未消费意图，解除后用一次原生IntersectionObserver核对当前实际裁切，至多派发一次；手动加载同样消费本次进入。追加完成后静止不连抽，离开再进入或明确点击才继续。当前组件级Chrome/WebKit六个反例覆盖三个阻塞状态；真实业务/编译构建证据另记，不用此声明代替全站验收。
+
+采购摘要的旧超长item/supplier/expectedAt只在列表使用显式preview+省略号，正常100/200/160个Unicode字符完整展示；关联目标详情保留原文，不把预览写回草稿。分组身份使用真实groupFirst的opaque key，显示前缀相同的不同供应商不会合并。缓存按十个实际响应控制（至多500摘要），小于50的字节预算页同样占一批；刷新最多重读十批，数字extent保留供回查，不累计全部canonical。对应真实SQL/双引擎hook测试与准确运行构建分别记录。

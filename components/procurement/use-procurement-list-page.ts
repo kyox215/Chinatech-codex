@@ -4,14 +4,14 @@ import { useBackendState } from "@/components/backend-snapshot";
 import { useActivityFeedback } from "@/components/operation-feedback";
 import { mergeProcurementWindow } from "@/lib/backend/procurement-list-window";
 import { backendScopeKey } from "@/lib/backend/read-plan";
-import { procurementListQuery, type ProcurementListPage, type ProcurementListQuery } from "@/lib/backend/procurement-list-contract";
+import { procurementListQuery,procurementListResponseVersion, type ProcurementListPage, type ProcurementListQuery } from "@/lib/backend/procurement-list-contract";
 import { requestProcurementList } from "./procurement-read-client";
 import { can } from "@/lib/staff";
 export function useProcurementListPage(raw: ProcurementListQuery, returnAnchor?: string) {
   const backend = useBackendState(), member=backend.snapshot?.staff.members.find(row=>row.id===backend.snapshot?.staff.currentId);
   const scope = backend.snapshot?.procurementListEnabled && can(member,"repairs.view") ? backend.snapshot.read?.scope : undefined;
   const scopeKey = scope ? backendScopeKey(scope) : "";
-  const initial = scope ? backend.snapshot?.procurementList : undefined;
+  const initial = scope&&backend.snapshot?.procurementList?.formatVersion===procurementListResponseVersion ? backend.snapshot.procurementList : undefined;
   const invalidQuery=raw.q.length>160;
   const normalized = procurementListQuery({...raw,q:invalidQuery?"":raw.q}), queryKey = JSON.stringify(normalized);
   const [data, setData] = useState<{ scope: string; page: ProcurementListPage } | null>(() => initial ? { scope: scopeKey, page: initial } : null);
@@ -20,7 +20,7 @@ export function useProcurementListPage(raw: ProcurementListQuery, returnAnchor?:
   const latest = useRef({ scope, scopeKey, queryKey });
   const anchor = useRef<string | undefined>(undefined);
   const loadRef = useRef<(direction?: "before"|"after"|"seek",seek?:number) => Promise<void>>(async () => {});
-  const visible = data?.scope === scopeKey ? data : null;
+  const visible = data?.scope === scopeKey&&data.page.formatVersion===procurementListResponseVersion ? data : null;
   useActivityFeedback(pending&&!invalidQuery, { kind: "read" });
   const load = useCallback(async (direction?: "before"|"after"|"seek",seek?:number) => {
     const expected = latest.current;
@@ -44,13 +44,16 @@ export function useProcurementListPage(raw: ProcurementListQuery, returnAnchor?:
       // Refresh the loaded window around the current visible anchor. A changed
       // generation cannot collapse a 500-row window into its first 50 rows.
       const target = !append && !seeking && sameQuery ? Math.min(500,previous.items.length) : window.items.length;
-      while (!append && isCurrent() && window.items.length < target) {
+      let responses=1;
+      while (!append && isCurrent() && window.items.length < target && responses<10) {
         const forward = Boolean(window.nextCursor), cursor = window.nextCursor ?? window.previousCursor;
         if (!cursor) break;
         const next = await requestProcurementList(expected.scope, JSON.parse(expected.queryKey), { cursor, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) });
         if (!isCurrent() || "unchanged" in next) return;
         window = mergeProcurementWindow(window,next,forward ? "after" : "before");
+        responses++;
       }
+      if(sameQuery)window={...window,windowExtent:Math.max(previous.windowExtent??previous.startIndex+previous.items.length,window.startIndex+window.items.length)};
       if (isCurrent()) setData({ scope: expected.scopeKey, page: window });
     } catch (reason) {
       if (!isCurrent()) return;
@@ -70,5 +73,5 @@ export function useProcurementListPage(raw: ProcurementListQuery, returnAnchor?:
     const timeout = setTimeout(() => { if (live) void loadRef.current(); }, 150);
     return () => { live = false; clearTimeout(timeout); active.current?.controller.abort(); active.current = null; };
   }, [scopeKey, queryKey, initial, hasCurrentInitial,invalidQuery]);
-  return { page: visible?.page ?? (initial && backendScopeKey(initial.scope) === scopeKey ? initial : null), removed: visible?.page.startIndex ?? 0, pending:pending&&!invalidQuery, error:invalidQuery?"请求资料无效。":error, loadMore: () => void load("after"), loadPrevious: () => void load("before"), seek: (position:number) => { if (!active.current) void load("seek",position); }, rememberAnchor: (id: string) => { anchor.current = id; }, retry: () => void load(), resetKey: scopeKey+queryKey };
+  return { page: visible?.page ?? (initial && backendScopeKey(initial.scope) === scopeKey ? initial : null), extent:visible?.page.windowExtent, removed: visible?.page.startIndex ?? 0, pending:pending&&!invalidQuery, error:invalidQuery?"请求资料无效。":error, loadMore: () => void load("after"), loadPrevious: () => void load("before"), seek: (position:number) => { if (!active.current) void load("seek",position); }, rememberAnchor: (id: string) => { anchor.current = id; }, retry: () => void load(), resetKey: scopeKey+queryKey };
 }

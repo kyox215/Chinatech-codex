@@ -6,7 +6,7 @@
 
 - 根layout只提供真实会话、当前成员及必要门店身份；页面保留授权SSR首屏。未读设置为null，不能以默认值制造政策或财务事实。
 - 客户及采购分别由显式默认0的模块flag开启。查询、游标、known、锚点和响应绑定真实account/session/store/member revision/permissions/格式/完整规范查询/投影generation。每次请求仍在同一serializable事务核实时会话、成员与范围。
-- 客户50摘要、采购50摘要；完整授权计数和搜索由服务端查询，当前窗口不能用于查重或全选。主列表不传无关域canonical数组。身份拒绝在JSON解析前清当前私有资料，迟到拒绝不影响新身份，普通503保留已获授权内容。
+- 客户50摘要、采购wire2至多50摘要（实际UTF8≤100KB自适应）；完整授权计数和搜索由服务端查询，当前窗口不能用于查重或全选。主列表不传无关域canonical数组。身份拒绝在JSON解析前清当前私有资料，迟到拒绝不影响新身份，普通503保留已获授权内容。
 - 单一领域Body复用原控件、行、分组、反馈与手机布局。变量高度窗口共用原横向视口；真实首组才出现组头，返回定位实际导航Link。虚拟行不拥有业务草稿或原requestId。
 - 采购批量供应商12候选、清单50；选前100/本供应商全部来自完整供应商范围，所选草稿最多100，确认前按IDs再次授权核对。规格与ledgerRevision是实际事实，不能构造假events。
 
@@ -43,3 +43,17 @@
 维修100条同repair采购变更仍有约0.9秒/100次投影的写放大RED，后续必须在原事务对distinct repair合并再投影；关闭读取flag不会禁用canonical触发器，正式写路径回退/重建入口仍属P7交付。普通保存仍使用v1全快照，不满足最小回执预算。
 
 本轮另有完全独立PG17.11/ICU、Auth、Realtime的本地HTTP栈与10个真实合成账号可供最终HTTP/跨设备验收；其原始schema/角色/凭据和数据均独立，不能和共享17.6或纯claims SQL证据合并冒称正式环境P95。真实会话矩阵尚须按冻结构建实际执行。
+
+## 采购 wire2 字节边界
+
+数据库投影format_version仍为1；HTTP响应formatVersion为2，响应token与page token包含新响应格式。主列表SQL先按ID/完整供应商分组与搜索，只在最终≤51目标投影读取显示字段；item/规格/型号/日期不会随全店中间结果搬运。普通字段完整显示，原有无上限item/supplier/expectedAt仅以100/200/160个Unicode字符和显式previews缩略，目标详情保持完整原文；原文参与搜索与分组。groupKey等于稳定groupFirst，不能拿显示预览当分组身份、查询或写入值。正反游标从实际送达边界继续，startIndex按实际送达窗口计算。缓存最多十个实际响应/500摘要，代际重读最多十个响应，不因每批变短无限循环，已看过范围只保留数字extent。
+
+75条有效中文长字段在独立真实SQL首批33/后33/末9，四分组及旧超长同前缀供应商/emoji/尾搜/seek/anchor/原文校验和均过，最高99962B；实际React hook双引擎验证小批缓存及新代际更小批重读上限。以上是本地条件证据，最终运行构建绑定及HTTP/浏览器界面验收另记。
+
+## 请求观测、同令牌认证读取与首次登记
+
+固定名数值Server-Timing分别记录proxy/route实际Auth网络次数与耗时、连接池加BEGIN等待、session lock/live、SQL实际执行、业务段、commit/rollback与白名单40001/40P01。各段存在包含/并行关系，分位不能相加；不记录SQL、参数、令牌、URL、客户或权限内容。proxy覆盖客户端观测头，观测头从不参与身份或授权。失败通过finally保留耗时；SQL片段不计执行，重复await同一Query只记一次。
+
+只读Supabase client的factory在单次请求内、确切GET/user URL+全部有效headers+credentials键复用Response各自clone，最多4个键；不同token/请求/身份不能共用。Request或带AbortSignal请求不去重，refresh及账号修改的RouteClient不缓存。原getUser/getClaims、邮箱确认/sub/session匹配、数据库实时live/member/RLS全部保留；不使用JWT解码替代验证。实际本地HS SDK两身份与正常refresh/invalid cookie已验。
+
+首次同店十session已实证原SERIALIZABLE读内登记发生40001并耗尽原三次重试。读取改为memberForRead只核当前成员与自己的登记存在；缺行在业务读取前抛精确内部StoreSessionRequired，回滚后用同身份/门店的短READ COMMITTED登记，再新开SERIALIZABLE完整重验。内部登记仍锁项目session FOR SHARE、验live/member/RLS，ON CONFLICT不更新tombstone；只此类型允许有界一次重启，普通错误不当登记。warm读取仍单一事务且不写登记。getServerAccess的SSR选择也走此边界；命令memberInTransaction、店级写锁、隔离级别及原重试不变。独立真实Auth/受限SQL的冷10、禁用/撤权/跨店与登记前后反例过；实际HTTP/SSR及最终30轮预算另记。

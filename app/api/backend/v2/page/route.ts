@@ -1,3 +1,4 @@
+import {observeRoute} from "@/lib/backend/request-observation";
 import { NextResponse } from "next/server";
 import { BackendError } from "@/lib/backend/database";
 import { getV2Access, loadPageState } from "@/lib/backend/page-state";
@@ -5,7 +6,7 @@ import { parsePageReadPlan } from "@/lib/backend/read-plan";
 import { isSupabaseMode } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
-export async function GET(request: Request) {
+async function read(request: Request) {
   const started = performance.now(); let accessMs = 0, readMs = 0;
   function response(data: unknown, status = 200) {
     const serializing = performance.now(), body = JSON.stringify(data);
@@ -25,3 +26,5 @@ export async function GET(request: Request) {
     return response({ message: error instanceof BackendError ? error.message : "后台暂时不可用，请稍后重试。", code: error instanceof BackendError ? error.code : undefined }, error instanceof BackendError ? error.status : 503);
   }
 }
+
+export async function GET(request:Request){return observeRoute(request,read);}
