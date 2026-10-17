@@ -1,0 +1,44 @@
+import assert from'node:assert/strict';import{readFileSync,writeFileSync}from'node:fs';import{randomUUID,createHash}from'node:crypto';import postgres from'postgres';import{sourceLoader}from'./helpers/typescript-source.mjs';
+const config=JSON.parse(readFileSync('../../../.company-tmp/performance-20261017/clean-database/fresh-instance/icu-connection.private.json')),url=new URL(config.DB_URL);assert.equal(url.hostname,'127.0.0.1');assert.equal(url.port,'55432');assert.equal(url.pathname,'/ct_perf_acceptance_icu_20261017');
+const sql=postgres(config.DB_URL,{max:1,prepare:false}),load=sourceLoader(),{readIntakeHistory,readIntakeDraftMetadata}=load('./lib/backend/intake-lookup-read'),{intakeDeviceHistory,intakeHistoryIdentifier}=load('./lib/repair-intake'),{fixtureIntakeReceipt,validLocalIntake,intakeDirectoryEntry}=load('./lib/repair-intake-record'),{repairOrders}=load('./lib/repair-fixtures'),{defaultStoreSettings}=load('./lib/store-settings'),{readProcurementBatch}=load('./lib/backend/procurement-batch-read'),store=randomUUID(),scope={formatVersion:2,accountId:randomUUID(),sessionId:randomUUID(),storeId:store,memberId:randomUUID(),memberRevision:1,permissions:['repairs.view','repairs.edit']},rollback=new Error('rollback owned oracle'),migration='supabase/migrations/20261017042240_performance_intake_history_indexes.sql';
+const result={condition:'PostgreSQL17.11 ICU en-US; actual source functions in owner SQL rollback transaction, not live authentication or production latency.',checks:[],sizes:[],migrationSha256:createHash('sha256').update(readFileSync(migration)).digest('hex')};
+try{try{await sql.begin(async tx=>{
+ const[installed]=await tx`select prosrc from pg_proc where oid=to_regprocedure('chinatech_v2_private.intake_serial_key(text)')`;
+ if(installed)assert.equal(installed.prosrc.trim(),readFileSync(migration,'utf8').split('$$')[1].trim());else await tx.unsafe(readFileSync(migration,'utf8'));
+ await tx`insert into chinatech_v2.stores(id,name) values(${store},'DEMO intake history oracle')`;await tx`insert into chinatech_v2_private.store_state(store_id,settings) values(${store},${tx.json(defaultStoreSettings)})`;
+ const[customer]=await tx`insert into chinatech_v2_private.customers(store_id,normalized_phone,data) values(${store},'+390000991223','{}') returning id`,[device]=await tx`insert into chinatech_v2_private.customer_devices(store_id,customer_id,data) values(${store},${customer.id},'{}') returning id`,inputs=[];
+ const codes=['\ufeffA\u00a0 B\u2028C\ufeff','ABC','ＡＢＣ','ﬃßς𐐨','ı','σ','ς','İ','123456789012345'];
+ for(let i=0;i<570;i++){
+  const data={...fixtureIntakeReceipt(repairOrders[0]),id:'LOCAL-'+(0xC00000+i).toString(16).toUpperCase().padStart(16,'0'),revision:1,serial:i<550?(i%2?'DEMO SHARED':'\ufeffDEMO\u00a0 SHARED\u2028'):codes[(i-550)%codes.length],brand:i%17===0?'Samsung':'Apple',model:i<565?'DEMO history model':'İ MODEL',customerName:'DEMO',phone:'+390000991223',createdAt:['2026-10-17 03:02:01','2026-10-17 03:02:00','0000-00-00 00:00:00','9999-99-99 99:99:99'][i%4]};
+  if(i>=565){data.brand='牌'.repeat(100);data.model='型'.repeat(160);data.faults=Array(50).fill('故'.repeat(50));data.issueNote='补'.repeat(450);data.issue=data.faults.join('、')+'；'+data.issueNote;assert.equal(data.issue.length,3000);}
+  assert(validLocalIntake(data));inputs.push(data);
+  await tx`insert into chinatech_v2_private.repair_intakes(store_id,id,customer_id,device_id,data,signatures) values(${store},${data.id},${customer.id},${device.id},${tx.json(data)},'[{"private":"NO-INK-IN-LOOKUP"},{"private":"NO-INK-IN-LOOKUP"}]')`;
+ }
+ // Actual previous formal input order, then the unchanged JS stable sort.
+ const canonical=(await tx`select data from chinatech_v2_private.repair_intakes where store_id=${store} order by id`).map(row=>intakeDirectoryEntry(row.data));
+ for(const [serial,brand,model]of[['demo shared','','DEMO history model'],['demo shared','Apple','DEMO history model'],...codes.map(code=>[code,'','DEMO history model']),['123456789012345','Samsung','DEMO history model'],['','牌'.repeat(100),'型'.repeat(160)]]){
+  const oracle=intakeDeviceHistory(serial,brand,model,canonical);
+  for(const kind of['exact','related']){
+   const query={kind,serial,brand,model},raw=JSON.stringify(query),value=await readIntakeHistory(tx,scope,raw);assert.equal(value.total,oracle[kind].length);assert.equal(value.exactTotal,oracle.exact.length);assert.equal(value.relatedTotal,oracle.related.length);assert.deepEqual(value.items.map(row=>row.id),oracle[kind].slice(0,kind==='related'?3:50).map(row=>row.id));
+   const bytes=Buffer.byteLength(JSON.stringify(value));assert(bytes<=100000);assert(!JSON.stringify(value).includes('NO-INK-IN-LOOKUP'));result.sizes.push({kind,bytes,count:value.items.length});
+  }
+ }
+ result.checks.push('actual formal id input order then stable createdAt.localeCompare: ties, earliest/latest regex-valid legacy date strings, brands/IMEI, whitespace and Unicode exact/related match canonical JS oracle');
+ const raw=JSON.stringify({kind:'exact',serial:'demo shared',brand:'',model:'DEMO history model'}),ids=[];let page=await readIntakeHistory(tx,scope,raw),first=page;
+ while(true){ids.push(...page.items.map(row=>row.id));if(!page.nextCursor)break;page=await readIntakeHistory(tx,scope,raw,{cursor:page.nextCursor});}
+ assert.equal(ids.length,550);assert.equal(new Set(ids).size,550);assert.deepEqual(ids,intakeDeviceHistory('demo shared','','DEMO history model',canonical).exact.map(row=>row.id));
+ const keyValues=['\ufeffA\u00a0 B\u2028C','ﬃßς𐐨','ı','σ','ς','İ','ＡＢＣ'];for(const value of keyValues){const[row]=await tx`select chinatech_v2_private.intake_serial_key(${value}) value`;assert.equal(row.value,intakeHistoryIdentifier(value));}
+ result.checks.push('550 exact rows traversed completely with stable cursor, original uppercase/ECMAScript whitespace oracle and no NFKC');
+ const saved=await readIntakeDraftMetadata(tx,scope,inputs[0].id);assert.equal(saved.exists,true);assert.equal(saved.revision,1);assert.equal(saved.signatureCount,2);assert.deepEqual(saved.policy,{months:defaultStoreSettings.repairWarrantyMonths,shopName:defaultStoreSettings.shopName,address:defaultStoreSettings.address,phone:defaultStoreSettings.phone});assert(!JSON.stringify(saved).includes('NO-INK-IN-LOOKUP'));
+ const fresh=await readIntakeDraftMetadata(tx,scope,'LOCAL-0000000000000000');assert.equal(fresh.exists,false);assert.equal(fresh.revision,0);assert.equal(fresh.signatureCount,0);assert.deepEqual(Object.keys(fresh.policy),['months','shopName','address','phone']);
+ await tx`update chinatech_v2_private.repair_intakes set data=jsonb_set(data,'{policy}',${tx.json({...saved.policy,months:18})}::jsonb) where store_id=${store} and id=${inputs[0].id}`;assert.equal((await readIntakeDraftMetadata(tx,scope,inputs[0].id)).policy.months,18);
+ result.checks.push('signature count only, explicit fresh authorized nonexistence, frozen policy over current default; ink never serialized');
+ await assert.rejects(readIntakeHistory(tx,{...scope,sessionId:randomUUID()},raw,{cursor:first.nextCursor}),error=>error.code==='READ_VERSION_CHANGED');await assert.rejects(readIntakeDraftMetadata(tx,{...scope,permissions:['repairs.view']},inputs[0].id),error=>error.status===403);
+ const candidates=await readProcurementBatch(tx,scope,{kind:'repairs',q:'',repairId:inputs[569].id,supplierId:''});assert.equal(candidates.items.length,1);assert.equal(candidates.items[0].id,inputs[569].id);assert.deepEqual(Object.keys(candidates.items[0]).sort(),['id','model']);
+ result.checks.push('exact procurement preselect outside first12; bounded id/model only and signature metadata edit-permission gate');
+ await tx`update chinatech_v2_private.repair_intakes set data=jsonb_set(data,'{serial}','"changed"') where store_id=${store} and id=any(${tx.array(inputs.slice(100,550).map(row=>row.id),25)})`;const shrunk=await readIntakeHistory(tx,scope,raw,{seek:520});assert.equal(shrunk.total,100);assert.equal(shrunk.startIndex,50);assert.equal(shrunk.items.length,50);await assert.rejects(readIntakeHistory(tx,scope,raw,{cursor:first.nextCursor}),error=>error.code==='READ_VERSION_CHANGED');result.checks.push('generation change rejects old cursor and old deep seek clamps to valid final window after shrink');
+ result.maximumResponseBytes=Math.max(...result.sizes.map(row=>row.bytes));throw rollback;
+ });}catch(error){if(error!==rollback)throw error;}
+ const[after]=await sql`select count(*)::integer n from chinatech_v2.stores where id=${store}`;assert.equal(after.n,0);result.cleanup='all owned rows rolled back; previously installed matching DDL retained';result.pass=true;
+}finally{await sql.end();}
+writeFileSync('../proof/intake-lookup-oracle.json',JSON.stringify(result,null,2));console.log(JSON.stringify({pass:true,checks:result.checks.length,maximumResponseBytes:result.maximumResponseBytes,cleanup:result.cleanup}));

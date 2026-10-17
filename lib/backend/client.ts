@@ -51,6 +51,10 @@ function accept(next:BackendSnapshot,scope:ReturnType<typeof requestScope>,allow
   if (snapshot.read && !next.read) {
     next={...next,procurementListEnabled:snapshot.procurementListEnabled,repairListEnabled:snapshot.repairListEnabled};
     const member = next.staff.members.find(row => row.id === next.staff.currentId);
+    // Derive form metadata only from this newly authorized canonical v1 result.
+    // An earlier page's defaults are not evidence of current policy after a save.
+    if(snapshot.read.plan.kind==="repair-new"&&next.settings){const settings=next.settings;next={...next,intakeDefaults:{revision:next.revision,paper:settings.paper,policy:{months:settings.repairWarrantyMonths,shopName:settings.shopName,address:settings.address,phone:settings.phone}}};}
+    if(snapshot.read.plan.kind==="procurement-new"){const intake=next.intakes.find(row=>row.id===snapshot?.read?.plan.id);next={...next,procurementRepairCandidate:intake?{id:intake.id,model:intake.model}:null};}
     next = { ...next, customerListEnabled: snapshot.customerListEnabled, stateToken: undefined, read: { ...snapshot.read, scope: { ...snapshot.read.scope, memberRevision: member?.revision ?? snapshot.read.scope.memberRevision, permissions: [...(member?.permissions ?? [])].sort() } } };
   }
   const before=snapshot.staff.members.find(row=>row.id===snapshot?.staff.currentId)?.revision??0;

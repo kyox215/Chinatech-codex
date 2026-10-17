@@ -680,3 +680,13 @@ ToolboxControl替换账号设置旧三套Office管理卡片与双导航，复用
 2026-10-17 性能候选的共享触底边界：`ListPagination`分别记录“目前可见”和“本次进入已派发”。loading/disabled/error期间保留未消费意图，解除后用一次原生IntersectionObserver核对当前实际裁切，至多派发一次；手动加载同样消费本次进入。追加完成后静止不连抽，离开再进入或明确点击才继续。当前组件级Chrome/WebKit六个反例覆盖三个阻塞状态；真实业务/编译构建证据另记，不用此声明代替全站验收。
 
 采购摘要的旧超长item/supplier/expectedAt只在列表使用显式preview+省略号，正常100/200/160个Unicode字符完整展示；关联目标详情保留原文，不把预览写回草稿。分组身份使用真实groupFirst的opaque key，显示前缀相同的不同供应商不会合并。缓存按十个实际响应控制（至多500摘要），小于50的字节预算页同样占一批；刷新最多重读十批，数字extent保留供回查，不累计全部canonical。对应真实SQL/双引擎hook测试与准确运行构建分别记录。
+
+## 2026-10-17 性能候选的新建表单读取与历史长名称
+
+新接机继续使用唯一 `RepairIntakeForm`、`SearchCombobox`、`DeviceIdentityPicker`、`IdentifierField`、`InputControl`、原签署/核对/完成页。repair/customer 读取开关同时开启时，SSR 只提供当前成员及显式 `intakeDefaults`（当前政策、纸张与版本），不把未读 settings、suppliers 或业务数组标记 ready。手机号仍给12候选，选择再按手机号授权读取完整原名；部分号码选择使用本次选定完整phone+epoch，后续输入、重置、草稿/版本/步骤/身份变化拒绝迟到回填。超长历史原名不截取写入，原80 UTF-16单位的新工单称呼约束在第一步以字段关联错误明确提示，用户可编辑本单称呼；已选徽标只显示80个Unicode字符的显式预览。
+
+`IntakeDeviceHistory`抽取原历史展示，正式按需与旧预览共用此展示。精确SN匹配保留原trim→uppercase→去全部JS空白规则、品牌/15位IMEI分支与createdAt稳定顺序；50条窗口及全数计数不会把550重复标识计成50。同型号只在真实展开后读取原最多3条参考，完整计数保持。签署前单目标metadata读取真实revision/签名数/冻结政策，未读签名不当0；仅新建不存在目标被当前授权读取确认后才得到fresh0。重试与正在执行状态留原位置，只有真实异步过程busy。
+
+新采购继续唯一 `ProcurementCreate` 表单，关联工单采用共享 `SearchCombobox`：打开后150ms去抖读取12条，URL指定的目标另外精确核对，不依赖首12是否出现。活动搜索显示匹配候选；关闭仍保留已选目标。提交前精确重验，成功通过本次requestId的真实receipt/entityId导航，未读采购全域反馈不成为已确认保存的后置失败。原供应商自由输入、金额权限和事务校验不变。
+
+新接机打印点击时由 `RepairIntakePrint`复用局部entity-source读取真实目标所需资料，再交原 `IntakeReceipt`；没有复制打印模板或把未读设置伪造为当前政策。客户详情页头仅对超过80个Unicode字符的历史姓名使用80字加省略号，正常姓名原样，事实区保留完整原文，公共PageTitle与CSS不变。以上没有新增视觉主题或Figma变体。

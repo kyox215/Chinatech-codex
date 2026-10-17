@@ -1,4 +1,5 @@
 import "server-only";
+import{readIntakeHistory,readIntakeDraftMetadata}from'./intake-lookup-read';
 import {readRepairScan} from "./repair-scan-read";
 import {repairReadContext,readRepairList,validateRepairListOptions} from "./repair-list";
 import type {RepairListQuery} from "./repair-list-contract";
@@ -79,6 +80,15 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
     if (customerGeneration !== undefined) state.customerList = await readCustomerList(tx,bootstrap.scope,plan.q??"",undefined,customerGeneration,"directory",plan.anchor);
     if(procurementGeneration!==undefined)state.procurementList=await readProcurementList(tx,bootstrap.scope,plan.query,{generation:procurementGeneration,anchor:plan.anchor});
     if(repairContext)state.repairList=await readRepairList(tx,bootstrap.scope,plan.repairQuery,{context:repairContext,group:plan.group,anchor:plan.anchor});
+    if(plan.kind==="repair-new"&&backendRepairListsEnabled()&&backendCustomerListsEnabled()){
+      const[row]=await tx`select revision,settings->>'paper' paper,jsonb_build_object('months',settings->'repairWarrantyMonths','shopName',settings->'shopName','address',settings->'address','phone',settings->'phone') policy from chinatech_v2_private.store_state where store_id=${access.storeId}`;
+      if(!row)throw new BackendError("门店尚未完成初始化。",503);
+      state.intakeDefaults={revision:Number(row.revision),policy:{months:row.policy.months,shopName:row.policy.shopName,address:row.policy.address,phone:row.policy.phone},paper:row.paper};
+    }
+    if(plan.kind==="procurement-new"&&backendProcurementListsEnabled()&&can(member,"repairs.view")){
+      state.procurementRepairCandidate=null;
+      if(plan.id){const value=await readProcurementBatch(tx,bootstrap.scope,{kind:"repairs",q:"",repairId:plan.id,supplierId:""});state.procurementRepairCandidate=value.items[0] as import("./procurement-batch-contract").ProcurementRepairCandidate??null;}
+    }
     if (domains.includes("settings")) {
       // Finance is read only by its own settings page. A print/default policy
       // read never transfers the whole finance ledger into another module.
@@ -178,5 +188,19 @@ export async function loadRepairScanPage(access:ReadAccess,raw:string,origin:str
   if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);
   if(!can(member,"repairs.view"))throw new BackendError("当前账号没有此操作权限。",403);
   return readRepairScan(tx,scope,raw,origin,options);
+ });
+}
+export async function loadIntakeHistoryPage(access:ReadAccess,raw:string,options:{cursor?:string;seek?:number;expectedScope?:string}={}){
+ return withReadDatabase(access.identity,access.storeId,async tx=>{
+  const member=await memberForRead(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
+  if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError('登录身份或页面版本已变化，请刷新后重新核对。',409,backendIdentityChangedCode);
+  return readIntakeHistory(tx,scope,raw,options);
+ });
+}
+export async function loadIntakeDraftPage(access:ReadAccess,id:string,expectedScope?:string){
+ return withReadDatabase(access.identity,access.storeId,async tx=>{
+  const member=await memberForRead(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);
+  if(expectedScope&&expectedScope!==backendScopeKey(scope))throw new BackendError('登录身份或页面版本已变化，请刷新后重新核对。',409,backendIdentityChangedCode);
+  return{scope,items:[await readIntakeDraftMetadata(tx,scope,id)]};
  });
 }

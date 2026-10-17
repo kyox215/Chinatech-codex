@@ -21,6 +21,8 @@ function harness() {
       if(sql.trimStart().startsWith('with grouped as')) return [{total:1,items:[{phone:'+390000000001',name:'DEMO',email:'',repairs:1,sales:0,history:0,activity:'2026-10-10 00:00:00'}]}];
       if(sql.trimStart().startsWith('with scoped as'))return[{total:1,group_total:1,stats:{all:1,draft:1,open:0,complete:0},point_found:false,point_rank:0,items:[{id:'DEMO-PROC-1',repairId:state.intake.id,repairModel:'DEMO',item:'DEMO part',supplier:'DEMO supplier',quantity:1,arrived:0,status:'draft',expectedAt:'',ledgerRevision:0,groupKey:'DEMO supplier',groupFirst:'DEMO-PROC-1',groupCount:1}]}];
       if(sql.includes('select st.revision,s.name')) return [{revision:state.revision,name:'DEMO'}];
+      if(sql.includes("settings->>'paper'"))return[{revision:state.revision,paper:state.settings.paper,policy:{months:state.settings.repairWarrantyMonths,shopName:state.settings.shopName,address:state.settings.address,phone:state.settings.phone}}];
+      if(sql.startsWith("select id,data->>'model'"))return[{id:state.intake.id,model:'DEMO selected model'}];
       if(sql.includes('select settings')||sql.includes('select (settings')) return [{settings:state.settings}];
       if(sql.includes('select staff_audit')) return [{staff_audit:[]}];
       if(sql.includes('select m.id,m.role')) return Array.from({length:state.rosterSize},(_,i)=>({id:i?'other-'+i:member.id,role:member.role,permissions:member.permissions,revision:member.revision,membership_status:'active',account_status:'active',display_name:'DEMO',email:'demo@example.invalid'}));
@@ -119,3 +121,16 @@ test('procurement opt-in SSR reads only narrow summaries; its known token and no
  h.state.queries.length=0;h.state.member={...h.member,permissions:[]};await h.api.loadPageState(h.access,{kind:'procurement'});
  assert.ok(h.state.queries.every(row=>!row.sql.includes('procurement_list_')));
 });
+
+ test('bounded new forms read explicit defaults or exact preselection without marking other settings or business arrays ready',async()=>{
+  const h=harness();h.state.env.BACKEND_REPAIR_LIST_READS='1';h.state.env.BACKEND_PROCUREMENT_LIST_READS='1';
+  const intake=await h.api.loadPageState(h.access,{kind:'repair-new'});
+  assert.deepEqual(intake.read.ready,['staff']);assert.equal(intake.settings,null);assert.equal(intake.intakeDefaults.policy.months,6);assert.equal(intake.intakeDefaults.paper,'a4');assert.equal(intake.intakeDefaults.policy.shopName,'DEMO');
+  assert.equal(h.state.queries.length,2);assert(h.state.queries.every(row=>!row.sql.includes('from chinatech_v2_private.repair_intakes')&&!row.sql.includes('select settings')&&!row.sql.includes('suppliers')));
+  h.state.queries.length=0;const plan=h.plans.parsePageReadPlan({kind:'procurement-new',id:h.state.intake.id}),procurement=await h.api.loadPageState(h.access,plan);
+  assert.deepEqual(procurement.read.ready,['staff']);assert.equal(procurement.settings,null);assert.deepEqual(procurement.procurementRepairCandidate,{id:h.state.intake.id,model:'DEMO selected model'});assert.equal(h.state.queries.length,2);
+  const selection=h.state.queries[1];assert.match(selection.sql,/or id=\?/);assert(selection.values.includes(h.state.intake.id));assert.match(selection.sql,/limit 12/);
+  for(const snapshot of[intake,procurement])for(const field of['intakes','signatures','procurement','retail','retailHistory','customers'])assert.deepEqual(snapshot[field],[]);
+  h.state.env.BACKEND_CUSTOMER_LIST_READS='0';assert(h.plans.pageDomains({kind:'repair-new'},{repairLists:true,customerLists:false}).includes('intakes'));
+  assert.throws(()=>h.plans.parsePageReadPlan({kind:'procurement-new',id:'x'.repeat(101)}));
+ });

@@ -6,10 +6,10 @@ import {requestScopedList} from "@/lib/backend/scoped-read-client";
 type CandidatePage<T>={raw:string;scope:BackendReadScope;generation:string;stateToken:string;startIndex:number;total:number;items:T[];nextCursor:string|null};
 const versionChangedCode="READ_VERSION_CHANGED";
 /** Scoped, sequential identifier results; at most ten 50-row batches in memory. */
-export function useIdentifierCandidates<T extends {id:string}>(scope:BackendReadScope|undefined,path:string,raw:string,revision:number){
+export function useIdentifierCandidates<T extends {id:string}>(scope:BackendReadScope|undefined,path:string,raw:string,revision:number,pageSize=50){
  const scopeKey=scope?backendScopeKey(scope):"",key=JSON.stringify([scopeKey,path,raw]);
  const [data,setData]=useState<{key:string;page:CandidatePage<T>;extent:number}|null>(null),[status,setStatus]=useState({key,pending:false,error:""});
- const current=useRef(data),latest=useRef({scope,key,raw,path}),flight=useRef<AbortController|null>(null),loadRef=useRef<(mode?:"after"|"seek",position?:number)=>Promise<void>>(async()=>{});
+ const current=useRef(data),latest=useRef({scope,key,raw,path,pageSize}),flight=useRef<AbortController|null>(null),loadRef=useRef<(mode?:"after"|"seek",position?:number)=>Promise<void>>(async()=>{});
  const visible=data?.key===key&&scope?data:null;
  const load=useCallback(async(mode?:"after"|"seek",position?:number)=>{
   const expected=latest.current,previous=current.current?.key===expected.key?current.current:null;
@@ -19,7 +19,7 @@ export function useIdentifierCandidates<T extends {id:string}>(scope:BackendRead
   const read=async(cursor?:string,seek?:number)=>{
    const params=new URLSearchParams({raw:expected.raw});if(cursor)params.set("cursor",cursor);if(seek!==undefined)params.set("seek",String(seek));
    const value=await requestScopedList(expected.scope!,expected.path+"?"+params,{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])});
-   if(value.raw!==expected.raw||value.items.length>50||!Number.isSafeInteger(value.total)||value.total<0||!Number.isSafeInteger(value.startIndex)||value.startIndex<0||typeof value.stateToken!=="string")throw new Error("后台资料暂不可用。");
+   if(value.raw!==expected.raw||value.items.length>expected.pageSize||!Number.isSafeInteger(value.total)||value.total<0||!Number.isSafeInteger(value.startIndex)||value.startIndex<0||typeof value.stateToken!=="string")throw new Error("后台资料暂不可用。");
    return value as CandidatePage<T>;
   };
   setStatus({key:expected.key,pending:true,error:""});
@@ -38,7 +38,7 @@ export function useIdentifierCandidates<T extends {id:string}>(scope:BackendRead
   }catch(reason){if(live()){if(mode&&reason instanceof Error&&"code"in reason&&reason.code==="READ_VERSION_CHANGED"){flight.current=null;void loadRef.current();return;}setStatus({key:expected.key,pending:false,error:reason instanceof Error?reason.message:"后台资料暂不可用。"});}}
   finally{if(flight.current===controller){flight.current=null;if(live()||!controller.signal.aborted&&latest.current.key===expected.key)setStatus(previous=>previous.key===expected.key?{...previous,pending:false}:previous);}}
  },[]);
- useLayoutEffect(()=>{latest.current={scope,key,raw,path};current.current=visible;loadRef.current=load;},[scope,key,raw,path,visible,load]);
+ useLayoutEffect(()=>{latest.current={scope,key,raw,path,pageSize};current.current=visible;loadRef.current=load;},[scope,key,raw,path,pageSize,visible,load]);
  useEffect(()=>{flight.current?.abort();flight.current=null;if(!scopeKey)return;void loadRef.current();return()=>{flight.current?.abort();flight.current=null;};},[scopeKey,key,revision]);
  const pending=status.key===key&&status.pending,error=status.key===key?status.error:"";
  useActivityFeedback(pending,{kind:"read"});

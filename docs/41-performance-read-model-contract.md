@@ -63,3 +63,15 @@
 客户目录及电话候选的推断姓名超过200个Unicode字符时，以显式namePreview显示前缀加省略号，原文仍参与完整授权搜索；常规短姓名不变。电话查询保留原12候选与完整总数。mode=exact每次一个客户，返回完整原名，选择填入或编辑不得把显示前缀当业务原文。HTTP响应及状态token包含wire2；目录正反游标使用实际送达边界。客户与采购只共享数值批次/位置辅助mergeSummaryBatches，身份、权限、格式、版本、查询及领域游标仍分别检查；最多十个实际响应/500摘要，刷新最多十次，原已看范围只留数值extent。
 
 共享WindowedListRows采锚时同时记录真实滚动位置；行提交若早于scroll的下一RAF，只补布局位移，不抵消用户刚完成的滚动，补偿后更新真实锚点以免重复补偿。多个可见组共用滚动目标时，WeakMap仅累计该window或dialog的实际补偿数值，采锚后实际scroll差须扣除此累计差，不能将另一组已处理的布局位移再补一次；不保存行、客户或身份资料，独立滚动目标不共用累计。深处返回后，视口与已读窗口起点相交且前邻摘要缺失时，onLoadPrevious按原游标授权追加前批，保留当前目标、像素和焦点；整组屏外不触发补邻，pending及错误由原读取状态门控。较远的旧占位仍按位置seek，不假造行。纯组件/SQL证据与准确正式构建的实际Link返回验收分别记录，不能只以targetTop正确代替整个可见视口有真实行。
+
+## 新接机与新采购的按需读取（本地候选）
+
+repair-new 在 repair/customer 两开关均启用时，SSR `ready`只有staff，另有显式intakeDefaults:{revision,policy,paper}；procurement-new在其开关启用时也是staff，URL预选仅一份id/model。未启用路径明确保留旧兼容，不把 retail-new 或其他尚未迁移表单声称已收敛。当前默认policy在两个新read出口按原 months/shopName/address/phone 构造；existing frozen_policy对象原样。真实首次保存曾因SQL JSONB键顺序触发旧严格比较的409，修在读取构造，不排序改写旧冻结事实、签名或写校验。v1兼容回包的表单元数据只从本次已授权canonical/settings重建，缺失时仍unready，不沿用旧政策。
+
+新intake-history API继续实时session/member/RLS与全scope校验，exact50/related3、全范围计数和稳定cursor。createdAt只接受原canonical固定日期格式，实际formal输入order by id再调用原JS stable localeCompare作为SQL oracle；相同时间保持输入tie序。新纯文本invoker函数intake_serial_key采用原uppercase与完整ECMAScript空白集合，无NFKC；两canonical表达式索引不改变数据/读写policy。metadata API仅返回目标存在性、真实revision、签名数组长度与原冻结/当前政策，不传笔迹。所有hook/草稿owner在身份、目标、版本、编辑、重置与步骤边界隔离迟到结果，保存回执仍原requestId。
+
+独立PG17.11 ICU实际SQL：550重复SN全游标、JS Unicode/空白/品牌/IMEI及稳定日期tie oracle、相关3条合法最长issue/faults/issueNote，最大响应59066B，自有行回滚。实际受限runtime调用withReadDatabase/memberForRead/loadIntake*的10组禁用/撤权/跨店/会话/域权限反例通过，精确合成users/sessions/accounts/stores/project/store sessions全部0。不存在合成session沿既有cutover函数P0001拒绝，不把此纯DB分支冒称HTTP401。新函数和索引只装本轮独立ICU/HTTP验收库；正式库未迁移。
+
+生产构建a603oe8WOmno41boKTig4（445运行输入）Chrome新表单完整9项通过，涵盖三语四宽、部分号完整回填/迟到手改、10000字历史姓名第一步校验、550SN真实50→100/related展开、采购精确预选/搜索/真实回执导航，以及首次保存时迟到revision0→编辑读取revision1→再次保存→真实PDF ready→第二新单保存。WebKit同构建初6项5过，测试移除尚未完成的route拦截造成harness失败；等待真实迟到响应完成再移除后，保存链及三语四宽4项通过，产品断言不变。旧selector/route与409失败原件保留。Node596=595过+1本机无PowerShell跳过；类型/4219三语通过，定向lint0错1既有Next导航warning。此为本地条件功能证据，不是线上/P95/容量结论。
+
+长客户页头旧xY8真实Chrome RED高度5560px；新vQY及准确同源组件的双引擎三语四宽均验证原名全文10000字保留、标题81字符、页头74/100/205/229px、实际返回Link与焦点/像素可达。候选未发布，剩余整机/历史/客户设备与偏斜客户详情、P5/P6/P7仍未完成。

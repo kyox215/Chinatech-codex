@@ -581,3 +581,10 @@ test("v2原请求跨导航核对仍能清理原登记并发布真实回执", asy
   assert.equal(h.client.backendRecovery().pending,null);assert.equal(h.client.backendRecovery().busy,false);
   assert.equal(h.client.backendRecovery().receipt.requestId,original.command.requestId);assert.equal(h.client.backendSnapshot().read.plan.kind,"retail");
 });
+
+test('v1 confirmed save restores new-form defaults from newly authorized facts, never from a stale page default',async()=>{
+ const h=harness(),initial=mockSnapshot();initial.read={formatVersion:2,scope:{formatVersion:2,accountId:'DEMO-account',sessionId:'DEMO-session',storeId,memberId:clerkId,memberRevision:1,permissions:['repairs.edit','repairs.view']},plan:{kind:'repair-new'},ready:['staff']};initial.intakeDefaults={revision:1,paper:'a4',policy:{months:6,shopName:'OLD',address:'',phone:''}};
+ h.client.configureBackend(initial);const save=h.client.backendCommand('intake.save',{});await setImmediate();const next=mockSnapshot({revision:2});next.settings={repairWarrantyMonths:18,paper:'a5',shopName:'NEW',address:'DEMO address',phone:'DEMO phone',suppliers:[],finance:[]};h.requests[0].resolve(response(200,next));await save;
+ const current=h.client.backendSnapshot();assert.equal(current.intakeDefaults.revision,2);assert.equal(current.intakeDefaults.paper,'a5');assert.deepEqual(JSON.parse(JSON.stringify(current.intakeDefaults.policy)),{months:18,shopName:'NEW',address:'DEMO address',phone:'DEMO phone'});assert.deepEqual(JSON.parse(JSON.stringify(current.read.ready)),['staff']);
+ const again=h.client.backendCommand('intake.save',{});await setImmediate();const missing=mockSnapshot({revision:3});missing.settings=null;h.requests[1].resolve(response(200,missing));await again;assert.equal(h.client.backendSnapshot().intakeDefaults,undefined);
+});

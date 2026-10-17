@@ -23,13 +23,14 @@ export function parsePageReadPlan(value: unknown): PageReadPlan {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("请求资料无效。");
   const plan = value as Record<string, unknown>;
   if (Object.keys(plan).some(key => !["kind", "id", ...(plan.kind === "customers" ? ["q","anchor"] : plan.kind==="procurement"?["query","anchor"]:plan.kind==="repairs"?["repairQuery","group","anchor"]:plan.kind==="repair-operation"?["purpose"]:[])].includes(key)) || !pageKinds.includes(plan.kind as PageReadPlan["kind"])) throw new Error("请求资料无效。");
+  const optionalId=plan.kind==="procurement-new"&&plan.id!==undefined;
   const needsId = ["repair", "repair-operation", "procurement-detail", "retail-unit", "customer"].includes(plan.kind as string);
-  if (needsId ? typeof plan.id !== "string" || !plan.id || plan.id.length > 100 : plan.id !== undefined) throw new Error("请求资料无效。");
+  if (needsId||optionalId ? typeof plan.id !== "string" || !plan.id || plan.id.length > 100 : plan.id !== undefined) throw new Error("请求资料无效。");
   if(plan.q!==undefined&&(typeof plan.q!=="string"||plan.q.length>160)||plan.anchor!==undefined&&(typeof plan.anchor!=="string"||!(["procurement","repairs"].includes(String(plan.kind))?plan.anchor.length>0&&plan.anchor.length<=100:/^\+[1-9]\d{6,14}$/.test(plan.anchor))))throw new Error("请求资料无效。");
   const query=plan.kind==="procurement"&&plan.query!==undefined?procurementListQuery(plan.query as Partial<ProcurementListQuery>):undefined;
   if(plan.kind==="repair-operation"&&!["stage","contact","parts"].includes(plan.purpose as string))throw new Error("请求资料无效。");
   if(plan.group!==undefined&&(typeof plan.group!=="string"||!["all","history","rework","processing","purchase","ready","draft","cart","mixed","ordered","complete","unrecorded"].includes(plan.group)))throw new Error("请求资料无效。");
-  return { kind: plan.kind as PageReadPlan["kind"], ...(needsId ? { id: plan.id as string } : {}), ...(typeof plan.q === "string" && plan.q.trim() ? {q:plan.q.trim()}:{}), ...(typeof plan.anchor === "string" ? {anchor:plan.anchor}:{}),...(query?{query}:{}),...(plan.kind==="repair-operation"?{purpose:plan.purpose as PageReadPlan["purpose"]}:{}),...(plan.kind==="repairs"&&plan.repairQuery!==undefined?{repairQuery:repairListQuery(plan.repairQuery as Partial<RepairListQuery>)}:{}),...(typeof plan.group==="string"?{group:plan.group}:{}) };
+  return { kind: plan.kind as PageReadPlan["kind"], ...(needsId||optionalId ? { id: plan.id as string } : {}), ...(typeof plan.q === "string" && plan.q.trim() ? {q:plan.q.trim()}:{}), ...(typeof plan.anchor === "string" ? {anchor:plan.anchor}:{}),...(query?{query}:{}),...(plan.kind==="repair-operation"?{purpose:plan.purpose as PageReadPlan["purpose"]}:{}),...(plan.kind==="repairs"&&plan.repairQuery!==undefined?{repairQuery:repairListQuery(plan.repairQuery as Partial<RepairListQuery>)}:{}),...(typeof plan.group==="string"?{group:plan.group}:{}) };
 }
 
 // These compatibility plans preserve the existing full-domain semantics until
@@ -37,6 +38,7 @@ export function parsePageReadPlan(value: unknown): PageReadPlan {
 // paginated lists; unrelated store domains and signature history are omitted.
 export function pageDomains(plan: PageReadPlan, options?: {customerLists?:boolean;procurementLists?:boolean;repairLists?:boolean}): BackendDomain[] {
   if (plan.kind === "session" || plan.kind === "catalog" || plan.kind === "customers" && options?.customerLists ||plan.kind==="procurement"&&options?.procurementLists||plan.kind==="repairs"&&options?.repairLists) return ["staff"];
+  if(plan.kind==="repair-new"&&options?.repairLists&&options.customerLists||plan.kind==="procurement-new"&&options?.procurementLists)return ["staff"];
   if (plan.kind === "repair") return ["staff", "settings", "intakes", "signatures", "workflows", "procurement"];
   if(plan.kind==="repair-operation")return ["staff",...(plan.purpose==="parts"?["settings" as const]:[]),"intakes","workflows","procurement"];
   if (["repairs", "procurement", "procurement-detail", "procurement-new"].includes(plan.kind)) return ["staff", "settings", "intakes", "workflows", "procurement"];

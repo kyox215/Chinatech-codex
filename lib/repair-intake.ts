@@ -33,12 +33,12 @@ export function modelsFor(category: string, brand: string): readonly string[] {
 }
 
 type HistoryRepair = { id: string; createdAt: string; device: { brand: string; model: string; serial: string } };
-const normalizedIdentity = (value: string) => value.trim().toUpperCase().replace(/\s/g, "");
+export const intakeHistoryIdentifier = (value: string) => value.trim().toUpperCase().replace(/\s/g, "");
 export function intakeDeviceHistory<T extends HistoryRepair>(serial: string, brand: string, model: string, orders: readonly T[]): { exact: T[]; related: T[] } {
-  const identifier = normalizedIdentity(serial);
+  const identifier = intakeHistoryIdentifier(serial);
   const brandKey = brand.trim().toLowerCase();
   const modelKey = model.trim().toLowerCase();
-  const exact = identifier ? orders.filter(order => normalizedIdentity(order.device.serial) === identifier && (/^\d{15}$/.test(identifier) || !brandKey || order.device.brand.toLowerCase() === brandKey)) : [];
+  const exact = identifier ? orders.filter(order => intakeHistoryIdentifier(order.device.serial) === identifier && (/^\d{15}$/.test(identifier) || !brandKey || order.device.brand.toLowerCase() === brandKey)) : [];
   const related = brandKey && modelKey ? orders.filter(order => !exact.includes(order) && order.device.brand.toLowerCase() === brandKey && order.device.model.toLowerCase() === modelKey) : [];
   return { exact: [...exact].sort((a,b) => b.createdAt.localeCompare(a.createdAt)), related: [...related].sort((a,b) => b.createdAt.localeCompare(a.createdAt)) };
 }

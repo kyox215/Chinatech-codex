@@ -13,9 +13,11 @@ export type BackendSnapshot = {
   customerListEnabled?: boolean;
   customerList?: import("./customer-list-contract").CustomerListPage;
   procurementListEnabled?: boolean;
+  procurementRepairCandidate?:import("./procurement-batch-contract").ProcurementRepairCandidate|null;
   procurementList?: import("./procurement-list-contract").ProcurementListPage;
   repairListEnabled?:boolean;
   repairList?:import("./repair-list-contract").RepairListPage;
+  intakeDefaults?:{revision:number;policy:import("../repair-intake-record").IntakePolicy;paper:import("../store-settings").PaperFormat};
   operation?: OperationReceipt;
   stateToken?: string;
   storeId: string; revision: number; staff: StaffData; settings: StoreSettings | null;

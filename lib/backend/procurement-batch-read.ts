@@ -12,7 +12,7 @@ export async function readProcurementBatch(tx:TransactionSql,scope:BackendReadSc
  const query=procurementBatchQuery(raw),needle=listSearchNeedle(query.q);
  if(!scope.permissions.includes("repairs.view")||query.kind!=="repairs"&&!scope.permissions.includes("repairs.edit"))throw new BackendError("当前账号没有此操作权限。",403);
  if(query.kind==="repairs") {
-  const rows=await tx`select id,data->>'model' as model from chinatech_v2_private.repair_intakes where store_id=${scope.storeId} and (${needle}='' or strpos(lower(id||' '||coalesce(data->>'model','')),${needle})>0) order by id limit 12`;
+  const rows=await tx`select id,data->>'model' as model from chinatech_v2_private.repair_intakes where store_id=${scope.storeId} and (${query.repairId}='' or id=${query.repairId}) and (${needle}='' or strpos(lower(id||' '||coalesce(data->>'model','')),${needle})>0) order by id limit 12`;
   return {scope,items:rows.map(row=>({id:row.id,model:row.model}))};
  }
  const generation=await procurementModelGeneration(tx,scope.storeId);
