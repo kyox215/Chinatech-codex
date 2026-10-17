@@ -1237,3 +1237,12 @@ Python18、实际Windows三源解析/13拒绝/20模拟证书区载荷检查通�
 完整 P0–P7 仍在实施，仅性能分支 CI，未合 main 或部署。设备记录链接保留逐来源身份，并把本次点击的安全 returnTo、语义目标及像素写入实际目标 URL；工单返回设备时沿现有三语文案。共享 NavigationLink 仅增加可选交互解析，默认 Next 行为与单一 B 反馈保持，真实 transition、取消、scope 变化和原生鼠标行为分别核验。
 
 本地正式构建 `eaUpR7qXUs5PDc-rKKny_` 绑定 523 输入无构建中变化；实际工单／客户 Link→详情刷新→UI 返回双引擎 4/4，通过像素、焦点及显式 store 检查。此功能验证的本轮闲置 Storage 暂停条件单列，不作为全服务性能或容量达标；完整领域读取、写入放大、Unicode 重建与最终容量验收继续。
+
+
+## 2026-10-17 本地性能候选：Unicode 执行与客户关联投影
+
+第14/15为等价执行候选，保留原Unicode17常量、完整事实、模型代际与权限。第14以双向前缀窗口保留Sigma上下文；第15按ASCII空格边界分字段fold，每单机只准备一次稳定字段。原3/6参入口保留，新辅助函数仍owner-only，显式回滚保留原定义。未更改旧迁移9/10。
+
+隔离SQL-only PG17.11/ICU磁盘/32MiB shared buffers、Storage暂停条件：185,034组whole-join/分字段/缓存/Node结果及14个完整旧fact JSON案例一致；真实合法5000UTF16型号、1/10/1000销售历史单次写24.825/13.137/251.807ms，原14-only同1000样本1773.726ms。1011完整事实与Node摘要/phone/time/search hash一致，旧6参writer恢复同事实，全部原触发器保留；4原函数/owner/ACL恢复、新helper0、37表owned0、12资源点OOM0。不是API/P95/并发或含六图保存结论；旧158s照片路径RED保留，永久安装/照片专项/全容量仍待。
+
+实际工具、原失败及冻结输入在本轮proof的customer-record-execution-public-third-frozen、customer-record-canonical-first-frozen和unicode-canonical-first-freeze；两个生成器12项fail-closed/只读检查及定向lint通过，未部署或连接生产。
