@@ -16,7 +16,7 @@ export function repairReceiptHtml(p: RepairPrintProjection, fonts: { latin: stri
   const trackingOnWarranty = !p.merged && p.reviewQuotes.length > 0 && Boolean(p.signature || p.signatureHistory);
   const historicalSignatureReview = trackingOnWarranty && !p.signature && Boolean(p.signatureHistory);
   const tracking = `<div class="tracking" data-block="tracking" data-label="${escape(p.labels.tracking)}"><p data-tracking-help>${trackingHelp} ${escape(p.labels.keepReceipt)} ${escape(p.labels.trackingLimit)}</p></div>`;
-  const textAmounts = p.rows.some(row => row.ambiguous || row.amountCents == null);
+  const textAmounts = p.total === printLabel("unquoted", p.language) || p.rows.some(row => row.ambiguous || row.amountCents == null);
   const rows = p.rows.map(row => `<tr data-requirement-id="${escape(row.id)}"><td>${row.texts.map(escape).join(" · ")}${row.ambiguous ? `<p class="body">${escape(p.labels.projectReview)}</p>` : ""}</td><td class="${row.ambiguous || row.amountCents == null ? "amount-state" : "amount-value"}">${escape(row.amount)}</td></tr>`).join("");
   const groups: { kind: string; note: string; quotes: typeof p.reviewQuotes }[] = [];
   for (const quote of p.reviewQuotes) {

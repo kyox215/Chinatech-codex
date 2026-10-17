@@ -35,3 +35,7 @@
 
 
 发布集成终查发现旧77路径清单遗漏了LocalIntakeDetail照片URL的storeId依赖，原7c2ef1d3/BbMF候选不准上线；真实旧build浏览器RED保留photo-browser-red.log。补入同一原实现两行后，新生产build zJ1Hb88gP5J1rzNu48UDE，双引擎4项真实维修/零售图片加载及缺scope400/跨店404通过；其余未改输入复用前述30+happy与完整Node证据，非全部重复运行。实际API客户端scope矩阵见本轮发布证据client-scope-matrix.json。
+
+## 正式 main 打印组合边界（2026-10-17）
+
+正常合入已正式合并的 receipt PR70（main2d6fb2e4）后，真实本地 Auth／API 的无维修项目未报价工单在意语返回422 printOverflow；两引擎三语新增用例为意语2RED、其余4PASS，证据在 `.company-tmp/multistore-release-20261017/unquoted-pdf-red*`。根因是金额文字列仅依据项目行选择，空行遗漏未报价合计；仅扩原判定至同一未报价合计，复用既有36mm文字金额列。零值／正常金额27mm、字体与内容、自然溢出拒绝及权限／门店边界保持，实际回验与新候选冻结另记，不能把先前候选构建当本修复通过。

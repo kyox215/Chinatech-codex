@@ -393,6 +393,23 @@ test('复杂旧单查单说明静态唯一且普通或未签不移栏', async ({
   }
  }
 });
+for (const language of ['it', 'en', 'zh'] as PrintLanguage[]) test(`无维修项目且未报价的新单完整PDF ${language}`, async () => {
+ const input = fixture(false);
+ input.data.services = { screen: { quality: '', technology: '' }, battery: { quality: '', appleService: '' }, port: { quality: '' } };
+ input.data.faults = undefined; input.data.issue = 'DEMO original issue'; input.data.issueNote = ''; input.data.itemQuotes = [];
+ input.signatures = []; input.directory = [intakeDirectoryEntry(input.data)]; input.workflows = { [input.data.id]: initialRepairWorkflow(input.directory[0]) };
+ const p = projection(input, language); expect(p.rows).toHaveLength(0); expect(p.total).toBe(printLabel('unquoted', language));
+ await contentProof(input, 'a5', language);
+});
+for (const language of ['it', 'en', 'zh'] as PrintLanguage[]) test(`报价金额列保留零值与普通金额宽度 ${language}`, async ({ page }) => {
+ for (const amountCents of [0, 6000]) {
+  const input = fixture(false); input.data.itemQuotes = input.data.itemQuotes!.map(row => ({ ...row, amountCents }));
+  const p = projection(input, language); expect(p.total).not.toBe(printLabel('unquoted', language));
+  await page.setContent(repairReceiptHtml(p, await receiptFonts())); await page.evaluate(() => document.fonts.ready);
+  await expect(page.locator('table')).not.toHaveClass(/text-amounts/);
+  const width = await page.locator('thead th:last-child').evaluate(node => node.getBoundingClientRect().width * 25.4 / 96); expect(width).toBeCloseTo(27, 1);
+ }
+});
 for(const paper of ['a4','a5','half','double'] as const)for(const language of ['it','en','zh'] as PrintLanguage[])test(`单页母版真实PDF ${paper}/${language}`,async({page},info)=>{
  const input=fixture(false);expect(validLocalIntake(input.data)).toBe(true);expect(validIntakeSignature(input.signatures[0])).toBe(true);
  const result=await contentProof(input,paper,language);expect(result.p.merged).toBe(true);expect(result.p.rows).toHaveLength(3);expect(result.p.intakeServices).toHaveLength(4);expect(result.output).toContain(normalized(printLabel('customerCopy',language)));if(paper==='double')expect(result.output).toContain(normalized(printLabel('shopCopy',language)));
