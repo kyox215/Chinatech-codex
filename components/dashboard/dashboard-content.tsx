@@ -1,6 +1,10 @@
 "use client";
 import { ReadPending } from "@/components/page-recovery";
-import { useBackendMode } from "@/components/backend-snapshot";
+import { useBackendState } from "@/components/backend-snapshot";
+import type {DashboardData} from "@/lib/backend/dashboard-contract";
+import type {RepairTone} from "@/lib/repair-fixtures";
+import {backendScopeKey} from "@/lib/backend/read-plan";
+import {retailRecordHref} from "@/lib/retail-record";
 
 import { ReadFailure } from "@/components/page-recovery";
 import { useLanguage } from "@/components/language-provider";
@@ -61,7 +65,8 @@ function DashboardHeading({ canScan = true, canCreate = true }: { canScan?: bool
 }
 
 export function DashboardContent() {
-  return useBackendMode() ? <RealDashboardContent /> : <PreviewDashboardContent />;
+  const{formal,snapshot}=useBackendState();
+  return formal ? snapshot?.dashboardEnabled ? <BoundedDashboardContent /> : <RealDashboardContent /> : <PreviewDashboardContent />;
 }
 
 function RealDashboardContent() {
@@ -77,12 +82,6 @@ function RealDashboardContent() {
   const error = storageError || workflowError || retailError || staff.error;
   const counts = Object.fromEntries(Object.keys(workflowGroups).map(group => [group, 0])) as Record<WorkflowGroup, number>;
   for (const order of orders) counts[workflowGroup(order, records, workflows[order.id])]++;
-  const realStats = [
-    { label: "返修", value: counts.rework, note: "再次送回，待处理", icon: Clock3, tone: "violet" },
-    { label: "处理中", value: counts.processing, note: "检测、报价、维修与测试", icon: Wrench, tone: "mint" },
-    { label: "等配件", value: counts.purchase, note: "实际下单，尚未到齐", icon: PackageSearch, tone: "amber" },
-    { label: "等取机", value: counts.ready, note: "未通知与已通知", icon: PackageCheck, tone: "rose" },
-  ];
   const debtCount = orders.filter(order => { const current = workflows[order.id] ?? initialRepairWorkflow(order); return hasCurrentRepairHandover(current) && current.followUp?.collectedUnpaid; }).length;
   const recent = [...orders].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || left.id.localeCompare(right.id)).slice(0, 4);
   const activity = [
@@ -91,10 +90,21 @@ function RealDashboardContent() {
     ...records.flatMap(record => record.events.map(event => ({ id: `procurement:${record.id}:${event.id}`, title: `${repairItemText(record.item, locale)} · ${t(procurementEventLabel(event))}`, time: event.time, href: `/app/repairs/${record.repairId}`, tone: "amber" }))),
     ...units.flatMap(unit => unit.events.map(event => ({ id: `retail:${unit.id}:${event.id}`, title: `${unit.code} · ${retailEventTitle(event.title, locale)}`, time: event.time, href: `/app/retail/units/${unit.id}`, tone: "violet" }))),
   ].filter(event => event.time).sort((left, right) => right.time.localeCompare(left.time) || left.id.localeCompare(right.id)).slice(0, 5);
-  const heading = <DashboardHeading canScan={canRepairs} canCreate={staff.can("repairs.edit")} />;
-  if (!workflowReady || !retailReady || !staff.ready) return <div className="dashboard">{heading}<ReadPending label="正在读取门店概况…" /></div>;
-  if (error) return <div className="dashboard">{heading}<ReadFailure message={error} /></div>;
+  return <DashboardView counts={counts} debtCount={debtCount} groups={visibleRepairGroups(settings.repairGroups??defaultRepairGroups(),"workflow")} canRepairs={canRepairs} canRetail={canRetail} canCreate={staff.can("repairs.edit")} ready={workflowReady&&retailReady&&staff.ready} error={error} hasProcurement={records.length>0} activity={activity} recent={recent.map(order=>({id:order.id,model:`${order.device.brand} ${order.device.model}`,customer:repairCustomerName(order,locale),issue:repairIssueText(order,locale),progress:repairProgress(order,records,workflows[order.id])}))}/>;
+}
 
+type DashboardViewProps={counts:DashboardData["counts"];debtCount:number;groups:DashboardData["groups"];canRepairs:boolean;canRetail:boolean;canCreate:boolean;ready:boolean;error:string;hasProcurement:boolean;procurementSummary?:DashboardData["procurement"];retailCounts?:DashboardData["retail"];recent:{id:string;model:string;customer:string;issue:string;progress:{tone:RepairTone;label:string}}[];activity:{key?:string;id:string;title:string;time:string;href:string;tone:string}[]};
+function DashboardView({counts,debtCount,groups,canRepairs,canRetail,canCreate,ready,error,hasProcurement,procurementSummary,retailCounts,recent,activity}:DashboardViewProps){
+ const{t}=useLanguage();
+  const realStats = [
+    { label: "返修", value: counts.rework, note: "再次送回，待处理", icon: Clock3, tone: "violet" },
+    { label: "处理中", value: counts.processing, note: "检测、报价、维修与测试", icon: Wrench, tone: "mint" },
+    { label: "等配件", value: counts.purchase, note: "实际下单，尚未到齐", icon: PackageSearch, tone: "amber" },
+    { label: "等取机", value: counts.ready, note: "未通知与已通知", icon: PackageCheck, tone: "rose" },
+  ];
+  const heading=<DashboardHeading canScan={canRepairs} canCreate={canCreate}/>;
+  if(error)return <div className="dashboard">{heading}<ReadFailure message={error}/></div>;
+  if(!ready)return <div className="dashboard">{heading}<ReadPending label="正在读取门店概况…"/></div>;
   return <div className="dashboard">
     {heading}
     <section className="stat-grid" aria-label={t("门店待办统计")}>
@@ -104,19 +114,33 @@ function RealDashboardContent() {
     <section className="dashboard-grid dashboard-grid--main">
       <article className="panel repair-panel">
         <div className="panel__header"><div><h2>{t("近期工单")}</h2></div>{canRepairs ? <Link className="button button--secondary button--tiny" href="/app/repairs" icon={<ArrowRight size={15} />} iconPosition="end">{t("查看全部 ")}</Link> : null}</div>
-        {!canRepairs ? <div className="section-empty"><strong>{t("当前账号没有维修查看权限")}</strong></div> : !recent.length ? <div className="section-empty"><Wrench size={24} /><strong>{t("尚未登记工单")}</strong></div> : <div className="module-table-scroll" role="region" aria-label={t("近期工单表格")} tabIndex={0}><div className="repair-table__head"><span>{t("设备与故障")}</span><span>{t("客户 / 工单号")}</span><span>{t("当前状态")}</span><span /></div><div className="repair-list">{recent.map(order => <div className="repair-row" key={order.id}><div className="repair-row__device"><span><Smartphone size={18} /></span><div><strong>{order.device.brand} {order.device.model}</strong><small>{repairIssueText(order, locale)}</small></div></div><div className="repair-row__meta"><strong>{repairCustomerName(order, locale)}</strong><small>{order.id}</small></div><span className={`status-pill status-pill--${repairProgress(order, records, workflows[order.id]).tone}`}>{t(repairProgress(order, records, workflows[order.id]).label)}</span><Link className="row-action" href={`/app/repairs/${order.id}`} aria-label={t("打开 {v0}", { v0: order.id })} icon={<ChevronRight size={18} />}></Link></div>)}</div></div>}
+        {!canRepairs ? <div className="section-empty"><strong>{t("当前账号没有维修查看权限")}</strong></div> : !recent.length ? <div className="section-empty"><Wrench size={24} /><strong>{t("尚未登记工单")}</strong></div> : <div className="module-table-scroll" role="region" aria-label={t("近期工单表格")} tabIndex={0}><div className="repair-table__head"><span>{t("设备与故障")}</span><span>{t("客户 / 工单号")}</span><span>{t("当前状态")}</span><span /></div><div className="repair-list">{recent.map(order => <div className="repair-row" key={order.id}><div className="repair-row__device"><span><Smartphone size={18} /></span><div><strong>{order.model}</strong><small>{order.issue}</small></div></div><div className="repair-row__meta"><strong>{order.customer}</strong><small>{order.id}</small></div><span className={`status-pill status-pill--${order.progress.tone}`}>{t(order.progress.label)}</span><Link className="row-action" href={`/app/repairs/${order.id}`} aria-label={t("打开 {v0}", { v0: order.id })} icon={<ChevronRight size={18} />}></Link></div>)}</div></div>}
       </article>
       <article className="panel workload-panel">
         <div className="panel__header"><div><h2>{t("日常维修分组")}</h2></div>{canRepairs ? <span className="status-pill status-pill--info">{counts.rework + counts.processing + counts.purchase + counts.ready} {t(" 张")}</span> : null}</div>
-        {canRepairs ? <div className="legend-list">{visibleRepairGroups(settings.repairGroups ?? defaultRepairGroups(), "workflow").map(({key: group, label}) => <span key={group}>{t(label)}<strong>{counts[group]}</strong></span>)}</div> : <div className="section-empty"><strong>{t("当前账号没有维修查看权限")}</strong></div>}
+        {canRepairs ? <div className="legend-list">{groups.map(({key: group, label}) => <span key={group}>{t(label)}<strong>{counts[group]}</strong></span>)}</div> : <div className="section-empty"><strong>{t("当前账号没有维修查看权限")}</strong></div>}
       </article>
     </section>
     <section className="dashboard-grid dashboard-grid--bottom">
-      {canRepairs && records.length ? <DashboardProcurementSummary /> : <article className="panel arrivals-panel"><div className="panel__header"><div><h2>{t("采购与到货")}</h2></div>{canRepairs ? <Link className="button button--secondary button--tiny" href="/app/repairs">{t("查看工单")}</Link> : null}</div><div className="section-empty"><strong>{canRepairs ? t("尚未登记采购") : t("当前账号没有维修查看权限")}</strong></div></article>}
-      {canRetail ? <RetailDashboardSummary /> : <article className="panel retail-panel"><div className="panel__header"><div><h2>{t("整机商品")}</h2></div></div><div className="section-empty"><strong>{t("当前账号没有整机查看权限")}</strong></div></article>}
-      <article className="panel activity-panel"><div className="panel__header"><div><h2>{t("近期动态")}</h2></div></div>{activity.length ? <ol className="activity-list">{activity.map(event => <li key={event.id}><span className={`activity-dot activity-dot--${event.tone}`} /><div><Link href={event.href}><strong>{event.title}</strong></Link><small>{event.time}</small></div></li>)}</ol> : <div className="section-empty"><strong>{t("暂无业务动态")}</strong></div>}</article>
+      {canRepairs && hasProcurement ? <DashboardProcurementSummary summary={procurementSummary} /> : <article className="panel arrivals-panel"><div className="panel__header"><div><h2>{t("采购与到货")}</h2></div>{canRepairs ? <Link className="button button--secondary button--tiny" href="/app/repairs">{t("查看工单")}</Link> : null}</div><div className="section-empty"><strong>{canRepairs ? t("尚未登记采购") : t("当前账号没有维修查看权限")}</strong></div></article>}
+      {canRetail ? <RetailDashboardSummary counts={retailCounts} /> : <article className="panel retail-panel"><div className="panel__header"><div><h2>{t("整机商品")}</h2></div></div><div className="section-empty"><strong>{t("当前账号没有整机查看权限")}</strong></div></article>}
+      <article className="panel activity-panel"><div className="panel__header"><div><h2>{t("近期动态")}</h2></div></div>{activity.length ? <ol className="activity-list">{activity.map(event => <li key={event.key??event.id}><span className={`activity-dot activity-dot--${event.tone}`} /><div><Link href={event.href}><strong>{event.title}</strong></Link><small>{event.time}</small></div></li>)}</ol> : <div className="section-empty"><strong>{t("暂无业务动态")}</strong></div>}</article>
     </section>
   </div>;
+}
+
+function BoundedDashboardContent(){
+ const{t,locale}=useLanguage(),{snapshot}=useBackendState(),staff=useStaff();
+ const page=snapshot?.dashboard,data=page&&snapshot?.read&&backendScopeKey(page.scope)===backendScopeKey(snapshot.read.scope)?page.data:null;
+ const counts=data?.counts??Object.fromEntries(Object.keys(workflowGroups).map(key=>[key,0])) as DashboardData["counts"];
+ const suffix=(value:string,previews:string[],key:string)=>value+(previews.includes(key)?"…":"");
+ const recent=(data?.recent??[]).map(row=>({id:row.id,model:suffix(row.brand,row.previews,"brand")+" "+suffix(row.model,row.previews,"model"),customer:repairCustomerName({customer:{name:suffix(row.customerName,row.previews,"customerName")},customerNameMissing:row.customerNameMissing},locale),issue:repairIssueText(row,locale)+(row.previews.includes("issue")||row.previews.includes("issueNote")?"…":""),progress:row.progress}));
+ const activity=(data?.activity??[]).map(row=>{
+  const display=suffix(row.display,row.previews,"display"),label=suffix(row.label,row.previews,"label");
+  const title=row.source==="intake"?`${display} · ${t("工单已登记")}`:row.source==="repair"?`${display} · ${row.previews.includes("label")?label:repairActivityLabel({type:row.type,label},locale)}`:row.source==="procurement"?`${row.previews.includes("display")?display:repairItemText(display,locale)} · ${t(procurementEventLabel({type:row.type as import("@/lib/procurement").ProcurementEvent["type"],quantity:row.quantity??0}))}`:`${display} · ${row.previews.includes("label")?label:retailEventTitle(label,locale)}`;
+  return{key:row.key,id:row.id,title,time:row.time,href:row.source==="retail"?retailRecordHref(row.entityId,undefined,"unit"):`/app/repairs/${encodeURIComponent(row.repairId)}`,tone:row.source==="repair"?"mint":row.source==="procurement"?"amber":"violet"};
+ });
+ return <DashboardView counts={counts} debtCount={data?.debtCount??0} groups={data?.groups??[]} canRepairs={staff.can("repairs.view")} canRetail={staff.can("retail.view")} canCreate={staff.can("repairs.edit")} ready={Boolean(data)&&staff.ready} error={staff.error} recent={recent} activity={activity} hasProcurement={Boolean(data?.procurement.total)} procurementSummary={data?.procurement} retailCounts={data?.retail}/>;
 }
 
 function PreviewDashboardContent() {

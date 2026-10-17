@@ -1677,8 +1677,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .settings-order-group__names li { counter-increment: repair-group; padding: 5px 8px; border-radius: var(--radius-control); background: var(--surface-subtle); font-size: 13px; }
 .settings-order-group__names li::before { content: counter(repair-group) " · "; color: var(--text-tertiary); }
 .settings-supplier-list { margin-top: 14px; }
-.settings-supplier-list > article, .settings-finance-list > article { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.settings-supplier-list > article > div, .settings-finance-list > article > div { min-width: 0; flex: 1; }
+.settings-supplier-list > article, .settings-finance-list > article, .settings-supplier-list > [data-windowed-list] > article, .settings-finance-list > [data-windowed-list] > article { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.settings-supplier-list > article > div, .settings-finance-list > article > div, .settings-supplier-list > [data-windowed-list] > article > div, .settings-finance-list > [data-windowed-list] > article > div { min-width: 0; flex: 1; }
 .settings-supplier-list strong, .settings-finance-list strong { font-size: 14px; overflow-wrap: anywhere; }
 .settings-supplier-list small, .settings-supplier-list a, .settings-finance-list small, .settings-finance-list p { display: block; color: var(--text-secondary); font-size: 12px; margin: 4px 0 0; overflow-wrap: anywhere; }
 .settings-supplier-list a { color: var(--primary-600); }

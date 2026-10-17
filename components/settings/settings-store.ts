@@ -5,6 +5,19 @@ import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } fr
 import { defaultStoreSettings, parseStoreSettings, type StoreSettings } from "@/lib/store-settings";
 import { requirePreviewPermission } from "@/lib/staff-client";
 import { can } from "@/lib/staff";
+import type{SettingsPatch}from'@/lib/backend/settings-patch';
+/** Client draft adapter only. Canonical section permissions, uniqueness,
+ * versions and append/void checks still run in the normal server command. */
+export function settingsPatchDraft(current:StoreSettings,patch:SettingsPatch):StoreSettings{
+ switch(patch.type){
+  case'general':return{...current,...patch.values};
+  case'printing':return{...current,paper:patch.paper};
+  case'orders':return{...current,repairGroups:patch.repairGroups};
+  case'supplier':return{...current,suppliers:current.suppliers.some(row=>row.id===patch.supplier.id)?current.suppliers.map(row=>row.id===patch.supplier.id?patch.supplier:row):[...current.suppliers,patch.supplier]};
+  case'finance.append':return{...current,finance:[...current.finance,patch.entry]};
+  case'finance.void':return{...current,finance:current.finance.map(row=>row.id===patch.id?{...row,voidReason:patch.reason}:row)};
+ }
+}
 const key = "chinatech.m1.store-settings.v1";
 const change = "chinatech-store-settings-change";
 const server = { settings: defaultStoreSettings, ready: false, error: "" };

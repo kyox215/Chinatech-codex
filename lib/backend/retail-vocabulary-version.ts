@@ -1,2 +1,2 @@
 // Generated from the first-party vocabulary and translate implementation.
-export const retailVocabularyHash="c2aab3ff1f8a7329360e5bcf47480fff278da2d1ca29f83773c3cc382cdb35de";
+export const retailVocabularyHash="f9fc2615c696573fa72d2bb99d8bc291cd1935762d91852a9c7333807b067baf";

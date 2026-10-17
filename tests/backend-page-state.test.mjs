@@ -10,17 +10,17 @@ function harness() {
   class BackendError extends Error { constructor(message, status=400, code) { super(message); this.status=status; this.code=code; } }
   const member = { id:'synthetic-member', name:'DEMO', email:'demo@example.invalid', role:'technician', revision:1, accountStatus:'active', membershipStatus:'active', permissions:['repairs.view','retail.view','customers.view'] };
   const access = { identity:{userId:'synthetic-account',sessionId:'synthetic-session'}, storeId:'synthetic-store', member };
-  const state = { env:{BACKEND_CUSTOMER_LIST_READS:"1"}, access, member, revision:1, live:true, queries:[], transactions:0, rosterSize:1,
+  const state = { env:{BACKEND_CUSTOMER_LIST_READS:"1"}, access, member, revision:1, live:true, queries:[], transactions:0, rosterSize:1,dashboardContexts:0,dashboardReads:0,dashboardReady:true,dashboardGeneration:'5',modelGeneration:'3',
     intake:{id:'LOCAL-0000000000000001',phone:'+390000000001'},
     settings:{revision:1,shopName:'DEMO',address:'',phone:'',paper:'a4',repairWarrantyMonths:6,retailWarrantyMonths:12,suppliers:[],finance:[]} };
   const tx = (parts,...values) => {
     const sql = parts.reduce((text,part,i)=>text+part+(i<values.length?values[i]?.sql??'?':''),'');
     return { sql, values, then:(resolve,reject)=>Promise.resolve().then(()=>{
       state.queries.push({sql,values});
-      if(sql.includes('retail_list_models'))return[{ready:true,generation:'3',vocabulary_hash:JSON.parse(readFileSync('lib/backend/retail-vocabulary-version.ts','utf8').match(/retailVocabularyHash=("[^"]+")/)[1])}];
-      if(sql.includes('retail_list_sources')&&sql.trimStart().startsWith('with scoped'))return[{total:1,point_found:false,point_rank:0,view_counts:{available:1,sold:0,other:0},condition_counts:{all:1,新机:0,翻新机:1},items:[{key:'unit:DEMO-RETAIL',id:'DEMO-RETAIL',source:'unit',title:'DEMO',view:'available'}]}];
+      if(sql.includes('retail_list_sources')&&sql.trimStart().startsWith('with model'))return[{model_available:true,model_generation:'3',total:1,point_found:false,point_rank:0,view_counts:{available:1,sold:0,other:0},condition_counts:{all:1,新机:0,翻新机:1},items:[{key:'unit:DEMO-RETAIL',id:'DEMO-RETAIL',source:'unit',title:'DEMO',view:'available'}]}];
+      if(sql.includes('retail_list_models'))return[{ready:true,generation:'3',vocabulary_hash:JSON.parse(readFileSync('lib/backend/retail-vocabulary-version.ts','utf8').match(/retailVocabularyHash=("[^"]+")/)[1]),sort_rules_hash:readFileSync('lib/server/intl-sort-contract.ts','utf8').match(/nativeSortRulesHash='([^']+)'/)[1]}];
       if(sql.startsWith('select id,code from chinatech_v2_private.retail_list_sources'))return state.identityConflict?[state.identityConflict]:[];
-      if(sql.includes('select ready,generation::text')) return [{ready:true,generation:'3'}];
+      if(sql.includes('select ready,generation::text')) return [{ready:true,generation:state.modelGeneration}];
       if(sql.trimStart().startsWith('with grouped as')) return [{total:1,items:[{phone:'+390000000001',name:'DEMO',email:'',repairs:1,sales:0,history:0,activity:'2026-10-10 00:00:00'}]}];
       if(sql.trimStart().startsWith('with scoped as'))return[{total:1,group_total:1,stats:{all:1,draft:1,open:0,complete:0},point_found:false,point_rank:0,items:[{id:'DEMO-PROC-1',repairId:state.intake.id,repairModel:'DEMO',item:'DEMO part',supplier:'DEMO supplier',quantity:1,arrived:0,status:'draft',expectedAt:'',ledgerRevision:0,groupKey:'DEMO supplier',groupFirst:'DEMO-PROC-1',groupCount:1}]}];
       if(sql.includes('select st.revision,s.name')) return [{revision:state.revision,name:'DEMO'}];
@@ -45,7 +45,11 @@ function harness() {
     if(!request.startsWith('.')&&!request.startsWith('@/'))return native(request);
     const file=resolve(request.startsWith('@/')?root:from,request.startsWith('@/')?request.slice(2):request).replace(/\.ts$/,'')+'.ts';
     if(file.endsWith('/backend/database.ts'))return {BackendError,withReadDatabase:async(identity,store,run)=>{state.transactions++;assert.equal(identity.sessionId,access.identity.sessionId);assert.equal(store,access.storeId);if(!state.live)throw new BackendError('revoked',401);return run(tx);}};
+    if(file.endsWith('/server/intl-sort-keys.ts'))return {requireNativeSortRuntime(){}};
     if(file.endsWith('/backend/context.ts'))return {getServerAccess:async()=>access,getAuthIdentity:async()=>access.identity,memberForRead:async()=>state.member};
+    // This seam isolates page ownership/transport; the actual dashboard SQL and
+    // canonical oracle are exercised by dashboard-read.integration.mjs.
+    if(file.endsWith('/backend/dashboard-read.ts'))return{dashboardReadContext:async()=>{state.dashboardContexts++;if(!state.dashboardReady)throw new BackendError('unready',503);return{generation:state.dashboardGeneration,stateToken:'dashboard-'+state.dashboardGeneration,groups:[]};},readDashboard:async(_tx,scope,{context})=>{state.dashboardReads++;return{formatVersion:1,scope,generation:context.generation,stateToken:context.stateToken,data:{counts:{},debtCount:0,groups:[],recent:[],procurement:{total:0,pending:[]},retail:{available:0,sold:0,other:0},activity:[]}};}};
     if(modules.has(file))return modules.get(file).exports;
     const loaded={exports:{}};modules.set(file,loaded);
     const code=ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
@@ -64,6 +68,13 @@ test('session bootstrap and catalog serialize only current identity; no settings
   assert.equal(catalog.settings,null);assert.equal(catalog.staff.members.length,1);
   assert.equal(h.state.queries.length,1);assert.match(h.state.queries[0].sql,/select st.revision,s.name/);
   for(const domain of ['settings','intakes','signatures','procurement','retail','retailHistory','customers'])assert.equal(h.plans.backendDomainReady(catalog,domain),false);
+});
+test('bounded dashboard is opt-in, carries only its current scoped summary and revalidates known/model/session before transfer',async()=>{
+ const h=harness();h.state.env.BACKEND_DASHBOARD_READS='1';const initial=await h.api.loadPageState(h.access,{kind:'dashboard'});assert.equal(initial.dashboardEnabled,true);assert.deepEqual(initial.read.ready,['staff']);assert.equal(initial.settings,null);assert.equal(initial.dashboard.scope.sessionId,h.access.identity.sessionId);assert.equal(h.state.dashboardReads,1);assert.equal(h.state.transactions,1);assert.equal(h.state.queries.length,1);
+ for(const key of['intakes','procurement','retail','retailHistory','customers','signatures'])assert.deepEqual(initial[key],[]);
+ const known=await h.api.loadPageState(h.access,{kind:'dashboard'},initial.stateToken,h.plans.backendScopeKey(initial.read.scope));assert(known.unchanged);assert.equal(h.state.dashboardReads,1);assert.equal(h.state.dashboardContexts,2);h.state.dashboardGeneration='6';const changed=await h.api.loadPageState(h.access,{kind:'dashboard'},initial.stateToken);assert.notEqual(changed.stateToken,initial.stateToken);assert.equal(changed.dashboard.generation,'6');assert.equal(h.state.dashboardReads,2);
+ h.state.dashboardReady=false;await assert.rejects(h.api.loadPageState(h.access,{kind:'dashboard'},changed.stateToken),error=>error.status===503);assert.equal(h.state.dashboardReads,2);h.state.dashboardReady=true;h.state.live=false;const contexts=h.state.dashboardContexts;await assert.rejects(h.api.loadPageState(h.access,{kind:'dashboard'}),error=>error.status===401);assert.equal(h.state.dashboardContexts,contexts);
+ assert.deepEqual(h.plans.pageDomains({kind:'dashboard'},{dashboard:true}),['staff']);assert(h.plans.pageDomains({kind:'dashboard'},{dashboard:false}).includes('intakes'));assert(h.plans.pageDomains({kind:'dashboard'},{dashboard:false}).includes('retail'));
 });
 test('retail new read flag uses explicit current defaults and one copy target, never full settings/canonical arrays; no edit does not invent ready metadata',async()=>{
  const h=harness();h.state.env.BACKEND_RETAIL_FORM_READS='1';h.state.member.permissions.push('retail.edit');h.state.revision=99;h.state.settings.revision=7;
@@ -169,3 +180,7 @@ test('retail source is part of the read owner and limits unit/original selection
  h.state.queries.length=0;await h.api.loadPageState(h.access,unit);const unitQuery=h.state.queries.find(row=>row.sql.startsWith('select data from chinatech_v2_private.retail_units'));assert.match(unitQuery.sql,/and id=\?/);assert.doesNotMatch(unitQuery.sql,/or data/);const linked=h.state.queries.find(row=>row.sql.startsWith('select data from chinatech_v2_private.retail_history_records'));assert.match(linked.sql,/id=any\(ARRAY\)/);assert.deepEqual(arrays(linked.values)[0],[]);
  h.state.queries.length=0;await h.api.loadPageState(h.access,{kind:'retail-unit',id:unit.id});assert.deepEqual(arrays(h.state.queries.find(row=>row.sql.startsWith('select data from chinatech_v2_private.retail_history_records')).values)[0],[unit.id]);
 });
+
+
+test('explicit v2 refresh separates unchanged business facts from the current store write watermark and keeps old requests compatible',async()=>{const h=harness(),plan={kind:'customers'},initial=await h.api.loadPageState(h.access,plan,undefined,undefined,2);assert.equal(initial.read.refreshVersion,2);h.state.revision=9;h.state.queries.length=0;const unchanged=await h.api.loadPageState(h.access,plan,initial.stateToken,h.plans.backendScopeKey(initial.read.scope),2);assert.equal(unchanged.unchanged,true);assert.equal(unchanged.refreshVersion,2);assert.equal(unchanged.revision,9);assert(!h.state.queries.some(row=>row.sql.includes('with grouped')));h.state.modelGeneration='4';const changed=await h.api.loadPageState(h.access,plan,initial.stateToken,undefined,2);assert.notEqual(changed.stateToken,initial.stateToken);assert(changed.customerList);const legacy=await h.api.loadPageState(h.access,plan);assert.equal(legacy.read.refreshVersion,undefined);h.state.revision=10;const legacyChanged=await h.api.loadPageState(h.access,plan,legacy.stateToken);assert.notEqual(legacyChanged.stateToken,legacy.stateToken);assert.equal(legacyChanged.unchanged,undefined);});
+test('compatibility detail and new-form tokens retain their necessary global watermark dependency even when refresh v2 is requested',async()=>{for(const plan of[{kind:'repair',id:'LOCAL-0000000000000001'},{kind:'retail-new'},{kind:'repair-new'},{kind:'procurement-new'}]){const h=harness();h.state.env.BACKEND_RETAIL_FORM_READS='1';h.state.env.BACKEND_REPAIR_LIST_READS='1';h.state.env.BACKEND_PROCUREMENT_LIST_READS='1';const initial=await h.api.loadPageState(h.access,plan,undefined,undefined,2);assert.equal(initial.read.refreshVersion,undefined);h.state.revision=2;const changed=await h.api.loadPageState(h.access,plan,initial.stateToken,undefined,2);assert.notEqual(changed.stateToken,initial.stateToken);assert.equal(changed.unchanged,undefined);}});

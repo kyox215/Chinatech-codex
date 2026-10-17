@@ -7,7 +7,7 @@ import { useState } from "react";
 import { ClipboardList, PackageSearch } from "lucide-react";
 import { RepairGroupEditor } from "@/components/repairs/repair-group-editor";
 import { useStaff } from "@/components/staff/use-staff";
-import { defaultRepairGroups, visibleRepairGroups, type RepairGroupKind } from "@/lib/repair-groups";
+import { defaultRepairGroups, visibleRepairGroups, type RepairGroupKind,type RepairGroupSettings } from "@/lib/repair-groups";
 import type { StoreSettings } from "@/lib/store-settings";
 
 const kinds = [
@@ -15,7 +15,7 @@ const kinds = [
   { kind: "parts", label: "配件分组", icon: PackageSearch },
 ] as const;
 
-export function OrderManagement({ settings, disabled = false, onPendingChange }: { settings: StoreSettings; disabled?: boolean; onPendingChange?: (pending: boolean) => void }) {
+export function OrderManagement({ settings, disabled = false, onPendingChange,saveGroups }: { settings: Pick<StoreSettings,'revision'|'repairGroups'>; disabled?: boolean; onPendingChange?: (pending: boolean) => void;saveGroups?:(revision:number,groups:RepairGroupSettings,options:{requestId:string})=>Promise<void> }) {
   const { t } = useLanguage();
   const staff = useStaff();
   const backend=useBackendState();
@@ -38,6 +38,6 @@ export function OrderManagement({ settings, disabled = false, onPendingChange }:
       <header className="settings-order-group__heading"><Icon size={19} aria-hidden="true" /><h4>{t(label)}</h4>{canManage ? <button id={`manage-repair-${kind}-groups`} className="button button--secondary button--compact" type="button" disabled={disabled} onClick={() => { setSaved(""); setEditing({ kind, scope }); }} aria-label={t("管理{v0}", { v0: t(label) })}>{t("管理")}</button> : null}</header>
       <ol className="settings-order-group__names">{visibleRepairGroups(groups, kind).map(group => <li key={group.key}>{kind === "workflow" ? t(group.label) : group.label}</li>)}</ol>
     </article>)}</div>
-    {canManage && !disabled && editing?.scope === scope ? <RepairGroupEditor key={`${scope}:${editing.kind}`} settings={settings} kind={editing.kind} onPendingChange={onPendingChange} onClose={closeEditor} onSaved={() => { setSaved("分组已保存"); closeEditor(); }} /> : null}
+    {canManage && !disabled && editing?.scope === scope ? <RepairGroupEditor key={`${scope}:${editing.kind}`} settings={settings} saveGroups={saveGroups} kind={editing.kind} onPendingChange={onPendingChange} onClose={closeEditor} onSaved={() => { setSaved("分组已保存"); closeEditor(); }} /> : null}
   </>;
 }

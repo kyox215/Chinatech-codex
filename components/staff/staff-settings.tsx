@@ -6,60 +6,74 @@ import { InputControl } from "@/components/input-control";
 import { backendRecovery } from "@/lib/backend/client";
 import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type HTMLAttributes, type Ref } from "react";
 import { Check, History, Plus, ShieldCheck, UsersRound, X } from "lucide-react";
 import { SelectControl } from "@/components/select-control";
-import { updateStaffMember, permissionLabels, rolePermissions, staffRoles, type StaffMember, type StaffRole, type StaffStatus } from "@/lib/staff";
+import { updateStaffMember,validateStaffMember, permissionLabels, rolePermissions, staffRoles, type StaffMember, type StaffRole, type StaffStatus } from "@/lib/staff";
 import { savePreviewMember } from "@/lib/staff-client";
 import { intakeRecordTime } from "@/lib/repair-intake-record";
 import { useStaff } from "./use-staff";
 import styles from "./staff-settings.module.css";
 const statusLabels={pending:"待核对",active:"有效",disabled:"停用"};
-export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending: boolean) => void } = {}) {
+export type StaffDirectoryView={members:StaffMember[];revision:number|null;version:string;resolve:(id:string,signal:AbortSignal)=>Promise<StaffMember>;renderMembers?:(render:(member:StaffMember,attributes?:HTMLAttributes<HTMLElement>&{ref?:Ref<HTMLElement>})=>ReactNode)=>ReactNode;history?:ReactNode};
+export function StaffSettings({ onPendingChange,directory }: { onPendingChange?: (pending: boolean) => void;directory?:StaffDirectoryView } = {}) {
   const { t , systemText } = useLanguage();
   const staff = useStaff();
   const formal = useBackendMode();
+  const members=directory?.members??staff.data.members,revision=directory?directory.revision:staff.data.revision;
   const [editing, setEditing] = useState<StaffMember | null>(null);
   const [openedRevision, setOpenedRevision] = useState(0);
+  const [openedVersion,setOpenedVersion]=useState("");const [resolvedMember,setResolvedMember]=useState<StaffMember|null>(null);const [choosing,setChoosing]=useState("");const choice=useRef<AbortController|null>(null);
+  const ownerKey=JSON.stringify([staff.member?.id,staff.member?.revision,staff.member?.permissions,directory?.version]);const lookupOwner=useRef(ownerKey);
+  useLayoutEffect(()=>{if(lookupOwner.current!==ownerKey){lookupOwner.current=ownerKey;choice.current?.abort();choice.current=null;setChoosing("");}},[ownerKey]);
   const [review, setReview] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const busy = useRef(false);
   const receipt = useOperationReceipt();
   const pending = submitting || receipt.waiting;
-  const existing = staff.data.members.find(member => member.id === editing?.id);
+  const existing = directory&&openedVersion===directory.version&&resolvedMember?.id===editing?.id?resolvedMember:members.find(member=>member.id===editing?.id);
   const staleIdentity = Boolean(formal && editing?.revision && (!existing || editing.name !== existing.name || editing.email !== existing.email || editing.accountStatus !== existing.accountStatus));
-  const needsReview = openedRevision !== staff.data.revision || staleIdentity;
+  const needsReview = openedRevision !== revision || Boolean(directory&&openedVersion!==directory.version) || staleIdentity;
   const attempt = useRef<string | null>(null);
   const alive = useRef(true);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; attempt.current = null; }; }, []);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; attempt.current = null;choice.current?.abort(); }; }, []);
   const deviceDraft = useDeviceDraft("staff-editor", { editing, openedRevision }, value => {
     if (busy.current) return;
     setEditing(value.editing); setOpenedRevision(value.openedRevision); setReview(false); setError("");
   }, Boolean(editing));
 
   if (!staff.can("staff.manage")) return <div className="module-empty"><ShieldCheck size={28}/><strong>{t("当前账号不能管理员工权限")}</strong></div>;
-  function open(member?: StaffMember) {
+  async function open(member?: StaffMember) {
     if (busy.current) return;
-    setEditing(member ? { ...member, permissions: [...member.permissions] } : { id: "DEMO-" + crypto.randomUUID(), name: "", email: "", role: "sales", accountStatus: "active", membershipStatus: "pending", permissions: rolePermissions("sales"), revision: 0 });
-    setOpenedRevision(staff.data.revision); setReview(false); setError("");
+    if(revision===null){setError("后台资料暂不可用。");return;}
+    choice.current?.abort();const controller=new AbortController();choice.current=controller;const owner=lookupOwner.current;
+    setError("");if(directory&&member)setChoosing(member.id);
+    try{const value=directory&&member?await directory.resolve(member.id,controller.signal):member;if(controller.signal.aborted||choice.current!==controller||owner!==lookupOwner.current||!alive.current)return;
+    setEditing(value ? { ...value, permissions: [...value.permissions] } : { id: "DEMO-" + crypto.randomUUID(), name: "", email: "", role: "sales", accountStatus: "active", membershipStatus: "pending", permissions: rolePermissions("sales"), revision: 0 });
+    setResolvedMember(value??null);setOpenedRevision(revision);setOpenedVersion(directory?.version??"");setReview(false);
+    }catch(reason){if(!controller.signal.aborted&&choice.current===controller)setError(reason instanceof Error?reason.message:"后台资料暂不可用。");}finally{if(choice.current===controller){choice.current=null;setChoosing("");}}
   }
-  function close() { if (!busy.current) setEditing(null); }
-  function reviewLatest() {
+  function close() { if (!busy.current) {choice.current?.abort();choice.current=null;setChoosing("");setEditing(null);} }
+  async function reviewLatest() {
     if (busy.current || !editing) return;
-    const current = staff.data.members.find(row => row.id === editing.id);
+    if(revision===null){setError("后台资料暂不可用。");return;}
+    const controller=new AbortController();choice.current?.abort();choice.current=controller;const owner=lookupOwner.current;setChoosing(editing.id);
+    try{const current=directory?await directory.resolve(editing.id,controller.signal):members.find(row=>row.id===editing.id);if(controller.signal.aborted||choice.current!==controller||owner!==lookupOwner.current||!alive.current)return;
     if (editing.revision && !current) { setError("员工已不存在，请关闭编辑。"); return; }
-    setEditing({ ...editing, ...(formal && current ? { name: current.name, email: current.email, accountStatus: current.accountStatus } : {}), revision: current?.revision ?? 0 }); setOpenedRevision(staff.data.revision); setReview(false); setError("");
+    setEditing({ ...editing, ...(formal && current ? { name: current.name, email: current.email, accountStatus: current.accountStatus } : {}), revision: current?.revision ?? 0 }); setResolvedMember(current??null);setOpenedRevision(revision);setOpenedVersion(directory?.version??"");setReview(false);setError("");
+    }catch(reason){if(!controller.signal.aborted&&choice.current===controller)setError(reason instanceof Error?reason.message:"后台资料暂不可用。");}finally{if(choice.current===controller){choice.current=null;setChoosing("");}}
   }
   const validateName = (value: string) => value.trim() ? "" : "请填写员工称呼，例如小陈；不能只填空格。";
   const validateEmail = (value: string) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? formal ? "请填写有效的员工账号邮箱，例如 name@example.com。" : "请填写有效的员工账号邮箱，例如 sales@demo.chinatech.local。" : staff.data.members.some(member => member.id !== editing?.id && member.email === value.trim().toLowerCase()) ? "该账号标识已被其他员工使用，请核对邮箱或打开原员工记录。" : "";
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editing || busy.current || receipt.isWaiting()) return;
+    if(revision===null){setError("后台资料暂不可用。");return;}
     if (needsReview) { setError(formal ? "员工资料或登录身份已变化，请取消后重新核对。" : "员工资料或预览身份已变化，请取消后重新核对。"); return; }
     setError("");
     if (!review) {
-      try { updateStaffMember(staff.data, editing, openedRevision, staff.member!.id, crypto.randomUUID(), intakeRecordTime()); setReview(true); }
+      try { if(directory)validateStaffMember({...editing,revision:editing.revision+1});else updateStaffMember(staff.data, editing, openedRevision, staff.member!.id, crypto.randomUUID(), intakeRecordTime()); setReview(true); }
       catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败，输入已保留，请重试。"); }
       return;
     }
@@ -78,6 +92,7 @@ export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending:
       if (alive.current) { if (!receipt.isWaiting()) release(); setSubmitting(false); }
     }
   }
+  const renderMember=(member:StaffMember,attributes?:HTMLAttributes<HTMLElement>&{ref?:Ref<HTMLElement>})=><article key={member.id} {...attributes}><span className={styles.avatar}>{member.name.slice(0,1)}</span><div><strong>{member.name}</strong><small>{member.email}</small><span>{t(staffRoles[member.role])} {t(" · 账号")}{t(statusLabels[member.accountStatus])} {t(" · 成员")}{t(statusLabels[member.membershipStatus])}</span></div><button className="button button--secondary button--compact" type="button" onClick={()=>void open(member)} disabled={pending||member.role==="owner"&&staff.member?.role!=="owner"} aria-busy={choosing===member.id}>{t("编辑")}</button></article>;
   return <>
     <div className={"settings-section-title " + styles.sectionTitle}><UsersRound size={22}/><h3>{t("员工设置")}</h3>{formal ? <NavigationLink className="button button--primary button--compact" href="/app/settings/store">{t("邀请员工")}</NavigationLink> : <button className="button button--primary button--compact" disabled={pending} onClick={() => open()} type="button"><Plus size={17}/>{t("新增员工")}</button>}</div>
     <p className={styles.note}>{t(formal ? "正式门店权限保存在服务器；只能关联已注册并验证邮箱的账号，不创建账号或发送邀请。" : "本地权限演示 · 不创建真实登录或发送邀请，不保存密码。")}</p>
@@ -98,7 +113,8 @@ export function StaffSettings({ onPendingChange }: { onPendingChange?: (pending:
       <footer className={styles.footer}><button className="button button--secondary" type="button" onClick={close}>{t("取消")}</button>{review ? <button className="button button--secondary" type="button" onClick={() => { if (!busy.current) setReview(false); }}>{t("返回修改")}</button> : null}<button className="button button--primary" type="submit" disabled={needsReview}><Check size={17}/>{submitting ? t("正在保存…") : receipt.waiting ? t("待核对") : review ? t("确认保存员工") : t("继续核对权限")}</button></footer>
     </fieldset></form> : null}
     <OperationRecoveryControls requestId={receipt.requestId}/>
-    <div className={styles.rows}>{staff.data.members.map(member => <article key={member.id}><span className={styles.avatar}>{member.name.slice(0, 1)}</span><div><strong>{member.name}</strong><small>{member.email}</small><span>{t(staffRoles[member.role])} {t(" · 账号")}{t(statusLabels[member.accountStatus])} {t(" · 成员")}{t(statusLabels[member.membershipStatus])}</span></div><button className="button button--secondary button--compact" type="button" onClick={() => open(member)} disabled={pending || member.role === "owner" && staff.member?.role !== "owner"}>{t("编辑")}</button></article>)}</div>
-    <details className={styles.audit}><summary><History size={17}/>{t("权限变更记录 · ")}{staff.data.audit.length}</summary>{staff.data.audit.toReversed().map(entry => <article key={entry.id}><strong>{staff.data.members.find(member => member.id === entry.targetId)?.name || t("员工")} · {entry.before ? t("权限资料更正") : t("新增成员")}</strong><small>{entry.time} · {entry.actorName}</small><p>{entry.after.permissions.map(permission => permissionLabels[permission]).join("、") || t("无业务能力")}</p></article>)}</details>
+    {error&&!editing?<p className="form-error" role="alert">{systemText(error)}</p>:null}
+    <div className={styles.rows}>{directory?.renderMembers?directory.renderMembers(renderMember):members.map(member=>renderMember(member))}</div>
+    {directory?directory.history:<details className={styles.audit}><summary><History size={17}/>{t("权限变更记录 · ")}{staff.data.audit.length}</summary>{staff.data.audit.toReversed().map(entry => <article key={entry.id}><strong>{staff.data.members.find(member => member.id === entry.targetId)?.name || t("员工")} · {entry.before ? t("权限资料更正") : t("新增成员")}</strong><small>{entry.time} · {entry.actorName}</small><p>{entry.after.permissions.map(permission => permissionLabels[permission]).join("、") || t("无业务能力")}</p></article>)}</details>}
   </>;
 }

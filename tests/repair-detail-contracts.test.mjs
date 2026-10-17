@@ -54,6 +54,7 @@ function harness() {
   };
   tx.json = value => JSON.parse(JSON.stringify(value));
   function load(name, from = root) {
+    if(name === "server-only")return {};
     if (!name.startsWith(".") && !name.startsWith("@/")) return nativeRequire(name);
     const file = (name.startsWith("@/") ? resolve(root, name.slice(2)) : resolve(from, name)).replace(/\.ts$/, "") + ".ts";
     if (file.endsWith("/backend/database.ts")) {

@@ -1,3 +1,4 @@
+import {projectionQueryRulesHash} from "./query-rules-version";
 import'server-only';
 import{createHash} from'node:crypto';
 import type{TransactionSql} from'postgres';
@@ -6,7 +7,7 @@ import{backendScopeKey,type BackendReadScope} from'./read-plan';
 import{customerDeviceRulesHash,customerDeviceFormat} from'./customer-device-version';
 import{customerDeviceQuery,customerDeviceCursor,customerDeviceVersionChangedCode,type CustomerDeviceQuery,type CustomerDevicePage,type CustomerDeviceSummary,type CustomerDeviceRecordSummary} from'./customer-device-contract';
 export async function customerDeviceGeneration(tx:TransactionSql,storeId:string){
- const[row]=await tx`select ready,generation::text,rules_hash from chinatech_v2_private.customer_device_models where store_id=${storeId} and format_version=${customerDeviceFormat}`;
+ const[row]=await tx`select ready,generation::text,rules_hash from chinatech_v2_private.customer_device_models where store_id=${storeId} and query_rules_hash=${projectionQueryRulesHash} and format_version=${customerDeviceFormat}`;
  if(!row?.ready||row.rules_hash!==customerDeviceRulesHash)throw new BackendError('后台资料暂不可用。',503);return String(row.generation);
 }
 type Point={id:string;direction:'before'|'after'};
@@ -15,7 +16,7 @@ export async function readCustomerDevices(tx:TransactionSql,scope:BackendReadSco
  if(!scope.permissions.some(p=>p==='repairs.view'||p==='retail.view'))throw new BackendError('当前账号没有此操作权限。',403);
  let query:CustomerDeviceQuery;try{query=customerDeviceQuery(raw);} catch{throw new BackendError('请求资料无效。',400);}
  if(options.anchor!==undefined&&(!options.anchor||options.anchor.length>1024||options.cursor)||options.seek!==undefined&&(!Number.isSafeInteger(options.seek)||options.seek<0||options.seek>1000000||options.cursor||options.anchor!==undefined))throw new BackendError('请求资料无效。',400);
- const generation=options.generation??await customerDeviceGeneration(tx,scope.storeId),stateToken=createHash('sha256').update(JSON.stringify([customerDeviceFormat,customerDeviceRulesHash,backendScopeKey(scope),generation,query])).digest('hex');
+ const generation=options.generation??await customerDeviceGeneration(tx,scope.storeId),stateToken=createHash('sha256').update(JSON.stringify([customerDeviceFormat,customerDeviceRulesHash,backendScopeKey(scope),projectionQueryRulesHash,generation,query])).digest('hex');
  if(query.kind==='original'&&(options.cursor||options.anchor||options.seek!==undefined))throw new BackendError('请求资料无效。',400);
  if(!options.cursor&&options.seek===undefined&&options.known===stateToken)return{unchanged:true,stateToken};
  if(query.kind==='original'){const items=await customerDeviceOriginalSql(tx,scope,query.deviceId),response:CustomerDevicePage={formatVersion:customerDeviceFormat,scope,generation,query,stateToken,total:items.length,items,startIndex:0,previousCursor:null,nextCursor:null};if(Buffer.byteLength(JSON.stringify(response))>100000)throw new BackendError('后台资料暂不可用。',503);return response;}

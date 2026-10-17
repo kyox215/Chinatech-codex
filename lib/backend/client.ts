@@ -1,4 +1,5 @@
 "use client";
+import{buildDashboardSummary}from"../dashboard-summary";
 import{scopedStoreUrl}from"../store-scope";
 import{parseCommandResult}from'./command-result-contract';
 import type{CommandResult}from'./command-result';
@@ -46,6 +47,12 @@ function requestScope(){return {generation,identity:snapshot?.staff.currentId,st
 function sameScope(scope:ReturnType<typeof requestScope>){const current=requestScope();return scope.generation===current.generation && scope.identity===current.identity && scope.storeId===current.storeId && scope.session===current.session;}
 function readRequestScope(){return {...requestScope(),readScope:snapshot?.read?backendScopeKey(snapshot.read.scope):undefined,plan:snapshot?.read?pagePlanKey(snapshot.read.plan):undefined};}
 function sameReadScope(scope:ReturnType<typeof readRequestScope>){const current=readRequestScope();return sameScope(scope)&&scope.readScope===current.readScope&&scope.plan===current.plan;}
+function advanceReadWatermark(revision:number,token:string){
+  if(!Number.isSafeInteger(revision)||revision<0)throw new Error("后台核对结果无效，请稍后重试。");
+  if(!snapshot||snapshot.stateToken!==token||revision<=snapshot.revision)return;
+  // Metadata changes preserve every business DTO/array and individual member.
+  publish({...snapshot,revision,staff:{...snapshot.staff,revision}});
+}
 function accept(next:BackendSnapshot,scope:ReturnType<typeof requestScope>,allowPlanChange=false,readScope?:ReturnType<typeof readRequestScope>){
   if(!sameScope(scope) || !snapshot) return false;
   if (readScope && !sameReadScope(readScope)) return false;
@@ -55,7 +62,7 @@ function accept(next:BackendSnapshot,scope:ReturnType<typeof requestScope>,allow
   // The v1 command/recovery adapter remains compatible during migration. It may
   // return canonical state, but must never reset the page's v2 polling protocol.
   if (snapshot.read && !next.read) {
-    next={...next,commandResultVersion:snapshot.commandResultVersion,customerDeviceEnabled:snapshot.customerDeviceEnabled,customerDetailEnabled:snapshot.customerDetailEnabled,retailFormEnabled:snapshot.retailFormEnabled,retailListEnabled:snapshot.retailListEnabled,procurementListEnabled:snapshot.procurementListEnabled,repairListEnabled:snapshot.repairListEnabled};
+    next={...next,settingsSectionsEnabled:snapshot.settingsSectionsEnabled,dashboardEnabled:snapshot.dashboardEnabled,commandResultVersion:snapshot.commandResultVersion,customerDeviceEnabled:snapshot.customerDeviceEnabled,customerDetailEnabled:snapshot.customerDetailEnabled,retailFormEnabled:snapshot.retailFormEnabled,retailListEnabled:snapshot.retailListEnabled,procurementListEnabled:snapshot.procurementListEnabled,repairListEnabled:snapshot.repairListEnabled};
     const member = next.staff.members.find(row => row.id === next.staff.currentId);
     // Derive form metadata only from this newly authorized canonical v1 result.
     // An earlier page's defaults are not evidence of current policy after a save.
@@ -63,11 +70,17 @@ function accept(next:BackendSnapshot,scope:ReturnType<typeof requestScope>,allow
     if(snapshot.read.plan.kind==="procurement-new"){const intake=next.intakes.find(row=>row.id===snapshot?.read?.plan.id);next={...next,procurementRepairCandidate:intake?{id:intake.id,model:intake.model}:null};}
     if(snapshot.read.plan.kind==='retail-new'&&next.settings){const copied=next.retail.find(unit=>unit.id===snapshot?.read?.plan.id);next={...next,retailCreationDefaults:{revision:next.settings.revision,warrantyMonths:next.settings.retailWarrantyMonths,copy:copied?retailCopyFacts(copied):null}};}
     next = { ...next, customerListEnabled: snapshot.customerListEnabled, stateToken: undefined, read: { ...snapshot.read, scope: { ...snapshot.read.scope, memberRevision: member?.revision ?? snapshot.read.scope.memberRevision, permissions: [...(member?.permissions ?? [])].sort() } } };
+    if(snapshot.dashboardEnabled&&snapshot.read.plan.kind==="dashboard"&&next.settings){
+      const scope=next.read!.scope;
+      // Fresh authorized canonical v1 recovery remains display-compatible. This
+      // local witness never becomes snapshot.stateToken or a server known token.
+      next={...next,dashboard:{formatVersion:1,scope,generation:JSON.stringify(["legacy",next.revision]),stateToken:"legacy:"+next.revision,data:buildDashboardSummary({intakes:next.intakes,workflows:next.workflows,procurement:next.procurement,retail:next.retail,history:next.retailHistory??[],settings:next.settings},{repairs:scope.permissions.includes("repairs.view"),retail:scope.permissions.includes("retail.view"),financial:scope.permissions.includes("financial.read")})}};
+    }
   }
   const before=snapshot.staff.members.find(row=>row.id===snapshot?.staff.currentId)?.revision??0;
   const after=next.staff.members.find(row=>row.id===next.staff.currentId)?.revision??0;
   if(next.revision<snapshot.revision || after<before) return false;
-  if(next.stateToken && next.stateToken===snapshot.stateToken) return true;
+  if(next.stateToken && next.stateToken===snapshot.stateToken){if(snapshot.read?.refreshVersion===2&&next.read?.refreshVersion===2)advanceReadWatermark(next.revision,next.stateToken);return true;}
   if (snapshot.read && next.read && pagePlanKey(snapshot.read.plan) !== pagePlanKey(next.read.plan)) refreshFlight = null;
   publish(next);return true;
 }
@@ -113,7 +126,7 @@ export function refreshBackend():Promise<void> {
   const known=previous.stateToken && /^[a-f0-9]{64}$/.test(previous.stateToken)?previous.stateToken:undefined;
   const promise=(async()=>{
     const page = previous.read;
-    const query = page ? new URLSearchParams({ plan: JSON.stringify(page.plan), ...(known ? { known } : {}) }) : null;
+    const query = page ? new URLSearchParams({ refreshVersion:"2",plan: JSON.stringify(page.plan), ...(known ? { known } : {}) }) : null;
     const {response,data}=await request(page?`/api/backend/v2/page?${query}`:known?`/api/backend/state?known=${known}`:"/api/backend/state",page?{headers:{"x-ct-store-id":previous.storeId,"x-ct-read-scope":backendScopeKey(page.scope)}}:undefined,response=>{
       if(!sameReadScope(scope))return false;
       if(response.status===401||response.status===403){flushSync(()=>clearBackend());window.location.assign(response.status===401?'/login':'/account/pending');throw new Error('账号访问权限已变化。');}
@@ -123,7 +136,11 @@ export function refreshBackend():Promise<void> {
     if(!response.ok)throw new Error("后台暂时不可用，当前输入已保留。 ");
     if(data.unchanged===true){
       const unchanged=data as UnchangedState;
-      if(!known || unchanged.stateToken!==known || unchanged.storeId!==scope.storeId || unchanged.memberId!==scope.identity || unchanged.revision!==previous.revision)throw new Error("后台核对结果无效，请稍后重试。");
+      if(!known || unchanged.stateToken!==known || unchanged.storeId!==scope.storeId || unchanged.memberId!==scope.identity)throw new Error("后台核对结果无效，请稍后重试。");
+      if(page?.refreshVersion===2&&unchanged.refreshVersion===2){
+        if(!Number.isSafeInteger(unchanged.revision)||unchanged.revision<previous.revision)throw new Error("后台核对结果无效，请稍后重试。");
+        advanceReadWatermark(unchanged.revision,known);
+      }else if(unchanged.revision!==previous.revision)throw new Error("后台核对结果无效，请稍后重试。");
       return;
     }
     if (page && (!data.read || pagePlanKey(data.read.plan) !== scope.plan)) throw new Error("后台核对结果无效，请稍后重试。");

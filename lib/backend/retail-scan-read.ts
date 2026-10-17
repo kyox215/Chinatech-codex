@@ -1,3 +1,4 @@
+import {projectionQueryRulesHash} from "./query-rules-version";
 import'server-only';
 import{createHash}from'node:crypto';
 import type{TransactionSql}from'postgres';
@@ -11,7 +12,7 @@ import{retailReadVersionChangedCode}from'./retail-list-contract';
 export async function readRetailScan(tx:TransactionSql,scope:BackendReadScope,raw:Partial<RetailScanQuery>,options:{cursor?:string;seek?:number}={}):Promise<RetailScanPage>{
  if(!scope.permissions.includes('retail.view'))throw new BackendError('当前账号没有此操作权限。',403);
  let query:RetailScanQuery;try{query=retailScanQuery(raw);}catch(error){throw new BackendError(error instanceof Error?error.message:'请求资料无效。',400);}
- const generation=await retailModelGeneration(tx,scope.storeId),stateToken=createHash('sha256').update(JSON.stringify([1,'retail-scan',retailVocabularyHash,backendScopeKey(scope),generation,query])).digest('hex');
+ const generation=await retailModelGeneration(tx,scope.storeId),stateToken=createHash('sha256').update(JSON.stringify([1,'retail-scan',retailVocabularyHash,backendScopeKey(scope),projectionQueryRulesHash,generation,query])).digest('hex');
  let offset=options.seek??0;
  if(options.cursor)try{if(options.cursor.length>1024||options.seek!==undefined)throw new Error();const point=JSON.parse(Buffer.from(options.cursor,'base64url').toString('utf8'));if(!Array.isArray(point)||point.length!==2)throw new Error();if(point[0]!==stateToken)throw new BackendError('资料已更新，请刷新后重试。',409,retailReadVersionChangedCode);offset=point[1];}catch(error){if(error instanceof BackendError)throw error;throw new BackendError('请求资料无效。',400);}
  if(!Number.isSafeInteger(offset)||offset<0||offset>1000000)throw new BackendError('请求资料无效。',400);

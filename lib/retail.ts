@@ -238,11 +238,11 @@ export function validateRetailUnit(unit: RetailUnit, others: readonly RetailIden
   return unit;
 }
 
-export function createRetailUnit(draft: RetailUnit, existing: readonly RetailIdentity[], event: RetailEvent): RetailUnit {
+export function createRetailUnit(draft: RetailUnit, existing: readonly RetailIdentity[], event: RetailEvent, numbering: readonly Pick<RetailUnit,"code">[] = existing): RetailUnit {
   if (draft.historyOrigin !== undefined) throw new Error("已有商品须在原档案核对保存。");
   validateRetailEvent(event);
   if (!draft.id || existing.some((unit) => unit.id === draft.id)) throw new Error("单机编号无效或已存在。");
-  const code = nextRetailCode(existing, event.time.slice(0, 10));
+  const code = nextRetailCode(numbering, event.time.slice(0, 10));
   const created = { ...draft, code, currentSaleId: undefined, status: "inspecting" as const, version: 1, inspection: { functional: false, ownership: false, data: false }, photos: [], reservation: null, sales: [], events: [event] };
   validateRetailUnit(created, existing);
   return created;

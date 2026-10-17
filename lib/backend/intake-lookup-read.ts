@@ -1,20 +1,21 @@
+import {projectionQueryRulesHash} from "./query-rules-version";
 import'server-only';import{repairReadVersionChangedCode}from'./repair-list-contract';import{createHash}from'node:crypto';import type{TransactionSql}from'postgres';import{BackendError}from'./database';import{backendScopeKey,type BackendReadScope}from'./read-plan';import{intakeHistoryIdentifier}from'../repair-intake';import{localIntakeId}from'../repair-intake-record';import{intakeHistoryQuery,type IntakeHistoryPage,type IntakeDraftMetadata}from'./intake-lookup-contract';
 
 export async function readIntakeHistory(tx:TransactionSql,scope:BackendReadScope,raw:string,options:{cursor?:string;seek?:number}={}):Promise<IntakeHistoryPage>{
  if(!scope.permissions.includes('repairs.view'))throw new BackendError('当前账号没有此操作权限。',403);
  let query;try{if(typeof raw!=='string'||raw.length>2048)throw 0;query=intakeHistoryQuery(JSON.parse(raw));}catch{throw new BackendError('请求资料无效。',400);}
  if(options.cursor&&options.seek!==undefined||options.seek!==undefined&&(!Number.isSafeInteger(options.seek)||options.seek<0||options.seek>1000000))throw new BackendError('请求资料无效。',400);
- const[model]=await tx`select ready,generation::text from chinatech_v2_private.repair_list_models where store_id=${scope.storeId} and format_version=1`;
+ const[model]=await tx`select ready,generation::text from chinatech_v2_private.repair_list_models where store_id=${scope.storeId} and query_rules_hash=${projectionQueryRulesHash} and format_version=1`;
  if(!model?.ready)throw new BackendError('后台资料暂不可用。',503);
- const generation=String(model.generation),stateToken=createHash('sha256').update(JSON.stringify([1,backendScopeKey(scope),generation,query])).digest('hex');let startIndex=options.seek??0;
+ const generation=String(model.generation),stateToken=createHash('sha256').update(JSON.stringify([1,backendScopeKey(scope),projectionQueryRulesHash,generation,query])).digest('hex');let startIndex=options.seek??0;
  if(options.cursor)try{if(options.cursor.length>1024)throw 0;const value=JSON.parse(Buffer.from(options.cursor,'base64url').toString());if(value.token!==stateToken)throw new BackendError('资料已更新，请刷新后重试。',409,repairReadVersionChangedCode);if(!Number.isSafeInteger(value.offset)||value.offset<0||value.offset>1000000)throw 0;startIndex=value.offset;}catch(error){if(error instanceof BackendError)throw error;throw new BackendError('请求资料无效。',400);}
  const key=intakeHistoryIdentifier(query.serial),imei=/^\d{15}$/.test(key),brand=query.brand.toLowerCase(),modelKey=query.model.toLowerCase(),limit=query.kind==='related'?3:50;
  const[row]=await tx`with exact as materialized (
   select id,data->>'createdAt' created_at from chinatech_v2_private.repair_intakes where store_id=${scope.storeId} and ${key}<>''
-  and chinatech_v2_private.intake_serial_key(data->>'serial')=${key} and (${imei} or ${brand}='' or lower(data->>'brand')=${brand})
+  and pg_catalog.md5(chinatech_v2_private.intake_serial_key_v2(data->>'serial'))=pg_catalog.md5(${key}) and chinatech_v2_private.intake_serial_key_v2(data->>'serial')=${key} and (${imei} or ${brand}='' or pg_catalog.md5(chinatech_v2_private.query_lower(data->>'brand'))=pg_catalog.md5(${brand}) and chinatech_v2_private.query_lower(data->>'brand')=${brand})
  ), related as not materialized (
   select r.id,r.data->>'createdAt' created_at from chinatech_v2_private.repair_intakes r where r.store_id=${scope.storeId} and ${brand}<>'' and ${modelKey}<>''
-  and lower(r.data->>'brand')=${brand} and lower(r.data->>'model')=${modelKey} and not exists(select 1 from exact e where e.id=r.id)
+  and pg_catalog.md5(chinatech_v2_private.query_lower(r.data->>'brand'))=pg_catalog.md5(${brand}) and chinatech_v2_private.query_lower(r.data->>'brand')=${brand} and pg_catalog.md5(chinatech_v2_private.query_lower(r.data->>'model'))=pg_catalog.md5(${modelKey}) and chinatech_v2_private.query_lower(r.data->>'model')=${modelKey} and not exists(select 1 from exact e where e.id=r.id)
  ), matched as (select * from exact where ${query.kind}='exact' union all select * from related where ${query.kind}='related'),
  position as (select case when ${startIndex}>=(select count(*) from matched) then greatest(0,(select count(*) from matched)-${limit}) else ${startIndex} end::integer start_index),
  page as (select id,created_at from matched order by created_at collate "C" desc,id offset(select start_index from position) limit ${limit})

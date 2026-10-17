@@ -3,27 +3,31 @@ import { Toast } from "@/components/toast";
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
 import { controlError } from "@/components/control-feedback";
-import { NavigationLink as Link } from "@/components/navigation-link";
 import { useDeviceDraft, DeviceDraftNotice } from "@/components/use-device-draft";
-import { useEffect, useRef, useState } from "react";
-import { backendRecovery, backendSnapshot } from "@/lib/backend/client";
-import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
-import { Building2, ContactRound, CircleDollarSign, ClipboardList, Printer, Settings, Plus, Pencil, Check, X, Search, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { useRef, useState } from "react";
+import{Preferences,SupplierEditor,useSettingsSubmission,type SettingsPatchSave}from"./settings-forms";
+import{settingsPatchDraft}from"./settings-store";
+import{useBackendState}from'@/components/backend-snapshot';
+import{BoundedSettingsPage}from'./bounded-settings-page';
+import{backendScopeKey}from'@/lib/backend/read-plan';
+import{settingsTabs as tabs}from'./settings-tabs';
+import { backendRecovery } from "@/lib/backend/client";
+import { OperationRecoveryControls } from "@/components/use-operation-receipt";
+import { ContactRound, CircleDollarSign, Plus, Pencil, X, Search, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { PageTitle } from "@/components/page-title";
 import { SelectControl } from "@/components/select-control";
 import { useRepairDirectory } from "@/components/repairs/local-intake-store";
 import { useRetail } from "@/components/retail/retail-provider";
 import { useStoreSettings, saveStoreSettings } from "./settings-store";
-import { financeTotals, validateFinanceEntry, type StoreSettings, type SupplierProfile, type PaperFormat } from "@/lib/store-settings";
+import { financeTotals, validateFinanceEntry, type StoreSettings, type SupplierProfile } from "@/lib/store-settings";
 import { intakeRecordTime } from "@/lib/repair-intake-record";
 import { formatCost } from "@/lib/procurement";
 import { useStaff } from "@/components/staff/use-staff";
 import { LoginDevicesPanel } from "@/components/account/login-devices";
 import { StaffSettings } from "@/components/staff/staff-settings";
 import { OrderManagement } from "./order-management";
-import { UsersRound } from "lucide-react";
-const tabs = [{ id: "general", label: "门店设置", icon: Settings }, { id: "orders", label: "订单管理", icon: ClipboardList }, { id: "suppliers", label: "供应商", icon: ContactRound }, { id: "finance", label: "经营收支", icon: CircleDollarSign }, { id: "printing", label: "打印", icon: Printer }, { id:"staff",label:"员工设置",icon:UsersRound }];
-export function SettingsPage({ initialTab }: { initialTab?: string }) {
+export function SettingsPage({initialTab,bounded=false}:{initialTab?:string;bounded?:boolean}){const backend=useBackendState(),scope=backend.snapshot?.read?.scope;return backend.formal&&bounded?<BoundedSettingsPage key={scope?backendScopeKey(scope):'unscoped'} initialTab={initialTab}/>:<LegacySettingsPage initialTab={initialTab}/>;}
+function LegacySettingsPage({ initialTab }: { initialTab?: string }) {
   const { t , systemText } = useLanguage();
   const staff=useStaff();
   const allowedTabs=tabs.filter(item=>item.id === "staff" ? staff.can("staff.manage") : item.id === "finance" ? staff.can("financial.read") : staff.can("settings.edit"));
@@ -46,68 +50,11 @@ export function SettingsPage({ initialTab }: { initialTab?: string }) {
     try { await saveStoreSettings(expectedRevision, update, options); onReceiptChange(requestId, "confirmed"); return true; }
     catch (reason) { if (feedbackRequest.current === requestId) { setError(reason instanceof Error ? reason.message : "保存失败。"); setMessage(""); } return false; }
   };
-  return <main className="module-page settings-page" onClickCapture={event => { if (busy.current && event.target instanceof Element && event.target.closest("a")) { event.preventDefault(); event.stopPropagation(); } }}><header className="module-heading" aria-disabled={submitting || undefined} onClickCapture={event => { if (busy.current) { event.preventDefault(); event.stopPropagation(); } }}><PageTitle title={t("门店管理")} backHref="/app/dashboard" /></header><div className="settings-layout"><nav className="panel settings-nav" aria-label={t("门店管理分类")}>{allowedTabs.map(item => <button key={item.id} type="button" disabled={submitting} aria-pressed={tab === item.id} className={tab === item.id ? "settings-nav--active" : ""} onClick={() => { if (busy.current) return; setTab(item.id); setError(""); setMessage(""); }}><item.icon size={19} /><span>{t(item.label)}</span></button>)}</nav><section className="panel settings-content">{!ready ? <p role="status">{t("正在读取设置…")}</p> : <>{storageError || error ? <p role="alert" className="form-error">{systemText(storageError || error)}</p> : null}{message ? <Toast message={systemText(message)} onDismiss={() => setMessage("")} /> : null}{!allowedTabs.some(item=>item.id === tab) ? <div className="module-empty"><strong>{t("当前账号不能访问这类设置")}</strong>{allowedTabs[0] ? <button className="button button--secondary" disabled={submitting} onClick={()=>{if (!busy.current) setTab(allowedTabs[0].id);}}>{t("查看")}{t(allowedTabs[0].label)}</button>:null}</div> : tab === "staff" ? <><StaffSettings onPendingChange={onPendingChange} /><LoginDevicesPanel storeMode /></> : tab === "orders" ? <OrderManagement settings={settings} disabled={Boolean(storageError)} onPendingChange={onPendingChange} /> : tab === "suppliers" ? <Suppliers settings={settings} save={save} onPendingChange={onPendingChange} onReceiptChange={onReceiptChange} /> : tab === "finance" ? <Finance settings={settings} save={save} onPendingChange={onPendingChange} onReceiptChange={onReceiptChange} /> : <Preferences key={tab} settings={settings} printing={tab === "printing"} save={save} onPendingChange={onPendingChange} onReceiptChange={onReceiptChange} />}</>}</section></div></main>;
+  const savePatch:SettingsPatchSave=(patch,revision,options)=>save(current=>settingsPatchDraft(current,patch),revision,options);
+  return <main className="module-page settings-page" onClickCapture={event => { if (busy.current && event.target instanceof Element && event.target.closest("a")) { event.preventDefault(); event.stopPropagation(); } }}><header className="module-heading" aria-disabled={submitting || undefined} onClickCapture={event => { if (busy.current) { event.preventDefault(); event.stopPropagation(); } }}><PageTitle title={t("门店管理")} backHref="/app/dashboard" /></header><div className="settings-layout"><nav className="panel settings-nav" aria-label={t("门店管理分类")}>{allowedTabs.map(item => <button key={item.id} type="button" disabled={submitting} aria-pressed={tab === item.id} className={tab === item.id ? "settings-nav--active" : ""} onClick={() => { if (busy.current) return; setTab(item.id); setError(""); setMessage(""); }}><item.icon size={19} /><span>{t(item.label)}</span></button>)}</nav><section className="panel settings-content">{!ready ? <p role="status">{t("正在读取设置…")}</p> : <>{storageError || error ? <p role="alert" className="form-error">{systemText(storageError || error)}</p> : null}{message ? <Toast message={systemText(message)} onDismiss={() => setMessage("")} /> : null}{!allowedTabs.some(item=>item.id === tab) ? <div className="module-empty"><strong>{t("当前账号不能访问这类设置")}</strong>{allowedTabs[0] ? <button className="button button--secondary" disabled={submitting} onClick={()=>{if (!busy.current) setTab(allowedTabs[0].id);}}>{t("查看")}{t(allowedTabs[0].label)}</button>:null}</div> : tab === "staff" ? <><StaffSettings onPendingChange={onPendingChange} /><LoginDevicesPanel storeMode /></> : tab === "orders" ? <OrderManagement settings={settings} disabled={Boolean(storageError)} onPendingChange={onPendingChange} /> : tab === "suppliers" ? <Suppliers settings={settings} save={save} onPendingChange={onPendingChange} onReceiptChange={onReceiptChange} /> : tab === "finance" ? <Finance settings={settings} save={save} onPendingChange={onPendingChange} onReceiptChange={onReceiptChange} /> : <Preferences key={tab} settings={settings} printing={tab === "printing"} save={savePatch} onPendingChange={onPendingChange} onReceiptChange={onReceiptChange} />}</>}</section></div></main>;
 }
 type Props = { settings: StoreSettings; save: (update: (current: StoreSettings) => StoreSettings, expectedRevision: number | undefined, options: { requestId: string }) => Promise<boolean>; onPendingChange: (pending: boolean) => void; onReceiptChange: (requestId: string, status: "confirmed" | "settled") => void };
-// A form retains its own nonce until an exact receipt or safe resolution settles it.
-function useSettingsSubmission({ save, onPendingChange, onReceiptChange }: Omit<Props, "settings">) {
-  const receipt = useOperationReceipt();
-  const busy = useRef(false);
-  const attempt = useRef<string | null>(null);
-  const alive = useRef(true);
-  const [submitting, setSubmitting] = useState(false);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; attempt.current = null; }; }, []);
-  async function run(update: (current: StoreSettings) => StoreSettings, revision: number | undefined, onSaved: () => Promise<void>, onSettled?: () => void) {
-    if (busy.current || receipt.isWaiting()) return "waiting";
-    const requestId = crypto.randomUUID(); attempt.current = requestId;
-    busy.current = true; setSubmitting(true); onPendingChange(true);
-    const ownsAttempt = () => alive.current && attempt.current === requestId;
-    const release = () => { if (!ownsAttempt()) return; attempt.current = null; busy.current = false; setSubmitting(false); onPendingChange(false); };
-    const finish = async () => { if (!ownsAttempt()) return; setSubmitting(true); onReceiptChange(requestId, "confirmed"); await onSaved(); release(); };
-    const settle = () => { if (!ownsAttempt()) return; onReceiptChange(requestId, "settled"); onSettled?.(); release(); };
-    try {
-      if (await save(update, revision, { requestId })) { await finish(); return "confirmed"; }
-      if (ownsAttempt() && receipt.watch(requestId, () => finish(), settle)) return "waiting";
-      release(); return "failed";
-    } finally { if (alive.current) setSubmitting(false); }
-  }
-  return { busy, receipt, submitting, pending: submitting || receipt.waiting, run };
-}
 function settledError() { return backendRecovery().resolution?.status === "rejected" ? backendRecovery().message : ""; }
-function Preferences({ settings, printing, save, onPendingChange, onReceiptChange }: Props & { printing: boolean }) {
-  const { t } = useLanguage();
-  const [repairMonths, setRepairMonths] = useState(settings.repairWarrantyMonths); const [retailMonths, setRetailMonths] = useState(settings.retailWarrantyMonths);
-  const [revision, setRevision] = useState(settings.revision);
-  const [name, setName] = useState(settings.shopName); const [address, setAddress] = useState(settings.address); const [phone, setPhone] = useState(settings.phone); const [paper, setPaper] = useState<PaperFormat>(settings.paper);
-  const { busy, receipt, submitting, pending, run } = useSettingsSubmission({ save, onPendingChange, onReceiptChange });
-  const deviceDraft=useDeviceDraft(`settings:${printing?"print":"general"}`,{repairMonths,retailMonths,revision,name,address,phone,paper},value=>{if (busy.current) return;setRepairMonths(value.repairMonths);setRetailMonths(value.retailMonths);setRevision(value.revision);setName(value.name);setAddress(value.address);setPhone(value.phone);setPaper(value.paper);});
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (busy.current) return;
-    const update = (current: StoreSettings) => printing ? { ...current, paper } : { ...current, shopName: name.trim(), address: address.trim(), phone: phone.trim(), repairWarrantyMonths: repairMonths, retailWarrantyMonths: retailMonths };
-    await run(update, revision, async () => {
-      const nextRevision = backendSnapshot()?.settings?.revision ?? (JSON.stringify(update(settings)) === JSON.stringify(settings) ? revision : revision + 1);
-      await deviceDraft.clear({ repairMonths, retailMonths, revision: nextRevision, name, address, phone, paper }); setRevision(nextRevision);
-    });
-  }
-  return <form onSubmit={submit} aria-busy={submitting || receipt.executing}><fieldset className="form-fields" disabled={pending}>
-    <DeviceDraftNotice draft={deviceDraft} disabled={pending}/>{revision!==settings.revision?<button type="button" className="button button--secondary" onClick={()=>{if (!busy.current) setRevision(settings.revision);}}>{t("保留输入并核对最新版本")}</button>:null}
-    <div className="settings-section-title">{printing ? <Printer size={22} /> : <Building2 size={22} />}<h3>{printing ? t("打印设置") : t("门店资料")}</h3></div>
-    {printing ? <><label className="field"><span>{t("接机单默认纸张")}</span><SelectControl aria-label={t("默认打印纸张")} value={paper} onChange={event => setPaper(event.target.value as PaperFormat)}><option value="a4">{t("A4 横向")}</option><option value="a5">{t("A5 横向")}</option><option value="half">{t("A4 上半页")}</option><option value="double">{t("A4 双联")}</option></SelectControl></label><div className="settings-print-preview"><Printer size={40} /><div><strong>{t("维修接机单")}</strong><p>{t("工单资料 · 维修项目 · 查询二维码 · 签名")}</p><Link className="button button--secondary" href="/app/repairs" aria-disabled={pending || undefined} tabIndex={pending ? -1 : undefined}>{t("选择工单打印")}</Link></div></div></> : <div className="field-grid">
-      <label className="field field--wide"><span>{t("门店名称 *")}</span><InputControl onClear={() => setName("")} clearLabel={t("清空门店名称")} aria-label={t("门店名称")} required validate={value => value.trim() ? "" : "请填写门店名称，例如 ChinaTech；不能只填空格。"} value={name} maxLength={100} onChange={event => setName(event.target.value)} placeholder={t("例如：ChinaTech")} /></label>
-      <label className="field field--wide"><span>{t("地址")}</span><InputControl onClear={() => setAddress("")} clearLabel={t("清空门店地址")} aria-label={t("门店地址")} value={address} maxLength={200} onChange={event => setAddress(event.target.value)} placeholder={t("例如：Via Roma 10, Floridia")} /></label>
-      <label className="field"><span>{t("联系电话")}</span><InputControl onClear={() => setPhone("")} clearLabel={t("清空门店联系电话")} aria-label={t("门店联系电话")} type="tel" value={phone} maxLength={40} onChange={event => setPhone(event.target.value)} placeholder={t("例如：+39 333 1234567")} /></label>
-      <div className="settings-timezone"><small>{t("营业时间区")}</small><strong>{t("欧洲 / 罗马")}</strong></div><WarrantyDefault label={t("维修默认商家保修")} value={repairMonths} onChange={setRepairMonths}/><WarrantyDefault label={t("整机默认商家保修")} value={retailMonths} onChange={setRetailMonths}/><p className="intake-muted field--wide">{t("默认值用于新接机及新单机；既有销售保留约定期限。打印语言在预览中选择。")}</p>
-    </div>}
-    <footer className="settings-form-footer"><button type="submit" className="button button--primary"><Check size={17} />{submitting ? t("正在保存…") : receipt.waiting ? t("待核对") : t("保存设置")}</button></footer>
-  </fieldset><OperationRecoveryControls requestId={receipt.requestId}/></form>;
-}
-function WarrantyDefault({label,value,onChange}:{label:string;value:number;onChange:(value:number)=>void}) {
-  const { t } = useLanguage();
-  const [custom,setCustom]=useState(![6,12,24].includes(value));
-  const customVisible = custom || ![6,12,24].includes(value);
-  return <div className="field"><span>{t(label)}</span><SelectControl aria-label={t(label)} value={customVisible?"custom":String(value)} onChange={event=>{const next=event.target.value;setCustom(next === "custom");if(next!=="custom") onChange(Number(next));}}><option value="6">{t("6 个月")}</option><option value="12">{t("1 年")}</option><option value="24">{t("2 年")}</option><option value="custom">{t("自定义月数")}</option></SelectControl>{customVisible?<InputControl aria-label={label+t("自定义月数")} required type="number" inputMode="numeric" min={1} max={120} step={1} hint={t("填写 1–120 个整数月。")} placeholder={t("例如：12")} value={Number.isNaN(value)?"":value} onChange={event=>onChange(event.target.value===""?Number.NaN:event.target.valueAsNumber)}/>:null}</div>;
-}
 function Suppliers({ settings, save, onPendingChange, onReceiptChange }: Props) {
   const { t } = useLanguage();
   const [query, setQuery] = useState(""); const [editing, setEditing] = useState<SupplierProfile | null>(null);
@@ -116,27 +63,7 @@ function Suppliers({ settings, save, onPendingChange, onReceiptChange }: Props) 
   const busy = useRef(false);
   const setPending = (pending: boolean) => { busy.current = pending; setSubmitting(pending); onPendingChange(pending); };
   const rows = settings.suppliers.filter(row => `${row.name} ${row.phone}`.toLowerCase().includes(query.trim().toLowerCase()));
-  return <><div className="settings-section-title"><ContactRound size={22} /><h3>{t("供应商")}</h3><button className="button button--primary button--compact" type="button" disabled={submitting} onClick={() => { if (busy.current) return; setEditing(null); setAdding(true); }}><Plus size={17} />{t("新增")}</button></div><label className="module-search"><Search size={17} /><InputControl onClear={() => setQuery("")} clearLabel={t("清空搜索供应商")} aria-label={t("搜索供应商")} disabled={submitting} value={query} onChange={event => setQuery(event.target.value)} placeholder={t("例如：MobileParts")} /></label>{adding || editing ? <SupplierEditor key={editing?.id ?? "new"} supplier={editing} suppliers={settings.suppliers} initialRevision={settings.revision} save={save} onReceiptChange={onReceiptChange} onPendingChange={setPending} onCancel={() => { if (busy.current) return; setEditing(null); setAdding(false); }} onSaved={() => { setEditing(null); setAdding(false); }} /> : null}<div className="settings-supplier-list">{rows.map(row => <article key={row.id}><span className="device-glyph"><ContactRound size={19} /></span><div><strong>{row.name}</strong><small>{row.phone || t("联系方式未记录")}{!row.active ? t(" · 已停用") : ""}</small>{row.website ? <a href={row.website} target="_blank" rel="noreferrer" aria-disabled={submitting || undefined} tabIndex={submitting ? -1 : undefined}>{t("供应商网站")}</a> : null}</div><button className="icon-button" type="button" aria-label={t("编辑供应商 {v0}", { v0: row.name })} disabled={submitting} onClick={() => { if (busy.current) return; setEditing(row); setAdding(false); }}><Pencil size={17} /></button></article>)}{!rows.length ? <div className="module-empty"><ContactRound size={28} /><strong>{t("暂无匹配供应商")}</strong></div> : null}</div></>;
-}
-function SupplierEditor({ supplier, suppliers, initialRevision, save, onSaved, onCancel, onPendingChange, onReceiptChange }: { supplier: SupplierProfile | null; suppliers: SupplierProfile[]; initialRevision: number; onSaved: () => void; onCancel: () => void } & Omit<Props, "settings">) {
-  const { t , systemText } = useLanguage();
-  const [revision,setRevision] = useState(initialRevision);
-  const [name, setName] = useState(supplier?.name ?? ""); const [phone, setPhone] = useState(supplier?.phone ?? ""); const [website, setWebsite] = useState(supplier?.website ?? ""); const [active, setActive] = useState(supplier?.active ?? true);
-  const [error, setError] = useState("");
-  const { busy, receipt, submitting, pending, run } = useSettingsSubmission({ save, onPendingChange, onReceiptChange });
-  const [identity,setIdentity]=useState(()=>supplier?.id??crypto.randomUUID());
-  const deviceDraft=useDeviceDraft(`supplier:${supplier?.id??"new"}`,{revision,name,phone,website,active,identity},value=>{if (busy.current) return;setIdentity(value.identity);setRevision(value.revision);setName(value.name);setPhone(value.phone);setWebsite(value.website);setActive(value.active);});
-  const validateName = (value: string) => !value.trim() ? "请填写供应商名称，例如 MobileParts SRL。" : suppliers.some(row => row.id !== identity && row.name.trim().toLowerCase() === value.trim().toLowerCase()) ? "已有同名供应商，请打开现有记录或使用不同名称。" : "";
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    if (busy.current) return;
-    setError("");
-    const supplier = { id: identity, name: name.trim(), phone: phone.trim(), website: website.trim(), active };
-    const result = await run(current => ({ ...current, suppliers: current.suppliers.some(row => row.id === supplier.id) ? current.suppliers.map(row => row.id === supplier.id ? supplier : row) : [...current.suppliers, supplier] }), revision, async () => { await deviceDraft.clear(); setError(""); onSaved(); }, () => setError(settledError()));
-    if (result === "failed") setError("供应商尚未保存，请处理提交恢复提示后重试。");
-  }
-  return <form className="settings-editor" aria-busy={submitting || receipt.executing} onSubmit={submit}><fieldset className="form-fields" disabled={pending}><DeviceDraftNotice draft={deviceDraft} disabled={pending}/>{revision!==initialRevision?<button type="button" className="button button--secondary" onClick={()=>{if (!busy.current) setRevision(initialRevision);}}>{t("保留输入并核对最新版本")}</button>:null}<div className="field-grid"><label className="field"><span>{t("供应商名称 *")}</span><InputControl onClear={() => setName("")} clearLabel={t("清空供应商名称")} disabled={pending} aria-label={t("供应商名称")} required validate={validateName} value={name} maxLength={100} onChange={event => { setName(event.target.value); setError(""); }} placeholder={t("例如：MobileParts SRL")} /></label><label className="field"><span>{t("电话")}</span><InputControl onClear={() => setPhone("")} clearLabel={t("清空供应商电话")} disabled={pending} aria-label={t("供应商电话")} type="tel" value={phone} maxLength={40} onChange={event => { setPhone(event.target.value); setError(""); }} placeholder={t("例如：+39 333 1234567")} /></label><label className="field field--wide"><span>{t("网站")}</span><InputControl onClear={() => setWebsite("")} clearLabel={t("清空供应商网站")} disabled={pending} aria-label={t("供应商网站")} inputMode="url" autoCapitalize="off" value={website} maxLength={200} validate={value => value.trim() && !/^https?:\/\//i.test(value.trim()) ? "网站地址须以 https:// 或 http:// 开头，例如 https://supplier.example.com。" : ""} onChange={event => { setWebsite(event.target.value); setError(""); }} placeholder={t("例如：https://supplier.example.com")} /></label><label className="field"><span>{t("使用状态")}</span><SelectControl disabled={pending} aria-label={t("供应商使用状态")} value={active ? "active" : "inactive"} onChange={event => setActive(event.target.value === "active")}><option value="active">{t("启用")}</option><option value="inactive">{t("停用")}</option></SelectControl></label></div>{error ? <p className="form-error" role="alert">{systemText(error)}</p> : null}<footer className="settings-form-footer"><button className="button button--secondary" type="button" disabled={pending} onClick={() => { if (!busy.current) onCancel(); }}>{t("取消")}</button><button className="button button--primary" type="submit" disabled={pending}><Check size={17} />{submitting ? t("正在保存…") : receipt.waiting ? t("待核对") : t("保存供应商")}</button></footer></fieldset><OperationRecoveryControls requestId={receipt.requestId}/></form>;
+  return <><div className="settings-section-title"><ContactRound size={22} /><h3>{t("供应商")}</h3><button className="button button--primary button--compact" type="button" disabled={submitting} onClick={() => { if (busy.current) return; setEditing(null); setAdding(true); }}><Plus size={17} />{t("新增")}</button></div><label className="module-search"><Search size={17} /><InputControl onClear={() => setQuery("")} clearLabel={t("清空搜索供应商")} aria-label={t("搜索供应商")} disabled={submitting} value={query} onChange={event => setQuery(event.target.value)} placeholder={t("例如：MobileParts")} /></label>{adding || editing ? <SupplierEditor key={editing?.id ?? "new"} supplier={editing} suppliers={settings.suppliers} initialRevision={settings.revision} save={(patch,revision,options)=>save(current=>settingsPatchDraft(current,patch),revision,options)} onReceiptChange={onReceiptChange} onPendingChange={setPending} onCancel={() => { if (busy.current) return; setEditing(null); setAdding(false); }} onSaved={() => { setEditing(null); setAdding(false); }} /> : null}<div className="settings-supplier-list">{rows.map(row => <article key={row.id}><span className="device-glyph"><ContactRound size={19} /></span><div><strong>{row.name}</strong><small>{row.phone || t("联系方式未记录")}{!row.active ? t(" · 已停用") : ""}</small>{row.website ? <a href={row.website} target="_blank" rel="noreferrer" aria-disabled={submitting || undefined} tabIndex={submitting ? -1 : undefined}>{t("供应商网站")}</a> : null}</div><button className="icon-button" type="button" aria-label={t("编辑供应商 {v0}", { v0: row.name })} disabled={submitting} onClick={() => { if (busy.current) return; setEditing(row); setAdding(false); }}><Pencil size={17} /></button></article>)}{!rows.length ? <div className="module-empty"><ContactRound size={28} /><strong>{t("暂无匹配供应商")}</strong></div> : null}</div></>;
 }
 function parseFinanceAmount(value: string) {
   if (!/^\d+(\.\d{1,2})?$/.test(value.trim())) throw new Error("金额须大于零，最多两位小数，例如 25.50。");

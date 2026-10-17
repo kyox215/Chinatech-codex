@@ -79,6 +79,8 @@ jobs:
           LOCAL_PREVIEW: "0"
       - name: Verify packaged receipt runtime and Chromium PDF generation
         run: node scripts/verify-receipt-trace.mjs .next-backend .local/ui-proof/receipt-trace --render
+      - name: Verify packaged exact Intl sort runtime
+        run: node scripts/verify-native-sort-trace.mjs .next-backend .local/ui-proof/native-sort-trace
       - name: Verify production design and stylesheet order
         run: node scripts/check-ui-production.mjs .next-backend
       - run: npm run test:controls
@@ -121,6 +123,7 @@ jobs:
             .local/ui-proof/production-design/
             .local/ui-proof/receipt-trace/verification.json
             .local/ui-proof/receipt-trace/**/packaged-runtime-demo.pdf
+            .local/ui-proof/native-sort-trace/verification.json
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7

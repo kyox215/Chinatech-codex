@@ -1,3 +1,5 @@
+import{dashboardReadContext,readDashboard}from"./dashboard-read";
+import{readSettingsSection,settingsReadContext}from'./settings-section-read';
 import{readCustomerDevices,customerDeviceGeneration}from'./customer-device-read';
 import type{CustomerDeviceQuery}from'./customer-device-contract';
 import{customerDetailReadContext,readCustomerDetail}from"./customer-detail-read";
@@ -32,6 +34,8 @@ import { backendIdentityChangedCode, backendScopeKey, pageDomains, pagePlanKey, 
 // server module cache or reused by another account/request.
 export const getPageAccess = cache(() => getServerAccess());
 type ReadAccess = Pick<NonNullable<Awaited<ReturnType<typeof getServerAccess>>>,"identity"|"storeId">;
+export function backendSettingsSectionsEnabled(){return process.env.BACKEND_SETTINGS_READS==="1";}
+export function backendDashboardEnabled(){return process.env.BACKEND_DASHBOARD_READS==="1";}
 export function backendRetailListsEnabled(){return process.env.BACKEND_RETAIL_LIST_READS==="1";}
 export function backendRetailFormsEnabled(){return process.env.BACKEND_RETAIL_FORM_READS==='1';}
 export function backendCustomerDevicesEnabled(){return process.env.BACKEND_CUSTOMER_DEVICE_READS==="1";}
@@ -51,12 +55,12 @@ async function sessionInTransaction(tx: TransactionSql, access: ReadAccess, memb
 }
 export function sessionSnapshot(bootstrap: SessionBootstrap): BackendSnapshot {
   const snapshot: BackendSnapshot = { customerListEnabled: backendCustomerListsEnabled(), storeId: bootstrap.scope.storeId, storeName:bootstrap.storeName, revision: bootstrap.revision, staff: { revision: bootstrap.revision, currentId: bootstrap.member.id, members: [bootstrap.member], audit: [] }, settings: null, intakes: [], signatures: [], workflows: {}, procurement: [], retail: [], retailHistory: [], customers: [], read: { formatVersion: 2, scope: bootstrap.scope, plan: { kind: "session" }, ready: ["staff"] } };
-  snapshot.customerDeviceEnabled=backendCustomerDevicesEnabled();snapshot.commandResultVersion=backendV2CommandsEnabled()?2:undefined;snapshot.customerDetailEnabled=backendCustomerDetailsEnabled();snapshot.retailFormEnabled=backendRetailFormsEnabled();snapshot.retailListEnabled=backendRetailListsEnabled();snapshot.procurementListEnabled=backendProcurementListsEnabled();snapshot.repairListEnabled=backendRepairListsEnabled();
+  snapshot.settingsSectionsEnabled=backendSettingsSectionsEnabled();snapshot.dashboardEnabled=backendDashboardEnabled();snapshot.customerDeviceEnabled=backendCustomerDevicesEnabled();snapshot.commandResultVersion=backendV2CommandsEnabled()?2:undefined;snapshot.customerDetailEnabled=backendCustomerDetailsEnabled();snapshot.retailFormEnabled=backendRetailFormsEnabled();snapshot.retailListEnabled=backendRetailListsEnabled();snapshot.procurementListEnabled=backendProcurementListsEnabled();snapshot.repairListEnabled=backendRepairListsEnabled();
   snapshot.stateToken = pageToken(snapshot);
   return snapshot;
 }
-function pageToken(snapshot: BackendSnapshot, listGeneration?: string,procurementGeneration?:string,repairToken?:string,retailGeneration?:string,customerDetailToken?:string,deviceGeneration?:string) {
-  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, snapshot.storeName, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.commandResultVersion, snapshot.customerListEnabled,snapshot.customerDeviceEnabled,snapshot.customerDetailEnabled,snapshot.retailListEnabled,snapshot.retailFormEnabled,snapshot.procurementListEnabled,snapshot.repairListEnabled,snapshot.customerListEnabled?customerListResponseVersion:null,snapshot.procurementListEnabled?procurementListResponseVersion:null, listGeneration,procurementGeneration,repairToken,retailGeneration,customerDetailToken,deviceGeneration])).digest("hex");
+function pageToken(snapshot: BackendSnapshot, listGeneration?: string,procurementGeneration?:string,repairToken?:string,retailGeneration?:string,customerDetailToken?:string,deviceGeneration?:string,dashboardToken?:string,settingsToken?:string) {
+  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope),snapshot.read?.refreshVersion??1, snapshot.read?.refreshVersion===2?null:snapshot.revision, snapshot.storeName, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.commandResultVersion, snapshot.customerListEnabled,snapshot.customerDeviceEnabled,snapshot.customerDetailEnabled,snapshot.retailListEnabled,snapshot.retailFormEnabled,snapshot.procurementListEnabled,snapshot.repairListEnabled,snapshot.customerListEnabled?customerListResponseVersion:null,snapshot.procurementListEnabled?procurementListResponseVersion:null, listGeneration,procurementGeneration,repairToken,retailGeneration,customerDetailToken,deviceGeneration,dashboardToken,snapshot.dashboardEnabled,settingsToken,snapshot.settingsSectionsEnabled])).digest("hex");
 }
 export async function loadSessionBootstrap(access: ReadAccess) {
   return withReadDatabase(access.identity, access.storeId, async tx => sessionInTransaction(tx, access, await memberForRead(tx, access.storeId, access.identity.userId)));
@@ -71,14 +75,15 @@ export async function getV2Access(request: Request): Promise<ReadAccess> {
   return {identity,storeId};
 }
 
-export async function loadPageState(access: ReadAccess, plan: PageReadPlan, known?: string, expectedScope?: string) {
+export async function loadPageState(access: ReadAccess, plan: PageReadPlan, known?: string, expectedScope?: string,refreshVersion:1|2=1) {
   return withReadDatabase(access.identity, access.storeId, async tx => {
     const member = await memberForRead(tx, access.storeId, access.identity.userId);
     const bootstrap = await sessionInTransaction(tx, access, member);
     if (expectedScope && expectedScope !== backendScopeKey(bootstrap.scope)) throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。", 409, backendIdentityChangedCode);
-    const state = sessionSnapshot(bootstrap), domains = pageDomains(plan,{customerDevices:backendCustomerDevicesEnabled(),customerDetails:backendCustomerDetailsEnabled(),customerLists:backendCustomerListsEnabled(),procurementLists:backendProcurementListsEnabled(),repairLists:backendRepairListsEnabled(),retailLists:backendRetailListsEnabled(),retailForms:backendRetailFormsEnabled()});
-    state.read = { formatVersion: 2, scope: bootstrap.scope, plan, ready: domains };
-    if (plan.kind === "settings") {
+    const state = sessionSnapshot(bootstrap), domains = pageDomains(plan,{settingsSections:backendSettingsSectionsEnabled(),dashboard:backendDashboardEnabled(),customerDevices:backendCustomerDevicesEnabled(),customerDetails:backendCustomerDetailsEnabled(),customerLists:backendCustomerListsEnabled(),procurementLists:backendProcurementListsEnabled(),repairLists:backendRepairListsEnabled(),retailLists:backendRetailListsEnabled(),retailForms:backendRetailFormsEnabled()});
+    const businessWatermark=refreshVersion===2&&domains.length===1&&domains[0]==="staff"&&!["repair-new","procurement-new","retail-new"].includes(plan.kind);
+    state.read = { formatVersion: 2, scope: bootstrap.scope, plan, ready: domains,...(businessWatermark?{refreshVersion:2 as const}:{}) };
+    if (plan.kind === "settings"&&!backendSettingsSectionsEnabled()) {
       // Existing staff/settings semantics remain explicit to this page while its
       // dedicated roster/history read is migrated; no arbitrary member cap.
       const roster = await tx`select m.id,m.role,m.permissions,m.revision,m.membership_status,a.account_status,a.display_name,a.email from chinatech_v2.store_memberships m join chinatech_v2.accounts a on a.id=m.user_id where m.store_id=${access.storeId} order by m.id`;
@@ -91,8 +96,14 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
     const retailGeneration=plan.kind==="retail"&&backendRetailListsEnabled()&&can(member,"retail.view")?await retailModelGeneration(tx,access.storeId):undefined;
     const customerContext=plan.kind==="customer"&&backendCustomerDetailsEnabled()&&can(member,"customers.view")?await customerDetailReadContext(tx,bootstrap.scope,plan.customerQuery??{id:plan.id!,kind:"auto",q:""}):undefined;
     const deviceGeneration=plan.kind==="customer-devices"&&backendCustomerDevicesEnabled()&&(can(member,"repairs.view")||can(member,"retail.view"))?await customerDeviceGeneration(tx,access.storeId):undefined;
-    state.stateToken = pageToken(state,customerGeneration,procurementGeneration,repairContext?.stateToken,retailGeneration,customerContext?.stateToken,deviceGeneration);
-    if (known === state.stateToken) return { unchanged: true as const, stateToken: state.stateToken, storeId: state.storeId, memberId: member.id, revision: state.revision };
+    const dashboardContext=plan.kind==="dashboard"&&backendDashboardEnabled()?await dashboardReadContext(tx,bootstrap.scope):undefined;
+    const settingsQuery=plan.settingsQuery??{kind:"general",q:"",filter:"all",key:"",id:""};
+    const settingsPermission=["finance","finance-original","association"].includes(settingsQuery.kind)?"financial.read":["staff","member","audit"].includes(settingsQuery.kind)?"staff.manage":"settings.edit";
+    const settingsContext=plan.kind==="settings"&&backendSettingsSectionsEnabled()&&can(member,settingsPermission)?await settingsReadContext(tx,bootstrap.scope,settingsQuery):undefined;
+    state.stateToken = pageToken(state,customerGeneration,procurementGeneration,repairContext?.stateToken,retailGeneration,customerContext?.stateToken,deviceGeneration,dashboardContext?.stateToken,settingsContext?.stateToken);
+    if (known === state.stateToken) return { unchanged: true as const, stateToken: state.stateToken, storeId: state.storeId, memberId: member.id, revision: state.revision,...(businessWatermark?{refreshVersion:2 as const}:{}) };
+    if(plan.kind==="settings"&&backendSettingsSectionsEnabled()){if(settingsContext){const value=await readSettingsSection(tx,bootstrap.scope,settingsContext.query,{context:settingsContext});if(!("unchanged"in value))state.settingsSection=value;}return projectState(state,member);}
+    if(dashboardContext){const value=await readDashboard(tx,bootstrap.scope,{context:dashboardContext});if(!("unchanged"in value))state.dashboard=value;return projectState(state,member);}
     if(plan.kind === "customer" && !can(member,"customers.view")) { state.read.ready=["staff"]; return state; }
     if(deviceGeneration!==undefined){const value=await readCustomerDevices(tx,bootstrap.scope,{q:plan.q??""},{generation:deviceGeneration,anchor:plan.anchor});if(!("unchanged"in value))state.customerDevices=value as NonNullable<BackendSnapshot["customerDevices"]>;return projectState(state,member);}
     if(customerContext){const value=await readCustomerDetail(tx,bootstrap.scope,customerContext.query,{context:customerContext,anchor:plan.anchor});if(!("unchanged"in value))state.customerDetail=value;return projectState(state,member);}
@@ -123,7 +134,7 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
     if(targetedCustomer && !customerPhone)throw new BackendError("记录标识无效。",400);
     let intakeIds: string[] | null = null;
     if(customerPhone) {
-      intakeIds=(await tx`select id from chinatech_v2_private.repair_intakes where store_id=${access.storeId} and chinatech_v2_private.directory_phone(data->>'phone')=${customerPhone}`).map(row=>row.id);
+      intakeIds=(await tx`select id from chinatech_v2_private.repair_intakes where store_id=${access.storeId} and chinatech_v2_private.directory_phone_v2(data->>'phone')=${customerPhone}`).map(row=>row.id);
     } else if(plan.kind==="repair-operation"){
       if(!can(member,"repairs.view"))throw new BackendError("当前账号没有此操作权限。",403);
       intakeIds=[plan.id!];
@@ -151,7 +162,7 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
       state.procurement = (await tx`select data from chinatech_v2_private.procurement_records where store_id=${access.storeId} ${where} order by id`).map(row => row.data);
     }
     if (domains.includes("retail") && can(member, "retail.view")) {
-      const where = customerPhone ? tx`and exists(select 1 from jsonb_array_elements(data->'sales') sale where chinatech_v2_private.directory_phone(sale->>'customerPhone')=${customerPhone})` : plan.kind === "retail-unit" ? tx`and ${plan.retailSource==='history'?tx`data->'historyOrigin'->>'recordId'=${plan.id!}`:plan.retailSource==='unit'?tx`id=${plan.id!}`:tx`(id=${plan.id!} or data->'historyOrigin'->>'recordId'=${plan.id!})`}` : tx``;
+      const where = customerPhone ? tx`and exists(select 1 from jsonb_array_elements(data->'sales') sale where chinatech_v2_private.directory_phone_v2(sale->>'customerPhone')=${customerPhone})` : plan.kind === "retail-unit" ? tx`and ${plan.retailSource==='history'?tx`data->'historyOrigin'->>'recordId'=${plan.id!}`:plan.retailSource==='unit'?tx`id=${plan.id!}`:tx`(id=${plan.id!} or data->'historyOrigin'->>'recordId'=${plan.id!})`}` : tx``;
       state.retail = (await tx`select data from chinatech_v2_private.retail_units where store_id=${access.storeId} ${where} order by id`).map(row => row.data);
     }
     if (domains.includes("retailHistory") && can(member, "retail.view")) {
@@ -159,7 +170,7 @@ export async function loadPageState(access: ReadAccess, plan: PageReadPlan, know
       // History PKs are UUIDs, whereas unit IDs/JSON origin fields are text.
       // Validate the tiny target set before binding its UUID array, retaining
       // the primary-key lookup and ordinary not-found behavior for legacy IDs.
-      const where = customerPhone ? tx`and chinatech_v2_private.directory_phone(data->>'customerPhone')=${customerPhone}` : plan.kind === "retail-unit" ? tx`and id=any(${tx.array(ids,2950)})` : tx``;
+      const where = customerPhone ? tx`and chinatech_v2_private.directory_phone_v2(data->>'customerPhone')=${customerPhone}` : plan.kind === "retail-unit" ? tx`and id=any(${tx.array(ids,2950)})` : tx``;
       state.retailHistory = (await tx`select data from chinatech_v2_private.retail_history_records where store_id=${access.storeId} ${where} order by source_row`).map(row => row.data);
     }
     if (domains.includes("customers") && can(member, "customers.view")) state.customers = (await tx`select data from chinatech_v2_private.customers where store_id=${access.storeId} ${customerPhone?tx`and normalized_phone=${customerPhone}`:tx``} order by normalized_phone`).map(row => row.data);
@@ -276,4 +287,7 @@ export async function loadCustomerDetailPage(access:ReadAccess,query:CustomerRec
 
 export async function loadCustomerDevicePage(access:ReadAccess,query:CustomerDeviceQuery,options:{cursor?:string;anchor?:string;seek?:number;known?:string;expectedScope?:string}={}){
  return withReadDatabase(access.identity,access.storeId,async tx=>{const member=await memberForRead(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,backendIdentityChangedCode);return readCustomerDevices(tx,scope,query,options);});
+}
+export async function loadSettingsSectionPage(access:ReadAccess,query:unknown,options:{cursor?:string;known?:string;anchor?:string;seek?:number;expectedScope?:string}={}){
+ return withReadDatabase(access.identity,access.storeId,async tx=>{const member=await memberForRead(tx,access.storeId,access.identity.userId),scope=scopeFor(access,member);if(options.expectedScope&&options.expectedScope!==backendScopeKey(scope))throw new BackendError('登录身份或页面版本已变化，请刷新后重新核对。',409,backendIdentityChangedCode);return readSettingsSection(tx,scope,query,options);});
 }

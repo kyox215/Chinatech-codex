@@ -1,3 +1,4 @@
+import {requireProjectionQueryContract} from "./lib/query-contract-verifier.mjs";
 // Operator-only local verification tool; never loaded by the web runtime.
 // Production execution needs a separately approved migration/connection path.
 import assert from 'node:assert/strict';
@@ -11,7 +12,7 @@ const storeId=options['--store-id'], file=options['--connection-file'];
 assert.match(storeId??'',/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
 assert(file,'Explicit project-local connection file required');
 const config=JSON.parse(readFileSync(file)), endpoint=new URL(config.DB_URL);
-assert.equal(endpoint.hostname,'127.0.0.1');assert.equal(endpoint.port,'55422');
+assert.equal(endpoint.hostname,'127.0.0.1');assert(['55432','55442'].includes(endpoint.port));assert.equal(endpoint.pathname,endpoint.port==='55432'?'/ct_perf_acceptance_icu_20261017':'/ct_perf_http_20261017');
 const sql=postgres(config.DB_URL,{max:1,prepare:false}), native=createRequire(resolve('package.json')), modules=new Map();
 function load(name,from=process.cwd()) {if(name==='server-only')return{};if(!name.startsWith('.'))return native(name);const file=resolve(from,name).replace(/\.ts$/,'')+'.ts';if(modules.has(file))return modules.get(file).exports;const loadedModule={exports:{}};modules.set(file,loadedModule);const code=ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;new Function('require','module','exports',code)(n=>load(n,dirname(file)),loadedModule,loadedModule.exports);return loadedModule.exports;}
 const {buildCustomerDirectory,normalizeCustomerPhone}=load('./lib/customers'),{intakeDirectoryEntry}=load('./lib/repair-intake-record'),{readCustomerList}=load('./lib/backend/customer-list');
@@ -19,7 +20,7 @@ const kinds=['profile','repair','sale','history'];
 const tables={profile:'customers',repair:'repair_intakes',sale:'retail_units',history:'retail_history_records'};
 async function lock(tx){await tx`select pg_advisory_xact_lock(hashtextextended(${'ct:'+storeId},0))`;}
 try {
- await sql.begin(async tx=>{await lock(tx);assert.equal((await tx`select count(*)::integer n from chinatech_v2.stores where id=${storeId}`)[0].n,1);await tx`insert into chinatech_v2_private.customer_directory_models(store_id) values(${storeId}) on conflict do nothing`;});
+ await sql.begin(async tx=>{await lock(tx);assert.equal((await tx`select count(*)::integer n from chinatech_v2.stores where id=${storeId}`)[0].n,1);await tx`insert into chinatech_v2_private.customer_directory_models(store_id) values(${storeId}) on conflict do nothing`;await requireProjectionQueryContract(tx,storeId,"customer_directory");await tx`update chinatech_v2_private.customer_directory_models set ready=false,verified_at=null,backfill_cursor=case when ready then null else backfill_cursor end where store_id=${storeId}`;});
  let batches=0,records=0;
  for(;;){const done=await sql.begin(async tx=>{
    await lock(tx);const [model]=await tx`select * from chinatech_v2_private.customer_directory_models where store_id=${storeId} for update`;
@@ -35,7 +36,7 @@ try {
    return next[0]==='done';
   });if(done)break;}
  const verified=await sql.begin('isolation level serializable',async tx=>{
-   await lock(tx);
+   await lock(tx);await requireProjectionQueryContract(tx,storeId,"customer_directory");
    // At most200 original JSON documents are resident per read. Keep only facts
    // consumed by the summary oracle; never accumulate events, photos, strokes,
    // costs, customer notes, frozen product bodies or after-sale/refund ledgers.

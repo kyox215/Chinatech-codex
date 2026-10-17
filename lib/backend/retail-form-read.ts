@@ -1,3 +1,4 @@
+import {projectionQueryRulesHash} from "./query-rules-version";
 import'server-only';
 import{createHash}from'node:crypto';
 import type{TransactionSql}from'postgres';
@@ -14,7 +15,7 @@ const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
 const valueKey=(value:string)=>value.normalize('NFKC').trim().replace(/\s+/g,' ').toLocaleLowerCase('en-US');
 const brandSearch=retailFormKnownBrands.map(brand=>({brand,aliases:catalogBrandAliases(brand).slice(1).map(catalogNormalize)}));
 export async function retailFormGeneration(tx:TransactionSql,storeId:string){
- const[model]=await tx`select ready,generation::text,rules_hash from chinatech_v2_private.retail_form_models where store_id=${storeId} and format_version=${retailFormModelFormat}`;
+ const[model]=await tx`select ready,generation::text,rules_hash from chinatech_v2_private.retail_form_models where store_id=${storeId} and query_rules_hash=${projectionQueryRulesHash} and format_version=${retailFormModelFormat}`;
  if(!model?.ready||model.rules_hash!==retailFormProjectionHash)throw new BackendError('后台资料暂不可用。',503);
  return String(model.generation);
 }
@@ -32,7 +33,7 @@ function presets(query:RetailFormCandidateQuery){
 function applies(query:RetailFormCandidateQuery){return query.field==='cpu'||query.field==='gpu'?['laptop','desktop'].includes(query.category):query.field==='keyboard'?query.category==='laptop':query.field==='edition'?['phone','tablet','console'].includes(query.category):true;}
 export async function readRetailFormCandidates(tx:TransactionSql,scope:BackendReadScope,raw:unknown):Promise<RetailFormCandidatePage|RetailFormCandidateValue>{
  if(!scope.permissions.includes('retail.view')||!scope.permissions.includes('retail.edit'))throw new BackendError('当前账号没有此操作权限。',403);
- const query=retailFormCandidateQuery(raw),generation=await retailFormGeneration(tx,scope.storeId),stateToken=hash(JSON.stringify([1,'retail-form',retailFormProjectionHash,backendScopeKey(scope),generation,query]));
+ const query=retailFormCandidateQuery(raw),generation=await retailFormGeneration(tx,scope.storeId),stateToken=hash(JSON.stringify([1,'retail-form',retailFormProjectionHash,backendScopeKey(scope),projectionQueryRulesHash,generation,query]));
  const rows=presets(query),terms=catalogSearchTerms(query.q),needle=query.q.toLowerCase(),identity=query.field==='brand'||query.field==='model',brand=canonicalCatalogBrand(query.brand),termRows=terms.map(term=>({term,brands:query.field==='brand'?brandSearch.filter(row=>row.aliases.some(alias=>alias.includes(term))).map(row=>row.brand):[]}));
  const[row]=await tx`with query_terms as(select * from jsonb_to_recordset(${tx.json(termRows)})as x(term text,brands text[])),presets as(
   select key option_key,"valueKeyHash" value_key_hash,search,position,value,label,detail from jsonb_to_recordset(${tx.json(rows)})as x(key text,"valueKeyHash" text,search text,position integer,value text,label text,detail text)

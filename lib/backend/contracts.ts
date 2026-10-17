@@ -10,6 +10,10 @@ import type { BackendReadState } from "./read-plan";
 
 export type BackendSnapshot = {
   commandResultVersion?:2;
+  dashboardEnabled?:boolean;
+  dashboard?:import("./dashboard-contract").DashboardPage;
+  settingsSectionsEnabled?:boolean;
+  settingsSection?:import('./settings-section-contract').SettingsSectionPage;
   read?: BackendReadState;
   customerDeviceEnabled?:boolean;
   customerDevices?:import("./customer-device-contract").CustomerDevicePage<import("./customer-device-contract").CustomerDeviceSummary>;
@@ -34,7 +38,7 @@ export type BackendSnapshot = {
   workflows: Record<string, RepairWorkflow>; procurement: ProcurementRecord[];
   retail: RetailUnit[]; retailHistory?: RetailHistoryRecord[]; customers: CustomerProfile[];
 };
-export type UnchangedState = { unchanged: true; stateToken: string; storeId: string; memberId: string; revision: number };
+export type UnchangedState = { refreshVersion?:2;unchanged: true; stateToken: string; storeId: string; memberId: string; revision: number };
 export type OperationReceipt = { requestId: string; entityId: string; kind: string; committedAt: string; replayed: boolean };
 export type BackendCommand = { requestId: string; storeId: string; memberId: string; kind: string; payload: unknown };
 

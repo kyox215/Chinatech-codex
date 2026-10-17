@@ -1,3 +1,4 @@
+import {projectionQueryRulesHash} from "./query-rules-version";
 import "server-only";
 import {createHash} from "node:crypto";
 import type {TransactionSql} from "postgres";
@@ -7,10 +8,10 @@ import {backendScopeKey,type BackendReadScope} from "./read-plan";
 import {procurementListResponseVersion,procurementListQuery,procurementCursor,procurementReadVersionChangedCode,type ProcurementListPage,type ProcurementListQuery,type ProcurementListSummary} from "./procurement-list-contract";
 
 export async function procurementModelGeneration(tx:TransactionSql,storeId:string) {
- const [model]=await tx`select ready,generation::text from chinatech_v2_private.procurement_list_models where store_id=${storeId} and format_version=1`;
+ const [model]=await tx`select ready,generation::text from chinatech_v2_private.procurement_list_models where store_id=${storeId} and query_rules_hash=${projectionQueryRulesHash} and format_version=1`;
  if(!model?.ready)throw new BackendError("后台资料暂不可用。",503);return String(model.generation);
 }
-export function procurementListToken(scope:BackendReadScope,generation:string,query:ProcurementListQuery) {return createHash("sha256").update(JSON.stringify([procurementListResponseVersion,backendScopeKey(scope),generation,query])).digest("hex");}
+export function procurementListToken(scope:BackendReadScope,generation:string,query:ProcurementListQuery) {return createHash("sha256").update(JSON.stringify([procurementListResponseVersion,backendScopeKey(scope),projectionQueryRulesHash,generation,query])).digest("hex");}
 type Point={groupFirst:string;id:string;direction:"before"|"after"};
 export async function readProcurementList(tx:TransactionSql,scope:BackendReadScope,raw:Partial<ProcurementListQuery>={},options:{cursor?:string;anchor?:string;seek?:number;generation?:string}={}):Promise<ProcurementListPage> {
  if(!scope.permissions.includes("repairs.view"))throw new BackendError("当前账号没有此操作权限。",403);
@@ -39,10 +40,10 @@ export async function readProcurementList(tx:TransactionSql,scope:BackendReadSco
 export function procurementListSql(tx:TransactionSql,scope:BackendReadScope,query:ProcurementListQuery,point:Point|null=null,anchor?:string,seek?:number,explain=false) {
  const needle=listSearchNeedle(query.q),reverse=point?.direction==="before",hasPoint=Boolean(point||anchor||seek!==undefined),order=reverse?tx`group_first desc,id desc`:tx`group_first asc,id asc`;
  return tx`${explain?tx`explain (analyze,buffers,format json)`:tx``} with scoped as not materialized (
-  select id,repair_id,supplier,status,search from chinatech_v2_private.procurement_list_sources where store_id=${scope.storeId}
+  select id,repair_id,supplier,status,search_v2 from chinatech_v2_private.procurement_list_sources where store_id=${scope.storeId}
  ), filtered as (
   select id,case ${query.groupBy} when 'status' then case when status='cart' then 'draft' else status end when 'supplier' then supplier when 'repair' then repair_id else 'all' end as group_key
-  from scoped where (${needle}='' or strpos(search,${needle})>0) and (${query.repairId}='' or repair_id=${query.repairId})
+  from scoped where (${needle}='' or strpos(search_v2,${needle})>0) and (${query.repairId}='' or repair_id=${query.repairId})
   and (${query.filter}='all' or ${query.filter}='draft' and status in ('draft','cart') or ${query.filter}='open' and status in ('ordered','partial') or ${query.filter}='complete' and status='complete')
  ), ranked as (
   select *,min(id) over(partition by group_key) group_first,count(*) over(partition by group_key)::integer group_count from filtered

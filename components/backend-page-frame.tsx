@@ -8,7 +8,7 @@ export async function BackendPageFrame({ plan, children }: { plan: PageReadPlan;
   if (!isSupabaseMode() || !backendV2ReadsEnabled()) return children;
   const access = await getPageAccess();
   if (!access) redirect("/account/pending");
-  const initial = await loadPageState(access, plan);
+  const initial = await loadPageState(access, plan,undefined,undefined,2);
   if ("unchanged" in initial) throw new Error("后台资料暂不可用。");
   return <BackendPageData initial={initial}>{children}</BackendPageData>;
 }

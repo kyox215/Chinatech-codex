@@ -6,6 +6,16 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   serverExternalPackages: ["@sparticuz/chromium", "playwright-core"],
   outputFileTracingIncludes: {
+    // Exact ICU addon for each actual native-runtime consumer.
+    '/api/backend/command': ['./native/icu-sort-key/runtime.cjs','./native/icu-sort-key/build/*'],
+    '/api/backend/v2/command': ['./native/icu-sort-key/runtime.cjs','./native/icu-sort-key/build/*'],
+    '/api/backend/v2/page': ['./native/icu-sort-key/runtime.cjs','./native/icu-sort-key/build/*'],
+    '/app/retail': ['./native/icu-sort-key/runtime.cjs','./native/icu-sort-key/build/*'],
+    '/api/backend/v2/retail': ['./native/icu-sort-key/runtime.cjs','./native/icu-sort-key/build/*'],
+    '/api/backend/v2/retail/facets': ['./native/icu-sort-key/runtime.cjs','./native/icu-sort-key/build/*'],
+    '/api/backend/v2/retail/scan': ['./native/icu-sort-key/runtime.cjs','./native/icu-sort-key/build/*'],
+    '/api/backend/v2/retail/identity-check': ['./native/icu-sort-key/runtime.cjs','./native/icu-sort-key/build/*'],
+    '/api/backend/v2/settings': ['./native/icu-sort-key/runtime.cjs','./native/icu-sort-key/build/*'],
     // Playwright loads browsers.json and bundled runtime modules dynamically.
     // Tracing only its static import produces a function that builds successfully
     // but fails before the receipt handler runs in an isolated deployment.

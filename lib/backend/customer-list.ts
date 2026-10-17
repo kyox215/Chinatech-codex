@@ -1,3 +1,4 @@
+import {projectionQueryRulesHash} from "./query-rules-version";
 import "server-only";
 import { createHash } from "node:crypto";
 import type { TransactionSql } from "postgres";
@@ -7,12 +8,12 @@ import {listSearchNeedle} from "./list-search";
 import { customerListResponseVersion,customerReadVersionChangedCode, customerCursor, customerListQuery, type CustomerListPage, type CustomerListQuery, type CustomerListSummary } from "./customer-list-contract";
 
 export async function customerModelGeneration(tx: TransactionSql, storeId: string) {
-  const [model] = await tx`select ready,generation::text from chinatech_v2_private.customer_directory_models where store_id=${storeId} and format_version=1`;
+  const [model] = await tx`select ready,generation::text from chinatech_v2_private.customer_directory_models where store_id=${storeId} and query_rules_hash=${projectionQueryRulesHash} and format_version=1`;
   if (!model?.ready) throw new BackendError("后台资料暂不可用。", 503);
   return String(model.generation);
 }
 export function customerListToken(scope: BackendReadScope, generation: string, query: CustomerListQuery) {
-  return createHash("sha256").update(JSON.stringify([customerListResponseVersion, backendScopeKey(scope), generation, query])).digest("hex");
+  return createHash("sha256").update(JSON.stringify([customerListResponseVersion, backendScopeKey(scope),projectionQueryRulesHash, generation, query])).digest("hex");
 }
 export async function readCustomerList(tx: TransactionSql, scope: BackendReadScope, q = "", cursor?: string, generation?: string, mode: CustomerListQuery["mode"] = "directory", anchor?: string, seek?: number): Promise<CustomerListPage> {
   if (!scope.permissions.includes("customers.view")) throw new BackendError("当前账号没有此操作权限。", 403);
@@ -62,7 +63,7 @@ export function customerDirectorySql(tx: TransactionSql, scope: BackendReadScope
       coalesce((select n.name from chinatech_v2_private.customer_directory_sources n where n.store_id=${scope.storeId} and n.phone=c.phone and(n.origin_kind='profile' or n.name<>'') order by case n.origin_kind when 'profile' then 4 when 'sale' then 3 when 'repair' then 2 else 1 end desc,n.event_at collate "C" desc,case when n.origin_kind='history' then n.event_order else 0 end desc,n.origin_id collate "C" desc,n.event_order desc,n.event_id collate "C" desc limit 1),'')name,
       coalesce((select n.email from chinatech_v2_private.customer_directory_sources n where n.store_id=${scope.storeId} and n.phone=c.phone and(n.origin_kind='profile' or n.origin_kind in('sale','repair') and n.email<>'') order by case n.origin_kind when 'profile' then 3 when 'sale' then 2 else 1 end desc,case when n.origin_kind='sale' then n.event_at else n.origin_id end collate "C" desc,n.origin_id collate "C" desc,n.event_order desc,n.event_id collate "C" desc limit 1),'')email,
       c.repairs,c.sales,c.history,c.activity
-    from(select phone,count(*)filter(where origin_kind='repair')::integer repairs,count(*)filter(where origin_kind='sale')::integer sales,count(*)filter(where origin_kind='history')::integer history,max(activity_at collate "C")activity from chinatech_v2_private.customer_directory_sources where store_id=${scope.storeId} and phone=chinatech_v2_private.directory_phone(${needle}) group by phone)c
+    from(select phone,count(*)filter(where origin_kind='repair')::integer repairs,count(*)filter(where origin_kind='sale')::integer sales,count(*)filter(where origin_kind='history')::integer history,max(activity_at collate "C")activity from chinatech_v2_private.customer_directory_sources where store_id=${scope.storeId} and phone=chinatech_v2_private.directory_phone_v2(${needle}) group by phone)c
 `:tx`
     select phone,
       coalesce((array_agg(name order by origin_id collate "C") filter(where origin_kind='profile'))[1],
@@ -77,9 +78,9 @@ export function customerDirectorySql(tx: TransactionSql, scope: BackendReadScope
 `;
   return tx`${explanation} with grouped as (${grouped}), filtered as (
     select * from grouped where
-      (${query.mode}='directory' and (${needle}='' or strpos(lower(name||' '||phone||' '||email),${needle})>0 or (length(${digits})>=3 and strpos(phone,${digits})>0)))
+      (${query.mode}='directory' and (${needle}='' or strpos(chinatech_v2_private.query_lower(name||' '||phone||' '||email),${needle})>0 or (length(${digits})>=3 and strpos(phone,${digits})>0)))
       or (${query.mode}='phone' and length(${digits})>=3 and chinatech_v2_private.directory_phone_query(${needle}) and (case when ${explicitPhone} then starts_with(substr(phone,2),${phoneNeedle}) else strpos(substr(phone,2),${phoneNeedle})>0 end))
-      or (${query.mode}='exact' and phone=chinatech_v2_private.directory_phone(${needle}))
+      or (${query.mode}='exact' and phone=chinatech_v2_private.directory_phone_v2(${needle}))
   ), point as (
     select activity,phone from filtered where (${seek!==undefined} or phone=${after?.phone??anchor??""}) and (${after===null} or activity=${after?.activity??""})
     order by activity collate "C" desc,phone collate "C" asc offset greatest(0,least(${seek??0},(select count(*)-1 from filtered))) limit 1

@@ -33,3 +33,6 @@ Codex_从这里启动.md
 
 desktop/office-assistant/**/bin/
 desktop/office-assistant/**/obj/
+
+# Rebuilt for the current Node/runtime architecture; never commit native output.
+native/icu-sort-key/build/

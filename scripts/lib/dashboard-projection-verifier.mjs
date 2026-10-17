@@ -1,0 +1,45 @@
+import assert from'node:assert/strict';
+
+// Stable display metadata and flat events use separate cursors. Neither stream
+// reads photos, sale arrays, signature data or workflow/procurement notes.
+export async function dashboardHeadBatch(tx,storeId,cursor=null){
+ const[source='',id='']=cursor??[];
+ return tx`with canonical as(
+  select 'repair'::text source,id entity_id,id repair_id,id display from chinatech_v2_private.repair_intakes where store_id=${storeId} and('repair',id collate "C")>(${source},${id} collate "C")
+  union all select 'procurement',id,repair_id,data->>'item' from chinatech_v2_private.procurement_records where store_id=${storeId} and('procurement',id collate "C")>(${source},${id} collate "C")
+  union all select 'retail',id,'',data->>'code' from chinatech_v2_private.retail_units where store_id=${storeId} and('retail',id collate "C")>(${source},${id} collate "C")
+ ),first_batch as(select*from canonical order by source collate "C",entity_id collate "C" limit 200),sized as(select*,row_number()over(order by source collate "C",entity_id collate "C")n,sum(octet_length(to_jsonb(first_batch)::text))over(order by source collate "C",entity_id collate "C")bytes from first_batch)
+ select source,entity_id,repair_id,display from sized where bytes<=200000 or n=1 order by source collate "C",entity_id collate "C"`;
+}
+export async function dashboardEventBatch(tx,storeId,cursor=null){
+ const[source='',id='',position=-1]=cursor??[];
+ return tx`with canonical as(
+  select 'repair'::text source,r.id entity_id,0 position,'intake'::text kind,jsonb_build_object('id','','time',r.data->>'createdAt','type','intake','label','')event from chinatech_v2_private.repair_intakes r where r.store_id=${storeId} and('repair',r.id collate "C",0)>(${source},${id} collate "C",${position}) and coalesce(r.data->>'createdAt','')<>''
+  union all select 'repair',r.id,e.ordinality::integer,'repair',jsonb_build_object('id',e.value->'id','time',e.value->'time','type',e.value->'type','label',e.value->'label') from chinatech_v2_private.repair_intakes r cross join lateral jsonb_array_elements(coalesce(r.workflow->'events','[]'))with ordinality e where r.store_id=${storeId} and('repair',r.id collate "C")>=(${source},${id} collate "C")and('repair',r.id collate "C",e.ordinality::integer)>(${source},${id} collate "C",${position})and coalesce(e.value->>'time','')<>''
+  union all select 'procurement',p.id,e.ordinality::integer,'procurement',jsonb_build_object('id',e.value->'id','time',e.value->'time','type',e.value->'type','quantity',e.value->'quantity')from chinatech_v2_private.procurement_records p cross join lateral jsonb_array_elements(coalesce(p.data->'events','[]'))with ordinality e where p.store_id=${storeId} and('procurement',p.id collate "C")>=(${source},${id} collate "C")and('procurement',p.id collate "C",e.ordinality::integer)>(${source},${id} collate "C",${position})and coalesce(e.value->>'time','')<>''
+  union all select 'retail',u.id,e.ordinality::integer,'retail',jsonb_build_object('id',e.value->'id','time',e.value->'time','title',e.value->'title','detail',e.value->'detail','sensitive',e.value->'sensitive')from chinatech_v2_private.retail_units u cross join lateral jsonb_array_elements(coalesce(u.data->'events','[]'))with ordinality e where u.store_id=${storeId} and('retail',u.id collate "C")>=(${source},${id} collate "C")and('retail',u.id collate "C",e.ordinality::integer)>(${source},${id} collate "C",${position})and coalesce(e.value->>'time','')<>''
+ ),first_batch as(select*from canonical order by source collate "C",entity_id collate "C",position limit 200),sized as(select*,row_number()over(order by source collate "C",entity_id collate "C",position)n,sum(octet_length(to_jsonb(first_batch)::text))over(order by source collate "C",entity_id collate "C",position)bytes from first_batch)
+ select source,entity_id,position,kind,event from sized where bytes<=200000 or n=1 order by source collate "C",entity_id collate "C",position`;
+}
+export function expectedDashboardEvent(row){
+ const event=row.event,privateTitle=row.kind==='retail'&&(event.sensitive==='financial'||/成本|毛利|利润|costCents|refurbCents|grossProfit/i.test(event.title+' '+event.detail));
+ return{source:row.source,entity_id:row.entity_id,key:'['+[row.kind,row.entity_id,event.id].map(v=>JSON.stringify(v)).join(', ')+']',id:row.kind==='intake'?'intake:'+row.entity_id:row.kind+':'+row.entity_id+':'+event.id,position:row.position,kind:row.kind,time:event.time,type:row.kind==='retail'?'retail':row.kind==='intake'?'intake':event.type,label:row.kind==='retail'?(privateTitle?'财务资料更正':event.title):row.kind==='repair'?event.label:'',quantity:row.kind==='procurement'?event.quantity??null:null,privateLabel:privateTitle?event.title:null};
+}
+export async function putDashboardHeads(tx,storeId,rows){
+ assert(rows.length<=200);if(!rows.length)return;
+ await tx`insert into chinatech_v2_private.dashboard_activity_heads(store_id,source,entity_id,repair_id,display)select ${storeId},v.*from jsonb_to_recordset(${tx.json(rows)})v(source text,entity_id text,repair_id text,display text)on conflict(store_id,source,entity_id)do update set repair_id=excluded.repair_id,display=excluded.display`;
+}
+export async function putDashboardEvents(tx,storeId,rows){
+ assert(rows.length<=200);if(!rows.length)return;
+ const facts=tx`select v.source,v.entity_id,v.position,f from jsonb_to_recordset(${tx.json(rows)})v(source text,entity_id text,position integer,kind text,event jsonb)cross join lateral jsonb_array_elements(chinatech_v2_private.dashboard_activity_facts(v.source,jsonb_build_object('id',v.entity_id,'createdAt',case when v.kind='intake'then v.event->'time'else null end,'events',case when v.source<>'repair'then jsonb_build_array(v.event)else'[]'::jsonb end),case when v.kind='repair'then jsonb_build_object('events',jsonb_build_array(v.event))else null end))a(f)`;
+ await tx`insert into chinatech_v2_private.dashboard_activity_events(store_id,source,entity_id,key,id,position,kind,time,type,label,quantity)select ${storeId},source,entity_id,f->>'key',f->>'id',position,f->>'kind',f->>'time',f->>'type',f->>'label',(f->>'quantity')::integer from(${facts})facts on conflict(store_id,key)do update set id=excluded.id,position=excluded.position,kind=excluded.kind,time=excluded.time,type=excluded.type,label=excluded.label,quantity=excluded.quantity`;
+ await tx`insert into chinatech_v2_private.dashboard_activity_private(store_id,key,label)select ${storeId},f->>'key',f->>'privateLabel'from(${facts})facts where f->>'privateLabel'is not null on conflict(store_id,key)do update set label=excluded.label`;
+}
+export async function verifyDashboardProjection(tx,storeId){
+ let heads=0,events=0,privateTitles=0,headBatches=0,eventBatches=0,maximumBatchBytes=0,maximumBatchRows=0,cursor=null;
+ const measure=rows=>{assert(rows.length<=200);const bytes=Buffer.byteLength(JSON.stringify(rows));assert(bytes<=200000,'Bounded canonical operator payload');maximumBatchRows=Math.max(maximumBatchRows,rows.length);maximumBatchBytes=Math.max(maximumBatchBytes,bytes);};
+ for(;;){const rows=await dashboardHeadBatch(tx,storeId,cursor);if(!rows.length)break;measure(rows);headBatches++;const actual=await tx`select source,entity_id,repair_id,display from chinatech_v2_private.dashboard_activity_heads where store_id=${storeId} and(source,entity_id)in(select source,entity_id from jsonb_to_recordset(${tx.json(rows)})v(source text,entity_id text))`;assert.equal(actual.length,rows.length);for(const row of rows)assert.deepEqual({...actual.find(v=>v.source===row.source&&v.entity_id===row.entity_id)},row);heads+=rows.length;cursor=[rows.at(-1).source,rows.at(-1).entity_id];}
+ cursor=null;
+ for(;;){const rows=await dashboardEventBatch(tx,storeId,cursor);if(!rows.length)break;measure(rows);eventBatches++;const expected=rows.map(expectedDashboardEvent),keys=expected.map(row=>row.key),actual=await tx`select e.source,e.entity_id,e.key,e.id,e.position,e.kind,e.time,e.type,e.label,e.quantity,p.label as "privateLabel" from chinatech_v2_private.dashboard_activity_events e left join chinatech_v2_private.dashboard_activity_private p on p.store_id=e.store_id and p.key=e.key where e.store_id=${storeId} and e.key=any(${keys}::text[])`;assert.equal(actual.length,rows.length);for(const row of expected){assert.deepEqual({...actual.find(v=>v.key===row.key)},row);if(row.privateLabel!==null)privateTitles++;}events+=rows.length;cursor=[rows.at(-1).source,rows.at(-1).entity_id,rows.at(-1).position];}
+ const[count]=await tx`select(select count(*)::integer from chinatech_v2_private.dashboard_activity_heads where store_id=${storeId})heads,(select count(*)::integer from chinatech_v2_private.dashboard_activity_events where store_id=${storeId})events,(select count(*)::integer from chinatech_v2_private.dashboard_activity_private where store_id=${storeId})private`;assert.deepEqual({...count},{heads,events,private:privateTitles},'Every canonical fact exists and no stale/extra projection remains');return{heads,events,privateTitles,headBatches,eventBatches,maximumBatchRows,maximumBatchBytes};
+}

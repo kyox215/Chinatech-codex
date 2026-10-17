@@ -1,3 +1,4 @@
+import {projectionQueryRulesHash} from "./query-rules-version";
 import'server-only';
 import{createHash}from'node:crypto';
 import type{TransactionSql}from'postgres';
@@ -7,7 +8,7 @@ import{customerRecordRulesHash}from'./customer-detail-version';
 import{customerModelGeneration,readCustomerList}from'./customer-list';
 import{listSearchNeedle}from'./list-search';
 import{customerRecordVersionChangedCode,customerDetailFormat,customerRecordsQuery,customerRecordCursor,type CustomerDetailPage,type CustomerDetailProfile,type CustomerRecordsQuery,type CustomerRecordCounts,type CustomerRecordSummary}from'./customer-detail-contract';
-export async function customerRecordGeneration(tx:TransactionSql,storeId:string){const[row]=await tx`select ready,generation::text,rules_hash from chinatech_v2_private.customer_record_models where store_id=${storeId} and format_version=${customerDetailFormat}`;if(!row?.ready||row.rules_hash!==customerRecordRulesHash)throw new BackendError('后台资料暂不可用。',503);return String(row.generation);}
+export async function customerRecordGeneration(tx:TransactionSql,storeId:string){const[row]=await tx`select ready,generation::text,rules_hash from chinatech_v2_private.customer_record_models where store_id=${storeId} and query_rules_hash=${projectionQueryRulesHash} and format_version=${customerDetailFormat}`;if(!row?.ready||row.rules_hash!==customerRecordRulesHash)throw new BackendError('后台资料暂不可用。',503);return String(row.generation);}
 export async function readCustomerDetailProfile(tx:TransactionSql,scope:BackendReadScope,id:string,directoryGeneration:string):Promise<{profile:CustomerDetailProfile|null;counts:CustomerRecordCounts}>{
  const phone='+'+id.slice(6),directory=await readCustomerList(tx,scope,phone,undefined,directoryGeneration,'exact'),customer=directory.items[0],counts={repairs:customer?.repairCount??0,sales:customer?.saleCount??0,history:customer?.historyCount??0};
  if(!customer)return{profile:null,counts};
@@ -24,8 +25,8 @@ export async function customerDetailReadContext(tx:TransactionSql,scope:BackendR
  let metadata:Awaited<ReturnType<typeof readCustomerDetailProfile>>|undefined;
  if(query.kind==='auto'){metadata=await readCustomerDetailProfile(tx,scope,query.id,directoryGeneration);query={...query,kind:metadata.counts.repairs?'repairs':metadata.counts.sales?'sales':metadata.counts.history?'history':'repairs'};}
  const resolved=query as CustomerRecordsQuery&{kind:Exclude<CustomerRecordsQuery['kind'],'auto'>};
- let repairGeneration='';if(resolved.kind==='repairs'&&scope.permissions.includes('repairs.view')){const[row]=await tx`select ready,generation::text from chinatech_v2_private.repair_list_models where store_id=${scope.storeId} and format_version=1`;if(!row?.ready)throw new BackendError('后台资料暂不可用。',503);repairGeneration=String(row.generation);}
- const generation=[recordGeneration,directoryGeneration,repairGeneration].join(':'),stateToken=createHash('sha256').update(JSON.stringify([customerDetailFormat,customerRecordRulesHash,backendScopeKey(scope),generation,resolved])).digest('hex');
+ let repairGeneration='';if(resolved.kind==='repairs'&&scope.permissions.includes('repairs.view')){const[row]=await tx`select ready,generation::text from chinatech_v2_private.repair_list_models where store_id=${scope.storeId} and query_rules_hash=${projectionQueryRulesHash} and format_version=1`;if(!row?.ready)throw new BackendError('后台资料暂不可用。',503);repairGeneration=String(row.generation);}
+ const generation=[recordGeneration,directoryGeneration,repairGeneration].join(':'),stateToken=createHash('sha256').update(JSON.stringify([customerDetailFormat,customerRecordRulesHash,backendScopeKey(scope),projectionQueryRulesHash,generation,resolved])).digest('hex');
  return{query:resolved,generation,stateToken,metadata};
 }
 type Options={cursor?:string;anchor?:string;seek?:number;known?:string;context?:Awaited<ReturnType<typeof customerDetailReadContext>>};

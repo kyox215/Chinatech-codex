@@ -1,3 +1,4 @@
+import {projectionQueryRulesHash} from "./query-rules-version";
 import "server-only";
 import {createHash} from "node:crypto";
 import type {TransactionSql} from "postgres";
@@ -9,13 +10,13 @@ import {repairListQuery,repairCursor,repairReadVersionChangedCode,type RepairLis
 
 export async function repairReadContext(tx:TransactionSql,scope:BackendReadScope,raw:Partial<RepairListQuery>={}) {
  if(!scope.permissions.includes("repairs.view"))throw new BackendError("当前账号没有此操作权限。",403);
- const [model]=await tx`select ready,generation::text from chinatech_v2_private.repair_list_models where store_id=${scope.storeId} and format_version=1`;
+ const [model]=await tx`select ready,generation::text from chinatech_v2_private.repair_list_models where store_id=${scope.storeId} and query_rules_hash=${projectionQueryRulesHash} and format_version=1`;
  if(!model?.ready)throw new BackendError("后台资料暂不可用。",503);
  const [settings]=await tx`select settings->'repairGroups' as groups,revision::text from chinatech_v2_private.store_state where store_id=${scope.storeId}`;
  if(!settings)throw new BackendError("门店尚未完成初始化。",503);
  const query=repairListQuery(raw),generation=String(model.generation),configured=parseRepairGroups(settings.groups??undefined);
  const groups=query.view==="history"?[{key:"all",label:"历史工单"}]:query.groupBy==="none"?[{key:"all",label:"全部工单"}]:query.groupBy==="parts"?visibleRepairGroups(configured,"parts"):[...visibleRepairGroups(configured,"workflow"),...(query.view==="all"?[{key:"history",label:"历史工单"}]:[])];
- const stateToken=createHash("sha256").update(JSON.stringify([1,backendScopeKey(scope),generation,query,groups,visibleRepairGroups(configured,"parts")])).digest("hex");
+ const stateToken=createHash("sha256").update(JSON.stringify([1,backendScopeKey(scope),projectionQueryRulesHash,generation,query,groups,visibleRepairGroups(configured,"parts")])).digest("hex");
  return{query,generation,observedRevision:settings.revision,groups,stateToken,partGroups:visibleRepairGroups(configured,"parts")};
 }
 type ReadContext=Awaited<ReturnType<typeof repairReadContext>>;

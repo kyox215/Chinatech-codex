@@ -8,11 +8,11 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 
 import { createPortal } from "react-dom";
 import { ArrowDown, ArrowUp, Check, GripVertical, X } from "lucide-react";
 import { saveStoreSettings } from "@/components/settings/settings-store";
-import { defaultRepairGroups, parseRepairGroups, moveRepairGroup, visibleRepairGroups, mergeVisibleRepairGroups, type RepairGroupItem, type RepairGroupKind } from "@/lib/repair-groups";
+import { defaultRepairGroups, parseRepairGroups, moveRepairGroup, visibleRepairGroups, mergeVisibleRepairGroups, type RepairGroupItem, type RepairGroupKind,type RepairGroupSettings } from "@/lib/repair-groups";
 import type { StoreSettings } from "@/lib/store-settings";
 import styles from "./repair-group-editor.module.css";
 
-export function RepairGroupEditor({ settings, kind, onClose, onSaved, onPendingChange }: { settings: StoreSettings; kind: RepairGroupKind; onClose: () => void; onSaved: () => void; onPendingChange?: (pending: boolean) => void }) {
+export function RepairGroupEditor({ settings, kind, onClose, onSaved, onPendingChange,saveGroups }: { settings: Pick<StoreSettings,'revision'|'repairGroups'>; kind: RepairGroupKind; onClose: () => void; onSaved: () => void; onPendingChange?: (pending: boolean) => void;saveGroups?:(revision:number,groups:RepairGroupSettings,options:{requestId:string})=>Promise<void> }) {
   const { t, systemText } = useLanguage();
   const dialog = useRef<HTMLDialogElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -118,7 +118,7 @@ export function RepairGroupEditor({ settings, kind, onClose, onSaved, onPendingC
     busy.current = true; setSaving(true); onPendingChange?.(true); setError("");
     try {
       const repairGroups = mergeVisibleRepairGroups(initial, kind, rows);
-      await saveStoreSettings(revision, current => ({ ...current, repairGroups }), {requestId});
+      if(saveGroups)await saveGroups(revision,repairGroups,{requestId});else await saveStoreSettings(revision, current => ({ ...current, repairGroups }), {requestId});
       confirmed();
     } catch (reason) { if (!receipt.watch(requestId, confirmed, settled)) setError(reason instanceof Error ? reason.message : "保存失败，请重试。"); }
     finally { busy.current = false; setSaving(false); if (!receipt.isWaiting()) onPendingChange?.(false); }

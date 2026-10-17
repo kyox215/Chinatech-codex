@@ -21,10 +21,12 @@ import { retailCommandPermission, requireRetailAfterSaleRepair } from "../retail
 import { BackendError, withDatabase, withReadDatabase, type AuthIdentity } from "./database";
 import type { BackendCommand, BackendSnapshot } from "./contracts";
 import {loadCommandDependencies,commandSuppliers,commandSettings,commandStaff,type CommandDependencies as CommandState} from "./command-dependencies";
+import {beginRetailSort,finishRetailSort} from './retail-sort-maintenance';
 import {prepareCommand,hasCommandPhotoPreparation,preparedIntakePhotos,type PreparedCommand} from "./command-preparation";
 import { putIntakePhotos } from "./intake-photos";
 import { prepareIntakePhotoUpdate, RepairPhotoUpdateError } from "../repair-photo-update";
 import { fields, intakeFields, procurementFields, workflowCommandFields, customerFields, settingsFields, memberFields, retailFields, commandFields } from "./input";
+import {writeSettingsPatch} from './settings-patch-write';
 
 import {observeTime} from "./request-observation";
 import {commandEffects,nativeCommandResult,replayCommandResult,type CommandResult} from "./command-result";
@@ -219,8 +221,7 @@ async function saveRepairItems(tx:TransactionSql,state:CommandState,member:Staff
   }
 }
 
-async function apply(tx:TransactionSql,state:CommandState,member:StaffMember,kind:string,p:Record<string,unknown>,requestId:string,prepared:PreparedCommand) {
-  const time=intakeRecordTime();
+async function apply(tx:TransactionSql,state:CommandState,member:StaffMember,kind:string,p:Record<string,unknown>,requestId:string,prepared:PreparedCommand,time:string) {
   if(kind==="intake.save") {
     exactKeys(p,["data","revision","signature","signatureCount","photos"]);authorize(member,"repairs.edit");
     const draft=p.data as IntakeReceiptData;fields(draft,intakeFields); if(!validLocalIntake(draft) || draft.retailOrigin) throw new BackendError("请核对接机资料及来源。");
@@ -280,8 +281,8 @@ async function apply(tx:TransactionSql,state:CommandState,member:StaffMember,kin
     if((intake.revision??1)!==integer(p.intakeRevision)) throw new BackendError("工单报价已变化，请重新核对。",409);
     if(!validItemQuotes([{item:p.item,amountCents:p.quoteCents}])) throw new BackendError("维修项目或客户报价无效。");
     const requirements=currentRepairRequirements(intakeDirectoryEntry(intake),state.workflows[intake.id]);
-    const titles=new Set([...requirements.map(row=>row.title),...(intake.itemQuotes??[]).map(row=>row.item),...state.procurement.filter(row=>row.repairId===intake.id).map(row=>row.item)]);
-    if(!titles.has(p.item as string)) throw new BackendError("维修项目已变化，请重新核对报价。",409);
+    const titles=new Set([...requirements.map(row=>row.title),...(intake.itemQuotes??[]).map(row=>row.item)]);
+    if(!titles.has(p.item as string)&&!state.quoteItemExists) throw new BackendError("维修项目已变化，请重新核对报价。",409);
     const quotes=new Map((intake.itemQuotes??[]).map(row=>[row.item,row.amountCents]));
     for(const requirement of requirements) if(!quotes.has(requirement.title)) quotes.set(requirement.title,null);
     quotes.set(p.item as string,p.quoteCents as number|null);
@@ -489,6 +490,11 @@ async function apply(tx:TransactionSql,state:CommandState,member:StaffMember,kin
     await putCustomer(tx,state,next.find(row=>normalizeCustomerPhone(row.phone)===normalizeCustomerPhone(draft.phone))!);return normalizeCustomerPhone(draft.phone);
   }
   if(kind==="settings.save") {
+    if(Object.hasOwn(p,'patch')){
+      exactKeys(p,['revision','patch']);if(state.settings.revision!==integer(p.revision))throw new BackendError("设置已变化，请重新核对。",409);
+      await writeSettingsPatch(tx,state.storeId,state.settings.revision,p.patch,{settings:can(member,'settings.edit'),financeRead:can(member,'financial.read'),financeEdit:can(member,'financial.edit')});
+      state.changes.settings.add(state.storeId);return state.storeId;
+    }
     const settings=commandSettings(state);
     exactKeys(p,["settings","revision"]);if(settings.revision!==integer(p.revision)) throw new BackendError("设置已变化，请重新核对。",409);
     if(!can(member,"settings.edit") && !can(member,"financial.edit")) throw new BackendError("当前账号没有设置编辑权限。",403);
@@ -524,6 +530,9 @@ async function apply(tx:TransactionSql,state:CommandState,member:StaffMember,kin
 }
 
 function authorizeCommandRead(member:StaffMember,kind:string,p:Record<string,unknown>){
+  // The legacy state loader exposed no retail target without retail.view.
+  // Targeted dependencies must keep that admission before any canonical read.
+  if(kind==="retail"||kind.startsWith("retail."))authorize(member,"retail.view");
   if(kind==="procurement"){
     authorize(member,"repairs.edit");
     if(p.type!=="save-item"&&p.type!=="save-items")assertProcurementWrite(p as {type?:unknown;event?:{type?:unknown}});
@@ -571,8 +580,12 @@ async function executeCommandVersion(identity:AuthIdentity,command:BackendComman
     const [previous]=await tx<{digest:string;result:unknown}[]>`select digest,result from chinatech_v2_private.command_receipts where store_id=${command.storeId} and actor_id=${identity.userId} and request_id=${command.requestId}`;
     if(previous)return replayExisting(tx,identity,command,digest,previous,member,version);
     authorizeCommandRead(member,command.kind,prepared.payload);
-    const state=await observeTime("command_dependencies",()=>loadCommandDependencies(tx,{...command,payload:prepared.payload},member));
-    const entityId=await observeTime("command_apply",()=>apply(tx,state,member,command.kind,prepared.payload,command.requestId,prepared));
+    const maintainSort=process.env.BACKEND_RETAIL_LIST_READS==='1'&&(command.kind==='retail'||command.kind.startsWith('retail.'));
+    if(maintainSort)await beginRetailSort(tx,command.storeId);
+    const time=intakeRecordTime();
+    const state=await observeTime("command_dependencies",()=>loadCommandDependencies(tx,{...command,payload:prepared.payload},member,time));
+    const entityId=await observeTime("command_apply",()=>apply(tx,state,member,command.kind,prepared.payload,command.requestId,prepared,time));
+    if(maintainSort)await finishRetailSort(tx,command.storeId,state.changes.retail);
     const result=await observeTime("command_receipt",async()=>{
     const[audit]=await tx`insert into chinatech_v2_private.audit_events(store_id,actor_id,request_id,kind,entity_id) values(${command.storeId},${identity.userId},${command.requestId},${command.kind},${entityId}) returning created_at`;
     const[current]=await tx`update chinatech_v2_private.store_state set revision=revision+1 where store_id=${command.storeId} returning revision`;
