@@ -28,6 +28,8 @@
 
 2026-10-17性能候选新增非视觉辅助：`WindowedListRows`管理已授权摘要的测量/窗口/焦点，`BackendPageFrame`/`BackendPageData`提供按页SSR资料；实际列表、输入、导航与反馈继续使用本表唯一组件，不新增主题或Figma变体。接口与实际客户验收范围见docs/06“性能候选的实际客户读取与渲染”；其他模块的兼容读取仍明确保留，未发布。
 
+共享窗口补焦点仅在真实控件被当前滚动视口裁切时显式 nearest reveal；继续复用原生控件与已登记窗口，不改变视觉/键盘偏好。源码组件双引擎回归与正式编译页面证据分开，详见 docs/06 的公共维护声明。
+
 采购候选继续复用本表原列表/按钮/输入/候选/弹窗语言：唯一模块内`ProcurementListBody`与`SupplierBatchView`分别接旧事实和有界API，不维护第二套模板。`WindowedListRows.scrollRoot/anchorSelector`只控制滚动/定位，`SearchCombobox.loadingLabel`保留原目录默认。共同横向视口、真实groupFirst、低频候选与实际检查范围见docs/06“性能候选的采购摘要与批量读取”；正式baseline保持原绑定，未部署。
 
 2026-10-17 多门店发布候选：新增 [MyStores / JoinStore / StoreManagement](previews/multistore-pilot-20261017.md)，原 Figma 15181:209494；复用 AccountBrand、AppShell、InputControl、SelectControl、MultiChoice、NavigationLink 与 B 反馈。发布源从正式 main 独立整合，仅纳本轮多店与容量，保留正式分页和 PDF 模板；本地 Supabase 生产构建、双引擎三语四宽与真实邀请审批均通过，发布状态以最终控制面绑定为准。

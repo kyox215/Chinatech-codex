@@ -83,7 +83,14 @@ export function WindowedListRows<T>({items,startIndex=0,total,thresholdTotal=tot
       if(Math.abs(difference)>=1/64)moveScroll(scrollRoot,difference);
       anchor.current={key:saved.key,top:element.getBoundingClientRect().top,scrollPosition:scrollPosition(scrollRoot),compensatedScroll:compensatedScroll(scrollRoot)};
     }}
-    if(forced!==null){const target=windowRows(node).find(row=>Number(row.dataset.windowIndex)===forced);if(target){const controls=rowControls(target);((forcedReverse.current?controls.at(-1):controls[0])??anchorElement(target)).focus();queueMicrotask(()=>setForced(current=>current===forced?null:current));}}
+    if(forced!==null){const target=windowRows(node).find(row=>Number(row.dataset.windowIndex)===forced);if(target){
+      const controls=rowControls(target),control=(forcedReverse.current?controls.at(-1):controls[0])??anchorElement(target);control.focus();
+      // Native focus scrolling can leave a control's border box clipped at a
+      // scroll edge. A row we explicitly mounted must expose its real control.
+      const container=scrollRoot?.current,bounds=container?.getBoundingClientRect(),top=bounds?bounds.top+container!.clientTop:0,bottom=top+(container?.clientHeight??window.innerHeight),rect=control.getBoundingClientRect();
+      if(rect.top<top||rect.bottom>bottom)control.scrollIntoView({block:"nearest",inline:"nearest",behavior:"instant"});
+      queueMicrotask(()=>setForced(current=>current===forced?null:current));
+    }}
   },[heights,items,startIndex,forced,initialAnchor,initialOffset,active,restorePending,scrollRoot,anchorElement]);
   useEffect(()=>{
     if(!active||!restorePending||!initialAnchor||!items.some(item=>rowKey(item)===initialAnchor))return;
