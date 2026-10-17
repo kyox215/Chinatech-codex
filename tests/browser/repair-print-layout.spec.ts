@@ -12,8 +12,8 @@ import { repairPrintProjection, canonicalPrintJson, receiptSmallScale, receiptPa
 import { itemQuoteTotal } from "../../lib/repair-item-pricing";
 import { printLabel, printMoney, type PrintLanguage } from "../../lib/print-language";
 import { repairIntakeTermsVersion } from "../../lib/repair-print-terms";
-import { renderRepairReceipt, ReceiptRenderError } from "../../lib/backend/repair-receipt-renderer";
-import { repairReceiptHtml } from "../../lib/repair-receipt-template";
+import { renderRepairReceipt, receiptFonts, ReceiptRenderError } from "../../lib/backend/repair-receipt-renderer";
+import { repairReceiptHtml, receiptDensities } from "../../lib/repair-receipt-template";
 import { PDFDocument } from "pdf-lib";
 // A real React receipt on about:blank. Only in-memory providers, icons and the
 // platform origin are seams. No server, storage, account or HTTP is involved.
@@ -281,12 +281,124 @@ async function generating(page:Page,language:PrintLanguage){
  await expect(page.getByRole('link',{name:printLabel('pdfDownload',language)})).toHaveCount(0);
 }
 async function ready(page:Page,after=0){await receiptResponse(page,200,after);await expect(page.locator('dialog')).toHaveAttribute('data-pdf-phase','ready');await expect.poll(()=>page.locator('dialog canvas[aria-hidden="true"]').evaluate((c:HTMLCanvasElement)=>c.width)).toBeGreaterThan(0);await expect(page.locator('dialog canvas[aria-hidden="true"]')).toBeVisible();await expect(page.locator('dialog [role="document"]')).toContainText('DEMO');}
+for (const language of ['it', 'en', 'zh'] as PrintLanguage[]) test(`图片布局三档保留事实与左右分区 ${language}`, async ({ page }) => {
+ const p = projection(fixture(false), language);
+ for (const density of receiptDensities) {
+  const result = await page.evaluate(html => {
+   const doc = new DOMParser().parseFromString(html, 'text/html');
+   const order = doc.querySelector('[data-fold="order"]')!, warranty = doc.querySelector('[data-fold="warranty"]')!;
+   return {
+    orderBlocks: [...order.children].map(node => node.getAttribute('data-block')),
+    warrantyBlocks: [...warranty.children].map(node => node.getAttribute('data-block')),
+    qrCount: doc.querySelectorAll('.qr').length,
+    qrFold: doc.querySelector('.qr')!.closest('[data-fold]')!.getAttribute('data-fold'),
+    qrBlock: doc.querySelector('.qr')!.closest('[data-block]')!.getAttribute('data-block'),
+    helpBlock: doc.querySelector('[data-tracking-help]')!.closest('[data-block]')!.getAttribute('data-block'),
+    dateCount: doc.querySelectorAll('[data-fact="date"]').length,
+    headerDate: order.querySelector('[data-block="shop"] [data-fact="date"]')!.textContent,
+    header: order.querySelector('[data-block="shop"]')!.textContent!,
+    devicePairs: [...order.querySelectorAll('.device .minor [data-fact]')].map(node => node.getAttribute('data-fact')),
+    handoverPairs: [...order.querySelectorAll('.service-row')].map(row => [...row.querySelectorAll('[data-fact]')].map(node => node.getAttribute('data-fact'))),
+    deviceTitle: [...order.querySelectorAll('.model > span')].map(node => ({ key: node.getAttribute('data-fact'), value: node.textContent })),
+    modelBeforeCustomer: Boolean(order.querySelector('.model')!.compareDocumentPosition(order.querySelector('.identity')!) & Node.DOCUMENT_POSITION_FOLLOWING),
+    sharedHandover: order.querySelector('[data-block="faults"]')!.parentElement === order.querySelector('[data-block="service"]')!.parentElement,
+    warrantyBadge: warranty.querySelector('.warranty-head .warranty-period')!.textContent,
+    tableHeaders: [...order.querySelectorAll('thead th')].map(node => node.textContent),
+    totals: [...order.querySelectorAll('[data-block="amount"]')].map(node => ({ inTable: node.parentElement?.tagName === 'TFOOT', label: node.querySelector('th')!.textContent, amount: node.querySelector('td')!.textContent })),
+    headings: [...doc.querySelectorAll('.section-heading,.warranty-head h1')].map(node => node.textContent),
+    facts: [...doc.querySelectorAll('[data-fact]')].map(node => ({ key: node.getAttribute('data-fact'), text: node.textContent! })),
+    terms: [...warranty.querySelectorAll('.terms li')].map(node => node.textContent),
+    rights: warranty.querySelector('.rights')!.textContent,
+    acknowledgement: warranty.querySelector('.terms > p:last-child')!.textContent,
+    signature: warranty.querySelector('.signature')!.textContent!,
+    tracking: order.querySelector('.tracking')!.textContent!,
+    scope: order.querySelector('.scope')!.textContent,
+   };
+  }, repairReceiptHtml(p, { latin: '', chinese: '' }, 'customerCopy', density));
+  expect(result.orderBlocks).toEqual(['shop', 'customer-device', 'requests', 'intake-handover', 'tracking']);
+  expect(result.warrantyBlocks).toEqual(['warranty-header', 'terms', 'signature']);
+  expect(result.qrCount).toBe(1); expect(result.qrFold).toBe('order'); expect(result.qrBlock).toBe('shop'); expect(result.helpBlock).toBe('tracking');
+  expect(result.dateCount).toBe(1); expect(result.headerDate).toBe(p.identity.find(row => row.key === 'date')!.value);
+  expect(result.header.split(p.orderId)).toHaveLength(2);
+  expect(result.deviceTitle).toEqual(['brand', 'model'].map(key => ({ key, value: p.device.find(row => row.key === key)!.value })));
+  expect(result.devicePairs).toEqual(['serial', 'category', 'color', 'priority']);
+  expect(result.handoverPairs).toEqual([['diagnosis', 'technician'], ['orderType', 'status'], ['custody', 'accessories'], ['deposit', 'balance']]);
+  expect(result.tableHeaders).toEqual([p.labels.projects, p.labels.amount]);
+  expect(result.totals).toEqual([{ inTable: true, label: p.labels.total, amount: p.total }]);
+  expect(result.headings).toEqual([p.labels.intakeNotes, p.labels.handover, p.labels.warrantyConfirmation, p.labels.signature]);
+  expect(result.modelBeforeCustomer).toBe(true); expect(result.sharedHandover).toBe(true); expect(result.warrantyBadge).toBe(p.warrantyTitle);
+  for (const row of [...p.identity, ...p.device, ...p.shortFacts, ...p.serviceFacts]) {
+   const facts = result.facts.filter(fact => fact.key === row.key);
+   expect(facts).toHaveLength(1); expect(facts[0].text).toContain(row.value);
+  }
+  expect(result.terms).toEqual(p.terms); expect(result.rights).toBe(p.rights); expect(result.acknowledgement).toBe(p.acknowledgement);
+  expect(result.scope).toBe(p.scope); expect(result.signature).toContain(p.signature!.label); expect(result.signature).toContain(p.termsVersion);
+  for (const value of [p.labels.tracking, p.labels.scan, p.labels.keepReceipt, p.labels.trackingLimit]) expect(result.tracking).toContain(value);
+ }
+});
+for (const language of ['it', 'en', 'zh'] as PrintLanguage[]) test(`交接事实续行只在所属字段内 ${language}`, async ({ page }) => {
+ const p = projection(fixture(false), language);
+ await page.setContent(repairReceiptHtml(p, await receiptFonts()));
+ await page.evaluate(() => document.fonts.ready);
+ for (const density of receiptDensities) {
+  const fields = await page.evaluate(density => {
+   document.querySelector<HTMLElement>('main')!.dataset.density = density;
+   return [...document.querySelectorAll('.service-row')].map(row => [...row.querySelectorAll<HTMLElement>('[data-fact]')].map(fact => {
+    const box = fact.getBoundingClientRect(), range = document.createRange(); range.selectNodeContents(fact.querySelector('.fact-value')!);
+    return { key: fact.dataset.fact, value: fact.querySelector('.fact-value')!.textContent, left: box.left, right: box.right, lines: [...range.getClientRects()].map(rect => ({ left: rect.left, right: rect.right, top: rect.top })) };
+   }));
+  }, density);
+  expect(fields.map(row => row.map(field => field.key))).toEqual([['diagnosis', 'technician'], ['orderType', 'status'], ['custody', 'accessories'], ['deposit', 'balance']]);
+  for (const row of fields) {
+   expect(row[0].right).toBeLessThan(row[1].left);
+   for (const field of row) {
+    expect(field.value).toBe(p.serviceFacts.find(fact => fact.key === field.key)!.value);
+    for (const line of field.lines) { expect(line.left).toBeGreaterThanOrEqual(field.left - .5); expect(line.right).toBeLessThanOrEqual(field.right + .5); }
+   }
+  }
+  expect(fields.flat().some(field => new Set(field.lines.map(line => line.top)).size > 1)).toBe(true);
+  writeFileSync(resolve(evidence, `fact-wrap-${language}-${density}.json`), JSON.stringify(fields, null, 2));
+ }
+});
+for (const language of ['it', 'en', 'zh'] as PrintLanguage[]) test(`签署空白不生成签署日期 ${language}`, async ({ page }) => {
+ for (const history of [false, true]) {
+  const input = fixture(false);
+  if (history) input.data.serial = 'DEMO-SERIAL-CHANGED'; else input.signatures = [];
+  const p = projection(input, language); expect(p.signature).toBeNull();
+  const result = await page.evaluate(html => {
+   const doc = new DOMParser().parseFromString(html, 'text/html'), signature = doc.querySelector('.signature')!;
+   return { ink: signature.querySelectorAll('svg').length, date: signature.querySelector('.signature-date span:last-child')!.textContent, text: signature.textContent! };
+  }, repairReceiptHtml(p, { latin: '', chinese: '' }));
+  expect(result.ink).toBe(0); expect(result.date).toBe(''); expect(result.text).toContain(printLabel('signedAt', language));
+  if (history) expect(result.text).toContain(p.signatureHistory);
+ }
+});
+test('复杂旧单查单说明静态唯一且普通或未签不移栏', async ({ page }) => {
+ const complex = coverageFixture('apple-no-request'), mismatch = structuredClone(complex), unsigned = structuredClone(complex);
+ mismatch.data.serial = 'DEMO-SERIAL-CHANGED';
+ unsigned.signatures = [];
+ for (const language of ['it', 'en', 'zh'] as PrintLanguage[]) for (const [input, fold] of [[complex, 'warranty'], [mismatch, 'warranty'], [unsigned, 'order'], [fixture(false), 'order']] as const) {
+  const p = projection(input, language);
+  if (fold === 'warranty') { expect(p.merged).toBe(false); expect(p.reviewQuotes.length).toBeGreaterThan(0); expect(Boolean(p.signature || p.signatureHistory)).toBe(true); }
+  if (input === mismatch) { expect(p.signature).toBeNull(); expect(p.signatureHistory).not.toBe(''); }
+  if (input === unsigned) { expect(p.signature).toBeNull(); expect(p.signatureHistory).toBe(''); }
+  const positions = await page.evaluate(htmls => htmls.map(html => {
+   const doc = new DOMParser().parseFromString(html, 'text/html'), help = doc.querySelector('[data-tracking-help]')!;
+   return { qrCount: doc.querySelectorAll('.qr').length, qrFold: doc.querySelector('.qr')!.closest('[data-fold]')!.getAttribute('data-fold'), helpCount: doc.querySelectorAll('[data-tracking-help]').length, trackingCount: doc.querySelectorAll('[data-block="tracking"]').length, helpFold: help.closest('[data-fold]')!.getAttribute('data-fold'), help: help.textContent!, history: doc.querySelector('.signature-history')?.textContent, reviewCount: doc.querySelectorAll('.signature-review').length, dateCount: doc.querySelectorAll('.signature-date').length };
+  }), receiptDensities.map(density => repairReceiptHtml(p, { latin: '', chinese: '' }, 'customerCopy', density)));
+  for (const position of positions) {
+   expect(position.qrCount).toBe(1); expect(position.qrFold).toBe('order'); expect(position.helpCount).toBe(1); expect(position.trackingCount).toBe(1); expect(position.helpFold).toBe(fold);
+   for (const value of [p.labels.tracking, p.labels.scan, p.labels.keepReceipt, p.labels.trackingLimit]) expect(position.help).toContain(value);
+   if (input === mismatch) { expect(position.history).toBe(p.signatureHistory); expect(position.reviewCount).toBe(1); expect(position.dateCount).toBe(1); }
+  }
+ }
+});
 for(const paper of ['a4','a5','half','double'] as const)for(const language of ['it','en','zh'] as PrintLanguage[])test(`单页母版真实PDF ${paper}/${language}`,async({page},info)=>{
  const input=fixture(false);expect(validLocalIntake(input.data)).toBe(true);expect(validIntakeSignature(input.signatures[0])).toBe(true);
  const result=await contentProof(input,paper,language);expect(result.p.merged).toBe(true);expect(result.p.rows).toHaveLength(3);expect(result.p.intakeServices).toHaveLength(4);expect(result.output).toContain(normalized(printLabel('customerCopy',language)));if(paper==='double')expect(result.output).toContain(normalized(printLabel('shopCopy',language)));
  const mounted=await mount(page,input);await selectPrint(page,paper,language);await ready(page);
  const href=await page.getByRole('link',{name:printLabel('pdfDownload',language)}).getAttribute('href');const actual=await page.evaluate(async url=>Array.from(new Uint8Array(await (window as unknown as {receiptBlobs:Record<string,Blob>}).receiptBlobs[url!].arrayBuffer())),href);expect(Buffer.from(actual)).toEqual(Buffer.from(result.bytes));
- const a4=await generate(input,'a4',language),a5=await generate(input,'a5',language);expect(normalized(await text(a4.bytes))).toBe(normalized(await text(a5.bytes)));expect(a4.measurements).toEqual(a5.measurements);expect(a4.measurements[0].density).toBe(language==='zh'?'spacious':'standard');
+ const a4=await generate(input,'a4',language),a5=await generate(input,'a5',language);expect(normalized(await text(a4.bytes))).toBe(normalized(await text(a5.bytes)));expect(a4.measurements).toEqual(a5.measurements);expect(a4.measurements[0].density).toBe('standard');
  writeFileSync(resolve(evidence,`${info.project.name}-${language}-${paper}.pdf`),result.bytes);writeFileSync(resolve(evidence,`${info.project.name}-${language}-${paper}.json`),JSON.stringify({measurements:result.measurements,sha256:createHash('sha256').update(result.bytes).digest('hex'),sourceInputs,cssInputs}));expect(mounted.observed.external).toEqual([]);expect(mounted.observed.errors).toEqual([]);
 });
 for(const scenario of coverageScenarios)for(const language of ['it','en','zh'] as PrintLanguage[])test(`完整原文真实PDF ${scenario}/${language}`,async({page},info)=>{
@@ -331,7 +443,9 @@ for(const width of [1440,1024,390,375])test(`四宽真实PDF预览触控 ${width
  await page.setViewportSize({width,height:900});const mounted=await mount(page);await ready(page);
  for(const target of await page.locator('dialog button:not(select button),dialog a[download],dialog select').all()){if(!await target.isVisible())continue;const b=await target.boundingBox();expect(b!.height).toBeGreaterThanOrEqual(44);expect(b!.width).toBeGreaterThanOrEqual(44);}
  const widths=await page.evaluate(()=>({body:document.body.scrollWidth,window:window.innerWidth,dialog:document.querySelector('dialog')!.getBoundingClientRect().width}));expect(widths.body).toBeLessThanOrEqual(widths.window);expect(widths.dialog).toBeLessThanOrEqual(width);
- const pixels=await page.locator('dialog canvas[aria-hidden="true"]').evaluate((canvas:HTMLCanvasElement)=>{const data=canvas.getContext('2d')!.getImageData(0,0,canvas.width,canvas.height).data;let dark=0;for(let i=0;i<data.length;i+=4)if(data[i]<150&&data[i+1]<150&&data[i+2]<150)dark++;return dark;});expect(pixels).toBeGreaterThan(100);
+ // PDF.js paints the bitmap independently of the selectable text layer.
+ // Wait for real pixels, including an in-flight ResizeObserver redraw.
+ await expect.poll(()=>page.locator('dialog canvas[aria-hidden="true"]').evaluate((canvas:HTMLCanvasElement)=>{const data=canvas.getContext('2d')!.getImageData(0,0,canvas.width,canvas.height).data;let dark=0;for(let i=0;i<data.length;i+=4)if(data[i]<150&&data[i+1]<150&&data[i+2]<150)dark++;return dark;})).toBeGreaterThan(100);
  await page.screenshot({path:resolve(evidence,`pdfjs-${info.project.name}-${width}.png`),fullPage:true});
  await page.locator('select').nth(2).selectOption('1');await expect.poll(()=>page.locator('dialog canvas[aria-hidden="true"]').evaluate((c:HTMLCanvasElement)=>parseFloat(c.style.width))).toBeGreaterThan(700);
  await page.locator('select').nth(2).selectOption('fit');await expect.poll(()=>page.locator('dialog canvas[aria-hidden="true"]').evaluate((c:HTMLCanvasElement)=>c.getBoundingClientRect().width)).toBeLessThan(width);
@@ -365,7 +479,7 @@ test('中文与兼容部首客户原文逐码点保留可选文本',async()=>{co
 // browser fixture above has three faults and a longer accessory description;
 // this boundary fixture starts from the two-fault display sample.
 for (let lines = 1; lines <= 12; lines++) test(`自然内容留白边界 ${lines} 行`, async () => {
- const expectedDensity = lines === 1 ? 'spacious' : lines === 2 ? 'standard' : lines <= 7 ? 'compact' : 'refused';
+ const expectedDensity = lines === 1 ? 'standard' : lines <= 3 ? 'compact' : 'refused';
  const input = fixture(false);
  input.data.faults = input.data.faults!.slice(0, 2);
  input.data.accessories = ['SIM 卡', '数据线'];

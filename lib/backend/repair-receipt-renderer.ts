@@ -44,14 +44,11 @@ export async function renderRepairReceipt(projection: RepairPrintProjection, pap
       const attempts: ReceiptMeasurements["attempts"] = [];
       let metric: ReceiptMeasurements | undefined;
       for (const density of receiptDensities) {
-        // Reuse the loaded document and fonts. The compact fallback only
-        // relocates auxiliary tracking text; no business facts are removed.
+        // Reuse the loaded document and fonts. Only spacing changes between
+        // densities; the template fixes the QR and help positions from the facts.
         if (density !== receiptDensities[0]) {
           await page.evaluate(selected => {
             document.querySelector<HTMLElement>("main")!.dataset.density = selected;
-            const help = document.querySelector("[data-tracking-help]")!;
-            if (selected === "compact") document.querySelector(".warranty-head>div")!.append(help);
-            else document.querySelector(".tracking")!.prepend(help);
           }, density);
         }
         const measured = await page.evaluate(() => {
