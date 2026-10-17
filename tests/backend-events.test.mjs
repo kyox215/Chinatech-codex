@@ -106,6 +106,18 @@ test("SSE refuses cross-site/origin and scope injection before consulting the se
   assert.equal(h.accessCalls, 0); assert.equal(h.clients.length, 0);
 });
 
+test("SSE accepts only a single explicit native EventSource store scope", async () => {
+  const h = harness();
+  const response = await h.call({}, "?storeId=" + storeId);
+  assert.equal(response.status, 200); assert.equal(h.accessCalls, 1);
+  await response.body.cancel();
+  for (const suffix of ["?storeId=", "?storeId=foreign", "?storeId=" + storeId + "&storeId=" + storeId, "?storeId=" + storeId + "&topic=anything", "?unknown=1"]) {
+    const rejected = harness(); assert.equal((await rejected.call({}, suffix)).status, 400); assert.equal(rejected.accessCalls, 0); assert.equal(rejected.clients.length, 0);
+  }
+  const conflict = harness(); assert.equal((await conflict.call({"x-ct-store-id":"00000000-0000-4000-8000-000000000004"}, "?storeId=" + storeId)).status, 400); assert.equal(conflict.accessCalls, 0);
+  for (const status of [401,403]) { const denied=harness(); denied.access=new denied.BackendError("Synthetic current access denied",status); assert.equal((await denied.call({},"?storeId="+storeId)).status,status); assert.equal(denied.clients.length,0); }
+});
+
 test("SSE returns anonymous 401 and unauthorized 403 without opening a socket", async () => {
   const h = harness(); h.access = new h.BackendError("Synthetic missing session", 401);
   assert.equal((await h.call()).status, 401);
