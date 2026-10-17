@@ -36,6 +36,7 @@ export function backendCustomerDetailsEnabled(){return process.env.BACKEND_CUSTO
 export function backendCustomerListsEnabled() { return process.env.BACKEND_CUSTOMER_LIST_READS === "1"; }
 export function backendRepairListsEnabled() { return process.env.BACKEND_REPAIR_LIST_READS === "1"; }
 export function backendProcurementListsEnabled() { return process.env.BACKEND_PROCUREMENT_LIST_READS === "1"; }
+export function backendV2CommandsEnabled(){return process.env.BACKEND_COMMAND_V2==='1';}
 export function backendV2ReadsEnabled() { return process.env.BACKEND_V2_READS !== "0"; }
 function scopeFor(access: ReadAccess, member: StaffMember): BackendReadScope {
   return { formatVersion: 2, accountId: access.identity.userId, sessionId: access.identity.sessionId, storeId: access.storeId, memberId: member.id, memberRevision: member.revision, permissions: [...member.permissions].sort() };
@@ -47,12 +48,12 @@ async function sessionInTransaction(tx: TransactionSql, access: ReadAccess, memb
 }
 export function sessionSnapshot(bootstrap: SessionBootstrap): BackendSnapshot {
   const snapshot: BackendSnapshot = { customerListEnabled: backendCustomerListsEnabled(), storeId: bootstrap.scope.storeId, revision: bootstrap.revision, staff: { revision: bootstrap.revision, currentId: bootstrap.member.id, members: [bootstrap.member], audit: [] }, settings: null, intakes: [], signatures: [], workflows: {}, procurement: [], retail: [], retailHistory: [], customers: [], read: { formatVersion: 2, scope: bootstrap.scope, plan: { kind: "session" }, ready: ["staff"] } };
-  snapshot.customerDetailEnabled=backendCustomerDetailsEnabled();snapshot.retailFormEnabled=backendRetailFormsEnabled();snapshot.retailListEnabled=backendRetailListsEnabled();snapshot.procurementListEnabled=backendProcurementListsEnabled();snapshot.repairListEnabled=backendRepairListsEnabled();
+  snapshot.commandResultVersion=backendV2CommandsEnabled()?2:undefined;snapshot.customerDetailEnabled=backendCustomerDetailsEnabled();snapshot.retailFormEnabled=backendRetailFormsEnabled();snapshot.retailListEnabled=backendRetailListsEnabled();snapshot.procurementListEnabled=backendProcurementListsEnabled();snapshot.repairListEnabled=backendRepairListsEnabled();
   snapshot.stateToken = pageToken(snapshot);
   return snapshot;
 }
 function pageToken(snapshot: BackendSnapshot, listGeneration?: string,procurementGeneration?:string,repairToken?:string,retailGeneration?:string,customerDetailToken?:string) {
-  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.customerListEnabled,snapshot.customerDetailEnabled,snapshot.retailListEnabled,snapshot.retailFormEnabled,snapshot.procurementListEnabled,snapshot.repairListEnabled,snapshot.customerListEnabled?customerListResponseVersion:null,snapshot.procurementListEnabled?procurementListResponseVersion:null, listGeneration,procurementGeneration,repairToken,retailGeneration,customerDetailToken])).digest("hex");
+  return createHash("sha256").update(JSON.stringify([backendScopeKey(snapshot.read!.scope), snapshot.revision, pagePlanKey(snapshot.read!.plan), snapshot.staff.members, snapshot.commandResultVersion, snapshot.customerListEnabled,snapshot.customerDetailEnabled,snapshot.retailListEnabled,snapshot.retailFormEnabled,snapshot.procurementListEnabled,snapshot.repairListEnabled,snapshot.customerListEnabled?customerListResponseVersion:null,snapshot.procurementListEnabled?procurementListResponseVersion:null, listGeneration,procurementGeneration,repairToken,retailGeneration,customerDetailToken])).digest("hex");
 }
 export async function loadSessionBootstrap(access: ReadAccess) {
   return withReadDatabase(access.identity, access.storeId, async tx => sessionInTransaction(tx, access, await memberForRead(tx, access.storeId, access.identity.userId)));

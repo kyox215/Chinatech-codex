@@ -17,13 +17,19 @@ const intake = () => ({ id: repairId, revision: 1, createdAt: time, updatedAt: t
 
 function harness() {
   class BackendError extends Error { constructor(message, status = 400, code) { super(message); this.status = status; this.code = code; } }
-  const h = { member: structuredClone(member), state: { storeId, revision: 1, intakes: [intake()], signatures: [], workflows: {}, procurement: [], customers: [], settings: {}, staff: { currentId: member.id, members: [member] }, retail: [] }, photos: new Map(), receipts: new Map(), audits: new Map(), failPhotoWrite: false };
-  const modules = new Map(), sandbox = createContext({ Buffer, console, Intl, Date, structuredClone, URL, process: { env: {} } });
+  const h = { member: structuredClone(member), state: { storeId, revision: 1, intakes: [intake()], signatures: [], workflows: {}, procurement: [], customers: [], settings: {}, staff: { currentId: member.id, members: [member] }, retail: [] }, photos: new Map(), receipts: new Map(), results: new Map(), effects: new Map(), audits: new Map(), failPhotoWrite: false };
+  const modules = new Map(), sandbox = createContext({ Buffer, console, Intl, Date, structuredClone, URL, performance, process: { env: {} } });
   const tx = (strings, ...values) => {
     if(!strings.raw)return strings;
     const query = strings.join("?").replace(/\s+/g, " ").trim();
+    if (query.startsWith("select revision,jsonb_build_object")) return [{ revision: h.state.revision, defaults: h.state.settings, suppliers: values[0] ? h.state.settings.suppliers : null, full_settings: values[1] ? h.state.settings : null, audit: values[2] ? h.state.staff.audit : null }];
     if (query.startsWith("select pg_advisory") || query.startsWith("select revision")) return [];
-    if (query.startsWith("select digest")) return h.receipts.has(values[2]) ? [{ digest: h.receipts.get(values[2]) }] : [];
+    if (query.startsWith("select data,repair_id")) return h.state.procurement.filter(row => values[1].includes(row.id)).map(data => ({ data, repair_id: data.repairId }));
+    if (query.startsWith("select data,workflow,case")) return h.state.intakes.filter(row => values[2].includes(row.id)).map(data => ({ data, workflow: h.state.workflows[data.id], signatures: values[0].includes(data.id) ? h.state.signatures.filter(row => row.orderId === data.id) : null }));
+    if (query.startsWith("select data from chinatech_v2_private.procurement_records")) return h.state.procurement.filter(row => values[1].includes(row.repairId) || values[2].includes(row.id)).map(data => ({ data }));
+    if (query.startsWith("select id,coalesce")) return h.state.intakes.filter(row => values[1].includes(row.id)).map(data => ({ id: data.id, version: data.revision ?? 1, workflow_revision: h.state.workflows[data.id]?.revision ?? 0, signature_count: h.state.signatures.filter(row => row.orderId === data.id).length, updated_at: data.updatedAt }));
+    if (query.startsWith("select id,jsonb_array_length")) return h.state.procurement.filter(row => values[1].includes(row.id)).map(data => ({ id: data.id, version: data.events.length }));
+    if (query.startsWith("select digest")) return h.receipts.has(values[2]) ? [{ digest: h.receipts.get(values[2]), result: h.results.get(values[2]) ?? null }] : [];
     if (query.startsWith("select a.entity_id")) return h.audits.has(values[2]) ? [h.audits.get(values[2])] : [];
     if (query.startsWith("insert into chinatech_v2_private.intake_photos")) {
       if (h.failPhotoWrite) throw new BackendError("Synthetic photo write failure", 503);
@@ -36,11 +42,11 @@ function harness() {
     if (query.startsWith("insert into chinatech_v2_private.procurement_records")) { for(const row of values[1]){const index=h.state.procurement.findIndex(record=>record.id===row.id);if(index<0)h.state.procurement.push(row.data);else h.state.procurement[index]=row.data;}return []; }
     if (query.startsWith("update chinatech_v2_private.repair_intakes set data=jsonb_set")) { h.state.intakes=h.state.intakes.map(row=>values[2].includes(row.id)?{...row,updatedAt:values[0]}:row);return []; }
     if (query.startsWith("select customer_id,device_id")) return [{ customer_id: "customer", device_id: "device" }];
-    if (query.startsWith("insert into chinatech_v2_private.repair_intakes")) { const index = h.state.intakes.findIndex(row => row.id === values[1]); h.state.intakes[index] = values[4]; h.state.signatures = values[5]; return []; }
+    if (query.startsWith("insert into chinatech_v2_private.repair_intakes")) { const index = h.state.intakes.findIndex(row => row.id === values[1]); h.state.intakes[index] = values[4]; if (values[6]) h.state.signatures = values[5]; return []; }
     if (query.startsWith("update chinatech_v2_private.repair_intakes set workflow=")) { h.state.workflows[values[2]] = values[0]; return []; }
-    if (query.startsWith("insert into chinatech_v2_private.command_receipts")) { h.receipts.set(values[2], values[3]); return []; }
-    if (query.startsWith("insert into chinatech_v2_private.audit_events")) { h.audits.set(values[2], { kind: values[3], entity_id: values[4], created_at: "2026-10-15T12:00:00.000Z" }); return []; }
-    if (query.startsWith("update chinatech_v2_private.store_state set revision=")) { h.state.revision++; return []; }
+    if (query.startsWith("insert into chinatech_v2_private.command_receipts")) { h.receipts.set(values[2], values[3]); h.results.set(values[2], values[4]); h.effects.set(values[2], values[5]); return []; }
+    if (query.startsWith("insert into chinatech_v2_private.audit_events")) { h.audits.set(values[2], { kind: values[3], entity_id: values[4], created_at: "2026-10-15T12:00:00.000Z" }); return [{ created_at: "2026-10-15T12:00:00.000Z" }]; }
+    if (query.startsWith("update chinatech_v2_private.store_state set revision=")) { h.state.revision++; return [{ revision: h.state.revision }]; }
     throw new Error("Unexpected synthetic SQL: " + query);
   };
   tx.json = value => JSON.parse(JSON.stringify(value));
@@ -49,7 +55,7 @@ function harness() {
     const file = (name.startsWith("@/") ? resolve(root, name.slice(2)) : resolve(from, name)).replace(/\.ts$/, "") + ".ts";
     if (file.endsWith("/backend/database.ts")) return { BackendError, withDatabase: async (_identity, scope, run) => {
       if (scope !== storeId) throw new BackendError("Synthetic foreign store", 403);
-      const before = structuredClone({ state: h.state, photos: h.photos, receipts: h.receipts, audits: h.audits });
+      const before = structuredClone({ state: h.state, photos: h.photos, receipts: h.receipts, results: h.results, effects: h.effects, audits: h.audits });
       try { return await run(tx); } catch (error) { Object.assign(h, before); throw error; }
     } };
     if (file.endsWith("/backend/context.ts")) return { memberInTransaction: async () => h.member };

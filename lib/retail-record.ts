@@ -1,4 +1,4 @@
-import { emptyRetailUnit, normalizeImei, retailCategories, validateRetailUnit, type Inspection, type RetailCategory, type RetailEvent, type RetailUnit } from "./retail";
+import { emptyRetailUnit, normalizeImei, retailCategories, validateRetailUnit, type Inspection, type RetailCategory, type RetailEvent, type RetailUnit, type RetailIdentity } from "./retail";
 import { retailHistoryCode, validateRetailHistoryRecord, type RetailHistoryRecord } from "./retail-history";
 
 export type RetailRecordPreparation = {
@@ -46,7 +46,7 @@ export function initialRecordPreparation(record: RetailHistoryRecord): RetailRec
     identifier: record.identifier || "", storeOwned: false, checks: { functional: false, ownership: false, data: false } };
 }
 
-export function prepareRetailRecord(record: RetailHistoryRecord, draft: RetailRecordPreparation, warrantyMonths: number | null, event: RetailEvent, others: RetailUnit[]): RetailUnit {
+export function prepareRetailRecord(record: RetailHistoryRecord, draft: RetailRecordPreparation, warrantyMonths: number | null, event: RetailEvent, others: readonly RetailIdentity[]): RetailUnit {
   validateRetailHistoryRecord(record);
   if (isSoldSource(record)) throw new Error("原已售记录保留历史，不能重新登记为待售商品。");
   if (!draft || typeof draft !== "object" || Array.isArray(draft) || Object.keys(draft).sort().join(",") !== "brand,category,checks,identifier,identifierKind,model,storeOwned"

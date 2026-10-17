@@ -9,6 +9,7 @@ import type { RetailHistoryRecord } from "../retail-history";
 import type { BackendReadState } from "./read-plan";
 
 export type BackendSnapshot = {
+  commandResultVersion?:2;
   read?: BackendReadState;
   customerDetailEnabled?:boolean;
   customerDetail?:import("./customer-detail-contract").CustomerDetailPage;

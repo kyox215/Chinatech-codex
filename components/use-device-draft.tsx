@@ -71,14 +71,15 @@ export function useDeviceDraft<T>(form:string,data:T,restore:(data:T)=>void,acti
   async function discard(draftId:string){await removeDeviceDraft(draftId);setCandidates(rows=>rows.filter(row=>row.id!==draftId));}
   return {enabled:!!scope,status,candidates,recover,discard,clear};
 }
-export function DeviceDraftNotice({draft,disabled=false}:{draft:Omit<ReturnType<typeof useDeviceDraft>,"clear">;disabled?:boolean}) {
+export function DeviceDraftNotice({draft,disabled=false,confirmed=false}:{draft:Omit<ReturnType<typeof useDeviceDraft>,"clear">;disabled?:boolean;confirmed?:boolean}) {
   const { t , systemText } = useLanguage();
   const [selected,setSelected]=useState("");
   const [error,setError]=useState("");
   if(!draft.enabled)return null;
   const chosen=selected||draft.candidates[0]?.id||"";
+  const status=confirmed&&draft.status==="草稿已保存在此设备，尚未提交门店。"?"提交已确认保存。":draft.status;
   return <section className="device-draft" aria-label={t("设备草稿")}>
-    {draft.status?<p role="status">{systemText(draft.status)}</p>:null}
+    {status?<p role="status">{systemText(status)}</p>:null}
     {draft.candidates.length?<div className="sync-recovery__actions"><label className="field"><span>{t("此账号在本设备的草稿")}</span><SelectControl disabled={disabled} aria-label={t("选择设备草稿")} value={chosen} onChange={event=>{if(!disabled)setSelected(event.target.value);}}>{draft.candidates.map(row=><option key={row.id} value={row.id}>{new Date(row.updatedAt).toLocaleString()} · {row.id.slice(0,6)}</option>)}</SelectControl></label><button type="button" className="button button--secondary" disabled={disabled} onClick={()=>{if(!disabled)draft.recover(chosen);}}>{t("恢复草稿")}</button><button type="button" className="button button--secondary" disabled={disabled} onClick={()=>{if(disabled)return;void draft.discard(chosen).then(()=>setSelected("")).catch(()=>setError("草稿删除失败，原资料仍保留。"));}}>{t("删除所选草稿")}</button></div>:null}
     {error?<p className="form-error" role="alert">{systemText(error)}</p>:null}
   </section>;

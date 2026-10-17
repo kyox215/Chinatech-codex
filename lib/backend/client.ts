@@ -1,4 +1,6 @@
 "use client";
+import{parseCommandResult}from'./command-result-contract';
+import type{CommandResult}from'./command-result';
 import{flushSync}from'react-dom';
 import{readResponseObject}from'./read-response';
 import{retailCopyFacts}from'./retail-form-contract';
@@ -18,7 +20,7 @@ let operationGeneration=0;
 let recoveryOperationGeneration=0;
 const listeners=new Set<()=>void>();
 const recoveryListeners=new Set<()=>void>();
-export type RecoveryStatus={busy:boolean;pending:PendingOperation|null;message:string;receipt?:OperationReceipt;resolution?:{requestId:string;status:"rejected"|"cancelled"}};
+export type RecoveryStatus={busy:boolean;pending:PendingOperation|null;message:string;receipt?:OperationReceipt;resolution?:{requestId:string;status:"rejected"|"cancelled"};readPending?:boolean;readError?:string;result?:CommandResult};
 let recovery:RecoveryStatus={busy:false,pending:null,message:""};
 export function backendRecovery(){return recovery;}
 /** Document-local sender activity; a retained prepared intent is not necessarily being sent. */
@@ -52,7 +54,7 @@ function accept(next:BackendSnapshot,scope:ReturnType<typeof requestScope>,allow
   // The v1 command/recovery adapter remains compatible during migration. It may
   // return canonical state, but must never reset the page's v2 polling protocol.
   if (snapshot.read && !next.read) {
-    next={...next,customerDetailEnabled:snapshot.customerDetailEnabled,retailFormEnabled:snapshot.retailFormEnabled,retailListEnabled:snapshot.retailListEnabled,procurementListEnabled:snapshot.procurementListEnabled,repairListEnabled:snapshot.repairListEnabled};
+    next={...next,commandResultVersion:snapshot.commandResultVersion,customerDetailEnabled:snapshot.customerDetailEnabled,retailFormEnabled:snapshot.retailFormEnabled,retailListEnabled:snapshot.retailListEnabled,procurementListEnabled:snapshot.procurementListEnabled,repairListEnabled:snapshot.repairListEnabled};
     const member = next.staff.members.find(row => row.id === next.staff.currentId);
     // Derive form metadata only from this newly authorized canonical v1 result.
     // An earlier page's defaults are not evidence of current policy after a save.
@@ -130,7 +132,32 @@ export function refreshBackend():Promise<void> {
   void promise.finally(()=>{if(refreshFlight===promise)refreshFlight=null;}).catch(()=>{});
   return promise;
 }
-async function complete(operation:PendingOperation,next:BackendSnapshot,scope:ReturnType<typeof requestScope>){
+async function refreshConfirmed(scope:ReturnType<typeof requestScope>){
+  if(!sameScope(scope))return;
+  recoveryUpdate({...recovery,readPending:true,readError:""});
+  // A read begun before commit is not evidence of the newly committed facts.
+  // Its eventual response still faces normal scope/revision checks.
+  refreshFlight=null;
+  try{await refreshBackend();if(sameScope(scope))recoveryUpdate({...recovery,readError:""});}
+  catch{if(sameScope(scope))recoveryUpdate({...recovery,readError:"后台暂时不可用，当前输入已保留。 "});}
+  finally{if(sameScope(scope))recoveryUpdate({...recovery,readPending:false});}
+}
+export async function retryConfirmedRead(){if(snapshot)await refreshConfirmed(requestScope());}
+async function complete(operation:PendingOperation,next:BackendSnapshot|CommandResult,scope:ReturnType<typeof requestScope>){
+  if("formatVersion" in next&&next.formatVersion===2){
+    const result=parseCommandResult(next,operation.command);
+    if(!sameScope(scope))throw new Error("身份已变化，请重新打开资料。");
+    let message="提交已确认保存。";
+    try{await forgetOperation(operation.scope,operation.command.requestId);}catch{message="门店已保存，设备恢复记录尚未清理；可再次核对。";}
+    if(!sameScope(scope))throw new Error("身份已变化，请重新打开资料。");
+    recoveryUpdate({busy:false,pending:message.startsWith("门店")?operation:null,message,receipt:result.operation,result});
+    // Result confirmation is durable before this separate authorized page read.
+    // A failed read must never restore an unknown intent or reject the commit.
+    await refreshConfirmed(scope);return result;
+  }
+  const legacy=next as BackendSnapshot;return completeLegacy(operation,legacy,scope);
+}
+async function completeLegacy(operation:PendingOperation,next:BackendSnapshot,scope:ReturnType<typeof requestScope>){
   if(!sameScope(scope))throw new Error("身份已变化，请重新打开资料。");
   if(!next.operation || next.operation.requestId!==operation.command.requestId)throw new Error("提交回执尚未确认，请核对原请求。");
   accept(next,scope);
@@ -149,7 +176,7 @@ async function send(operation:PendingOperation,scope:ReturnType<typeof requestSc
   operation={...operation,phase:"unknown"};
   recoveryUpdate({busy:true,pending:operation,message:"正在提交…"});
   try {
-    const {response,data}=await request("/api/backend/command",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(operation.command)});
+    const {response,data}=await request(snapshot?.commandResultVersion===2?"/api/backend/v2/command":"/api/backend/command",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(operation.command)});
     if(!sameScope(scope))throw new Error("身份已变化，请重新打开资料。");
     if(redirectIdentity(response.status,data.code))throw new Error("登录身份已变化，请重新登录后核对原提交。");
     if(!response.ok){
@@ -160,7 +187,7 @@ async function send(operation:PendingOperation,scope:ReturnType<typeof requestSc
       if(response.status===409 || response.status===403)await refreshBackend().catch(()=>{});
       throw new Error(data.message||"提交未完成，请核对。");
     }
-    return await complete(operation,data as BackendSnapshot,scope);
+    return await complete(operation,data as BackendSnapshot|CommandResult,scope);
   } catch(error){
     if(sameScope(scope)){
       const pending=await pendingOperation(operation.scope).catch(()=>operation);
@@ -191,12 +218,12 @@ export async function recoverOperation(action:"check"|"retry"|"cancel",expectedR
     const operation=await pendingOperation(key);if(!operation || !sameScope(scope) || expectedRequestId&&operation.command.requestId!==expectedRequestId)return;
     recoveryUpdate({busy:true,pending:operation,message:action==="cancel"?"正在核对并撤销未完成提交…":"正在核对原提交…"});
     const args={storeId:operation.command.storeId,memberId:operation.command.memberId,requestId:operation.command.requestId};
-    const url="/api/backend/operation";
+    const url=snapshot?.commandResultVersion===2?"/api/backend/v2/operation":"/api/backend/operation";
     const {response,data}=await request(action==="cancel"?url:`${url}?${new URLSearchParams(args)}`,action==="cancel"?{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(args)}:undefined);
     if(!sameScope(scope))return;
     if(redirectIdentity(response.status,data.code))return;
     if(!response.ok)throw new Error(data.message||"暂时无法核对原提交。");
-    if(data.status==="committed"){await complete(operation,data.snapshot,scope);return;}
+    if(data.status==="committed"){await complete(operation,data.result??data.snapshot,scope);return;}
     if(data.status==="cancelled"){
       await forgetOperation(key,operation.command.requestId);
       if(!sameScope(scope))return;

@@ -3,11 +3,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import ts from "typescript";
+import{resolveDataUrlPackages}from"./helpers/data-url-dependencies.mjs";
 import { adaptPreviewHookImports } from "./helpers/preview-hook-loader.mjs";
 
 const urls = new Map();
 const overrides = {
-  "lib/backend/client": 'export const isBackendClient=()=>false,backendSnapshot=()=>null,subscribeBackend=()=>()=>{};export function backendCommand(){throw new Error("Unexpected backend call");}',
+  "lib/backend/client": 'export const isBackendClient=()=>false,backendSnapshot=()=>null,subscribeBackend=()=>()=>{};export function backendCommand(){throw new Error("Unexpected backend call");}export function clearBackend(){throw new Error("Unexpected backend identity clear");}',
   "lib/staff-client": 'export function requirePreviewPermission(){return globalThis.__repairReworkActor();}',
 };
 function moduleUrl(name) {
@@ -19,6 +20,7 @@ function moduleUrl(name) {
     const key = dependency.startsWith("@/") ? dependency.slice(2) : path.posix.normalize(path.posix.join(path.posix.dirname(name), dependency));
     return `from "${moduleUrl(key)}"`;
   });
+  code=resolveDataUrlPackages(code);
   const url = "data:text/javascript;base64," + Buffer.from(code + `\n//# sourceURL=${name}.js`).toString("base64");
   urls.set(name, url); return url;
 }

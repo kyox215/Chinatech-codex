@@ -1,4 +1,7 @@
 "use client";
+import {requestBackendEntityPage} from "@/lib/backend/page-read-client";
+import {backendScopeKey} from "@/lib/backend/read-plan";
+import type {OperationReceipt} from "@/lib/backend/contracts";
 import { useBackendStore, useBackendMode } from "@/components/backend-snapshot";
 import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } from "@/lib/backend/client";
 import { currentRetailSale, parseStoredRetailUnits, saleProductUnit, retailCategories } from "@/lib/retail";
@@ -56,8 +59,23 @@ export function intakePolicyFromSettings():IntakePolicy {
   const settings=parseStoreSettings(window.localStorage.getItem("chinatech.m1.store-settings.v1"));
   return {months:settings.repairWarrantyMonths,shopName:settings.shopName,address:settings.address,phone:settings.phone};
 }
+export class ConfirmedIntakeReadError extends Error {
+  constructor(readonly operation:OperationReceipt,readonly retry:()=>Promise<IntakeReceiptData>){super("保存结果暂不可用，请重新读取工单后核对。");}
+}
+export async function readConfirmedIntake(id:string,scope:string){
+  if(!backendSnapshot()?.read?.scope.permissions.includes("repairs.view"))throw new Error("当前账号没有此操作权限。");
+  const page=await requestBackendEntityPage({kind:"repair",id},scope);
+  if("unchanged" in page)throw new Error("保存结果暂不可用，请重新读取工单后核对。");
+  const intake=page.intakes.find(row=>row.id===id);if(!intake)throw new Error("保存结果暂不可用，请重新读取工单后核对。");return intake;
+}
 export function saveLocalIntake(data: IntakeReceiptData, expectedRevision=0, signature?:IntakeSignatureDraft, expectedSignatureCount=0, attachments?: IntakePhotoAttachment[], options?: {requestId?:string}) {
-  if(isBackendClient()) return backendCommand("intake.save",{data,revision:expectedRevision,signature,signatureCount:expectedSignatureCount,...(attachments !== undefined ? {photos:attachments} : {})},options?.requestId).then(state=>{const saved=state.intakes.find(row=>row.id===data.id);if(!saved) throw new Error("保存结果暂不可用，请重新读取工单后核对。");return saved;});
+  if(isBackendClient()) {
+    const current=backendSnapshot(),scope=current?.read?backendScopeKey(current.read.scope):"";
+    return backendCommand("intake.save",{data,revision:expectedRevision,signature,signatureCount:expectedSignatureCount,...(attachments !== undefined ? {photos:attachments} : {})},options?.requestId).then(async result=>{
+      if("formatVersion" in result){const retry=()=>readConfirmedIntake(result.operation.entityId,scope);try{return await retry();}catch{throw new ConfirmedIntakeReadError(result.operation,retry);}}
+      const saved=result.intakes.find(row=>row.id===data.id);if(!saved)throw new Error("保存结果暂不可用，请重新读取工单后核对。");return saved;
+    });
+  }
   const actor = requirePreviewPermission("repairs.edit");
   if(data.retailOrigin) throw new Error("销售售后来源只能通过单机档案建立。");
   return persistIntake(data, "repairs.edit", actor.id,expectedRevision,signature,expectedSignatureCount);
@@ -107,6 +125,7 @@ export async function createRepairRework(input:CreateRepairReworkInput,options?:
   const submitted={...input,reason:input.reason.trim()};
   if(isBackendClient()) {
     const state=await backendCommand("repair.rework",submitted,options?.requestId);
+    if("formatVersion" in state)return state.operation.entityId;
     const saved=state.intakes.find(row=>row.id===submitted.repairId);
     if(!saved || saved.repairOrigin?.repairId!==submitted.sourceId || saved.repairOrigin.reason!==submitted.reason) throw new Error("返修保存结果暂不可用，请重新读取并核对提交回执。");
     return saved.id;
@@ -144,7 +163,7 @@ export function saveIntakeSignature(data:IntakeReceiptData,policy:IntakePolicy,s
 }
 
 export function createRetailAfterSaleRepair(unitId:string,saleId:string,caseId:string,options?:{requestId?:string}) {
-  if(isBackendClient()){const state=backendSnapshot();const unit=state?.retail.find(row=>row.id===unitId);if(!unit) throw new Error("单机资料尚未载入。");const previous=unit.sales.find(row=>row.id===saleId)?.afterSales?.find(row=>row.id===caseId)?.repairId;const repairId=previous??("LOCAL-"+crypto.randomUUID().replaceAll("-", "").slice(0,16).toUpperCase());return backendCommand("retail.aftersale_repair",{unitId,saleId,caseId,repairId,version:unit.version},options?.requestId).then(()=>repairId);}
+  if(isBackendClient()){const state=backendSnapshot();const unit=state?.retail.find(row=>row.id===unitId);if(!unit) throw new Error("单机资料尚未载入。");const previous=unit.sales.find(row=>row.id===saleId)?.afterSales?.find(row=>row.id===caseId)?.repairId;const repairId=previous??("LOCAL-"+crypto.randomUUID().replaceAll("-", "").slice(0,16).toUpperCase());return backendCommand("retail.aftersale_repair",{unitId,saleId,caseId,repairId,version:unit.version},options?.requestId).then(result=>result.operation?.entityId||repairId);}
 
   const actor = requirePreviewPermission("sale.aftersales");
   const units=parseStoredRetailUnits(window.localStorage.getItem("chinatech.m1.retail.v1"),retailUnits);

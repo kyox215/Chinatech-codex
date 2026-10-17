@@ -7,7 +7,7 @@ import { useLanguage } from "@/components/language-provider";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Toast } from "@/components/toast";
 import { useOnline } from "@/components/page-recovery";
-import { configureBackend, releaseBackendBootstrap, canAdoptBackendBootstrap, reconcileBackendInitial, backendReadGeneration, backendSnapshot, subscribeBackend, refreshBackend, loadRecovery, backendRecovery, backendWriting, subscribeRecovery } from "@/lib/backend/client";
+import { configureBackend, releaseBackendBootstrap, canAdoptBackendBootstrap, reconcileBackendInitial, backendReadGeneration, backendSnapshot, subscribeBackend, refreshBackend, retryConfirmedRead, loadRecovery, backendRecovery, backendWriting, subscribeRecovery } from "@/lib/backend/client";
 import type { BackendSnapshot } from "@/lib/backend/contracts";
 import { startRealtimeUpdates } from "@/lib/backend/realtime-client";
 
@@ -56,6 +56,8 @@ export function BackendSyncNotice(){
   const {error,refreshing,retry}=useContext(ConnectionError);
   const recovery=useSyncExternalStore(subscribeRecovery,backendRecovery,backendRecovery);
   const receipt=recovery.receipt;
+  useActivityFeedback(Boolean(recovery.readPending),{kind:"read"});
+  const connectionError=error||recovery.readError||"",reading=refreshing||Boolean(recovery.readPending);
   const online=useOnline();
   const [presentedRequest,setPresentedRequest]=useState<string|null>(null);
   const localControls=useLocalRecoveryControls(recovery.pending?.command.requestId);
@@ -64,7 +66,7 @@ export function BackendSyncNotice(){
   if (needsRecovery && recovery.pending && presentedRequest !== recovery.pending.command.requestId) setPresentedRequest(recovery.pending.command.requestId);
   else if (!recovery.pending && presentedRequest !== null) setPresentedRequest(null);
   const showRecovery = !localControls && (recovery.pending ? needsRecovery || presentedRequest === recovery.pending.command.requestId : Boolean(recovery.message) && !recovery.busy);
-  return <>{error?<div className="sync-connection-notice" data-operation-feedback="background"><p className="form-error" role="status">{systemText(error)}</p><button type="button" className="button button--secondary" disabled={refreshing} aria-busy={refreshing} onClick={retry}>{refreshing?t("正在加载…"):t("重试连接")}</button></div>:null}
+  return <>{connectionError?<div className="sync-connection-notice" data-operation-feedback="background"><p className="form-error" role="status">{systemText(connectionError)}</p><button type="button" className="button button--secondary" disabled={reading} aria-busy={reading} onClick={recovery.readError?()=>void retryConfirmedRead():retry}>{reading?t("正在加载…"):t("重试连接")}</button></div>:null}
     {confirmed ? <Toast priority="global" noticeId={receipt?.requestId ?? `${recovery.resolution!.requestId}:cancelled`} message={systemText(recovery.message)} /> : showRecovery?<section className="panel sync-recovery" aria-label={t("提交恢复")} aria-busy={recovery.busy}>{!recovery.pending ? <p role="status">{systemText(recovery.message)}</p> : null}
       {recovery.pending?<OperationRecoveryControls global requestId={recovery.pending.command.requestId}/>:null}
     </section>:null}</>;

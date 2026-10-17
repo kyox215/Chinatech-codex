@@ -129,3 +129,19 @@ P6本切片先复用共同Auth验证错误分类与安全JSON读取：真实失�
 旧目录手机号／识码／部分search和immutable表达式索引仍有已证Unicode17差异；第9form core通过不代表全域兼容。第10依赖的目录原规则最终须经新增版本迁移、旧索引明确重建、全受影响模型unready→完整回填核验后再整体启用；不把本地ASCII夹具通过当全部Unicode／正式GO。P5最小依赖与回执、P6及完整P7容量／回滚继续。
 
 最终候选构建`iEnlqkCfglCG9rCMP-CGO`仍484运行输入，复用原`module-search`语义壳后16项真实读／导航／三语四宽再次全过，实际截图已检查；O98的共享三域6项与两引擎确认保存→持续同客户读503→唯一POST→就地重试通过按未变逻辑单列。保存测试先以原validator把本轮SQL裸关系准备为有效profile，最终原JSON、750关联事实SHA均还原，各自回执／audit清0；夹具400与WK背景成功读取提前结束错误的工具RED保留。旧v1保存回包实测12,530,478B，P5预算明确仍失败。共享精度回归14／14及独立numeric10组通过；原两轮fractional RED保留。新disk HTTPDB矩阵后OOM计数0，峰值约164MiB／256MiB，不据此宣称万档／P95通过。
+
+## P5 第一阶段：目标依赖与冻结回执（本地候选，未发布）
+
+`BACKEND_COMMAND_V2=0` 默认保留旧协议；显式开启且第12迁移已安装时，SSR 元数据令新客户端调用 `/api/backend/v2/command`、`/api/backend/v2/operation`。相同 `kind/payload` 的原 JSON digest 与 requestId 不变。v1 URL 继续向旧标签返回当前获授权快照，不能把 v1 的全快照性能称为优化完成。
+
+新 CommandDependencies 只读取命令所需目标；维修流程／报价／项目保存读取目标完整同工单采购，批量到货限100选中账本及关联工单，设置写读取并保留未授权财务事实，成员写独立读取完整当前 roster/audit。签名只有显式签署或携带新签名的接机保存才读取笔画；未加载签名的写路径在 SQL UPDATE 保留原列。整机唯一性当前仅读全店窄身份字段并执行原 JS 归一化，仍有全店窄扫描，不冒称已用有界索引；旧 Unicode 不兼容索引不作为唯一性依据。
+
+命令保留 SERIALIZABLE 和店级锁。实际事实写入／审计／store revision／冻结 result/effects 同事务，回执只含格式、门店、原操作、提交 revision 与受影响域计数；完整 ID 和各实体版本存入同条不可更新回执，按当前权限从 operation 的 effects 页面读取，每页50、最多500条。100个合法100字符采购 ID 的实际回执358B，101个完整受影响版本均可分页核对；legacy NULL 回执明确没有冻结版本，不能用现在的版本和时间伪造旧提交。
+
+新客户端确认后先保存原回执并清除未知意图，再单独授权重读当前页面。后读503不会变成保存失败，也不会重发。新接机目标读取失败保留已确认恢复草稿；刷新后恢复仍只读原目标，真实丢响应则只核对原operation。已确认草稿不再显示“尚未提交门店”。局部反馈／草稿和迟到回调绑定身份范围。
+
+第11迁移只把维修摘要采购重投影改为三个 event-specific AFTER STATEMENT transition-table 触发器，每次语句对 distinct repair 一次；采购自身原 ROW 摘要触发器保留。同工单100条实际 writer 加 intake touch 为 generation+2，混合 INSERT/UPDATE 加 touch 为+3；不是整事务永远一次。原 ROW 回滚定义独立保存，正式运维停写／失效／重建协议仍待 P7。
+
+本阶段实际 SQL21组回滚验证、全 Node627（626过／1原 PowerShell 跳过）及后续受影响55项通过。精确生产构建 WTiX4_SsS47puXb3V9rBJ 的真实 Chromium／WebKit 共6项通过：客户确认后读503、接机确认后目标读503＋刷新恢复、提交成功后丢响应＋原请求核对，全部唯一POST。客户回执305B；每引擎2工单／设备及原回执／audit精确清0，客户原JSON和750关联事实保持。错误工具 memberId=undefined 的409与原全Node假SQL适配失败保留。计数、字节、功能与 SQL计时不是完整保存P95；全部容量模型仍unready。
+
+剩余 P5 包括照片预解码移出锁及正式 main 附件／门店安全语义整合、真实维修／采购写代表和1／3保存采样；P3 devices/dashboard/settings、P6细粒度失效／Auth真实HTTP错误／PDF缓存与完整P7容量、Unicode版本重建和回滚继续，不能将本节当全方案完成。

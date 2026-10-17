@@ -9,6 +9,7 @@ import { RotateCcw, X } from "lucide-react";
 import { TextareaControl } from "@/components/input-control";
 import { SelectControl } from "@/components/select-control";
 import { useStaff } from "@/components/staff/use-staff";
+import {backendScopeKey} from "@/lib/backend/read-plan";
 import { backendSnapshot, isBackendClient } from "@/lib/backend/client";
 import { repairListViewScope, readRepairListView, writeRepairListView } from "@/lib/repair-list-view-state";
 import { canCreateRepairRework } from "@/lib/repair-rework";
@@ -35,6 +36,8 @@ function ReworkDialog({ order, onClose }: { order: RepairDirectoryEntry; onClose
   const router = useRouter();
   const staff = useStaff();
   const { workflows, error: storageError } = useRepairWorkflows();
+  const [openedScope]=useState(()=>backendSnapshot()?.read?backendScopeKey(backendSnapshot()!.read!.scope):null);
+  const isCurrent=()=>receipt.isActive()&&(!openedScope||Boolean(backendSnapshot()?.read)&&backendScopeKey(backendSnapshot()!.read!.scope)===openedScope);
   const [opened] = useState(() => ({ sourceRevision: order.intakeRevision ?? 1, workflowRevision: workflows[order.id]?.revision ?? 0, repairId: `LOCAL-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}` }));
   const [reason, setReason] = useState("");
   const [custody, setCustody] = useState<"store" | "customer">("store");
@@ -45,6 +48,7 @@ function ReworkDialog({ order, onClose }: { order: RepairDirectoryEntry; onClose
   const busy = useRef(false), dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => { dialog.current?.showModal(); }, []);
   function finish(id: string) {
+      if(!isCurrent())return;
       const scope = repairListViewScope({ mode: isBackendClient() ? "backend" : "preview", storeId: backendSnapshot()?.storeId ?? "local-preview", member: staff.member });
       if (scope) { const previous = readRepairListView(scope); writeRepairListView(scope, { query: "", status: "all", partsFilter: "all", groupBy: "workflow", sort: previous?.sort ?? "updated", filtersOpen: false, openGroups: { ...previous?.openGroups, rework: true }, view: "active", noticeFilter: "all", scrollY: 0, scrollLeft: 0 }); }
       onClose(); router.push(`/app/repairs/${id}`);
@@ -56,8 +60,8 @@ function ReworkDialog({ order, onClose }: { order: RepairDirectoryEntry; onClose
     try {
       const id = await createRepairRework({ ...opened, sourceId: order.id, reason, custody }, {requestId});
       finish(id);
-    } catch (failure) { receipt.watch(requestId, () => finish(opened.repairId), () => setError("")); setError(failure instanceof Error ? failure.message : "返修单未保存，请重试。"); }
-    finally { busy.current = false; setPending(false); }
+    } catch (failure) { if(!isCurrent())return;receipt.watch(requestId, () => finish(opened.repairId), () => setError("")); setError(failure instanceof Error ? failure.message : "返修单未保存，请重试。"); }
+    finally { busy.current = false; if(isCurrent())setPending(false); }
   }
   return createPortal(<dialog ref={dialog} className="repair-parts-dialog" aria-label={t("创建返修单")} onClose={onClose} onCancel={event => { if (busy.current || receipt.isWaiting()) event.preventDefault(); }}><header><div><small>{t("原工单 ")}{order.id}</small><h2>{t("创建返修单")}</h2></div><button type="button" className="icon-button" aria-label={t("关闭返修窗口")} disabled={pending} onClick={onClose}><X size={20}/></button></header><form onSubmit={event => void save(event)}><p>{repairCustomerName(order, locale)} · {order.device.model}</p><label className="field"><span>{t("本次返修原因")}</span><TextareaControl aria-label={t("本次返修原因")} autoFocus required disabled={pending} maxLength={2000} value={reason} onChange={event => setReason(event.target.value)} placeholder={t("例如：更换屏幕后触摸再次失灵")} /></label><label className="field"><span>{t("本次设备保管")}</span><SelectControl disabled={pending} value={custody} onChange={event => setCustody(event.target.value as "store" | "customer")}><option value="store">{t("已留下设备")}</option><option value="customer">{t("尚未留下设备")}</option></SelectControl></label>{error || storageError ? <p role="alert" className="form-error">{systemText(error || storageError)}</p> : null}<footer><button type="button" className="button button--secondary" disabled={pending} onClick={onClose}>{t("取消")}</button><button className="button button--primary" type="submit" disabled={pending || !reason.trim() || Boolean(storageError)}>{pending ? t("正在创建…") : t("创建返修单")}</button></footer><OperationRecoveryControls requestId={receipt.requestId}/></form></dialog>, document.body);
 }

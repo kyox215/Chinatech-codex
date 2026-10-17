@@ -45,6 +45,8 @@
     "test:unicode17-reference": "node --test tests/unicode17-reference.test.mjs",
     "test:unicode17-sql": "node tests/unicode17-sql.integration.mjs",
     "test:retail-form-bounds": "node tests/retail-form-bounds.integration.mjs --candidate",
+    "test:projection-coalescing": "node tests/procurement-projection-coalescing.integration.mjs",
+    "test:command-v2": "node tests/command-v2.integration.mjs",
     "test:customer-detail-read": "node tests/customer-detail-read.integration.mjs",
     "test:customer-detail-security": "node tests/customer-detail-security.integration.mjs",
     "test:customer-detail-backfill": "node tests/customer-detail-backfill.integration.mjs",

@@ -145,8 +145,9 @@ function harness({requestDeadline}={}) {
     forgetOperation:async(key,id)=>{if(operations.get(key)?.command.requestId===id)operations.delete(key);},
   };
   const navigator={onLine:true};
+  const commandResultContract={};
   const context = createContext({
-    require:name=>{if(name==='react-dom')return{flushSync};if(name==='./read-response')return readResponse;if(name==="./read-plan")return readPlan;if(name==="./retail-form-contract")return retailFormContract;assert.equal(name,"./recovery-store");return storage;},
+    require:name=>{if(name==='react-dom')return{flushSync};if(name==='./command-result-contract')return commandResultContract;if(name==='./read-response')return readResponse;if(name==="./read-plan")return readPlan;if(name==="./retail-form-contract")return retailFormContract;assert.equal(name,"./recovery-store");return storage;},
     Headers, AbortController,URLSearchParams,setTimeout:requestDeadline?((fn,ms)=>setTimeout(fn,ms===20000?requestDeadline:ms)):setTimeout,clearTimeout,navigator,
     exports: {},
     crypto: { randomUUID },
@@ -159,6 +160,8 @@ function harness({requestDeadline}={}) {
     }),
     window: { location: { assign: url => redirects.push(url), reload: () => redirects.push("reload") } },
   });
+  const resultCompiled=ts.transpileModule(readFileSync(new URL("../lib/backend/command-result-contract.ts",import.meta.url),"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  runInContext(`(function(exports){${resultCompiled}\n})`,context,{filename:"lib/backend/command-result-contract.ts"})(commandResultContract);
   runInContext(compiled, context, { filename: "lib/backend/client.ts" });
   const client = context.exports;
   const bootstrapExports = {};
@@ -610,4 +613,28 @@ test('v1 retail save preserves form protocol and derives current warranty/copy o
  const save=h.client.backendCommand('retail',{});await setImmediate();const next=mockSnapshot({revision:2});next.settings={revision:7,retailWarrantyMonths:24};next.retail=[{id:'DEMO-COPY',code:'DEMO-ORIGINAL',category:'phone',brand:'DEMO',model:'型'.repeat(4990)+'TAIL',color:'',ramGb:null,bodyStorage:null,disks:[],cpu:'',gpu:'',keyboard:'',edition:'',productCode:'',photos:['PRIVATE'],costCents:12345,events:['PRIVATE']}];h.requests[0].resolve(response(200,next));await save;
  const current=h.client.backendSnapshot();assert.equal(current.retailFormEnabled,true);assert.equal(current.retailCreationDefaults.revision,7);assert.equal(current.retailCreationDefaults.warrantyMonths,24);assert.equal(current.retailCreationDefaults.copy.model,next.retail[0].model);assert(!JSON.stringify(current.retailCreationDefaults).includes('PRIVATE'));assert(!('costCents'in current.retailCreationDefaults.copy));
  const again=h.client.backendCommand('retail',{});await setImmediate();const missing=mockSnapshot({revision:3});missing.settings=null;h.requests[1].resolve(response(200,missing));await again;assert.equal(h.client.backendSnapshot().retailCreationDefaults,undefined);assert.equal(h.client.backendSnapshot().retailFormEnabled,true);
+});
+
+function nativeResult(request,{revision=2,replayed=false,kind,entityId="DEMO-confirmed"}={}){const command=JSON.parse(request.options.body);return{formatVersion:2,storeId,revision,operation:{requestId:command.requestId,kind:kind??command.kind,entityId:command.kind==="customer.save"?"":entityId,committedAt:"2026-10-17T12:00:00.000Z",replayed},effects:{available:true,domains:["retail"],count:1}};}
+test("native v2 confirms before failed page read, retains one receipt and retries only the read",async()=>{
+ const h=harness(),initial=pageSnapshot("retail");initial.commandResultVersion=2;h.client.configureBackend(initial);const id=randomUUID(),save=h.client.backendCommand("retail",{},id);await setImmediate();assert.equal(h.requests[0].url,"/api/backend/v2/command");const result=nativeResult(h.requests[0]);h.requests[0].resolve(response(200,result));await setImmediate();assert.equal(h.operations.size,0);assert.equal(h.client.backendRecovery().pending,null);assert.equal(h.client.backendRecovery().receipt.requestId,id);assert.equal(h.client.backendRecovery().readPending,true);assert.equal(h.requests.length,2);assert(h.requests[1].url.startsWith("/api/backend/v2/page?"));h.requests[1].resolve(response(503,{message:"DEMO unavailable"}));const saved=await save;assert.equal(saved,result);assert.equal(h.client.backendRecovery().readPending,false);assert(h.client.backendRecovery().readError);assert.equal(h.client.backendSnapshot(),initial);assert.equal(h.requests.filter(r=>r.options.method==="POST").length,1);
+ const retry=h.client.retryConfirmedRead();assert.equal(h.requests.length,3);const next=pageSnapshot("retail",{revision:2});next.commandResultVersion=2;h.requests[2].resolve(response(200,next));await retry;assert.equal(h.client.backendSnapshot(),next);assert.equal(h.client.backendRecovery().readError,"");assert.equal(h.client.backendRecovery().receipt.requestId,id);assert.equal(h.operations.size,0);
+});
+test("native v2 rejects a snapshot-shaped or mismatched result and preserves the original unknown intent",async()=>{
+ for(const change of[value=>({...value,intakes:[]}),value=>({...value,operation:{...value.operation,requestId:randomUUID()}}),value=>({...value,revision:NaN}),value=>({...value,effects:{available:true,domains:["untrusted"],count:1}})]){
+  const h=harness(),initial=pageSnapshot("retail");initial.commandResultVersion=2;h.client.configureBackend(initial);const id=randomUUID(),save=h.client.backendCommand("retail",{},id),rejected=assert.rejects(save,/回执尚未确认/);await setImmediate();h.requests[0].resolve(response(200,change(nativeResult(h.requests[0]))));await rejected;assert.equal(h.operations.size,1);assert.equal(h.client.backendRecovery().pending.command.requestId,id);assert.equal(h.client.backendRecovery().receipt,undefined);assert.equal(h.requests.length,1);
+ }
+});
+test("native v2 command confirmation survives navigation and reads the newly current page",async()=>{
+ const h=harness(),initial=pageSnapshot("repairs");initial.commandResultVersion=2;h.client.configureBackend(initial);const save=h.client.backendCommand("repair.workflow",{});await setImmediate();const next=pageSnapshot("retail");next.commandResultVersion=2;h.client.reconcileBackendInitial(next);h.requests[0].resolve(response(200,nativeResult(h.requests[0])));await setImmediate();assert.equal(JSON.parse(new URLSearchParams(h.requests[1].url.split("?")[1]).get("plan")).kind,"retail");const updated=pageSnapshot("retail",{revision:2});updated.commandResultVersion=2;h.requests[1].resolve(response(200,updated));await save;assert.equal(h.client.backendSnapshot().read.plan.kind,"retail");assert.equal(h.operations.size,0);assert.equal(h.client.backendRecovery().busy,false);
+});
+test("native v2 original operation recovery uses frozen result and cannot become unknown on a later read failure",async()=>{
+ const h=harness(),initial=pageSnapshot("retail");initial.commandResultVersion=2;h.client.configureBackend(initial);h.navigator.onLine=false;const id=randomUUID();await assert.rejects(h.client.backendCommand("retail",{},id),/离线/);const original=h.client.backendRecovery().pending;h.navigator.onLine=true;const check=h.client.recoverOperation("check");await setImmediate();assert(h.requests[0].url.startsWith("/api/backend/v2/operation?"));const result={formatVersion:2,storeId,revision:2,operation:{requestId:id,kind:"retail",entityId:"DEMO-confirmed",committedAt:"2026-10-17T12:00:00.000Z",replayed:true},effects:{available:true,domains:["retail"],count:1}};h.requests[0].resolve(response(200,{status:"committed",result}));await setImmediate();assert.equal(h.operations.size,0);assert.equal(h.client.backendRecovery().receipt.requestId,original.command.requestId);h.requests[1].resolve(response(503,{message:"DEMO unavailable"}));await check;assert.equal(h.client.backendRecovery().pending,null);assert.equal(h.client.backendRecovery().busy,false);assert(h.client.backendRecovery().readError);assert.equal(h.requests.filter(r=>r.options.method==="POST").length,0);
+});
+test("native v2 own member-revision change after confirmation clears sender and keeps receipt",async()=>{
+ const h=harness(),initial=pageSnapshot("retail");initial.commandResultVersion=2;h.client.configureBackend(initial);const save=h.client.backendCommand("staff.save",{});await setImmediate();h.requests[0].resolve(response(200,nativeResult(h.requests[0])));await setImmediate();const next=pageSnapshot("retail",{revision:2,memberRevision:2});next.commandResultVersion=2;h.requests[1].resolve(response(200,next));await save;assert.equal(h.client.backendSnapshot().read.scope.memberRevision,2);assert.equal(h.operations.size,0);assert.equal(h.client.backendRecovery().busy,false);assert.equal(h.client.backendWriting(),false);assert(h.client.backendRecovery().receipt);
+});
+
+test("native confirmation never joins a pre-commit refresh or lets its late response replace newer facts",async()=>{
+ const h=harness(),initial=pageSnapshot("retail");initial.commandResultVersion=2;h.client.configureBackend(initial);const old=h.client.refreshBackend(),save=h.client.backendCommand("retail",{});await setImmediate();assert.equal(h.requests.length,2);h.requests[1].resolve(response(200,nativeResult(h.requests[1])));await setImmediate();assert.equal(h.requests.length,3);const next=pageSnapshot("retail",{revision:2});next.commandResultVersion=2;h.requests[2].resolve(response(200,next));await save;h.requests[0].resolve(response(200,initial));await old;assert.equal(h.client.backendSnapshot(),next);assert.equal(h.client.backendRecovery().pending,null);assert.equal(h.operations.size,0);
 });

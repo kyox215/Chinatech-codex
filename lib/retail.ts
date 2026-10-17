@@ -143,7 +143,7 @@ function sameRetailFieldValue(first: unknown, second: unknown): boolean {
     && Object.keys(first).every((key) => Object.hasOwn(second, key) && sameRetailFieldValue(first[key], second[key]));
   return false;
 }
-export function validateRetailFieldEdit(unit: RetailUnit, change: RetailFieldEdit, others: RetailUnit[] = []): RetailUnit {
+export function validateRetailFieldEdit(unit: RetailUnit, change: RetailFieldEdit, others: readonly RetailIdentity[] = []): RetailUnit {
   if (!storedObject(change) || Object.keys(change).length !== 2 || !Object.hasOwn(change, "field") || !Object.hasOwn(change, "value")
     || typeof change.field !== "string" || !Object.hasOwn(retailFieldLabels, change.field)) throw new Error("该单机字段不可直接编辑。");
   const field = change.field as RetailEditableField;
@@ -201,7 +201,8 @@ export function retailSpec(unit: RetailUnit) {
   return [unit.ramGb === null ? "" : `${unit.ramGb} GB RAM`, isComputer(unit.category) ? disks.join(" + ") : body, unit.edition].filter(Boolean).join(" · ") || "规格待确认";
 }
 
-export function identityConflict(unit: RetailUnit, others: RetailUnit[]) {
+export type RetailIdentity = Pick<RetailUnit, "id" | "code" | "brand" | "serial" | "imei1" | "imei2" | "historyOrigin">;
+export function identityConflict(unit: RetailIdentity, others: readonly RetailIdentity[]) {
   const imeis = [unit.imei1, unit.imei2].map(normalizeImei).filter(Boolean);
   if (imeis.length === 2 && imeis[0] === imeis[1]) throw new Error("同一台的 IMEI 1 与 IMEI 2 不能重复。");
   for (const previous of others) {
@@ -213,7 +214,7 @@ export function identityConflict(unit: RetailUnit, others: RetailUnit[]) {
   return undefined;
 }
 
-export function validateRetailUnit(unit: RetailUnit, others: RetailUnit[] = []) {
+export function validateRetailUnit(unit: RetailUnit, others: readonly RetailIdentity[] = []) {
   if (unit.historyOrigin !== undefined && (!storedObject(unit.historyOrigin) || Object.keys(unit.historyOrigin).sort().join(",") !== "recordId,sourceSnapshot" || typeof unit.historyOrigin.recordId !== "string" || typeof unit.historyOrigin.sourceSnapshot !== "string" || unit.historyOrigin.recordId !== unit.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(unit.historyOrigin.recordId) || !/^[0-9a-f]{64}$/.test(unit.historyOrigin.sourceSnapshot))) throw new Error("商品原记录关联无效。");
   if (!["新机", "翻新机"].includes(unit.condition)) throw new Error("请选择新机或翻新机。");
   validateRetailWarrantyMonths(unit.warrantyMonths);
@@ -237,7 +238,7 @@ export function validateRetailUnit(unit: RetailUnit, others: RetailUnit[] = []) 
   return unit;
 }
 
-export function createRetailUnit(draft: RetailUnit, existing: RetailUnit[], event: RetailEvent): RetailUnit {
+export function createRetailUnit(draft: RetailUnit, existing: readonly RetailIdentity[], event: RetailEvent): RetailUnit {
   if (draft.historyOrigin !== undefined) throw new Error("已有商品须在原档案核对保存。");
   validateRetailEvent(event);
   if (!draft.id || existing.some((unit) => unit.id === draft.id)) throw new Error("单机编号无效或已存在。");
@@ -247,7 +248,7 @@ export function createRetailUnit(draft: RetailUnit, existing: RetailUnit[], even
   return created;
 }
 
-export function nextRetailCode(existing: RetailUnit[], creationDate: string): string {
+export function nextRetailCode(existing: readonly Pick<RetailUnit, "code">[], creationDate: string): string {
   if (!isRetailDate(creationDate)) throw new Error("创建日期无效，未分配单机编号。");
   const prefix = `CT-${creationDate.replaceAll("-", "")}-`;
   const numbers = existing.map(unit => normalizeIdentifier(unit.code)).filter(code => code.startsWith(prefix))
@@ -376,7 +377,7 @@ export function validateRetailPhotos(photos: unknown): string[] {
     return photo;
   });
 }
-export function applyRetailCommand(unit: RetailUnit, command: RetailCommand, event: RetailEvent, expectedVersion: number, others: RetailUnit[] = []) {
+export function applyRetailCommand(unit: RetailUnit, command: RetailCommand, event: RetailEvent, expectedVersion: number, others: readonly RetailIdentity[] = []) {
   if (!storedObject(command) || !["edit", "inspect", "price", "approve", "pause", "reinspect", "sell", "reserve", "release_reservation", "payment", "refund", "payment_reconcile", "payment_void", "refund_void", "deliver", "return", "after_sale", "after_sale_assess", "after_sale_link", "after_sale_close", "after_sale_cancel", "photos"].includes(command.type)) throw new Error("未知单机操作。");
   if (["inspect", "approve", "pause", "reinspect"].includes(command.type) && "note" in command && command.note !== undefined) {
     const required = command.type === "pause" || command.type === "reinspect";
