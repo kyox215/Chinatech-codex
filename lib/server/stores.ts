@@ -5,14 +5,19 @@ import { BackendError, withDatabase, type AuthIdentity } from '@/lib/backend/dat
 import { memberInTransaction } from '@/lib/backend/context';
 import {intakeRecordTime} from '@/lib/repair-intake-record';
 import { allPermissions, can, staffRoles, type Permission } from '@/lib/staff';
+import {admissionPageSize,decodeStoreCursor,pageScope,storePage,type AdmissionQuery} from './store-admission-page';
 
 export const storeUuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 export function requiredUuid(value: unknown) { if (!storeUuid(value)) throw new BackendError('请求标识无效。'); return value; }
-export async function myStores(identity: AuthIdentity) {
+type OwnApplication={id:string;status:string;created_at:string;cursor_created_at:string;reviewed_at:string|null;storeName:string;invitationStatus:string;invitationExpiresAt:string};
+export async function myStores(identity: AuthIdentity, applicationCursor?:string) {
+  const scope=pageScope(identity,'own-applications'),cursor=decodeStoreCursor(applicationCursor,scope);
   return withDatabase(identity, null, async tx => {
     const stores = await tx`select s.id,s.name,m.role from chinatech_v2.store_memberships m join chinatech_v2.stores s on s.id=m.store_id where m.user_id=${identity.userId} and m.membership_status='active' order by s.created_at,s.id limit 100`;
-    const applications = await tx`select id,status,created_at from chinatech_v2_private.store_applications where applicant_id=${identity.userId} order by created_at desc limit 30`;
-    return { stores, applications };
+    const [row]=await tx`select chinatech_v2_private.read_own_store_applications(${cursor?.createdAt??null}::text::timestamptz,${cursor?.id??null}::uuid,${admissionPageSize+1}) as projection`;
+    const projection=row.projection as {applications:OwnApplication[];totalCount:number};
+    const applications=storePage(projection.applications,projection.totalCount,scope);
+    return { stores, applications:applications.items,applicationPage:applications.page };
   });
 }
 export async function createStore(identity: AuthIdentity, requestId: unknown, name: unknown) {
@@ -40,11 +45,19 @@ export async function storeUsage(tx: TransactionSql, storeId:string) {
   if(!usage)throw new BackendError('门店尚未完成初始化。',503);
   return {...usage,warning:usage.usedBytes+usage.reservedBytes>=usage.limitBytes*.8};
 }
-export async function listAdmission(identity: AuthIdentity,storeId:string) {
-  return storeTransaction(identity,storeId,true,async tx=>({
-    invitations:await tx`select id,created_at,expires_at,revoked_at,consumed_at from chinatech_v2_private.store_invitations where store_id=${storeId} order by created_at desc limit 50`,
-    applications:await tx`select a.id,a.status,a.created_at,a.applicant_id,p.display_name,p.email from chinatech_v2_private.store_applications a join chinatech_v2.accounts p on p.id=a.applicant_id where a.store_id=${storeId} order by a.created_at desc limit 50`,
-  }));
+type InvitationRow={id:string;created_at:Date;cursor_created_at:string;expires_at:Date;revoked_at:Date|null;consumed_at:Date|null;status:'active'|'consumed'|'revoked'|'expired'};
+type ApplicationRow={id:string;status:string;created_at:Date;cursor_created_at:string;applicant_id:string;display_name:string;email:string};
+export async function listAdmission(identity: AuthIdentity,storeId:string,query:AdmissionQuery={applicationStatus:'pending'}) {
+  return storeTransaction(identity,storeId,true,async(tx,member)=>{
+    const applicationScope=pageScope(identity,'applications',storeId,query.applicationStatus,member.revision),invitationScope=pageScope(identity,'invitations',storeId,'',member.revision);
+    const applicationCursor=decodeStoreCursor(query.applicationCursor,applicationScope),invitationCursor=decodeStoreCursor(query.invitationCursor,invitationScope);
+    const [counts]=await tx`select count(*) filter(where status='pending')::int as pending_count,count(*) filter(where status<>'pending')::int as history_count from chinatech_v2_private.store_applications where store_id=${storeId}`;
+    const [invitationCount]=await tx`select count(*)::int as count from chinatech_v2_private.store_invitations where store_id=${storeId}`;
+    const invitationRows=await tx<InvitationRow[]>`select id,created_at,to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_created_at,expires_at,revoked_at,consumed_at,case when revoked_at is not null then 'revoked' when consumed_at is not null then 'consumed' when expires_at<=now() then 'expired' else 'active' end as status from chinatech_v2_private.store_invitations where store_id=${storeId} and (${invitationCursor?.createdAt??null}::text::timestamptz is null or (created_at,id)<(${invitationCursor?.createdAt??null}::text::timestamptz,${invitationCursor?.id??null}::uuid)) order by created_at desc,id desc limit ${admissionPageSize+1}`;
+    const applicationRows=await tx<ApplicationRow[]>`select a.id,a.status,a.created_at,to_char(a.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_created_at,a.applicant_id,p.display_name,p.email from chinatech_v2_private.store_applications a join chinatech_v2.accounts p on p.id=a.applicant_id where a.store_id=${storeId} and ((${query.applicationStatus}='pending' and a.status='pending') or (${query.applicationStatus}='history' and a.status<>'pending')) and (${applicationCursor?.createdAt??null}::text::timestamptz is null or (a.created_at,a.id)<(${applicationCursor?.createdAt??null}::text::timestamptz,${applicationCursor?.id??null}::uuid)) order by a.created_at desc,a.id desc limit ${admissionPageSize+1}`;
+    const invitations=storePage(invitationRows,invitationCount.count,invitationScope),applications=storePage(applicationRows,query.applicationStatus==='pending'?counts.pending_count:counts.history_count,applicationScope);
+    return {invitations:invitations.items,applications:applications.items,invitationPage:invitations.page,applicationPage:{...applications.page,status:query.applicationStatus,pendingCount:counts.pending_count,historyCount:counts.history_count}};
+  });
 }
 export async function createInvitation(identity:AuthIdentity,storeId:string,requestId:string) {
   requiredUuid(requestId);
@@ -94,7 +107,7 @@ export async function reviewApplication(identity:AuthIdentity,storeId:string,bod
     if(previous){if(previous.digest!==digest)throw new BackendError('同一请求标识不能用于不同操作。',409);return {ok:true,replayed:true};}
     const [application]=await tx`select a.*,i.expires_at,i.revoked_at from chinatech_v2_private.store_applications a join chinatech_v2_private.store_invitations i on i.id=a.invitation_id where a.store_id=${storeId} and a.id=${id} for update of a,i`;
     if(!application||application.status!=='pending')throw new BackendError('申请状态已变化，请重新核对。',409);
-    if(application.revoked_at||new Date(application.expires_at)<=new Date())throw new BackendError('邀请无效或已过期。',410);
+    if(body.action==='approve'&&(application.revoked_at||new Date(application.expires_at)<=new Date()))throw new BackendError('邀请无效或已过期。',410);
     if(application.applicant_id===identity.userId)throw new BackendError('不能审核自己的申请。',403);
     if(permissions.some(p=>!member.permissions.includes(p as Permission))||(member.role!=='owner'&&permissions.includes('staff.manage')))throw new BackendError('不能授予当前账号无权分配的能力。',403);
     if(body.action==='approve'){

@@ -82,7 +82,7 @@ language plpgsql security definer set search_path='' as $$begin
  perform chinatech_v2_private.command_retail_access_v1(target_store);
  perform chinatech_v2_private.retail_sort_producers_v1();
  update chinatech_v2_private.retail_list_models set
-  ready=sort_resume_ready and sort_resume_xid=pg_catalog.pg_current_xact_id() and format_version=1 and vocabulary_hash='f9fc2615c696573fa72d2bb99d8bc291cd1935762d91852a9c7333807b067baf' and query_rules_hash='fb12beb5c40803d691d89338c41efc1ab672310336c64dccc1a9a7b6a31ab36e'
+  ready=sort_resume_ready and sort_resume_xid=pg_catalog.pg_current_xact_id() and format_version=1 and vocabulary_hash='4aa5aea35ecc99153c0198a03aac94342d5f6be3d47384aac61bd240166d8ee1' and query_rules_hash='fb12beb5c40803d691d89338c41efc1ab672310336c64dccc1a9a7b6a31ab36e'
    and sort_rules_hash='7cc5f8a20676644266f5f9f3e896e954cae151a167e331c051bc6d016540ea80'
    and not exists(select 1 from chinatech_v2_private.retail_list_sources where store_id=target_store and (sort_input_hash is distinct from sort_source_hash or sort_rules_hash is distinct from '7cc5f8a20676644266f5f9f3e896e954cae151a167e331c051bc6d016540ea80')),
   sort_resume_ready=false,sort_resume_xid=null where store_id=target_store;

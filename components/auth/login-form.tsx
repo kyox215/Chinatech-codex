@@ -1,5 +1,6 @@
 "use client";
 
+import { AuthSubmissionError, submitAuth } from "@/lib/auth-request";
 import { useLanguage } from "@/components/language-provider";
 import { NavigationLink as Link } from "@/components/navigation-link";
 import { useRouter } from "next/navigation";
@@ -29,6 +30,7 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uncertain, setUncertain] = useState(false);
   const [oauthBusy, setOAuthBusy] = useState(false);
   const busy = !ready || isSubmitting || navigating || oauthBusy;
   const unavailable = !supabaseMode && !previewAvailable;
@@ -43,7 +45,7 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || unavailable) return;
+    if (busy || unavailable || uncertain) return;
     setError("");
     setFieldErrors({});
 
@@ -59,24 +61,45 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(supabaseMode ? "/api/auth/login" : "/api/preview-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store", signal: AbortSignal.timeout(20000),
-        body: JSON.stringify({ email, password, remember }),
-      });
-      const payload = (await response.json()) as { message?: string };
-      if (!response.ok) {
-        setError(payload.message ?? "登录失败，请稍后重试。");
-        return;
+      if (supabaseMode) await submitAuth('login', { email, password, remember });
+      else {
+        const response = await fetch("/api/preview-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store", signal: AbortSignal.timeout(20000),
+          body: JSON.stringify({ email, password, remember }),
+        });
+        const payload = (await response.json()) as { message?: string };
+        if (!response.ok) {
+          setError(payload.message ?? "登录失败，请稍后重试。");
+          return;
+        }
       }
       notifyAuthChanged();
       startNavigation(() => { router.replace(supabaseMode ? "/account/pending" : "/app/dashboard"); router.refresh(); });
-    } catch {
-      setError(supabaseMode ? "请求结果尚未确认。请核对账号状态后重试，输入已保留。" : "无法连接本地预览服务，请确认开发服务器仍在运行。");
+    } catch (reason) {
+      if (reason instanceof AuthSubmissionError && reason.uncertain) setUncertain(true);
+      setError(reason instanceof AuthSubmissionError ? reason.message : supabaseMode ? "请求结果尚未确认。请核对账号状态后重试，输入已保留。" : "无法连接本地预览服务，请确认开发服务器仍在运行。");
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  async function checkLogin() {
+    if (isSubmitting || navigating || oauthBusy) return;
+    setIsSubmitting(true); setError("");
+    try {
+      const response = await fetch('/api/auth/status', { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+      const status = await response.json();
+      if (!response.ok || status.state === 'unavailable') throw new Error();
+      if (status.state === 'workspace' || status.state === 'account') {
+        if (typeof status.account?.email !== 'string' || status.account.email.toLowerCase() !== email.trim().toLowerCase()) { setUncertain(false); setError('当前登录账号与填写邮箱不同，请核对后重新登录。'); return; }
+        notifyAuthChanged(); startNavigation(() => { router.replace('/account/stores'); router.refresh(); });
+      } else if (status.state === 'anonymous' || status.state === 'unverified') {
+        setUncertain(false); setError(status.state === 'unverified' ? '请先完成邮箱验证，再登录。' : '当前尚未登录，请核对邮箱和密码后重试。');
+      } else throw new Error();
+    } catch { setError('暂时无法核对登录状态，请保留输入后重试核对。'); }
+    finally { setIsSubmitting(false); }
   }
 
   return (
@@ -93,26 +116,27 @@ export function LoginForm({ supabaseMode = false, previewAvailable = true, notic
       </div> : null}
       {!supabaseMode && !previewAvailable ? <p className="form-error" role="alert">{t("登录服务尚未开放，请联系门店。")}</p> : null}
       {notice ? <p className={styles.successNotice} role="status">{systemText(notice)}</p> : null}
-      {supabaseMode ? <SocialSignIn remember={remember} disabled={!ready || isSubmitting} onBusyChange={setOAuthBusy} /> : null}
+      {supabaseMode ? <SocialSignIn remember={remember} disabled={!ready || isSubmitting || navigating || uncertain} onBusyChange={setOAuthBusy} /> : null}
 
       <div className="form-field">
         <label htmlFor="email">{t("电子邮件")}</label>
-        <InputControl shell leading={<Mail size={20} />} id="email" name="email" type="email" required maxLength={160} autoComplete="email" autoCapitalize="off" value={email} disabled={busy || unavailable} error={fieldErrors.email ? t(fieldErrors.email) : undefined} onChange={event => { setEmail(event.target.value); setFieldErrors(current => ({ ...current, email: undefined })); setError(""); }} onClear={() => { setEmail(""); setFieldErrors(current => ({ ...current, email: undefined })); setError(""); }} clearLabel={t("清空电子邮件")} placeholder="name@example.com" />
+        <InputControl shell leading={<Mail size={20} />} id="email" name="email" type="email" required maxLength={160} autoComplete="email" autoCapitalize="off" value={email} disabled={busy || unavailable || uncertain} error={fieldErrors.email ? t(fieldErrors.email) : undefined} onChange={event => { setEmail(event.target.value); setFieldErrors(current => ({ ...current, email: undefined })); setError(""); }} onClear={() => { setEmail(""); setFieldErrors(current => ({ ...current, email: undefined })); setError(""); }} clearLabel={t("清空电子邮件")} placeholder="name@example.com" />
       </div>
 
       <div className="form-field">
         <label htmlFor="password">{t("密码")}</label>
-        <InputControl shell leading={<LockKeyhole size={20} />} id="password" name="password" type={showPassword ? "text" : "password"} required maxLength={128} autoComplete="current-password" value={password} disabled={busy || unavailable} error={fieldErrors.password ? t(fieldErrors.password) : undefined} onChange={event => { setPassword(event.target.value); setFieldErrors(current => ({ ...current, password: undefined })); setError(""); }} placeholder={t("输入此账号的登录密码")} trailing={<button className="input-icon-button" type="button" disabled={busy || unavailable} onClick={() => setShowPassword(value => !value)} aria-pressed={showPassword} aria-label={showPassword ? t("隐藏密码") : t("显示密码")}>{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button>} />
+        <InputControl shell leading={<LockKeyhole size={20} />} id="password" name="password" type={showPassword ? "text" : "password"} required maxLength={128} autoComplete="current-password" value={password} disabled={busy || unavailable || uncertain} error={fieldErrors.password ? t(fieldErrors.password) : undefined} onChange={event => { setPassword(event.target.value); setFieldErrors(current => ({ ...current, password: undefined })); setError(""); }} placeholder={t("输入此账号的登录密码")} trailing={<button className="input-icon-button" type="button" disabled={busy || unavailable || uncertain} onClick={() => setShowPassword(value => !value)} aria-pressed={showPassword} aria-label={showPassword ? t("隐藏密码") : t("显示密码")}>{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button>} />
       </div>
 
       <div className={`form-options ${styles.loginOptions}`}>
-        <label className="checkbox-label"><input type="checkbox" checked={remember} disabled={busy || unavailable} onChange={event => setRemember(event.target.checked)} /><span>{t(supabaseMode ? "在此设备保持登录" : "保持本次预览登录")}</span></label><Link href="/forgot-password">{t("忘记密码？")}</Link>
+        <label className="checkbox-label"><input type="checkbox" checked={remember} disabled={busy || unavailable || uncertain} onChange={event => setRemember(event.target.checked)} /><span>{t(supabaseMode ? "在此设备保持登录" : "保持本次预览登录")}</span></label><Link href="/forgot-password">{t("忘记密码？")}</Link>
         {supabaseMode && remember ? <small>{t("连续 30 天未使用后需重新登录")}</small> : null}
       </div>
 
       {error ? <p className="form-error" id="login-error" role="alert"><AlertCircle size={17} />{systemText(error)}</p> : null}
 
-      <button className="button button--primary auth-submit" type="submit" aria-busy={isSubmitting || navigating} disabled={busy || unavailable}>{isSubmitting ? <><LoaderCircle className="spin" size={18} />{t("正在验证")}</> : t("登录工作台")}</button>
+      {uncertain ? <button className="button button--secondary" type="button" disabled={isSubmitting || navigating || oauthBusy} onClick={() => void checkLogin()}>{t(isSubmitting ? "正在核对账号状态…" : "核对登录状态")}</button> : null}
+      <button className="button button--primary auth-submit" type="submit" aria-busy={isSubmitting || navigating} disabled={busy || unavailable || uncertain}>{isSubmitting ? <><LoaderCircle className="spin" size={18} />{t("正在验证")}</> : t("登录工作台")}</button>
       <p className={styles.hint}>{t("验证邮箱后可创建门店，或通过邀请申请加入已有门店。")}{supabaseMode ? <Link href="/verify-email" className={styles.verifyLink}>{t("未收到验证邮件？")}</Link> : null}</p>
     </form>
   );

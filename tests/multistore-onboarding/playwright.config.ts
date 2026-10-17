@@ -1,0 +1,2 @@
+import {defineConfig,devices} from '@playwright/test';
+export default defineConfig({testDir:'../browser',testMatch:'mimover-original.spec.ts',workers:1,fullyParallel:false,retries:0,reporter:[['line'],['json',{outputFile:process.env.CT_CLONEPHONE_REPORT??'.local/ui-proof/onboarding-clonephone.json'}]],use:{baseURL:'http://127.0.0.1:3146',ignoreHTTPSErrors:true,trace:'retain-on-failure'},projects:[{name:'chromium-desktop',use:{...devices['Desktop Chrome']}},{name:'webkit-touch',use:{...devices['iPhone 13']}}]});

@@ -337,7 +337,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .profile-menu > div { min-width: 0; flex: 1; display: flex; flex-direction: column; }
 .profile-menu strong { font-size: 13px; }
 .profile-menu small { overflow: hidden; color: var(--text-tertiary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.profile-menu__logout { display: flex; align-items: center; gap: 8px; }
+.profile-menu__logout { min-height: 44px; display: flex; align-items: center; gap: 8px; }
 .app-content { max-width: 1540px; margin: 0 auto; }
 
 /* Sidebar controls and compact page titles */
@@ -1711,7 +1711,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .repair-unified-list .repair-module-list:not([hidden]) { display: grid; gap: 0; padding-bottom: 0; }
   .repair-unified-list .repair-module-table__head { display: none; }
   .repair-unified-list .module-search { grid-column: 1 / -1; grid-row: 1; padding-right: 82px; min-width: 0; flex-basis: auto; min-height: 44px; }
-  .repair-unified-list .module-search input { font-size: 16px; }
+  .repair-unified-list .module-search input, .repair-unified-list .module-select select { font-size: 16px; }
   .repair-unified-list .repair-filter-trigger { grid-column: 2; grid-row: 1; justify-self: end; padding: 8px; margin-right: 1px; border-color: transparent; background: var(--surface-subtle); }
   .repair-unified-list .repair-view-select { grid-row: 2; min-width: 0; }
   .repair-unified-list .repair-filter-options { display: none; grid-column: 1 / -1; }
