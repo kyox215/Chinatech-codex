@@ -718,3 +718,10 @@ ToolboxControl替换账号设置旧三套Office管理卡片与双导航，复用
 ## 2026-10-17 多门店与容量
 
 我的门店、加入门店与容量/邀请组合按[原 Figma 候选](../ui-design/previews/multistore-pilot-20261017.md)映射；继续复用原账号品牌/语言、InputControl、SelectControl、MultiChoice、NavigationLink、AppShell/PageTitle、语义 button/panel 与 B 反馈，不另建主题。内部邀请页只由 AppShell 提供唯一2px进度线，静态容量 progress 不假冒执行状态。URL/store header绑定当前文档范围，切换身份/成员权限立即隐藏旧资料并拒绝迟到响应。三语、1440/1024/390/375、双引擎正式CSS与原请求恢复已在隔离生产构建验收；没有把设计参考当生产验证。
+
+
+### 未发布性能候选的兼容列表回归（2026-10-17）
+
+`RepairListBody.partsChips` 是仅供已有完整授权事实的兼容适配回调：三条可见标签继续取原有界摘要，隐藏描述与 title 经唯一 `repairListChipFacts` 读取完整原文；正式列表 wire 不增加全文或无关事实。客户候选的 preview 同步选择即时填入原本完整本地资料，正式异步 exact 读取继续按 scope/完整手机号/代际拒绝迟到。`RetailScannerResults` 的真实无匹配结果复用 `role=status`，不新增控件或等待。
+
+已实际通过的范围为隔离 preview 的 Chromium/WebKit 客户填充/清空及维修三语原文描述10项；供应商批量、来源身份、扫码空态、Office与共享窗口另记各次运行，生产编译样式和正式后台接入仍按当前候选单独核验。Figma、公共控件、token与视觉布局保持现有入口，不据此宣称正式已上线。

@@ -30,9 +30,9 @@ async function batch(page:Page,action:'ordered'|'arrival',supplier:string,quanti
  await page.goto('/app/repairs');return;
  }
  await page.getByRole('button',{name:'批量到货',exact:true}).click();const dialog=page.getByRole('dialog').filter({has:page.getByLabel('批量操作供应商')});
- await dialog.getByLabel('批量操作供应商').selectOption(supplier==='MobileParts SRL'?'demo-mobile':'demo-tech');
+ await dialog.getByRole('combobox',{name:'批量操作供应商',exact:true}).fill(supplier);await dialog.getByRole('option',{name:new RegExp('^'+supplier+'(?:\\s|$)')}).click();
  await dialog.getByRole('button',{name:'选择本供应商全部',exact:true}).click();if(action==='arrival'){const inputs=dialog.getByRole('spinbutton');for(let i=0;i<await inputs.count();i++)await inputs.nth(i).fill(quantities?.[i]??'1');}
- await dialog.getByRole('button',{name:'核对所选清单',exact:true}).click();await dialog.getByRole('button',{name:'确认保存实际事实',exact:true}).click();await expect(dialog.getByRole('status')).toContainText('到货已保存');await dialog.getByRole('button',{name:'关闭',exact:true}).click();
+ await dialog.getByRole('button',{name:'核对所选清单',exact:true}).click();await dialog.getByRole('button',{name:'确认保存实际事实',exact:true}).click();await expect(dialog.locator('[data-toast]')).toContainText('到货已保存');await dialog.getByRole('button',{name:'关闭',exact:true}).click();
 }
 test.beforeEach(async({page})=>{
  await page.goto('/login');await page.getByRole('button',{name:'填入演示账号',exact:true}).click();await page.getByRole('button',{name:'登录工作台',exact:true}).click();await expect(page).toHaveURL(/\/app\/dashboard$/);await seed(page);

@@ -30,7 +30,7 @@ test("在售商品直接打开图形详情，旧链接同页，阅读和取消�
   await expect(page.locator(".retail-metrics").getByRole("link", { name: "1 在售商品", exact: true })).toHaveAttribute("href", "/app/retail");
   await page.goto("/app/retail"); await expect(page.getByRole("link", { name: "单机管理", exact: true })).toHaveCount(0);
   const table = page.getByRole("region", { name: "整机商品表格", exact: true }); await expect(table.getByRole("link")).toHaveCount(1); await table.getByRole("link").click();
-  await expect(page).toHaveURL(new RegExp(`/app/retail/units/${source.id}`)); await expect(page.getByRole("heading", { name: "商品档案", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/app/retail/history/${source.id}(?:\\?|$)`)); await expect(page.getByRole("heading", { name: "商品档案", exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "单机摘要", exact: true })).toContainText("€220.00");
   await expect(page.getByRole("region", { name: "单机摘要", exact: true })).toContainText("128GB");
   await expect(page.getByRole("button", { name: "登记售出", exact: true })).toHaveCount(0);
@@ -51,6 +51,7 @@ test("原在售商品同页核对→明确可售→新买家→实际收款交�
   for (const name of ["功能检测已完成", "所有权及账号锁已核验", "数据处理已核验"]) await form.getByRole("checkbox", { name, exact: true }).check();
   await form.getByRole("button", { name: "继续核对", exact: true }).click(); await form.getByRole("button", { name: "确认保存商品资料", exact: true }).click();
   await expect(page.locator(".module-heading")).toContainText("待检测"); expect((await savedUnit(page)).status).toBe("inspecting"); expect((await savedUnit(page)).sales).toHaveLength(0); await expect(page.locator('[aria-label="关键概览"]')).toContainText("128GB"); await expect(page.locator('[aria-label="关键概览"]')).toContainText("容量原文");
+  await openGroup(page, "actions");
   await page.getByRole("textbox", { name: "检测说明 / 变更原因", exact: true }).fill("DEMO 明确核对可售"); await page.getByRole("button", { name: "保存检测并设为可售", exact: true }).click(); await expect(page.locator(".module-heading")).toContainText("可售");
   await page.getByRole("button", { name: "登记售出", exact: true }).click(); const saleForm = page.getByRole("region", { name: "登记成交", exact: true });
   const phone = "+393200009801"; await saleForm.getByRole("combobox", { name: "客户手机号 *", exact: true }).fill(phone); await saleForm.getByLabel("客户称呼（选填）", { exact: true }).fill("DEMO 新买家"); await saleForm.getByLabel("本台成交价", { exact: true }).fill("220"); await saleForm.getByRole("combobox", { name: "本次收款情况", exact: true }).selectOption("none"); await saleForm.getByRole("combobox", { name: "实际交付情况", exact: true }).selectOption("none");

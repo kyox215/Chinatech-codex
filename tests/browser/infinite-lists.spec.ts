@@ -88,7 +88,7 @@ test("retail old page links cumulatively restore rows and customer history appen
   await expect(rows).toHaveCount(100); await footer.scrollIntoViewIfNeeded(); await expect(rows).toHaveCount(150);
   await expect(page).toHaveURL(/page=3/);
   await expect(rows.first()).toHaveAttribute("href", /page%3D3/);
-  const first = rows.first(); await first.click(); await expect(page).toHaveURL(/\/app\/retail\/units\//);
+  const first = rows.first(); await first.click(); await expect(page).toHaveURL(/\/app\/retail\/history\//);
   await page.goBack(); await expect(rows).toHaveCount(150);
   await page.getByRole("searchbox", { name: "搜索整机商品", exact: true }).fill("Scroll phone 174"); await expect(rows).toHaveCount(1);
   await page.getByRole("button", { name: "清空搜索整机商品", exact: true }).click(); await expect(rows).toHaveCount(50);

@@ -33,3 +33,5 @@
 2026-10-17 多门店发布候选：新增 [MyStores / JoinStore / StoreManagement](previews/multistore-pilot-20261017.md)，原 Figma 15181:209494；复用 AccountBrand、AppShell、InputControl、SelectControl、MultiChoice、NavigationLink 与 B 反馈。发布源从正式 main 独立整合，仅纳本轮多店与容量，保留正式分页和 PDF 模板；本地 Supabase 生产构建、双引擎三语四宽与真实邀请审批均通过，发布状态以最终控制面绑定为准。
 
 2026-10-17 多门店与正式打印组合验收：`repairReceiptHtml` 的空项目／未报价合计复用既有 `text-amounts` 变体，不新增样式或控件；三语真实PDF、零值／正常金额27mm及超容量拒绝见 [本轮记录](previews/multistore-pilot-20261017.md)。
+
+未发布性能候选兼容维护：`RepairListBody.partsChips` 只恢复已授权 legacy 全文的可访问描述，正式 DTO 仍有界；`RepairIntakeForm` 同步候选与正式异步读取各沿原更新入口，`RetailScannerResults` 只为真实空结果补原生状态语义。无新增组件/主题/token/Figma视觉变体，实际回归范围见docs/06“未发布性能候选的兼容列表回归”。

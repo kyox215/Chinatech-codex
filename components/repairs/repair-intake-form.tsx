@@ -131,6 +131,7 @@ export function RepairIntakeForm() {
   };
   async function chooseCustomer(id:string){
     const selected=candidates.find(item=>item.id===id);if(!selected)return;
+    if(!bounded){setCustomer(selected);setForm(current=>({...current,phone:selected.phone,customerName:selected.name,email:selected.email,consent:false}));setError('');return;}
     const epoch=++lookupEpoch.current,expected=scopeKey,key=JSON.stringify([scopeKey,selected.phone,step]),current=()=>latestLookup.current.choiceKey===key&&lookupLive.current&&lookupEpoch.current===epoch&&liveScope.current===expected&&(!bounded||backendSnapshot()?.read?.scope&&backendScopeKey(backendSnapshot()!.read!.scope)===expected);
     if(bounded&&!readScope)return;
     try{setChoiceFlight(bounded?{key,epoch}:null);const value=bounded?await requestCustomerList(readScope!,{q:selected.phone,mode:'exact'},{signal:AbortSignal.timeout(15000)}):null;if(!current())return;const full=value&&'items'in value?value.items.find(item=>item.id===id):bounded?null:selected;if(!full)throw new Error('客户资料已更新，请重新核对后提交。');setCustomer(full);setForm(current=>({...current,phone:full.phone,customerName:full.name,email:full.email,consent:false}));setError('');}
