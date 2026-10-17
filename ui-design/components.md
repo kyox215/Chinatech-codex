@@ -1,5 +1,7 @@
 # 组件与组合索引
 
+2026-10-18：SearchCombobox可选mobilePresentation复用同一候选/窗口化/菜单槽；DeviceCatalogControl透传，DeviceIdentityPicker的mobileSelection仅新建维修启用。inline品牌与原生dialog型号均真实button触发，主动搜索才输入，明确确认才改值；RepairList手机两项+N/供应商单行，原弹窗保全文。[设计/验收](previews/mobile-picker-20261018.md)。
+
 接机单三语疏朗版复用`lib/repair-receipt-template.ts`／`repair-print-layout.ts`／`print-language.ts`和服务端渲染器。客户／设备／交接仍读领域投影，稳定key定位标签和值；预览与操作沿`IntakeReceipt`／`ReceiptPdfPreview`及原B反馈，不复制公共控件。设计参考、布局边界及实际验证见[本轮记录](previews/receipt-spacing-20261017.md)。
 
 | 组件类别 | 唯一实现 / 复用入口 | 设计来源与状态 |
