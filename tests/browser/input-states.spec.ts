@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { retailUnits } from "../../lib/retail-fixtures";
-import { chooseCatalogDevice, manuallyChooseDevice, openDeviceExtras } from "./catalog-picker";
+import { chooseCatalogDevice, manuallyChooseDevice, openDeviceExtras, expectCatalogValue } from "./catalog-picker";
 
 async function preview(page: Page) {
   const response = await page.request.post("/api/preview-session", { data: { email: "demo@chinatech.local", password: "Preview2026!" } });
@@ -198,7 +198,7 @@ test("组合框清空沿用客户及型号联动并返回输入焦点", async ({
   await chooseCatalogDevice(page, "Apple", "iPhone", "iPhone 16");
   await page.getByRole("button", { name: "清空品牌", exact: true }).click();
   await expect(page.getByRole("combobox", { name: /^品牌/ })).toBeFocused();
-  await expect(page.getByRole("combobox", { name: /^型号/ })).toHaveValue("");
+  await expectCatalogValue(page.getByRole("combobox", { name: /^型号/ }), "");
 });
 
 test("维修条件必填、金额错误就地提示，关闭扫码不阻挡下一步", async ({ page }) => {

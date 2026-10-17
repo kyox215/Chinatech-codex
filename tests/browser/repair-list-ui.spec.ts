@@ -322,7 +322,7 @@ test("long synthetic models, suppliers and follow-up facts leave list controls r
         const supplier = parts.locator(".repair-row-parts__suppliers");
         await expect(supplier).toHaveText(longSupplier); await expect(supplier).toBeVisible();
         await expect(parts.locator(".repair-row-parts__chip")).toHaveText(["屏幕", "电池 · 无需采购"]);
-        await expect(parts).toHaveAccessibleDescription("屏幕；电池 · 无需采购");
+        await expect(parts).toHaveAccessibleDescription(`屏幕；电池 · 无需采购；${longSupplier}`);
         await expect(parts).toHaveAttribute("aria-describedby", `repair-parts-items-${record.id}`);
         if (width < 768) expect(await supplier.evaluate(element =>
           element.scrollWidth > element.clientWidth && getComputedStyle(element).textOverflow === "ellipsis")).toBe(true);
@@ -422,4 +422,54 @@ test("detail demand, parts and signature flow together independently of a tall s
     await signature.getByRole("button", { name: "取消", exact: true }).click();
     expect(await page.evaluate(() => localStorage.getItem("chinatech.m1.local-intakes.v1"))).toBe(before);
   }
+});
+
+test('mobile parts summaries show at most two single-line labels and an accurate remaining count', async ({ page }, info) => {
+  test.setTimeout(120000);
+  const records = [0, 1, 2, 3, 7].map((count, index) => {
+    const record = intake(`LOCAL-C00000000000000${index + 1}`, `DEMO-LIST ${count} 项摘要`);
+    record.faults = Array.from({ length: count }, (_, item) => `${['屏幕', '电池', '尾插', '扬声器', '摄像头', '按键', '主板'][item]}：DEMO超长说明`);
+    record.issueNote = count ? '' : 'DEMO 没有结构化项目';
+    record.issue = [record.faults.join('、'), record.issueNote].filter(Boolean).join('；');
+    return record;
+  });
+  const data: Seed = { records, workflows: {}, procurement: [], settings: structuredClone(defaultStoreSettings) };
+  const order = intakeDirectoryEntry(records[4]);
+  const workflow = initialRepairWorkflow(order);
+  const requirement = order.requirements![0];
+  data.settings.suppliers[0].name = longSupplier;
+  const prepared = prepareRepairItemEdits({ repairId: order.id, intakeRevision: 1, workflowRevision: workflow.revision,
+    items: [{ requirementId: requirement.id, requirementRevision: requirement.revision, quoteCents: 0,
+      purchase: { id: 'demo-single-line-parts', revision: 0, supplierId: data.settings.suppliers[0].id, unitCostCents: null } }],
+  }, { intake: records[4], workflow, records: [], suppliers: data.settings.suppliers, canEditCost: true,
+    activity: { id: 'demo-single-line-edit', time, actorId: 'DEMO-OWNER' } });
+  data.records[4] = prepared.intake; data.procurement = prepared.changedRecords;
+  data.workflows[order.id] = prepared.workflow!;
+  await seed(page, data); await page.goto('/app/repairs'); await showRows(page);
+  for (const width of [375, 390, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 1000 }); await expectPageFits(page);
+    for (const [index, count] of [0, 1, 2, 3, 7].entries()) {
+      const row = page.getByRole('article', { name: `${records[index].id} ${records[index].model}`, exact: true });
+      const parts = row.locator('.repair-row-parts');
+      const chips = parts.locator('.repair-row-parts__chip:visible');
+      const limit = width < 768 ? 2 : 3;
+      await expect(chips).toHaveCount(count ? Math.min(limit, count) + Number(count > limit) : 1);
+      if (count > limit) await expect(chips.last()).toHaveText(`+${count - limit}`);
+      if (width < 768) {
+        const boxes = await chips.evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().toJSON()));
+        expect(new Set(boxes.map(box => Math.round(box.top))).size).toBe(1);
+        expect(await parts.evaluate(node => node.getBoundingClientRect().height)).toBe(44);
+      }
+      if (index === 4) {
+        await expect(parts).toHaveAccessibleDescription(new RegExp(longSupplier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+        await expect(parts.locator('.repair-row-parts__suppliers')).toHaveText(longSupplier);
+      }
+    }
+    await page.screenshot({ path: `.local/ui-proof/mobile-picker/${info.project.name}-summary-${width}.png` });
+  }
+  await page.setViewportSize({ width: 375, height: 1000 });
+  await page.locator(`#repair-action-${records[4].id}`).click();
+  const dialog = page.getByRole('dialog', { name: '供应商与配件', exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('group', { name: '主板', exact: true })).toBeVisible();
 });

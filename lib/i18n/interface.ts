@@ -147,6 +147,9 @@ export const interfaceMessages: Record<string, readonly [string, string]> = {
   "保存时使用已验证账号的身份资料；此处填写不会修改账号姓名或邮箱。": ["Il salvataggio usa l’identità dell’account verificato. Questi campi non modificano il nome o l’email dell’account.", "Saving uses identity details from the verified account. These fields do not change the account name or email."],
 
   // Shared device catalog interface.
+  "搜索／手动输入": ["Cerca / inserisci manualmente", "Search / enter manually"],
+  "搜索{v0}": ["Cerca {v0}", "Search {v0}"],
+  "关闭{v0}候选": ["Chiudi opzioni {v0}", "Close {v0} options"],
   "选择设备": ["Seleziona dispositivo", "Choose device"],
   "选择设备品牌": ["Seleziona marca", "Choose device brand"],
   "选择设备型号": ["Seleziona modello", "Choose device model"],

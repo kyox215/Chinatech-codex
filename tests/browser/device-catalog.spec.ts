@@ -1,7 +1,7 @@
 import { test, expect, type Locator, type Page, type Request } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { armCatalogPaintProbe, catalogPaintDiagnostics, installCatalogPaintProbe, type PickerProbe, type PickerTier } from './catalog-paint-probe';
-import { activatePicker, openCatalogPicker, chooseCatalogDevice, choosePickerFamily, choosePickerModel, pickerRoot, pickerText, manuallyChooseDevice } from './catalog-picker';
+import { activatePicker, openCatalogPicker, chooseCatalogDevice, choosePickerFamily, choosePickerModel, pickerRoot, pickerText, manuallyChooseDevice, fillCatalogQuery, pressCatalogKey, expectCatalogValue, catalogQueryInput, confirmCatalogManual, isBrowsePicker } from './catalog-picker';
 
 async function setup(page: Page) {
   const response = await page.request.post('/api/preview-session', { data: { email: 'demo@chinatech.local', password: 'Preview2026!' } });
@@ -9,18 +9,18 @@ async function setup(page: Page) {
   const index = page.waitForResponse(response => response.url().includes('/api/catalog?kind=picker-index') && response.status() === 200);
   await page.goto('/app/repairs/new');
   const indexResponse = await index;
-  await page.getByRole('combobox', { name: '联系电话' }).fill('+393200001234');
+  await page.getByRole('combobox', { name: '联系电话', includeHidden: true }).fill('+393200001234');
   await page.getByRole('button', { name: '下一步', exact: true }).click();
   return { response: indexResponse, data: await indexResponse.json() };
 }
-function repairBrand(page: Page) { return page.locator('form.intake-form').getByRole('combobox', { name: '品牌', exact: true }); }
-function repairModel(page: Page) { return page.locator('form.intake-form').getByRole('combobox', { name: '型号', exact: true }); }
+function repairBrand(page: Page) { return page.locator('form.intake-form').getByRole('combobox', { name: '品牌', exact: true, includeHidden: true }); }
+function repairModel(page: Page) { return page.locator('form.intake-form').getByRole('combobox', { name: '型号', exact: true, includeHidden: true }); }
 async function selectBrand(page: Page, input: Locator, search: string, canonical = search) {
   const root = await openCatalogPicker(page, input);
-  await input.fill('');
-  await input.fill(search);
+  await fillCatalogQuery(page, input, '');
+  await fillCatalogQuery(page, input, search);
   await activatePicker(root.getByRole('option', { name: canonical, exact: true }));
-  await expect(input).toHaveValue(canonical);
+  await expectCatalogValue(input, canonical);
   await expect(input).toHaveAttribute('aria-expanded', 'false');
   return root;
 }
@@ -33,7 +33,7 @@ test('focus during the first index request restarts the query and opens independ
   const held = new Promise<void>(resolve => { release = resolve; });
   await page.route('**/api/catalog?kind=picker-index*', async route => { calls++; if (hold) await held; await route.continue().catch(() => undefined); });
   await page.goto('/app/repairs/new');
-  await page.getByRole('combobox', { name: '联系电话' }).waitFor();
+  await page.getByRole('combobox', { name: '联系电话', includeHidden: true }).waitFor();
   await expect.poll(() => calls).toBeGreaterThan(0);
   const initialCalls = calls;
   const reloaded = page.waitForResponse(response => response.url().includes('kind=picker-index') && response.status() === 200);
@@ -41,7 +41,7 @@ test('focus during the first index request restarts the query and opens independ
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await reloaded;
   release();
-  await page.getByRole('combobox', { name: '联系电话' }).fill('+393200001234');
+  await page.getByRole('combobox', { name: '联系电话', includeHidden: true }).fill('+393200001234');
   await page.getByRole('button', { name: '下一步', exact: true }).click();
   const root = await openCatalogPicker(page, repairBrand(page));
   await expect(root.getByRole('option', { name: 'Apple', exact: true })).toBeVisible();
@@ -57,11 +57,11 @@ test('directory pending belongs to the open field; background preload and closed
   await page.route('**/api/catalog?kind=picker-index*', async route => { calls++; await held; await route.continue().catch(() => undefined); });
   try {
     await page.goto('/app/repairs/new');
-    await page.getByRole('combobox', { name: '联系电话' }).fill('+393200001234');
+    await page.getByRole('combobox', { name: '联系电话', includeHidden: true }).fill('+393200001234');
     await page.getByRole('button', { name: '下一步', exact: true }).click();
     const brand = repairBrand(page), root = pickerRoot(brand);
-    const toggle = root.getByRole('button', { name: '显示品牌候选', exact: true });
-    const progress = page.locator('[data-content-progress]');
+    const toggle = await isBrowsePicker(brand) ? brand : root.getByRole('button', { name: '显示品牌候选', exact: true });
+    const progress = page.locator('[data-content-progress]:visible');
     test.info().annotations.push({ type: 'shared-progress-instances', description: String(await progress.count()) });
     await expect.poll(() => calls).toBeGreaterThan(0);
     await expect(toggle).not.toHaveAttribute('aria-busy', 'true');
@@ -71,7 +71,7 @@ test('directory pending belongs to the open field; background preload and closed
     await expect(toggle.locator('svg.spin')).toHaveCount(1);
     expect(await toggle.evaluate(node => getComputedStyle(node, '::before').content)).toBe('none');
     if (await progress.count()) await expect(progress).toHaveAttribute('data-active', 'true');
-    await brand.press('Escape');
+    await pressCatalogKey(page, brand, 'Escape');
     await expect(toggle).not.toHaveAttribute('aria-busy', 'true');
     await expect(toggle.locator('svg.spin')).toHaveCount(0);
     if (await progress.count()) await expect(progress).toHaveAttribute('data-active', 'false');
@@ -92,26 +92,26 @@ test('brand commits independently, query Escape preserves identity and a new can
   page.on('request', request => { if (request.url().includes('/api/catalog?')) queries++; });
   const brand = repairBrand(page), model = repairModel(page);
   await selectBrand(page, brand, '三星', 'Samsung');
-  await expect(model).toHaveValue('');
+  await expectCatalogValue(model, '');
   await expect(model).toHaveAttribute('aria-expanded', 'false');
   const models = await openCatalogPicker(page, model);
-  await model.fill('A13');
+  await fillCatalogQuery(page, model, 'A13');
   await expect(models.getByRole('option', { name: /Galaxy A13/ })).toHaveCount(3);
   await choosePickerModel(page, models, 'Galaxy A13 4G (SM-A137)');
   await openCatalogPicker(page, brand);
-  await brand.fill('App');
-  await expect(model).toHaveValue('Galaxy A13 4G (SM-A137)');
-  await brand.press('Escape');
-  await expect(brand).toHaveValue('Samsung');
-  await expect(model).toHaveValue('Galaxy A13 4G (SM-A137)');
+  await fillCatalogQuery(page, brand, 'App');
+  await expectCatalogValue(model, 'Galaxy A13 4G (SM-A137)');
+  await pressCatalogKey(page, brand, 'Escape');
+  await expectCatalogValue(brand, 'Samsung');
+  await expectCatalogValue(model, 'Galaxy A13 4G (SM-A137)');
   await expect(brand).toBeFocused();
   await selectBrand(page, brand, '三星', 'Samsung');
-  await expect(model).toHaveValue('Galaxy A13 4G (SM-A137)');
+  await expectCatalogValue(model, 'Galaxy A13 4G (SM-A137)');
   await selectBrand(page, brand, '苹果', 'Apple');
-  await expect(model).toHaveValue('');
+  await expectCatalogValue(model, '');
   await expect(page.getByRole('status').filter({ hasText: '已切换品牌，请重新选择型号。' })).toBeVisible();
   await activatePicker(page.getByRole('button', { name: '撤销品牌切换', exact: true }));
-  await expect(brand).toHaveValue('Samsung'); await expect(model).toHaveValue('Galaxy A13 4G (SM-A137)');
+  await expectCatalogValue(brand, 'Samsung'); await expectCatalogValue(model, 'Galaxy A13 4G (SM-A137)');
   await selectBrand(page, brand, 'Apple');
   await manuallyChooseDevice(page, model, '原文新型号');
   await expect(page.getByRole('button', { name: '撤销品牌切换', exact: true })).toHaveCount(0);
@@ -125,53 +125,54 @@ test('optional series browsing and cross-series model-code searches preserve all
   const models = await openCatalogPicker(page, model);
   await choosePickerFamily(page, models, 'Galaxy S');
   await expect(models.getByRole('option', { name: /Galaxy A13/ })).toHaveCount(0);
-  await model.fill('A13');
+  await fillCatalogQuery(page, model, 'A13');
   await expect(models.getByRole('group', { name: '型号系列筛选', exact: true })).toHaveCount(0);
   for (const name of ['Galaxy A13 4G (SM-A135)', 'Galaxy A13 4G (SM-A137)', 'Galaxy A13 5G']) {
     await expect(models.getByRole('option', { name, exact: true })).toBeVisible();
   }
-  await model.fill('SM-A136B');
+  await fillCatalogQuery(page, model, 'SM-A136B');
   await expect(models.getByRole('option')).toHaveCount(1);
   await expect(models.getByRole('option', { name: 'Galaxy A13 5G', exact: true })).toHaveAccessibleDescription(/5G.*SM-A136B/);
-  await model.fill('三星 SM-A136B');
+  await fillCatalogQuery(page, model, '三星 SM-A136B');
   await expect(models.getByRole('option')).toHaveCount(1);
   await expect(models.getByRole('option', { name: 'Galaxy A13 5G', exact: true })).toBeVisible();
   await activatePicker(models.getByRole('option', { name: 'Galaxy A13 5G', exact: true }));
-  await expect(model).toHaveValue('Galaxy A13 5G');
+  await expectCatalogValue(model, 'Galaxy A13 5G');
   await expect(page.getByLabel('设备类别')).toHaveValue('手机');
 });
 
-test('manual Enter, Tab and outside blur commit raw text while IME Enter and Escape do not confirm candidates', async ({ page }) => {
+test('desktop manual keys and blur commit; mobile explicit manual confirmation and dismissal preserve raw facts', async ({ page }) => {
   await setup(page);
   const brand = repairBrand(page), model = repairModel(page);
   const brands = await openCatalogPicker(page, brand);
-  await brand.fill('App');
-  await brand.press('ArrowDown');
-  await brand.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true, keyCode: 229 });
-  await expect(brand).toHaveValue('App');
+  await fillCatalogQuery(page, brand, 'App');
+  await pressCatalogKey(page, brand, 'ArrowDown');
+  await (await catalogQueryInput(page, brand)).dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true, keyCode: 229 });
+  await expect(await catalogQueryInput(page, brand)).toHaveValue('App');
   await expect(brand).toHaveAttribute('aria-expanded', 'true');
   await expect(brands.getByRole('option', { name: 'Apple', exact: true })).toBeVisible();
-  await brand.press('Escape');
-  await expect(brand).toHaveValue('');
+  await pressCatalogKey(page, brand, 'Escape');
+  await expectCatalogValue(brand, '');
   await openCatalogPicker(page, brand);
-  await brand.fill('手填原文品牌');
-  await brand.press('Enter');
-  await expect(brand).toHaveValue('手填原文品牌');
+  await fillCatalogQuery(page, brand, '手填原文品牌');
+  await confirmCatalogManual(page, brand);
+  await expectCatalogValue(brand, '手填原文品牌');
   await expect(brand).toHaveAttribute('aria-expanded', 'false');
   await manuallyChooseDevice(page, model, '原文型号 Tab');
   await openCatalogPicker(page, model);
-  await model.fill('未确认查询');
-  await model.press('Escape');
-  await expect(model).toHaveValue('原文型号 Tab');
+  await fillCatalogQuery(page, model, '未确认查询');
+  await pressCatalogKey(page, model, 'Escape');
+  await expectCatalogValue(model, '原文型号 Tab');
   await openCatalogPicker(page, model);
-  await model.fill('原文型号 blur');
-  await activatePicker(page.getByRole('heading', { name: '送修设备', exact: true }));
-  await expect(model).toHaveValue('原文型号 blur');
+  await fillCatalogQuery(page, model, '原文型号 blur');
+  if (await isBrowsePicker(model)) await pressCatalogKey(page, model, 'Escape');
+  else await activatePicker(page.getByRole('heading', { name: '送修设备', exact: true }));
+  await expectCatalogValue(model, await isBrowsePicker(model) ? '原文型号 Tab' : '原文型号 blur');
   await expect(model).toHaveAttribute('aria-expanded', 'false');
   await openCatalogPicker(page, model);
-  await model.fill('原文型号 Enter');
-  await model.press('Enter');
-  await expect(model).toHaveValue('原文型号 Enter');
+  await fillCatalogQuery(page, model, '原文型号 Enter');
+  await confirmCatalogManual(page, model);
+  await expectCatalogValue(model, '原文型号 Enter');
   await expect(model).toHaveAttribute('aria-expanded', 'false');
 });
 
@@ -184,9 +185,9 @@ test('computer candidates stay windowed and anchored in all three languages at f
   for (const locale of ['zh-CN', 'it', 'en']) for (const width of [1440, 1024, 390, 375]) {
     await page.setViewportSize({ width, height: 812 });
     await page.getByLabel('语言 / Lingua / Language').selectOption(locale, { force: true });
-    const brand = page.locator('form.intake-form').getByRole('combobox', { name: await pickerText(page, '品牌'), exact: true });
+    const brand = page.locator('form.intake-form').getByRole('combobox', { name: await pickerText(page, '品牌'), exact: true, includeHidden: true });
     await selectBrand(page, brand, 'Lenovo');
-    const model = page.locator('form.intake-form').getByRole('combobox', { name: await pickerText(page, '型号'), exact: true });
+    const model = page.locator('form.intake-form').getByRole('combobox', { name: await pickerText(page, '型号'), exact: true, includeHidden: true });
     const root = await openCatalogPicker(page, model);
     await choosePickerFamily(page, root, 'ThinkPad');
     await expect(root.getByRole('option').first()).toBeVisible();
@@ -198,11 +199,11 @@ test('computer candidates stay windowed and anchored in all three languages at f
     const box = (await root.locator('.search-combobox__menu').boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(width);
     expect(box.y).toBeGreaterThanOrEqual(0); expect(box.y + box.height).toBeLessThanOrEqual(812);
-    await model.fill('ThinkPad T14 Gen 5');
+    await fillCatalogQuery(page, model, 'ThinkPad T14 Gen 5');
     await expect(root.getByRole('option', { name: 'ThinkPad T14 Gen 5 (Intel)', exact: true })).toBeVisible();
     await page.screenshot({ path: '.local/device-catalog/separated-' + info.project.name + '-' + locale + '-' + width + '.png' });
     await choosePickerModel(page, root, 'ThinkPad T14 Gen 5 (Intel)');
-    await expect(model).toHaveValue('ThinkPad T14 Gen 5 (Intel)');
+    await expectCatalogValue(model, 'ThinkPad T14 Gen 5 (Intel)');
   }
 });
 
@@ -249,11 +250,11 @@ test('preloaded independent choices paint within 200ms with zero new-data GETs a
     await activatePicker(brand);
     await recorded('brand', i + 1);
     if (i === 0) {
-      await brand.fill('Samsung');
+      await fillCatalogQuery(page, brand, 'Samsung');
       await activatePicker(pickerRoot(brand).getByRole('option', { name: 'Samsung', exact: true }));
-    } else await brand.press('Escape');
+    } else await pressCatalogKey(page, brand, 'Escape');
     const root = await openCatalogPicker(page, model);
-    await model.fill('');
+    await fillCatalogQuery(page, model, '');
     const group = root.getByRole('group', { name: '型号系列筛选', exact: true });
     await activatePicker(group.getByRole('button', { name: '全部系列', exact: true }));
     const family = group.getByRole('button', { name: 'Galaxy A', exact: true });
@@ -262,13 +263,13 @@ test('preloaded independent choices paint within 200ms with zero new-data GETs a
     await arm(family, { tier: 'series', event: 'click', target: 'Galaxy A5 (2017)', pressed: 'Galaxy A' });
     await activatePicker(family);
     await recorded('series', i + 1);
-    await model.fill('');
-    await model.focus();
-    await arm(model, { tier: 'model', event: 'input', target: 'Galaxy A13 4G (SM-A137)', count: 3, query: 'A13' });
+    await fillCatalogQuery(page, model, '');
+    await (await catalogQueryInput(page, model)).focus();
+    await arm(await catalogQueryInput(page, model), { tier: 'model', event: 'input', target: 'Galaxy A13 4G (SM-A137)', count: 3, query: 'A13' });
     await page.keyboard.insertText('A13');
     await recorded('model', i + 1);
     await activatePicker(root.getByRole('option', { name: 'Galaxy A13 4G (SM-A137)', exact: true }));
-    await expect(model).toHaveValue('Galaxy A13 4G (SM-A137)');
+    await expectCatalogValue(model, 'Galaxy A13 4G (SM-A137)');
     await expect(model).toHaveAttribute('aria-expanded', 'false');
   }
   const points = await page.evaluate(() => (window as unknown as PickerProbe).catalogSamples);
@@ -340,14 +341,14 @@ test('loading failures preserve raw queries and permit manual confirmation witho
   const brand = repairBrand(page), model = repairModel(page);
   await selectBrand(page, brand, 'Apple');
   const root = await openCatalogPicker(page, model);
-  await model.fill('原文 网络失败');
+  await fillCatalogQuery(page, model, '原文 网络失败');
   await page.route('**/api/catalog?kind=picker-index*', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: '设备目录暂不可用，请稍后重试。' }) }));
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(root.getByRole('alert')).toContainText('设备目录暂不可用');
-  await expect(model).toHaveValue('原文 网络失败');
+  await expect(await catalogQueryInput(page, model)).toHaveValue('原文 网络失败');
   await expect(root.getByRole('status').filter({ hasText: '没有匹配' })).toHaveCount(0);
-  await model.press('Enter');
-  await expect(model).toHaveValue('原文 网络失败');
+  await confirmCatalogManual(page, model);
+  await expectCatalogValue(model, '原文 网络失败');
   await expect(model).toHaveAttribute('aria-expanded', 'false');
 });
 
@@ -355,19 +356,19 @@ test('historical raw models require the separate store-original area and keep th
   const login = await page.request.post('/api/preview-session', { data: { email: 'demo@chinatech.local', password: 'Preview2026!' } }); expect(login.status()).toBe(200);
   await page.goto('/app/retail/new'); await page.getByRole('radio', { name: '新机', exact: true }).locator('..').click();
   const raw = 'Galaxy A13 legacy-original';
-  await manuallyChooseDevice(page, page.getByRole('combobox', { name: '型号 / 商品名称', exact: true }), raw, 'Samsung');
+  await manuallyChooseDevice(page, page.getByRole('combobox', { name: '型号 / 商品名称', exact: true, includeHidden: true }), raw, 'Samsung');
   await page.getByRole('checkbox', { name: /我确认这是门店自有/ }).check(); await page.getByRole('button', { name: '创建独立档案', exact: true }).click(); await page.waitForURL('**/app/retail/units/**');
   await page.reload(); await expect(page.getByRole('region', { name: '单机摘要', exact: true })).toContainText(raw);
   await page.goto('/app/retail/new'); await page.getByRole('radio', { name: '新机', exact: true }).locator('..').click();
-  await selectBrand(page, page.getByRole('combobox', { name: '品牌', exact: true }), 'Samsung');
-  const model = page.getByRole('combobox', { name: '型号 / 商品名称', exact: true });
-  const root = await openCatalogPicker(page, model); await choosePickerFamily(page, root, 'Galaxy S'); await model.fill(raw);
+  await selectBrand(page, page.getByRole('combobox', { name: '品牌', exact: true, includeHidden: true }), 'Samsung');
+  const model = page.getByRole('combobox', { name: '型号 / 商品名称', exact: true, includeHidden: true });
+  const root = await openCatalogPicker(page, model); await choosePickerFamily(page, root, 'Galaxy S'); await fillCatalogQuery(page, model, raw);
   await expect(root.getByRole('option', { name: raw, exact: true })).toHaveCount(0);
   await activatePicker(root.getByRole('button', { name: '门店原文', exact: true }));
   const historical = root.getByRole('option', { name: raw, exact: true });
   await expect(historical).toBeVisible(); await expect(historical).toHaveAccessibleDescription('门店原文 · 实物仍须核对');
   await activatePicker(historical);
-  for (const locale of ['it', 'en', 'zh-CN']) { await page.getByLabel('语言 / Lingua / Language').selectOption(locale, { force: true }); await expect(page.getByRole('combobox', { name: await pickerText(page, '型号 / 商品名称'), exact: true })).toHaveValue(raw); }
+  for (const locale of ['it', 'en', 'zh-CN']) { await page.getByLabel('语言 / Lingua / Language').selectOption(locale, { force: true }); await expect(page.getByRole('combobox', { name: await pickerText(page, '型号 / 商品名称'), exact: true, includeHidden: true })).toHaveValue(raw); }
 });
 
 test('existing single-field brand correction preserves its model and cancel creates no history', async ({ page }) => {
@@ -379,11 +380,11 @@ test('existing single-field brand correction preserves its model and cancel crea
   const before = await page.evaluate(() => localStorage.getItem('chinatech.m1.retail.v1'));
   await page.getByRole('button', { name: '编辑品牌', exact: true }).click();
   let editor = page.getByRole('region', { name: '编辑品牌', exact: true });
-  await selectBrand(page, editor.getByRole('combobox', { name: '品牌', exact: true }), 'Apple');
+  await selectBrand(page, editor.getByRole('combobox', { name: '品牌', exact: true, includeHidden: true }), 'Apple');
   await editor.getByRole('button', { name: '取消', exact: true }).click();
   expect(await page.evaluate(() => localStorage.getItem('chinatech.m1.retail.v1'))).toBe(before);
   await page.getByRole('button', { name: '编辑品牌', exact: true }).click(); editor = page.getByRole('region', { name: '编辑品牌', exact: true });
-  await selectBrand(page, editor.getByRole('combobox', { name: '品牌', exact: true }), 'Apple');
+  await selectBrand(page, editor.getByRole('combobox', { name: '品牌', exact: true, includeHidden: true }), 'Apple');
   await editor.getByRole('button', { name: '继续确认', exact: true }).click(); await editor.getByRole('button', { name: '确认保存', exact: true }).click();
   await expect(editor).toHaveCount(0); await page.reload();
   const unit = await page.evaluate(id => JSON.parse(localStorage.getItem('chinatech.m1.retail.v1')!).units.find((row: { id: string }) => row.id === id), createdId);
@@ -391,7 +392,7 @@ test('existing single-field brand correction preserves its model and cancel crea
   expect(unit.events.at(-1).title).toBe('更正品牌');
   await page.getByRole('button', { name: '编辑型号 / 商品名称', exact: true }).click();
   const modelEditor = page.getByRole('region', { name: '编辑型号 / 商品名称', exact: true });
-  const modelInput = modelEditor.getByRole('combobox', { name: '型号 / 商品名称', exact: true });
+  const modelInput = modelEditor.getByRole('combobox', { name: '型号 / 商品名称', exact: true, includeHidden: true });
   const models = await openCatalogPicker(page, modelInput);
   await choosePickerModel(page, models, 'iPhone 16');
   await modelEditor.getByRole('button', { name: '继续确认', exact: true }).click();
@@ -420,7 +421,7 @@ test('identity queries preserve a pending signature but a confirmed brand switch
   await expect(page.getByRole('img', { name: '待保存客户签名', exact: true })).toBeVisible();
   await activatePicker(page.getByRole('button', { name: '修改设备', exact: true }));
   const brand = repairBrand(page);
-  await openCatalogPicker(page, brand); await brand.fill('Samsung'); await brand.press('Escape');
+  await openCatalogPicker(page, brand); await fillCatalogQuery(page, brand, 'Samsung'); await pressCatalogKey(page, brand, 'Escape');
   await activatePicker(page.getByRole('button', { name: '下一步', exact: true }));
   await activatePicker(page.getByRole('button', { name: '下一步', exact: true }));
   await expect(page.getByRole('img', { name: '待保存客户签名', exact: true })).toBeVisible();
@@ -428,7 +429,7 @@ test('identity queries preserve a pending signature but a confirmed brand switch
   await activatePicker(page.getByRole('button', { name: '修改设备', exact: true }));
   await selectBrand(page, brand, 'Samsung');
   await activatePicker(page.getByRole('button', { name: '撤销品牌切换', exact: true }));
-  await expect(brand).toHaveValue('Apple'); await expect(repairModel(page)).toHaveValue('iPhone 16');
+  await expectCatalogValue(brand, 'Apple'); await expectCatalogValue(repairModel(page), 'iPhone 16');
   await activatePicker(page.getByRole('button', { name: '下一步', exact: true }));
   await activatePicker(page.getByRole('button', { name: '下一步', exact: true }));
   await expect(page.getByRole('img', { name: '待保存客户签名', exact: true })).toHaveCount(0);
