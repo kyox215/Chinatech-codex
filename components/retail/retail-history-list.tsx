@@ -5,7 +5,7 @@ import { retailDisplaySpec, retailSearchLabels } from "@/lib/i18n/retail-display
 import { useLanguage } from "@/components/language-provider";
 import { InputControl } from "@/components/input-control";
 import { NavigationLink as Link } from "@/components/navigation-link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Archive, ChevronLeft, ChevronRight, Plus, ScanLine, Search, X } from "lucide-react";
 import { PageTitle } from "@/components/page-title";
@@ -27,6 +27,8 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
   const staff = useStaff();
   const { dispatch, returnTo, returnScroll } = useRetail();
   const [scanOpen, setScanOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersId = useId();
   const params = useSearchParams();
   const view = retailViewFromParams(params);
   const query = params.get("q") || "";
@@ -60,6 +62,7 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
   const listUrl = `/app/retail${listParams.size ? `?${listParams}` : ""}`;
   useEffect(() => { if (listUrl === returnTo) window.scrollTo({ top: returnScroll, behavior: "instant" }); }, [listUrl, returnTo, returnScroll]);
   const hasFilters = Boolean(query) || condition !== "all" || category !== "all" || status !== "all" || review || sort !== defaultSort;
+  const filterCount = Number(category !== "all") + Number(status !== "all") + Number(review) + Number(sort !== defaultSort);
   function update(key:string,value:string) {
     const next = new URLSearchParams(listParams);
     if(!value || value === "all" || key === "sort" && value === defaultSort) next.delete(key); else next.set(key,value);
@@ -72,13 +75,14 @@ export function RetailHistoryList({ records, units, ready, error }: { records: R
   return <main className={`module-page ${surface.page}`}>
     <header className="module-heading"><PageTitle title={t("整机商品")} /><div className={`module-heading__actions${!staff.can("retail.edit") ? " module-heading__actions--icons" : ""}`}><button className="button button--secondary button--compact page-toolbar-action" type="button" aria-label={t("识码查找")} title={t("识码查找")} aria-expanded={scanOpen} onClick={() => setScanOpen(!scanOpen)}><ScanLine size={17} /><span>{t("识码查找")}</span></button>{staff.can("retail.edit") ? <Link className="button button--primary button--compact" href="/app/retail/new" icon={<Plus size={17} />}>{t("新建商品")}</Link> : null}</div></header>
     {scanOpen ? <RetailRecordScanner units={units} records={records} onClose={() => setScanOpen(false)} onNavigate={remember} /> : null}
-    <nav className={styles.sourceTabs} aria-label={t("整机销售状态")}>{(["available","sold","other"] as const).map(value => <Link key={value} href={viewHref(value)} aria-current={view === value ? "page" : undefined}>{t(retailViewLabels[value])} <span>{result.viewCounts[value]}</span></Link>)}</nav>
+    <nav className={styles.sourceTabs} aria-label={t("整机销售状态")}>{(["available","sold","other"] as const).map(value => <Link key={value} href={viewHref(value)} aria-current={view === value ? "page" : undefined}><span className={styles.sourceLabel}>{t(retailViewLabels[value])}</span><span>{result.viewCounts[value]}</span></Link>)}</nav>
     {error ? <p className="procurement-feedback procurement-feedback--error" role="alert">{systemText(error)}</p> : null}
     <section className={`panel ${styles.list}`} aria-label={t(retailViewLabels[view])}>
       <div className={`${listStyles.classification} ${styles.classificationBar}`} role="group" aria-label={t("商品分类筛选")}>{(["all","新机","翻新机"] as const).map(value => <button key={value} type="button" className={condition === value ? listStyles.classificationActive : ""} aria-pressed={condition === value} onClick={() => update("condition",value)}><span>{value === "all" ? t("全部") : t(value)}</span><small>{result.conditionCounts[value]}</small></button>)}</div>
       <div className={styles.toolbar}>
         <label className={`module-search ${styles.search}`}><Search size={18} /><InputControl onClear={() => update("q","")} clearLabel={t("清空搜索整机商品")} type="search" aria-label={t("搜索整机商品")} value={query} onChange={event => update("q",event.target.value)} placeholder={t("型号、号码、识别码、颜色、容量、问题或日期")} /></label>
-        <div className={styles.filters}>
+        <button className={`button button--secondary ${styles.filterToggle}`} type="button" aria-expanded={filtersOpen} aria-controls={filtersId} onClick={() => setFiltersOpen(value => !value)}>{t("筛选")}{filterCount ? ` · ${filterCount}` : ""}</button>
+        <div id={filtersId} className={styles.filters} hidden={!filtersOpen}>
           <label className="module-select"><SelectControl aria-label={t("商品类型筛选")} value={category} onChange={event => update("category",event.target.value)}><option value="all">{t("全部类型")}</option>{result.categories.map(value => <option key={value} value={value}>{t(value)}</option>)}</SelectControl></label>
           {view === "other" ? <label className="module-select"><SelectControl aria-label={t("其他状态筛选")} value={status} onChange={event => update("status",event.target.value)}><option value="all">{t("全部其他状态")}</option>{result.statuses.map(value => <option key={value} value={value}>{t(value)}</option>)}</SelectControl></label> : null}
           <label className="module-select"><SelectControl aria-label={t("整机核对筛选")} value={review ? "pending" : "all"} onChange={event => update("review",event.target.value)}><option value="all">{t("全部核对状态")}</option><option value="pending">{t("待核对")}</option></SelectControl></label>

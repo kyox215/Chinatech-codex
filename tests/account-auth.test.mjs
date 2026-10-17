@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 const { NextRequest, NextResponse } = require("next/server");
 const userA = "11111111-1111-4111-8111-111111111111", userB = "22222222-2222-4222-8222-222222222222";
 function harness() {
-  const state = { clock: Date.now(), calls: [], settingsStatus: 200, external: { google: true, apple: true, phone: true }, exchangeUser: userA, verifyUser: userA, linkedProvider: "google", changedEmail: "", live: true, remember: false, providerFault: "", failDatabase: false, recovery: false,
+  const state = { clock: Date.now(), calls: [], settingsStatus: 200, external: { google: true, apple: true, phone: true }, exchangeUser: userA, verifyUser: userA, linkedProvider: "google", changedEmail: "", live: true, remember: false, providerFault: "", failDatabase: false, recovery: false, signupError: null, signupSession: false,
     users: { [userA]: { id: userA, email: "first@example.test", email_confirmed_at: "2026-01-01", new_email: "", phone: "", new_phone: "390123456789", phone_confirmed_at: null, identities: [], user_metadata: { role: "owner" } }, [userB]: { id: userB, email: "second@example.test", email_confirmed_at: "2026-01-01", identities: [] } } };
   class Clock extends Date { static now() { return state.clock; } }
   class BackendError extends Error { constructor(message, status) { super(message); this.status = status; } }
@@ -24,7 +24,7 @@ function harness() {
     };
     return { auth: {
       signOut: async () => { state.calls.push(["signOut"]); response.cookies.set("ct_rebuild_auth", "", { maxAge: 0 }); if (state.providerFault === "throw") throw new Error("Synthetic provider outage"); return { error: state.providerFault ? new Error("Synthetic provider outage") : null }; },
-      signUp: async () => ({ data: { user: state.users[userA], session: null }, error: null }),
+      signUp: async options => { state.calls.push(["signUp", options]); return { data: { user: state.users[userA], session: state.signupSession ? { synthetic: true } : null }, error: state.signupError }; },
       getUser: async () => ({ data: { user: current() ?? null }, error: null }),
       getClaims: async () => ({ data: { claims: { sub: current()?.id, session_id: request.cookies.get("test-session")?.value } }, error: null }),
       updateUser: async attributes => { state.calls.push(["update", attributes]); Object.assign(current(), attributes.email ? { new_email: attributes.email } : { new_phone: attributes.phone }); return { data: { user: current() }, error: null }; },
@@ -40,6 +40,7 @@ function harness() {
     const context = createContext({ exports, process: { env: { NODE_ENV: "production", BACKEND_MODE: "supabase", APP_ORIGIN: "https://shop.example.test", SUPABASE_URL: "https://project.example.test", SUPABASE_PUBLISHABLE_KEY: "sb_publishable_synthetic", APP_DATABASE_URL: "synthetic-private-intent-key" } }, Buffer, URL, Headers, AbortSignal, Date: Clock,
       fetch: async () => new Response(JSON.stringify({ external: state.external, sms_provider: "twilio" }), { status: state.settingsStatus }),
       require: name => {
+        if (name === "server-only") return {};
         if (name === "@/lib/toolbox/office-server") return { getOfficeAdmin: async () => { if (!state.officeAdmin) throw new Error("not admin"); return {}; } };
         if (name === "@/lib/backend/database") return { BackendError, enrollLogin: async (identity, remember) => { state.calls.push(["enroll", identity, remember]); state.remember = remember; }, withDatabase: async (identity, storeId, action) => { assert.equal(storeId, null); state.calls.push(["live", identity]); if (!state.live) throw new BackendError("revoked", 401); if (state.failDatabase) throw new Error("Synthetic database outage"); return action(async (parts) => { state.calls.push(["sql", parts.join("?")]); return [{ remember: state.remember, last_active_at: new Clock() }]; }); } };
         if (name.startsWith("@/")) return load(name.slice(2) + ".ts");
@@ -118,7 +119,7 @@ test("committed logout preserves all cookie deletions when provider sign-out err
     const response = await h.load("app/api/auth/logout/route.ts").POST(request);
     assert.equal(response.status, 200); assert.equal((await response.json()).ok, true);
     assert.ok(h.state.calls.some(([action, sql]) => action === "sql" && sql.includes("set revoked_at")));
-    for (const name of ["ct_rebuild_auth", "ct_rebuild_auth.0", "ct_rebuild_auth.1", "ct_rebuild_auth-code-verifier", "ct_login_policy", "ct_login_intent"]) assert.equal(response.cookies.get(name).maxAge, 0);
+    for (const name of ["ct_rebuild_auth", "ct_rebuild_auth.0", "ct_rebuild_auth.1", "ct_rebuild_auth-code-verifier", "ct_login_policy", "ct_login_intent", "ct_rebuild_store_invitation"]) assert.equal(response.cookies.get(name).maxAge, 0);
   }
 });
 
@@ -248,4 +249,23 @@ test("Office management capability is explicit, metadata-independent and absent 
  let body=await (await route.GET(h.request("/api/auth/account"))).json();assert.equal(body.capabilities.canManageOffice,false);
  h.state.officeAdmin=true;body=await (await route.GET(h.request("/api/auth/account"))).json();assert.equal(body.capabilities.canManageOffice,true);
  h.state.officeAdmin=false;body=await (await route.GET(h.request("/api/auth/account"))).json();assert.equal(body.capabilities.canManageOffice,false);
+});
+
+
+test("registration duplicate-email responses stay generic and never create membership or accept role selection", async () => {
+  let accepted;
+  for (const code of [null, "user_already_exists", "email_exists"]) {
+    const h=harness();h.state.signupError=code ? {code,status:422} : null;
+    const response=await h.load("app/api/auth/register/route.ts").POST(h.request("/api/auth/register",{email:"first@example.test",password:"Synthetic-password-123",displayName:" Synthetic "}));
+    assert.equal(response.status,200);const body=await response.json();if(!accepted)accepted=body;else assert.deepEqual(body,accepted);
+    assert.equal(h.state.calls.some(([action])=>["live","sql","enroll"].includes(action)),false);
+    const options=h.state.calls.find(([action])=>action==="signUp")[1];assert.deepEqual(Object.keys(options.options.data),["display_name"]);assert.equal(options.options.emailRedirectTo,"https://shop.example.test/auth/confirm");
+  }
+  const h=harness();const response=await h.load("app/api/auth/register/route.ts").POST(h.request("/api/auth/register",{email:"first@example.test",password:"Synthetic-password-123",displayName:"Synthetic",role:"owner"}));assert.equal(response.status,400);assert.equal(h.state.calls.length,0);
+});
+test("registration retains explicit provider rate/unavailability and signs out an unintended auto-confirm session", async () => {
+  for(const [providerStatus,expected] of [[429,429],[500,503],[503,503]]){
+    const h=harness();h.state.signupError={status:providerStatus,code:"synthetic_failure"};const response=await h.load("app/api/auth/register/route.ts").POST(h.request("/api/auth/register",{email:"first@example.test",password:"Synthetic-password-123",displayName:"Synthetic"}));assert.equal(response.status,expected);
+  }
+  const h=harness();h.state.signupSession=true;const response=await h.load("app/api/auth/register/route.ts").POST(h.request("/api/auth/register",{email:"first@example.test",password:"Synthetic-password-123",displayName:"Synthetic"}));assert.equal(response.status,200);assert.equal(h.state.calls.filter(([action])=>action==="signOut").length,1);assert.equal(h.state.calls.some(([action])=>["live","sql","enroll"].includes(action)),false);
 });
