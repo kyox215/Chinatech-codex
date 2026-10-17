@@ -1,5 +1,7 @@
 # 组件与组合索引
 
+接机单三语疏朗版复用`lib/repair-receipt-template.ts`／`repair-print-layout.ts`／`print-language.ts`和服务端渲染器。客户／设备／交接仍读领域投影，稳定key定位标签和值；预览与操作沿`IntakeReceipt`／`ReceiptPdfPreview`及原B反馈，不复制公共控件。设计参考、布局边界及实际验证见[本轮记录](previews/receipt-spacing-20261017.md)。
+
 | 组件类别 | 唯一实现 / 复用入口 | 设计来源与状态 |
 | --- | --- | --- |
 | 品牌 | `components/brand.tsx` | 现有 ChinaTech 品牌与语义 token；导航反馈复用图标槽 |
