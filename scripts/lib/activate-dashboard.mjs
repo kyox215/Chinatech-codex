@@ -1,0 +1,23 @@
+// Shared original operator implementation. Entry points own target admission, connection and reporting.
+import assert from'node:assert/strict';
+import{sourceLoader}from'../../tests/helpers/typescript-source.mjs';
+import{dashboardHeadBatch,dashboardEventBatch,putDashboardHeads,putDashboardEvents,verifyDashboardProjection}from'./dashboard-projection-verifier.mjs';
+export async function runOperator({sql,storeId}) {
+const store=storeId;
+const load=sourceLoader(),{dashboardRulesHash,dashboardFormat}=load('./lib/backend/dashboard-version'),{projectionQueryRulesHash}=load('./lib/backend/query-rules-version'),lock=tx=>tx`select pg_advisory_xact_lock(hashtextextended(${'ct:'+store},0))`;
+async function model(tx){const[row]=await tx`select ready,format_version,rules_hash,query_rules_hash,backfill_cursor from chinatech_v2_private.dashboard_models where store_id=${store} for update`;assert(row,'Installed dashboard store model required');assert.equal(row.format_version,dashboardFormat);assert.equal(row.rules_hash,dashboardRulesHash);assert.equal(row.query_rules_hash,projectionQueryRulesHash);return row;}
+async function producers(tx){const rows=await tx`select tg.tgname,tg.tgenabled from pg_trigger tg where(tg.tgrelid,tg.tgname)in(('chinatech_v2.stores'::regclass,'dashboard_store_init'),('chinatech_v2_private.repair_intakes'::regclass,'dashboard_repair_sync'),('chinatech_v2_private.procurement_records'::regclass,'dashboard_procurement_sync'),('chinatech_v2_private.retail_units'::regclass,'dashboard_retail_sync'))`;assert.equal(rows.length,4);assert(rows.every(row=>row.tgenabled==='O'),'Canonical dashboard producers must remain enabled');}
+await sql.begin(async tx=>{await lock(tx);assert.equal((await tx`select count(*)::integer n from chinatech_v2.stores where id=${store}`)[0].n,1);await producers(tx);await tx`insert into chinatech_v2_private.dashboard_models(store_id)values(${store})on conflict do nothing`;const current=await model(tx);if(current.ready||!current.backfill_cursor){await tx`delete from chinatech_v2_private.dashboard_activity_heads where store_id=${store}`;await tx`update chinatech_v2_private.dashboard_models set backfill_cursor=${tx.json({phase:'heads',cursor:null})} where store_id=${store}`;}await tx`update chinatech_v2_private.dashboard_models set ready=false,verified_at=null where store_id=${store}`;});
+ let batches=0,headsWritten=0,eventsWritten=0,maximumBatchBytes=0;
+ for(;;){const done=await sql.begin(async tx=>{await lock(tx);const current=await model(tx),{phase,cursor}=current.backfill_cursor;assert(['heads','events'].includes(phase));const rows=phase==='heads'?await dashboardHeadBatch(tx,store,cursor):await dashboardEventBatch(tx,store,cursor);if(!rows.length){if(phase==='heads'){await tx`update chinatech_v2_private.dashboard_models set backfill_cursor=${tx.json({phase:'events',cursor:null})} where store_id=${store}`;return false;}return true;}
+  assert(rows.length<=200);const bytes=Buffer.byteLength(JSON.stringify(rows));assert(bytes<=200000,'Bounded canonical operator payload');maximumBatchBytes=Math.max(maximumBatchBytes,bytes);batches++;if(phase==='heads'){await putDashboardHeads(tx,store,rows);headsWritten+=rows.length;}else{await putDashboardEvents(tx,store,rows);eventsWritten+=rows.length;}const last=rows.at(-1);await tx`update chinatech_v2_private.dashboard_models set backfill_cursor=${tx.json({phase,cursor:phase==='heads'?[last.source,last.entity_id]:[last.source,last.entity_id,last.position]})} where store_id=${store}`;return false;});if(done)break;}
+ const verified=await sql.begin('isolation level serializable',async tx=>{
+  await lock(tx);
+  // Same table order as rollback/enable. These locks allow normal row writes,
+  // but exclude DISABLE/ENABLE TRIGGER through verification and ready commit.
+  await tx`lock table chinatech_v2.stores,chinatech_v2_private.repair_intakes,chinatech_v2_private.procurement_records,chinatech_v2_private.retail_units in share update exclusive mode`;
+  const current=await model(tx);assert(!current.ready&&current.backfill_cursor?.phase==='events','A current unfinished event pass is required');await producers(tx);
+  const result=await verifyDashboardProjection(tx,store);await tx`update chinatech_v2_private.dashboard_models set ready=true,generation=generation+1,verified_at=now() where store_id=${store}`;return result;
+ });
+ return ({pass:true,activated:true,batches,headsWritten,eventsWritten,maximumWriteBatchBytes:maximumBatchBytes,...verified,condition:'Local owner-only flat heads/events and full independent canonical verifier. No canonical writes, app flag, production, HTTP or timing claim.'});
+}

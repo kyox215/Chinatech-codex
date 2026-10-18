@@ -1,0 +1,53 @@
+{
+  "originalCommit": "e1c6ceb45f76ae0200fc46e668abf5ed39ab59ee",
+  "operators": {
+    "customer-directory": {
+      "originalSHA256": "dfd4f6b8119fcab4503f94906f86b8cad492005feb45737d9bc28c7945d62cb9",
+      "admissionSHA256": "53ef512c48d45315cc5f24eec64b074eeb8ff8a769c18c17716ee18960ffb13c",
+      "sharedImplementationSHA256": "ee920931089a3afa8650791f3231641ca514c754bbba1c88f070c95793c3eae4",
+      "sharedPath": "scripts/lib/activate-customer-directory.mjs"
+    },
+    "procurement-list": {
+      "originalSHA256": "24dc90c74df2eb99aaa3f501cb206d5e8934ce2f56d1eb4120ff87d7e1339048",
+      "admissionSHA256": "ad3844a2ddbb46a82ea091160c3c10138a8d00bc9d40b871ff3778d01a3e2ac9",
+      "sharedImplementationSHA256": "66ad37850b8a1b16b09b07f478eb992afd2e847dd194c197d82f56192f735e90",
+      "sharedPath": "scripts/lib/activate-procurement-list.mjs"
+    },
+    "repair-list": {
+      "originalSHA256": "ff6eab9e01680472a38f5eb537a64cddba245efd3b329715ec7a1e4a8736b61a",
+      "admissionSHA256": "48a4f99fc3148e4f1cb601fa2f82a912c7ce1748aa02446aec76fccc4bbbb48b",
+      "sharedImplementationSHA256": "9fc7162a4064c10e2acfa0aea2a251e31a29539321b9c64f5964213ce1910960",
+      "sharedPath": "scripts/lib/activate-repair-list.mjs"
+    },
+    "retail-form-values": {
+      "originalSHA256": "7108b9de93b5390f9303211208aec8a512fbe28ca8fb25affe74efabfc9c0f82",
+      "admissionSHA256": "56105c81d1d9fe4122278bff996f74858390b5c5f55074c3f66ad82a8a2bcdf0",
+      "sharedImplementationSHA256": "24e679be21be0186d78285099b075b6abe71a175c357b45f0b4b7f7edd38e7db",
+      "sharedPath": "scripts/lib/activate-retail-form-values.mjs"
+    },
+    "retail-list": {
+      "originalSHA256": "8d8614b58cd8f389eb690f5e08ed7be823bd4d4537794919aecdc4985916e869",
+      "admissionSHA256": "dc1356c944a046d20317f597b64a6ed609288b3d20a2cdab214b2cb89f7f5d44",
+      "sharedImplementationSHA256": "edf04ea0c2ec80cb73923c6480b58ed2c2a62ea059a9cac9a8f433508ad537aa",
+      "sharedPath": "scripts/lib/activate-retail-list.mjs"
+    },
+    "customer-records": {
+      "originalSHA256": "2687493f45a6ae8149dd5fb5dc16c21e176a552b73a8a35451fc2473a4f5d198",
+      "admissionSHA256": "a8e9a51b581b0d2277db82c5d9444b60e8425673e56fc09d54383e148ddc4637",
+      "sharedImplementationSHA256": "2dbfb6c01d8a42ffe7604374db60578ea67ce15bac48d6aa6707ee3c1ac7577a",
+      "sharedPath": "scripts/lib/activate-customer-records.mjs"
+    },
+    "customer-devices": {
+      "originalSHA256": "72c7d71f873f3eea83f9d56e1af70683e28764aba5b75902b5034ba44515a27b",
+      "admissionSHA256": "c978fd12aab71da8a819ba7d4a100f397c7e00b24861924d988082f1cc4ba0ef",
+      "sharedImplementationSHA256": "e93daed71ceadf5d4674efe1b846578625649857b038984e966f9b517cf4ce40",
+      "sharedPath": "scripts/lib/activate-customer-devices.mjs"
+    },
+    "dashboard": {
+      "originalSHA256": "b3faad1dbae8a8ecbbb09031975efebcec8f8f0845ee0ca01ac4e20e3ad4a80b",
+      "admissionSHA256": "f959cf58a2f2985916180322f9018fd6a9ca2b0c32e5431eb62801292e8a0145",
+      "sharedImplementationSHA256": "3a15be2e9b695c3b263511729de085cd6bfe4a29f2da3c6e26cc80e23bea73e4",
+      "sharedPath": "scripts/lib/activate-dashboard.mjs"
+    }
+  }
+}

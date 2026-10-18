@@ -1,0 +1,14 @@
+// Shared original operator implementation. Entry points own target admission, connection and reporting.
+import {requireProjectionQueryContract} from "./query-contract-verifier.mjs";
+import assert from'node:assert/strict';
+import{sourceLoader}from'../../tests/helpers/typescript-source.mjs';
+import{retailFormCanonicalBatch,verifyRetailFormProjection}from'./retail-form-projection-verifier.mjs';
+export async function runOperator({sql,storeId}) {
+const{retailFormProjectionHash,retailFormModelFormat}=sourceLoader()('./lib/backend/unicode17-version'),lock=tx=>tx`select pg_advisory_xact_lock(hashtextextended(${'ct:'+storeId},0))`;
+await sql.begin(async tx=>{await lock(tx);assert.equal((await tx`select count(*)::integer n from chinatech_v2.stores where id=${storeId}`)[0].n,1);await tx`insert into chinatech_v2_private.retail_form_models(store_id)values(${storeId})on conflict do nothing`;await requireProjectionQueryContract(tx,storeId,"retail_form");await tx`update chinatech_v2_private.retail_form_models set ready=false,verified_at=null,backfill_cursor=case when ready or rules_hash<>${retailFormProjectionHash} then null else backfill_cursor end where store_id=${storeId}`;const[model]=await tx`select format_version from chinatech_v2_private.retail_form_models where store_id=${storeId}`;assert.equal(model.format_version,retailFormModelFormat,'Expected the exact reviewed Unicode/model migration before backfill');});
+ const[trigger]=await sql`select tgenabled from pg_trigger where tgname='retail_form_unit_sync'`;assert.equal(trigger?.tgenabled,'O','Canonical form projection must be active');
+ let batches=0,sourceRecords=0;
+ for(;;){const done=await sql.begin(async tx=>{await lock(tx);const[model]=await tx`select backfill_cursor from chinatech_v2_private.retail_form_models where store_id=${storeId} for update`,rows=await retailFormCanonicalBatch(tx,storeId,model.backfill_cursor??'');for(const row of rows)await tx`select chinatech_v2_private.project_retail_form(${storeId},${row.id},${tx.json(row.data)})`;batches++;sourceRecords+=rows.length;if(rows.length)await tx`update chinatech_v2_private.retail_form_models set backfill_cursor=${rows.at(-1).id} where store_id=${storeId}`;return rows.length<200;});if(done)break;}
+ const verified=await sql.begin('isolation level serializable',async tx=>{await lock(tx);await requireProjectionQueryContract(tx,storeId,"retail_form");const result=await verifyRetailFormProjection(tx,storeId);await tx`update chinatech_v2_private.retail_form_models set ready=true,rules_hash=${retailFormProjectionHash},generation=generation+1,verified_at=now()where store_id=${storeId}`;return result;});
+ return ({pass:true,batchLimit:200,batches,sourceRecords,...verified,activated:true,condition:'Local owner-only bounded canonical oracle; not production activation/performance.'});
+}

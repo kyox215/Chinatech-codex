@@ -1,0 +1,19 @@
+// Shared original operator implementation. Entry points own target admission, connection and reporting.
+import {fillRetailNativeSort,requireRetailNativeSort,nativeSortRulesHash} from './retail-native-sort.mjs';
+import {requireProjectionQueryContract} from "./query-contract-verifier.mjs";
+import assert from'node:assert/strict';
+import{sourceLoader}from'../../tests/helpers/typescript-source.mjs';
+import{retailCanonicalBatch,verifyRetailProjection}from'./retail-projection-verifier.mjs';
+export async function runOperator({sql,storeId}) {
+const{retailVocabularyHash}=sourceLoader()('./lib/backend/retail-vocabulary-version'),lock=tx=>tx`select pg_advisory_xact_lock(hashtextextended(${'ct:'+storeId},0))`;
+await sql.begin(async tx=>{await lock(tx);assert.equal((await tx`select count(*)::integer n from chinatech_v2.stores where id=${storeId}`)[0].n,1);
+  await tx`insert into chinatech_v2_private.retail_list_models(store_id)values(${storeId})on conflict do nothing`;await requireProjectionQueryContract(tx,storeId,"retail_list");const[native]=await tx`select sort_rules_hash from chinatech_v2_private.retail_list_models where store_id=${storeId}`;assert.equal(native.sort_rules_hash,nativeSortRulesHash);await tx`update chinatech_v2_private.retail_list_models set ready=false,sort_resume_ready=false,sort_resume_xid=null,verified_at=null,backfill_cursor=case when ready or vocabulary_hash<>${retailVocabularyHash} or sort_rules_hash<>${nativeSortRulesHash} then null else backfill_cursor end where store_id=${storeId}`;
+ });
+ await sql.begin(async tx=>{const triggers=await tx`select tgenabled from pg_trigger where tgname in('retail_list_unit_sync','retail_list_history_sync')`;assert.equal(triggers.length,2);assert(triggers.every(row=>row.tgenabled==='O'),'Canonical projection writes must be active before rebuilding');});
+ let batches=0,sourceRecords=0;
+ for(;;){const done=await sql.begin(async tx=>{await lock(tx);const[model]=await tx`select backfill_cursor from chinatech_v2_private.retail_list_models where store_id=${storeId} for update`,rows=await retailCanonicalBatch(tx,storeId,model.backfill_cursor??'');for(const row of rows)await tx`select chinatech_v2_private.project_retail_list(${storeId},${row.id},${row.kind},${tx.json(row.data)},${row.original?tx.json(row.original):null},true)`;await fillRetailNativeSort(tx,storeId,rows.map(row=>row.key));batches++;sourceRecords+=rows.length;if(rows.length)await tx`update chinatech_v2_private.retail_list_models set backfill_cursor=${rows.at(-1).key} where store_id=${storeId}`;return rows.length<200;});if(done)break;}
+ // A prior verified cursor can be beyond a source changed by a later direct
+ // canonical write. Drain the independently indexed dirty stream as well.
+ let nativeBatches=0;for(;;){const count=await sql.begin(async tx=>{await lock(tx);const rows=await tx`select key from chinatech_v2_private.retail_list_sources where store_id=${storeId} and (sort_input_hash is distinct from sort_source_hash or sort_rules_hash is distinct from ${nativeSortRulesHash}) order by key limit 25`;await fillRetailNativeSort(tx,storeId,rows.map(row=>row.key));return rows.length;});if(!count)break;nativeBatches++;}
+ const verified=await sql.begin('isolation level serializable',async tx=>{await lock(tx);await requireProjectionQueryContract(tx,storeId,"retail_list");await requireRetailNativeSort(tx,storeId);const result=await verifyRetailProjection(tx,storeId);await tx`update chinatech_v2_private.retail_list_models set ready=true,vocabulary_hash=${retailVocabularyHash},generation=generation+1,verified_at=now()where store_id=${storeId}`;return result;});return ({pass:true,storeId,batchLimit:200,batches,sourceRecords,nativeBatches,...verified,activated:true,condition:'Local owner-only canonical oracle; no production activation or performance result.'});
+}

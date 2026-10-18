@@ -34,7 +34,7 @@ jobs:
       - run: npm run lint
       - run: npm run check:i18n
       - run: npm run typecheck
-      - run: npm run test -- tests/customer-canonical-batching.test.mjs
+      - run: npm run test -- tests/customer-canonical-batching.test.mjs tests/production-activation.test.mjs
       - name: Phone current-release cryptographic policies (JVM only)
         run: |
           mkdir -p .local/phone-gate-jvm

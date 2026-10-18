@@ -1,29 +1,12 @@
-// Explicit local owner operator. This never installs DDL or activates an app flag.
-import assert from'node:assert/strict';
-import{readFileSync}from'node:fs';
-import postgres from'postgres';
-import{sourceLoader}from'../tests/helpers/typescript-source.mjs';
-import{dashboardHeadBatch,dashboardEventBatch,putDashboardHeads,putDashboardEvents,verifyDashboardProjection}from'./lib/dashboard-projection-verifier.mjs';
+// Local-only entry: original target guard remains mandatory.
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import postgres from 'postgres';
+import {runOperator} from './lib/activate-dashboard.mjs';
 const args=process.argv.slice(2),values=Object.fromEntries(args.filter(v=>v.includes('=')).map(v=>{const i=v.indexOf('=');return[v.slice(0,i),v.slice(i+1)];}));
 assert(args.every(v=>v==='--run'||v.startsWith('--store-id=')||v.startsWith('--connection-file=')),'Unsupported operator argument');
 if(!args.includes('--run')){console.log(JSON.stringify({planOnly:true,connections:0,maximumRows:200,maximumBytes:200000,phases:['invalidate','heads','events','complete independent verification','ready'],condition:'Local owner-only, exact installed D17/query contract, original canonical unchanged. No app flag or production activation.'}));process.exit(0);}
 const store=values['--store-id'],file=values['--connection-file'];assert.match(store??'',/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i);assert(file,'Explicit project-local owner connection required');
 const config=JSON.parse(readFileSync(file)),url=new URL(config.DB_URL);assert.equal(url.hostname,'127.0.0.1');assert(['55432','55442'].includes(url.port));assert.equal(url.pathname,url.port==='55432'?'/ct_perf_acceptance_icu_20261017':'/ct_perf_http_20261017');
-const load=sourceLoader(),{dashboardRulesHash,dashboardFormat}=load('./lib/backend/dashboard-version'),{projectionQueryRulesHash}=load('./lib/backend/query-rules-version'),sql=postgres(config.DB_URL,{max:1,prepare:false,connection:{statement_timeout:30000,lock_timeout:5000}}),lock=tx=>tx`select pg_advisory_xact_lock(hashtextextended(${'ct:'+store},0))`;
-async function model(tx){const[row]=await tx`select ready,format_version,rules_hash,query_rules_hash,backfill_cursor from chinatech_v2_private.dashboard_models where store_id=${store} for update`;assert(row,'Installed dashboard store model required');assert.equal(row.format_version,dashboardFormat);assert.equal(row.rules_hash,dashboardRulesHash);assert.equal(row.query_rules_hash,projectionQueryRulesHash);return row;}
-async function producers(tx){const rows=await tx`select tg.tgname,tg.tgenabled from pg_trigger tg where(tg.tgrelid,tg.tgname)in(('chinatech_v2.stores'::regclass,'dashboard_store_init'),('chinatech_v2_private.repair_intakes'::regclass,'dashboard_repair_sync'),('chinatech_v2_private.procurement_records'::regclass,'dashboard_procurement_sync'),('chinatech_v2_private.retail_units'::regclass,'dashboard_retail_sync'))`;assert.equal(rows.length,4);assert(rows.every(row=>row.tgenabled==='O'),'Canonical dashboard producers must remain enabled');}
-try{
- await sql.begin(async tx=>{await lock(tx);assert.equal((await tx`select count(*)::integer n from chinatech_v2.stores where id=${store}`)[0].n,1);await producers(tx);await tx`insert into chinatech_v2_private.dashboard_models(store_id)values(${store})on conflict do nothing`;const current=await model(tx);if(current.ready||!current.backfill_cursor){await tx`delete from chinatech_v2_private.dashboard_activity_heads where store_id=${store}`;await tx`update chinatech_v2_private.dashboard_models set backfill_cursor=${tx.json({phase:'heads',cursor:null})} where store_id=${store}`;}await tx`update chinatech_v2_private.dashboard_models set ready=false,verified_at=null where store_id=${store}`;});
- let batches=0,headsWritten=0,eventsWritten=0,maximumBatchBytes=0;
- for(;;){const done=await sql.begin(async tx=>{await lock(tx);const current=await model(tx),{phase,cursor}=current.backfill_cursor;assert(['heads','events'].includes(phase));const rows=phase==='heads'?await dashboardHeadBatch(tx,store,cursor):await dashboardEventBatch(tx,store,cursor);if(!rows.length){if(phase==='heads'){await tx`update chinatech_v2_private.dashboard_models set backfill_cursor=${tx.json({phase:'events',cursor:null})} where store_id=${store}`;return false;}return true;}
-  assert(rows.length<=200);const bytes=Buffer.byteLength(JSON.stringify(rows));assert(bytes<=200000,'Bounded canonical operator payload');maximumBatchBytes=Math.max(maximumBatchBytes,bytes);batches++;if(phase==='heads'){await putDashboardHeads(tx,store,rows);headsWritten+=rows.length;}else{await putDashboardEvents(tx,store,rows);eventsWritten+=rows.length;}const last=rows.at(-1);await tx`update chinatech_v2_private.dashboard_models set backfill_cursor=${tx.json({phase,cursor:phase==='heads'?[last.source,last.entity_id]:[last.source,last.entity_id,last.position]})} where store_id=${store}`;return false;});if(done)break;}
- const verified=await sql.begin('isolation level serializable',async tx=>{
-  await lock(tx);
-  // Same table order as rollback/enable. These locks allow normal row writes,
-  // but exclude DISABLE/ENABLE TRIGGER through verification and ready commit.
-  await tx`lock table chinatech_v2.stores,chinatech_v2_private.repair_intakes,chinatech_v2_private.procurement_records,chinatech_v2_private.retail_units in share update exclusive mode`;
-  const current=await model(tx);assert(!current.ready&&current.backfill_cursor?.phase==='events','A current unfinished event pass is required');await producers(tx);
-  const result=await verifyDashboardProjection(tx,store);await tx`update chinatech_v2_private.dashboard_models set ready=true,generation=generation+1,verified_at=now() where store_id=${store}`;return result;
- });
- console.log(JSON.stringify({pass:true,activated:true,batches,headsWritten,eventsWritten,maximumWriteBatchBytes:maximumBatchBytes,...verified,condition:'Local owner-only flat heads/events and full independent canonical verifier. No canonical writes, app flag, production, HTTP or timing claim.'}));
-}finally{await sql.end();}
+const sql=postgres(config.DB_URL,{max:1,prepare:false,connection:{statement_timeout:30000,lock_timeout:5000}});
+try {const result=await runOperator({sql,storeId:store});console.log(JSON.stringify(result));} finally {await sql.end();}
