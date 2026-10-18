@@ -1,5 +1,15 @@
 # 联动修改与闭环规则
 
+## 2026-10-18 全局基础目录版本与私有事实边界
+
+基础目录只含 `CatalogPickerModel` 的12个公开规格字段；不含供应商、价格、工单、客户、自定义、历史或 Auth／门店信息。公开 manifest 与 immutable version package／品牌分片读取不采用 cookies 或伪造 scope；未知版本／错误禁止长缓存。冷启动 manifest + 整版本 package 共2 GET，是实测约1 MB／56片后减少19轮并发等待的选择；后续版本按 hash 复用、最多3个并发下载，全部 schema／SHA／数量／字节校验完成才原子替换。memory 与 IndexedDB 均拒绝 revision 倒退／同 revision 冲突，跨 tab 保存先在同一读写事务比较当前版本；storage 不可用降级 memory。
+
+客户端 manifest 检查 TTL 为5分钟，通过打开字段／focus／online／visibility 合并触发，无轮询；manifest CDN 最多60秒且无 SWR，实际更新可在下一次合格事件再叠加至多60秒边缘缓存，不能保证后台休眠中5分钟送达。维护成功 `ct:catalog-updated` 与明确重试使用强制重验证，已有读完成后最多合并一次重查；不清空完整旧版。无缓存总读取10秒主动截止（含 body／storage），忽略 abort 的迟到结果也不能提交；旧缓存可继续选择、失败限频，所有重试只读不重放业务写入。
+
+公共目录flight使用独立generation与可靠cancel竞速：页面离开通知立即取消、丢弃排队force且不清完整cache；旧响应／finally不能触及新flight，无缓存取消释放失败TTL，取消不发布失败／成功。beforeunload监听仅真实flight期间挂载（含storage／body／后台更新），不设置returnValue或导航确认；pagehide兜底取消、pageshow／取消离开后focus或重新打开字段可恢复，最后订阅退出清监听并取消。生命周期通知不强迫UI重建，同版本／同view校验与取消保稳定snapshot／index引用。
+
+目录 apply／rollback 仍由原管理授权事务执行；revision 真变更后 trigger 在同一事务建立完整新快照与 pointer，任何发布故障同时回滚 source／revision／新版本／pointer，旧 immutable 版本保留；noop／幂等回执不增版本。新增快照表仅 runtime SELECT，发布函数固定空 search_path、全限定名、无动态 SQL／直接 runtime EXEC，原私有 catalog RLS 不放宽。选定值继续走原新建／编辑／校验／保存／列表／详情／签名与打印事实，不翻译回写品牌型号，不自动改旧单。preview 无正式草稿 scope，reload 空草稿是原限制；本轮 cache reload 测试不能代替正式私有草稿／跨设备业务闭环。
+
 ## 2026-10-16 维修入口呈现调整（待验候选）
 
 维修详情去供应商Tab及项目卡采购进度仅调整呈现。维修分组必须保留全部repairId采购记录的可达入口，含未关联当前需求的旧孤立记录、同项多采购及备选；本项入口按requirement定位，全部入口不沿该过滤器丢记录。真实未确认／无需采购／stale核对仍走原校验、版本、权限、回执与requestId，不以折叠或标题移除假设confirmed。隐藏或切分组不重发请求、不清草稿；照片和签署快照各自边界不变。本条不新增domain/server/DB/RLS或联系跟进规则，运行验收和发布另门禁。

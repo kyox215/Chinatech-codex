@@ -83,15 +83,37 @@ try {
       await page.locator("#oauth").click(); assert.equal(await page.locator("#mail svg path").evaluateAll(nodes => nodes.every(e => getComputedStyle(e).visibility === "visible")), true); assert.equal(await page.locator("#mail").evaluate(e => getComputedStyle(e, "::before").content), "none"); await page.locator("#oauth").click();
       for (const id of ["nav-text", "nav-icon", "nav-grid"]) {
         if (!(await page.url()).endsWith("feedback-test")) await page.goto(`${origin}feedback-test`);
-        let release; const gate = new Promise(resolve => { release = resolve; });
-        await page.route("**/destination?*", async route => { const response = await route.fetch(); await gate; await route.fulfill({ response }); });
+        let release, fulfilled; const gate = new Promise(resolve => { release = resolve; });
+        const delivered = new Promise(resolve => { fulfilled = resolve; });
+        const navigationEvents = [];
+        const responseEvent = response => { if (new URL(response.url()).pathname === "/destination") navigationEvents.push({ type: "response", url: response.url(), status: response.status() }); };
+        const failedEvent = request => { if (new URL(request.url()).pathname === "/destination") navigationEvents.push({ type: "failed", url: request.url(), failure: request.failure() }); };
+        page.on("response", responseEvent); page.on("requestfailed", failedEvent);
+        await page.route("**/destination?*", async route => { const response = await route.fetch(); await gate; await route.fulfill({ response }); fulfilled(); });
         const link = page.locator(`#${id}`); await link.hover(); const box = await stableNavigationBox(link);
         try {
           await link.click(); await link.locator('.navigation-feedback[data-pending="true"]').waitFor(); assert.deepEqual(await stableNavigationBox(link), box);
           assert.equal(await page.locator("#retained-content").isVisible(), true); assert.equal(await link.evaluate(e => getComputedStyle(e).outlineStyle), "none");
           const geometry = await link.locator(".navigation-feedback").evaluate(e => { const a = e.getBoundingClientRect(), b = e.parentElement.getBoundingClientRect(); return a.left >= b.left && a.right <= b.right && a.top >= b.top && a.bottom <= b.bottom; }); assert.equal(geometry, true);
-        } finally { release(); await page.unrouteAll({ behavior: "wait" }); }
-        await page.waitForURL("**/destination"); await page.unrouteAll({ behavior: "wait" });
+          // Keep interception installed until the gated RSC was delivered and the
+          // browser completed the real navigation. Removing it while the router
+          // still consumes the response obscures failures and can race follow-ups.
+          const navigation = page.waitForURL("**/destination");
+          let deliveryTimer;
+          const deliveryDeadline = new Promise((_, reject) => { deliveryTimer = setTimeout(() => reject(new Error("Gated destination response was not delivered within 30 seconds")), 30000); });
+          release();
+          try { await Promise.all([Promise.race([delivered, deliveryDeadline]), navigation]); }
+          finally { clearTimeout(deliveryTimer); }
+          assert.equal(new URL(page.url()).pathname, "/destination");
+        } catch (reason) {
+          const diagnostic = { engine, id, currentURL: page.url(), navigationEvents, errors };
+          writeFileSync(`.local/ui-feedback/navigation-failure-${engine}-${id}.json`, JSON.stringify(diagnostic, null, 2));
+          await page.screenshot({ path: `.local/ui-feedback/navigation-failure-${engine}-${id}.png` });
+          throw reason;
+        } finally {
+          release(); await page.unrouteAll({ behavior: "wait" });
+          page.off("response", responseEvent); page.off("requestfailed", failedEvent);
+        }
       }
       for (const locale of ["zh-CN", "it", "en"]) for (const width of [375, 390, 1024, 1440]) {
         await page.goto(origin); await page.getByLabel("语言 / Lingua / Language").selectOption(locale, { force: true }); await page.setViewportSize({ width, height: 1000 });

@@ -247,6 +247,18 @@ function Combobox({
     };
   }, [expanded, adaptiveMenu, sheet]);
 
+  function sheetKeyDown(event: KeyboardEvent<HTMLDialogElement>) {
+    if (event.key !== "Tab" || !expanded) return;
+    const elements = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]'))
+      .filter(element => element.tabIndex >= 0 && !element.matches(":disabled") && !element.closest("[inert]") && element.getClientRects().length > 0);
+    const first = elements[0], last = elements.at(-1);
+    const focused = document.activeElement;
+    if (first && (event.shiftKey ? focused === first || !elements.includes(focused as HTMLElement) : focused === last || !elements.includes(focused as HTMLElement))) {
+      event.preventDefault();
+      (event.shiftKey ? last : first)?.focus({ preventScroll: true });
+    }
+  }
+
   const menuContent = expanded ?  <div ref={menu} className={["search-combobox__menu", menuClassName].filter(Boolean).join(" ")}>
       {browsing ? <div className="search-combobox__browse-tools">
         {!sheet ? <button type="button" className="icon-button" aria-label={t("关闭{v0}候选", { v0: label })} onClick={() => dismissMobile()}><X size={18} aria-hidden="true" /></button> : null}
@@ -287,7 +299,7 @@ function Combobox({
     </div> : null;
 
   return <div ref={root} data-mobile-presentation={mobilePresentation} className={["field search-combobox", className].filter(Boolean).join(" ")} onBlur={event => {
-    if (!persistentMenu && !event.currentTarget.contains(event.relatedTarget as Node | null)) close(!browsing);
+    if (!persistentMenu && !(sheet && expanded) && !event.currentTarget.contains(event.relatedTarget as Node | null)) close(!browsing);
   }}>
     <label htmlFor={id}>{label}{required ? " *" : ""}</label>
     {browsing ? <>
@@ -338,7 +350,7 @@ function Combobox({
         }
         if (event.key === "Tab" && commitOnBlur) close(true);
       }} />}
-    {sheet ? <dialog ref={dialog} id={id + "-dialog"} className="search-combobox__sheet" aria-labelledby={id + "-title"}
+    {sheet ? <dialog ref={dialog} id={id + "-dialog"} className="search-combobox__sheet" aria-labelledby={id + "-title"} onKeyDown={sheetKeyDown}
       onCancel={event => { event.preventDefault(); dismissMobile(); }}
       onClick={event => { if (event.target === event.currentTarget) { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientY < bounds.top || event.clientY > bounds.bottom || event.clientX < bounds.left || event.clientX > bounds.right) dismissMobile(); } }}>
       <header><h2 id={id + "-title"}>{label}</h2><button ref={dismiss} type="button" className="icon-button" aria-label={t("关闭{v0}候选", { v0: label })} onClick={() => dismissMobile()}><X size={20} aria-hidden="true" /></button></header>

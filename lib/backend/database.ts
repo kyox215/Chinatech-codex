@@ -94,3 +94,22 @@ export async function withOfficeDesktopDatabase<T>(keyHash: string, installation
     }
   }
 }
+
+// This anonymous read can select only materialized public reference snapshots.
+// It never reads source catalogs, memberships, customer data or Auth sessions.
+export async function readDeviceDirectoryResource(version?: string, shard?: string): Promise<string | null> {
+  return database().begin('read only', async tx => {
+    await tx`select set_config('request.jwt.claims','{"role":"anon"}',true),set_config('statement_timeout','5000',true)`;
+    if (!version) {
+      const [row] = await tx<{ body: string }[]>`select v.manifest_body as body from chinatech_v2_private.device_directory_pointer p join chinatech_v2_private.device_directory_versions v using(version) where p.singleton`;
+      if (!row) throw new BackendError('设备目录暂不可用，请稍后重试。',503);
+      return row.body;
+    }
+    if (shard === 'package') {
+      const [row] = await tx<{ body: string }[]>`select jsonb_build_object('manifest',v.manifest_body,'shards',coalesce((select jsonb_object_agg(s.shard_key,s.body) from chinatech_v2_private.device_directory_shards s where s.version=v.version),'{}'::jsonb))::text as body from chinatech_v2_private.device_directory_versions v where v.version=${version}`;
+      return row?.body ?? null;
+    }
+    const [row] = await tx<{ body: string }[]>`select body from chinatech_v2_private.device_directory_shards where version=${version} and shard_key=${shard ?? ''}`;
+    return row?.body ?? null;
+  }) as Promise<string | null>;
+}

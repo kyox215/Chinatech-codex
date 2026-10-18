@@ -1,3 +1,4 @@
+import { DeviceDirectoryPreload } from "@/components/catalog/use-device-directory";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/dashboard/app-shell";
@@ -20,11 +21,11 @@ export default async function ProtectedAppLayout({ children }: { children: React
     catch(error) {if(error instanceof BackendError && error.status===401) redirect("/login");throw error;}
     if(!access) redirect("/account/pending");
     const initial=await withDatabase(access.identity,access.storeId,async tx=>{const fresh=await memberInTransaction(tx,access.storeId,access.identity.userId);return projectState(await loadState(tx,access.storeId,fresh),fresh);});
-    return <BackendProvider key={JSON.stringify([access.identity.userId, access.identity.sessionId, access.storeId])} initial={initial}><ProcurementProvider><RetailProvider><AppShell><BackendSyncNotice/>{children}</AppShell></RetailProvider></ProcurementProvider></BackendProvider>;
+    return <BackendProvider key={JSON.stringify([access.identity.userId, access.identity.sessionId, access.storeId])} initial={initial}><ProcurementProvider><RetailProvider><AppShell><DeviceDirectoryPreload/><BackendSyncNotice/>{children}</AppShell></RetailProvider></ProcurementProvider></BackendProvider>;
   }
   const cookieStore = await cookies();
   if (!isPreviewLoginAvailable() || cookieStore.get(PREVIEW_SESSION_COOKIE)?.value !== PREVIEW_SESSION_VALUE) {
     redirect("/login");
   }
-  return <ProcurementProvider><RetailProvider><AppShell>{children}</AppShell></RetailProvider></ProcurementProvider>;
+  return <ProcurementProvider><RetailProvider><AppShell><DeviceDirectoryPreload/>{children}</AppShell></RetailProvider></ProcurementProvider>;
 }

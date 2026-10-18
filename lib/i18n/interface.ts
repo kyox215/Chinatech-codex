@@ -174,6 +174,7 @@ export const interfaceMessages: Record<string, readonly [string, string]> = {
   "型号系列筛选": ["Filtro per serie di modelli", "Model series filter"],
   "全部系列": ["Tutte le serie", "All series"],
   "仍可手动填写。": ["Puoi comunque inserire il testo manualmente.", "You can still enter text manually."],
+  "目录更新失败，继续使用已缓存目录。": ["Aggiornamento del catalogo non riuscito. Puoi continuare a usare la copia salvata.", "Catalog update failed. You can keep using the cached directory."],
   "重新查询目录": ["Ripeti la ricerca nel catalogo", "Retry catalog search"],
   "第 {v0} / {v1} 页 · {v2} 个型号": ["Pagina {v0} / {v1} · {v2} modelli", "Page {v0} / {v1} · {v2} models"],
   "台式机": ["Computer desktop", "Desktop computer"],

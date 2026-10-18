@@ -94,6 +94,16 @@ test('mobile sheet traps focus, keeps close visible on short viewports and reset
   await openCatalogPicker(page, model);
   const sheet = page.getByRole('dialog', { name: '型号', exact: true });
   for (let i = 0; i < 24; i++) { await page.keyboard.press('Tab'); expect(await sheet.evaluate(node => node.contains(document.activeElement))).toBe(true); }
+  await expect(sheet.getByRole('option').first()).toBeVisible();
+  await fillCatalogQuery(page, model, 'iPhone 16');
+  await sheet.evaluate(node => {
+    const disabled=document.createElement('button');disabled.type='button';disabled.disabled=true;disabled.tabIndex=0;disabled.textContent='DEMO disabled focus boundary';node.append(disabled);
+  });
+  const focusable = sheet.locator('a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]:not(:disabled)').filter({ visible: true });
+  await focusable.first().focus();
+  await page.keyboard.press('Shift+Tab'); await expect(focusable.last()).toBeFocused();
+  await page.keyboard.press('Tab'); await expect(focusable.first()).toBeFocused();
+  await sheet.getByRole('searchbox').focus();
   await fillCatalogQuery(page, model, 'DEMO stale-query');
   await page.setViewportSize({ width: 375, height: 430 });
   const close = sheet.getByRole('button', { name: '关闭型号候选', exact: true });
