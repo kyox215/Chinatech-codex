@@ -26,3 +26,45 @@ test('background preload is silent and global reference requests are anonymous w
  for(const request of requests){const headers=await request.allHeaders();expect(headers.cookie).toBeUndefined();expect(headers.authorization).toBeUndefined();expect(headers['x-ct-store-id']).toBeUndefined();expect(headers['x-ct-catalog-scope']).toBeUndefined();}
  expect(requests).toHaveLength(2);
 });
+
+test('native hard navigation cancels cold reads, returns through pageshow, and keeps beforeunload flight-only',async({page},info)=>{
+ const lifecycle:{type:string;at:number;doc:string}[]=[];const errors:string[]=[];
+ page.on('console',message=>{if(message.text().startsWith('DIRECTORY_LIFECYCLE '))lifecycle.push(JSON.parse(message.text().slice(20)));});
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.addInitScript(()=>{
+  const nativeAdd=window.addEventListener.bind(window),nativeRemove=window.removeEventListener.bind(window),listeners=new Set<EventListenerOrEventListenerObject>();
+  const audit={beforeUnload:0};(window as unknown as {directoryLifecycleAudit:typeof audit}).directoryLifecycleAudit=audit;
+  // This preview test observes the actual named hook listener. No event or fetch
+  // behavior is replaced; the native navigation below dispatches the lifecycle.
+  window.addEventListener=((type:string,listener:EventListenerOrEventListenerObject,options?:boolean|AddEventListenerOptions)=>{
+   if(type==='beforeunload'&&typeof listener==='function'&&listener.name==='leaving'){listeners.add(listener);audit.beforeUnload=listeners.size;}
+   return nativeAdd(type,listener,options);
+  }) as typeof window.addEventListener;
+  window.removeEventListener=((type:string,listener:EventListenerOrEventListenerObject,options?:boolean|EventListenerOptions)=>{
+   if(type==='beforeunload'&&listeners.has(listener)){listeners.delete(listener);audit.beforeUnload=listeners.size;}
+   return nativeRemove(type,listener,options);
+  }) as typeof window.removeEventListener;
+  const doc=crypto.randomUUID();for(const type of ['beforeunload','pagehide','pageshow'])nativeAdd(type,()=>{
+   const entry={type,at:Date.now(),doc};const history=JSON.parse(sessionStorage.getItem('directory-lifecycle-test')??'[]');history.push(entry);sessionStorage.setItem('directory-lifecycle-test',JSON.stringify(history));
+   console.debug('DIRECTORY_LIFECYCLE '+JSON.stringify(entry));
+  });
+ });
+ await login(page);let release!:()=>void,arrived!:()=>void;const gate=new Promise<void>(r=>release=r),held=new Promise<void>(r=>arrived=r);let first=true;
+ await page.route('**/api/device-directory/manifest',async route=>{
+  if(!first)return route.continue();first=false;const response=await route.fetch();arrived();await gate;await route.fulfill({response}).catch(()=>{});
+ });
+ try{
+  await page.goto('/app/dashboard');await held;
+  await expect.poll(()=>page.evaluate(()=>(window as unknown as {directoryLifecycleAudit:{beforeUnload:number}}).directoryLifecycleAudit.beforeUnload)).toBe(1);
+  const cancelled:string[]=[];page.on('requestfailed',request=>{if(request.url().includes('/api/device-directory/'))cancelled.push(request.failure()?.errorText??'');});
+  await page.route('**/app/repairs/new',async route=>{release();await route.continue();});
+  await page.goto('/app/repairs/new');const brand=await device(page),root=await openCatalogPicker(page,brand);
+  await expect(root.getByRole('option',{name:'Apple',exact:true})).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>(window as unknown as {directoryLifecycleAudit:{beforeUnload:number}}).directoryLifecycleAudit.beforeUnload)).toBe(0);
+  await page.goBack();await expect(page).toHaveURL(/\/app\/dashboard$/);
+  await expect.poll(()=>page.evaluate(()=>(window as unknown as {directoryLifecycleAudit:{beforeUnload:number}}).directoryLifecycleAudit.beforeUnload)).toBe(0);
+  const nativeHistory=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('directory-lifecycle-test')??'[]') as {type:string}[]);
+  expect(nativeHistory.some(event=>event.type==='beforeunload')).toBe(true);expect(nativeHistory.some(event=>event.type==='pagehide')).toBe(true);expect(nativeHistory.filter(event=>event.type==='pageshow').length).toBeGreaterThanOrEqual(2);
+  expect(errors).toEqual([]);await info.attach('directory-native-navigation',{body:JSON.stringify({lifecycle,nativeHistory,cancelled,errors}),contentType:'application/json'});
+ }finally{release();}
+});

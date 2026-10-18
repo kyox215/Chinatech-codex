@@ -30,3 +30,13 @@
 PR39115068830与push39115032965均实际结束为771通过／1失败；唯一失败是WebKit手机 `i18n.spec.ts:147` 对真实button调用 `toHaveValue`（Not an input element），根独立CI AX已见品牌Apple／型号iPhone16／SN保留。不是产品值丢失证据。源码owner先以原测试复现同一RED并保存本机trace／原日志，再仅适配同用例的品牌与型号两处断言：沿既有 `expectCatalogValue`，桌面input仍验value、手机button验canonical data-value并额外验可见文字；增加最终保存／刷新后brand=Apple与model=iPhone16断言。原客户自由原文、语言切换草稿、SN、canonical类别／优先级／故障／服务、签署阅读语言、保存与详情刷新、90秒timeout全部保留，未改产品／workflow／CI门禁。
 
 修后定向Chromium／WebKit两项完整闭环2／2通过（7.5秒），目标文件ESLint及typecheck通过。原RED与修后JSON／trace位于 `.local/device-directory/i18n-original-red-*` 与 `i18n-adapted-*`。13个runtime SHA保持原freeze，正式构建无变化；仅测试与本记录修订，完整新CI仍待根push后实际运行，不把定向绿冒全CI通过。
+
+## Push CI 后的焦点／读取生命周期修正（待根独审）
+
+4f3b4b8b的PR39123618260完整SUCCESS，但独立push39123615785为770通过／2失败；不能以PR绿略过push红。原Cr `mobile-picker.spec.ts:96` sheet在24次Tab循环中消失，本机不改源码／断言3次复现2RED／1绿。一次原生焦点观察捕获最后可聚焦项Tab→focusout relatedTarget=null／active BODY→根blur关闭sheet→trigger恢复／window blur，无选项激活；CI较多候选时发生在第22Tab，已选iPhone16来自setup，不冒充Tab新选定。修复仅sheet：沿既有AppShell类同语义显式Tab／ShiftTab首尾循环，排disabled／inert／不可见项；展开modal不沿inline blur关闭，原明确X／Escape／遮罩／选定、禁用／断点／取消保值和默认无键盘不变。
+
+WebKit采购用例CI在硬导航途中pageError：dashboard manifest3159457.635ms发起／约13.969ms返回，goto3159460.869，旧document继续发package在3159475.945被浏览器阻止、没有resource-snapshot；新页manifest/package随后200。不是当前门店API鉴权拒绝证据。本机原采购8.4秒通过；一次受控真实manifest gate＋正常硬导航只得到旧manifest原生cancelled、新页200，**未复现同一package pageError**，保留这一边界，不过滤pageerror。修正public client的取消／generation与所有await后的guard；取消立即settle、保cache／不报失败／不假成功、释放cold失败TTL／丢queued force；旧finally不清新flight，同version或背景cancel保持稳定data／snapshot引用。hook仅真实flight挂beforeunload，pagehide兜底、pageshow／focus／open恢复，不增加离开确认，最后subscriber清理。DB迁移完全不改。
+
+本轮定向证据：18个目录unit全过（旧11＋cancel／忽略abort／body与storage迟到／新flight不被旧finally清／cold失败→force取消→普通重试／稳定引用），全npm test607中606通过＋1原PowerShell平台skip，typecheck／lint0错（原1warning）通过。实际Cr/WK目录24＋采购6＋retail4共34／34，含原WebKit完整业务 `errors=[]`；目录native IDB／10秒／匿名请求和真实硬导航／返回pageshow及flight-only listener2引擎通过。原手机矩阵／显式取消保值／required／undo／IME与24Tab循环保持，新增双向wrap和disabled tabindex尾边界最终2／2通过。新增测试曾出现两个测试观察问题：console在Chrome旧document pagehide期间未转发，改同步sessionStorage记录实际native事件；虚拟列表last()随滚动换行，改既有明确搜索后的稳定手填footer，wrap后显式focus搜索框再继续输入。RED均留.local，未放宽原24Tab／超时／错误数组断言。
+
+另以真实beforeunload确认弹窗做Cr/WK原生取消离开实验，两者均停留原页、旧manifest原生ERR_ABORTED／cancelled，随后focus／重开字段恢复manifest＋package且Apple可选，pageerror=[]；不把此实验称原CI pageError复现。最终Supabase-mode build `224oubWsh_Hu26ljKEwmN` 与正式CSS16契约／11assets通过。当前14runtime hash（原13＋共享SearchCombobox）及3文件变化在 `.local/device-directory/freeze-lifecycle.json`；隔离3197源复制与3修订文件exact，不写冻结repo next-env。未commit／push，新完整CI与发布仍待根门禁。

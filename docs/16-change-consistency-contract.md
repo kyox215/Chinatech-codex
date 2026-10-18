@@ -6,6 +6,8 @@
 
 客户端 manifest 检查 TTL 为5分钟，通过打开字段／focus／online／visibility 合并触发，无轮询；manifest CDN 最多60秒且无 SWR，实际更新可在下一次合格事件再叠加至多60秒边缘缓存，不能保证后台休眠中5分钟送达。维护成功 `ct:catalog-updated` 与明确重试使用强制重验证，已有读完成后最多合并一次重查；不清空完整旧版。无缓存总读取10秒主动截止（含 body／storage），忽略 abort 的迟到结果也不能提交；旧缓存可继续选择、失败限频，所有重试只读不重放业务写入。
 
+公共目录flight使用独立generation与可靠cancel竞速：页面离开通知立即取消、丢弃排队force且不清完整cache；旧响应／finally不能触及新flight，无缓存取消释放失败TTL，取消不发布失败／成功。beforeunload监听仅真实flight期间挂载（含storage／body／后台更新），不设置returnValue或导航确认；pagehide兜底取消、pageshow／取消离开后focus或重新打开字段可恢复，最后订阅退出清监听并取消。生命周期通知不强迫UI重建，同版本／同view校验与取消保稳定snapshot／index引用。
+
 目录 apply／rollback 仍由原管理授权事务执行；revision 真变更后 trigger 在同一事务建立完整新快照与 pointer，任何发布故障同时回滚 source／revision／新版本／pointer，旧 immutable 版本保留；noop／幂等回执不增版本。新增快照表仅 runtime SELECT，发布函数固定空 search_path、全限定名、无动态 SQL／直接 runtime EXEC，原私有 catalog RLS 不放宽。选定值继续走原新建／编辑／校验／保存／列表／详情／签名与打印事实，不翻译回写品牌型号，不自动改旧单。preview 无正式草稿 scope，reload 空草稿是原限制；本轮 cache reload 测试不能代替正式私有草稿／跨设备业务闭环。
 
 ## 2026-10-16 维修入口呈现调整（待验候选）

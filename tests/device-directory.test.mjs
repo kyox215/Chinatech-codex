@@ -62,3 +62,48 @@ test('IDB timeout aborts active write before serial next write; cross-tab old re
  const other=s.createDeviceDirectoryStorage(()=>factory,20);await other.save(one);assert.equal(factory.value.manifest,two.manifest);
 });
 test('storage unavailable degrades to memory without failing a complete directory',async()=>{const store=s.createDeviceDirectoryStorage(()=>undefined,5);assert.equal(await store.load(),null);await store.save(await makePackage([model]));});
+
+test('cancelling before the work microtask starts performs no storage or network IO',async()=>{
+ const calls=[];const client=c.createDeviceDirectoryClient({store:{load:async()=>{calls.push('load');return null;},save:async()=>{}},fetch:async()=>{calls.push('fetch');throw Error();}});
+ const run=client.ensure();assert.equal(client.isFetching(),true);client.cancel();await run;
+ assert.deepEqual(calls,[]);assert.equal(client.isFetching(),false);assert.deepEqual(client.read(q),{data:null,loading:false,error:'',ready:false});
+});
+test('cancel settles an ignored-abort manifest and drops queued force; old finally cannot clear a new flight',async()=>{
+ const pack=await makePackage([model]),h=harness(pack),old=deferred(),fresh=deferred();let manifests=0;
+ h.handler(url=>url.endsWith('/manifest')?(++manifests===1?old.promise:fresh.promise):Promise.resolve(new Response(JSON.stringify({manifest:pack.manifest,shards:pack.shards}))));
+ const first=h.client.ensure();await sleep(1);h.client.ensure(true);h.client.cancel();assert.equal(h.calls[0].init.signal.aborted,true);
+ const next=h.client.ensure();await first;assert.equal(h.client.isFetching(),true);assert.equal(h.client.read(q).loading,true);
+ old.resolve(new Response(pack.manifest));await sleep(1);assert.equal(h.client.isFetching(),true);assert.equal(h.client.read(q).ready,false);assert.equal(h.calls.length,2);
+ fresh.resolve(new Response(pack.manifest));await next;assert.equal(h.client.read(q).data.models[0].name,model.name);assert.equal(h.calls.length,3);assert.equal(manifests,2);assert.equal(h.client.read(q).error,'');
+});
+test('cancel during stalled body prevents package fetch and can retry immediately without five-minute suppression',async()=>{
+ const pack=await makePackage([model]),h=harness(pack),body=deferred();h.handler(()=>Promise.resolve({ok:true,headers:new Headers(),text:()=>body.promise}));
+ const first=h.client.ensure();await sleep(1);h.client.cancel();await first;assert.equal(h.client.read(q).error,'');
+ body.resolve(pack.manifest);await sleep(1);assert.equal(h.calls.length,1);assert.equal(h.client.read(q).ready,false);
+ h.handler(null);await h.client.ensure();assert.equal(h.client.read(q).ready,true);assert.equal(h.calls.length,3);
+});
+test('cancelled storage restore cannot adopt late data or suppress a new generation',async()=>{
+ const oldPack=await makePackage([{...model,name:'late old storage'}],'9',1000000),freshPack=await makePackage([model]),stored=deferred();let loads=0;
+ const client=c.createDeviceDirectoryClient({now:()=>1000000,store:{load:()=>++loads===1?stored.promise:Promise.resolve(null),save:async()=>{}},fetch:async url=>new Response(url.endsWith('/manifest')?freshPack.manifest:JSON.stringify({manifest:freshPack.manifest,shards:freshPack.shards}))});
+ const first=client.ensure();await sleep(1);client.cancel();await first;await client.ensure();stored.resolve(oldPack);await sleep(1);
+ assert.equal(loads,2);assert.equal(client.read(q).data.models[0].name,model.name);assert.equal(client.read(q).error,'');
+});
+test('background cancellation preserves the complete selectable version and restores stale-check eligibility',async()=>{
+ const pack=await makePackage([model]),h=harness(pack);await h.client.ensure();const saved=h.saved.length;h.advance();const pending=deferred();h.handler(()=>pending.promise);
+ const run=h.client.ensure();await sleep(1);assert.equal(h.client.isFetching(),true);assert.equal(h.client.read(q).loading,false);h.client.cancel();await run;
+ assert.equal(h.client.read(q).ready,true);assert.equal(h.client.read(q).data.models[0].name,model.name);assert.equal(h.client.read(q).error,'');assert.equal(h.saved.length,saved);
+ h.handler(null);await h.client.ensure();assert.equal(h.client.isFetching(),false);assert.equal(h.calls.length,4);pending.resolve(new Response(pack.manifest));await sleep(1);assert.equal(h.calls.length,4);
+});
+test('same-version verification and background cancellation preserve stable snapshots and index references',async()=>{
+ const pack=await makePackage([model]),h=harness(pack);await h.client.ensure();const prior=h.client.read(q);
+ await h.client.ensure(true);assert.equal(h.client.read(q),prior);assert.equal(h.client.read(q).data,prior.data);
+ const gate=deferred();h.handler(()=>gate.promise);const run=h.client.ensure(true);await sleep(1);assert.equal(h.client.read(q),prior);h.client.cancel();await run;
+ assert.equal(h.client.read(q),prior);assert.equal(h.client.read(q).data,prior.data);
+ h.handler(()=>Promise.resolve(new Response('',{status:503})));await h.client.ensure(true);assert.equal(h.client.read(q).data,prior.data);assert.ok(h.client.read(q).error);
+ gate.resolve(new Response(pack.manifest));await sleep(1);assert.equal(h.client.read(q).data,prior.data);
+});
+test('cold failure followed by forced retry cancellation does not retain the failed-attempt TTL lock',async()=>{
+ const pack=await makePackage([model]),h=harness(pack);h.handler(()=>Promise.resolve(new Response('',{status:503})));await h.client.ensure();assert.ok(h.client.read(q).error);
+ const pending=deferred();h.handler(()=>pending.promise);const retry=h.client.ensure(true);await sleep(1);h.client.cancel();await retry;assert.equal(h.client.read(q).error,'');assert.equal(h.client.read(q).ready,false);
+ h.handler(null);await h.client.ensure();assert.equal(h.client.read(q).ready,true);assert.equal(h.calls.length,4);pending.resolve(new Response(pack.manifest));await sleep(1);assert.equal(h.calls.length,4);
+});
