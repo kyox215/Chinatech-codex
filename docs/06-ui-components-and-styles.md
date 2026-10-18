@@ -752,3 +752,11 @@ ToolboxControl替换账号设置旧三套Office管理卡片与双导航，复用
 `WindowedListRows` 在嵌套设备／历史窗口中只量测和定位所属列表的行，内层中间 Tab 不触发外层跨行；真正内层首尾仍能衔接逻辑外层行。返回位置仍仅含当前授权范围、设备／记录键、像素及语义链接目标 record/customer，不保存业务记录；手机换行时以实际选中链接恢复像素与焦点。没有目标参数的旧URL继续按记录首链接恢复。
 
 开启设备摘要 flag 时 AppShell 的精确设备路由与菜单使用 repairs.view 或 retail.view，投影仍按每一来源权限读取。客户档案入口及手机号客户链接仅在 customers.view 时可导航，其他获授权成员保留可读手机号，不扩大客户详情权限。flag0 保持旧页面入口规则。实际React权限变更、原文生命周期及嵌套键盘专项与正式构建浏览器证据按本轮候选清单独立绑定；本地暂停闲置 Storage 的功能矩阵不代表全服务并发／P95已达标。
+
+## 2026-10-18 私有目录管理性能维护候选
+
+管理页继续复用原 `DeviceCatalogPage`、表格／手机卡片 CSS、InputControl、SelectControl、ListPagination 与 B 反馈。`WindowedListRows.container="tbody"` 是显式非视觉适配，spacer 使用真实 tr/td 与当前列数；默认 div、所属窗口焦点／锚点／最近滚动语义保持。缓存只保十个相邻的原50行API批次，离开缓存的范围重新走当前身份授权读取，完整总数不以缓存长度代替；编辑草稿保留在页容器。文字搜索仅同scope/filter的非空变化去抖150ms，首屏、清空、筛选、重试与翻页即时。
+
+SSR首50与页bootstrap并行启动，seed仅属于当前React页树并带format1、身份／session／store／memberRevision及同目录revision；不建立服务器跨请求私有缓存。编辑、导入预览、历史与来源覆盖复用原模块，首次代码加载采用原ReadPending和共享2px细线；不新增主题、设计控件或Figma变体。公开型号picker继续按正式main维护，不把私有seed混入公开目录架构。
+
+当前源码组件验证：750行受控API窗口／旧503和403恢复、默认与嵌套共享窗口、真实延迟chunk分别取证；正式编译CSS、真实Auth／目录数据和30样本另按准确构建绑定。模拟预览不证明正式API权限或线上性能。

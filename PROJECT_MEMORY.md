@@ -1,5 +1,12 @@
 # ChinaTech 项目连续记忆
 
+## 2026-10-18 第二轮性能候选（未发布）
+
+唯一源`.local/performance-release/source`，性能分支正常合入已上线main5df手机picker；未带尚未合并的PR73公开快照候选。settings无变化保存的真实2RED已窄修并10+2定向通过（b8），远程CI随后发现当前UI词条驱动历史D16生成：已固定0cf完整4344查询词汇snapshot/provenance，20历史迁移字节不变。
+
+目录管理首50与SSR bootstrap并行、身份页树seed、仅文字150ms去抖、十批500完整行缓存／视口表格和原授权重取、草稿保留及低频管理代码按需；PDF显式flag进程复用、每次独立context、并发2/idle30s/断线恢复，仍逐请求前后授权与源复核，固定phase经既有observer。全Node795过/1既有PowerShellskip，i18n4347过；目录窗口及旧503/403、共享窗口28、实际Chromium四份合成PDF／两进程隔离专项分别通过。正式构建／新候选30样本／实际Auth与远程完整CI仍待，不冒线上完成。生产20迁移/operator仅default-plan，生产canonical读取待root确认授权，不旁路。
+
+
 ## 2026-10-18 手机选择与配件摘要（当前候选）
 
 用户已确认推荐组合并授权上线。隔离发行源`.local/mobile-picker-20261018/source`从main bf1创建；手机维修列表两标签+N/供应商单行，新建维修品牌原位候选/型号底部面板，主动搜索才输入，取消保原值，选后回button。只显式启用当前调用，其他/桌面维持；不改数据库/权限/金额/签名。可编辑原Figma15322:210105已归档。root设计/独审/发布，mobile_picker_implementation唯一源码owner；本条是候选状态，验收和正式发布以ui-design/previews/mobile-picker-20261018.md为准。实体iPhone软键盘未验，不能用模拟器替代。

@@ -41,9 +41,9 @@ function MeasuredRow<T>({item,index,rowKey,onHeight,render}:{item:T;index:number
 /** Only rendering is windowed. Counts/search remain on the complete server set.
  * Numeric measured heights contain no business rows and remain outside the
  * ten-batch summary cache. Focused rows survive cache movement until blur. */
-export function WindowedListRows<T>({items,startIndex=0,total,thresholdTotal=total,extent,estimate=88,rowKey,render,onAnchor,onSeek,onLoadPrevious,pending=false,version="",initialAnchor,initialOffset=0,active=true,scrollRoot,anchorSelector}:{items:T[];startIndex?:number;total:number;thresholdTotal?:number;extent?:number;estimate?:number;rowKey:(item:T)=>string;render:(item:T,props:RowProps)=>ReactNode;onAnchor?:(item:T)=>void;onSeek?:(index:number)=>void;onLoadPrevious?:()=>void;pending?:boolean;version?:string;initialAnchor?:string;initialOffset?:number;active?:boolean;scrollRoot?:RefObject<HTMLElement|null>;anchorSelector?:string}) {
+export function WindowedListRows<T>({items,startIndex=0,total,thresholdTotal=total,extent,estimate=88,rowKey,render,onAnchor,onSeek,onLoadPrevious,pending=false,version="",initialAnchor,initialOffset=0,active=true,scrollRoot,anchorSelector,container="div",columns=1}:{items:T[];startIndex?:number;total:number;thresholdTotal?:number;extent?:number;estimate?:number;rowKey:(item:T)=>string;render:(item:T,props:RowProps)=>ReactNode;onAnchor?:(item:T)=>void;onSeek?:(index:number)=>void;onLoadPrevious?:()=>void;pending?:boolean;version?:string;initialAnchor?:string;initialOffset?:number;active?:boolean;scrollRoot?:RefObject<HTMLElement|null>;anchorSelector?:string;container?:"div"|"tbody";columns?:number}) {
   const anchorElement=useCallback((node:HTMLElement)=>anchorSelector?node.querySelector<HTMLElement>(anchorSelector)??node:node,[anchorSelector]);
-  const root=useRef<HTMLDivElement>(null),anchor=useRef<{key:string;top:number;scrollPosition:number;compensatedScroll:number}|null>(null),frame=useRef(0);
+  const root=useRef<HTMLElement|null>(null),anchor=useRef<{key:string;top:number;scrollPosition:number;compensatedScroll:number}|null>(null),frame=useRef(0);
   const [measurements,setMeasurements]=useState<{version:string;heights:ReadonlyMap<number,number>}>(()=>({version,heights:new Map()}));
   if(measurements.version!==version)setMeasurements({version,heights:new Map()});
   const heights=measurements.heights;
@@ -127,7 +127,9 @@ export function WindowedListRows<T>({items,startIndex=0,total,thresholdTotal=tot
     seekFlight.current=approximate;seek(approximate);
   },[viewport,startIndex,end,total,retainedEnd,estimate,offset,pending,onSeek,onLoadPrevious,items.length,active,restorePending]);
   const previous=(displayed.at(-1)?.index??-1)+1;
-  return <div ref={root} data-windowed-list data-window-cache={items.length} data-window-start={startIndex} data-window-end={end} data-window-total={total} style={{overflowAnchor:"none"}} onFocusCapture={event=>{
+  const Container=container;
+  const spacer=(height:number)=>container==="tbody"?<tr aria-hidden="true" data-window-spacer><td colSpan={columns} style={{height,padding:0,border:0}}/></tr>:<div aria-hidden="true" style={{height}}/>;
+  return <Container ref={node=>{root.current=node;}} data-windowed-list data-window-cache={items.length} data-window-start={startIndex} data-window-end={end} data-window-total={total} style={{overflowAnchor:"none"}} onFocusCapture={event=>{
     const row=ownedWindowRow(event.target,root.current);if(!row)return;const item=items.find(item=>rowKey(item)===row.dataset.windowKey);if(item)setPinned({item,index:Number(row.dataset.windowIndex),key:row.dataset.windowKey!});
   }} onBlurCapture={event=>{if(ownedWindowRow(event.relatedTarget,root.current)?.dataset.windowKey!==pinned?.key)setPinned(null);}} onKeyDownCapture={event=>{
     if(event.key!=="Tab")return;const target=event.target as HTMLElement;
@@ -143,7 +145,7 @@ export function WindowedListRows<T>({items,startIndex=0,total,thresholdTotal=tot
     const next=Number(row.dataset.windowIndex)+(event.shiftKey?-1:1);if(next<startIndex||next>=end)return;
     if(!displayed.some(row=>row.index===next)){event.preventDefault();forcedReverse.current=event.shiftKey;setForced(next);}
   }}>
-    {displayed.map((row,i)=>{const gap=Math.max(0,offset(row.index)-offset(i?displayed[i-1].index+1:0));return <Fragment key={row.key}>{gap>0?<div aria-hidden="true" style={{height:gap}}/>:null}<MeasuredRow item={row.item} index={row.index} rowKey={row.key} onHeight={onHeight} render={render}/></Fragment>;})}
-    {retainedEnd>previous?<div aria-hidden="true" style={{height:Math.max(0,offset(retainedEnd)-offset(previous))}}/>:null}
-  </div>;
+    {displayed.map((row,i)=>{const gap=Math.max(0,offset(row.index)-offset(i?displayed[i-1].index+1:0));return <Fragment key={row.key}>{gap>0?spacer(gap):null}<MeasuredRow item={row.item} index={row.index} rowKey={row.key} onHeight={onHeight} render={render}/></Fragment>;})}
+    {retainedEnd>previous?spacer(Math.max(0,offset(retainedEnd)-offset(previous))):null}
+  </Container>;
 }

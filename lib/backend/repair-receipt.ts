@@ -13,6 +13,7 @@ import { printLabel, type PrintLanguage } from "../print-language";
 import { canonicalPrintJson, repairPrintProjection, receiptMaster, type ReceiptPaper } from "../repair-print-layout";
 import { renderRepairReceipt } from "./repair-receipt-renderer";
 import{ReceiptBytesCache}from"./receipt-bytes-cache";
+import { receiptMetric, receiptPhase } from "./receipt-phase";
 
 // Transport codes are translated by the independent PrintLabel registry at the UI boundary.
 export function receiptFailure(code: "receiptUnavailable" | "receiptChanged" | "receiptBusy" | "printLayoutError", status: number) { return new BackendError(code, status); }
@@ -52,11 +53,12 @@ export async function loadRepairReceipt(tx: TransactionSql, access: Access, requ
 let activeRenders=0;
 const receiptBytes=new ReceiptBytesCache(),inFlight=new Map<string,Promise<Uint8Array>>();
 export async function generateRepairReceipt(request:ReceiptRequest,origin:string,storeId?:string){
- const access=await getServerAccess(undefined,storeId);
+ const access=await receiptPhase("auth_before_ms",()=>getServerAccess(undefined,storeId));
  if(!access)throw receiptFailure("receiptUnavailable",403);
- const source=await withDatabase(access.identity,access.storeId,tx=>loadRepairReceipt(tx,access,request));
+ const source=await receiptPhase("source_before_ms",()=>withDatabase(access.identity,access.storeId,tx=>loadRepairReceipt(tx,access,request)));
  const key=createHash("sha256").update(canonicalPrintJson([source.token,request.language,request.paper,receiptMaster.version,origin])).digest("hex");
  const cached=receiptBytes.get(key);let bytes:Uint8Array|undefined=cached;
+ receiptMetric("cache_hit",cached?1:0);
  if(!bytes){
   let render=inFlight.get(key);
   if(!render){
@@ -77,9 +79,9 @@ export async function generateRepairReceipt(request:ReceiptRequest,origin:string
  if(!bytes)throw receiptFailure("printLayoutError",422);
  // Each caller rechecks the live identity, scope and printed source, including
  // coalesced requests and byte-cache hits. A cached PDF is never an auth grant.
- const currentAccess=await getServerAccess(undefined,storeId);
+ const currentAccess=await receiptPhase("auth_after_ms",()=>getServerAccess(undefined,storeId));
  if(!currentAccess||canonicalPrintJson([currentAccess.identity,currentAccess.storeId])!==canonicalPrintJson([access.identity,access.storeId]))throw receiptFailure("receiptUnavailable",403);
- const current=await withDatabase(currentAccess.identity,currentAccess.storeId,tx=>loadRepairReceipt(tx,currentAccess,request));
+ const current=await receiptPhase("source_after_ms",()=>withDatabase(currentAccess.identity,currentAccess.storeId,tx=>loadRepairReceipt(tx,currentAccess,request)));
  if(current.token!==source.token)throw receiptFailure("receiptChanged",409);
  if(!cached)receiptBytes.set(key,bytes);
  return{bytes,revision:source.data.revision??1,token:source.token};

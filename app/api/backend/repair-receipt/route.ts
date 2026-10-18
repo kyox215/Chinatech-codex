@@ -4,12 +4,14 @@ import { generateRepairReceipt, receiptFailure, type ReceiptRequest } from "@/li
 import { ReceiptRenderError } from "@/lib/backend/repair-receipt-renderer";
 import { localIntakeId } from "@/lib/repair-intake-record";
 import { isSupabaseMode } from "@/lib/supabase/config";
+import { observeRoute } from "@/lib/backend/request-observation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 const headers = { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Cross-Origin-Resource-Policy": "same-origin", "Vary": "Cookie" };
-export async function POST(request: Request) {
+export function POST(request: Request) { return observeRoute(request, handlePost); }
+async function handlePost(request: Request) {
   if (!isSupabaseMode()) return NextResponse.json({ code: "receiptUnavailable" }, { status: 404, headers });
   try {
     const origin = process.env.APP_ORIGIN;

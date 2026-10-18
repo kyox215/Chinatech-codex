@@ -43,3 +43,5 @@
 客户设备未发布性能候选：原设备卡片／details／记录行继续唯一展示；`CustomerDeviceGrid`、`useCustomerDevicePage` 与 `CustomerDeviceOriginal` 仅负责受限窗口、按需完整原文及身份代际隔离。复用 InputControl、NavigationLink、ReadFailure、ListPagination 和 WindowedListRows，无新主题、控件外观或 Figma 变体；精确两域入口与嵌套键盘／语义返回位置见 docs/06“客户设备读取”。
 
 设备记录链接维护复用 `NavigationLink.resolveHref` 可选交互解析：原链接槽和 B 反馈不变，逐记录 SSR 身份与点击时的 returnTo 持久进入目标 URL，目标刷新后仍可按相同记录／语义目标返回。此为既有导航逻辑扩展，无新增 Figma 视觉；默认链接、取消／scope 隔离及原生鼠标／键盘行为分别验收，详见 docs/06。
+
+2026-10-18 私有目录候选复用原表格／手机卡片；`WindowedListRows.container="tbody"/columns`仅扩非视觉语义，默认div不变。管理表单／预览／历史／覆盖按需代码采用原ReadPending，不造新等待控件。十批缓存、重取／草稿／搜索即时边界与验收状态见docs/06“私有目录管理性能维护候选”。本条不覆盖已部署baseline。

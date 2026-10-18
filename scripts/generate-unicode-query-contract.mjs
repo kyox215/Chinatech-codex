@@ -17,7 +17,15 @@ const source=(kind)=>sources[kind][2];
 function extract(kind,name){const value=source(kind),pattern=new RegExp('create (?:or replace )?function chinatech_v2_private\\.'+name+'\\('),match=pattern.exec(value);assert(match,name);const end=value.indexOf('\nrevoke all on function ',match.index);assert(end>match.index,name);return value.slice(match.index,end).replace(/^create (?:or replace )?function /,'create or replace function ');}
 function once(value,from,to){assert.equal(value.split(from).length,2,from);return value.replace(from,to);}
 const q=value=>"'"+String(value).replaceAll("'","''")+"'";
-const load=sourceLoader(),messages={...JSON.parse(readFileSync('lib/i18n/structured.json')),...load('./lib/i18n/errors').errorMessages,...load('./lib/i18n/interface').interfaceMessages,...load('./lib/i18n/public').publicMessages};
+// D16 is an immutable historical query contract. Unrelated interface labels
+// must not rewrite an already-applied migration or its vocabulary generation.
+// Canonical vocabulary changes require a new explicit additive contract.
+const snapshotRaw=readFileSync('data/performance/query-vocabulary-v1.json');
+assert.equal(sha(snapshotRaw),'46fc2625fb6cd9058c324085ba0fda89d48a3a184a794e3b59246cac5398fca7','Immutable query vocabulary snapshot');
+const snapshot=JSON.parse(snapshotRaw);
+assert.equal(snapshot.formatVersion,1);assert.equal(snapshot.provenance.commit,'0cf68f88bef1048973ab6147069804b8630827a9');
+const load=sourceLoader(),messages=snapshot.messages;
+assert.equal(Object.keys(messages).length,4344);
 const vocabularyHash=sha(Buffer.concat([Buffer.from(JSON.stringify(messages)),readFileSync('lib/i18n/translate.ts')]));
 const {unicode17DataHash:unicodeDataHash,unicode17ImplementationHash}=load('./lib/backend/unicode17-version');
 const vocabularyRows=Object.entries(messages).map(([key,values],index)=>{

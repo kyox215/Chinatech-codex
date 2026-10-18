@@ -5,6 +5,8 @@ import chromium from "@sparticuz/chromium";
 import { PDFDocument, rgb } from "pdf-lib";
 import { repairReceiptHtml, receiptDensities, type ReceiptDensity } from "../repair-receipt-template";
 import { receiptMaster, receiptPaperGeometry, type ReceiptPaper, type RepairPrintProjection } from "../repair-print-layout";
+import { ReceiptBrowserPool } from "./receipt-browser-pool";
+import { receiptMetric, receiptPhase } from "./receipt-phase";
 
 export class ReceiptRenderError extends Error {
   constructor(public code: "overflow" | "font" | "layout", public blocks: string[] = [], public measurements?: ReceiptMeasurements) { super(code); }
@@ -21,23 +23,26 @@ export async function launchReceiptBrowser() {
   // never treated as a deployable runtime. macOS is only an isolated local check.
   return playwright.launch(process.platform === "linux" ? { args: chromium.args, executablePath: await chromium.executablePath(), headless: true } : { headless: true });
 }
+const browsers = new ReceiptBrowserPool(() => receiptPhase("browser_launch_ms", launchReceiptBrowser));
 export async function renderRepairReceipt(projection: RepairPrintProjection, paper: ReceiptPaper, suppliedBrowser?: Browser) {
-  const browser = suppliedBrowser ?? await launchReceiptBrowser();
+  const lease = !suppliedBrowser && process.env.RECEIPT_BROWSER_REUSE === "1" ? await receiptPhase("browser_acquire_ms", () => browsers.acquire()) : undefined;
+  const browser = suppliedBrowser ?? lease?.browser ?? await receiptPhase("browser_launch_ms", launchReceiptBrowser);
+  receiptMetric("browser_reused", lease?.reused ? 1 : 0);
   let context: BrowserContext | undefined;
   const measurements: ReceiptMeasurements[] = [];
   try {
-    context = await browser.newContext({ javaScriptEnabled: false, serviceWorkers: "block" });
+    context = await receiptPhase("context_ms", () => browser.newContext({ javaScriptEnabled: false, serviceWorkers: "block" }));
     await context.route("**/*", route => route.abort());
     const page = await context.newPage();
     await page.emulateMedia({ media: "print" });
     const geometry = receiptPaperGeometry(paper), masters: Uint8Array[] = [];
     for (const slot of geometry.slots) {
       await page.setContent(repairReceiptHtml(projection, await receiptFonts(), slot.copy), { waitUntil: "load", timeout: 15000 });
-      const fontReady = await page.evaluate(async () => {
+      const fontReady = await receiptPhase("fonts_ms", () => page.evaluate(async () => {
         await document.fonts.ready;
         await Promise.all([document.fonts.load('14.4pt ReceiptLatin', document.body.textContent ?? ''), document.fonts.load('14.4pt ReceiptChinese', document.body.textContent ?? ''), document.fonts.load('700 14.4pt ReceiptChinese', document.body.textContent ?? '')]);
         return [...document.fonts].length === 3 && [...document.fonts].every(font => font.status === "loaded");
-      });
+      }));
       if (!fontReady) throw renderFailure("font");
       // Select once on the A4 master from natural content measurements. Paper
       // size never participates; A5 embeds this same layout without reflow.
@@ -51,7 +56,7 @@ export async function renderRepairReceipt(projection: RepairPrintProjection, pap
             document.querySelector<HTMLElement>("main")!.dataset.density = selected;
           }, density);
         }
-        const measured = await page.evaluate(() => {
+        const measured = await receiptPhase("layout_ms", () => page.evaluate(() => {
         const mm = (px: number) => px * 25.4 / 96;
         const blocks = [...document.querySelectorAll<HTMLElement>("[data-block]")].map(element => {
           const b = element.getBoundingClientRect(); let left = b.left, right = b.right, bottom = b.bottom;
@@ -61,7 +66,7 @@ export async function renderRepairReceipt(projection: RepairPrintProjection, pap
         });
         const article = document.querySelector("article")!, core = document.querySelector(".core")!;
         return { density: document.querySelector<HTMLElement>("main")!.dataset.density as ReceiptDensity, lineHeight: parseFloat(getComputedStyle(article).lineHeight) / parseFloat(getComputedStyle(article).fontSize), coreLineHeight: parseFloat(getComputedStyle(core).lineHeight) / parseFloat(getComputedStyle(core).fontSize), blocks, heightMm: Math.max(...blocks.map(b => b.bottomMm)) - 8, bodyPt: parseFloat(getComputedStyle(document.body).fontSize) * .75, corePt: parseFloat(getComputedStyle(core).fontSize) * .75, qrMm: mm(document.querySelector(".qr")!.getBoundingClientRect().width) };
-        });
+        }));
         attempts.push({ density, bottomMm: measured.heightMm + 8, overflow: measured.blocks.filter(block => block.overflow).map(block => block.name) });
         metric = { ...measured, attempts: [...attempts] };
         if (metric.bodyPt < receiptMaster.bodyPt - .001 || metric.corePt < receiptMaster.corePt - .001 || metric.qrMm < receiptMaster.qrMm - .05) throw renderFailure("layout", [], metric);
@@ -71,7 +76,7 @@ export async function renderRepairReceipt(projection: RepairPrintProjection, pap
       measurements.push(metric);
       const overflow = metric.blocks.filter(block => block.overflow);
       if (overflow.length) throw renderFailure("overflow", [...new Set(overflow.map(block => block.label))], metric);
-      const master = await page.pdf({ width: "297mm", height: "210mm", preferCSSPageSize: true, printBackground: true, displayHeaderFooter: false, margin: { top: 0, bottom: 0, left: 0, right: 0 }, tagged: true });
+      const master = await receiptPhase("pdf_ms", () => page.pdf({ width: "297mm", height: "210mm", preferCSSPageSize: true, printBackground: true, displayHeaderFooter: false, margin: { top: 0, bottom: 0, left: 0, right: 0 }, tagged: true }));
       const doc = await PDFDocument.load(master);
       const box = doc.getPages()[0]?.getMediaBox();
       if (doc.getPageCount() !== 1 || !box || Math.abs(box.width - 297 * 72 / 25.4) > 1 || Math.abs(box.height - 210 * 72 / 25.4) > 1) throw renderFailure("layout");
@@ -86,8 +91,15 @@ export async function renderRepairReceipt(projection: RepairPrintProjection, pap
     }
     if (paper === "double") result.drawLine({ start: { x: 0, y: point(148.5) }, end: { x: point(210), y: point(148.5) }, thickness: .4, dashArray: [2, 2], color: rgb(.67, .67, .67) });
     output.setTitle(projection.orderId); output.setLanguage(projection.language); output.setProducer("ChinaTech repair receipt");
-    const bytes = await output.save();
+    const bytes = await receiptPhase("assemble_ms", () => output.save());
     if ((await PDFDocument.load(bytes)).getPageCount() !== 1) throw renderFailure("layout");
     return { bytes, measurements };
-  } finally { try { await context?.close(); } finally { if (!suppliedBrowser) await browser.close(); } }
+  } finally {
+    await receiptPhase("cleanup_ms", async () => {
+      try { await context?.close(); } finally {
+        if (lease) lease.release();
+        else if (!suppliedBrowser) await browser.close();
+      }
+    });
+  }
 }
