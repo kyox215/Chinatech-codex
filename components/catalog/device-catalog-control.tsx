@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { SearchCombobox, type ComboboxOption } from "@/components/search-combobox";
 import { useLanguage } from "@/components/language-provider";
 import {
@@ -17,6 +17,7 @@ type Props = {
   onChange: (value: string) => void; required?: boolean; maxLength?: number; disabled?: boolean;
   validationError?: boolean; className?: string; historicalOptions?: readonly ComboboxOption[];
   historicalRead?:HistoricalCatalogSource;
+  mobilePresentation?: "inline" | "sheet";
 };
 const noModels: CatalogPickerModel[] = [];
 const noOptions: readonly ComboboxOption[] = [];
@@ -25,7 +26,7 @@ export function DeviceCatalogControl(props: Props) {
 }
 function CatalogControl({
   category, brand = "", field, label, value, onChange, required = false, maxLength,
-  disabled = false, validationError = false, className, historicalOptions = noOptions,historicalRead,
+  disabled = false, validationError = false, className, historicalOptions = noOptions, historicalRead, mobilePresentation,
 }: Props) {
   const { t, systemText } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -116,12 +117,18 @@ function CatalogControl({
     setPreviousPages({ key: pageKey, rows: modelRows });
     setPage(page + 1);
   }
+  const changeOpen = useCallback((next: boolean) => {
+    setOpen(next);
+    // A presentation remount (including a breakpoint change) must not keep an invisible query.
+    if (!next) setSearch(current => current.text ? { source: value, text: "" } : current);
+  }, [value]);
   return <SearchCombobox key={scope} className={className} label={t(label)} inputLabel={t(label)}
     value={value} onChange={onChange} onQueryChange={updateQuery}
     onOptionCommit={historicalRead?option=>{if(option.key?.startsWith('history:'))historicalRead.onSelect(option);else onChange(option.value);}:undefined}
     options={options} optionDetailsAsDescription selectedKey={selected ?? ""} windowed
     commitOnBlur showAllOnOpen adaptiveMenu filterOptions={false} optionLimit={Math.max(1, options.length)}
-    onOpenChange={setOpen} onEndReached={loadMore} menuClassName={styles.menu}
+    mobilePresentation={mobilePresentation}
+    onOpenChange={changeOpen} onEndReached={loadMore} menuClassName={styles.menu}
     loading={loading} required={required} maxLength={maxLength ?? (field === "brand" ? 60 : 120)} disabled={disabled}
     emptyText={readError ? null : undefined}
     error={validationError ? invalid : undefined} validate={text => required && !text.trim() ? invalid || (field === "brand" ? "请选择或填写设备品牌。" : "请选择或填写实物型号。") : ""}

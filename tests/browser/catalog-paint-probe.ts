@@ -23,6 +23,8 @@ export async function installCatalogPaintProbe(page: Page) {
         if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
         if (/auto|scroll|hidden|clip/.test(style.overflowY) && (rect.bottom <= clip.top || rect.top >= clip.bottom)) return false;
         if (/auto|scroll|hidden|clip/.test(style.overflowX) && (rect.right <= clip.left || rect.left >= clip.right)) return false;
+        // A modal dialog is in the top layer and is not clipped by its DOM ancestors.
+        if (parent instanceof HTMLDialogElement && parent.matches(':modal')) break;
       }
       const hit = document.elementFromPoint(Math.max(0, rect.left + rect.width / 2), Math.max(0, rect.top + rect.height / 2));
       return !!hit && (hit === element || element.contains(hit));
@@ -31,12 +33,12 @@ export async function installCatalogPaintProbe(page: Page) {
       const start = performance.now();
       const arm = probe.catalogArmed;
       if (!arm) return;
-      const input = arm.root.querySelector<HTMLInputElement>('input[role="combobox"]');
+      const input = arm.root.querySelector<HTMLInputElement>('[role="combobox"]');
       const inputMatches = !!input && input.id === arm.inputId;
       const target = event.target instanceof Element ? event.target : event.target instanceof Node ? event.target.parentElement : null;
       let matched = false;
       if (arm.root.isConnected && inputMatches && !input!.disabled && !input!.readOnly && target?.closest('.search-combobox') === arm.root) {
-        if (arm.kind === 'input') matched = target === input;
+        if (arm.kind === 'input') matched = target === input || input instanceof HTMLButtonElement && input.contains(target) || arm.tier === 'model' && target === arm.root.querySelector('[role="searchbox"]');
         else {
           const button = target.closest('button');
           const groups = [...arm.root.querySelectorAll<HTMLElement>('[role="group"]')].filter(group => group.getAttribute('aria-label') === arm.groupLabel);
@@ -52,7 +54,7 @@ export async function installCatalogPaintProbe(page: Page) {
       let firstVisible: number | undefined, painting = false, done = false, poll = 0;
       const condition = () => {
         const option = [...arm.root.querySelectorAll<HTMLElement>('[role="option"]')].find(row => row.getAttribute('aria-label') === arm.target) ?? null;
-        const currentInput = arm.root.querySelector<HTMLInputElement>('input[role="combobox"]');
+        const currentInput = arm.root.querySelector<HTMLInputElement>('[role="combobox"]');
         const list = arm.root.querySelector('[role="listbox"]');
         const state = {
           rootConnected: arm.root.isConnected,
@@ -61,7 +63,7 @@ export async function installCatalogPaintProbe(page: Page) {
           targetVisible: visible(option),
           notBusy: list?.getAttribute('aria-busy') === 'false',
           countMatches: arm.count === undefined || arm.root.querySelectorAll('[role="option"]').length === arm.count,
-          queryMatches: arm.query === undefined || currentInput?.value === arm.query,
+          queryMatches: arm.query === undefined || (arm.root.querySelector<HTMLInputElement>('[role="searchbox"]') ?? currentInput)?.value === arm.query,
           pressedMatches: arm.pressed === undefined || [...arm.root.querySelectorAll('button[aria-pressed="true"]')].some(button => button.textContent === arm.pressed),
         };
         probe.catalogPaintConditions[arm.token] = state;
@@ -94,11 +96,11 @@ export async function installCatalogPaintProbe(page: Page) {
 
 export const armCatalogPaintProbe = (source: Locator, value: PickerIntent) => source.evaluate((element, value) => {
   const root = element.closest<HTMLElement>('.search-combobox');
-  const input = root?.querySelector<HTMLInputElement>('input[role="combobox"]');
+  const input = root?.querySelector<HTMLInputElement>('[role="combobox"]');
   if (!(element instanceof HTMLElement) || !root || !input?.id) throw new Error('Sampler requires the independent catalog field owner');
   const group = element.closest<HTMLElement>('[role="group"]');
   const family = value.tier === 'series';
-  if (family ? element.tagName !== 'BUTTON' || !element.hasAttribute('aria-pressed') || !group?.getAttribute('aria-label') || !root.contains(group) : element !== input) throw new Error('Sampler source does not match its tier');
+  if (family ? element.tagName !== 'BUTTON' || !element.hasAttribute('aria-pressed') || !group?.getAttribute('aria-label') || !root.contains(group) : element !== input && !(value.tier === 'model' && element.getAttribute('role') === 'searchbox')) throw new Error('Sampler source does not match its tier');
   const probe = window as unknown as PickerProbe;
   const token = ++probe.catalogSequence; probe.catalogOwnerToken = token;
   probe.catalogArmed = { ...value, token, source: element, root, inputId: input.id, kind: family ? 'family' : 'input', groupLabel: group?.getAttribute('aria-label') ?? '', sourceLabel: (element.textContent ?? '').trim() };
@@ -106,5 +108,5 @@ export const armCatalogPaintProbe = (source: Locator, value: PickerIntent) => so
 
 export const catalogPaintDiagnostics = (page: Page) => page.evaluate(() => {
   const probe = window as unknown as PickerProbe, arm = probe.catalogArmed;
-  return { armed: arm ? { token: arm.token, tier: arm.tier, event: arm.event, inputId: arm.inputId, rootConnected: arm.root.isConnected, inputMatches: arm.root.querySelector<HTMLInputElement>('input[role="combobox"]')?.id === arm.inputId, sourceConnected: arm.source.isConnected } : null, native: probe.catalogNativeReceipts, paintConditions: probe.catalogPaintConditions, counts: Object.fromEntries(Object.entries(probe.catalogSamples).map(([tier, values]) => [tier, values.length])) };
+  return { armed: arm ? { token: arm.token, tier: arm.tier, event: arm.event, inputId: arm.inputId, rootConnected: arm.root.isConnected, inputMatches: arm.root.querySelector<HTMLInputElement>('[role="combobox"]')?.id === arm.inputId, sourceConnected: arm.source.isConnected } : null, native: probe.catalogNativeReceipts, paintConditions: probe.catalogPaintConditions, counts: Object.fromEntries(Object.entries(probe.catalogSamples).map(([tier, values]) => [tier, values.length])) };
 });

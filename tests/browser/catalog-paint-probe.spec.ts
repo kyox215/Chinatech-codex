@@ -1,21 +1,21 @@
 import { test, expect } from '@playwright/test';
-import { activatePicker, openCatalogPicker, pickerRoot } from './catalog-picker';
+import { activatePicker, openCatalogPicker, pickerRoot, fillCatalogQuery, isBrowsePicker } from './catalog-picker';
 import { installCatalogPaintProbe, armCatalogPaintProbe, catalogPaintDiagnostics, type PickerProbe } from './catalog-paint-probe';
 
 test('native paint observation keeps its field owner across a rebuilt menu and rejects unrelated or synthetic clicks', async ({ page }) => {
   const session = await page.request.post('/api/preview-session', { data: { email: 'demo@chinatech.local', password: 'Preview2026!' } });
   expect(session.status()).toBe(200);
   await page.goto('/app/repairs/new');
-  await page.getByRole('combobox', { name: '联系电话' }).fill('+393200001234');
+  await page.getByRole('combobox', { name: '联系电话', includeHidden: true }).fill('+393200001234');
   await page.getByRole('button', { name: '下一步', exact: true }).click();
   const form = page.locator('form.intake-form');
-  const brand = form.getByRole('combobox', { name: '品牌', exact: true });
+  const brand = form.getByRole('combobox', { name: '品牌', exact: true, includeHidden: true });
   const brands = await openCatalogPicker(page, brand);
-  await brand.fill('Samsung');
+  await fillCatalogQuery(page, brand, 'Samsung');
   await activatePicker(brands.getByRole('option', { name: 'Samsung', exact: true }));
-  const model = form.getByRole('combobox', { name: '型号', exact: true });
+  const model = form.getByRole('combobox', { name: '型号', exact: true, includeHidden: true });
   await openCatalogPicker(page, model);
-  await model.fill('');
+  await fillCatalogQuery(page, model, '');
   const root = pickerRoot(model);
   const group = root.getByRole('group', { name: '型号系列筛选', exact: true });
   const all = group.getByRole('button', { name: '全部系列', exact: true });
@@ -40,6 +40,8 @@ test('native paint observation keeps its field owner across a rebuilt menu and r
     foreign.innerHTML = '<input role="combobox" id="unrelated-probe-input"/><div role="group" aria-label="型号系列筛选"><button type="button" aria-pressed="false" style="min-width:90px;min-height:44px">Galaxy A</button></div>';
     document.body.append(foreign);
   });
+  // Native modal focus/pointer isolation deliberately makes outside controls unreachable.
+  if (await isBrowsePicker(model)) await root.locator('dialog header button').click();
   const foreignSince = await receiptCount();
   await activatePicker(page.locator('#probe-unrelated-field').getByRole('button', { name: 'Galaxy A', exact: true }));
   await rejected(foreignSince, true, false);

@@ -17,6 +17,7 @@ type Props = {
   historicalBrands?: readonly ComboboxOption[]; historicalModels?: readonly ComboboxOption[];
   historicalModelsByBrand?: Readonly<Record<string, readonly ComboboxOption[]>>;
   recordedBrands?:HistoricalCatalogSource;recordedModels?:HistoricalCatalogSource;
+  mobileSelection?: boolean;
 };
 export function CatalogIndexPreload({ category, enabled = true }: { category: string; enabled?: boolean }) {
   useCatalogIndex({ category: category === "电脑" ? "computer" : catalogCategory(category) ?? "other" }, enabled);
@@ -31,12 +32,12 @@ export function DeviceIdentityPicker({
     {mode !== "model" ? <DeviceCatalogControl category={props.category} field="brand" label={brandLabel}
       value={props.brand} onChange={brand => props.onCommit({ brand, model: props.model })}
       className={props.brandClassName} required={brandRequired} maxLength={brandMaxLength}
-      disabled={props.disabled} validationError={props.validationError} historicalOptions={props.historicalBrands} historicalRead={props.recordedBrands} /> : null}
+      disabled={props.disabled} validationError={props.validationError} historicalOptions={props.historicalBrands} historicalRead={props.recordedBrands} mobilePresentation={props.mobileSelection ? "inline" : undefined} /> : null}
     {mode !== "brand" ? <DeviceCatalogControl category={props.category} field="model" label={modelLabel}
       brand={props.brand} value={props.model} onChange={model => props.onCommit({ brand: props.brand, model })}
       className={props.modelClassName} required={modelRequired} maxLength={modelMaxLength}
       disabled={props.disabled} validationError={props.validationError}
-      historicalOptions={props.historicalModels ?? props.historicalModelsByBrand?.[canonicalCatalogBrand(props.brand)]} historicalRead={props.recordedModels} /> : null}
+      historicalOptions={props.historicalModels ?? props.historicalModelsByBrand?.[canonicalCatalogBrand(props.brand)]} historicalRead={props.recordedModels} mobilePresentation={props.mobileSelection ? "sheet" : undefined} /> : null}
   </>;
 }
 function subscribeMobile(listener: () => void) {
