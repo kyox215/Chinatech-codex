@@ -7,7 +7,8 @@ import{SelectControl}from'@/components/select-control';
 import{useLanguage}from'@/components/language-provider';
 import{useDeviceDraft,DeviceDraftNotice}from'@/components/use-device-draft';
 import{OperationRecoveryControls,useOperationReceipt}from'@/components/use-operation-receipt';
-import{backendRecovery,backendSnapshot}from'@/lib/backend/client';
+import{backendRecovery}from'@/lib/backend/client';
+import{savedStoreSettingsRevision}from'./settings-store';
 import type{StoreSettings,SupplierProfile,PaperFormat}from'@/lib/store-settings';
 import type{SettingsPatch}from'@/lib/backend/settings-patch';
 export type SettingsSave<Update>=(update:Update,expectedRevision:number|undefined,options:{requestId:string})=>Promise<boolean>;
@@ -52,7 +53,7 @@ export function Preferences({ settings, printing, save, onPendingChange, onRecei
     if (busy.current) return;
     const update:SettingsPatch = printing ? {type:"printing",paper} : {type:"general",values:{shopName:name.trim(),address:address.trim(),phone:phone.trim(),repairWarrantyMonths:repairMonths,retailWarrantyMonths:retailMonths}};
     await run(update, revision, async () => {
-      const nextRevision = backendSnapshot()?.settings?.revision ?? revision + 1;
+      const nextRevision = savedStoreSettingsRevision() ?? revision + 1;
       await deviceDraft.clear({ repairMonths, retailMonths, revision: nextRevision, name, address, phone, paper }); setRevision(nextRevision);
     });
   }
