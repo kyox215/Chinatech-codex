@@ -5,9 +5,10 @@ import { SearchCombobox, type ComboboxOption } from "@/components/search-combobo
 import { useLanguage } from "@/components/language-provider";
 import {
   catalogCategory, catalogBrandAliases, canonicalCatalogBrand, catalogNormalize,
-  catalogNameSort, catalogSearchTerms, type CatalogPage, type CatalogPickerModel,
+  catalogNameSort, catalogSearchTerms, type CatalogPickerModel,
 } from "@/lib/device-catalog";
-import { useCatalogIndex, useCatalogRead, catalogScope } from "./use-catalog";
+import { catalogScope } from "./use-catalog";
+import { useDeviceDirectoryIndex } from "./use-device-directory";
 import styles from "./device-catalog.module.css";
 
 type Props = {
@@ -31,32 +32,13 @@ function CatalogControl({
   const query = search.source === value ? search.text : "";
   const [family, setFamily] = useState<string | null>(null);
   const [history, setHistory] = useState(false);
-  const [page, setPage] = useState(1);
-  const [previousPages, setPreviousPages] = useState<{ key: string; rows: CatalogPickerModel[] }>({ key: "", rows: [] });
   const canonical = canonicalCatalogBrand(brand);
   const selectedCategory = category === "all" ? "" : category === "电脑" ? "computer" : catalogCategory(category) ?? "other";
   const scope = catalogScope();
-  const base = useCatalogIndex({ category: selectedCategory }, open && !disabled);
-  const knownBrand = Boolean(base.ready && base.data?.brands.some(row => row.value === canonical));
-  const branched = field === "model" && knownBrand && base.ready && base.data?.complete === false;
-  const branch = useCatalogIndex({ category: selectedCategory, brand: canonical }, open && !disabled && branched);
-  const refined = branched && branch.ready && branch.data?.complete === false && family !== null && !query && !history;
-  const leaf = useCatalogIndex({ category: selectedCategory, brand: canonical, family: family ?? "" }, open && !disabled && refined);
-  const current = refined ? leaf : branched ? branch : base;
-  const groups = branch.ready ? branch.data : base.ready ? base.data : null;
-  const paged = field === "model" && knownBrand && current.ready && current.data?.complete === false && !history;
-  const pageKey = JSON.stringify([scope, selectedCategory, canonical, family, query, current.data?.revision ?? ""]);
-  const remote = useCatalogRead<CatalogPage>({
-    kind: "models", category: selectedCategory, brand: canonical,
-    family: query ? "" : family ?? "", familyExact: !query && family !== null ? "1" : "",
-    q: query, page: String(page),
-  }, open && !disabled && paged);
-  const readError = base.error || (branched ? branch.error : "") || (refined ? leaf.error : "") || (paged ? remote.error : "");
-  const prior = previousPages.key === pageKey ? previousPages.rows : noModels;
-  const modelRows = useMemo(() => {
-    const rows = paged ? [...prior, ...(remote.data?.rows ?? [])] : current.ready ? current.data?.models ?? [] : [];
-    return [...new Map(rows.map(row => [row.id, row])).values()];
-  }, [paged, prior, remote.data, current.ready, current.data]);
+  const base = useDeviceDirectoryIndex({ category: selectedCategory }, open && !disabled);
+  const groups = base.data;
+  const readError = base.error;
+  const modelRows = base.ready ? base.data?.models ?? noModels : noModels;
   const indexedModels = useMemo(() => modelRows.map(row => ({
     row,
     text: [row.name, row.family, row.network === "unknown" ? "" : row.network, row.year ? String(row.year) : "",
@@ -64,7 +46,7 @@ function CatalogControl({
   })), [modelRows]);
   const terms = useMemo(() => catalogSearchTerms(query), [query]);
   const options = useMemo<ComboboxOption[]>(() => {
-    if (!base.ready || readError) return [];
+    if (!base.ready) return [];
     if (field === "brand") {
       const brands = new Map((base.data?.brands ?? []).map(row => [catalogNormalize(row.value), {
         value: row.value, label: row.value, key: row.value,
@@ -89,10 +71,9 @@ function CatalogControl({
         detail: [row.network === "unknown" ? "" : row.network, row.year ? String(row.year) : "", row.platform,
           ...row.modelCodes.slice(0, 3), row.status === "review" ? t("待核对") : ""].filter(Boolean).join(" · "),
       }));
-  }, [base.ready, base.data, readError, field, history, historicalOptions, indexedModels, canonical, query, family, t, terms]);
+  }, [base.ready, base.data, field, history, historicalOptions, indexedModels, canonical, query, family, t, terms]);
   const families = (groups?.families ?? []).filter(row => row.brand === canonical);
-  const loading = open && (!base.ready && base.loading || branched && !branch.ready && branch.loading ||
-    refined && !leaf.ready && leaf.loading || paged && remote.loading);
+  const loading = open && base.loading;
   const selected = field === "brand" ? options.find(row => canonicalCatalogBrand(row.value) === canonicalCatalogBrand(value))?.key
     : options.find(row => row.value === value)?.key;
   const invalid = required && !value.trim() ? field === "brand" ? "请选择或填写设备品牌。" : "请选择或填写实物型号。" : "";
@@ -100,13 +81,6 @@ function CatalogControl({
     setSearch({ source: value, text });
     setFamily(null);
     setHistory(false);
-    setPage(1);
-    setPreviousPages({ key: "", rows: [] });
-  }
-  function loadMore() {
-    if (!paged || readError || remote.loading || !remote.data || remote.data.page !== page || modelRows.length >= remote.data.total) return;
-    setPreviousPages({ key: pageKey, rows: modelRows });
-    setPage(page + 1);
   }
   const changeOpen = useCallback((next: boolean) => {
     setOpen(next);
@@ -118,22 +92,21 @@ function CatalogControl({
     options={options} optionDetailsAsDescription selectedKey={selected ?? ""} windowed
     commitOnBlur showAllOnOpen adaptiveMenu filterOptions={false} optionLimit={Math.max(1, options.length)}
     mobilePresentation={mobilePresentation}
-    onOpenChange={changeOpen} onEndReached={loadMore} menuClassName={styles.menu}
+    onOpenChange={changeOpen} menuClassName={styles.menu}
     loading={loading} required={required} maxLength={maxLength ?? (field === "brand" ? 60 : 120)} disabled={disabled}
     emptyText={readError ? null : undefined}
     error={validationError ? invalid : undefined} validate={text => required && !text.trim() ? invalid || (field === "brand" ? "请选择或填写设备品牌。" : "请选择或填写实物型号。") : ""}
     placeholder={t("搜索或手动填写")}
     manualActionLabel={t(field === "brand" ? "使用手填品牌" : "使用手填型号")}
-    menuHeader={field === "model" && !query && !history && !readError && families.length ? <div className={styles.families} role="group" aria-label={t("型号系列筛选")}>
-      <button type="button" aria-pressed={family === null} onMouseDown={event => event.preventDefault()} onClick={() => { setFamily(null); setPage(1); setPreviousPages({ key: "", rows: [] }); }}>{t("全部系列")}</button>
+    menuHeader={field === "model" && !query && !history && families.length ? <div className={styles.families} role="group" aria-label={t("型号系列筛选")}>
+      <button type="button" aria-pressed={family === null} onMouseDown={event => event.preventDefault()} onClick={() => { setFamily(null); }}>{t("全部系列")}</button>
       {families.map(row => <button key={row.value} type="button" aria-pressed={family === row.value} onMouseDown={event => event.preventDefault()}
-        onClick={() => { setFamily(row.value); setPage(1); setPreviousPages({ key: "", rows: [] }); }}>{row.value || t("未分组系列")}</button>)}
+        onClick={() => { setFamily(row.value); }}>{row.value || t("未分组系列")}</button>)}
     </div> : null}
     menuFooter={<div className={styles.footer}>
-      {readError ? <><p role="alert">{systemText(readError)} {t("仍可手动填写。")}</p>
-        <button type="button" onMouseDown={event => event.preventDefault()} onClick={() => { base.retry(); if (branched) branch.retry(); if (refined) leaf.retry(); if (paged) remote.retry(); }}>{t("重新查询目录")}</button></> : null}
-      {field === "model" && !readError && base.ready && historicalOptions.length ? <button type="button" aria-pressed={history}
-        onMouseDown={event => event.preventDefault()} onClick={() => { setHistory(previous => !previous); setPage(1); }}>{t(history ? "目录型号" : "门店原文")}</button> : null}
-      {paged && remote.data && !readError ? <span>{modelRows.length} / {remote.data.total}</span> : null}
+      {readError ? <><p role="alert">{base.ready ? t("目录更新失败，继续使用已缓存目录。") : <>{systemText(readError)} {t("仍可手动填写。")}</>}</p>
+        <button type="button" onMouseDown={event => event.preventDefault()} onClick={() => { base.retry(); }}>{t("重新查询目录")}</button></> : null}
+      {field === "model" && base.ready && historicalOptions.length ? <button type="button" aria-pressed={history}
+        onMouseDown={event => event.preventDefault()} onClick={() => { setHistory(previous => !previous); }}>{t(history ? "目录型号" : "门店原文")}</button> : null}
     </div>} />;
 }

@@ -1,5 +1,11 @@
 # 公共组件与样式复用规范
 
+## 2026-10-18 公共设备目录读取契约
+
+`DeviceCatalogControl` 复用原 `SearchCombobox`、windowing、系列筛选、型号元信息、手填与重试；基础参考数据改读 `useDeviceDirectoryIndex`，不等待 `BackendProvider.active`／门店 memberRevision。`CatalogIndexPreload`／`DeviceDirectoryPreload` 只静默预热，禁用／关闭字段不触发查询或 busy；打开控件的真实冷读才显示原位置等待与 2px 内容细线。有完整旧版本时更新失败保留候选与原值，在既有 footer 显示三语“目录更新失败，继续使用已缓存目录。”及重试，不能把后台失败改成无匹配或持续转圈。
+
+基础参考 cache 使用公共格式键，跨登录／退出／门店保留；门店原文仍由原 owner 的 `historicalOptions` 本地合并，不能进入公共快照。私有目录管理 `catalogScope`／`useCatalogRead` 的防旧响应契约保留。品牌／型号确认、取消、IME、桌面 blur、新建品牌联动及已保存事实规则不变。视觉沿已归档 Figma15322:210106／210151／210197／210262 与原 Input／Buttons/token；无新 CSS／图标／组件视觉。本轮证据见 [交付记录](../ui-design/previews/global-device-directory-20261018.md)。
+
 ## 2026-10-18 手机先选后搜
 
 新建维修的DeviceIdentityPicker显式启用mobileSelection，向原DeviceCatalogControl/SearchCombobox传递手机inline品牌与sheet型号；默认/桌面及其他使用方保原输入契约。手机触发器为真实button，主动搜索挂InputControl，查询只在控件内，选项/明确手填确认才发布，关闭/失焦保原值，选后回触发button。必填错误由领域校验并就地关联/定位空字段，品牌清型号/撤销仍归RepairIntakeForm。原生dialog适配visualViewport/安全区，列表内部滚动，沿radius-sheet24、16px输入、44px目标和B反馈。断点切换清临时查询，原目录分页/窗口化/历史原文/范围隔离保持。

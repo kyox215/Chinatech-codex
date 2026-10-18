@@ -2,8 +2,8 @@
 
 import { DeviceCatalogControl } from "./device-catalog-control";
 import type { ComboboxOption } from "@/components/search-combobox";
-import { canonicalCatalogBrand, catalogCategory } from "@/lib/device-catalog";
-import { useCatalogIndex } from "./use-catalog";
+import { canonicalCatalogBrand } from "@/lib/device-catalog";
+import { DeviceDirectoryPreload } from "./use-device-directory";
 import { useLayoutEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { useLanguage } from "@/components/language-provider";
 import styles from "./device-catalog.module.css";
@@ -17,9 +17,8 @@ type Props = {
   historicalModelsByBrand?: Readonly<Record<string, readonly ComboboxOption[]>>;
   mobileSelection?: boolean;
 };
-export function CatalogIndexPreload({ category, enabled = true }: { category: string; enabled?: boolean }) {
-  useCatalogIndex({ category: category === "电脑" ? "computer" : catalogCategory(category) ?? "other" }, enabled);
-  return null;
+export function CatalogIndexPreload({ enabled = true }: { category: string; enabled?: boolean }) {
+  return <DeviceDirectoryPreload enabled={enabled} />;
 }
 /** Shared field presentation only; callers retain draft cleanup and existing-record update rules. */
 export function DeviceIdentityPicker({

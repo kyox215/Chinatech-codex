@@ -4,6 +4,8 @@ import { isSupabaseMode } from "@/lib/supabase/config";
 import { preventAuthCaching, trustedAuthOrigin } from "@/lib/supabase/server";
 
 export async function proxy(request: NextRequest) {
+  const publicPath = request.nextUrl.pathname;
+  if (publicPath === "/api/device-directory/manifest" || /^\/api\/device-directory\/[a-f0-9]{64}\/(package|(phone|tablet|laptop|desktop|console|other)-[a-f0-9]{64})$/.test(publicPath)) return NextResponse.next();
   // Discard spoofed document scope; server components use only URL scope.
   request.headers.delete("x-ct-document-store");
   const selected=request.nextUrl.searchParams.get("storeId");
