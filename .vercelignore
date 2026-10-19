@@ -25,3 +25,7 @@ supabase/.branches/
 
 # Authoring cache is never a runtime asset; only public/tutorials is published.
 scripts/tutorials/.work/
+
+# MobileTrans installers are served by the external release, never bundled.
+public/toolbox/mobiletrans/*.apk
+public/toolbox/mobiletrans/*.exe

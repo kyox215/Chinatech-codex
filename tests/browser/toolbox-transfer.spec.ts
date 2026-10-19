@@ -5,6 +5,7 @@ import type { AddressInfo } from "node:net";
 import { translate } from "../../lib/i18n/translate";
 import { test, expect } from "@playwright/test";
 import { clonephoneRelease as release } from "../../lib/toolbox/clonephone-release";
+import { mobiletransRelease } from "../../lib/toolbox/mobiletrans-release";
 
 const proofDirectory = process.env.TOOLBOX_PROOF_DIR ?? ".local/toolbox-latest/proof";
 const locales = ["zh-CN", "it", "en"] as const;
@@ -18,6 +19,10 @@ for (const locale of locales) for (const width of [1440, 1024, 390, 375]) {
     await page.goto("/toolbox");
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
     await page.getByRole("link", { name: t("查看数据传输工具") }).click();
+    await expect(page.getByRole("heading", { name: t("数据传输"), level: 1 })).toBeVisible();
+    await expect(page.getByRole("article")).toHaveCount(2);
+    await expect(page.locator('a[download]')).toHaveCount(0);
+    await page.getByRole("link", { name: t("查看手机搬家"), exact: true }).click();
     await expect(page.getByRole("heading", { name: t("手机搬家"), level: 1 })).toBeVisible();
     const apk = page.getByRole("link", { name: t("下载手机搬家 APK"), exact: true });
     await expect(apk).toHaveAttribute("href", release.apkPath);
@@ -52,6 +57,38 @@ for (const locale of locales) for (const width of [1440, 1024, 390, 375]) {
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
       await page.screenshot({ path: `${proofDirectory}/${test.info().project.name}-${locale}-${width}.png`, fullPage: true, scale: "css" });
     }
+    await page.getByRole("link", { name: t("返回数据传输"), exact: true }).click();
+    await expect(page).toHaveURL(/\/toolbox\/transfer$/);
+    const mobiletransLink = page.getByRole("link", { name: t("查看 MobileTrans"), exact: true });
+    await mobiletransLink.focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/toolbox\/transfer\/mobiletrans$/);
+    await page.reload();
+    await expect(page).toHaveTitle("MobileTrans｜ChinaTech");
+    await expect(page.getByRole("heading", { name: "MobileTrans", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: t("安装文件与校验"), level: 2 })).toBeVisible();
+    await expect(page.getByRole("article")).toHaveCount(2);
+    for (const file of mobiletransRelease.files) {
+      const link = page.getByRole("link", { name: t(file.downloadLabel), exact: true });
+      await expect(link).toHaveAttribute("href", file.href);
+      await expect(link).toHaveAttribute("download", file.filename);
+      const bounds = await link.boundingBox();
+      expect(bounds!.height).toBeGreaterThanOrEqual(44);
+      const card = page.getByRole("article").filter({ has: page.getByRole("heading", { name: file.platform, exact: true }) });
+      await card.locator("summary").click();
+      await expect(card.getByText(file.sha256, { exact: true })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    }
+    if (width === 375 || width === 1440) {
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+      await page.screenshot({ path: `${proofDirectory}/${test.info().project.name}-mobiletrans-${locale}-${width}.png`, fullPage: true, scale: "css" });
+    }
+    await page.getByRole("link", { name: t("返回数据传输"), exact: true }).click();
+    await expect(page.getByRole("heading", { name: t("数据传输"), level: 1 })).toBeVisible();
+    if (width === 375 || width === 1440) {
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+      await page.screenshot({ path: `${proofDirectory}/${test.info().project.name}-apps-${locale}-${width}.png`, fullPage: true, scale: "css" });
+    }
     await page.getByRole("link", { name: t("返回工具箱"), exact: true }).click();
     await expect(page).toHaveURL(/\/toolbox$/);
     expect(errors).toEqual([]);
@@ -59,7 +96,7 @@ for (const locale of locales) for (const width of [1440, 1024, 390, 375]) {
 }
 
 test("APK native download preserves supplied bytes and native failure keeps the page usable", async ({ page }) => {
-  await page.goto("/toolbox/transfer");
+  await page.goto("/toolbox/transfer/clonephone");
   const apk = page.locator(`a[download="${release.filename}"]`);
   const started = page.waitForEvent("download");
   await apk.click();
