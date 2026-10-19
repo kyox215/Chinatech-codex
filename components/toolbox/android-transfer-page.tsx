@@ -50,7 +50,7 @@ export function AndroidTransferPage() {
           <DownloadLink className="button button--secondary" href={release.checksumsPath} download>{t("下载 SHA256 校验清单")}</DownloadLink>
         </details>
       </section>
-      <div className={shared.bottomLink}><Link href="/toolbox" className="button button--secondary" icon={<ArrowLeft size={16} aria-hidden="true" />}>{t("返回工具箱")}</Link></div>
+      <div className={shared.bottomLink}><Link href="/toolbox/transfer" className="button button--secondary" icon={<ArrowLeft size={16} aria-hidden="true" />}>{t("返回数据传输")}</Link></div>
     </main>
     <footer className={shared.footer}><Brand compact /><p>{t("© 2026 ChinaTech · 让门店日常井井有条")}</p></footer>
   </div>;
