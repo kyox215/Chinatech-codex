@@ -9,7 +9,7 @@ function mod(name) {
   for (const m of [...code.matchAll(/from "\.\/([^";]+)"/g)]) code = code.replace(m[0], `from ${JSON.stringify(mod(m[1]))}`);
   const url = "data:text/javascript;base64," + Buffer.from(code).toString("base64"); cache.set(name, url); return url;
 }
-const { historyDisplayUnit, initialRecordPreparation, prepareRetailRecord, parsePreviewRetailHistory } = await import(mod("retail-record"));
+const { historyDisplayUnit, initialRecordPreparation, prepareRetailRecord, parsePreviewRetailHistory,selectRetailRecord,retailRecordHref } = await import(mod("retail-record"));
 const { parseStoredRetailUnits, createRetailUnit, applyRetailCommand } = await import(mod("retail"));
 const { buildRetailListIndex } = await import(mod("retail-list-model"));
 const record = { id: "00000000-0000-5000-8000-000000000051", source: "seatable", sourceSnapshot: "a".repeat(64), sourceRow: 52, sourceStatus: "在售", condition: "翻新机", customerName: "Synthetic original", customerPhone: "+393200000001", category: "手机", brand: "Apple", model: "Synthetic source phone", color: "NERO", memory: "8+128GB", paymentMethod: null, askingPriceCents: 22000, salePriceCents: null, depositCents: null, costCents: 0, notes: "Synthetic original internal cost note", batteryPercent: 0, identifier: "1234567890123456", intakeAt: "2026-09-02T09:00:00Z", pickupDate: null, sourceUpdatedAt: "2026-09-03T10:00:00Z", importedAt: "2026-10-02T10:00:00Z", reviewReasons: ["Synthetic identity needs checking"] };
@@ -71,4 +71,15 @@ test("合成原资料预览按同一验证边界读取，坏格式与重复ID拒
   assert.deepEqual(parsePreviewRetailHistory(null), []); assert.deepEqual(parsePreviewRetailHistory(JSON.stringify({ version: 1, records: [record] })), [record]);
   assert.throws(() => parsePreviewRetailHistory(JSON.stringify({ version: 1, records: [record, record] })), /编号重复/);
   assert.throws(() => parsePreviewRetailHistory(JSON.stringify({ version: 2, records: [record] })), /无法读取/);
+});
+
+
+test("source-qualified retail targets never attach independent same-ID originals; legacy fallback and actual managed linkage remain",()=>{
+ const original={...record,sourceStatus:"以售",model:"DEMO independent historical"},unit={...historyDisplayUnit(record),storeOwned:true,model:"DEMO independent unit"};
+ const a=selectRetailRecord([unit],[original],record.id,"unit"),b=selectRetailRecord([unit],[original],record.id,"history"),legacy=selectRetailRecord([unit],[original],record.id);
+ assert.equal(a.saved,unit);assert.equal(a.original,undefined);assert.equal(a.unit.model,unit.model);assert.equal(legacy.original,undefined);
+ assert.equal(b.saved,undefined);assert.equal(b.original,original);assert.equal(b.unit.model,original.model);assert.equal(b.unit.status,"sold");
+ assert.equal(selectRetailRecord([],[original],record.id,"unit").unit,undefined);assert.equal(selectRetailRecord([],[original],record.id).original,original);
+ const linked={...unit,historyOrigin:{recordId:record.id,sourceSnapshot:record.sourceSnapshot}};assert.equal(selectRetailRecord([linked],[original],record.id,"history").saved,linked);assert.equal(selectRetailRecord([linked],[original],record.id,"unit").original,original);assert.equal(selectRetailRecord([linked],[{...original,sourceSnapshot:"f".repeat(64)}],record.id,"unit").original,undefined);
+ assert.match(retailRecordHref(record.id,"/app/retail","history"),/^\/app\/retail\/history\//);assert.equal(new URL(retailRecordHref(record.id,"/app/retail","unit"),"https://local.invalid").searchParams.get("source"),"unit");assert.match(retailRecordHref(record.id),/^\/app\/retail\/units\//);
 });

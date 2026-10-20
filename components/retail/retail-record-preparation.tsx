@@ -20,16 +20,20 @@ import { historyDate, historyMoney, historyText } from "./retail-history-shared"
 import styles from "./retail-history.module.css";
 import surface from "./retail-surface.module.css";
 import recordStyles from "./retail-record.module.css";
+import{useBackendState}from'@/components/backend-snapshot';
+import{useActivityFeedback}from'@/components/operation-feedback';
+import{checkFormalRetailIdentity}from'@/lib/retail-identity-check';
 
 const checks = [{ key: "functional", label: "功能检测已完成" }, { key: "ownership", label: "所有权及账号锁已核验" }, { key: "data", label: "数据处理已核验" }] as const;
 export function RetailRecordPreparation({ record }: { record: RetailHistoryRecord }) {
-  const { t, systemText , locale } = useLanguage(); const staff = useStaff(); const store = useStoreSettings();
+  const { t, systemText , locale } = useLanguage(); const staff = useStaff(); const store = useStoreSettings(),backend=useBackendState(),bounded=Boolean(backend.formal&&backend.snapshot?.retailFormEnabled);
   const { units, dispatch, ready, error: storageError, feedback } = useRetail();
   const [draft, setDraft] = useState(() => initialRecordPreparation(record));
   const [pending, setPending] = useState<RetailRecordPreparation | null>(null);
   const [revision, setRevision] = useState(store.settings.revision);
   const [error, setError] = useState(""); const receipt = useOperationReceipt();
   const [submittingBase, setSubmitting] = useState(false);
+  const[checkingIdentity,setCheckingIdentity]=useState(false);useActivityFeedback(checkingIdentity,{kind:'read'});
   const submitting = submittingBase || receipt.waiting;
   const busy = useRef(false);
   const deviceDraft = useDeviceDraft(`retail-record:${record.id}`, { draft, sourceSnapshot: record.sourceSnapshot, revision }, value => {
@@ -44,7 +48,8 @@ export function RetailRecordPreparation({ record }: { record: RetailHistoryRecor
     try {
       if (conflict) throw new Error("商品来源或门店约定已变化，请重新核对。");
       const audit = { id: crypto.randomUUID(), time: intakeRecordTime(), title: "商品资料已核对", detail: "原商品记录保留，实物资料已确认。" };
-      prepareRetailRecord(record, draft, store.settings.retailWarrantyMonths, audit, units);
+      const candidate=prepareRetailRecord(record, draft, store.settings.retailWarrantyMonths, audit, units);
+      if(bounded){busy.current=true;setSubmitting(true);setCheckingIdentity(true);try{await checkFormalRetailIdentity(candidate);}finally{setCheckingIdentity(false);}}
       if (!pending) { setPending(structuredClone(draft)); return; }
       busy.current = true; setSubmitting(true);
       const saved = await dispatch({ type: "prepare", id: record.id, sourceSnapshot: record.sourceSnapshot, settingsRevision: revision, draft: pending, event: audit }, {requestId});

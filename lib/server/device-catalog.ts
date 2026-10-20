@@ -56,6 +56,13 @@ export function catalogReadScope(access: Access): CatalogPickerScope {
 export async function catalogState(access: Access): Promise<CatalogState> {
   return catalogRead(access, false, async (_tx, row) => ({ revision: row.revision, canManage: row.admin_user_id === access.identity.userId, accountId: access.identity.userId, sessionId: access.identity.sessionId, storeId: access.storeId }));
 }
+export function catalogInitialPage(identity: AuthIdentity, storeId: string) {
+  return withCatalogRead(identity, storeId, async access => {
+    const state = await catalogState(access);
+    const page = await queryCatalog(access, { page: 1, includeDisabled: state.canManage });
+    return { formatVersion: 1 as const, scope: catalogReadScope(access), state, page, includeDisabled: state.canManage };
+  });
+}
 export async function queryCatalog(access: Access, query: CatalogQuery): Promise<CatalogPage> {
   return catalogRead(access, Boolean(query.includeDisabled), async (tx, state) => {
     const categories = query.category ? catalogQueryCategories(query.category) : [];

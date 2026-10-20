@@ -56,3 +56,7 @@
 @media (min-width: 768px) { .identity strong { font-size: 16px; font-weight: 500; } }
 
 .tableHead { min-height: 48px; }
+.recordItem { border-bottom: 1px solid var(--border); }
+.recordItem:last-child { border-bottom: 0; }
+
+.detailHeading :global(.module-title__line) > h2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; max-height: 2.6em; overflow: hidden; overflow-wrap: anywhere; }

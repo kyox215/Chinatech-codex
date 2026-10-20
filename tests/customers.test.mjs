@@ -102,9 +102,9 @@ test("已编辑客户资料优先且可明确清空，历史买家联系资料�
 });
 
 test("客户销售链接定位具体销售，复售与特殊标识不会丢失原单", () => {
-  assert.equal(customerSaleHref({ unitId: "DEMO-UNIT", id: "DEMO-SALE" }), "/app/retail/units/DEMO-UNIT?sale=DEMO-SALE#sale-DEMO-SALE");
+  assert.equal(customerSaleHref({ unitId: "DEMO-UNIT", id: "DEMO-SALE" }), "/app/retail/units/DEMO-UNIT?sale=DEMO-SALE&source=unit#sale-DEMO-SALE");
   const url = new URL(customerSaleHref({ unitId: "unit/1", id: "sale #旧/1" }), "https://example.test");
   assert.equal(url.pathname, "/app/retail/units/unit%2F1");
-  assert.equal(url.searchParams.get("sale"), "sale #旧/1");
+  assert.equal(url.searchParams.get("sale"), "sale #旧/1");assert.equal(url.searchParams.get("source"),"unit");
   assert.equal(decodeURIComponent(url.hash.slice(1)), "sale-sale #旧/1");
 });

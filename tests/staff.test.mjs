@@ -1,16 +1,19 @@
+import {posix} from 'node:path';
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import ts from "typescript";
 import { adaptPreviewHookImports } from "./helpers/preview-hook-loader.mjs";
+import{resolveDataUrlPackages}from'./helpers/data-url-dependencies.mjs';
 
 // Load the actual TypeScript modules and stores, with only React rendering stubbed.
 const modules = new Map();
 const dataUrl = code => `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`;
 const compile = path => ts.transpileModule(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022, jsx: ts.JsxEmit.React } }).outputText;
 function library(name) {
+  name=posix.normalize(name);
   if (modules.has(name)) return modules.get(name);
-  const code = compile(`lib/${name}.ts`).replace(/from "\.\/([^"]+)"/g, (_, dep) => `from "${library([...name.split("/").slice(0,-1),dep].join("/"))}"`);
+  const code = resolveDataUrlPackages(compile(`lib/${name}.ts`)).replace(/from ["'](\.{1,2}\/[^"']+)["']/g, (_, dep) => `from "${library([...name.split("/").slice(0,-1),dep].join("/"))}"`);
   const url = dataUrl(code); modules.set(name, url); return url;
 }
 let instance = 0;

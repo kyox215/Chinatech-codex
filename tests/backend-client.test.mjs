@@ -5,6 +5,9 @@ import { setImmediate } from "node:timers/promises";
 import { test } from "node:test";
 import { createContext, runInContext } from "node:vm";
 import ts from "typescript";
+import {sourceLoader} from "./helpers/typescript-source.mjs";
+import{flushSync}from'react-dom';
+import{dashboardIntake,dashboardSource}from'./helpers/dashboard-fixture.mjs';
 
 // Compile the actual client into an isolated browser-like context for each test.
 // Fetch never leaves this context; all members, amounts and responses are synthetic.
@@ -15,6 +18,11 @@ const compiled = ts.transpileModule(source, {
 const bootstrapCompiled = ts.transpileModule(readFileSync(new URL("../lib/backend/bootstrap.ts", import.meta.url), "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
+const storeScope=sourceLoader()("./lib/store-scope");
+const readPlan=sourceLoader()("./lib/backend/read-plan");
+const retailFormContract=sourceLoader()("./lib/backend/retail-form-contract");
+const readResponse=sourceLoader()("./lib/backend/read-response");
+const dashboardSummary=sourceLoader()("./lib/dashboard-summary");
 
 const storeId = "00000000-0000-4000-8000-000000000001";
 const ownerId = "00000000-0000-4000-8000-000000000002";
@@ -113,8 +121,23 @@ function response(status, body) {
   return { status, ok: status >= 200 && status < 300, json: async () => body };
 }
 
+test('刷新非JSON拒绝在解码前同步隔离，临时故障保留原内容，旧范围拒绝不清新身份',async()=>{
+ for(const status of[401,403,503,200]){
+  const h=harness(),initial=mockSnapshot();h.client.configureBackend(initial);const pending=h.client.refreshBackend(),rejected=assert.rejects(pending,/权限已变化|资料暂不可用/);let decodes=0;
+  await h.requests[0].resolve({status,ok:status===200,json:async()=>{decodes++;throw new SyntaxError('DEMO invalid proxy document');}});await rejected;
+  if(status===401||status===403){assert.equal(decodes,0);assert.equal(h.client.backendSnapshot(),null);assert.deepEqual(h.redirects,[status===401?'/login':'/account/pending']);}
+  else{assert.equal(h.client.backendSnapshot(),initial);assert.equal(decodes,1);assert.deepEqual(h.redirects,[]);}
+ }
+ const h=harness();h.client.configureBackend(mockSnapshot());const pending=h.client.refreshBackend(),next=mockSnapshot({memberId:ownerId});h.client.configureBackend(next);let decodes=0;await h.requests[0].resolve({status:401,ok:false,json:async()=>{decodes++;throw Error('DEMO late body');}});await pending;assert.equal(decodes,0);assert.equal(h.client.backendSnapshot(),next);assert.deepEqual(h.redirects,[]);
+});
+
+test('提交非JSON401撤下私有资料而持久化的原requestId仍可恢复',async()=>{
+ const h=harness();h.client.configureBackend(mockSnapshot());const id=randomUUID(),pending=h.client.backendCommand('synthetic.command',{},id),rejected=assert.rejects(pending,/登录身份已变化/);await setImmediate();let decodes=0;await h.requests[0].resolve({status:401,ok:false,json:async()=>{decodes++;throw Error('DEMO unreadable denial');}});await rejected;assert.equal(decodes,0);assert.equal(h.client.backendSnapshot(),null);assert.deepEqual(h.redirects,['/login']);assert.equal(h.operations.size,1);assert.equal([...h.operations.values()][0].command.requestId,id);assert.equal([...h.operations.values()][0].phase,'unknown');
+});
+
 function harness({requestDeadline}={}) {
   const requests = [];
+  const documentLocations=[];
   const redirects = [];
   const publications = [];
   const operations=new Map();
@@ -126,9 +149,10 @@ function harness({requestDeadline}={}) {
     forgetOperation:async(key,id)=>{if(operations.get(key)?.command.requestId===id)operations.delete(key);},
   };
   const navigator={onLine:true};
+  const commandResultContract={};
   const context = createContext({
-    require:name=>{assert.equal(name,"./recovery-store");return storage;},
-    AbortController,Headers,URLSearchParams,setTimeout:requestDeadline?((fn,ms)=>setTimeout(fn,ms===20000?requestDeadline:ms)):setTimeout,clearTimeout,navigator,
+    require:name=>{if(name==='../store-scope')return storeScope;if(name==='../dashboard-summary')return dashboardSummary;if(name==='react-dom')return{flushSync};if(name==='./command-result-contract')return commandResultContract;if(name==='./read-response')return readResponse;if(name==="./read-plan")return readPlan;if(name==="./retail-form-contract")return retailFormContract;assert.equal(name,"./recovery-store");return storage;},
+    Headers, AbortController,URLSearchParams,setTimeout:requestDeadline?((fn,ms)=>setTimeout(fn,ms===20000?requestDeadline:ms)):setTimeout,clearTimeout,navigator,
     exports: {},
     crypto: { randomUUID },
     fetch: (url, options) => new Promise((resolve, reject) => {
@@ -138,8 +162,10 @@ function harness({requestDeadline}={}) {
         resolve(result);
       }, reject });
     }),
-    window: { location: { assign: url => redirects.push(url), reload: () => redirects.push("reload") } },
+    window: { history:{replaceState:(_state,_title,url)=>documentLocations.push(url)},location: { assign: url => redirects.push(url), reload: () => redirects.push("reload") } },
   });
+  const resultCompiled=ts.transpileModule(readFileSync(new URL("../lib/backend/command-result-contract.ts",import.meta.url),"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  runInContext(`(function(exports){${resultCompiled}\n})`,context,{filename:"lib/backend/command-result-contract.ts"})(commandResultContract);
   runInContext(compiled, context, { filename: "lib/backend/client.ts" });
   const client = context.exports;
   const bootstrapExports = {};
@@ -150,7 +176,7 @@ function harness({requestDeadline}={}) {
     release: client.releaseBackendBootstrap, canAdoptRelease: client.canAdoptBackendBootstrap,
   });
   client.subscribeBackend(() => publications.push(client.backendSnapshot()));
-  return { client, bootstrap, requests, redirects, publications, operations, navigator, storage };
+  return { client, bootstrap, documentLocations, requests, redirects, publications, operations, navigator, storage };
 }
 
 test("两个请求各自保留服务端initial，render/read不写共享客户端状态", () => {
@@ -261,7 +287,7 @@ test("采购旧搜索和反馈在权限/身份变化清除，未激活新scope�
   const code = ts.transpileModule(procurementSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const state = () => ({ formal: true, snapshot: activeScope.readFor(initial), active: activeScope.isActive() });
   const hooks = { useBackendState: state, useBackendStore: (_subscribe, _read, _server, project) => project(state().snapshot) };
-  const react = { createContext: () => ({ Provider: "provider" }), useSyncExternalStore: (_subscribe, read) => read() };
+  const react = { createContext: () => ({ Provider: "provider" }),useContext:()=>null, useSyncExternalStore: (_subscribe, read) => read() };
   const context = createContext({ exports: {}, Event, crypto: { randomUUID }, window: { dispatchEvent() {} }, require: name => {
     if (name === "react") return react;
     if (name === "react/jsx-runtime") return { jsx: (_type, props) => props.value };
@@ -289,6 +315,17 @@ test("采购旧搜索和反馈在权限/身份变化清除，未激活新scope�
   assert.equal(provider.readUiTest().listView.query, ""); assert.equal(provider.readUiTest().feedback, null);
   h.client.configureBackend(second);
   assert.equal(provider.readUiTest().listView.query, ""); assert.equal(provider.readUiTest().feedback, null);
+  let finishTargetRead;
+  const targetSource={read:()=>h.client.backendSnapshot(),refreshAfterCommand:()=>new Promise(resolve=>{finishTargetRead=resolve;})};
+  const pendingTarget=provider.dispatchTest({type:"create",record:{id:"synthetic-confirmed-old-scope"}},undefined,targetSource);
+  const isolatedResult=assert.rejects(pendingTarget,/账号访问权限已变化/);
+  await setImmediate();h.requests[1].resolve(response(200,mockSnapshot({revision:4})));await setImmediate();
+  assert.equal(h.operations.size,0); // Command was confirmed and original intent cleared.
+  h.client.configureBackend(mockSnapshot({memberId:ownerId,revision:5}));
+  assert.equal(provider.readUiTest().feedback,null);
+  finishTargetRead(null);await isolatedResult;
+  assert.equal(provider.readUiTest().feedback,null);
+  assert.equal(h.operations.size,0); // Late UI isolation never recreates an unknown intent.
 });
 
 test("同店老板旧命令响应不能替换随后登录的员工身份或恢复成本", async () => {
@@ -491,3 +528,136 @@ test("回执清理等待期间切换身份，旧结果不能污染新恢复状�
  const h=harness();h.client.configureBackend(mockSnapshot({memberId:ownerId}));let release;h.storage.forgetOperation=()=>new Promise(resolve=>release=resolve);
  const pending=h.client.backendCommand("synthetic.command",{});const rejected=assert.rejects(pending,/身份已变化/);await setImmediate();h.requests[0].resolve(response(200,mockSnapshot({memberId:ownerId,revision:2})));await setImmediate();assert.equal(typeof release,"function");h.client.configureBackend(mockSnapshot({memberId:clerkId,revision:3}));release();await rejected;await setImmediate();assert.equal(h.client.backendRecovery().pending,null);assert.equal(h.client.backendRecovery().receipt,undefined);
 });
+
+function pageSnapshot(kind = "repairs", options = {}) {
+  const state = mockSnapshot(options);
+  state.read = { formatVersion: 2, scope: { accountId: "synthetic-account", sessionId: options.sessionId ?? "synthetic-session", storeId, memberId: state.staff.currentId, memberRevision: state.staff.members[0].revision, permissions: state.staff.members[0].permissions, formatVersion: 2 }, plan: { kind }, ready: ["staff", "retail"] };
+  return state;
+}
+
+test("v2读取绑定实际会话和页面，旧页面高版本迟到不能覆盖新页或阻塞新页请求", async () => {
+  const h = harness(), initial = pageSnapshot(); h.client.configureBackend(initial);
+  const old = h.client.refreshBackend();
+  assert.match(h.requests[0].url, /^\/api\/backend\/v2\/page\?/);
+  assert.equal(h.requests[0].options.headers["x-ct-store-id"], storeId);
+  assert.match(h.requests[0].options.headers["x-ct-read-scope"], /synthetic-session/);
+  const next = pageSnapshot("retail"); h.client.reconcileBackendInitial(next);
+  const current = h.client.refreshBackend(); assert.equal(h.requests.length, 2);
+  h.requests[0].resolve(response(200, pageSnapshot("repairs", { revision: 999, costCents: 99999 })));
+  await old; assert.equal(h.client.backendSnapshot(), next);
+  const refreshed = pageSnapshot("retail", { revision: 2 }); h.requests[1].resolve(response(200, refreshed)); await current;
+  assert.equal(h.client.backendSnapshot(), refreshed);
+});
+
+test("v2同成员新会话使旧会话读取失效，错误页面响应不能填入当前页", async () => {
+  const h = harness(); h.client.configureBackend(pageSnapshot()); const old = h.client.refreshBackend();
+  const next = pageSnapshot("retail", { sessionId: "new-session" }); h.client.configureBackend(next);
+  h.requests[0].resolve(response(200, pageSnapshot("repairs", { revision: 999 }))); await old; assert.equal(h.client.backendSnapshot(), next);
+  const current = h.client.refreshBackend(), rejected = assert.rejects(current, /核对结果无效/);
+  h.requests[1].resolve(response(200, pageSnapshot("repairs", { sessionId: "new-session", revision: 2 }))); await rejected;
+  assert.equal(h.client.backendSnapshot(), next);
+});
+
+test("v2旧命令兼容回执保留页面协议，后续刷新不恢复整店state轮询", async () => {
+  const h = harness(),initial=pageSnapshot("retail");initial.customerListEnabled=true;initial.procurementListEnabled=true;h.client.configureBackend(initial);
+  const pending = h.client.backendCommand("synthetic.command", {}); await setImmediate();
+  h.requests[0].resolve(response(200, mockSnapshot({ revision: 2 }))); await pending;
+  assert.equal(h.client.backendSnapshot().read.plan.kind, "retail");
+  assert.equal(h.client.backendSnapshot().customerListEnabled,true);assert.equal(h.client.backendSnapshot().procurementListEnabled,true);
+  const refresh = h.client.refreshBackend(); assert.match(h.requests[1].url, /^\/api\/backend\/v2\/page\?/);
+  h.requests[1].resolve(response(200, pageSnapshot("retail", { revision: 2 }))); await refresh;
+});
+
+test("v2权限作用域过期立即隔离资料，不能继续使用旧页面内容", async () => {
+  const h = harness(); h.client.configureBackend(pageSnapshot()); const pending = h.client.refreshBackend(), rejected = assert.rejects(pending, /权限已变化/);
+  h.requests[0].resolve(response(409, { code: "IDENTITY_CHANGED" })); await rejected;
+  assert.equal(h.client.backendSnapshot(), null); assert.deepEqual(h.redirects, ["reload"]);
+});
+
+test("v2保存中导航不取消原请求或卡住busy，确认回执采用当前页协议", async () => {
+  const h = harness(); h.client.configureBackend(pageSnapshot("repairs"));
+  const pending = h.client.backendCommand("synthetic.command", {}); await setImmediate();
+  const requestId = JSON.parse(h.requests[0].options.body).requestId;
+  h.client.reconcileBackendInitial(pageSnapshot("retail"));
+  h.requests[0].resolve(response(200, mockSnapshot({ revision: 2 }))); await pending;
+  assert.equal(h.client.backendSnapshot().read.plan.kind, "retail");
+  assert.equal(h.client.backendRecovery().receipt.requestId, requestId);
+  assert.equal(h.client.backendRecovery().pending, null); assert.equal(h.client.backendRecovery().busy, false);
+});
+
+test("v2自身成员版本更新不把确认提交错误改成未知结果", async () => {
+  const h = harness(); h.client.configureBackend(pageSnapshot("retail"));
+  const pending = h.client.backendCommand("staff.save", {}); await setImmediate();
+  h.requests[0].resolve(response(200, mockSnapshot({ revision: 2, memberRevision: 2 }))); await pending;
+  assert.equal(h.client.backendSnapshot().read.scope.memberRevision, 2);
+  assert.equal(h.client.backendRecovery().pending, null); assert.equal(h.client.backendRecovery().busy, false);
+  assert.ok(h.client.backendRecovery().receipt);
+});
+
+test("v2原请求跨导航核对仍能清理原登记并发布真实回执", async () => {
+  const h = harness(); h.client.configureBackend(pageSnapshot("repairs"));h.navigator.onLine=false;
+  await assert.rejects(h.client.backendCommand("synthetic.command", {}), /离线/);
+  const original=h.client.backendRecovery().pending;
+  h.client.reconcileBackendInitial(pageSnapshot("retail"));h.navigator.onLine=true;
+  const check=h.client.recoverOperation("check");await setImmediate();
+  const snapshot=mockSnapshot({revision:2});snapshot.operation={requestId:original.command.requestId,entityId:"synthetic-unit",kind:"synthetic.command",committedAt:"2026-10-02T00:00:00Z",replayed:true};
+  h.requests[0].resolve(response(200,{status:"committed",snapshot}));await check;
+  assert.equal(h.client.backendRecovery().pending,null);assert.equal(h.client.backendRecovery().busy,false);
+  assert.equal(h.client.backendRecovery().receipt.requestId,original.command.requestId);assert.equal(h.client.backendSnapshot().read.plan.kind,"retail");
+});
+
+test('v1 confirmed save restores new-form defaults from newly authorized facts, never from a stale page default',async()=>{
+ const h=harness(),initial=mockSnapshot();initial.read={formatVersion:2,scope:{formatVersion:2,accountId:'DEMO-account',sessionId:'DEMO-session',storeId,memberId:clerkId,memberRevision:1,permissions:['repairs.edit','repairs.view']},plan:{kind:'repair-new'},ready:['staff']};initial.intakeDefaults={revision:1,paper:'a4',policy:{months:6,shopName:'OLD',address:'',phone:''}};
+ h.client.configureBackend(initial);const save=h.client.backendCommand('intake.save',{});await setImmediate();const next=mockSnapshot({revision:2});next.settings={repairWarrantyMonths:18,paper:'a5',shopName:'NEW',address:'DEMO address',phone:'DEMO phone',suppliers:[],finance:[]};h.requests[0].resolve(response(200,next));await save;
+ const current=h.client.backendSnapshot();assert.equal(current.intakeDefaults.revision,2);assert.equal(current.intakeDefaults.paper,'a5');assert.deepEqual(JSON.parse(JSON.stringify(current.intakeDefaults.policy)),{months:18,shopName:'NEW',address:'DEMO address',phone:'DEMO phone'});assert.deepEqual(JSON.parse(JSON.stringify(current.read.ready)),['staff']);
+ const again=h.client.backendCommand('intake.save',{});await setImmediate();const missing=mockSnapshot({revision:3});missing.settings=null;h.requests[1].resolve(response(200,missing));await again;assert.equal(h.client.backendSnapshot().intakeDefaults,undefined);
+});
+test('v1 dashboard recovery uses only fresh authorized facts and never sends its local display witness as a server known token',async()=>{
+ const h=harness(),initial=pageSnapshot('dashboard');initial.dashboardEnabled=true;initial.settings=dashboardSource().settings;initial.retail=[];initial.staff.members[0].permissions=['repairs.view','retail.view'];initial.read.scope.permissions=[...initial.staff.members[0].permissions];
+ initial.dashboard={formatVersion:1,scope:initial.read.scope,generation:'["old"]',stateToken:'a'.repeat(64),data:dashboardSummary.buildDashboardSummary(dashboardSource(),{repairs:true,retail:true,financial:false})};h.client.configureBackend(initial);
+ const save=h.client.backendCommand('intake.save',{});await setImmediate();const requestId=JSON.parse(h.requests[0].options.body).requestId,next=mockSnapshot({revision:2});next.settings=dashboardSource().settings;next.intakes=[dashboardIntake(1),dashboardIntake(2)];next.retail=[];next.staff.members[0].permissions=['repairs.view'];h.requests[0].resolve(response(200,next));await save;
+ const current=h.client.backendSnapshot();assert.equal(current.dashboardEnabled,true);assert.equal(current.read.plan.kind,'dashboard');assert.deepEqual(JSON.parse(JSON.stringify(current.read.scope.permissions)),['repairs.view']);assert.equal(current.dashboard.data.counts.processing,2);assert.equal(current.dashboard.data.recent.length,2);assert.equal(current.dashboard.data.retail.available,0);assert.equal(current.dashboard.generation,'["legacy",2]');assert.equal(current.dashboard.stateToken,'legacy:2');assert.equal(current.stateToken,undefined);assert.equal(h.client.backendRecovery().receipt.requestId,requestId);assert.equal(h.requests.length,1);
+ const again=h.client.backendCommand('intake.save',{});await setImmediate();const missing=mockSnapshot({revision:3});missing.settings=null;missing.staff.members[0].permissions=['repairs.view'];h.requests[1].resolve(response(200,missing));await again;assert.equal(h.client.backendSnapshot().dashboard,undefined);assert.equal(h.client.backendSnapshot().dashboardEnabled,true);
+ const refresh=h.client.refreshBackend();assert.match(h.requests[2].url,/^\/api\/backend\/v2\/page\?/);assert(!new URL('https://synthetic.invalid'+h.requests[2].url).searchParams.has('known'));const refreshed=pageSnapshot('dashboard',{revision:3});refreshed.staff.members[0].permissions=['repairs.view'];refreshed.read.scope.permissions=['repairs.view'];h.requests[2].resolve(response(200,refreshed));await refresh;
+});
+test('v1 retail save preserves form protocol and derives current warranty/copy only from the newly authorized response',async()=>{
+ const h=harness(),initial=pageSnapshot('retail-new');initial.read.plan.id='DEMO-COPY';initial.retailFormEnabled=true;initial.retailCreationDefaults={revision:1,warrantyMonths:6,copy:null};h.client.configureBackend(initial);
+ const save=h.client.backendCommand('retail',{});await setImmediate();const next=mockSnapshot({revision:2});next.settings={revision:7,retailWarrantyMonths:24};next.retail=[{id:'DEMO-COPY',code:'DEMO-ORIGINAL',category:'phone',brand:'DEMO',model:'型'.repeat(4990)+'TAIL',color:'',ramGb:null,bodyStorage:null,disks:[],cpu:'',gpu:'',keyboard:'',edition:'',productCode:'',photos:['PRIVATE'],costCents:12345,events:['PRIVATE']}];h.requests[0].resolve(response(200,next));await save;
+ const current=h.client.backendSnapshot();assert.equal(current.retailFormEnabled,true);assert.equal(current.retailCreationDefaults.revision,7);assert.equal(current.retailCreationDefaults.warrantyMonths,24);assert.equal(current.retailCreationDefaults.copy.model,next.retail[0].model);assert(!JSON.stringify(current.retailCreationDefaults).includes('PRIVATE'));assert(!('costCents'in current.retailCreationDefaults.copy));
+ const again=h.client.backendCommand('retail',{});await setImmediate();const missing=mockSnapshot({revision:3});missing.settings=null;h.requests[1].resolve(response(200,missing));await again;assert.equal(h.client.backendSnapshot().retailCreationDefaults,undefined);assert.equal(h.client.backendSnapshot().retailFormEnabled,true);
+});
+
+function nativeResult(request,{revision=2,replayed=false,kind,entityId="DEMO-confirmed"}={}){const command=JSON.parse(request.options.body);return{formatVersion:2,storeId,revision,operation:{requestId:command.requestId,kind:kind??command.kind,entityId:command.kind==="customer.save"?"":entityId,committedAt:"2026-10-17T12:00:00.000Z",replayed},effects:{available:true,domains:["retail"],count:1}};}
+test("native v2 confirms before failed page read, retains one receipt and retries only the read",async()=>{
+ const h=harness(),initial=pageSnapshot("retail");initial.commandResultVersion=2;h.client.configureBackend(initial);const id=randomUUID(),save=h.client.backendCommand("retail",{},id);await setImmediate();assert.equal(h.requests[0].url,"/api/backend/v2/command");const result=nativeResult(h.requests[0]);h.requests[0].resolve(response(200,result));await setImmediate();assert.equal(h.operations.size,0);assert.equal(h.client.backendRecovery().pending,null);assert.equal(h.client.backendRecovery().receipt.requestId,id);assert.equal(h.client.backendRecovery().readPending,true);assert.equal(h.requests.length,2);assert(h.requests[1].url.startsWith("/api/backend/v2/page?"));h.requests[1].resolve(response(503,{message:"DEMO unavailable"}));const saved=await save;assert.equal(saved,result);assert.equal(h.client.backendRecovery().readPending,false);assert(h.client.backendRecovery().readError);assert.equal(h.client.backendSnapshot(),initial);assert.equal(h.requests.filter(r=>r.options.method==="POST").length,1);
+ const retry=h.client.retryConfirmedRead();assert.equal(h.requests.length,3);const next=pageSnapshot("retail",{revision:2});next.commandResultVersion=2;h.requests[2].resolve(response(200,next));await retry;assert.equal(h.client.backendSnapshot(),next);assert.equal(h.client.backendRecovery().readError,"");assert.equal(h.client.backendRecovery().receipt.requestId,id);assert.equal(h.operations.size,0);
+});
+test("native v2 rejects a snapshot-shaped or mismatched result and preserves the original unknown intent",async()=>{
+ for(const change of[value=>({...value,intakes:[]}),value=>({...value,operation:{...value.operation,requestId:randomUUID()}}),value=>({...value,revision:NaN}),value=>({...value,effects:{available:true,domains:["untrusted"],count:1}})]){
+  const h=harness(),initial=pageSnapshot("retail");initial.commandResultVersion=2;h.client.configureBackend(initial);const id=randomUUID(),save=h.client.backendCommand("retail",{},id),rejected=assert.rejects(save,/回执尚未确认/);await setImmediate();h.requests[0].resolve(response(200,change(nativeResult(h.requests[0]))));await rejected;assert.equal(h.operations.size,1);assert.equal(h.client.backendRecovery().pending.command.requestId,id);assert.equal(h.client.backendRecovery().receipt,undefined);assert.equal(h.requests.length,1);
+ }
+});
+test("native v2 command confirmation survives navigation and reads the newly current page",async()=>{
+ const h=harness(),initial=pageSnapshot("repairs");initial.commandResultVersion=2;h.client.configureBackend(initial);const save=h.client.backendCommand("repair.workflow",{});await setImmediate();const next=pageSnapshot("retail");next.commandResultVersion=2;h.client.reconcileBackendInitial(next);h.requests[0].resolve(response(200,nativeResult(h.requests[0])));await setImmediate();assert.equal(JSON.parse(new URLSearchParams(h.requests[1].url.split("?")[1]).get("plan")).kind,"retail");const updated=pageSnapshot("retail",{revision:2});updated.commandResultVersion=2;h.requests[1].resolve(response(200,updated));await save;assert.equal(h.client.backendSnapshot().read.plan.kind,"retail");assert.equal(h.operations.size,0);assert.equal(h.client.backendRecovery().busy,false);
+});
+test("native v2 original operation recovery uses frozen result and cannot become unknown on a later read failure",async()=>{
+ const h=harness(),initial=pageSnapshot("retail");initial.commandResultVersion=2;h.client.configureBackend(initial);h.navigator.onLine=false;const id=randomUUID();await assert.rejects(h.client.backendCommand("retail",{},id),/离线/);const original=h.client.backendRecovery().pending;h.navigator.onLine=true;const check=h.client.recoverOperation("check");await setImmediate();assert(h.requests[0].url.startsWith("/api/backend/v2/operation?"));const result={formatVersion:2,storeId,revision:2,operation:{requestId:id,kind:"retail",entityId:"DEMO-confirmed",committedAt:"2026-10-17T12:00:00.000Z",replayed:true},effects:{available:true,domains:["retail"],count:1}};h.requests[0].resolve(response(200,{status:"committed",result}));await setImmediate();assert.equal(h.operations.size,0);assert.equal(h.client.backendRecovery().receipt.requestId,original.command.requestId);h.requests[1].resolve(response(503,{message:"DEMO unavailable"}));await check;assert.equal(h.client.backendRecovery().pending,null);assert.equal(h.client.backendRecovery().busy,false);assert(h.client.backendRecovery().readError);assert.equal(h.requests.filter(r=>r.options.method==="POST").length,0);
+});
+test("native v2 own member-revision change after confirmation clears sender and keeps receipt",async()=>{
+ const h=harness(),initial=pageSnapshot("retail");initial.commandResultVersion=2;h.client.configureBackend(initial);const save=h.client.backendCommand("staff.save",{});await setImmediate();h.requests[0].resolve(response(200,nativeResult(h.requests[0])));await setImmediate();const next=pageSnapshot("retail",{revision:2,memberRevision:2});next.commandResultVersion=2;h.requests[1].resolve(response(200,next));await save;assert.equal(h.client.backendSnapshot().read.scope.memberRevision,2);assert.equal(h.operations.size,0);assert.equal(h.client.backendRecovery().busy,false);assert.equal(h.client.backendWriting(),false);assert(h.client.backendRecovery().receipt);
+});
+
+test("native confirmation never joins a pre-commit refresh or lets its late response replace newer facts",async()=>{
+ const h=harness(),initial=pageSnapshot("retail");initial.commandResultVersion=2;h.client.configureBackend(initial);const old=h.client.refreshBackend(),save=h.client.backendCommand("retail",{});await setImmediate();assert.equal(h.requests.length,2);h.requests[1].resolve(response(200,nativeResult(h.requests[1])));await setImmediate();assert.equal(h.requests.length,3);const next=pageSnapshot("retail",{revision:2});next.commandResultVersion=2;h.requests[2].resolve(response(200,next));await save;h.requests[0].resolve(response(200,initial));await old;assert.equal(h.client.backendSnapshot(),next);assert.equal(h.client.backendRecovery().pending,null);assert.equal(h.operations.size,0);
+});
+
+ test("native list query/anchor changes stay in the authenticated document store; preview remains unscoped",()=>{
+  const h=harness();h.client.replaceBackendDocumentUrl("/app/customers?q=DEMO");assert.equal(h.documentLocations[0],"/app/customers?q=DEMO");
+  h.client.configureBackend(mockSnapshot());h.client.replaceBackendDocumentUrl("/app/repairs?anchor=LOCAL-DEMO&offset=120");let url=new URL(h.documentLocations[1],"https://demo.invalid");assert.equal(url.searchParams.get("storeId"),storeId);assert.equal(url.searchParams.get("anchor"),"LOCAL-DEMO");assert.equal(url.searchParams.get("offset"),"120");
+  const changed={...mockSnapshot(),storeId:"00000000-0000-4000-8000-000000000099"};h.client.configureBackend(changed);h.client.replaceBackendDocumentUrl("/app/retail?view=sold");url=new URL(h.documentLocations[2],"https://demo.invalid");assert.equal(url.searchParams.get("storeId"),changed.storeId);assert.equal(url.searchParams.get("view"),"sold");
+ });
+
+function stablePageSnapshot(){const initial=pageSnapshot('retail');initial.stateToken='a'.repeat(64);initial.read.refreshVersion=2;initial.read.ready=['staff'];return initial;}
+test('negotiated business-token refresh advances only safe watermark metadata and preserves every DTO and domain collection',async()=>{const h=harness(),initial=stablePageSnapshot();h.client.configureBackend(initial);let pending=h.client.refreshBackend();const url=new URL(h.requests[0].url,'https://fixture.invalid');assert.equal(url.searchParams.get('refreshVersion'),'2');h.requests[0].resolve(response(200,{unchanged:true,refreshVersion:2,stateToken:initial.stateToken,storeId,memberId:clerkId,revision:7}));await pending;const next=h.client.backendSnapshot();assert.notEqual(next,initial);assert.equal(next.revision,7);assert.equal(next.staff.revision,7);for(const key of['read','settings','intakes','signatures','workflows','procurement','retail','customers'])assert.equal(next[key],initial[key]);assert.equal(next.staff.members,initial.staff.members);assert.equal(next.staff.audit,initial.staff.audit);const count=h.publications.length;pending=h.client.refreshBackend();h.requests[1].resolve(response(200,{unchanged:true,refreshVersion:2,stateToken:initial.stateToken,storeId,memberId:clerkId,revision:7}));await pending;assert.equal(h.client.backendSnapshot(),next);assert.equal(h.publications.length,count);});
+test('new watermark protocol refuses unsafe, regressive, cross-scope and undeclared metadata instead of rounding or adopting it',async()=>{for(const change of[{revision:0},{revision:Number.MAX_SAFE_INTEGER+1},{revision:'2'},{memberId:ownerId},{storeId:'foreign'},{stateToken:'b'.repeat(64)},{refreshVersion:undefined}]){const h=harness(),initial=stablePageSnapshot();h.client.configureBackend(initial);const pending=h.client.refreshBackend(),rejected=assert.rejects(pending,/核对结果无效/);h.requests[0].resolve(response(200,{unchanged:true,refreshVersion:2,stateToken:initial.stateToken,storeId,memberId:clerkId,revision:2,...change}));await rejected;assert.equal(h.client.backendSnapshot(),initial);}});
+test('late unchanged metadata cannot overwrite a newer page token or a newer watermark in the same read scope',async()=>{for(const changedToken of[true,false]){const h=harness(),initial=stablePageSnapshot();h.client.configureBackend(initial);const pending=h.client.refreshBackend(),next={...initial,revision:9,stateToken:changedToken?'b'.repeat(64):initial.stateToken};h.client.reconcileBackendInitial(next);const current=h.client.backendSnapshot();assert.equal(current.revision,9);h.requests[0].resolve(response(200,{unchanged:true,refreshVersion:2,stateToken:initial.stateToken,storeId,memberId:clerkId,revision:3}));await pending;assert.equal(h.client.backendSnapshot(),current);assert.equal(h.client.backendSnapshot().revision,9);}});

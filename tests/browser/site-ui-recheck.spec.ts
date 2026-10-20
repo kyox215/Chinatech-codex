@@ -226,6 +226,7 @@ for (const locale of ["zh-CN", "it", "en"] as const) test(`routed customer and p
       const row = area === "procurement" ? page.locator("main .procurement-row").first() : page.locator(`main a[href^="/app/${area}/"]`).filter({ has: page.locator(".navigation-feedback") }).first();
       await expect(row).toBeVisible();
       const href = (await row.getAttribute("href"))!;
+      const destination=new URL(href,page.url());
       if (area === "procurement") {
         expect(href).not.toBe("/app/procurement/new");
         expect(procurementRecords.map(record => `/app/procurement/${record.id}`)).toContain(href);
@@ -233,7 +234,7 @@ for (const locale of ["zh-CN", "it", "en"] as const) test(`routed customer and p
       const slot = row.locator(":scope > .navigation-feedback");
       await expect(slot).toBeVisible(); const before = await slot.boundingBox();
       let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });
-      await page.route(`**${href}?*`, async route => { if (route.request().headers()["rsc"] !== "1") return route.continue(); const response = await route.fetch(); await gate; await route.fulfill({ response }); });
+      await page.route(url=>url.pathname===destination.pathname&&[...destination.searchParams].every(([key,value])=>url.searchParams.getAll(key).join("\0")===destination.searchParams.getAll(key).join("\0")&&url.searchParams.getAll(key).includes(value))&&[...url.searchParams.keys()].every(key=>key==="_rsc"||destination.searchParams.has(key)), async route => { if (route.request().headers()["rsc"] !== "1") return route.continue(); const response = await route.fetch(); await gate; await route.fulfill({ response }); });
       try {
         const title = page.locator("main").getByRole("heading", { level: 2, name: translate(area === "customers" ? "客户管理" : "采购与到货", locale), exact: true });
         await expect(title).toHaveCount(1);
@@ -247,7 +248,7 @@ for (const locale of ["zh-CN", "it", "en"] as const) test(`routed customer and p
         await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(1);
         expect(await slot.boundingBox()).toEqual(before);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-        release(); await expect(page).toHaveURL(new RegExp(`${href}$`));
+        release(); await expect(page).toHaveURL(url=>url.pathname===destination.pathname&&url.search===destination.search&&url.hash===destination.hash);
         await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(0);
         if (area === "procurement") await expect(page.getByRole("heading", { name: translate("采购与到货历史", locale), exact: true })).toBeVisible();
       } finally { release(); await page.unrouteAll({ behavior: "wait" }); }

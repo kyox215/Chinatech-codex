@@ -1,0 +1,11 @@
+export function customerDeviceLocation(q='',anchor='',offset=0,record='',recordOffset=0,recordTarget:'record'|'customer'='record'){
+ const params=new URLSearchParams();if(q&&q.length<=160)params.set('q',q);if(/^[a-f0-9]{64}$/.test(anchor)){params.set('anchor',anchor);params.set('offset',String(Math.max(-2000,Math.min(2000,Math.round(Number.isFinite(offset)?offset:0)))));if(record&&record.length<=1024){params.set('record',record);params.set('recordOffset',String(Math.max(-2000,Math.min(2000,Math.round(Number.isFinite(recordOffset)?recordOffset:0)))));if(recordTarget==='customer')params.set('recordTarget',recordTarget);}}
+ return'/app/customer-devices'+(params.size?'?'+params:'');
+}
+export function safeCustomerDeviceLocation(raw:string|null){
+ if(!raw||raw.length>14000)return null;try{const url=new URL(raw,'https://local.invalid'),q=url.searchParams.get('q')??'',anchor=url.searchParams.get('anchor')??'',record=url.searchParams.get('record')??'',recordTarget=url.searchParams.get('recordTarget');if(url.origin!=='https://local.invalid'||url.pathname!=='/app/customer-devices'||url.hash||q.length>160||anchor&&!/^[a-f0-9]{64}$/.test(anchor)||record.length>1024||record&&!anchor||recordTarget!==null&&(!record||!['record','customer'].includes(recordTarget))||[...url.searchParams.keys()].some(k=>!['q','anchor','offset','record','recordOffset','recordTarget'].includes(k)))return null;return customerDeviceLocation(q,anchor,Number(url.searchParams.get('offset')??0),record,Number(url.searchParams.get('recordOffset')??0),recordTarget==='customer'?'customer':'record');}catch{return null;}
+}
+let position:{scope:string;path:string;location:string}|null=null,bound=false;
+export function rememberCustomerDevicePosition(scope:string,path:string,location:string){const safe=safeCustomerDeviceLocation(location);if(safe)position={scope,path,location:safe};}
+export function customerDeviceReturnPosition(scope:string,path:string){return position?.scope===scope&&position.path===path?position.location:null;}
+export function bindCustomerDevicePosition(readScope:()=>string|null,subscribe:(notify:()=>void)=>()=>void){if(bound||typeof window==='undefined')return;bound=true;subscribe(()=>{if(position&&position.scope!==readScope())position=null;});}

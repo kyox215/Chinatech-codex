@@ -17,13 +17,20 @@ const intake = () => ({ id: repairId, revision: 1, createdAt: time, updatedAt: t
 
 function harness() {
   class BackendError extends Error { constructor(message, status = 400, code) { super(message); this.status = status; this.code = code; } }
-  const h = { member: structuredClone(member), state: { storeId, revision: 1, intakes: [intake()], signatures: [], workflows: {}, procurement: [], customers: [], settings: {}, staff: { currentId: member.id, members: [member] }, retail: [] }, photos: new Map(), objects: new Map(), receipts: new Map(), audits: new Map(), failPhotoWrite: false };
-  const modules = new Map(), sandbox = createContext({ Buffer, console, Intl, Date, structuredClone, URL, process: { env: {} } });
+  const h = { member: structuredClone(member), state: { storeId, revision: 1, intakes: [intake()], signatures: [], workflows: {}, procurement: [], customers: [], settings: {}, staff: { currentId: member.id, members: [member] }, retail: [] }, photos: new Map(), objects: new Map(), receipts: new Map(), results: new Map(), effects: new Map(), audits: new Map(), failPhotoWrite: false, failPhotoPreparation: false, preparing: 0, decoded: 0, locked: false };
+  const modules = new Map(), sandbox = createContext({ Buffer, console, Intl, Date, structuredClone, URL, performance, process: { env: {} } });
   const tx = (strings, ...values) => {
     if(!strings.raw)return strings;
     const query = strings.join("?").replace(/\s+/g, " ").trim();
-    if (query.startsWith("select pg_advisory") || query.startsWith("select revision")) return [];
-    if (query.startsWith("select digest")) return h.receipts.has(values[2]) ? [{ digest: h.receipts.get(values[2]) }] : [];
+    if (query.startsWith("select revision,jsonb_build_object")) return [{ revision: h.state.revision, defaults: h.state.settings, suppliers: values[0] ? h.state.settings.suppliers : null, full_settings: values[1] ? h.state.settings : null, audit: values[2] ? h.state.staff.audit : null }];
+    if(query.startsWith("select pg_advisory")){h.locked=true;return [];}
+    if (query.startsWith("select revision")) return [];
+    if (query.startsWith("select data,repair_id")) return h.state.procurement.filter(row => values[1].includes(row.id)).map(data => ({ data, repair_id: data.repairId }));
+    if (query.startsWith("select data,workflow,case")) return h.state.intakes.filter(row => values[2].includes(row.id)).map(data => ({ data, workflow: h.state.workflows[data.id], signatures: values[0].includes(data.id) ? h.state.signatures.filter(row => row.orderId === data.id) : null }));
+    if (query.startsWith("select data from chinatech_v2_private.procurement_records")) return h.state.procurement.filter(row => values[1].includes(row.repairId) || values[2].includes(row.id)).map(data => ({ data }));
+    if (query.startsWith("select id,coalesce")) return h.state.intakes.filter(row => values[1].includes(row.id)).map(data => ({ id: data.id, version: data.revision ?? 1, workflow_revision: h.state.workflows[data.id]?.revision ?? 0, signature_count: h.state.signatures.filter(row => row.orderId === data.id).length, updated_at: data.updatedAt }));
+    if (query.startsWith("select id,jsonb_array_length")) return h.state.procurement.filter(row => values[1].includes(row.id)).map(data => ({ id: data.id, version: data.events.length }));
+    if (query.startsWith("select digest")) return h.receipts.has(values[2]) ? [{ digest: h.receipts.get(values[2]), result: h.results.get(values[2]) ?? null }] : [];
     if (query.startsWith("select a.entity_id")) return h.audits.has(values[2]) ? [h.audits.get(values[2])] : [];
     if (query.startsWith("insert into chinatech_v2_private.intake_photo_objects")) {
       if (h.failPhotoWrite) throw new BackendError("Synthetic photo write failure", 503);
@@ -38,33 +45,39 @@ function harness() {
     if (query.startsWith("insert into chinatech_v2_private.procurement_records")) { for(const row of values[1]){const index=h.state.procurement.findIndex(record=>record.id===row.id);if(index<0)h.state.procurement.push(row.data);else h.state.procurement[index]=row.data;}return []; }
     if (query.startsWith("update chinatech_v2_private.repair_intakes set data=jsonb_set")) { h.state.intakes=h.state.intakes.map(row=>values[2].includes(row.id)?{...row,updatedAt:values[0]}:row);return []; }
     if (query.startsWith("select customer_id,device_id")) return [{ customer_id: "customer", device_id: "device" }];
-    if (query.startsWith("insert into chinatech_v2_private.repair_intakes")) { const index = h.state.intakes.findIndex(row => row.id === values[1]); h.state.intakes[index] = values[4]; h.state.signatures = values[5]; return []; }
+    if (query.startsWith("insert into chinatech_v2_private.repair_intakes")) { const index = h.state.intakes.findIndex(row => row.id === values[1]); h.state.intakes[index] = values[4]; if (values[6]) h.state.signatures = values[5]; return []; }
     if (query.startsWith("update chinatech_v2_private.repair_intakes set workflow=")) { h.state.workflows[values[2]] = values[0]; return []; }
-    if (query.startsWith("insert into chinatech_v2_private.command_receipts")) { h.receipts.set(values[2], values[3]); return []; }
-    if (query.startsWith("insert into chinatech_v2_private.audit_events")) { h.audits.set(values[2], { kind: values[3], entity_id: values[4], created_at: "2026-10-15T12:00:00.000Z" }); return []; }
-    if (query.startsWith("update chinatech_v2_private.store_state set revision=")) { h.state.revision++; return []; }
+    if (query.startsWith("insert into chinatech_v2_private.command_receipts")) { h.receipts.set(values[2], values[3]); h.results.set(values[2], values[4]); h.effects.set(values[2], values[5]); return []; }
+    if (query.startsWith("insert into chinatech_v2_private.audit_events")) { h.audits.set(values[2], { kind: values[3], entity_id: values[4], created_at: "2026-10-15T12:00:00.000Z" }); return [{ created_at: "2026-10-15T12:00:00.000Z" }]; }
+    if (query.startsWith("update chinatech_v2_private.store_state set revision=")) { h.state.revision++; return [{ revision: h.state.revision }]; }
     throw new Error("Unexpected synthetic SQL: " + query);
   };
   tx.json = value => JSON.parse(JSON.stringify(value));
   function load(name, from = root) {
+    if(name === "server-only")return {};
     if (!name.startsWith(".") && !name.startsWith("@/")) return nativeRequire(name);
     const file = (name.startsWith("@/") ? resolve(root, name.slice(2)) : resolve(from, name)).replace(/\.ts$/, "") + ".ts";
-    if (file.endsWith("/backend/database.ts")) return { BackendError, withDatabase: async (_identity, scope, run) => {
-      if (scope !== storeId) throw new BackendError("Synthetic foreign store", 403);
-      const before = structuredClone({ state: h.state, photos: h.photos, receipts: h.receipts, audits: h.audits });
-      try { return await run(tx); } catch (error) { Object.assign(h, before); throw error; }
-    } };
+    if (file.endsWith("/backend/database.ts")) {
+      const runDatabase=async (_identity, scope, run)=>{
+        if (scope !== storeId) throw new BackendError("Synthetic foreign store", 403);
+        const before = structuredClone({ state: h.state, photos: h.photos, receipts: h.receipts, results: h.results, effects: h.effects, audits: h.audits });
+        try { return await run(tx); } catch (error) { Object.assign(h, before); throw error; }finally{h.locked=false;}
+      };
+      return {BackendError,withDatabase:runDatabase,withReadDatabase:runDatabase};
+    }
     if(file.endsWith("/server/attachment-storage.ts")) return {prepareStoredPhotos:async (_identity,scope,photos)=>{
+      assert.equal(h.locked,false,"immutable object preparation must precede the business write lock");h.preparing++;if(h.failPhotoPreparation)throw new BackendError("Synthetic unavailable object storage",503);
       if(scope!==storeId || !h.member.permissions.includes("repairs.view") || !h.member.permissions.includes("repairs.edit"))throw new BackendError("Synthetic permission denied",403);
-      for(const photo of photos){const bytes=Buffer.from(photo.base64,"base64"),old=h.objects.get(photo.id);if(old&&!old.bytes.equals(bytes))throw new BackendError("Synthetic immutable object",409);h.objects.set(photo.id,{bytes});}
+      for(const photo of photos){const bytes=Buffer.from(photo.base64,"base64"),old=h.objects.get(photo.id);if(old&&!old.bytes.equals(bytes))throw new BackendError("Synthetic immutable object",409);h.objects.set(photo.id,{bytes});}h.afterPhotoPreparation?.();
     },storeRetailPhotos:async (_identity,_store,_request,photos)=>photos};
-    if (file.endsWith("/backend/context.ts")) return { memberInTransaction: async () => h.member };
+    if (file.endsWith("/backend/context.ts")) return { memberInTransaction: async () => h.member, memberForRead: async()=>h.member };
     if (file.endsWith("/backend/state.ts")) return { loadState: async () => h.state, projectState: state => structuredClone(state) };
     if (modules.has(file)) return modules.get(file).exports;
     const loadedModule = { exports: {} }; modules.set(file, loadedModule);
     const compiled = ts.transpileModule(readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023, esModuleInterop: true } }).outputText;
     const fn = runInContext(`(function(require,module,exports){${compiled}\n})`, sandbox, { filename: file });
     fn(dep => load(dep, dirname(file)), loadedModule, loadedModule.exports);
+    if(file.endsWith("/backend/intake-photos.ts")){const parse=loadedModule.exports.parseIntakePhotoAttachments;loadedModule.exports.parseIntakePhotoAttachments=(...args)=>{assert.equal(h.locked,false,"image decode must precede the write lock");h.decoded++;return parse(...args);};}
     return loadedModule.exports;
   }
   h.load = name => load("./lib/" + name);
@@ -131,7 +144,8 @@ test("photo reference merge replaces explicit front/back, appends other, preserv
 test("photo command keeps immutable originals, refresh references and original receipt; stale or changed bytes roll back", async () => {
   const h = harness(), front = photo("front"), first = h.command("intake.photos", { id: repairId, revision: 1, photos: [front] });
   let saved = await h.execute(first); assert.equal(saved.intakes[0].photoCount, 1); assert.equal(saved.intakes[0].revision, 2); assert.equal(h.photos.size, 1); assert.equal(saved.operation.kind, "intake.photos");
-  const replay = await h.execute(first); assert.equal(replay.operation.replayed, true); assert.equal(h.photos.size, 1); assert.equal(replay.intakes[0].revision, 2);
+  const preparationCount=h.preparing,decodeCount=h.decoded;h.failPhotoPreparation=true;
+  const replay = await h.execute(first); assert.equal(replay.operation.replayed, true);assert.equal(h.preparing,preparationCount);assert.equal(h.decoded,decodeCount);h.failPhotoPreparation=false; assert.equal(h.photos.size, 1); assert.equal(replay.intakes[0].revision, 2);
   const replacement = photo("front"), other = photo(); saved = await h.execute(h.command("intake.photos", { id: repairId, revision: 2, photos: [replacement, other] }));
   assert.equal(h.photos.size, 3); assert.deepEqual(JSON.parse(JSON.stringify(saved.intakes[0].photos)), refs([replacement, other])); assert.deepEqual(Buffer.from(h.photos.get(repairId + ":" + front.id).bytes), jpeg);
   const changedJpeg = await sharp({ create: { width: 8, height: 6, channels: 3, background: "#ff0000" } }).jpeg().toBuffer();
@@ -151,3 +165,8 @@ test("photo commands reject revoked permissions, foreign scope, unknown records,
   const others = Array.from({ length: 4 }, () => photo()); h.state.intakes[0] = { ...intake(), photos: refs(others), photoCount: 4 };
   await assert.rejects(h.execute(h.command("intake.photos", payload)), error => error.status === 400); assert.equal(h.state.intakes[0].revision, 1); assert.equal(h.photos.size, 0); assert.equal(h.receipts.size, 0);
 });
+
+ test("photo preparation cannot bypass a permission change before the write transaction",async()=>{
+  const h=harness();h.afterPhotoPreparation=()=>{h.member.permissions=[];};const command=h.command("intake.photos",{id:repairId,revision:1,photos:[photo()]});
+  await assert.rejects(h.execute(command),error=>error.status===403);assert.equal(h.receipts.size,0);assert.equal(h.photos.size,0);assert.equal(h.state.intakes[0].revision,1);assert.equal(h.objects.size,1,"prepared immutable object remains private; no canonical reference is published");
+ });

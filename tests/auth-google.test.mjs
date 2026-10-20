@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
+import {dirname,resolve}from"node:path";
 import { createContext, runInContext } from "node:vm";
 import { test } from "node:test";
 import ts from "typescript";
@@ -15,10 +16,11 @@ function harness(google = true, apple = false) {
   const env = { NODE_ENV: "production", BACKEND_MODE: "supabase", APP_ORIGIN: "https://shop.example.test", SUPABASE_URL: "https://project.example.test", SUPABASE_PUBLISHABLE_KEY: "sb_publishable_synthetic_test", APP_DATABASE_URL: "synthetic-server-only-signing-secret" };
   const cache = new Map();
   function load(path) {
+    path=resolve(path);
     if (cache.has(path)) return cache.get(path);
     const exports = {};
     const code = ts.transpileModule(readFileSync(path, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-    const context = createContext({ exports, process: { env }, Buffer, URL, AbortSignal, Date: TestDate, fetch: async (url, init) => { requests.push({ url, init }); return new Response(JSON.stringify({ external: { google, apple } }), { status: 200 }); }, require: name => {
+    const context = createContext({ exports, process: { env }, Buffer, URL, Request, Response, Headers, performance, AbortSignal, Date: TestDate, fetch: async (url, init) => { requests.push({ url, init }); return new Response(JSON.stringify({ external: { google, apple } }), { status: 200 }); }, require: name => {
       if (name === "./config" || name === "@/lib/supabase/config") return load("lib/supabase/config.ts");
       if (name === "@/lib/supabase/server") return load("lib/supabase/server.ts");
       if (name === "@/lib/server/auth-flows") return load("lib/server/auth-flows.ts");
@@ -26,6 +28,8 @@ function harness(google = true, apple = false) {
       if (name === "@/lib/server/account-auth") return load("lib/server/account-auth.ts");
       if (name === "@/lib/backend/database") return { BackendError: class extends Error {}, withDatabase: () => { throw new Error("No database allowed in OAuth initiation."); } };
       if (name === "./login-policy" || name === "@/lib/server/login-policy") return load("lib/server/login-policy.ts");
+      if(name==='@/lib/supabase/auth-verification-error')return load('lib/supabase/auth-verification-error.ts');
+      if(name.startsWith("."))return load(resolve(dirname(path),name)+".ts");
       return require(name);
     } });
     runInContext(code, context, { filename: path });

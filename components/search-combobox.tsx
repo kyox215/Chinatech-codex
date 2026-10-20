@@ -12,14 +12,15 @@ type SearchEdit = { value: string; text: string };
 type Props = {
   label: string; value: string; onChange: (value: string) => void;
   options: readonly ComboboxOption[]; onSelect?: (option: ComboboxOption) => void;
+  onOptionCommit?: (option: ComboboxOption) => void;
   placeholder?: string; inputMode?: "text" | "tel"; emptyText?: string | null;
   filterOptions?: boolean; required?: boolean; autoFocus?: boolean; maxLength?: number;
   displaySelectedLabel?: boolean; optionDetailsAsDescription?: boolean;
   optionLimit?: number; menuClassName?: string; menuHeader?: ReactNode;
   menuFooter?: ReactNode; manualActionLabel?: string;
-  onOpenChange?: (open: boolean) => void; loading?: boolean;
+  onOpenChange?: (open: boolean) => void; loading?: boolean; loadingLabel?: string;
   windowed?: boolean; onEndReached?: () => void; persistentMenu?: boolean; selectedKey?: string;
-  className?: string; inputLabel?: string;
+  className?: string; inputLabel?: string; hideLabel?: boolean;
   commitOnBlur?: boolean; showAllOnOpen?: boolean; adaptiveMenu?: boolean;
   onQueryChange?: (query: string) => void;
   mobilePresentation?: "inline" | "sheet";
@@ -38,11 +39,11 @@ export function SearchCombobox(props: Props) {
   return <Combobox key={presentation ?? "editable"} {...props} mobilePresentation={presentation} />;
 }
 function Combobox({
-  label, value, onChange, options, onSelect, placeholder, inputMode = "text",
+  label, value, onChange, options, onSelect, onOptionCommit, placeholder, inputMode = "text",
   emptyText = "没有匹配，可保留手动输入", filterOptions = true, displaySelectedLabel = false,
   optionDetailsAsDescription = false, optionLimit = 12, menuClassName, menuHeader, menuFooter, manualActionLabel,
-  onOpenChange, loading = false, windowed = false, onEndReached, persistentMenu = false,
-  selectedKey, className, inputLabel, commitOnBlur = false, showAllOnOpen = false,
+  onOpenChange, loading = false, loadingLabel = "正在查询设备目录…", windowed = false, onEndReached, persistentMenu = false,
+  selectedKey, className, inputLabel, hideLabel = false, commitOnBlur = false, showAllOnOpen = false,
   adaptiveMenu = false, onQueryChange, mobilePresentation, required, autoFocus, maxLength, disabled, readOnly, error, hint, validate,
 }: Props) {
   const { t } = useLanguage();
@@ -104,7 +105,7 @@ function Combobox({
   function select(option: ComboboxOption) {
     if (disabled || readOnly || input.current?.matches(":disabled")) return;
     resetQuery();
-    onChange(option.value);
+    if (onOptionCommit) onOptionCommit(option); else onChange(option.value);
     onSelect?.(option);
     if (browsing && dialog.current?.open) dialog.current.close();
     (browsing ? trigger.current : input.current)?.focus({ preventScroll: true });
@@ -291,7 +292,7 @@ function Combobox({
         })}
         {windowed && end < matches.length ? <li role="presentation" aria-hidden="true" style={{ height: offsets[matches.length] - offsets[end] }} /> : null}
       </ul>
-      {loading ? <p role="status">{t("正在查询设备目录…")}</p> : !matches.length && emptyText !== null ? <p role="status">{t(emptyText)}</p> : null}
+      {loading ? <p role="status">{t(loadingLabel)}</p> : !matches.length && emptyText !== null ? <p role="status">{t(emptyText)}</p> : null}
       {manualActionLabel ? <div className="search-combobox__footer">
         {currentEdit ? <button type="button" className="button button--secondary" onMouseDown={event => event.preventDefault()} onClick={() => browsing ? dismissMobile(true) : close(true)}>{t(manualActionLabel)}</button> : null}
         {menuFooter}
@@ -301,7 +302,7 @@ function Combobox({
   return <div ref={root} data-mobile-presentation={mobilePresentation} className={["field search-combobox", className].filter(Boolean).join(" ")} onBlur={event => {
     if (!persistentMenu && !(sheet && expanded) && !event.currentTarget.contains(event.relatedTarget as Node | null)) close(!browsing);
   }}>
-    <label htmlFor={id}>{label}{required ? " *" : ""}</label>
+    {!hideLabel ? <label htmlFor={id}>{label}{required ? " *" : ""}</label> : null}
     {browsing ? <>
       <div className="search-combobox__selection" data-filled={Boolean(value)} data-invalid={Boolean(error)}>
         <button ref={trigger} id={id} type="button" role="combobox" className="search-combobox__trigger"
@@ -324,7 +325,7 @@ function Combobox({
       clearLabel={t("清空{v0}", { v0: t(label) })} onClear={() => { resetQuery(); onChange(""); setOpen(true); }}
       trailing={<button type="button" disabled={disabled || readOnly} aria-label={t("显示{v0}候选", { v0: t(label) })} aria-expanded={expanded} aria-busy={expanded && loading || undefined}
         onClick={() => { input.current?.focus({ preventScroll: true }); setOpen(!expanded); }}>{expanded && loading ? <LoaderCircle className="spin" size={17} aria-hidden="true" /> : <ChevronDown size={17} aria-hidden="true" />}</button>}
-      id={id} ref={input} role="combobox" aria-label={inputLabel} aria-autocomplete="list" aria-expanded={expanded}
+      id={id} ref={input} role="combobox" aria-label={inputLabel ?? (hideLabel ? label : undefined)} aria-autocomplete="list" aria-expanded={expanded}
       aria-controls={expanded ? id + "-list" : undefined}
       aria-activedescendant={expanded && active >= 0 && active < matches.length ? id + "-option-" + active : undefined}
       value={displayedValue} required={required} aria-required={required || undefined} maxLength={maxLength} autoFocus={autoFocus}

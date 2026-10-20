@@ -1,0 +1,153 @@
+# 当前性能候选的读取合同
+
+本合同对应本轮明确批准的性能实施，基于正式main的隔离候选。它不恢复docs/20废弃分支，也不表示已部署或全部P0–P7完成。阶段证据由本轮交付记录绑定准确Git树与实际构建。
+
+## 已接入的读取
+
+- 根layout只提供真实会话、当前成员及必要门店身份；页面保留授权SSR首屏。未读设置为null，不能以默认值制造政策或财务事实。
+- 客户及采购分别由显式默认0的模块flag开启。查询、游标、known、锚点和响应绑定真实account/session/store/member revision/permissions/格式/完整规范查询/投影generation。每次请求仍在同一serializable事务核实时会话、成员与范围。
+- 客户与采购wire2至多50摘要（实际UTF8≤100KB自适应）；完整授权计数和搜索由服务端查询，当前窗口不能用于查重或全选。主列表不传无关域canonical数组。身份拒绝在JSON解析前清当前私有资料，迟到拒绝不影响新身份，普通503保留已获授权内容。
+- 单一领域Body复用原控件、行、分组、反馈与手机布局。变量高度窗口共用原横向视口；真实首组才出现组头，返回定位实际导航Link。虚拟行不拥有业务草稿或原requestId。
+- 采购批量供应商12候选、清单50；选前100/本供应商全部来自完整供应商范围，所选草稿最多100，确认前按IDs再次授权核对。规格与ledgerRevision是实际事实，不能构造假events。
+
+## 维修切片实施合同（进行中）
+
+`BACKEND_REPAIR_LIST_READS=0`为默认兼容边界。新列表至多50摘要；active/history/all全域计数、ready组全组通知计数、完整查询结果计数与组计数分别保持原语义。分组取当前真实repairGroups，history强制单组，all附加history；created、updated和priority排序均与现有纯函数oracle对照。折叠组不能驱动footer拉取完全部隐藏行。
+
+同事务SQL投影只保存列表需要的事实及索引。history依照真实handover事件位置及恢复stage事件位置/旧时间分支，不能仅看status或布尔值；旧ready_notified通知语义保留。配件就绪需要当前需求来源/设备指纹、版本、确认与真实采购关联，optional采购的存在性规则不能丢失。派生结果须对`currentRepairRequirements`、`repairPartsSummary`、`workflowGroup`、`repairProgress`、`pickupNotice`及`arrivalNotice`的canonical oracle验证，不从Node读取全店canonical窄JSON再过滤。
+
+列表只呈现原前三chip预览及总数，完整需求、规格和供应商事实在原目标配件弹窗按需可达。阶段/联系/配件的canonical操作资料只在打开时读取：真实目标intake、workflow与完整同repair采购，不能把summary强转成RepairDirectoryEntry/ProcurementRecord。签名、照片原件与无关门店数组不进入此读取。
+
+局部entity读取源使用根会话范围与实时授权，独立管理当前操作的真实资料，不configure或release根bootstrap，不替换全局页面read.plan或业务命令身份scope。局部领域providers和原Dialog复用同一操作实现；owner位于虚拟行及分组外，scope变化立即撤私有资料，同scope读取失败保留草稿。确认保存与后续重读是两个状态；后续读失败不得将已确认保存改报失败。未知结果仍通过原requestId核对。
+
+维修扫码在提交识别内容后才读取`/api/backend/v2/repair-scan`；只传工单号/型号/序列号，50/批、准确全量计数、绑定范围/原查询/模型generation的游标与有界seek。候选window最多500，数字占位支持退回重查；匹配集缩小时旧深offset夹取真实最后窗口，不返回超出总数的假空。查询保持原`repairScanMatches`的精确ID或trim(serial)+JS uppercase语义及全部重复SN；不NFKC、不包含匹配，不读签名/照片/无关canonical JSON。索引是canonical表上store+upper(id)、store+upper(directory_trim(serial))，没有新授权或宽松RLS。`useIdentifierCandidates`复用公共只读transport、真实请求反馈、原结果模板及窗口组件，当前权限缺失不发读请求，迟到拒绝不清新身份。扫码没有写操作，原请求恢复与业务草稿不适用。
+
+## 投影、回填与正式启用边界
+
+投影仅由固定search_path的canonical触发器/受控owner回填维护，runtime只有SELECT，不能直接写投影或执行projector。原事实、成本、权限及历史校验不由投影取代。每次canonical写入、相关模型更新及删除都在原事务更新来源和generation。
+
+已有门店默认unready。客户及采购operator脚本只允许明确localhost:55422连接和指定store；维修脚本另外明确允许本轮独立ICU55432/指定库及HTTP55442/指定库。每批最多200读取canonical，最终oracle也按canonical ID最多200读取及逐批验证，不累计全部原事件JSON。维修按目标逐批验证真实采购账本、数量、状态、版本与关联，仅保留当前目标的窄派生事实；完整派生语义另以原纯函数oracle验证。计数/孤立链接/来源及版本全部核对后，持原店锁标ready，再显式开启对应flag。维修重建开始先ready=false，失败不得保留ready=true。不存在的业务事实不能填零或跳过核验。
+
+正式运维入口及明确目标连接、批准点、迁移/回填/ready/flag序列和flag0回滚手册仍属P7待交付；不能移除本地guard来暗连正式库。正式数据迁移、branch push与部署在本轮尚未执行。
+
+## 仍须完成
+
+新接机的全范围候选、整机/销售历史/客户设备及高历史偏斜详情的完整接入；保留店锁的目标依赖写入与最小CommandResult；域/实体授权失效提示及精确缓存；查询数、连接/锁阶段与失败耗时；10个独立真实会话/并发保存矩阵及最终整合检查。采购已测一次合成保存的v1回包约2.14MB，尚未达到10KB回执目标。
+
+共享17.6 Supabase项目栈的真实Auth/Realtime证据与独立17.11空数据库的合成claims/纯DB证据分别记录。独立库的outbox写入不能冒称实际Realtime跨设备通过。生产P95、Linux PDF和干净CI也各以真实证据判断。
+
+## 维修阶段验收边界
+
+当前维修列表/操作按需读取、精确扫码及跨组版本门控已接入真实调用链。最新本地构建与源码SHA、SQL oracle/受限角色、回填、真实Auth浏览器证据在隔离候选proof中分别绑定。共享footer忙碌进入丢意图有实际组件RED及Chrome/WebKit修复证据；三组触底测试另仅在观测到上游真实追加将目标推离视口且当前请求idle时重新定位实际footer，仍核每组100、总300、静止不连抽及折叠零请求。没有把该测试修正称为线上性能改善。
+
+维修100条同repair采购变更仍有约0.9秒/100次投影的写放大RED，后续必须在原事务对distinct repair合并再投影；关闭读取flag不会禁用canonical触发器，正式写路径回退/重建入口仍属P7交付。普通保存仍使用v1全快照，不满足最小回执预算。
+
+本轮另有完全独立PG17.11/ICU、Auth、Realtime的本地HTTP栈与10个真实合成账号可供最终HTTP/跨设备验收；其原始schema/角色/凭据和数据均独立，不能和共享17.6或纯claims SQL证据合并冒称正式环境P95。真实会话矩阵尚须按冻结构建实际执行。
+
+## 采购 wire2 字节边界
+
+数据库投影format_version仍为1；HTTP响应formatVersion为2，响应token与page token包含新响应格式。主列表SQL先按ID/完整供应商分组与搜索，只在最终≤51目标投影读取显示字段；item/规格/型号/日期不会随全店中间结果搬运。普通字段完整显示，原有无上限item/supplier/expectedAt仅以100/200/160个Unicode字符和显式previews缩略，目标详情保持完整原文；原文参与搜索与分组。groupKey等于稳定groupFirst，不能拿显示预览当分组身份、查询或写入值。正反游标从实际送达边界继续，startIndex按实际送达窗口计算。缓存最多十个实际响应/500摘要，代际重读最多十个响应，不因每批变短无限循环，已看过范围只保留数字extent。
+
+75条有效中文长字段在独立真实SQL首批33/后33/末9，四分组及旧超长同前缀供应商/emoji/尾搜/seek/anchor/原文校验和均过，最高99962B；实际React hook双引擎验证小批缓存及新代际更小批重读上限。以上是本地条件证据，最终运行构建绑定及HTTP/浏览器界面验收另记。
+
+## 请求观测、同令牌认证读取与首次登记
+
+固定名数值Server-Timing分别记录proxy/route实际Auth网络次数与耗时、连接池加BEGIN等待、session lock/live、SQL实际执行、业务段、commit/rollback与白名单40001/40P01。各段存在包含/并行关系，分位不能相加；不记录SQL、参数、令牌、URL、客户或权限内容。proxy覆盖客户端观测头，观测头从不参与身份或授权。失败通过finally保留耗时；SQL片段不计执行，重复await同一Query只记一次。
+
+只读Supabase client的factory在单次请求内、确切GET/user URL+全部有效headers+credentials键复用Response各自clone，最多4个键；不同token/请求/身份不能共用。Request或带AbortSignal请求不去重，refresh及账号修改的RouteClient不缓存。原getUser/getClaims、邮箱确认/sub/session匹配、数据库实时live/member/RLS全部保留；不使用JWT解码替代验证。实际本地HS SDK两身份与正常refresh/invalid cookie已验。
+
+首次同店十session已实证原SERIALIZABLE读内登记发生40001并耗尽原三次重试。读取改为memberForRead只核当前成员与自己的登记存在；缺行在业务读取前抛精确内部StoreSessionRequired，回滚后用同身份/门店的短READ COMMITTED登记，再新开SERIALIZABLE完整重验。内部登记仍锁项目session FOR SHARE、验live/member/RLS，ON CONFLICT不更新tombstone；只此类型允许有界一次重启，普通错误不当登记。warm读取仍单一事务且不写登记。getServerAccess的SSR选择也走此边界；命令memberInTransaction、店级写锁、隔离级别及原重试不变。独立真实Auth/受限SQL的冷10、禁用/撤权/跨店与登记前后反例过；实际HTTP/SSR及最终30轮预算另记。
+
+## 客户 wire2 与共享窗口位置
+
+客户目录及电话候选的推断姓名超过200个Unicode字符时，以显式namePreview显示前缀加省略号，原文仍参与完整授权搜索；常规短姓名不变。电话查询保留原12候选与完整总数。mode=exact每次一个客户，返回完整原名，选择填入或编辑不得把显示前缀当业务原文。HTTP响应及状态token包含wire2；目录正反游标使用实际送达边界。客户与采购只共享数值批次/位置辅助mergeSummaryBatches，身份、权限、格式、版本、查询及领域游标仍分别检查；最多十个实际响应/500摘要，刷新最多十次，原已看范围只留数值extent。
+
+共享WindowedListRows采锚时同时记录真实滚动位置；行提交若早于scroll的下一RAF，只补布局位移，不抵消用户刚完成的滚动，补偿后更新真实锚点以免重复补偿。多个可见组共用滚动目标时，WeakMap仅累计该window或dialog的实际补偿数值，采锚后实际scroll差须扣除此累计差，不能将另一组已处理的布局位移再补一次；不保存行、客户或身份资料，独立滚动目标不共用累计。深处返回后，视口与已读窗口起点相交且前邻摘要缺失时，onLoadPrevious按原游标授权追加前批，保留当前目标、像素和焦点；整组屏外不触发补邻，pending及错误由原读取状态门控。较远的旧占位仍按位置seek，不假造行。纯组件/SQL证据与准确正式构建的实际Link返回验收分别记录，不能只以targetTop正确代替整个可见视口有真实行。
+
+## 新接机与新采购的按需读取（本地候选）
+
+repair-new 在 repair/customer 两开关均启用时，SSR `ready`只有staff，另有显式intakeDefaults:{revision,policy,paper}；procurement-new在其开关启用时也是staff，URL预选仅一份id/model。未启用路径明确保留旧兼容，不把 retail-new 或其他尚未迁移表单声称已收敛。当前默认policy在两个新read出口按原 months/shopName/address/phone 构造；existing frozen_policy对象原样。真实首次保存曾因SQL JSONB键顺序触发旧严格比较的409，修在读取构造，不排序改写旧冻结事实、签名或写校验。v1兼容回包的表单元数据只从本次已授权canonical/settings重建，缺失时仍unready，不沿用旧政策。
+
+新intake-history API继续实时session/member/RLS与全scope校验，exact50/related3、全范围计数和稳定cursor。createdAt只接受原canonical固定日期格式，实际formal输入order by id再调用原JS stable localeCompare作为SQL oracle；相同时间保持输入tie序。新纯文本invoker函数intake_serial_key采用原uppercase与完整ECMAScript空白集合，无NFKC；两canonical表达式索引不改变数据/读写policy。metadata API仅返回目标存在性、真实revision、签名数组长度与原冻结/当前政策，不传笔迹。所有hook/草稿owner在身份、目标、版本、编辑、重置与步骤边界隔离迟到结果，保存回执仍原requestId。
+
+独立PG17.11 ICU实际SQL：550重复SN全游标、JS Unicode/空白/品牌/IMEI及稳定日期tie oracle、相关3条合法最长issue/faults/issueNote，最大响应59066B，自有行回滚。实际受限runtime调用withReadDatabase/memberForRead/loadIntake*的10组禁用/撤权/跨店/会话/域权限反例通过，精确合成users/sessions/accounts/stores/project/store sessions全部0。不存在合成session沿既有cutover函数P0001拒绝，不把此纯DB分支冒称HTTP401。新函数和索引只装本轮独立ICU/HTTP验收库；正式库未迁移。
+
+生产构建a603oe8WOmno41boKTig4（445运行输入）Chrome新表单完整9项通过，涵盖三语四宽、部分号完整回填/迟到手改、10000字历史姓名第一步校验、550SN真实50→100/related展开、采购精确预选/搜索/真实回执导航，以及首次保存时迟到revision0→编辑读取revision1→再次保存→真实PDF ready→第二新单保存。WebKit同构建初6项5过，测试移除尚未完成的route拦截造成harness失败；等待真实迟到响应完成再移除后，保存链及三语四宽4项通过，产品断言不变。旧selector/route与409失败原件保留。Node596=595过+1本机无PowerShell跳过；类型/4219三语通过，定向lint0错1既有Next导航warning。此为本地条件功能证据，不是线上/P95/容量结论。
+
+长客户页头旧xY8真实Chrome RED高度5560px；新vQY及准确同源组件的双引擎三语四宽均验证原名全文10000字保留、标题81字符、页头74/100/205/229px、实际返回Link与焦点/像素可达。候选未发布，剩余整机/历史/客户设备与偏斜客户详情、P5/P6/P7仍未完成。
+
+## 整机列表与识码（本地候选）
+
+第7条候选迁移 `20261017050521_performance_retail_read_model.sql` 增加同事务的整机／已发布历史摘要、独立财务搜索事实、模型ready/generation和私有第一方翻译词表。原始canonical／销售／照片不回写。模型绑定生成器输入与译器的词表hash，变更译文后旧模型拒读，须明确重建。仅投影触发器owner可派生；runtime只能经原门店及域RLS读取，词表与派生函数不授予runtime、anon、authenticated或public执行。`financial.read`控制原历史notes参与搜索和计数，类别／状态候选只搜自己的独立原文及三语标签，不因其他字段或财务备注命中。
+
+排序按原 `buildRetailListIndex/queryRetailList` 对照：所有historyOrigin已接管来源全域排除；ICU numeric/base名称排序、原稳定key tie、未知价格两向最后、日期原文／首个T替换。PG17.11 ICU153.128与Node ICU78.3只是本地实际条件，不声明与正式PG17.6 ICU153.121完全等价。已运行完整旧oracle矩阵，之后仅新模板替换／合法legacy时间／facet／scanner等变化子集定向复验；完整与子集报告分别保留。
+
+`/api/backend/v2/retail`最多50条，按实际UTF8自适应裁到100000B；长合法历史字段有明确preview标记，全文保留在目标详情／原文搜索，preview不进入过滤身份、写值或复制事实。双向cursor、seek、原位置anchor绑定实际会话／门店／权限／query／generation／词表格式。类别／状态使用完整原值hash，只在打开后150ms读12项和精确总数，selected元数据不把hash显示为业务标签。新扫码API保留四种既有归一化差异及全部重复候选，深位置在结果缩小时夹到合法窗口；无猜测建档或自动出售。
+
+`RetailListBody`及唯一扫码表单／结果模板由原compat和新正式源共同适配，未复制页面。共享单query摘要hook保留10个实际响应批、最多500摘要，source-qualified key区分同ID历史／实物。SSR首批仍包含必要事实。返回记录绑定scope和source:key，真实Link像素／焦点及前邻可见窗口一起复核。history用既有明确 `/history/[id]`；unit链接明确source=unit，旧URL仅无unit时保留历史fallback。只有真实historyOrigin与snapshot匹配才能把原记录附到单机；UUID历史目标经小集合校验和typed UUID数组主键查询，不把文本JSON字段与UUID直接比较。
+
+通用hook手动retry在SSR已ready时仍注册取消生命周期；scope／query／invalid变更会abort并及时复位反馈，迟到响应不回填。公共SearchCombobox的hideLabel仅opt-in，省去可见标签时提供明确输入aria-label；默认调用保持原htmlFor标签。新手机facet占整行，桌面最小190px，保留现有两个44px动作，避免动作挡输入中心。扫码结果套窗口后用原模块scanCandidate行规则恢复44px/flex/padding；不扩展全站native滚动禁用。
+
+本地实际专项包括：受限runtime十组授权反例及清理0；两库11函数／3表／9索引等68项独立元数据检查；合法长历史摘要最大98975B；原译器4399×2、最小正浮点／Unicode标识／同ID来源合同；真实operator1551源事实按200条复核后激活owned功能店。另operator自有411事实专项含六张真实合成PNG：原canonical1629148B、选定窄目标1229B、照片SHA原样，注入多余投影时失败保持unready，恢复仍完整复核。以上不是生产迁移／线上P95／10在线最终验收；真实浏览器结果按准确BUILD_ID和输入清单另记，旧SQL类型、fixture／selector和布局失败原件保留。
+
+本切片之后仍需整机新建／复制／prepare按需候选与完整查重、偏斜客户详情历史／设备及其他兼容读取、P5最小回执和写放大、P6认证暂时失败分类／精确失效和PDF缓存、P7整体容量与运维／发布门禁。当前普通v1保存仍全快照，十身份unchanged旧测量713ms高于700ms目标，均未因本节变成完成或预算通过。
+
+整机阶段冻结构建为 `0HhgtE2Q7XvRZnaH4kWnQ`（461运行输入）。此前同源未变范围的三语五宽布局、三视图首50／真实触底100／尾搜、1000包装码候选／10批500及深位置恢复已分别运行；最终Chromium受影响4项与WebKit7项全部通过。覆盖独立同ID实物／历史的实际Link目标、返回像素／焦点／前邻、原10000字历史详情、Unicode查询reload、503保留／重试及同一旧document非JSON拒绝立即撤私有资料。原footer、标签、SQL参数类型和selector失败保留。Node604项为603过及本机无PowerShell跳过1项，4219三语／词表检查通过；不把这些本地功能矩阵称为P95或正式上线。
+
+关闭整机读取flag后的旧URL兼容仍待P7实际核验：新categoryKey/statusKey链接不能静默失去筛选，也不能借未ready投影猜标签或将超长原文塞回URL。其余按需表单及最终容量／保存／跨设备门禁继续实施。
+
+## 整机新建候选与 Unicode 版本合同（实施中）
+
+`BACKEND_RETAIL_FORM_READS`默认关闭；启用时新建页只读取staff及显式、带revision的当前保修设置，copy仅读取目标14个原始规格字段。已登记品牌／型号／CPU／GPU／键盘／版本在原组合框打开后按需查询，至多12个显示预览与完整授权总数；选择后按opaque key重新授权读取一个完整原文。原始自由文本、扫描、规格核对和完整域查重不以预览替代。当前保存仍原事务／店锁／幂等协议，最小回执属于后续P5。
+
+Node24.19使用Unicode17／ICU78.3；本地PG17.11的ICU153.128不能推断为同一Unicode版本。实际公开码位和组合上下文反例证明，旧PG的NFKC及大小写会遗漏新字符／CCC／Final_Sigma。第8迁移原SHA保留，第9增量候选使用版本固定的数据和完整NFKD→CCC重排→规范组合（含Hangul），以及语言无关完整上下文大小写；不能仅逐码位替换后调用旧PG normalize。ASCII及官方Quick_Check未变化输入走快路，快路同时覆盖组合音标、可能组合的第二字符与Hangul V/T。
+
+生成输入来自Unicode17官方UnicodeData、DerivedNormalizationProps、SpecialCasing和NormalizationTest；下载文件的URL／SHA与生成时Node／ICU版本写入`unicode17-data.json`，Unicode License V3随数据保留。生成离线运行，不读取业务资料；常量表／函数无runtime、anon、authenticated或public访问，只有投影owner派生。模型format与数据／算法／第一方规则hash绑定，变更先全部unready且清旧cursor，再按≤200源事实回填、完整独立JS oracle复核后ready，不改canonical原文。
+
+第9增量迁移SHA `2f6f20219d632ed2eec96e97d6db810109ce35f1d64408f600ceff8a45e6597f` 已仅装本轮两新验收库；format2／projection hash `81f019f00cdb15014b7e4ba758a566b7b4dde8895ac930fca2a51ce30a404fa7` 绑定规则与完整数据／算法，旧第8文件不变。SQL实际完整官方五列100170项／37671独立输入、10796码位及19402混合上下文与Node原函数一致；完整core事务证据的五函数／常量SQL另绑定到最终9，追加owner投影及有界索引另验。合法5000字符高熵品牌先触发旧宽索引54000，修成固定hash后又暴露旧整机name宽排序索引；最终移除该宽索引、保留实际SQL完整排序与窄view索引，原stored validator合法最大值写入和长相同前缀9／10数字排序均过，原文未回写。单次极长归一化／写入计时不是P95或二万条写负载。
+
+实际operator每批至多200个目标、仅选七个规格字段；完整展开norm/search/hash在数据库作摘要对照，独立JS仍验证完整原值，六张原件约1.63MB未进入目标读取、SHA不变。已ready重建先失效，失败留unready，最终同店锁完整核验总数／额外投影后激活；功能店750目标／1625候选四批按新format2重新验证。新建defaults.revision明确是 `settings.revision`，不使用每次业务保存递增的整店revision；原create_ready／prepare写合同仍按真实设置版本核对。真实连续保存曾因两版本混用返回409，修在read和v1当前事实适配，未放宽写入。
+
+P6本切片先复用共同Auth验证错误分类与安全JSON读取：真实失效401、临时网络／5xx／429／解析故障503；已验证user/sub/session和实时数据库权限保留。读取拒绝在解析非JSON之前按当前scope撤下私有数据，旧scope拒绝不清新身份；普通业务命令403不全局登出，无法读取的提交回包保留原requestId待核对，只有确认ok才清登录设备撤销intent。完整失效／缓存／PDF与容量、P5最小回执仍后续实施，不能由这些接缝测试代替实际浏览器、生产或最终预算。
+
+最终表单构建 `ozHcJruOif9DtB0OGGWx0` 绑定475运行文件，Chromium／WebKit共16项实际通过：按需12候选与4999字符精确原文、迟到exact拒绝、未加载重复SN拒绝、首建档→详情／刷新→复制清身份→按当前设置建档并可售、原历史资料核对→全域重复拒绝→确认保存同origin→刷新，以及三语四宽。旧标签／增强select同文按钮定位、设置revision409及零冲突`items:[null]`被严格schema拒绝的失败证据保留；新出口零冲突返回空数组。全Node618＝617通过、1本机无PowerShell跳过；三语4219、类型及第一方lint0错误／2已有warning。精确清理9条已提交合成单机及对应审计／回执后，原750单机＋801历史完整JSON SHA逐条相同，维修1200／采购250／客户设备1200保持。普通v1回包仍实际4.66MB，P5预算未达；不把本地链条成功称为完整性能计划或生产通过。
+
+## 客户详情的有界关联读（实施中）
+
+默认关闭的`BACKEND_CUSTOMER_DETAIL_READS`单独控制客户详情。开启后SSR／v2 page只提供当前成员、实际profile／三个全授权计数及选中标签≤50摘要；不读取整位客户全部canonical维修／销售／历史数组。`/api/backend/v2/customer-records`继续每次真实Auth、SERIALIZABLE/live/member与RLS检查，scope/token包含实际会话、门店、成员权限版本、查询与响应格式及目录／关联／维修进度代际。无变化含anchor返回≤1KB，小响应不重建当前窗口。
+
+第10迁移`20261017083601_performance_customer_record_reads.sql`建立私有`customer_record_sources/models`：同事务canonical触发投影，维修只保留问题与当前进度所需摘要；销售保留冻结product标识、买家资料、成交／实收（null和0分开）、交付、非void退款、退回及售后数量；历史整机保留全部已发布来源，包括已被正式实物接管的原历史。客户详情的history计数不沿用商品列表managed排除规则。成本、内部销售note、付款／售后事件正文、签名和照片不进摘要。当前user可见全文仍在目标详情；列表preview明确省略，全文搜索依据完整原文。
+
+源kind／origin_id／event_id组合是稳定记录身份，同externalID的维修／历史／不同实物销售互不覆盖。销售按原time.localeCompare及原unit输入顺序／sale ordinal；历史按原组件额外的intakeAt降序、sourceRow降序，不能只对buildCustomerDirectory排序作oracle。资料区完整推断名称／邮箱／地址／实际profile版本不由当前50条推导。exact资料读取用窄count/activity聚合及排序LIMIT1选取完整名称／邮箱，避免把同一客户所有万字姓名装进array_agg。
+
+实际operator先同店锁失效ready，再按扁平关联≤200且原文约200KB预算读取；一个实物的1,000销售也分批，不能把200个完整实物JSON或照片搬到Node。最终同锁／SERIALIZABLE逐批用独立JS canonical事实／完整search oracle比对全部源，并核无额外投影后才ready。已ready也重新回填；故障保持unready，恢复仍完整复核。当前入口只允许本轮新本地55432／55442与明确store-id，不是正式运维授权或生产迁移。
+
+目前第10精确SHA`0687fff65447ad71618ee7ccf234e8e51e96c1e74d70548325b2548f6d76485a`仅装新两验收库，规则hash`25e6e90e4f936c13fbd5e6b7dea356a87f6cd369c90b3162bc33b9373c00bbed`。实际SQL包含65维修／84销售／65历史、冻结product／对象型refund.void与returned、同日期逆序sourceRow、Unicode等价销售时间、全原文尾搜、双向cursor、seek及publication代际；另51条合法长历史＋10000字profile首44条99276B，完整原名保留。受限角色12组授权／RLS反例与清理0，根24组已装元数据独立核过。实际CLI单实物1000销售＋6合法PNG：canonical3370044B，最大104个扁平关联／207325B envelope，失败unready／恢复完整oracle及照片SHA保持，owned0。
+
+初浏览器候选vL12带484运行输入。三tab250关联首50→真实触底100／静止不连抽／全部末批搜索和known响应在两个引擎已有通过路径；整体13失败3通过，未完成客户UI验收。新250条历史各带10000字原名，连同tmpfs PGDATA使本地256MiB HTTPDB出现两次OOM／PG57P02，环境失败与UI／工具失败分别保留。根已用完整物理备份／WAL恢复该测试cluster为disk PGDATA，三库完整行／对象／ACL／角色／序列指纹一致，仍原256MiB／1CPU／shared_buffers32MiB，WAL64／32；性能条件不得与旧tmpfs样本混算。O98m_10efY3ihsvAaUwsW的484输入构建完成：客户三tab250真实读取、触底、搜索、503重试、严格返回像素／焦点／前邻与三语四宽16项通过；共享客户名单／采购／维修返回另6项通过。初次复用JSON reporter的工具覆盖已单独保留，最终唯一输出另绑定，不把旧文件名当本轮结果。
+
+旧目录手机号／识码／部分search和immutable表达式索引仍有已证Unicode17差异；第9form core通过不代表全域兼容。第10依赖的目录原规则最终须经新增版本迁移、旧索引明确重建、全受影响模型unready→完整回填核验后再整体启用；不把本地ASCII夹具通过当全部Unicode／正式GO。P5最小依赖与回执、P6及完整P7容量／回滚继续。
+
+最终候选构建`iEnlqkCfglCG9rCMP-CGO`仍484运行输入，复用原`module-search`语义壳后16项真实读／导航／三语四宽再次全过，实际截图已检查；O98的共享三域6项与两引擎确认保存→持续同客户读503→唯一POST→就地重试通过按未变逻辑单列。保存测试先以原validator把本轮SQL裸关系准备为有效profile，最终原JSON、750关联事实SHA均还原，各自回执／audit清0；夹具400与WK背景成功读取提前结束错误的工具RED保留。旧v1保存回包实测12,530,478B，P5预算明确仍失败。共享精度回归14／14及独立numeric10组通过；原两轮fractional RED保留。新disk HTTPDB矩阵后OOM计数0，峰值约164MiB／256MiB，不据此宣称万档／P95通过。
+
+## P5 第一阶段：目标依赖与冻结回执（本地候选，未发布）
+
+`BACKEND_COMMAND_V2=0` 默认保留旧协议；显式开启且第12迁移已安装时，SSR 元数据令新客户端调用 `/api/backend/v2/command`、`/api/backend/v2/operation`。相同 `kind/payload` 的原 JSON digest 与 requestId 不变。v1 URL 继续向旧标签返回当前获授权快照，不能把 v1 的全快照性能称为优化完成。
+
+新 CommandDependencies 只读取命令所需目标；维修流程／报价／项目保存读取目标完整同工单采购，批量到货限100选中账本及关联工单，设置写读取并保留未授权财务事实，成员写独立读取完整当前 roster/audit。签名只有显式签署或携带新签名的接机保存才读取笔画；未加载签名的写路径在 SQL UPDATE 保留原列。整机唯一性当前仅读全店窄身份字段并执行原 JS 归一化，仍有全店窄扫描，不冒称已用有界索引；旧 Unicode 不兼容索引不作为唯一性依据。
+
+命令保留 SERIALIZABLE 和店级锁。实际事实写入／审计／store revision／冻结 result/effects 同事务，回执只含格式、门店、原操作、提交 revision 与受影响域计数；完整 ID 和各实体版本存入同条不可更新回执，按当前权限从 operation 的 effects 页面读取，每页50、最多500条。100个合法100字符采购 ID 的实际回执358B，101个完整受影响版本均可分页核对；legacy NULL 回执明确没有冻结版本，不能用现在的版本和时间伪造旧提交。
+
+新客户端确认后先保存原回执并清除未知意图，再单独授权重读当前页面。后读503不会变成保存失败，也不会重发。新接机目标读取失败保留已确认恢复草稿；刷新后恢复仍只读原目标，真实丢响应则只核对原operation。已确认草稿不再显示“尚未提交门店”。局部反馈／草稿和迟到回调绑定身份范围。
+
+第11迁移只把维修摘要采购重投影改为三个 event-specific AFTER STATEMENT transition-table 触发器，每次语句对 distinct repair 一次；采购自身原 ROW 摘要触发器保留。同工单100条实际 writer 加 intake touch 为 generation+2，混合 INSERT/UPDATE 加 touch 为+3；不是整事务永远一次。原 ROW 回滚定义独立保存，正式运维停写／失效／重建协议仍待 P7。
+
+本阶段实际 SQL21组回滚验证、全 Node627（626过／1原 PowerShell 跳过）及后续受影响55项通过。精确生产构建 WTiX4_SsS47puXb3V9rBJ 的真实 Chromium／WebKit 共6项通过：客户确认后读503、接机确认后目标读503＋刷新恢复、提交成功后丢响应＋原请求核对，全部唯一POST。客户回执305B；每引擎2工单／设备及原回执／audit精确清0，客户原JSON和750关联事实保持。错误工具 memberId=undefined 的409与原全Node假SQL适配失败保留。计数、字节、功能与 SQL计时不是完整保存P95；全部容量模型仍unready。
+
+剩余 P5 包括照片预解码移出锁及正式 main 附件／门店安全语义整合、真实维修／采购写代表和1／3保存采样；P3 devices/dashboard/settings、P6细粒度失效／Auth真实HTTP错误／PDF缓存与完整P7容量、Unicode版本重建和回滚继续，不能将本节当全方案完成。
+
+### 正式 main 增量整合（源码阶段，尚未运行）
+
+性能候选按已上线 `b5bfc1b332fa59c1dcccc64024352591312165d1` 合并手机搬家、打印和多门店原件。冲突逐项保留 URL/API 显式门店、成员 `FOR SHARE`、邀请申请与不可管理自己规则、附件配额/私有原件及引用验证，同时保留按页读取、分离冷登记、签名保列和冻结回执。列表原生 history 更新统一绑定当前 snapshot.storeId；bootstrap 原有 storeName 明确进入快照供侧栏/容量页显示，未读 settings 继续是 null。
+
+源码整合后 Node659＝658过／1原PowerShell跳过，类型、lint（0错误／2已有warning）和4307三语通过；该结果不覆盖新数据库迁移、Storage服务、整合构建、正式CSS或浏览器。两新隔离库原先没有 Storage schema/role，main 原迁移不能在缺前置条件时强装；安装和新运行证据另记。词典增量影响投影生成输入，须用后续版本迁移/失效/回填核对，不以旧模型hash假称新翻译语义。性能分支 no-deploy guard 保持，不推送、合并main或部署。

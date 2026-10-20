@@ -10,6 +10,7 @@ import { recordRepairUpdate } from "@/lib/repair-list-order";
 import type { ProcurementRecord } from "@/lib/procurement";
 import { applyWorkflowCommand, initialRepairWorkflow, validateWorkflowExtensions, type RepairWorkflow, type WorkflowCommand } from "@/lib/repair-workflow";
 import { repairStatusOptions } from "@/lib/repair-fixtures";
+import type {BackendReadSource} from "@/lib/backend/entity-source";
 const key = "chinatech.m1.repair-workflow.v1";
 const change = "chinatech-repair-workflow-change";
 const server = { workflows: {} as Record<string, RepairWorkflow>, ready: false, error: "" };
@@ -34,7 +35,7 @@ function read() {if(isBackendClient()){const current=backendSnapshot();if(curren
   return snapshot;
 }
 function subscribe(listener: () => void) {const stop=subscribeBackend(listener); const storage = (event: StorageEvent) => { if (event.key === key || event.key === null) listener(); }; window.addEventListener("storage", storage); window.addEventListener(change, listener); return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); }; }
-export function useRepairWorkflows() { return useBackendStore(subscribe,read,server,current=>({workflows:current?.workflows??{},ready:true,error:current?"":"后台资料暂不可用。"})); }
+export function useRepairWorkflows() { return useBackendStore(subscribe,read,server,current=>({workflows:current?.workflows??{},ready:true,error:current?"":"后台资料暂不可用。"}),"workflows"); }
 export function updateRepairWorkflow(order: RepairDirectoryEntry, command: WorkflowCommand, records: ProcurementRecord[], revision: number, options?: { requestId?: string }) {
   if(isBackendClient()) return backendCommand("repair.workflow",{id:order.id,command,revision},options?.requestId);
   requirePreviewPermission("repairs.edit");
@@ -48,7 +49,7 @@ export function updateRepairWorkflow(order: RepairDirectoryEntry, command: Workf
 }
 
 export function previewRepairWorkflow(order: RepairDirectoryEntry) { return parse(window.localStorage.getItem(key))[order.id] ?? initialRepairWorkflow(order); }
-export function currentRepairWorkflow(order: RepairDirectoryEntry) { return isBackendClient() ? backendSnapshot()?.workflows[order.id] ?? initialRepairWorkflow(order) : previewRepairWorkflow(order); }
+export function currentRepairWorkflow(order: RepairDirectoryEntry,source?:BackendReadSource|null) { return isBackendClient() ? (source?source.read():backendSnapshot())?.workflows[order.id] ?? initialRepairWorkflow(order) : previewRepairWorkflow(order); }
 
 export async function reconfirmRepairParts(order:RepairDirectoryEntry,requirementId:string,items:{id:string;revision:number}[],workflowRevision:number,intakeRevision:number,options?:{requestId?:string}){
   if(isBackendClient()){await backendCommand("procurement.reconfirm",{repairId:order.id,requirementId,items,workflowRevision,intakeRevision},options?.requestId);return;}

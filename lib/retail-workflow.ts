@@ -1,4 +1,4 @@
-import { applyRetailCommand, createRetailUnit, validateRetailPhotos, retailWarrantyTermsVersion, type Inspection, type RetailCommand, type RetailDebtDelivery, type RetailEvent, type RetailPaymentMethod, type RetailUnit, type RetailWarrantySnapshot } from "./retail";
+import { applyRetailCommand, createRetailUnit, validateRetailPhotos, retailWarrantyTermsVersion, type Inspection, type RetailCommand, type RetailDebtDelivery, type RetailEvent, type RetailPaymentMethod, type RetailUnit, type RetailIdentity, type RetailWarrantySnapshot } from "./retail";
 import type { StoreSettings } from "./store-settings";
 import type { Permission } from "./staff";
 
@@ -50,16 +50,17 @@ export function retailWorkflowPermissions(command: RetailWorkflow): Permission[]
   return permissions;
 }
 /** Compose checked facts in memory; the write boundary persists the final unit once. */
-export function applyRetailWorkflow(command: RetailWorkflow, existing: RetailUnit[], event: RetailEvent, settings: StoreSettings): RetailUnit {
+export type RetailWorkflowContext = { identities: readonly RetailIdentity[]; saleIdExists: (saleId: string) => boolean };
+export function applyRetailWorkflow(command: RetailWorkflow, existing: RetailUnit[], event: RetailEvent, settings: Pick<StoreSettings,"revision"|"shopName"|"address"|"phone">, context?: RetailWorkflowContext): RetailUnit {
   validateRetailWorkflow(command);
   if (typeof event.id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(event.id)) throw new Error("请求标识无效。");
   let next: RetailUnit;
   const step = (suffix: string, type: RetailCommand, detail: string) => {
-    next = applyRetailCommand(next,type,{...event,id:`${event.id}:${suffix}`,title:`单机操作：${type.type}`,detail},next.version,existing);
+    next = applyRetailCommand(next,type,{...event,id:`${event.id}:${suffix}`,title:`单机操作：${type.type}`,detail},next.version,context?.identities ?? existing);
   };
   if (command.type === "create_ready") {
     if (settings.revision !== revision(command.settingsRevision)) throw new Error("销售保修约定已变化，请重新核对。");
-    next = createRetailUnit(command.unit,existing,{...event,id:`${event.id}:create`,title:"独立单机档案已建立",detail:"门店自有实物，待检测。"});
+    next = createRetailUnit(command.unit,context?.identities ?? existing,{...event,id:`${event.id}:create`,title:"独立单机档案已建立",detail:"门店自有实物，待检测。"});
     if (command.photos !== undefined) step("photos",{type:"photos",photos:validateRetailPhotos(command.photos)},"本次实物照片已保存。");
   } else {
     const current = existing.find(unit => unit.id === command.id);
@@ -80,7 +81,7 @@ export function applyRetailWorkflow(command: RetailWorkflow, existing: RetailUni
   const warranty: RetailWarrantySnapshot = {months:next.warrantyMonths,termsVersion:retailWarrantyTermsVersion,shopName:settings.shopName,address:settings.address,phone:settings.phone};
   if (JSON.stringify(command.sale.warranty) !== JSON.stringify(warranty)) throw new Error("销售保修约定已变化，请重新核对。");
   const saleId = `${event.id}:sale`;
-  if (existing.some(unit => unit.sales.some(sale => sale.id === saleId))) throw new Error("操作标识已用于不同资料，请重新核对。");
+  if (context ? context.saleIdExists(saleId) : existing.some(unit => unit.sales.some(sale => sale.id === saleId))) throw new Error("操作标识已用于不同资料，请重新核对。");
   step("sale",{type:"sell",...command.sale,warranty,saleId,paymentUnreceived:command.payments.length === 0},"本次买家与成交约定已核对；交付另据实际事实登记。");
   if (command.payments.length) {
     // Zero is only this new transaction's opening, never a claim about an old sale.

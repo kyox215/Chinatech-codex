@@ -1,3 +1,4 @@
+import { BackendPageFrame } from "@/components/backend-page-frame";
 import { isSupabaseMode } from "@/lib/supabase/config";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -9,7 +10,7 @@ type Props = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> { return { title: `工单 ${(await params).id}` }; }
 export default async function RepairDetailPage({ params }: Props) {
   const { id } = await params;
-  if (localIntakeId(id)) return <LocalIntakeDetail id={id} />;
+  if (localIntakeId(id)) return <BackendPageFrame plan={{ kind: "repair", id }}><LocalIntakeDetail id={id} /></BackendPageFrame>;
   if(isSupabaseMode()) notFound();
   const order = getRepairOrder(id); if (!order) notFound();
   return <RepairDetail initialOrder={order} />;

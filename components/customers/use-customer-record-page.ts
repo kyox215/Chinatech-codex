@@ -1,0 +1,13 @@
+"use client";
+import{useBackendState}from'@/components/backend-snapshot';import{useSummaryListPage}from'@/components/use-summary-list-page';import{mergeCustomerRecordWindow}from'@/lib/backend/customer-detail-window';import{customerRecordsQuery,type CustomerRecordsQuery,type CustomerRecordSummary,type CustomerDetailPage}from'@/lib/backend/customer-detail-contract';import{requestScopedList}from'@/lib/backend/scoped-read-client';import{can}from'@/lib/staff';import{backendScopeKey}from'@/lib/backend/read-plan';
+const rowKey=(row:CustomerRecordSummary)=>row.key;
+export async function requestCustomerRecords(scope:CustomerDetailPage['scope'],query:CustomerRecordsQuery,options:{cursor?:string;known?:string;anchor?:string;seek?:number;signal?:AbortSignal}={}){
+ const params=new URLSearchParams(query);for(const key of['cursor','known','anchor']as const)if(options[key])params.set(key,options[key]!);if(options.seek!==undefined)params.set('seek',String(options.seek));const value=await requestScopedList(scope,'/api/backend/v2/customer-records?'+params,options);
+ if(!value.unchanged&&(value.formatVersion!==1||JSON.stringify(value.query)!==JSON.stringify(query)||value.items.length>50||!value.counts||!['repairs','sales','history'].every(kind=>Number.isSafeInteger(value.counts[kind])&&value.counts[kind]>=0)||value.items.some((row:CustomerRecordSummary)=>row.kind!==query.kind||typeof row.key!=='string'||typeof row.id!=='string'||!Array.isArray(row.previews))))throw new Error('后台资料暂不可用。');return value as CustomerDetailPage|{unchanged:true;stateToken:string};
+}
+export function useCustomerRecordPage(raw:CustomerRecordsQuery,returnAnchor?:string){
+ const backend=useBackendState(),member=backend.snapshot?.staff.members.find(row=>row.id===backend.snapshot?.staff.currentId),scope=backend.snapshot?.customerDetailEnabled&&can(member,'customers.view')?backend.snapshot.read?.scope:undefined,initial=scope&&backend.snapshot?.customerDetail&&backendScopeKey(backend.snapshot.customerDetail.scope)===backendScopeKey(scope)?backend.snapshot.customerDetail:undefined,invalidQuery=raw.q.length>160;
+ // SSR resolves the original nonempty-tab priority. Subsequent reads always
+ // carry that explicit tab, so an append never changes query identity.
+ const query=customerRecordsQuery({...raw,kind:raw.kind==='auto'?initial?.query.kind??'repairs':raw.kind,q:invalidQuery?'':raw.q});return useSummaryListPage<CustomerRecordsQuery,CustomerRecordSummary,CustomerDetailPage>({scope,initial,query,returnAnchor,invalidQuery,formatVersion:1,rowKey,request:requestCustomerRecords,merge:mergeCustomerRecordWindow});
+}

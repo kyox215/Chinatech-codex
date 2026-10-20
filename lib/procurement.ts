@@ -80,7 +80,7 @@ export function repairPartsSummary(records: ProcurementRecord[], repairId: strin
   return { group, label: repairPartsGroups[group], total, ordered, arrived, inCart, unresolvedRequirements, allRequiredReady };
 }
 
-export function procurementEventLabel(event: ProcurementEvent) {
+export function procurementEventLabel(event: Pick<ProcurementEvent, "type" | "quantity">) {
   if (event.type === "requirement_linked") return "已核对维修项目关联";
   if (event.type === "details_changed") return "配件资料已更新";
   if (event.type === "cart_added") return "已加购物车，尚未下单";

@@ -1,5 +1,7 @@
 "use client";
-import { useBackendStore, useBackendState } from "@/components/backend-snapshot";
+import { BackendSnapshotContext, useBackendStore, useBackendState } from "@/components/backend-snapshot";
+import type {BackendReadSource} from "@/lib/backend/entity-source";
+import {backendScopeKey} from "@/lib/backend/read-plan";
 import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand, backendRecovery, subscribeRecovery, backendReadGeneration } from "@/lib/backend/client";
 import { requirePreviewPermission } from "@/lib/staff-client";
 import { createContext, useContext, useSyncExternalStore } from "react";
@@ -26,6 +28,7 @@ const recordIdOf = (action: ProcurementAction) => "record" in action ? action.re
 const storageKey = "chinatech.m1.procurement.v1";
 const changed = "chinatech-procurement-change";
 const initialState: State = { records: procurementRecords, feedback: null, repairUpdates: {}, listView: { query: "", filter: "all", repairId: "", groupBy: "supplier" } };
+const formalInitialState: State = { ...initialState, records: [] };
 let store = initialState;
 let remoteSource:ReturnType<typeof backendSnapshot>;
 let cachedRaw: string | null | undefined;
@@ -90,7 +93,7 @@ function read() {
 }
 let uiScope="";
 function readUi(){if(isBackendClient()){const current=backendSnapshot();const key=JSON.stringify([backendReadGeneration(),current?.storeId,current?.staff.currentId,current?.staff.members.find(row=>row.id===current.staff.currentId)?.revision]);if(key!==uiScope){uiScope=key;store={...store,feedback:null,listView:initialState.listView};}}return store;}
-export function currentProcurementRecords() { return read().records; }
+export function currentProcurementRecords(source?:BackendReadSource|null) { return source?source.read()?.procurement??[]:read().records; }
 function subscribe(listener:()=>void){const stop=subscribeBackend(listener);const storage=(event:StorageEvent)=>{if(event.key===storageKey||event.key===null)listener();};window.addEventListener("storage",storage);window.addEventListener(changed,listener);return()=>{stop();window.removeEventListener("storage",storage);window.removeEventListener(changed,listener);};}
 function savePreviewItem(current:State, action:Extract<ProcurementAction,{type:"save-item"}>, time:string) {
   const actor=requirePreviewPermission("repairs.edit");const id=action.record.repairId;
@@ -164,16 +167,25 @@ function savePreviewItems(current:State, action:Extract<ProcurementAction,{type:
   if(prepared.workflow)window.dispatchEvent(new Event("chinatech-repair-workflow-change"));
   window.dispatchEvent(new Event("chinatech-local-intake-change"));
 }
-async function dispatchAction(action: ProcurementAction, options?: { requestId?: string }) {
+async function dispatchAction(action: ProcurementAction, options?: { requestId?: string },source?:BackendReadSource|null) {
   const rawAction=action as {type:string;action?:string;event?:{type:string}};
   if(rawAction.type==="create-cart" || (rawAction.type==="batch"&&rawAction.action==="ordered") || (rawAction.type==="append"&&["cart_added","cart_removed"].includes(rawAction.event?.type??"")))throw new Error("采购车操作已停用，请核对当前采购资料。");
-  const current=read();if(action.type==="list-view"||action.type==="clear-feedback"){store={...current,...(action.type==="list-view"?{listView:action.view}:{feedback:null})};window.dispatchEvent(new Event(changed));return;}
+  const scoped=source?.read();
+  const submittedGeneration=backendReadGeneration(),scopeKey=(value:typeof scoped)=>value?.read?backendScopeKey(value.read.scope):JSON.stringify([value?.storeId,value?.staff.currentId,value?.staff.members.find(row=>row.id===value.staff.currentId)?.revision]);
+  const submittedScope=scopeKey(scoped);
+  const isCurrent=()=>!isBackendClient()||backendReadGeneration()===submittedGeneration&&(!source||Boolean(source.read())&&scopeKey(source.read())===submittedScope);
+  const current=isBackendClient()&&source?{...readUi(),records:scoped?.procurement??[],repairUpdates:Object.fromEntries((scoped?.intakes??[]).map(row=>[row.id,row.updatedAt])),storageError:scoped?"":"后台资料暂不可用。"}:read();if(action.type==="list-view"||action.type==="clear-feedback"){store={...current,...(action.type==="list-view"?{listView:action.view}:{feedback:null})};window.dispatchEvent(new Event(changed));return;}
+  if(isBackendClient()&&source&&!scoped)throw new Error("账号访问权限已变化。");
   const recordId=recordIdOf(action);
   const requestId=options?.requestId??crypto.randomUUID();
   try {
     if(isBackendClient()) {
       if(action.type==="batch") {const {type:_type,...payload}=action;void _type;await backendCommand("procurement.batch",payload,requestId);} else await backendCommand("procurement",action,requestId);
-      read();store={...store,feedback:{recordId,requestId,error:false,message:action.type==="save-items"?action.items.some(row=>row.purchase)?"报价及供应商已保存 · 未下单。":"报价已保存。":"配件事实已保存。"}};
+      // A confirmed command stays confirmed when its subsequent target read
+      // fails. The local source exposes that separate read error to its owner.
+      await source?.refreshAfterCommand?.();
+      if(!isCurrent())throw new Error("账号访问权限已变化。");
+      store={...store,feedback:{recordId,requestId,error:false,message:action.type==="save-items"?action.items.some(row=>row.purchase)?"报价及供应商已保存 · 未下单。":"报价已保存。":"配件事实已保存。"}};
     } else {
       const actor=requirePreviewPermission("repairs.edit");if(current.storageError)throw new Error(current.storageError);
       const time=new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Rome",dateStyle:"short",timeStyle:"medium"}).format(new Date());
@@ -182,9 +194,9 @@ async function dispatchAction(action: ProcurementAction, options?: { requestId?:
       const next=mutate(current,action,time,actor.id);const raw=JSON.stringify({version:1,records:next.records,repairUpdates:next.repairUpdates});parseProcurementState(raw);
       window.localStorage.setItem(storageKey,raw);cachedRaw=raw;store=next;
     }
-  } catch(reason){store={...read(),feedback:{recordId,requestId,error:true,message:reason instanceof Error?reason.message:"保存失败。"}};window.dispatchEvent(new Event(changed));throw reason;}
+  } catch(reason){if(isCurrent()){store={...current,feedback:{recordId,requestId,error:true,message:reason instanceof Error?reason.message:"保存失败。"}};window.dispatchEvent(new Event(changed));}throw reason;}
   window.dispatchEvent(new Event(changed));
 }
 const ProcurementContext=createContext<State & {dispatch:(action:ProcurementAction,options?:{requestId?:string})=>Promise<void>}|null>(null);
-export function ProcurementProvider({children}:{children:React.ReactNode}){const backend=useBackendState();const ui=useSyncExternalStore(subscribe,readUi,()=>initialState);const ownUi=backend.active?ui:initialState;const state=useBackendStore(subscribe,read,initialState,current=>({...ownUi,records:current?.procurement??[],repairUpdates:Object.fromEntries((current?.intakes??[]).map(row=>[row.id,row.updatedAt])),storageError:current?"":"后台资料暂不可用。"}));const recovery=useSyncExternalStore(subscribeRecovery,backendRecovery,backendRecovery);const feedback=state.feedback?.requestId&&recovery.receipt?.requestId===state.feedback.requestId?{...state.feedback,error:false,message:"配件事实已保存。"}:state.feedback?.requestId&&recovery.pending?.command.requestId===state.feedback.requestId?null:state.feedback?.requestId&&recovery.resolution?.requestId===state.feedback.requestId?recovery.resolution.status==="cancelled"?null:{...state.feedback,error:true,message:recovery.message||state.feedback.message}:state.feedback;return <ProcurementContext.Provider value={{...state,feedback,dispatch:dispatchAction}}>{children}</ProcurementContext.Provider>;}
+export function ProcurementProvider({children}:{children:React.ReactNode}){const source=useContext(BackendSnapshotContext);const backend=useBackendState();const ui=useSyncExternalStore(subscribe,readUi,()=>initialState);const ownUi=backend.active?ui:initialState;const state=useBackendStore(subscribe,read,backend.formal?formalInitialState:initialState,current=>({...ownUi,records:current?.procurement??[],repairUpdates:Object.fromEntries((current?.intakes??[]).map(row=>[row.id,row.updatedAt])),storageError:current?"":"后台资料暂不可用。"}),"procurement");const recovery=useSyncExternalStore(subscribeRecovery,backendRecovery,backendRecovery);const feedback=state.feedback?.requestId&&recovery.receipt?.requestId===state.feedback.requestId?{...state.feedback,error:false,message:"配件事实已保存。"}:state.feedback?.requestId&&recovery.pending?.command.requestId===state.feedback.requestId?null:state.feedback?.requestId&&recovery.resolution?.requestId===state.feedback.requestId?recovery.resolution.status==="cancelled"?null:{...state.feedback,error:true,message:recovery.message||state.feedback.message}:state.feedback;return <ProcurementContext.Provider value={{...state,feedback,dispatch:(action,options)=>dispatchAction(action,options,source)}}>{children}</ProcurementContext.Provider>;}
 export function useProcurement(){const context=useContext(ProcurementContext);if(!context)throw new Error("采购上下文缺失。");return context;}

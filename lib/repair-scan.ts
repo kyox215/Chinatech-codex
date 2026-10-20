@@ -1,18 +1,23 @@
 export type ScannableRepair = { id: string; device: { serial: string } };
 
-export function repairScanMatches<T extends ScannableRepair>(raw: string, orders: readonly T[], origin: string): T[] {
+/** Wire input stays raw: uppercasing may expand Unicode and is done once. */
+export function repairScanCode(raw: string, origin: string): string | null {
   let code = raw.trim();
-  if (!code || code.length > 512) return [];
+  if (!code || code.length > 512) return null;
   if (/^(https?:\/\/|\/)/i.test(code)) {
     try {
       const url = new URL(code, origin);
-      if (url.origin !== origin || url.search || url.hash) return [];
+      if (url.origin !== origin || url.search || url.hash) return null;
       const match = /^\/app\/repairs\/([^/]+)\/?$/.exec(url.pathname);
-      if (!match) return [];
+      if (!match) return null;
       code = decodeURIComponent(match[1]);
-    } catch { return []; }
+    } catch { return null; }
   }
-  const normalized = code.toUpperCase();
+  return code.toUpperCase();
+}
+export function repairScanMatches<T extends ScannableRepair>(raw: string, orders: readonly T[], origin: string): T[] {
+  const normalized=repairScanCode(raw,origin);
+  if(normalized===null)return [];
   return orders.filter((order) => order.id.toUpperCase() === normalized || (order.device.serial.trim() && order.device.serial.trim().toUpperCase() === normalized));
 }
 

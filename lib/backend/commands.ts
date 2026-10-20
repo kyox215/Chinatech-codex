@@ -16,27 +16,32 @@ import { applyRetailWorkflow, retailWorkflowPermissions, retailInspectionDetail,
 import { emptyIntakeServices } from "../intake-services";
 import { prepareRetailRecord, type RetailRecordPreparation } from "../retail-record";
 import { projectState, loadState } from "./state";
-import { memberInTransaction } from "./context";
+import { memberInTransaction,memberForRead } from "./context";
 import { retailCommandPermission, requireRetailAfterSaleRepair } from "../retail-access";
-import { BackendError, withDatabase, type AuthIdentity } from "./database";
+import { BackendError, withDatabase, withReadDatabase, type AuthIdentity } from "./database";
 import type { BackendCommand, BackendSnapshot } from "./contracts";
-import { prepareStoredPhotos, storeRetailPhotos } from "@/lib/server/attachment-storage";
-import { parseIntakePhotoAttachments, putIntakePhotos } from "./intake-photos";
+import {loadCommandDependencies,commandSuppliers,commandSettings,commandStaff,type CommandDependencies as CommandState} from "./command-dependencies";
+import {beginRetailSort,finishRetailSort} from './retail-sort-maintenance';
+import {prepareCommand,hasCommandPhotoPreparation,preparedIntakePhotos,type PreparedCommand} from "./command-preparation";
+import { putIntakePhotos } from "./intake-photos";
 import { prepareIntakePhotoUpdate, RepairPhotoUpdateError } from "../repair-photo-update";
 import { fields, intakeFields, procurementFields, workflowCommandFields, customerFields, settingsFields, memberFields, retailFields, commandFields } from "./input";
+import {writeSettingsPatch} from './settings-patch-write';
 
+import {observeTime} from "./request-observation";
+import {commandEffects,nativeCommandResult,replayCommandResult,type CommandResult} from "./command-result";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function authorize(member: StaffMember, permission: Permission) { if (!can(member,permission)) throw new BackendError("当前账号没有此操作权限。",403); }
 function mayEditProcurementCost(member:StaffMember) { return can(member,"financial.read") && can(member,"financial.edit"); }
 function object(value: unknown): Record<string, unknown> { if (!value || typeof value !== "object" || Array.isArray(value)) throw new BackendError("请求资料无效。"); return value as Record<string,unknown>; }
 function integer(value: unknown) { if (!Number.isSafeInteger(value) || Number(value)<0) throw new BackendError("请核对记录版本。"); return Number(value); }
 function identifier(value: unknown) { if (typeof value!=="string" || !value || value.length>100) throw new BackendError("记录标识无效。");return value; }
-function policy(settings:StoreSettings):IntakePolicy { return {months:settings.repairWarrantyMonths,shopName:settings.shopName,address:settings.address,phone:settings.phone}; }
+function policy(settings:Pick<StoreSettings,"repairWarrantyMonths"|"shopName"|"address"|"phone">):IntakePolicy { return {months:settings.repairWarrantyMonths,shopName:settings.shopName,address:settings.address,phone:settings.phone}; }
 function exactKeys(value:Record<string,unknown>, allowed:string[]) {if(Object.keys(value).some(key=>!allowed.includes(key))) throw new BackendError("请求包含不支持的字段。");}
 
-function procurementSupplier(state:BackendSnapshot,record:ProcurementRecord,required=false,active=false) {
-  const supplierId=resolveSupplierId(record,state.settings.suppliers);
-  const supplier=state.settings.suppliers.find(row=>row.id===supplierId);
+function procurementSupplier(state:CommandState,record:ProcurementRecord,required=false,active=false) {
+  const supplierId=resolveSupplierId(record,commandSuppliers(state));
+  const supplier=commandSuppliers(state).find(row=>row.id===supplierId);
   if(!supplier) {
     if(required || record.supplierId!==undefined) throw new BackendError("供应商无法唯一核对，请重新选择门店供应商。",409);
     return undefined;
@@ -44,7 +49,7 @@ function procurementSupplier(state:BackendSnapshot,record:ProcurementRecord,requ
   if(active && !supplier.active) throw new BackendError("供应商已停用，请重新核对下单范围。",409);
   return supplier;
 }
-function checkRequirement(state:BackendSnapshot,record:ProcurementRecord) {
+function checkRequirement(state:CommandState,record:ProcurementRecord) {
   const intake=state.intakes.find(row=>row.id===record.repairId);
   if(!intake) throw new BackendError("关联工单不存在。",404);
   if(record.requirementId!==undefined || record.requirementRevision!==undefined) {
@@ -54,7 +59,7 @@ function checkRequirement(state:BackendSnapshot,record:ProcurementRecord) {
   }
   return intake;
 }
-function requireOpenProcurement(state:BackendSnapshot,repairId:string) {
+function requireOpenProcurement(state:CommandState,repairId:string) {
   const intake=state.intakes.find(row=>row.id===repairId);
   if(!intake) throw new BackendError("关联工单不存在。",404);
   const order=intakeDirectoryEntry(intake);
@@ -62,11 +67,15 @@ function requireOpenProcurement(state:BackendSnapshot,repairId:string) {
   catch(reason) {if(reason instanceof Error) throw new BackendError(reason.message,409);throw reason;}
 }
 
-async function putCustomer(tx:TransactionSql,storeId:string, data:CustomerProfile) {
+async function putCustomer(tx:TransactionSql,state:CommandState, data:CustomerProfile) {
+  const storeId=state.storeId;
   const [row] = await tx`insert into chinatech_v2_private.customers(store_id,normalized_phone,data) values(${storeId},${normalizeCustomerPhone(data.phone)},${tx.json(data)}) on conflict(store_id,normalized_phone) do update set data=excluded.data returning id`;
+  state.changes.customers.add(normalizeCustomerPhone(data.phone));
   return row.id as string;
 }
-async function putIntake(tx:TransactionSql,state:BackendSnapshot, data:IntakeReceiptData, signatures=state.signatures.filter(row=>row.orderId===data.id)) {
+async function putIntake(tx:TransactionSql,state:CommandState, data:IntakeReceiptData, signatures?:import("../repair-intake-record").IntakeSignature[]) {
+  if(!state.loadedIntakeIds.has(data.id))throw new BackendError("后台暂时不可用，请稍后重试。",503);
+  const signatureChange=signatures??(state.loadedSignatureIds.has(data.id)?state.signatures.filter(row=>row.orderId===data.id):undefined);
   const previous=state.intakes.find(row=>row.id===data.id);
   let customerId:string; let deviceId:string;
   if(previous) {
@@ -89,24 +98,26 @@ async function putIntake(tx:TransactionSql,state:BackendSnapshot, data:IntakeRec
     // Same model never merges physical devices. Only an explicit verified identity can be reused later.
     const [device]=await tx`insert into chinatech_v2_private.customer_devices(store_id,customer_id,data) values(${state.storeId},${customerId},${tx.json(deviceFacts(data))}) returning id`;deviceId=device.id;
   }
-  await tx`insert into chinatech_v2_private.repair_intakes(store_id,id,customer_id,device_id,data,signatures) values(${state.storeId},${data.id},${customerId},${deviceId},${tx.json(data)},${tx.json(signatures)}) on conflict(store_id,id) do update set data=excluded.data,customer_id=excluded.customer_id,device_id=excluded.device_id,signatures=excluded.signatures`;
+  await tx`insert into chinatech_v2_private.repair_intakes(store_id,id,customer_id,device_id,data,signatures) values(${state.storeId},${data.id},${customerId},${deviceId},${tx.json(data)},${tx.json(signatureChange??[])}) on conflict(store_id,id) do update set data=excluded.data,customer_id=excluded.customer_id,device_id=excluded.device_id,signatures=case when ${signatureChange!==undefined} then excluded.signatures else chinatech_v2_private.repair_intakes.signatures end`;
+  state.changes.repairs.add(data.id);
 }
 function deviceFacts(data:IntakeReceiptData) {return {category:data.category,brand:data.brand,model:data.model,color:data.color,serial:data.serial};}
-async function ensureCustomer(tx:TransactionSql,state:BackendSnapshot,data:IntakeReceiptData) {
+async function ensureCustomer(tx:TransactionSql,state:CommandState,data:IntakeReceiptData) {
   const phone=normalizeCustomerPhone(data.phone);
   const [existing]=await tx`select id from chinatech_v2_private.customers where store_id=${state.storeId} and normalized_phone=${phone}`;
   if(existing) return existing.id as string;
-  return putCustomer(tx,state.storeId,{phone,name:data.customerName,email:data.email,note:"",version:1,updatedAt:intakeRecordTime()});
+  return putCustomer(tx,state,{phone,name:data.customerName,email:data.email,note:"",version:1,updatedAt:intakeRecordTime()});
 }
-async function putRetail(tx:TransactionSql,storeId:string,unit:RetailUnit) {
+async function putRetail(tx:TransactionSql,state:CommandState,unit:RetailUnit) {
+  const storeId=state.storeId;
   for(const photo of unit.photos){if(!photo.startsWith('ct-photo:'))continue;
     const [reference]=await tx`select u.id from chinatech_v2_private.attachment_usage u join chinatech_v2_private.attachment_reservations r on r.store_id=u.store_id and r.id=u.id where u.store_id=${storeId} and u.id=${photo.slice(9)} and r.domain='retail' and r.status='confirmed'`;
     if(!reference)throw new BackendError("照片不存在。",403);
   }
-  await tx`insert into chinatech_v2_private.retail_units(store_id,id,data) values(${storeId},${unit.id},${tx.json(unit)}) on conflict(store_id,id) do update set data=excluded.data`;
+  await tx`insert into chinatech_v2_private.retail_units(store_id,id,data) values(${storeId},${unit.id},${tx.json(unit)}) on conflict(store_id,id) do update set data=excluded.data`;state.changes.retail.add(unit.id);
 }
 
-async function putProcurementRecords(tx:TransactionSql,storeId:string,records:ProcurementRecord[],time:string) {
+export async function putProcurementRecords(tx:TransactionSql,storeId:string,records:ProcurementRecord[],time:string,changes?:CommandState["changes"]) {
   // All records have already been checked against the transaction's current state.
   // One statement retains each work order's allocation without merging identities.
   const rows=records.map(record=>({id:record.id,repair_id:record.repairId,data:record}));
@@ -117,9 +128,10 @@ async function putProcurementRecords(tx:TransactionSql,storeId:string,records:Pr
   const repairIds=[...new Set(records.map(record=>record.repairId))];
   await tx`update chinatech_v2_private.repair_intakes set data=jsonb_set(data,'{updatedAt}',${tx.json(time)}::jsonb)
     where store_id=${storeId} and id in ${tx(repairIds)}`;
+  for(const record of records)changes?.procurement.add(record.id);for(const id of repairIds)changes?.repairs.add(id);
 }
 
-async function saveRepairItem(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,p:Record<string,unknown>,requestId:string,time:string) {
+async function saveRepairItem(tx:TransactionSql,state:CommandState,member:StaffMember,p:Record<string,unknown>,requestId:string,time:string) {
   exactKeys(p,["type","record","revision","workflowRevision","intakeRevision","quoteCents","noProcurement"]);
   const submitted=p.record as ProcurementRecord;fields(submitted,procurementFields);identifier(submitted.id);identifier(submitted.repairId);
   if(p.noProcurement!==undefined && typeof p.noProcurement!=="boolean") throw new BackendError("采购选择无效。");
@@ -183,23 +195,23 @@ async function saveRepairItem(tx:TransactionSql,state:BackendSnapshot,member:Sta
     next={...draft,reference:previous?.reference??"",events:history.events};
   }
   // All validation precedes writes; the outer transaction also owns versions, audit and idempotent receipt.
-  if(next) await putProcurementRecords(tx,state.storeId,[next],time);
+  if(next) await putProcurementRecords(tx,state.storeId,[next],time,state.changes);
   await putIntake(tx,state,nextIntake);
   await tx`update chinatech_v2_private.repair_intakes set workflow=${tx.json(nextWorkflow)} where store_id=${state.storeId} and id=${intake.id}`;
   return next?.id??intake.id;
 }
 
-async function saveRepairItems(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,p:Record<string,unknown>,requestId:string,time:string) {
+async function saveRepairItems(tx:TransactionSql,state:CommandState,member:StaffMember,p:Record<string,unknown>,requestId:string,time:string) {
   exactKeys(p,["type","repairId","intakeRevision","workflowRevision","items"]);
   const {type:_type,...input}=p;void _type;
   try {
     validateRepairItemsEdit(input);
     const intake=state.intakes.find(row=>row.id===input.repairId);if(!intake) throw new BackendError("关联工单不存在。",404);
     if(input.items.some(item=>item.purchase!==undefined)) requireOpenProcurement(state,intake.id);
-    const next=prepareRepairItemEdits(input,{intake,workflow:state.workflows[intake.id]??initialRepairWorkflow(intakeDirectoryEntry(intake)),records:state.procurement,suppliers:state.settings.suppliers,canEditCost:mayEditProcurementCost(member),activity:{id:requestId,time,actorId:member.id}});
+    const next=prepareRepairItemEdits(input,{intake,workflow:state.workflows[intake.id]??initialRepairWorkflow(intakeDirectoryEntry(intake)),records:state.procurement,suppliers:commandSuppliers(state),canEditCost:mayEditProcurementCost(member),activity:{id:requestId,time,actorId:member.id}});
     // Prepare every row, quote and requirement first. The existing command transaction
     // owns one receipt and audit entry and rolls back all statements on any failure.
-    if(next.changedRecords.length) await putProcurementRecords(tx,state.storeId,next.changedRecords,time);
+    if(next.changedRecords.length) await putProcurementRecords(tx,state.storeId,next.changedRecords,time,state.changes);
     await putIntake(tx,state,next.intake);
     if(next.workflow) await tx`update chinatech_v2_private.repair_intakes set workflow=${tx.json(next.workflow)} where store_id=${state.storeId} and id=${intake.id}`;
     return intake.id;
@@ -209,8 +221,7 @@ async function saveRepairItems(tx:TransactionSql,state:BackendSnapshot,member:St
   }
 }
 
-async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,kind:string,p:Record<string,unknown>,requestId:string) {
-  const time=intakeRecordTime();
+async function apply(tx:TransactionSql,state:CommandState,member:StaffMember,kind:string,p:Record<string,unknown>,requestId:string,prepared:PreparedCommand,time:string) {
   if(kind==="intake.save") {
     exactKeys(p,["data","revision","signature","signatureCount","photos"]);authorize(member,"repairs.edit");
     const draft=p.data as IntakeReceiptData;fields(draft,intakeFields); if(!validLocalIntake(draft) || draft.retailOrigin) throw new BackendError("请核对接机资料及来源。");
@@ -219,7 +230,7 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     if(existing?.retailOrigin) throw new BackendError("售后接机快照不能改写。");
     let repairOrigin;
     try {repairOrigin=repairOriginForSave(draft,existing);} catch(reason) {if(reason instanceof RepairReworkError) throw new BackendError(reason.message,reason.status);throw reason;}
-    const photos=await parseIntakePhotoAttachments(p.photos,draft.photoCount);
+    const photos=preparedIntakePhotos(prepared,draft.photoCount);
     if(photos.length) authorize(member,"repairs.view");
     const frozen=existing?.policy??policy(state.settings);
     if(draft.policy && JSON.stringify(draft.policy)!==JSON.stringify(frozen)) throw new BackendError("门店保修已变化，请重新核对。",409);
@@ -228,7 +239,7 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     const data={...draft,...pricing,repairOrigin,createdAt:existing?.createdAt??time,updatedAt:time,previewAt:time,policy:frozen,revision:revision+1,photos:photos.map(({id,slot})=>({id,slot})),photoCount:photos.length};
     if(p.signature && state.signatures.filter(row=>row.orderId===data.id).length!==integer(p.signatureCount)) throw new BackendError("签署历史已变化，请重新核对。",409);
     const signatures=p.signature?appendIntakeSignature(state.signatures,data,frozen,{...p.signature as IntakeSignatureDraft,signedAt:time},member.id,integer(p.signatureCount)):state.signatures;
-    await putIntake(tx,state,data,signatures.filter(row=>row.orderId===data.id));await putIntakePhotos(tx,state.storeId,data.id,photos);return data.id;
+    await putIntake(tx,state,data,p.signature?signatures.filter(row=>row.orderId===data.id):undefined);await putIntakePhotos(tx,state.storeId,data.id,photos);return data.id;
   }
   if(kind==="intake.photos") {
     exactKeys(p,["id","revision","photos"]);authorize(member,"repairs.edit");authorize(member,"repairs.view");
@@ -236,7 +247,7 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     const revision=integer(p.revision);
     if((current.revision??1)!==revision) throw new BackendError("接机资料已变化，请重新核对。",409);
     if(!Array.isArray(p.photos) || !p.photos.length) throw new BackendError("请选择需要登记的照片。");
-    const photos=await parseIntakePhotoAttachments(p.photos,p.photos.length);
+    const photos=preparedIntakePhotos(prepared,p.photos.length);
     let next:IntakeReceiptData;
     try {next=prepareIntakePhotoUpdate(current,revision,photos.map(({id,slot})=>({id,slot})),time);}
     catch(reason) {if(reason instanceof RepairPhotoUpdateError) throw new BackendError(reason.message,reason.status);throw reason;}
@@ -270,8 +281,8 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     if((intake.revision??1)!==integer(p.intakeRevision)) throw new BackendError("工单报价已变化，请重新核对。",409);
     if(!validItemQuotes([{item:p.item,amountCents:p.quoteCents}])) throw new BackendError("维修项目或客户报价无效。");
     const requirements=currentRepairRequirements(intakeDirectoryEntry(intake),state.workflows[intake.id]);
-    const titles=new Set([...requirements.map(row=>row.title),...(intake.itemQuotes??[]).map(row=>row.item),...state.procurement.filter(row=>row.repairId===intake.id).map(row=>row.item)]);
-    if(!titles.has(p.item as string)) throw new BackendError("维修项目已变化，请重新核对报价。",409);
+    const titles=new Set([...requirements.map(row=>row.title),...(intake.itemQuotes??[]).map(row=>row.item)]);
+    if(!titles.has(p.item as string)&&!state.quoteItemExists) throw new BackendError("维修项目已变化，请重新核对报价。",409);
     const quotes=new Map((intake.itemQuotes??[]).map(row=>[row.item,row.amountCents]));
     for(const requirement of requirements) if(!quotes.has(requirement.title)) quotes.set(requirement.title,null);
     quotes.set(p.item as string,p.quoteCents as number|null);
@@ -289,7 +300,7 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     if(typeof command.type!=="string" || !Object.hasOwn(workflowCommandFields,command.type)) throw new BackendError("不支持的维修操作。");
     fields(command,["type",...workflowCommandFields[command.type]]);
     const next=applyWorkflowCommand(current,p.command as WorkflowCommand,{id:requestId,time,actorId:member.id},state.procurement,data.id,integer(p.revision),intakeDirectoryEntry(data));
-    await tx`update chinatech_v2_private.repair_intakes set workflow=${tx.json(next)} where store_id=${state.storeId} and id=${data.id}`;return data.id;
+    await tx`update chinatech_v2_private.repair_intakes set workflow=${tx.json(next)} where store_id=${state.storeId} and id=${data.id}`;state.changes.repairs.add(data.id);return data.id;
   }
   if(kind==="procurement") {
     exactKeys(p,["type","record","id","event","revision","workflowRevision","intakeRevision","requirementId","requirementRevision","note","quoteCents","noProcurement","repairId","items"]);authorize(member,"repairs.edit");
@@ -344,7 +355,7 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
       else throw new BackendError("未知采购操作。");
     }
     const repair=state.intakes.find(row=>row.id===next.repairId);if(!repair) throw new BackendError("关联工单不存在。",404);
-    await putProcurementRecords(tx,state.storeId,[next],time);return next.id;
+    await putProcurementRecords(tx,state.storeId,[next],time,state.changes);return next.id;
   }
   if(kind==="procurement.reconfirm") {
     exactKeys(p,["repairId","requirementId","intakeRevision","workflowRevision","items"]);authorize(member,"repairs.edit");
@@ -372,9 +383,9 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     }
     const nextRequirements=requirements.map(row=>row.id===requirementId?{...row,sourceFingerprint:order.requirements?.find(source=>source.id===row.id)?.sourceFingerprint,deviceFingerprint:order.deviceFingerprint,mode:"parts" as const,confirmed:true}:row);validateRepairRequirements(nextRequirements);
     const nextWorkflow={...workflow,requirements:nextRequirements,revision:workflow.revision+1,updatedAt:time,events:[...workflow.events,{id:requestId,time,actorId:member.id,type:"requirement" as const,label:`${requirement.title}：配件已重新核对`,note:`已核对全部${records.length}条配件符合当前要求。`}]};
-    if(changed.length) await putProcurementRecords(tx,state.storeId,changed,time);
+    if(changed.length) await putProcurementRecords(tx,state.storeId,changed,time,state.changes);
     await tx`update chinatech_v2_private.repair_intakes set workflow=${tx.json(nextWorkflow)},data=jsonb_set(data,'{updatedAt}',${tx.json(time)}::jsonb) where store_id=${state.storeId} and id=${repairId}`;
-    return repairId;
+    state.changes.repairs.add(repairId);return repairId;
   }
   if(kind==="procurement.batch") {
     exactKeys(p,["action","supplierId","items"]);authorize(member,"repairs.edit");
@@ -382,7 +393,7 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     const supplierId=identifier(p.supplierId);
     if(!Array.isArray(p.items) || p.items.length<1 || p.items.length>100) throw new BackendError("每批须选择1–100条采购。");
     let ledger:ProcurementRecord[];
-    try {ledger=applyProcurementBatch(state.procurement,p.action,supplierId,p.items as ProcurementBatchItem[],state.settings.suppliers,{id:requestId,time,actorId:member.id});}
+    try {ledger=applyProcurementBatch(state.procurement,p.action,supplierId,p.items as ProcurementBatchItem[],commandSuppliers(state),{id:requestId,time,actorId:member.id});}
     catch(error) {if(error instanceof ProcurementBatchError) throw new BackendError(error.message,error.status);throw error;}
     const selected=new Set((p.items as ProcurementBatchItem[]).map(item=>item.id));
     const updated=ledger.filter(record=>selected.has(record.id));
@@ -390,7 +401,7 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     for(const record of updated) {
       if(!intakes.has(record.repairId)) throw new BackendError("关联工单不存在。",404);
     }
-    await putProcurementRecords(tx,state.storeId,updated,time);return requestId;
+    await putProcurementRecords(tx,state.storeId,updated,time,state.changes);return requestId;
   }
   if(kind === "retail.workflow") {
     const workflow = p as unknown as RetailWorkflow;
@@ -409,8 +420,8 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
       }
     }
     if (workflow.type !== "inspect_approve" && state.settings.revision !== integer(workflow.settingsRevision)) throw new BackendError("销售保修约定已变化，请重新核对。",409);
-    const next = applyRetailWorkflow(workflow,state.retail,{id:requestId,time,title:"单机操作",detail:"本次事实已核对。",actorId:member.id,actorName:member.name},state.settings);
-    await putRetail(tx,state.storeId,next);return next.id;
+    const next = applyRetailWorkflow(workflow,state.retail,{id:requestId,time,title:"单机操作",detail:"本次事实已核对。",actorId:member.id,actorName:member.name},state.settings,{identities:state.retailIdentities,saleIdExists:()=>state.saleIdExists});
+    await putRetail(tx,state,next);return next.id;
   }
   if(kind==="retail") {
     exactKeys(p,["type","unit","id","command","version","photos"]);
@@ -418,7 +429,7 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
       authorize(member,"retail.view");authorize(member,"retail.edit");const draft=p.unit as RetailUnit;fields(draft,retailFields);if(!uuid.test(identifier(draft.id))) throw new BackendError("单机身份标识无效。");
       if (state.retailHistory?.some(record => record.id === draft.id)) throw new BackendError("已有商品须在原档案核对保存。",409);
       if(draft.costCents!==null || draft.refurbCents!==null) authorize(member,"financial.edit");if(draft.priceCents!==null) authorize(member,"retail.price");
-      let next:RetailUnit=createRetailUnit(draft,state.retail,{id:requestId,time,title:"独立单机档案已建立",detail:"门店自有实物，待检测。",actorId:member.id,actorName:member.name});if (p.photos !== undefined) next=applyRetailCommand(next,{type:"photos",photos:validateRetailPhotos(p.photos)},{id:requestId+":photos",time,title:"单机照片已保存",detail:"本次实物照片已保存。",actorId:member.id,actorName:member.name},next.version,state.retail);await putRetail(tx,state.storeId,next);return next.id;
+      let next:RetailUnit=createRetailUnit(draft,state.retailIdentities,{id:requestId,time,title:"独立单机档案已建立",detail:"门店自有实物，待检测。",actorId:member.id,actorName:member.name});if (p.photos !== undefined) next=applyRetailCommand(next,{type:"photos",photos:validateRetailPhotos(p.photos)},{id:requestId+":photos",time,title:"单机照片已保存",detail:"本次实物照片已保存。",actorId:member.id,actorName:member.name},next.version,state.retailIdentities);await putRetail(tx,state,next);return next.id;
     }
     if(p.type!=="command") throw new BackendError("未知整机操作。");
     if(Object.hasOwn(p,"photos")) throw new BackendError("请求包含无效或不支持的字段。");
@@ -442,8 +453,8 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
       if (command.note.trim()) detail = command.note;
     }
     const financial=command.type==="edit" && ["costCents","refurbCents"].includes(command.change.field);
-    const next=applyRetailCommand(unit,command,{id:requestId,time,title:"单机操作："+command.type,detail:financial?"成本资料更正。":detail,actorId:member.id,actorName:member.name,...(financial?{sensitive:"financial" as const}:{})},integer(p.version),state.retail);
-    await putRetail(tx,state.storeId,next);return next.id;
+    const next=applyRetailCommand(unit,command,{id:requestId,time,title:"单机操作："+command.type,detail:financial?"成本资料更正。":detail,actorId:member.id,actorName:member.name,...(financial?{sensitive:"financial" as const}:{})},integer(p.version),state.retailIdentities);
+    await putRetail(tx,state,next);return next.id;
   }
   if (kind === "retail.prepare") {
     exactKeys(p, ["id", "sourceSnapshot", "settingsRevision", "draft"]);
@@ -451,11 +462,11 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     const record = state.retailHistory?.find(row => row.id === identifier(p.id));
     if (!record) throw new BackendError("没有找到原商品记录。",404);
     if (record.sourceSnapshot !== p.sourceSnapshot || state.settings.revision !== integer(p.settingsRevision)) throw new BackendError("商品来源或门店约定已变化，请重新核对。",409);
-    if (state.retail.some(unit => unit.id === record.id || unit.historyOrigin?.recordId === record.id)) throw new BackendError("商品资料已保存，请刷新并核对当前档案。",409);
+    if (state.retailIdentities.some(unit => unit.id === record.id || unit.historyOrigin?.recordId === record.id)) throw new BackendError("商品资料已保存，请刷新并核对当前档案。",409);
     const draft = object(p.draft) as unknown as RetailRecordPreparation;
     if (Object.values(object(draft.checks)).some(Boolean)) authorize(member,"retail.inspect");
-    const next = prepareRetailRecord(record,draft,state.settings.retailWarrantyMonths,{id:requestId,time,title:"商品资料已核对",detail:"原商品记录保留，实物资料已确认。",actorId:member.id,actorName:member.name},state.retail);
-    await putRetail(tx,state.storeId,next);return next.id;
+    const next = prepareRetailRecord(record,draft,state.settings.retailWarrantyMonths,{id:requestId,time,title:"商品资料已核对",detail:"原商品记录保留，实物资料已确认。",actorId:member.id,actorName:member.name},state.retailIdentities);
+    await putRetail(tx,state,next);return next.id;
   }
   if(kind==="retail.aftersale_repair") {
     exactKeys(p,["unitId","saleId","caseId","repairId","version"]);authorize(member,"sale.aftersales");
@@ -469,77 +480,134 @@ async function apply(tx:TransactionSql,state:BackendSnapshot,member:StaffMember,
     if(!validLocalIntake(data) || state.intakes.some(row=>row.id===data.id)) throw new BackendError("售后工单编号无效或已存在。");
     await putIntake(tx,state,data,[]);
     const next=applyRetailCommand(unit,{type:"after_sale_link",saleId:sale.id,caseId:after.id,repairId:data.id},{id:requestId,time,title:"售后关联维修",detail:data.id,actorId:member.id,actorName:member.name},unit.version,state.retail);
-    await putRetail(tx,state.storeId,next);return data.id;
+    await putRetail(tx,state,next);return data.id;
   }
   if(kind==="customer.save") {
     exactKeys(p,["draft","version"]);authorize(member,"customers.edit");
     fields(p.draft,customerFields);const phone=normalizeCustomerPhone((p.draft as CustomerProfile).phone);
     if((state.customers.find(row=>normalizeCustomerPhone(row.phone)===phone)?.version??0)!==integer(p.version)) throw new BackendError("客户资料已变化，请重新核对。",409);
-    const draft={...p.draft as Omit<CustomerProfile,"version">,updatedAt:time};const next=updateCustomerProfile(state.customers,draft,integer(p.version));
-    await putCustomer(tx,state.storeId,next.find(row=>normalizeCustomerPhone(row.phone)===normalizeCustomerPhone(draft.phone))!);return normalizeCustomerPhone(draft.phone);
+    const draft={...p.draft as Omit<CustomerProfile,"version">,updatedAt:time};const next=updateCustomerProfile(state.customers.filter(row=>normalizeCustomerPhone(row.phone)===phone),draft,integer(p.version));
+    await putCustomer(tx,state,next.find(row=>normalizeCustomerPhone(row.phone)===normalizeCustomerPhone(draft.phone))!);return normalizeCustomerPhone(draft.phone);
   }
   if(kind==="settings.save") {
-    exactKeys(p,["settings","revision"]);if(state.settings.revision!==integer(p.revision)) throw new BackendError("设置已变化，请重新核对。",409);
+    if(Object.hasOwn(p,'patch')){
+      exactKeys(p,['revision','patch']);if(state.settings.revision!==integer(p.revision))throw new BackendError("设置已变化，请重新核对。",409);
+      await writeSettingsPatch(tx,state.storeId,state.settings.revision,p.patch,{settings:can(member,'settings.edit'),financeRead:can(member,'financial.read'),financeEdit:can(member,'financial.edit')});
+      state.changes.settings.add(state.storeId);return state.storeId;
+    }
+    const settings=commandSettings(state);
+    exactKeys(p,["settings","revision"]);if(settings.revision!==integer(p.revision)) throw new BackendError("设置已变化，请重新核对。",409);
     if(!can(member,"settings.edit") && !can(member,"financial.edit")) throw new BackendError("当前账号没有设置编辑权限。",403);
     fields(p.settings,settingsFields);
     const proposed=p.settings as StoreSettings;
     if(!Array.isArray(proposed.suppliers) || !Array.isArray(proposed.finance)) throw new BackendError("设置资料无效。");
     proposed.suppliers.forEach(row=>fields(row,["id","name","phone","website","active"]));proposed.finance.forEach(row=>fields(row,["id","kind","amountCents","purpose","relatedId","note","time","voidReason"]));
     // An unauthorized client receives no finance rows and cannot overwrite the omitted data.
-    const finance=can(member,"financial.read")?proposed.finance:state.settings.finance;
-    const next=parseStoreSettings(JSON.stringify({version:1,settings:{...proposed,repairGroups:proposed.repairGroups === undefined ? state.settings.repairGroups : proposed.repairGroups,finance,revision:state.settings.revision+1}}));
-    if(JSON.stringify(next.finance)!==JSON.stringify(state.settings.finance)) {
+    const finance=can(member,"financial.read")?proposed.finance:settings.finance;
+    const next=parseStoreSettings(JSON.stringify({version:1,settings:{...proposed,repairGroups:proposed.repairGroups === undefined ? settings.repairGroups : proposed.repairGroups,finance,revision:settings.revision+1}}));
+    if(JSON.stringify(next.finance)!==JSON.stringify(settings.finance)) {
       authorize(member,"financial.edit");
-      for(const entry of state.settings.finance) {const replacement=next.finance.find(row=>row.id===entry.id);if(!replacement || JSON.stringify({...replacement,voidReason:entry.voidReason})!==JSON.stringify(entry) || (entry.voidReason && replacement.voidReason!==entry.voidReason)) throw new BackendError("原收支事实不能覆盖或删除；更正须追加。");}
+      for(const entry of settings.finance) {const replacement=next.finance.find(row=>row.id===entry.id);if(!replacement || JSON.stringify({...replacement,voidReason:entry.voidReason})!==JSON.stringify(entry) || (entry.voidReason && replacement.voidReason!==entry.voidReason)) throw new BackendError("原收支事实不能覆盖或删除；更正须追加。");}
     }
-    if(["shopName","address","phone","paper","suppliers","repairWarrantyMonths","retailWarrantyMonths"].some(key=>JSON.stringify(next[key as keyof StoreSettings])!==JSON.stringify(state.settings[key as keyof StoreSettings]))) authorize(member,"settings.edit");
-    if(JSON.stringify(next.repairGroups)!==JSON.stringify(parseStoreSettings(JSON.stringify({version:1,settings:state.settings})).repairGroups)) authorize(member,"settings.edit");
-    await tx`update chinatech_v2_private.store_state set settings=${tx.json(next)} where store_id=${state.storeId}`;return state.storeId;
+    if(["shopName","address","phone","paper","suppliers","repairWarrantyMonths","retailWarrantyMonths"].some(key=>JSON.stringify(next[key as keyof StoreSettings])!==JSON.stringify(settings[key as keyof StoreSettings]))) authorize(member,"settings.edit");
+    if(JSON.stringify(next.repairGroups)!==JSON.stringify(parseStoreSettings(JSON.stringify({version:1,settings:settings})).repairGroups)) authorize(member,"settings.edit");
+    await tx`update chinatech_v2_private.store_state set settings=${tx.json(next)} where store_id=${state.storeId}`;state.changes.settings.add(state.storeId);return state.storeId;
   }
   if(kind==="staff.save") {
+    const staff=commandStaff(state);
     exactKeys(p,["draft","revision"]);authorize(member,"staff.manage");
-    fields(p.draft,memberFields);const draft=p.draft as StaffMember;const existing=state.staff.members.find(row=>row.id===draft.id);
+    fields(p.draft,memberFields);const draft=p.draft as StaffMember;const existing=staff.members.find(row=>row.id===draft.id);
     if(!existing) throw new BackendError("请通过邀请与申请审核添加员工。",403);
     if(draft.email!==existing.email || draft.name!==existing.name || draft.accountStatus!==existing.accountStatus) throw new BackendError("成员必须绑定已验证账号，不能在员工表改写真实身份。");
     if(member.role!=="owner" && draft.permissions.includes("staff.manage") && !existing.permissions.includes("staff.manage")) throw new BackendError("仅老板可以授予人员管理权限。",403);
-    if(state.staff.revision!==integer(p.revision) || (existing?.revision??0)!==draft.revision) throw new BackendError("员工资料已变化，请重新核对。",409);
-    const next=updateStaffMember(state.staff,draft,integer(p.revision),member.id,requestId,time);
+    if(staff.revision!==integer(p.revision) || (existing?.revision??0)!==draft.revision) throw new BackendError("员工资料已变化，请重新核对。",409);
+    const next=updateStaffMember(staff,draft,integer(p.revision),member.id,requestId,time);
     const saved=next.members.find(row=>row.id===draft.id)!;
     await tx`update chinatech_v2.store_memberships set role=${saved.role},permissions=${saved.permissions},membership_status=${saved.membershipStatus},revision=${saved.revision} where store_id=${state.storeId} and id=${saved.id}`;
-    await tx`update chinatech_v2_private.store_state set staff_audit=${tx.json(next.audit)} where store_id=${state.storeId}`;return draft.id;
+    await tx`update chinatech_v2_private.store_state set staff_audit=${tx.json(next.audit)} where store_id=${state.storeId}`;state.changes.staff.add(draft.id);return draft.id;
   }
   throw new BackendError("此操作尚未接入正式后台。",400);
 }
 
-export async function executeCommand(identity:AuthIdentity,command:BackendCommand) {
+function authorizeCommandRead(member:StaffMember,kind:string,p:Record<string,unknown>){
+  // The legacy state loader exposed no retail target without retail.view.
+  // Targeted dependencies must keep that admission before any canonical read.
+  if(kind==="retail"||kind.startsWith("retail."))authorize(member,"retail.view");
+  if(kind==="procurement"){
+    authorize(member,"repairs.edit");
+    if(p.type!=="save-item"&&p.type!=="save-items")assertProcurementWrite(p as {type?:unknown;event?:{type?:unknown}});
+    return;
+  }
+  if(kind.startsWith("intake.")||kind.startsWith("repair.")||kind.startsWith("procurement."))return authorize(member,"repairs.edit");
+  if(kind==="customer.save")return authorize(member,"customers.edit");
+  if(kind==="staff.save")return authorize(member,"staff.manage");
+  if(kind==="settings.save"){if(!can(member,"settings.edit")&&!can(member,"financial.edit"))throw new BackendError("当前账号没有设置编辑权限。",403);return;}
+  if(kind==="retail.workflow"){for(const permission of retailWorkflowPermissions(p as unknown as RetailWorkflow))authorize(member,permission);return;}
+  if(kind==="retail.prepare"||kind==="retail"&&p.type==="create"){authorize(member,"retail.view");authorize(member,"retail.edit");return;}
+  if(kind==="retail.aftersale_repair")return authorize(member,"sale.aftersales");
+  if(kind==="retail"){const command=object(p.command);if(typeof command.type!=="string"||!Object.hasOwn(commandFields,command.type))throw new BackendError("未知单机操作。");return authorize(member,retailCommandPermission(command as RetailCommand));}
+}
+export function executeCommand(identity:AuthIdentity,command:BackendCommand){return executeCommandVersion(identity,command,1);}
+export function executeCommandV2(identity:AuthIdentity,command:BackendCommand){return executeCommandVersion(identity,command,2);}
+async function executeCommandVersion(identity:AuthIdentity,command:BackendCommand,version:1):Promise<BackendSnapshot>;
+async function executeCommandVersion(identity:AuthIdentity,command:BackendCommand,version:2):Promise<CommandResult>;
+async function executeCommandVersion(identity:AuthIdentity,command:BackendCommand,version:1|2):Promise<BackendSnapshot|CommandResult> {
   if(!uuid.test(command.requestId) || !uuid.test(command.storeId) || typeof command.kind!=="string") throw new BackendError("请求标识无效。");
+  command={...command,payload:structuredClone(object(command.payload))};
   const payload=object(command.payload);const digest=createHash("sha256").update(JSON.stringify({kind:command.kind,payload})).digest("hex");
-  if((command.kind==="intake.save" || command.kind==="intake.photos") && Array.isArray(payload.photos) && payload.photos.length) {
-    const photos=await parseIntakePhotoAttachments(payload.photos,payload.photos.length);
-    await prepareStoredPhotos(identity,command.storeId,photos,"repairs",command.kind==="intake.photos"?String(payload.id):String((payload.data as {id?:unknown})?.id));
+  if(hasCommandPhotoPreparation(command.kind,payload)){
+    const replay=await observeTime("command_replay_check",()=>withReadDatabase(identity,command.storeId,async tx=>{
+      const member=await memberForRead(tx,command.storeId,identity.userId);
+      if(command.memberId!==member.id)throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,"IDENTITY_CHANGED");
+      const [previous]=await tx<{digest:string;result:unknown}[]>`select digest,result from chinatech_v2_private.command_receipts where store_id=${command.storeId} and actor_id=${identity.userId} and request_id=${command.requestId}`;
+      if(previous)return{result:await replayExisting(tx,identity,command,digest,previous,member,version)};
+      authorizeCommandRead(member,command.kind,payload);
+      if(command.kind==="intake.save"||command.kind==="intake.photos")authorize(member,"repairs.view");
+      return null;
+    }));
+    if(replay)return replay.result;
   }
-  if(command.kind==="retail"){
-    if(payload.type==="create" && payload.photos!==undefined)payload.photos=await storeRetailPhotos(identity,command.storeId,command.requestId,validateRetailPhotos(payload.photos));
-    else if(payload.type==="command" && payload.command && typeof payload.command==="object" && (payload.command as {type?:unknown}).type==="photos"){
-      const next=payload.command as {photos:unknown};next.photos=await storeRetailPhotos(identity,command.storeId,command.requestId,validateRetailPhotos(next.photos));
-    }
-  }
+  const prepared=await observeTime("command_prepare",()=>prepareCommand(identity,command));
   return withDatabase(identity,command.storeId,async tx=>{
+    await observeTime("command_lock",async()=>{
     await tx`select pg_advisory_xact_lock(hashtextextended(${'ct:'+command.storeId},0))`;
     // Establish a current write version before reading receipts or applying intent.
     // A serializable snapshot taken before the advisory wait must retry in full.
     await tx`select revision from chinatech_v2_private.store_state where store_id=${command.storeId} for update`;
+    });
     const member=await memberInTransaction(tx,command.storeId,identity.userId);
     if(command.memberId!==member.id) throw new BackendError("登录身份或页面版本已变化，请刷新后重新核对。",409,"IDENTITY_CHANGED");
-    const state=await loadState(tx,command.storeId,member);
-    const [previous]=await tx`select digest from chinatech_v2_private.command_receipts where store_id=${command.storeId} and actor_id=${identity.userId} and request_id=${command.requestId}`;
-    if(previous) {if(previous.digest==="cancelled") throw new BackendError("此提交已撤销，请重新核对后创建新操作。",410);if(previous.digest!==digest) throw new BackendError("同一请求标识不能用于不同操作。",409);return {...projectState(state,member),operation:await operationReceipt(tx,identity,command.storeId,command.requestId,true)};}
-    const entityId=await apply(tx,state,member,command.kind,payload,command.requestId);
-    await tx`insert into chinatech_v2_private.command_receipts(store_id,actor_id,request_id,digest) values(${command.storeId},${identity.userId},${command.requestId},${digest})`;
-    await tx`insert into chinatech_v2_private.audit_events(store_id,actor_id,request_id,kind,entity_id) values(${command.storeId},${identity.userId},${command.requestId},${command.kind},${entityId})`;
-    await tx`update chinatech_v2_private.store_state set revision=revision+1 where store_id=${command.storeId}`;
-    return {...projectState(await loadState(tx,command.storeId,member),await memberInTransaction(tx,command.storeId,identity.userId)),operation:await operationReceipt(tx,identity,command.storeId,command.requestId,false)};
+    const [previous]=await tx<{digest:string;result:unknown}[]>`select digest,result from chinatech_v2_private.command_receipts where store_id=${command.storeId} and actor_id=${identity.userId} and request_id=${command.requestId}`;
+    if(previous)return replayExisting(tx,identity,command,digest,previous,member,version);
+    authorizeCommandRead(member,command.kind,prepared.payload);
+    const maintainSort=process.env.BACKEND_RETAIL_LIST_READS==='1'&&(command.kind==='retail'||command.kind.startsWith('retail.'));
+    if(maintainSort)await beginRetailSort(tx,command.storeId);
+    const time=intakeRecordTime();
+    const state=await observeTime("command_dependencies",()=>loadCommandDependencies(tx,{...command,payload:prepared.payload},member,time));
+    const entityId=await observeTime("command_apply",()=>apply(tx,state,member,command.kind,prepared.payload,command.requestId,prepared,time));
+    if(maintainSort)await finishRetailSort(tx,command.storeId,state.changes.retail);
+    const result=await observeTime("command_receipt",async()=>{
+    const[audit]=await tx`insert into chinatech_v2_private.audit_events(store_id,actor_id,request_id,kind,entity_id) values(${command.storeId},${identity.userId},${command.requestId},${command.kind},${entityId}) returning created_at`;
+    const[current]=await tx`update chinatech_v2_private.store_state set revision=revision+1 where store_id=${command.storeId} returning revision`;
+    const effects=await commandEffects(tx,command.storeId,state.changes);
+    const operation={requestId:command.requestId,entityId:command.kind==="customer.save"?"":entityId,kind:command.kind,committedAt:new Date(audit.created_at).toISOString(),replayed:false};
+    const result=nativeCommandResult(command.storeId,Number(current.revision),operation,effects);
+    if(Buffer.byteLength(JSON.stringify(result),"utf8")>10000)throw new BackendError("后台核对结果无效，请稍后重试。",503);
+    await tx`insert into chinatech_v2_private.command_receipts(store_id,actor_id,request_id,digest,result,effects) values(${command.storeId},${identity.userId},${command.requestId},${digest},${tx.json(result)},${tx.json(effects)})`;
+      return result;
+    });
+    const operation=result.operation;
+    if(version===2)return result;
+    return {...projectState(await observeTime("command_legacy_snapshot",()=>loadState(tx,command.storeId,member)),await memberInTransaction(tx,command.storeId,identity.userId)),operation};
   });
+}
+
+async function replayExisting(tx:TransactionSql,identity:AuthIdentity,command:BackendCommand,digest:string,previous:{digest:string;result?:unknown},member:StaffMember,version:1|2):Promise<BackendSnapshot|CommandResult>{
+  if(previous.digest==="cancelled")throw new BackendError("此提交已撤销，请重新核对后创建新操作。",410);
+  if(previous.digest!==digest)throw new BackendError("同一请求标识不能用于不同操作。",409);
+  const operation=await operationReceipt(tx,identity,command.storeId,command.requestId,true);
+  if(!operation)throw new BackendError("暂时无法核对提交结果。",503);
+  return version===2?replayCommandResult(previous.result,command.storeId,operation):{...projectState(await observeTime("command_legacy_snapshot",()=>loadState(tx,command.storeId,member)),member),operation};
 }
 
 async function operationReceipt(tx:TransactionSql,identity:AuthIdentity,storeId:string,requestId:string,replayed:boolean) {
@@ -549,7 +617,9 @@ async function operationReceipt(tx:TransactionSql,identity:AuthIdentity,storeId:
   if(!row) return undefined;
   return {requestId,entityId:row.kind==="customer.save"?"":String(row.entity_id),kind:String(row.kind),committedAt:new Date(row.created_at).toISOString(),replayed};
 }
-export async function queryOperation(identity:AuthIdentity,storeId:string,memberId:string,requestId:string) {
+export function queryOperation(identity:AuthIdentity,storeId:string,memberId:string,requestId:string){return queryOperationVersion(identity,storeId,memberId,requestId,1);}
+export function queryOperationV2(identity:AuthIdentity,storeId:string,memberId:string,requestId:string){return queryOperationVersion(identity,storeId,memberId,requestId,2);}
+async function queryOperationVersion(identity:AuthIdentity,storeId:string,memberId:string,requestId:string,version:1|2) {
   if(!uuid.test(storeId) || !uuid.test(requestId)) throw new BackendError("请求标识无效。");
   return withDatabase(identity,storeId,async tx=>{
     const member=await memberInTransaction(tx,storeId,identity.userId);
@@ -558,11 +628,14 @@ export async function queryOperation(identity:AuthIdentity,storeId:string,member
     // Not found does NOT prove failure: the original request may still be in flight.
     if(!operation) return {status:"not_found" as const};
     if(operation.kind==="operation.cancelled") return {status:"cancelled" as const};
+    if(version===2){const[row]=await tx`select result from chinatech_v2_private.command_receipts where store_id=${storeId} and actor_id=${identity.userId} and request_id=${requestId}`;return{status:"committed" as const,result:replayCommandResult(row.result,storeId,operation)};}
     return {status:"committed" as const,operation,snapshot:{...projectState(await loadState(tx,storeId,member),member),operation}};
   });
 }
 
-export async function cancelOperation(identity:AuthIdentity,storeId:string,memberId:string,requestId:string) {
+export function cancelOperation(identity:AuthIdentity,storeId:string,memberId:string,requestId:string){return cancelOperationVersion(identity,storeId,memberId,requestId,1);}
+export function cancelOperationV2(identity:AuthIdentity,storeId:string,memberId:string,requestId:string){return cancelOperationVersion(identity,storeId,memberId,requestId,2);}
+async function cancelOperationVersion(identity:AuthIdentity,storeId:string,memberId:string,requestId:string,version:1|2) {
   if(!uuid.test(storeId) || !uuid.test(requestId)) throw new BackendError("请求标识无效。");
   return withDatabase(identity,storeId,async tx=>{
     await tx`select pg_advisory_xact_lock(hashtextextended(${'ct:'+storeId},0))`;
@@ -570,6 +643,7 @@ export async function cancelOperation(identity:AuthIdentity,storeId:string,membe
     const member=await memberInTransaction(tx,storeId,identity.userId);
     if(member.id!==memberId) throw new BackendError("登录身份已变化。",409,"IDENTITY_CHANGED");
     const receipt=await operationReceipt(tx,identity,storeId,requestId,true);
+    if(receipt && receipt.kind!=="operation.cancelled"&&version===2){const[row]=await tx`select result from chinatech_v2_private.command_receipts where store_id=${storeId} and actor_id=${identity.userId} and request_id=${requestId}`;return{status:"committed" as const,result:replayCommandResult(row.result,storeId,receipt)};}
     if(receipt && receipt.kind!=="operation.cancelled") return {status:"committed" as const,snapshot:{...projectState(await loadState(tx,storeId,member),member),operation:receipt}};
     if(!receipt){
       await tx`insert into chinatech_v2_private.command_receipts(store_id,actor_id,request_id,digest) values(${storeId},${identity.userId},${requestId},'cancelled')`;

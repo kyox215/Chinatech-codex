@@ -45,3 +45,8 @@
 新增状态页：[ChinaTech UI](https://www.figma.com/design/nhZ37YLOUVP8zpDBBGihhS?node-id=15167-209297)。`figma-state.json`保存18个变体、变量/字体和可编辑结构证据，`original-components.json`索引原按钮/输入/选择/分页/Tab/Card/表格；它们不是整份Figma文件导出。`previews/`保留设计图和实际DEMO截图，`catalog.tsx`直接使用实际共享组件。实际验收与限制见`verification.md`。
 
 手机标题图标的真实DEMO截图也归档在`previews/mobile-toolbar-*`：两引擎、同型号新建/关联工单、空闲/真实导航等待共8张；保留原页面、标题、44px按钮及单圈。它们证明该场景的实际界面，不代表正式账号数据。
+
+
+## 2026-10-17 本地候选：列表触底追加
+
+用户要求所有已有分页列表触底自动追加、去掉上下页。复用原列表footer、按钮与token，在客户、设备、整机及目录/登录设备原读取边界维护行为；旧整机page链接兼容累计批次。见[候选及验收边界](previews/infinite-lists-20261017.md)。未修改正式baseline、未部署，不把客户端分批呈现称为服务端按需读取。

@@ -1,9 +1,9 @@
 "use client";
 import { OperationRecoveryControls, useOperationReceipt } from "@/components/use-operation-receipt";
-import { subscribeRecovery } from "@/lib/backend/client";
+import { backendRecovery,subscribeRecovery } from "@/lib/backend/client";
 import { useLanguage } from "@/components/language-provider";
 import { repairItemText } from "@/lib/i18n/repair-display";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect,useId, useRef, useState,type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { History, PackageSearch, Pencil, X } from "lucide-react";
 import { RepairProjectControls, type RepairProjectConfirmation } from "./repair-project-controls";
@@ -25,7 +25,7 @@ export function RepairProcurementShortcut({ repairId, onOpen }: { repairId: stri
   return <button id={`repair-action-${repairId}`} className="button button--secondary" type="button" onClick={() => onOpen(repairId)} aria-label={t("{v0} 配件{v1}", { v0: repairId, v1: canEdit ? t("操作") : t("详情") })} title={canEdit ? t("配件操作") : t("配件详情")}><PackageSearch size={17} aria-hidden="true" /><span>{t("配件")}</span></button>;
 }
 // Dialog lives outside groups; marking a part may move its work order into another group.
-export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "", initialRequirementId }: { repairId: string | null; onClose: () => void; initialRecordId?: string; initialMode?: "view" | "add"; initialRequirementId?: string }) {
+export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "", initialRequirementId,onConfirmed,readFailure }: { repairId: string | null; onClose: () => void; initialRecordId?: string; initialMode?: "view" | "add"; initialRequirementId?: string;onConfirmed?:(requestId:string)=>void;readFailure?:ReactNode }) {
   const { t, locale, systemText } = useLanguage();
   const canEdit = useStaff().can("repairs.edit");
   const { records, storageError } = useProcurement();
@@ -47,10 +47,11 @@ export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "
   const selected = relatedRows.find(row => row.id === selectedId) ?? relatedRows.find(isPreorder) ?? relatedRows[0];
   const releaseOwner = useCallback((requestId: string, confirmed = false) => {
     if (owner.current !== requestId) return;
+    if(confirmed&&backendRecovery().receipt?.requestId===requestId)onConfirmed?.(requestId);
     if (confirmed && projectOwner.current?.requestId === requestId) setConfirmedProject(projectOwner.current);
     projectOwner.current = null; retainOwner.current = false;
     owner.current = null; busy.current = false; setPending(false); setRecoveryRequestId(null);
-  }, []);
+  }, [onConfirmed]);
   const setOperationPending = (value: boolean, requestId?: string, project?: RepairProjectConfirmation, retainUntilReleased = false) => {
     if (!requestId) return false;
     if (value) {
@@ -81,7 +82,7 @@ export function RepairProcurementDialog({ repairId, onClose, initialRecordId = "
   const close = () => { if (!busy.current) onClose(); };
   return createPortal(<dialog className="repair-parts-dialog repair-part-dialog repair-items-dialog repair-procurement-dialog" ref={dialog} aria-labelledby={titleId} aria-busy={pending} onClose={close} onCancel={event => { if (busy.current) event.preventDefault(); }} onClickCapture={event => { if (busy.current && !(event.target instanceof Element && event.target.closest("[data-operation-recovery]"))) { event.preventDefault(); event.stopPropagation(); } }} onSubmitCapture={event => { if (busy.current) { event.preventDefault(); event.stopPropagation(); } }}>
     <header><div><small>{repairId}</small><h2 id={titleId}>{t("供应商与配件")}</h2></div><button className="icon-button" type="button" disabled={pending} onClick={close} aria-label={t("关闭配件操作")}><X size={20} /></button></header>
-    <div className="repair-procurement-dialog__body" data-combobox-boundary><fieldset className="form-fields" disabled={pending}>
+    <div className="repair-procurement-dialog__body" data-combobox-boundary>{readFailure}<fieldset className="form-fields" disabled={pending}>
     {storageError ? <p className="form-error" role="alert">{systemText(storageError)}</p> : null}
     {order && currentRepairRequirements(order, workflows[order.id]).length === 0 ? <RepairProjectControls order={order} records={records} onPendingChange={setOperationPending}/> : null}
     <RepairItemsForm key={repairId} repairId={repairId} requirementId={initialRequirementId} confirmedProject={confirmedProject} onSaved={close} onCancel={close} onPendingChange={setOperationPending} footerTarget={footerTarget} dialogPending={pending} />

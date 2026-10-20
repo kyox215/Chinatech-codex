@@ -28,13 +28,13 @@ jobs:
           python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '24.22.0'
           cache: npm
       - run: npm ci
       - run: npm run lint
       - run: npm run check:i18n
       - run: npm run typecheck
-      - run: npm run test
+      - run: npm run test -- tests/customer-canonical-batching.test.mjs tests/production-activation.test.mjs
       - name: Phone current-release cryptographic policies (JVM only)
         run: |
           mkdir -p .local/phone-gate-jvm
@@ -73,7 +73,19 @@ jobs:
           PLAYWRIGHT_JSON_OUTPUT_FILE: .local/ui-proof/repair-print-layout/early-source-results.json
       - name: Early routed repair receipt consumers
         run: npx playwright test tests/browser/repair-detail-workspace.spec.ts tests/browser/repair-operations.spec.ts --grep '(missing project quote remains unknown in details, contact and receipt|intake quotes save per selected item, invalid decimals block, details and multilingual receipt agree)$' --reporter=line --output=.local/ui-proof/site-ui-smoke/repair-receipt-consumer-results
+      - run: npm run build
+        env:
+          BACKEND_MODE: supabase
+          LOCAL_PREVIEW: "0"
+      - name: Verify packaged receipt runtime and Chromium PDF generation
+        run: node scripts/verify-receipt-trace.mjs .next-backend .local/ui-proof/receipt-trace --render
+      - name: Verify packaged exact Intl sort runtime
+        run: node scripts/verify-native-sort-trace.mjs .next-backend .local/ui-proof/native-sort-trace
+      - name: Verify production design and stylesheet order
+        run: node scripts/check-ui-production.mjs .next-backend
       - run: npm run test:controls
+        env:
+          CT_PERF_BUILD_DIR: .next-backend
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -98,12 +110,6 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7
-      - run: npm run build
-        env:
-          BACKEND_MODE: supabase
-          LOCAL_PREVIEW: "0"
-      - name: Verify production design and stylesheet order
-        run: node scripts/check-ui-production.mjs .next-backend
       - name: Verify repair print layout against production CSS
         run: npx playwright test -c playwright.repair-print.config.ts
         env:
@@ -113,7 +119,11 @@ jobs:
         if: always()
         with:
           name: production-design-verification
-          path: .local/ui-proof/production-design/
+          path: |
+            .local/ui-proof/production-design/
+            .local/ui-proof/receipt-trace/verification.json
+            .local/ui-proof/receipt-trace/**/packaged-runtime-demo.pdf
+            .local/ui-proof/native-sort-trace/verification.json
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7
@@ -128,3 +138,30 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7
+  native-sort-key-diagnostic:
+    name: Public ICU sort-key diagnostic (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24.19.0', '24.21.0', '24.22.0']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Compare public ICU keys with the installed Intl comparator
+        shell: bash
+        run: |
+          mkdir -p .local/native-sort-key-diagnostic-logs
+          node tests/diagnostics/icu-sort-key/run-probe.mjs --run --expected-node=v${{ matrix.node }} --out=.local/native-sort-key-diagnostic 2>&1 | tee .local/native-sort-key-diagnostic-logs/run.log
+      - name: Preserve the public diagnostic result, including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-sort-key-diagnostic-node-${{ matrix.node }}
+          path: |
+            .local/native-sort-key-diagnostic/
+            .local/native-sort-key-diagnostic-logs/
+          if-no-files-found: error

@@ -1,5 +1,15 @@
 /** Static display messages. Do not use these translations as business values. */
 export const interfaceMessages: Record<string, readonly [string, string]> = {
+  "当前窗口 {v0}–{v1} / {v2} 条": ["Finestra corrente {v0}–{v1} / {v2}", "Current window {v0}–{v1} / {v2}"],
+  "列表加载": ["Caricamento elenco", "List loading"],
+  "客户历史整机加载": ["Caricamento dispositivi storici del cliente", "Customer historical device loading"],
+  "整机商品加载": ["Caricamento dispositivi", "Device loading"],
+  "设备目录加载": ["Caricamento catalogo dispositivi", "Device catalog loading"],
+  "登录设备加载": ["Caricamento dispositivi connessi", "Login device loading"],
+  "已显示 {v0} / {v1} 条": ["Visualizzati {v0} / {v1}", "Showing {v0} / {v1}"],
+  "已显示 {v0} 条": ["Visualizzati {v0}", "Showing {v0}"],
+  "已全部显示": ["Tutti gli elementi visualizzati", "All items shown"],
+  "加载更多": ["Carica altri", "Load more"],
   "业务记录": ["Registrazioni operative", "Business records"],
   "照片预留不存在。": ["Prenotazione foto non trovata.", "Photo reservation not found."],
   "原件已保存，容量继续计入。": ["L’originale è salvato e continua a occupare spazio.", "The original is stored and continues to count toward storage usage."],

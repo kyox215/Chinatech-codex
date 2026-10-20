@@ -24,7 +24,11 @@ function requireEventOrigin(request: Request) {
   const origin = request.headers.get("origin");
   // Native EventSource GETs may omit Origin. Explicit foreign origins are refused.
   if (request.headers.get("sec-fetch-site") === "cross-site" || (origin !== null && origin !== expected.origin)) throw new BackendError("请求来源无效。", 403);
-  if (new URL(request.url).search) throw new BackendError("请求字段无效。", 400);
+  const params = new URL(request.url).searchParams;
+  // Native EventSource supplies its explicit store scope in the URL. The
+  // authenticated access lookup below still checks the current membership.
+  const storeId = params.get("storeId");
+  if ([...params.keys()].some(key => key !== "storeId") || params.getAll("storeId").length > 1 || storeId !== null && !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(storeId) || storeId !== null && request.headers.has("x-ct-store-id") && request.headers.get("x-ct-store-id") !== storeId) throw new BackendError("请求字段无效。", 400);
 }
 
 function guardAbort(request: Request) {

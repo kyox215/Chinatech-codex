@@ -1,4 +1,5 @@
 import postgres, { type TransactionSql } from "postgres";
+import {observe,observeTime,observedTransaction} from "./request-observation";
 
 export type AuthIdentity = { userId: string; sessionId: string };
 let connection: ReturnType<typeof postgres> | undefined;
@@ -18,28 +19,62 @@ export async function enrollLogin(identity: AuthIdentity, remember: boolean, bro
     await tx`select chinatech_v2_private.enroll_login_session(${remember},${browser},${os})`;
   });
 }
-export async function withDatabase<T>(identity: AuthIdentity, storeId: string | null, run: (tx: TransactionSql) => Promise<T>): Promise<T> {
+async function databaseTransaction<T>(identity: AuthIdentity, storeId: string | null, run: (tx: TransactionSql) => Promise<T>,isolation:"serializable"|"read committed"): Promise<T> {
   for (let attempt = 0; ; attempt++) {
-    try { return await database().begin("isolation level serializable", async tx => {
+    const acquiring=performance.now();let callbackEnded:number|undefined,attemptEnded:number|undefined;
+    try { return await database().begin("isolation level "+isolation, async rawTx => {
+    observe("db_acquire",performance.now()-acquiring);
+    const tx=observedTransaction(rawTx);
+    try{
+    await observeTime("db_session",async()=>{
     await tx`select set_config('request.jwt.claims',${JSON.stringify({ sub: identity.userId, session_id: identity.sessionId, role: "authenticated" })},true), set_config('app.store_id',${storeId ?? ""},true),set_config('statement_timeout','10000',true)`;
     // Lock the project session before checking validity; revocation serializes with writes.
+    await observeTime("db_lock",async()=>{
     const locked = await tx`select session_id from chinatech_v2_private.login_sessions where session_id=${identity.sessionId} and user_id=${identity.userId} for share`;
     if (!locked.length) {
       await tx`select chinatech_v2_private.adopt_cutover_login_session()`;
       await tx`select session_id from chinatech_v2_private.login_sessions where session_id=${identity.sessionId} and user_id=${identity.userId} for share`;
     }
-    const [live] = await tx<{ live: boolean }[]>`select chinatech_v2_private.live_user() as live`;
+    });
+    const [live] = await observeTime("db_live",async()=>tx<{ live: boolean }[]>`select chinatech_v2_private.live_user() as live`);
     if (!live?.live) throw new BackendError("会话已失效，请重新登录。", 401);
-    return await run(tx);
+    });
+    return await observeTime("db_work",()=>run(tx));
+    }finally{callbackEnded=performance.now();}
     }) as T; }
     catch (error) {
+      attemptEnded=performance.now();
       // Retry the WHOLE transaction, including session, membership and versions.
       // Business conflicts and unknown commit outcomes must never be retried here.
       const code = typeof error === "object" && error !== null && "code" in error ? error.code : null;
+      observe(error instanceof StoreSessionRequired?"db_enroll_needed":code==="40001"?"db_40001":code==="40P01"?"db_40p01":"db_error",0);
       if ((code !== "40001" && code !== "40P01") || attempt >= 2) throw error;
+      observe("db_retry",0);
       await new Promise(resolve => setTimeout(resolve, 25 * (attempt + 1)));
-    }
+    }finally{const ended=attemptEnded??performance.now();observe("db_total",ended-acquiring);if(callbackEnded!==undefined)observe("db_finish",ended-callbackEnded);else observe("db_acquire",ended-acquiring);}
   }
+}
+export function withDatabase<T>(identity:AuthIdentity,storeId:string|null,run:(tx:TransactionSql)=>Promise<T>){return databaseTransaction(identity,storeId,run,"serializable");}
+// Internal read admission only. No canonical mutation or operation receipt is
+// retried through this branch. The interrupted read has not read business data.
+export class StoreSessionRequired extends Error {constructor(readonly storeId:string){super();}}
+export async function withReadDatabase<T>(identity:AuthIdentity,storeId:string|null,run:(tx:TransactionSql)=>Promise<T>):Promise<T>{
+ try{return await withDatabase(identity,storeId,run);}catch(error){
+  if(!(error instanceof StoreSessionRequired))throw error;
+  const target=error.storeId;
+  if(!/^[a-f0-9-]{36}$/i.test(target)||storeId!==null&&target!==storeId)throw new BackendError("此设备无法访问本门店，请重新登录或联系老板。",403);
+  // Register this session once outside the serializable business snapshot.
+  // Concurrent cold arrivals otherwise read each other's admission predicates
+  // while inserting their own rows, creating SSI cycles even for distinct IDs.
+  await databaseTransaction(identity,target,async tx=>{
+   const [allowed]=await tx`select chinatech_v2_private.member_access(${target}) as allowed`;
+   if(!allowed?.allowed)throw new BackendError("此设备无法访问本门店，请重新登录或联系老板。",403);
+   await observeTime("db_enroll",async()=>tx`insert into chinatech_v2_private.store_login_sessions(store_id,session_id,user_id) values(${target},${identity.sessionId},${identity.userId}) on conflict do nothing`);
+  },"read committed");
+  // Authorization, session locks, member revision and all business reads are
+  // re-evaluated in a new serializable snapshot after registration commits.
+  return withDatabase(identity,storeId,run);
+ }
 }
 export class BackendError extends Error {
   constructor(message: string, public status = 400, public code?: string) { super(message); }

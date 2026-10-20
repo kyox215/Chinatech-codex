@@ -1,3 +1,4 @@
+import { BackendPageFrame } from "@/components/backend-page-frame";
 import type { Metadata } from "next";
 import { RetailForm } from "@/components/retail/retail-form";
 
@@ -7,5 +8,5 @@ export default async function RetailNewPage({ searchParams }: { searchParams: Pr
   const copy = typeof params.copy === "string" ? params.copy : undefined;
   const identifier = typeof params.identifier === "string" ? params.identifier : undefined;
   const kind = typeof params.kind === "string" ? params.kind : undefined;
-  return <RetailForm key={`${copy ?? "blank"}-${identifier ?? ""}-${kind ?? ""}`} copyId={copy} identifier={identifier} kind={kind} />;
+  return <BackendPageFrame plan={{ kind: "retail-new",...(copy?{id:copy}:{}) }}><RetailForm key={`${copy ?? "blank"}-${identifier ?? ""}-${kind ?? ""}`} copyId={copy} identifier={identifier} kind={kind} /></BackendPageFrame>;
 }

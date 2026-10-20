@@ -1,37 +1,59 @@
 "use client";
-import { useLanguage } from "@/components/language-provider";
-import { InputControl } from "@/components/input-control";
-import { NavigationLink as Link } from "@/components/navigation-link";
-import { useState } from "react";
-import { Search, Smartphone, Tablet, Laptop, Gamepad2, CircleHelp, History, Wrench, ShoppingBag } from "lucide-react";
-import { PageTitle } from "@/components/page-title";
-import { useLocalIntakes, useRepairDirectory } from "@/components/repairs/local-intake-store";
-import { useRetail } from "@/components/retail/retail-provider";
-import { ReadFailure, ReadPending } from "@/components/page-recovery";
-import { ListPagination, listPageSize } from "@/components/list-pagination";
-import { customerId } from "@/lib/customers";
-function profileHref(phone: string) { try { return `/app/customers/${customerId(phone)}`; } catch { return "/app/customers"; } }
-type DeviceRecord = { key: string; category: string; model: string; serial: string; records: { id: string; phone: string; time: string; type: "repair" | "sale"; href: string }[] };
-const deviceIcons: Record<string, typeof Smartphone> = { 手机: Smartphone, 平板: Tablet, 电脑: Laptop, 游戏机: Gamepad2, phone: Smartphone, tablet: Tablet, laptop: Laptop, desktop: Laptop, console: Gamepad2 };
-function latestDeviceTime(device: DeviceRecord) { return device.records.reduce((latest, record) => record.time > latest ? record.time : latest, ""); }
-export function CustomerDevices() {
-  const { t } = useLanguage();
-  const repairs = useRepairDirectory(); const { units, ready: retailReady, error: retailError } = useRetail(); const local = useLocalIntakes(); const ready = local.ready && retailReady; const error = local.error || retailError; const [page, setPage] = useState(1); const [query, setQuery] = useState("");
-  const devices = new Map<string, DeviceRecord>();
-  for (const repair of repairs) {
-    const serial = repair.device.serial.trim().toUpperCase().replace(/\s/g, "");
-    const key = serial ? `${/^\d{15}$/.test(serial) ? "IMEI" : repair.device.brand.trim().toUpperCase()}:${serial}` : `repair:${repair.id}`;
-    const device = devices.get(key) ?? { key, category: repair.device.category, model: `${repair.device.brand} ${repair.device.model}`, serial, records: [] };
-    device.records.push({ id: repair.id, phone: repair.customer.phone, time: repair.createdAt, type: "repair", href: `/app/repairs/${repair.id}` }); devices.set(key, device);
-  }
-  for (const unit of units) for (const sale of unit.sales) {
-    if (!sale.customerPhone) continue;
-    // A sold store unit stays a separate physical identity; no merge from model alone.
-    const key = `retail:${unit.id}`;
-    const device = devices.get(key) ?? { key, category: unit.category, model: `${unit.brand} ${unit.model}`, serial: unit.imei1 || unit.serial || unit.code, records: [] };
-    device.records.push({ id: unit.code, phone: sale.customerPhone, time: sale.time, type: "sale", href: `/app/retail/units/${unit.id}` }); devices.set(key, device);
-  }
-  const rows = [...devices.values()].filter(device => `${device.model} ${device.serial} ${device.records.map(row => `${row.phone} ${row.id}`).join(" ")}`.toLowerCase().includes(query.trim().toLowerCase())).sort((a,b) => latestDeviceTime(b).localeCompare(latestDeviceTime(a)));
-  const pages = Math.max(1, Math.ceil(rows.length / listPageSize)); const currentPage = Math.min(page, pages); const visible = rows.slice((currentPage - 1) * listPageSize, currentPage * listPageSize);
-  return <main className="module-page"><header className="module-heading"><PageTitle title={t("客户设备")} /><Link className="button button--secondary button--compact" href="/app/customers">{t("客户档案")}</Link></header><section className="panel customer-device-panel"><label className="module-search"><Search size={18} /><InputControl onClear={() => { setQuery(""); setPage(1); }} clearLabel={t("清空搜索客户设备")} aria-label={t("搜索客户设备")} value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} placeholder={t("型号、SN / IMEI、手机号")} /></label>{error ? <ReadFailure message={error} /> : null}{!ready ? <ReadPending label="正在读取客户设备…" /> : error && !rows.length ? null : <><div className="customer-device-grid">{visible.map(device => { const Icon = deviceIcons[device.category] ?? CircleHelp; return <article className="customer-device-card" key={device.key}><header><span className="device-glyph"><Icon size={20} /></span><div><strong>{device.model}</strong><small>SN / IMEI：{device.serial || t("未记录")}</small></div></header><details><summary><History size={16} />{t("设备记录 ")}<small>{device.records.length}</small></summary>{device.records.toSorted((a,b) => b.time.localeCompare(a.time)).map((row,index) => <div key={`${row.type}-${row.id}-${index}`}><Link href={row.href}>{row.type === "repair" ? <Wrench size={15} /> : <ShoppingBag size={15} />}{row.id}</Link><small>{row.time}</small><Link href={profileHref(row.phone)}>{row.phone}</Link></div>)}</details></article>; })}</div>{!rows.length ? <div className="module-empty"><Smartphone size={28} /><strong>{t("没有匹配的设备")}</strong></div> : null}<ListPagination page={currentPage} pages={pages} total={rows.length} onChange={setPage} /></>}</section></main>;
+import{useLanguage}from'@/components/language-provider';
+import{InputControl}from'@/components/input-control';
+import{NavigationLink as Link}from'@/components/navigation-link';
+import{useEffect,useRef,useState,type ReactNode,type MouseEvent}from'react';
+import{useSearchParams}from'next/navigation';
+import{Search,Smartphone,Tablet,Laptop,Gamepad2,CircleHelp,History,Wrench,ShoppingBag}from'lucide-react';
+import{PageTitle}from'@/components/page-title';
+import{useLocalIntakes,useRepairDirectory}from'@/components/repairs/local-intake-store';
+import{useRetail}from'@/components/retail/retail-provider';
+import{ReadFailure,ReadPending}from'@/components/page-recovery';
+import{ListPagination,useListWindow}from'@/components/list-pagination';
+import{WindowedListRows}from'@/components/windowed-list-rows';
+import{useBackendState}from'@/components/backend-snapshot';
+import{useStaff}from'@/components/staff/use-staff';
+import{backendSnapshot,subscribeBackend,replaceBackendDocumentUrl}from'@/lib/backend/client';
+import{backendScopeKey}from'@/lib/backend/read-plan';
+import{customerId}from'@/lib/customers';
+import{buildCustomerDevices,queryCustomerDevices,type CustomerDeviceRecord}from'@/lib/customer-devices';
+import{customerDeviceLocation,rememberCustomerDevicePosition,bindCustomerDevicePosition}from'@/lib/customer-device-location';
+import type{CustomerDeviceSummary,CustomerDeviceRecordSummary}from'@/lib/backend/customer-device-contract';
+import{useCustomerDevicePage}from'./use-customer-device-page';
+import{CustomerDeviceGrid,type CustomerDeviceGridProps}from'./customer-device-grid';
+import{CustomerDeviceOriginal}from'./customer-device-original';
+const deviceIcons:Record<string,typeof Smartphone>={手机:Smartphone,平板:Tablet,电脑:Laptop,游戏机:Gamepad2,phone:Smartphone,tablet:Tablet,laptop:Laptop,desktop:Laptop,console:Gamepad2};
+function profileHref(phone:string){try{return`/app/customers/${customerId(phone)}`;}catch{return'/app/customers';}}
+function DeviceRecord({row,onClick,returnTo,resolveReturnTo}:{row:CustomerDeviceRecord;onClick?:(event:MouseEvent<HTMLAnchorElement>,target:'record'|'customer')=>void;returnTo?:{record:string;customer:string};resolveReturnTo?:(anchor:HTMLAnchorElement,target:'record'|'customer')=>string|null}){
+ const{t}=useLanguage(),staff=useStaff();
+ function href(target:'record'|'customer',location?:string){const base=target==='record'?row.href:profileHref(row.phone);return location?base+'?'+new URLSearchParams({returnTo:location,...(target==='record'&&row.type==='sale'?{source:'unit'}:{})}):base;}
+ function resolve(anchor:HTMLAnchorElement,target:'record'|'customer'){const location=resolveReturnTo?.(anchor,target);return location?href(target,location):null;}
+ return <div className="customer-device-record"><Link href={href('record',returnTo?.record)} resolveHref={resolveReturnTo?anchor=>resolve(anchor,'record'):undefined} data-device-target="record" onClick={event=>onClick?.(event,'record')}>{row.type==='repair'?<Wrench size={15}/>:<ShoppingBag size={15}/>}<span>{row.id}</span></Link><small>{row.time}</small>{staff.can('customers.view')?<Link href={href('customer',returnTo?.customer)} resolveHref={resolveReturnTo?anchor=>resolve(anchor,'customer'):undefined} data-device-target="customer" onClick={event=>onClick?.(event,'customer')} aria-label={t('客户档案')+' '+row.phone}>{row.phone}</Link>:<span>{row.phone}</span>}</div>;
 }
+function DeviceCard({device,open,onToggle,records,version}:{device:CustomerDeviceSummary;version:string;open:boolean;onToggle:(value:boolean)=>void;records:ReactNode}){
+ const{t}=useLanguage(),Icon=deviceIcons[device.category]??CircleHelp;
+ return <article className="customer-device-card" data-device-id={device.id} tabIndex={-1}><header><span className="device-glyph"><Icon size={20}/></span><div><strong>{device.model}{device.previews.includes('model')?'…':''}</strong><small>SN / IMEI：{device.serial||t('未记录')}{device.previews.includes('serial')?'…':''}</small></div></header>{device.previews.length?<CustomerDeviceOriginal deviceId={device.id} version={version}/>:null}<details open={open} onToggle={event=>onToggle(event.currentTarget.open)}><summary><History size={16}/>{t('设备记录 ')}<small>{device.recordCount}</small></summary>{open?records:null}</details></article>;
+}
+function DeviceBody({query,onQuery,items,total,shown,hasMore,loadMore,ready,pending,error,onRetry,cards,renderRecords,initialOpen,resetKey}:{query:string;onQuery:(q:string)=>void;items:CustomerDeviceSummary[];total:number;shown:number;hasMore:boolean;loadMore:()=>void;ready:boolean;pending:boolean;error:string;onRetry?:()=>void;cards:Omit<CustomerDeviceGridProps,'items'|'render'|'total'>;renderRecords:(item:CustomerDeviceSummary)=>ReactNode;initialOpen?:string;resetKey:string}){
+ const{t}=useLanguage(),staff=useStaff(),[open,setOpen]=useState(()=>new Set(initialOpen?[initialOpen]:[]));
+ return <main className="module-page"><header className="module-heading"><PageTitle title={t('客户设备')}/>{staff.can('customers.view')?<Link className="button button--secondary button--compact" href="/app/customers">{t('客户档案')}</Link>:null}</header><section className="panel customer-device-panel"><label className="module-search"><Search size={18}/><InputControl type="search" maxLength={160} value={query} onChange={event=>onQuery(event.target.value)} onClear={()=>onQuery('')} clearLabel={t('清空搜索客户设备')} aria-label={t('搜索客户设备')} placeholder={t('型号、SN / IMEI、手机号')}/></label>{error?<ReadFailure message={error} pending={pending} onRetry={onRetry}/>:null}{!ready&&!error&&pending?<ReadPending label="正在读取客户设备…"/>:null}{ready?<><CustomerDeviceGrid {...cards} items={items} total={total} render={device=><DeviceCard device={device} version={cards.version??""} open={open.has(device.id)} onToggle={value=>setOpen(previous=>{if(previous.has(device.id)===value)return previous;const next=new Set(previous);if(value)next.add(device.id);else next.delete(device.id);return next;})} records={open.has(device.id)?renderRecords(device):null}/>}/>{!items.length&&!error?<div className="module-empty"><Smartphone size={28}/><strong>{t('没有匹配的设备')}</strong></div>:null}<ListPagination shown={shown} total={total} hasMore={hasMore} onLoadMore={loadMore} resetKey={resetKey} loading={pending} disabled={!!error} label={t('客户设备')}/></>:null}</section></main>;
+}
+function LegacyCustomerDevices(){
+ const repairs=useRepairDirectory(),retail=useRetail(),local=useLocalIntakes(),[query,setQuery]=useState(''),rows=queryCustomerDevices(buildCustomerDevices(repairs,retail.units),query),window=useListWindow(rows.length,query),visible=rows.slice(0,window.limit),items=visible.map(row=>({id:row.key,category:row.category,model:row.model,serial:row.serial,recordCount:row.records.length,latestAt:'',previews:[]}));
+ return <DeviceBody query={query} onQuery={setQuery} items={items} total={rows.length} shown={visible.length} hasMore={visible.length<rows.length} loadMore={window.loadMore} ready={local.ready&&retail.ready} pending={!local.ready||!retail.ready} error={local.error||retail.error} resetKey={window.resetKey} cards={{startIndex:0,version:query}} renderRecords={device=>rows.find(row=>row.key===device.id)?.records.toSorted((a,b)=>b.time.localeCompare(a.time)).map((row,i)=><DeviceRecord key={row.type+':'+row.id+':'+i} row={row}/>)}/>;
+}
+function DeviceRecords({deviceId,version,query,anchor,deviceOffset,recordOffset,recordTarget}:{deviceId:string;version:string;query:string;anchor?:string;deviceOffset:number;recordOffset:number;recordTarget:'record'|'customer'}){
+ const{t}=useLanguage(),root=useRef<HTMLDivElement>(null),page=useCustomerDevicePage<CustomerDeviceRecordSummary>({kind:'records',deviceId,q:''},anchor),data=page.page,previousVersion=useRef(version);
+ useEffect(()=>{if(previousVersion.current!==version){previousVersion.current=version;page.retry();}},[version,page]);
+ function locationFor(element:HTMLAnchorElement,row:CustomerDeviceRecordSummary,target:'record'|'customer'){const scope=backendSnapshot()?.read?.scope;if(!scope||!data||backendScopeKey(scope)!==backendScopeKey(data.scope))return null;const card=element.closest('[data-device-id]');return customerDeviceLocation(query,deviceId,card?.getBoundingClientRect().top??0,row.id,element.getBoundingClientRect().top,target);}
+ function remember(event:MouseEvent<HTMLAnchorElement>,row:CustomerDeviceRecordSummary,target:'record'|'customer'){if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;const location=locationFor(event.currentTarget,row,target),scope=backendSnapshot()?.read?.scope;if(!location||!scope)return;rememberCustomerDevicePosition(backendScopeKey(scope),new URL(event.currentTarget.href).pathname,location);replaceBackendDocumentUrl(location);}
+ return <div ref={root} className="customer-device-record-window">{page.error?<ReadFailure message={page.error} pending={page.pending} onRetry={page.retry}/>:null}{!data&&!page.error&&page.pending?<ReadPending label="正在读取客户设备…"/>:null}{data?<><WindowedListRows items={data.items} startIndex={data.startIndex} total={data.total} extent={page.extent} rowKey={row=>row.id} estimate={72} version={data.stateToken} pending={page.pending} scrollRoot={root} initialAnchor={anchor} initialOffset={recordOffset} anchorSelector={'a[data-device-target="'+recordTarget+'"]'} onAnchor={row=>page.rememberAnchor(row.id)} onSeek={page.seek} onLoadPrevious={page.loadPrevious} render={(row,props)=><div {...props} key={row.id}><DeviceRecord row={{id:row.displayId,phone:row.phone,time:row.time,type:row.type,href:row.href}} returnTo={{record:customerDeviceLocation(query,deviceId,deviceOffset,row.id,row.id===anchor?recordOffset:0,'record'),customer:customerDeviceLocation(query,deviceId,deviceOffset,row.id,row.id===anchor?recordOffset:0,'customer')}} resolveReturnTo={(element,target)=>locationFor(element,row,target)} onClick={(event,target)=>remember(event,row,target)}/></div>}/><ListPagination shown={data.startIndex+data.items.length} total={data.total} hasMore={!!data.nextCursor} onLoadMore={page.loadMore} loading={page.pending} disabled={!!page.error} resetKey={page.resetKey} label={t('设备记录 ')}/></>:null}</div>;
+}
+function FormalCustomerDevices(){
+ const{t}=useLanguage();const backend=useBackendState(),params=useSearchParams(),staff=useStaff(),query=params.get('q')??'',anchor=params.get('anchor')??undefined,record=params.get('record')??undefined,recordTarget=params.get('recordTarget')==='customer'?'customer':'record',offset=Math.max(-2000,Math.min(2000,Number(params.get('offset'))||0)),recordOffset=Math.max(-2000,Math.min(2000,Number(params.get('recordOffset'))||0)),page=useCustomerDevicePage<CustomerDeviceSummary>({kind:'devices',deviceId:'',q:query},anchor),data=page.page;
+ useEffect(()=>bindCustomerDevicePosition(()=>{const scope=backendSnapshot()?.read?.scope;return scope?backendScopeKey(scope):null;},subscribeBackend),[]);
+ function setQuery(q:string){replaceBackendDocumentUrl(customerDeviceLocation(q));}
+ if(!staff.can('repairs.view')&&!staff.can('retail.view'))return <main className="module-page"><PageTitle title={t("客户设备")}/><section className="panel module-empty">{staff.ready?t('当前账号没有此操作权限。'):null}</section></main>;
+ return <DeviceBody query={query} onQuery={setQuery} items={data?.items??[]} total={data?.total??0} shown={data?data.startIndex+data.items.length:0} hasMore={!!data?.nextCursor} loadMore={page.loadMore} ready={!!data} pending={page.pending} error={page.error} onRetry={page.retry} initialOpen={record?anchor:undefined} resetKey={page.resetKey} cards={{startIndex:data?.startIndex??0,extent:page.extent,version:data?.stateToken,pending:page.pending,onSeek:page.seek,onLoadPrevious:page.loadPrevious,onAnchor:item=>page.rememberAnchor(item.id),anchor,offset,active:backend.active}} renderRecords={device=><DeviceRecords key={device.id} deviceId={device.id} version={data?.stateToken??''} query={query} anchor={device.id===anchor?record:undefined} deviceOffset={offset} recordOffset={recordOffset} recordTarget={recordTarget}/>}/>;
+}
+export function CustomerDevices(){const backend=useBackendState(),scope=backend.snapshot?.read?.scope;return backend.snapshot?.customerDeviceEnabled?<FormalCustomerDevices key={scope?backendScopeKey(scope):''}/>:<LegacyCustomerDevices/>;}

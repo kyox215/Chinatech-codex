@@ -1,12 +1,17 @@
 # 公共组件与样式复用规范
 
+## 本地性能观测（2026-10-17，待实际构建验收）
+
+`LocalWebVitals` 复用本装 Next 的 `useReportWebVitals`，返回 null，不新增可见控件、布局、状态槽或 Figma 变体。根 layout 仅在 `LOCAL_WEB_VITALS=1`、非 Vercel 且 `APP_ORIGIN` 为严格本机 origin 时挂载，默认关闭。模块级稳定回调仅向本机浏览器 console 输出固定指标名、有限数值及 rating/navigationType 枚举，不读取或输出 metric id、entries、归因、地址、客户资料，不发网络请求。
+
+这类指标属于当前 document 的 Web Vitals，不能把 SPA 路由或隐藏页面时才上报的结果当成各路由首屏耗时；实际 Chrome 日志、独立浏览器样本与服务端请求计时分别记证。原三语布局、操作反馈、权限及业务写入不受影响。离线反例只证明开关与字段边界，不能替代实际构建或浏览器指标。
 ## 2026-10-18 公共设备目录读取契约
 
 `DeviceCatalogControl` 复用原 `SearchCombobox`、windowing、系列筛选、型号元信息、手填与重试；基础参考数据改读 `useDeviceDirectoryIndex`，不等待 `BackendProvider.active`／门店 memberRevision。`CatalogIndexPreload`／`DeviceDirectoryPreload` 只静默预热，禁用／关闭字段不触发查询或 busy；打开控件的真实冷读才显示原位置等待与 2px 内容细线。有完整旧版本时更新失败保留候选与原值，在既有 footer 显示三语“目录更新失败，继续使用已缓存目录。”及重试，不能把后台失败改成无匹配或持续转圈。
 
 手机型号sheet显式处理可见、有效焦点的Tab／Shift+Tab首尾循环，排除disabled／inert；展开modal不沿普通inline blur-dismiss，X／Escape／遮罩／明确选定仍走原取消或提交入口。窗口Tab进入浏览器区域或虚拟行变化不能关闭面板、不能暗中确认原文。
 
-基础参考 cache 使用公共格式键，跨登录／退出／门店保留；门店原文仍由原 owner 的 `historicalOptions` 本地合并，不能进入公共快照。私有目录管理 `catalogScope`／`useCatalogRead` 的防旧响应契约保留。品牌／型号确认、取消、IME、桌面 blur、新建品牌联动及已保存事实规则不变。视觉沿已归档 Figma15322:210106／210151／210197／210262 与原 Input／Buttons/token；无新 CSS／图标／组件视觉。本轮证据见 [交付记录](../ui-design/previews/global-device-directory-20261018.md)。
+基础参考 cache 使用公共格式键，跨登录／退出／门店保留；门店原文仍由领域 owner 的 `historicalOptions` 或受授权分页的 `HistoricalCatalogSource` 提供，私有历史查询、计数、重试与选择保留原契约，不能进入公共快照。私有目录管理 `catalogScope`／`useCatalogRead` 的防旧响应契约保留。品牌／型号确认、取消、IME、桌面 blur、新建品牌联动及已保存事实规则不变。视觉沿已归档 Figma15322:210106／210151／210197／210262 与原 Input／Buttons/token；无新 CSS／图标／组件视觉。本轮证据见 [交付记录](../ui-design/previews/global-device-directory-20261018.md)。
 
 ## 2026-10-18 手机先选后搜
 
@@ -123,6 +128,8 @@ DeviceIdentityExtras为维修设备低频可选字段的响应式展示，桌面
 
 - `OperationFeedbackProvider`在根LanguageProvider内共享活动；`useActivityFeedback(pending,{kind,scope})`按实例登记真实navigation/read/submit/retry，卸载只清自身活动；`ContentProgress`在公开页/账号页/后台内容上沿显示2px紫色不定进度线。没有Provider的独立组件测试安全no-op。后台轮询不登记；已有可见宿主的真实aria-busy通过兼容桥聚合，后台区域标data-operation-feedback="background"。
 - 导航统一`NavigationLink`，真实onNavigate为每次点击登记最新实例token，仅“最新实例且Next真实pending”显示固定单个SVG圈、aria-live与细线活动；旧实例完成/卸载只能清自身，不能结束后来导航。同URL可能刷新动态段，必须跟随真实Next pending，不能用地址未变化当成功；页内hash也复用共享Link，让新导航废弃旧响应，若真实发请求则同样原位提示。同步交互不造等待；保留键盘/hash/新标签及无JS锚点行为。手机抽屉和账号菜单在实际路由提交后关闭（含浏览器返回/前进，前进不能复活旧open），保留桌面侧栏收起状态；不得给整个AppShell加路径key重建来关菜单。菜单按路径及查询提交归属，summary使用同一受控开关，避免原生toggle先于状态导致Escape失效。失败可继续选择/重试。一般路由保留旧页直到目标可提交，不新增整页loading.tsx或包裹全业务的骨架Suspense。共享链接默认定位使用低优先级`:where(.navigation-link)`，不能覆盖模块固定/绝对定位。跳过导航复用`NavigationLink.focusTargetId`并让目标可程序聚焦（tabIndex=-1）；仅最新实例实际提交后移交焦点，普通section锚点不强制焦点。
+
+设备嵌套记录返回位置使用可选 `NavigationLink.resolveHref(anchor)`：SSR 链接先包含该记录与 record/customer 目标；交互时才补实际像素，只接受同源站内路径并保留当前 store。普通点击通过 `router.push/replace` 的真实 React transition 沿用原状态槽和细线，避免 Next 捕获旧 render href；父级无关重渲染不结束等待，身份／权限 scope 改变立即解除旧反馈与完成回调。修饰键／中键保持原生默认导航，不调用自定义 router 或改来源列表位置；上下文复制位置与实际点击像素分别验收。未传该选项的使用方继续原 Next Link 行为，不新增视觉、控件或 Figma 变体。
 - 首访无旧页时，保留真实页面框架、业务标题和工具栏，数据区域用`ReadPending`短提示。后台通过逐请求initial快照context提供SSR/首次水合数据；不得在服务端配置模块全局store，不得在clear后fallback旧initial或进入fixture分支。
 - 同范围刷新保留已确认内容与计数。新条件等待时明确提示“暂显示上次结果，当前条件尚未确认。”；响应完成再更新当前结果和分页。身份/门店/权限/可见性范围变化立即隐藏旧资料。读失败提供就地重试，有旧内容则保留；无数据、无权限与读取失败分开表达。
 - 保存只在原按钮/表单表达等待，锁定草稿，明确成功才清理；失败保留输入。冲突保留人工核对，未知提交沿原requestId/回执恢复，不自动重发新命令。读取重试不重放保存。
@@ -279,7 +286,7 @@ RetailRecordScanner从旧独立列表提取后复用于唯一商品入口；buil
 | `Brand` | [brand.tsx](../components/brand.tsx) | 首页、账号页与后台的品牌标识；支持 `compact`、`inverse`、`href`，不另写 Logo 标记。 |
 | `InputControl` / `TextareaControl` | [input-control.tsx](../components/input-control.tsx) | 普通文本、邮箱、电话、密码、搜索、日期、数字与多行输入的共同状态入口；保留原生表单属性、事件与 ref，领域限制由调用方提供。图标／密码显隐用 `leading`、`trailing` 与 `shell`；清空由调用方显式提供。 |
 | `SelectControl` | [select-control.tsx](../components/select-control.tsx) | 普通下拉选择；沿用原生选项、表单属性和事件，配合 `.field` 或 `.module-select`。 |
-| `SearchCombobox` | [search-combobox.tsx](../components/search-combobox.tsx) | 可编辑搜索候选，支持键盘移动、滚入视区、确认、Esc、手动值与 `maxLength`；候选数据和选中客户的业务关联留在调用方。不是普通下拉的替代品。 |
+| `SearchCombobox` | [search-combobox.tsx](../components/search-combobox.tsx) | 可编辑搜索候选，支持键盘移动、滚入视区、确认、Esc、手动值与 `maxLength`；候选数据和选中客户的业务关联留在调用方。可选 `onOptionCommit` 专供 opaque 候选先读完整原文再提交，默认仍先 `onChange` 再 `onSelect`，不得把显示预览写入原字段。不是普通下拉的替代品。 |
 | `MultiChoice` | [multi-choice.tsx](../components/multi-choice.tsx) | 原生 checkbox 多选标签，支持图标、选中态与键盘焦点；故障细项、随件复用，互斥和自定义值由模块维护。 |
 | `SingleChoice` | [single-choice.tsx](../components/single-choice.tsx) | 原生 radio 图形单选，支持图标或图形、标签与选中态；用于直接可见的互斥选项，不复制普通下拉菜单。配件规格的条件与清理规则由维修模块维护。 |
 | `ColorPicker` / `ColorSwatch` | [color-picker.tsx](../components/color-picker.tsx) | 设备颜色使用实际色块、文字标签和 `SingleChoice`；支持未记录与自定义颜色，Esc 关闭后返回触发点。色块是业务颜色数据，不另建主题 token；未知颜色保留空值。 |
@@ -292,12 +299,16 @@ RetailRecordScanner从旧独立列表提取后复用于唯一商品入口；buil
 | `ProcurementPreparation` / `ProcurementFeedback` | [procurement-preparation.tsx](../components/procurement/procurement-preparation.tsx) | 工单列表、详情与采购详情共用一键加车、取消加车及已下单标记，无需订单号或备注；读取采购提供器，业务校验归 `lib/procurement.ts`，不是公共控件或供应商发单组件。 |
 | `RepairProcurementShortcut` / `RepairProcurementDialog` | [repair-procurement-shortcut.tsx](../components/procurement/repair-procurement-shortcut.tsx) | 工单列表短图标入口与稳定快捷弹层；列表集中管理打开的工单，换组不卸载弹层。当前项目直接用 `RepairItemsForm` 图形卡片填写选填供应商、报价与获权进价，一次保存；既有采购记录的按需切换复用 `SelectControl`。原生 `dialog` 管理模态焦点和 Esc，关闭后定位目标组与工单，仍属于维修与采购关联模块。 |
 | `RepairProcurementSummary` | [procurement-summary.tsx](../components/procurement/procurement-summary.tsx) | 工单内展示同源采购事实和快捷表单；备选用途独立展示，不从外观或维修阶段推断下单。 |
-| `RepairScanner` | [repair-scanner.tsx](../components/repairs/repair-scanner.tsx) | 工作台与维修列表共用查单；相机、相册、手动输入只返回目录中的 fixture 或当前浏览器本地工单候选。解码通过公共 `IdentifierScanner` 按需加载，匹配规则归 `lib/repair-scan.ts`；工单候选逻辑不作为整机录入或通用业务写入。 |
+| `RepairScanner` | [repair-scanner.tsx](../components/repairs/repair-scanner.tsx) | 工作台与维修列表共用查单。预览/显式兼容模式使用原目录；维修摘要flag启用时，在识别后按需读取全授权精确ID/SN候选，50/批及全量计数，最多10批500摘要，超过200复用 `WindowedListRows` 与原dialog滚动视口。单一结果模板、原控件及8px间距保持，错误/重试位于dialog内。解码仍通过公共 `IdentifierScanner` 按需加载；`repairScanCode`/`repairScanMatches`保持JS trim+uppercase、精确匹配、同源无query/hash路径及全部重复SN候选，不做NFKC、不猜写。 |
 | `IntakeReview` | [intake-review.tsx](../components/repairs/intake-review.tsx) | 接机确认和本地工单详情共用图形核对区，显示联系人、设备、报告故障、维修需求与随件；当前照片可选传入，修改入口由接机流程提供。`layout="review"` 保持逐步核对顺序，`layout="detail"` 使用设备摘要＋主辅双栏；`metadata` 放工单元信息，`asideContent` 组合工单概况，`relatedContent` 组合采购摘要。手机按故障→概况及联系人→采购排列，不把工作流或采购规则塞进展示组件。属于维修模块，不作为检测、报价或正式授权组件。 |
 
 新增后台模块复用 `PageTitle` 并继承 `AppShell` 的侧栏，不恢复全局顶栏或手机底栏。页面不增加装饰性眉题、开发说明或重复功能解释，只保留业务字段与必要反馈。账号、通知与退出集中在侧栏底部。权限与会话规则仍遵循业务规格，导航可见性不等于服务端授权。
 
 后台 `.module-heading` 是当前页面内容顶部的固定工具栏，滚动时保留该页标题、返回、手机菜单及必要操作。返回入口与标题同一行，统一使用 `PageTitle` 的 `.icon-button.page-back-button` 和 20px 箭头；`title` 与 `aria-label` 说明返回目的，不另加标题上方的“返回某列表”文字行。只有明确传入 `backHref` 才显示返回，模块首页只保留菜单和标题，不使用浏览器历史猜测返回地址。采购与整机详情使用 `badge`、`subtitle`，保留各自业务事实与右侧操作，不复制标题结构。工具栏的白色面板、细边框、桌面操作及手机紧凑行由公共样式维护；手机返回与菜单目标至少 44×44px，账号与退出仍在侧栏。详情工具栏的 `.page-toolbar-action` 在电脑显示图标＋文字、手机收为 44px 图标按钮；调用方必须提供 `aria-label`、`title` 并以 `span` 包裹可见文字。采购与整机的重复副说明在手机正文查看，避免撑高工具栏。搜索和筛选随正文滚动，不再叠加第二条固定搜索栏。
+
+搜索框显式提供 `onClear`、已有 `.input-control__clear` 按钮时，仅在该公共控件内抑制 WebKit/Chromium 原生搜索清空图标，保留唯一的三语清空按钮、原更新回调与焦点恢复。没有自定义清空按钮的搜索框继续使用浏览器原生清空行为；不新增控件或视觉变体。当前为未发布候选，实际编译 CSS 和浏览器验收单独记录。
+
+`WindowedListRows` 跨未挂载行补焦点后，若实际控件的边框盒超出该滚动视口的 client box，显式使用原生 nearest 滚动使控件可见；已经可见时不追加滚动。保留各层窗口的键盘归属、真实控件顺序、用户滚动和锚点补偿，不更改原生 Tab 偏好或增加新的视觉变体。未发布候选已通过两引擎 26 项源码组件回归，含原严格完整可见、<1.5px 高度变化锚点及 2px 原生裁切反例；正式构建和实际页面验证另记。
 
 ## 已有公共样式
 
@@ -439,6 +450,7 @@ RetailRecordScanner从旧独立列表提取后复用于唯一商品入口；buil
 ## 分类前置、规格与宫格色板（2026-10-01）
 
 - [RetailCatalogControl / RetailRamControl / RetailStorageControl](../components/retail/retail-spec-controls.tsx) 将目录搜索和容量预设封装为整机私有组合，不重写SearchCombobox或SelectControl。电脑移动／桌面候选与游戏机品牌过滤由lib/retail-catalog.ts维护，实际字段仍由lib/retail.ts校验；既有及手填值可继续保存，容量对象按选项复制，不共享可变数据。
+- 正式整机新建的已登记候选由原 `DeviceIdentityPicker`／`DeviceCatalogControl` 经 `HistoricalCatalogSource` 适配：打开后才查询，最多12项和完整计数，长原文显示预览，确认时另读一份原文。领域 hook 按身份、草稿owner、字段、类别、品牌、输入及请求代际隔离迟到结果；手改、关闭、卸载和草稿重置释放执行反馈。沿用原组合框菜单、输入、B方案细线和错误重试，不新增视觉模板。新建／复制及原历史核对共用全域识别码预检查，正式写事务继续独立重复完整校验。
 - 新建按ready门控后首次初始化草稿；品类相关RAM／容量控件用独立key重置，仅处理未保存草稿。编号领域生成，RetailFieldButton的code为只读div，兼容旧数据而无铅笔。
 - 电池图形概览复用RetailFieldButton，移除实物区重复值；保修直接复用RetailWarrantyControl，其disabled反映权限／状态／存储。RetailWarrantyPanel只维护未保存期限草稿，核对候选交回RetailFieldEditor.initialCandidate，保存仍走原版本及单字段写边界。取消自定义同步重置控件key，不保留旧输入。
 - ColorPicker沿用常规5列／钛金属4列与其他独立行；native details／summary与按open挂载的色板在同一.color-picker内同级，仍保留原form／fieldset禁用继承。实例稳定ID通过summary的aria-controls关联实际色板；色板相对该wrapper的padding box绝对定位，按真实边框与自身滚动换算，并只发布精确变化的坐标／尺寸。首个可见帧前测量，保留视口夹取、上下翻转和低屏内部滚动；仅摘要内色板打开时放开所属摘要的裁剪／层叠，新建表单的开放溢出不依赖样式导入顺序。radio／文字／44px目标及token保持。选择／重复选择／色板内Esc同步关闭并返回原summary，外点关闭不抢焦点；仅details或色板起源的Esc由控件消费，自定义输入继续沿父层规则。resize、scroll和外部pointer监听只在展开时安装并清理，开合不清自定义值或业务草稿。
@@ -656,6 +668,102 @@ OfficeDesktopControl沿用account panel/form/button/token，最低版本复用Se
 ToolboxControl替换账号设置旧三套Office管理卡片与双导航，复用既有panel/button、Figma 12373:157599的边框/16px面板/8px控件及B反馈；桌面紧凑行、手机名称独行+状态/44px操作。唯一当前发行与暂停开关，历史版本选择不再出现。技术信息才挂载只读公钥/任务/过期清理，未知保存只重试原requestId，冲突/身份变化隔离旧投影。具体协议及边界见docs38。
 
 
+## 2026-10-17 列表触底追加（本地候选，未发布）
+
+- 维护原 `components/list-pagination.tsx` 与 `.list-pagination`，复用已有按钮、44px目标、边框、文本token及共享真实请求反馈；不新增主题、Figma视觉变体或上下页控件。
+- `ListPagination` 接口为 `shown`、可选 `total`、`hasMore`、`onLoadMore`，可选 `loading/disabled/error/resetKey/label`。底部从不可见进入可见时追加一次；保持可见不连续耗尽全部批次。始终提供键盘可用“加载更多”/失败“重试加载”，末尾显示“已全部显示”；卸载或范围变更释放旧观察。
+- 客户目录、客户设备及客户历史整机通过 `useListWindow(total, filterKey)` 初始50、每批50，保留前项；筛选、门店、成员及成员权限revision变化立即复位。搜索、分组、查重与总数仍基于完整授权资料。整机主列表保留旧URL `page`，其含义为累计展示批次，详情返回URL及原滚动恢复保持。
+- 设备目录使用原50条服务端API累计；失败保留同范围已确认前页，401/403/409持久清除累计，重新读取期间不回显。范围、筛选与目录revision变化重建；旧请求迟到不回填。登录设备沿既有20条API逐批追加，不改变会话撤销/权限协议；刷新从首批重新核验。
+- 本地数据分批呈现为同步操作，不造等待/百分比；目录和登录设备只有真实请求显示原位busy及共享2px细线。错误保留就地入口；此处没有新保存命令，提交冲突及未知写入结果继续由原领域处理。
+- 三语显示同步。候选来源、实际验证及边界见 [候选记录](../ui-design/previews/infinite-lists-20261017.md)；这项客户端分批改动不代表后台全量快照已改成服务端按需读取。
+
+### 性能候选的实际客户读取与渲染（2026-10-17，未发布）
+
+客户模块显式开启后由服务端读取至多50条摘要，wire2按实际UTF8≤100KB自适应；原历史推断姓名超过200个Unicode字符显示显式预览与省略号，原文搜索及单客户exact原名读取保留，不能将预览写回业务。电话候选仍为12个。`ListPagination`增加可选`start`显示当前授权窗口范围；计数、搜索和手机号查重来自完整授权集合。其余模块仍按各自已接入状态说明，不把本节视为全部模块迁移完成。
+
+`WindowedListRows`是非视觉渲染辅助，实际行继续由原领域组件、`NavigationLink`和现有token绘制，不新增Figma控件。超过200行只保留视口上下各一屏及当前键盘焦点，`ResizeObserver`测量可变高度；摘要窗口最多500，已退出窗口的区域保留数值高度并按位置重新授权查询。焦点行在交互结束前保留，业务草稿与原requestId不归虚拟行管理。
+
+锚点同时采真实scroll位置，布局更新只补偿布局位移，不能因scroll的RAF尚未执行把用户拉回。可选`onLoadPrevious`只为视口与已读起点相交的缺失前邻追加授权批次，不能用空白spacer冒充可见摘要；保留实际Link像素/焦点、pending/失败原入口及十个实际批次上限，整组屏外不读取前邻。
+
+维修多组共用的`.repair-unified-list .repair-module-panel`关闭浏览器原生scroll anchoring，涵盖窗口外组头/祖先；位置仍由共享实测锚点负责，不能让浏览器先补偿上游新增组，再由组件重复补偿。该规则只作用于已证实冲突的维修列表，不改变桌面/手机布局、焦点或用户滚动。
+
+`BackendPageFrame`/`BackendPageData`保留服务端必要首屏，领域ready明确区分未读取与空集合，未读取设置为null。身份/门店/会话/成员权限变化清除旧投影；当前范围刷新保留内容、局部错误重试和共享2px细线。列表详情返回仅记文档级scope/query/phone/像素位置，不向浏览历史或sessionStorage写完整客户资料；返回仍重新检查授权。
+
+受影响客户界面已在本地正式构建做四宽×三语Chromium，以及HTTPS独立Origin的WebKit375三语；纯单次触底静置、可变行高500缓存/回查、深处浏览器后退/页面返回、403非JSON且跳转失败时同文档清资料分别验收。证据、构建和未完成模块由性能交付记录绑定，不代表生产P95或Linux PDF通过。
+
+## 2026-10-17 性能候选的采购摘要与批量读取（本地，未发布）
+
+`ProcurementListBody`是采购模块唯一的标题、状态卡、工具栏、分组行、空态和触底footer；原数组与显式开启的服务端摘要只提供真实视图适配，关联工单候选采用原`SearchCombobox` slot。状态卡仍统计完整门店授权集合，当前结果及组计数才应用筛选；旧draft/cart共用待采购显示组。wire2每次至多50摘要，并按实际UTF8响应≤100KB自适应条数，不含事件/成本/规格；主列表在单一`.procurement-list-viewport`共用桌面660px横向视口，手机沿原行布局，不能每行各自横滚。
+
+`WindowedListRows`增加可选`scrollRoot`适配真实dialog滚动，`anchorSelector`以采购Link实际像素恢复；组头只在实际groupFirst出现，seek/缓存首行不重复插入。渲染阈值使用完整列表总数；跨未挂载行的Tab/Shift+Tab选择该行首/末真实可见控件，焦点与业务草稿保持。批量列表传当前授权stateToken重建高度。
+
+`SupplierBatchView`是旧预览和正式摘要共用的唯一Dialog：规格/到货/供应商ID与账本版本来自真实事实，适配不构造假的events。正式供应商候选12，清单50，独立保存最多100份所选数量草稿；前100/本供应商全部按完整集合取两次50，确认前按IDs重新授权核对。停用供应商仍能登记实际到货，作废工单仍是原提示。批量提交继续原requestId/回执/未知恢复。
+
+`SearchCombobox.loadingLabel`可选，默认仍是目录原文字；采购传既有通用三语“正在处理…”，只在真实请求期间显示等待。维修候选打开后才查、150ms去抖、同scope短结果复用，读取失败显示就地重试；无page且错误idle时不得常驻ReadPending。
+
+本地xc4b-FztHQF1WlRktYeHb：Chromium五宽1440/1024/769/390/375×三语及深Link返回/500回查/候选/批量草稿/一次DEMO保存共20项通过；独立真实React503停忙与dialog正反键盘/代际高度2项通过。同build的HTTPS独立Origin WebKit375三语3项通过；生产P95、Linux及全站剩余域仍按后续准确证据分别登记。本次未新增视觉主题/控件或Figma变体。
+
+## 2026-10-17 性能候选的维修摘要与操作 owner（实施中）
+
+`RepairListBody`是维修列表唯一的标题、筛选、分组、桌面行、手机行与触底footer。旧canonical兼容读取和默认关闭flag的新摘要读取均适配此Body；不复制页面模板。所有组共用原桌面横向视口。`WindowedListRows.thresholdTotal`可选，维修按完整查询计数判断超过200的窗口化门槛，不能让多个小组绕过总渲染限制；全组共用最多十批/500摘要缓存，真正可变高度、键盘焦点与文档返回锚点沿公共实现。
+
+列表阶段、联系和配件按钮只打开原`RepairStageDialog`、`RepairContactDialog`和`RepairProcurementDialog`。`RepairEntityOperation`位于所有窗口/分组外，只按需提供真实目标资料，未提交草稿及原requestId继续由原Dialog维护。局部读取的`readFailure`复用`ReadFailure`并放入当前modal的可操作区域，不能把重试留在背景inert区域。`RepairProcurementDialog.onConfirmed`只上传本Dialog拥有且与已确认回执精确匹配的requestId；其他工单的恢复回执不得当作本Dialog已保存。
+
+本段为复用/实施合同；新维修正式CSS、五宽三语、失败重试与跨窗口交互仍按准确候选构建的运行证据登记，不能沿用采购截图声称通过。没有新增视觉主题、控件或Figma状态。
+
+2026-10-17 性能候选的共享触底边界：`ListPagination`分别记录“目前可见”和“本次进入已派发”。loading/disabled/error期间保留未消费意图，解除后用一次原生IntersectionObserver核对当前实际裁切，至多派发一次；手动加载同样消费本次进入。追加完成后静止不连抽，离开再进入或明确点击才继续。当前组件级Chrome/WebKit六个反例覆盖三个阻塞状态；真实业务/编译构建证据另记，不用此声明代替全站验收。
+
+采购摘要的旧超长item/supplier/expectedAt只在列表使用显式preview+省略号，正常100/200/160个Unicode字符完整展示；关联目标详情保留原文，不把预览写回草稿。分组身份使用真实groupFirst的opaque key，显示前缀相同的不同供应商不会合并。缓存按十个实际响应控制（至多500摘要），小于50的字节预算页同样占一批；刷新最多重读十批，数字extent保留供回查，不累计全部canonical。对应真实SQL/双引擎hook测试与准确运行构建分别记录。
+
+## 2026-10-17 性能候选的新建表单读取与历史长名称
+
+新接机继续使用唯一 `RepairIntakeForm`、`SearchCombobox`、`DeviceIdentityPicker`、`IdentifierField`、`InputControl`、原签署/核对/完成页。repair/customer 读取开关同时开启时，SSR 只提供当前成员及显式 `intakeDefaults`（当前政策、纸张与版本），不把未读 settings、suppliers 或业务数组标记 ready。手机号仍给12候选，选择再按手机号授权读取完整原名；部分号码选择使用本次选定完整phone+epoch，后续输入、重置、草稿/版本/步骤/身份变化拒绝迟到回填。超长历史原名不截取写入，原80 UTF-16单位的新工单称呼约束在第一步以字段关联错误明确提示，用户可编辑本单称呼；已选徽标只显示80个Unicode字符的显式预览。
+
+`IntakeDeviceHistory`抽取原历史展示，正式按需与旧预览共用此展示。精确SN匹配保留原trim→uppercase→去全部JS空白规则、品牌/15位IMEI分支与createdAt稳定顺序；50条窗口及全数计数不会把550重复标识计成50。同型号只在真实展开后读取原最多3条参考，完整计数保持。签署前单目标metadata读取真实revision/签名数/冻结政策，未读签名不当0；仅新建不存在目标被当前授权读取确认后才得到fresh0。重试与正在执行状态留原位置，只有真实异步过程busy。
+
+新采购继续唯一 `ProcurementCreate` 表单，关联工单采用共享 `SearchCombobox`：打开后150ms去抖读取12条，URL指定的目标另外精确核对，不依赖首12是否出现。活动搜索显示匹配候选；关闭仍保留已选目标。提交前精确重验，成功通过本次requestId的真实receipt/entityId导航，未读采购全域反馈不成为已确认保存的后置失败。原供应商自由输入、金额权限和事务校验不变。
+
+新接机打印点击时由 `RepairIntakePrint`复用局部entity-source读取真实目标所需资料，再交原 `IntakeReceipt`；没有复制打印模板或把未读设置伪造为当前政策。客户详情页头仅对超过80个Unicode字符的历史姓名使用80字加省略号，正常姓名原样，事实区保留完整原文，公共PageTitle与CSS不变。以上没有新增视觉主题或Figma变体。
+
+2026-10-17 性能候选整机筛选：`RetailListBody` 为既有整机／历史的唯一页和行模板，完整兼容读与受限摘要只作事实适配；一个横滚容器保持全部桌面列对齐。类别／其他状态可能来自万字自由历史，复用 `SearchCombobox` 按需12项（另加全部入口）、三语可见名搜索，原值用独立hash键，预览不参与写值；`hideLabel` 仅opt-in省去可见标签，并在输入上保留明确aria-label（inputLabel优先，否则label）；默认调用方继续原htmlFor标签。原`.sr-only`只适用于导航链接，不能假设是全局隐藏类。整机扫码沿唯一原表单／结果模板、IdentifierField及窗口组件，正式源按需50并保持全部候选计数。此段记录实施合同，实际构建／双引擎／宽度和失败状态另随候选证据，不声称已验或上线。
+
+## 2026-10-17 性能候选的客户资料与三类历史（实施中）
+
+`CustomerDetailBody`维护唯一的页头、资料区、编辑入口与三标签；兼容canonical读取和正式按需读取均使用此Body。`CustomerRepairRecordLink`、`CustomerSaleRecordLink`与`CustomerHistoryRecordLink`由原行展示提取，原历史整机组件也复用相同行，不复制第二套模板。客户编辑表单接受实际资料字段的Pick，不伪造带空关联数组的Customer。按需状态为完整profile/counts与当前标签≤50摘要，未读取记录不标成0；默认标签仍依实际非空维修→销售→历史顺序。
+
+搜索沿`InputControl`与现有三语前缀／标签，150ms去抖只控制真实请求；原`ReadFailure`拥有当前错误唯一的重试入口，失败保留已授权内容，footer追加暂停。标签按真实pending用原button图标状态槽和内容细线，未知提交回执与草稿仍在原表单owner。页头对历史长名沿原80字符预览，并只在本客户模块将可见标题限制两行；资料区保留完整原文，不改变公共PageTitle、字号或主题。
+
+三类记录共享`WindowedListRows`及有界十批／500摘要缓存；变高行、真实Link焦点、前邻可见范围与当前位置按公共窗口实现。返回位置仅保存scope／目标path／标签与query／记录key／像素，不保存Customer或历史事实；维修、实物与历史目标保持不同path，返回重新授权读。新增history summary以reviewCount适配原状态，不创建假reviewReasons或canonical数据。
+
+此段为复用与实施合同。初候选vL12双引擎的首50／触底100／全范围尾搜／无变化响应已有实际通过路径，但整体矩阵13失败3通过，包含本地HTTP数据库OOM、页头中文228px、工具返回名称／strict定位及几何反例；不能称客户页面浏览器验收已完成。后续正式CSS、三语四宽、错误重试、深Link返回与编辑保存按下一准确构建定向复验，不用静态统计替代。
+
+客户详情的长历史称呼仍完整显示于原资料区；标题保留有省略标记的80字符预览，并在本模块的既有标题行限制两行，返回入口不被合法万字历史撑离视口。窗口的滚动补偿另保留每个实际scroll target的至多半像素舍入余量；浏览器整像素截断不能在连续变高／前邻回填中累积偏移。真实用户移动、显式返回锚点及顶部／底部钳位清理旧余量，跨分组协调仍只记录实际已移动的数值。沿原行、Link、token与焦点实现，不新增控件或视觉主题。
+
+2026-10-17 性能候选 P5：v2 命令以小回执确认，后置授权读取失败复用 `ReadFailure`／连接重试，不把提交改回未知，也不再 POST。新接机保留独立已确认读取恢复草稿；`DeviceDraftNotice.confirmed` 仅在已有真实回执时把设备草稿的“尚未提交”提示改为原三语确认提示，设备存储错误仍照常保留。未传该属性的既有表单行为不变；没有新增控件、视觉或 token。实际构建／双引擎证据另绑定，不代表正式已上线。
 ## 2026-10-17 多门店与容量
 
 我的门店、加入门店与容量/邀请组合按[原 Figma 候选](../ui-design/previews/multistore-pilot-20261017.md)映射；继续复用原账号品牌/语言、InputControl、SelectControl、MultiChoice、NavigationLink、AppShell/PageTitle、语义 button/panel 与 B 反馈，不另建主题。内部邀请页只由 AppShell 提供唯一2px进度线，静态容量 progress 不假冒执行状态。URL/store header绑定当前文档范围，切换身份/成员权限立即隐藏旧资料并拒绝迟到响应。三语、1440/1024/390/375、双引擎正式CSS与原请求恢复已在隔离生产构建验收；没有把设计参考当生产验证。
+
+
+### 未发布性能候选的兼容列表回归（2026-10-17）
+
+`RepairListBody.partsChips` 是仅供已有完整授权事实的兼容适配回调：三条可见标签继续取原有界摘要，隐藏描述与 title 经唯一 `repairListChipFacts` 读取完整原文；正式列表 wire 不增加全文或无关事实。客户候选的 preview 同步选择即时填入原本完整本地资料，正式异步 exact 读取继续按 scope/完整手机号/代际拒绝迟到。`RetailScannerResults` 的真实无匹配结果复用 `role=status`，不新增控件或等待。
+
+已实际通过的范围为隔离 preview 的 Chromium/WebKit 客户填充/清空及维修三语原文描述10项；供应商批量、来源身份、扫码空态、Office与共享窗口另记各次运行，生产编译样式和正式后台接入仍按当前候选单独核验。Figma、公共控件、token与视觉布局保持现有入口，不据此宣称正式已上线。
+
+
+## 2026-10-17 未发布性能候选的客户设备读取
+
+`CustomerDevices` 的兼容与正式读取共用原 `DeviceBody`、设备卡片与记录行；`CustomerDeviceGrid` 仅把完整结果映射为测量行，列数按容器容量与全结果数确定，唯一结果保持原 auto-fit 满宽。列表初始50摘要、十个实际批次／最多500条缓存；计数及型号、标识、手机号、记录编号搜索覆盖全部获授权事实。展开设备记录后才读取该设备50条，完整记录数不取已加载长度。完整型号／SN原文沿已有 details 展开，按需读取首来源事实；关闭取消请求，父代际变化重读且拒绝旧响应，不把200字预览写回事实。
+
+`WindowedListRows` 在嵌套设备／历史窗口中只量测和定位所属列表的行，内层中间 Tab 不触发外层跨行；真正内层首尾仍能衔接逻辑外层行。返回位置仍仅含当前授权范围、设备／记录键、像素及语义链接目标 record/customer，不保存业务记录；手机换行时以实际选中链接恢复像素与焦点。没有目标参数的旧URL继续按记录首链接恢复。
+
+开启设备摘要 flag 时 AppShell 的精确设备路由与菜单使用 repairs.view 或 retail.view，投影仍按每一来源权限读取。客户档案入口及手机号客户链接仅在 customers.view 时可导航，其他获授权成员保留可读手机号，不扩大客户详情权限。flag0 保持旧页面入口规则。实际React权限变更、原文生命周期及嵌套键盘专项与正式构建浏览器证据按本轮候选清单独立绑定；本地暂停闲置 Storage 的功能矩阵不代表全服务并发／P95已达标。
+
+## 2026-10-18 私有目录管理性能维护候选
+
+管理页继续复用原 `DeviceCatalogPage`、表格／手机卡片 CSS、InputControl、SelectControl、ListPagination 与 B 反馈。`WindowedListRows.container="tbody"` 是显式非视觉适配，spacer 使用真实 tr/td 与当前列数；默认 div、所属窗口焦点／锚点／最近滚动语义保持。缓存只保十个相邻的原50行API批次，离开缓存的范围重新走当前身份授权读取，完整总数不以缓存长度代替；编辑草稿保留在页容器。文字搜索仅同scope/filter的非空变化去抖150ms，首屏、清空、筛选、重试与翻页即时。
+
+SSR首50与页bootstrap并行启动，seed仅属于当前React页树并带format1、身份／session／store／memberRevision及同目录revision；不建立服务器跨请求私有缓存。编辑、导入预览、历史与来源覆盖复用原模块，首次代码加载采用原ReadPending和共享2px细线；不新增主题、设计控件或Figma变体。公开型号picker继续按正式main维护，不把私有seed混入公开目录架构。
+
+当前源码组件验证：750行受控API窗口／旧503和403恢复、默认与嵌套共享窗口、真实延迟chunk分别取证；正式编译CSS、真实Auth／目录数据和30样本另按准确构建绑定。模拟预览不证明正式API权限或线上性能。

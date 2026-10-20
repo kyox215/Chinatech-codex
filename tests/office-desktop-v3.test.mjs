@@ -9,8 +9,8 @@ import ts from 'typescript';
 const nativeRequire = createRequire(import.meta.url), modules = new Map();
 export function load(file, overrides = {}, env = process.env) {
  const path=resolve(file); if(modules.has(path)&&!Object.keys(overrides).length)return modules.get(path);
- const exports={}; const require=name=>Object.hasOwn(overrides,name)?overrides[name]:name==='server-only'?{}:name==='./office-desktop-server'?{}:name==='./office-server'?{}:name.startsWith('@/')?load(name.slice(2)+'.ts',overrides,env):name.startsWith('./')?load(resolve(dirname(path),name)+'.ts',overrides,env):nativeRequire(name);
- runInContext(ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,createContext({exports,require,Buffer,TextDecoder,URL,Date,BigInt,console,setTimeout,process:{env}}));
+ const exports={}; const require=name=>Object.hasOwn(overrides,name)?overrides[name]:name==='server-only'?{}:name==='./office-desktop-server'?{}:name==='./office-server'?{}:name.startsWith('@/')?load(name.slice(2)+'.ts',overrides,env):name.startsWith('.')?load(resolve(dirname(path),name)+'.ts',overrides,env):nativeRequire(name);
+ runInContext(ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,createContext({exports,require,Buffer,TextDecoder,URL,Request,Response,Headers,performance,Date,BigInt,console,setTimeout,process:{env}}));
  if(!Object.keys(overrides).length)modules.set(path,exports); return exports;
 }
 export const keys=generateKeyPairSync('ec',{namedCurve:'prime256v1'});

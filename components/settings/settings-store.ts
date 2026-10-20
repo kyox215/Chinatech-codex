@@ -5,14 +5,32 @@ import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand } fr
 import { defaultStoreSettings, parseStoreSettings, type StoreSettings } from "@/lib/store-settings";
 import { requirePreviewPermission } from "@/lib/staff-client";
 import { can } from "@/lib/staff";
+import type{SettingsPatch}from'@/lib/backend/settings-patch';
+/** Client draft adapter only. Canonical section permissions, uniqueness,
+ * versions and append/void checks still run in the normal server command. */
+export function settingsPatchDraft(current:StoreSettings,patch:SettingsPatch):StoreSettings{
+ switch(patch.type){
+  case'general':return{...current,...patch.values};
+  case'printing':return{...current,paper:patch.paper};
+  case'orders':return{...current,repairGroups:patch.repairGroups};
+  case'supplier':return{...current,suppliers:current.suppliers.some(row=>row.id===patch.supplier.id)?current.suppliers.map(row=>row.id===patch.supplier.id?patch.supplier:row):[...current.suppliers,patch.supplier]};
+  case'finance.append':return{...current,finance:[...current.finance,patch.entry]};
+  case'finance.void':return{...current,finance:current.finance.map(row=>row.id===patch.id?{...row,voidReason:patch.reason}:row)};
+ }
+}
 const key = "chinatech.m1.store-settings.v1";
 const change = "chinatech-store-settings-change";
 const server = { settings: defaultStoreSettings, ready: false, error: "" };
 let remoteSource:ReturnType<typeof backendSnapshot>;let remoteSnapshot=server;
 let snapshot = server; let cachedRaw: string | null | undefined;
 function read() {if(isBackendClient()){const current=backendSnapshot();if(current!==remoteSource){remoteSource=current;remoteSnapshot={settings:current?.settings??{...defaultStoreSettings,finance:[],suppliers:[],address:"",phone:""},ready:true,error:current?"":"后台资料暂不可用。"};}return remoteSnapshot;} try { const raw = window.localStorage.getItem(key); if (raw !== cachedRaw || !snapshot.ready || snapshot.error) { const settings = parseStoreSettings(raw); cachedRaw = raw; snapshot = { settings, ready: true, error: "" }; } } catch { if (!snapshot.error || !snapshot.ready) snapshot = { ...snapshot, ready: true, error: "本地设置无法读取，现有资料未被覆盖。" }; } return snapshot; }
+// A confirmed no-op keeps its stored version. Section-only formal reads have
+// no full settings snapshot and retain their existing receipt version fallback.
+export function savedStoreSettingsRevision(): number | undefined {
+  return isBackendClient() ? backendSnapshot()?.settings?.revision : read().settings.revision;
+}
 function subscribe(listener: () => void) {const stop=subscribeBackend(listener); const storage = (event: StorageEvent) => { if (event.key === key || event.key === null) listener(); }; window.addEventListener("storage", storage); window.addEventListener(change, listener); return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); }; }
-export function useStoreSettings() { const state=useBackendStore(subscribe,read,server,current=>({settings:current?.settings??{...defaultStoreSettings,finance:[],suppliers:[],address:"",phone:""},ready:true,error:current?"":"后台资料暂不可用。"}));const staff=useStaff();return {...state,settings:can(staff.member,"financial.read")?state.settings:{...state.settings,finance:[]}}; }
+export function useStoreSettings() { const state=useBackendStore(subscribe,read,server,current=>({settings:current?.settings??{...defaultStoreSettings,finance:[],suppliers:[],address:"",phone:""},ready:true,error:current?"":"后台资料暂不可用。"}),"settings");const staff=useStaff();return {...state,settings:can(staff.member,"financial.read")?state.settings:{...state.settings,finance:[]}}; }
 export function saveStoreSettings(expectedRevision: number, update: (current: StoreSettings) => StoreSettings, options?: { requestId?: string }) {
   if(isBackendClient()){const current=backendSnapshot()?.settings;if(!current) throw new Error("设置尚未载入。");return backendCommand("settings.save",{revision:expectedRevision,settings:update(structuredClone(current))},options?.requestId);}
   const current = parseStoreSettings(window.localStorage.getItem(key));

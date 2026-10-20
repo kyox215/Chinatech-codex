@@ -1,4 +1,6 @@
 export const errorMessages: Record<string, readonly [string, string]> = {
+  "资料已更新，请刷新后重试。": ["I dati sono cambiati. Aggiorna e riprova.", "The data changed. Refresh and retry."],
+  "请明确选择门店。": ["Seleziona un negozio.", "Select a store explicitly."],
   "未识别到内容，请重新识别或手动输入。": ["Nessun contenuto riconosciuto. Riprova la scansione o inseriscilo manualmente.", "No content was recognized. Scan again or enter it manually."],
   "识别内容过长或包含不可用字符，请核对实物后重新输入。": ["Il contenuto riconosciuto è troppo lungo o contiene caratteri non consentiti. Controlla il dispositivo fisico e inseriscilo di nuovo.", "The recognized content is too long or contains unsupported characters. Check the physical device and enter it again."],
   "识别内容不是设备标识，不能将网址或其他内容填入此字段。": ["Il contenuto riconosciuto non è un identificativo del dispositivo. Non inserire indirizzi web o altri contenuti in questo campo.", "The recognized content is not a device identifier. URLs or other content cannot be entered in this field."],

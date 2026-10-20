@@ -13,6 +13,7 @@ export type CatalogSource = { id: string; title: string; url: string; checkedAt:
 export type CatalogState = { revision: string; canManage: boolean; accountId: string; sessionId: string; storeId: string };
 export type CatalogQuery = { category?: string; brand?: string; family?: string; familyExact?: boolean; q?: string; page?: number; includeDisabled?: boolean };
 export type CatalogPage = { rows: CatalogRow[]; total: number; page: number; pageSize: number; revision: string };
+export type CatalogInitialData = { formatVersion: 1; scope: CatalogPickerScope; state: CatalogState; page: CatalogPage; includeDisabled: boolean };
 export type CatalogImportRow = { entry: CatalogEntry; expectedVersion: number };
 export type CatalogChange = { id: string; kind: 'add' | 'update' | 'disable' | 'unchanged'; name: string };
 export type CatalogPreview = { revision: string; rows: CatalogImportRow[]; changes: CatalogChange[]; errors: { row: number; message: string }[]; digest: string };

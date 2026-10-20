@@ -34,10 +34,10 @@ function validAuditTime(value: unknown): value is string {
 }
 function validAuditState(value: StaffAudit["after"]): StaffAudit["after"] {
   if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).sort().join(",") !== "accountStatus,membershipStatus,permissions,role") throw new Error("员工权限历史格式异常。");
-  const member = validMember({ ...value, id: "audit", name: "DEMO", email: "audit@demo.local", revision: 1 });
+  const member = validateStaffMember({ ...value, id: "audit", name: "DEMO", email: "audit@demo.local", revision: 1 });
   return { role: member.role, accountStatus: member.accountStatus, membershipStatus: member.membershipStatus, permissions: member.permissions };
 }
-function validMember(value: StaffMember) {
+export function validateStaffMember(value: StaffMember) {
   if (!value || typeof value.id !== "string" || !value.id.trim() || value.id.trim() !== value.id || value.id.length > 100 || typeof value.name !== "string" || !value.name.trim() || value.name.length > 80 || typeof value.email !== "string" || value.email.length > 160 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email) || !Object.hasOwn(staffRoles,value.role) || ![value.accountStatus,value.membershipStatus].every(status => ["pending","active","disabled"].includes(status)) || !Number.isSafeInteger(value.revision) || value.revision < 1 || !Array.isArray(value.permissions) || new Set(value.permissions).size !== value.permissions.length || value.permissions.some(permission => !Object.hasOwn(permissionLabels,permission))) throw new Error("请核对员工称呼、账号标识、状态和权限。");
   if (value.permissions.includes("financial.edit") && !value.permissions.includes("financial.read")) throw new Error("更正财务资料需要同时允许查看财务资料。");
   if (value.role === "owner" && (value.permissions.length !== allPermissions.length || allPermissions.some(permission=>!value.permissions.includes(permission)))) throw new Error("老板权限资料异常。");
@@ -49,7 +49,7 @@ export function parseStaffData(raw: string | null): StaffData {
   const parsed = JSON.parse(raw);
   const data: StaffData = parsed?.data;
   if (parsed?.version !== 1 || !data || !Number.isSafeInteger(data.revision) || data.revision < 0 || typeof data.currentId !== "string" || !Array.isArray(data.members) || data.members.length < 1 || data.members.length > 100 || !Array.isArray(data.audit) || data.audit.length > 2000) throw new Error("员工预览资料格式异常，现有资料未被覆盖。");
-  const members = data.members.map(validMember);
+  const members = data.members.map(validateStaffMember);
   if (new Set(members.map(member=>member.id)).size !== members.length || new Set(members.map(member=>member.email)).size !== members.length || !members.some(member=>member.role === "owner" && isActiveMember(member))) throw new Error("员工账号重复或缺少有效老板。");
   const audit = data.audit.map(entry => {
     if (!entry || ![entry.id,entry.actorId,entry.actorName,entry.targetId].every(value=>typeof value === "string" && value.trim().length > 0 && value.length <= 100) || !validAuditTime(entry.time)) throw new Error("员工权限历史格式异常。");
@@ -64,7 +64,7 @@ export function updateStaffMember(data: StaffData, draft: StaffMember, expectedR
   if (data.currentId !== actorId || !can(actor,"staff.manage")) throw new Error("当前账号没有管理员工的权限。");
   const previous = data.members.find(member=>member.id === draft.id);
   if ((previous?.revision ?? 0) !== draft.revision) throw new Error("该员工资料已更新，请重新核对。");
-  const next = validMember({...draft,revision:draft.revision+1});
+  const next = validateStaffMember({...draft,revision:draft.revision+1});
   if ((previous?.role === "owner" || next.role === "owner") && actor!.role !== "owner") throw new Error("有限员工管理员不能修改或授予老板身份。");
   if (next.role === "owner" && previous?.role !== "owner") throw new Error("老板身份不通过员工表单授予。");
   if (previous?.id === actorId && (previous.role !== next.role || previous.accountStatus !== next.accountStatus || previous.membershipStatus !== next.membershipStatus || JSON.stringify([...previous.permissions].sort()) !== JSON.stringify([...next.permissions].sort()))) throw new Error("不能更改自己的角色、状态或权限。");

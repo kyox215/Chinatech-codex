@@ -1,0 +1,25 @@
+// Offline input only. The URL/SHA pins document the official, licensed source;
+// generation never fetches, executes downloads or reads business data.
+import assert from'node:assert/strict';import{readFileSync,writeFileSync,mkdirSync}from'node:fs';import{createHash}from'node:crypto';import{gzipSync}from'node:zlib';import{resolve}from'node:path';
+assert.equal(process.versions.unicode,'17.0','Generation must use the approved Unicode17 JS semantics');
+const option=process.argv.find(value=>value.startsWith('--source='));assert(option,'Explicit offline official source directory required');const directory=resolve(option.slice(9));assert(directory.startsWith(resolve('../proof/')+'/'));
+const sources={UnicodeData:['https://www.unicode.org/Public/17.0.0/ucd/UnicodeData.txt','2e1efc1dcb59c575eedf5ccae60f95229f706ee6d031835247d843c11d96470c'],DerivedNormalizationProps:['https://www.unicode.org/Public/17.0.0/ucd/DerivedNormalizationProps.txt','71fd6a206a2c0cdd41feb6b7f656aa31091db45e9cedc926985d718397f9e488'],NormalizationTest:['https://www.unicode.org/Public/17.0.0/ucd/NormalizationTest.txt','5019ffd530751a741900c849c0e010332f142a3612234639bd200b82138a87db'],SpecialCasing:['https://www.unicode.org/Public/17.0.0/ucd/SpecialCasing.txt','efc25faf19de21b92c1194c111c932e03d2a5eaf18194e33f1156e96de4c9588'],LICENSE:['https://www.unicode.org/license.txt','e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96']};
+const bytes={};for(const[name,[,sha]]of Object.entries(sources)){bytes[name]=readFileSync(directory+'/'+name+'.txt');assert.equal(createHash('sha256').update(bytes[name]).digest('hex'),sha,'Official source pin '+name);}
+const combining=new Map(),composition=[],normalNeeds=new Set();
+for(const line of bytes.UnicodeData.toString('utf8').split(/\r?\n/)){if(!line)continue;const fields=line.split(';'),point=parseInt(fields[0],16),ccc=Number(fields[3]),decomposition=fields[5];if(ccc){combining.set(point,ccc);normalNeeds.add(point);}if(decomposition&&!decomposition.startsWith('<')){const parts=decomposition.split(' ').map(hex=>parseInt(hex,16));if(parts.length===2&&String.fromCodePoint(...parts).normalize('NFC')===String.fromCodePoint(point)){composition.push([...parts,point]);if(!Number(combining.get(parts[1])??0))normalNeeds.add(parts[1]);}}}
+// Language-insensitive full casing has one contextual exception: Final_Sigma.
+for(const line of bytes.SpecialCasing.toString('utf8').split(/\r?\n/)){const row=line.split('#')[0].trim();if(!row)continue;const condition=row.split(';')[4]?.trim()??'';if(condition&&!/\b(lt|tr|az)\b/.test(condition))assert.equal(condition,'Final_Sigma');}
+// Quick_Check includes context-sensitive Maybe values whose single-scalar NFKC
+// is unchanged, e.g. Kirat Rai U+16D68; a scalar-only fast set is insufficient.
+for(const line of bytes.DerivedNormalizationProps.toString('utf8').split(/\r?\n/)){const fields=line.split('#')[0].split(';').map(value=>value.trim());if(fields[1]!=='NFKC_QC'||!['N','M'].includes(fields[2]))continue;const[first,last=first]=fields[0].split('..').map(hex=>parseInt(hex,16));for(let point=first;point<=last;point++)normalNeeds.add(point);}
+const rows=[];for(let point=1;point<=0x10ffff;point++){
+ if(point>=0xd800&&point<=0xdfff)continue;const raw=String.fromCodePoint(point),hangul=point>=0xac00&&point<=0xd7a3,decomposed=hangul?raw:raw.normalize('NFKD'),lower=raw.toLowerCase(),upper=raw.toUpperCase(),ccc=combining.get(point)??0,cased=/\p{Cased}/u.test(raw),ignorable=/\p{Case_Ignorable}/u.test(raw);
+ if(raw.normalize('NFKC')!==raw)normalNeeds.add(point);
+ if(decomposed!==raw||lower!==raw||upper!==raw||ccc||cased||ignorable)rows.push([point,decomposed===raw?null:decomposed,ccc,lower===raw?null:lower,upper===raw?null:upper,cased,ignorable]);
+}
+// Only Hangul V/T can be the second codepoint in algorithmic composition.
+for(let point=0x1161;point<=0x1175;point++)normalNeeds.add(point);for(let point=0x11a8;point<=0x11c2;point++)normalNeeds.add(point);
+const value={unicodeVersion:'17.0.0',generatedWith:{node:process.versions.node,icu:process.versions.icu,unicode:process.versions.unicode},sources:Object.fromEntries(Object.entries(sources).map(([name,[url,sha256]])=>[name,{url,sha256}])),rows,composition,normalNeeds:[...normalNeeds].sort((a,b)=>a-b)};
+const output=JSON.stringify(value)+'\n',path='scripts/unicode/unicode17-data.json',corpus=gzipSync(bytes.NormalizationTest,{level:9});
+if(process.argv.includes('--write')){mkdirSync('scripts/unicode',{recursive:true});mkdirSync('tests/data',{recursive:true});writeFileSync(path,output);writeFileSync('scripts/unicode/LICENSE.txt',bytes.LICENSE);writeFileSync('tests/data/unicode17-normalization.txt.gz',corpus);}else{assert.equal(readFileSync(path,'utf8'),output);assert(readFileSync('scripts/unicode/LICENSE.txt').equals(bytes.LICENSE));assert(readFileSync('tests/data/unicode17-normalization.txt.gz').equals(corpus));}
+console.log(JSON.stringify({pass:true,rows:rows.length,canonicalPairs:composition.length,normalNeeds:normalNeeds.size,dataBytes:Buffer.byteLength(output),corpusGzipBytes:corpus.length,sha256:createHash('sha256').update(output).digest('hex')}));

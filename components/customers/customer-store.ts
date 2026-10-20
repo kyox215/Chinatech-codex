@@ -32,7 +32,7 @@ function subscribe(listener: () => void) {const stop=subscribeBackend(listener);
   return () => {stop(); window.removeEventListener("storage", storage); window.removeEventListener(change, listener); };
 }
 export function useCustomerDirectory() {
-  const profiles = useBackendStore(subscribe,read,server,current=>({profiles:current?.customers??[],ready:true,error:current?"":"后台资料暂不可用。"}));
+  const profiles = useBackendStore(subscribe,read,server,current=>({profiles:current?.customers??[],ready:true,error:current?"":"后台资料暂不可用。"}),"customers");
   const formal = useBackendMode();
   const repairs = useRepairDirectory();
   const local = useLocalIntakes();

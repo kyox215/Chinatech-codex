@@ -9,12 +9,12 @@
 | 品牌 | `components/brand.tsx` | 现有 ChinaTech 品牌与语义 token；导航反馈复用图标槽 |
 | 按钮 / 图标按钮 | `app/globals.css` `.button` / `.icon-button` | Figma `12327:116159` / `12327:116158`；44px 手机适配；默认/按下/焦点/禁用/等待 |
 | 导航 | `components/navigation-link.tsx` | 原按钮及侧栏 `12327:116271`；最新真实导航实例控制单圈及内容细线 |
-| 文本 / 多行输入 | `components/input-control.tsx` 的 `InputControl` / `TextareaControl` | 原 Card `12373:157599`；默认/聚焦/错误/填写/只读/禁用/提交 |
+| 文本 / 多行输入 | `components/input-control.tsx` 的 `InputControl` / `TextareaControl` | 原 Card `12373:157599`；默认/聚焦/错误/填写/只读/禁用/提交 ；搜索有自定义清空按钮时单一清空，未提供时保留原生清空 |
 | 选择 / 搜索候选 | `select-control.tsx` / `search-combobox.tsx` | 原搜索 `12327:116166`；加载/无结果/失败/键盘/手填 |
 | 多选 / 单选 | `multi-choice.tsx` / `single-choice.tsx` | 现有 token 与组件；选择是同步反馈，不造异步等待 |
 | 设备目录 / 识码 | `catalog/device-catalog-control.tsx` / `identifier-field.tsx` | 复用候选和公共输入；不推断设备事实；原目录用户决定保留 |
 | 面板 / 表单 / 弹窗 | `app/globals.css` 既有语义类与原生 dialog | 原 Card `12373:157599`；焦点恢复/取消/保存/错误/冲突 |
-| 表头 / 列表 / 分页 | 领域列表、`components/list-pagination.tsx` | 原 `12327:116172` / `116173` / `116270`；旧结果保留及计数同步 |
+| 表头 / 列表 / 追加 | 领域列表、`components/list-pagination.tsx` | 原 `12327:116172` / `116173` / `116270`；[触底追加候选](previews/infinite-lists-20261017.md)维护原按钮与容器；旧结果保留及计数同步 |
 | 标题 / 侧栏 | `components/page-title.tsx` / `dashboard/app-shell.tsx` | 原侧栏 `12327:116271`；手机标题排菜单/返回/操作44px；单个操作及`module-heading__actions--icons`纯图标组同排，长状态在标题内换行，多文字操作保留独立工具栏；隐藏文字必须排除导航图标槽及可访问消息；不增加全局顶栏 |
 | 分组 / 页内 Tab | `repairs/repair-detail-workspace.tsx` 及领域分组 | 原 Tab `12327:116162`；同记录切换保留草稿，不制造导航等待 |
 | 读取 / 错误 / 权限 | `components/page-recovery.tsx` 与共享读取状态 | 真实标题框架保留；首次局部等待、失败就地重试、无权限隔离 |
@@ -28,7 +28,20 @@
 
 此表为项目全部现有组件类别的复用索引，不声称每页每状态与 Figma 逐像素相同。自定义业务组合由对应模块所有；新设计必须补齐具体 Figma 节点与代码入口后登记。
 
+2026-10-17性能候选新增非视觉辅助：`WindowedListRows`管理已授权摘要的测量/窗口/焦点，`BackendPageFrame`/`BackendPageData`提供按页SSR资料；实际列表、输入、导航与反馈继续使用本表唯一组件，不新增主题或Figma变体。接口与实际客户验收范围见docs/06“性能候选的实际客户读取与渲染”；其他模块的兼容读取仍明确保留，未发布。
+
+共享窗口补焦点仅在真实控件被当前滚动视口裁切时显式 nearest reveal；继续复用原生控件与已登记窗口，不改变视觉/键盘偏好。源码组件双引擎回归与正式编译页面证据分开，详见 docs/06 的公共维护声明。
+
+采购候选继续复用本表原列表/按钮/输入/候选/弹窗语言：唯一模块内`ProcurementListBody`与`SupplierBatchView`分别接旧事实和有界API，不维护第二套模板。`WindowedListRows.scrollRoot/anchorSelector`只控制滚动/定位，`SearchCombobox.loadingLabel`保留原目录默认。共同横向视口、真实groupFirst、低频候选与实际检查范围见docs/06“性能候选的采购摘要与批量读取”；正式baseline保持原绑定，未部署。
 
 2026-10-17 多门店发布候选：新增 [MyStores / JoinStore / StoreManagement](previews/multistore-pilot-20261017.md)，原 Figma 15181:209494；复用 AccountBrand、AppShell、InputControl、SelectControl、MultiChoice、NavigationLink 与 B 反馈。发布源从正式 main 独立整合，仅纳本轮多店与容量，保留正式分页和 PDF 模板；本地 Supabase 生产构建、双引擎三语四宽与真实邀请审批均通过，发布状态以最终控制面绑定为准。
 
 2026-10-17 多门店与正式打印组合验收：`repairReceiptHtml` 的空项目／未报价合计复用既有 `text-amounts` 变体，不新增样式或控件；三语真实PDF、零值／正常金额27mm及超容量拒绝见 [本轮记录](previews/multistore-pilot-20261017.md)。
+
+未发布性能候选兼容维护：`RepairListBody.partsChips` 只恢复已授权 legacy 全文的可访问描述，正式 DTO 仍有界；`RepairIntakeForm` 同步候选与正式异步读取各沿原更新入口，`RetailScannerResults` 只为真实空结果补原生状态语义。无新增组件/主题/token/Figma视觉变体，实际回归范围见docs/06“未发布性能候选的兼容列表回归”。
+
+客户设备未发布性能候选：原设备卡片／details／记录行继续唯一展示；`CustomerDeviceGrid`、`useCustomerDevicePage` 与 `CustomerDeviceOriginal` 仅负责受限窗口、按需完整原文及身份代际隔离。复用 InputControl、NavigationLink、ReadFailure、ListPagination 和 WindowedListRows，无新主题、控件外观或 Figma 变体；精确两域入口与嵌套键盘／语义返回位置见 docs/06“客户设备读取”。
+
+设备记录链接维护复用 `NavigationLink.resolveHref` 可选交互解析：原链接槽和 B 反馈不变，逐记录 SSR 身份与点击时的 returnTo 持久进入目标 URL，目标刷新后仍可按相同记录／语义目标返回。此为既有导航逻辑扩展，无新增 Figma 视觉；默认链接、取消／scope 隔离及原生鼠标／键盘行为分别验收，详见 docs/06。
+
+2026-10-18 私有目录候选复用原表格／手机卡片；`WindowedListRows.container="tbody"/columns`仅扩非视觉语义，默认div不变。管理表单／预览／历史／覆盖按需代码采用原ReadPending，不造新等待控件。十批缓存、重取／草稿／搜索即时边界与验收状态见docs/06“私有目录管理性能维护候选”。本条不覆盖已部署baseline。

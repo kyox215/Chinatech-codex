@@ -10,6 +10,7 @@ import { getServerAccess, memberInTransaction } from "@/lib/backend/context";
 import { withDatabase, BackendError } from "@/lib/backend/database";
 import { loadState, projectState } from "@/lib/backend/state";
 import { BackendProvider, BackendSyncNotice } from "@/components/backend-provider";
+import { backendV2ReadsEnabled, getPageAccess, loadSessionBootstrap, sessionSnapshot } from "@/lib/backend/page-state";
 
 // Authenticated snapshots are request-scoped and must never be prerendered.
 export const dynamic = "force-dynamic";
@@ -17,9 +18,13 @@ export const dynamic = "force-dynamic";
 export default async function ProtectedAppLayout({ children }: { children: React.ReactNode }) {
   if(isSupabaseMode()) {
     let access;
-    try {access=await getServerAccess();}
+    try {access=await (backendV2ReadsEnabled() ? getPageAccess() : getServerAccess());}
     catch(error) {if(error instanceof BackendError && error.status===401) redirect("/login");throw error;}
     if(!access) redirect("/account/pending");
+    if (backendV2ReadsEnabled()) {
+      const bootstrap = await loadSessionBootstrap(access);
+      return <BackendProvider key={JSON.stringify([access.identity.userId, access.identity.sessionId, access.storeId])} initial={sessionSnapshot(bootstrap)}><AppShell><DeviceDirectoryPreload/><BackendSyncNotice/>{children}</AppShell></BackendProvider>;
+    }
     const initial=await withDatabase(access.identity,access.storeId,async tx=>{const fresh=await memberInTransaction(tx,access.storeId,access.identity.userId);return projectState(await loadState(tx,access.storeId,fresh),fresh);});
     return <BackendProvider key={JSON.stringify([access.identity.userId, access.identity.sessionId, access.storeId])} initial={initial}><ProcurementProvider><RetailProvider><AppShell><DeviceDirectoryPreload/><BackendSyncNotice/>{children}</AppShell></RetailProvider></ProcurementProvider></BackendProvider>;
   }

@@ -5,6 +5,7 @@ import { isBackendClient } from "@/lib/backend/client";
 import { projectRetailHistory, type RetailHistoryRecord } from "@/lib/retail-history";
 import { useStaff } from "@/components/staff/use-staff";
 import { parsePreviewRetailHistory, previewRetailHistoryKey } from "@/lib/retail-record";
+import { backendDomainReady } from "@/lib/backend/read-plan";
 
 const empty: RetailHistoryRecord[] = [];
 let cachedRaw: string | null | undefined;
@@ -29,10 +30,10 @@ function subscribeLocal(listener: () => void) {
 }
 export function useRetailHistory() {
   const backend = useBackendState();
-  const preview = useBackendStore(subscribeLocal,readLocal,server,current=>({records:current?.retailHistory??empty,error:current?"":"历史整机资料暂不可用。"}));
+  const preview = useBackendStore(subscribeLocal,readLocal,server,current=>({records:current?.retailHistory??empty,error:current?"":"历史整机资料暂不可用。"}),"retailHistory");
   const staff = useStaff();
   const source = preview.records;
   const records = useMemo(() => projectRetailHistory(source, staff.member), [source, staff.member]);
   return { records,
-    ready: staff.ready, error: backend.formal && !backend.snapshot ? "历史整机资料暂不可用。" : preview.error };
+    ready: staff.ready && (!backend.formal || backendDomainReady(backend.snapshot, "retailHistory")), error: backend.formal && !backend.snapshot ? "历史整机资料暂不可用。" : preview.error };
 }

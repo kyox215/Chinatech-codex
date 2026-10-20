@@ -1,7 +1,8 @@
 "use client";
 import { useBackendStore } from "@/components/backend-snapshot";
+import {backendScopeKey} from "@/lib/backend/read-plan";
 import { useStaff } from "@/components/staff/use-staff";
-import { isBackendClient, backendSnapshot, subscribeBackend, backendCommand, backendRecovery, subscribeRecovery } from "@/lib/backend/client";
+import { isBackendClient, backendSnapshot, backendReadGeneration, subscribeBackend, backendCommand, backendRecovery, subscribeRecovery } from "@/lib/backend/client";
 
 import { createContext, useContext, useReducer, useSyncExternalStore } from "react";
 import { retailUnits } from "@/lib/retail-fixtures";
@@ -45,7 +46,7 @@ function uiReducer(state: UiState, action: UiAction): UiState { return action.ty
 
 const RetailContext = createContext<State & { dispatch: (action: Action, options?: { requestId?: string }) => boolean | Promise<boolean> } | null>(null);
 export function RetailProvider({ children }: { children: React.ReactNode }) {
-  const stored = useBackendStore(subscribe,read,server,current=>({units:current?.retail??[],ready:true,error:current?"":"后台资料暂不可用。"}));
+  const stored = useBackendStore(subscribe,read,server,current=>({units:current?.retail??[],ready:true,error:current?"":"后台资料暂不可用。"}),"retail");
   const staff = useStaff();
   const [ui, uiDispatch] = useReducer(uiReducer, { returnTo: "/app/retail", returnScroll: 0, feedback: null });
   const recovery = useSyncExternalStore(subscribeRecovery, backendRecovery, backendRecovery);
@@ -55,9 +56,11 @@ export function RetailProvider({ children }: { children: React.ReactNode }) {
     const id = action.type === "workflow" ? (action.workflow.type === "create_ready" ? action.workflow.unit.id : action.workflow.id) : action.type === "create" ? action.unit.id : action.id;
     if (isBackendClient()) {
       const requestId = options?.requestId ?? crypto.randomUUID();
+      const generation=backendReadGeneration(),scope=backendSnapshot()?.read?.scope,key=scope?backendScopeKey(scope):null;
+      const current=()=>backendReadGeneration()===generation&&(!key||Boolean(backendSnapshot()?.read)&&backendScopeKey(backendSnapshot()!.read!.scope)===key);
       const command = action.type === "command" && ["inspect", "approve", "pause", "reinspect"].includes(action.command.type) ? { ...action.command, note: "note" in action.command && action.command.note !== undefined ? action.command.note : action.event.detail } : action.type === "command" ? action.command : undefined;
       const payload = action.type === "workflow" ? action.workflow : action.type === "prepare" ? { id: action.id, sourceSnapshot: action.sourceSnapshot, settingsRevision: action.settingsRevision, draft: action.draft } : action.type === "create" ? { type: action.type, unit: action.unit, ...(action.photos !== undefined ? { photos: action.photos } : {}) } : { type: action.type, id: action.id, command, version: action.version };
-      return backendCommand(action.type === "workflow" ? "retail.workflow" : action.type === "prepare" ? "retail.prepare" : "retail", payload, requestId).then(() => { uiDispatch({ type: "feedback", feedback: { id, requestId, error: false, message: "已保存并追加到历史。" } }); return true; }).catch(reason => { uiDispatch({ type: "feedback", feedback: { id, requestId, error: true, message: reason instanceof Error ? reason.message : "保存失败。" } }); return false; });
+      return backendCommand(action.type === "workflow" ? "retail.workflow" : action.type === "prepare" ? "retail.prepare" : "retail", payload, requestId).then(() => { if(!current())return false;uiDispatch({ type: "feedback", feedback: { id, requestId, error: false, message: "已保存并追加到历史。" } }); return true; }).catch(reason => { if(!current())return false;uiDispatch({ type: "feedback", feedback: { id, requestId, error: true, message: reason instanceof Error ? reason.message : "保存失败。" } }); return false; });
     }
     try {
       const authorize = () => {

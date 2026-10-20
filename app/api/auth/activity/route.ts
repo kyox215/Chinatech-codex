@@ -4,6 +4,8 @@ import { memberInTransaction } from "@/lib/backend/context";
 import { readAuthAccessToken } from "@/lib/server/login-policy";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseConfig } from "@/lib/supabase/config";
+import{createAuthVerificationFetch}from"@/lib/supabase/request-auth-fetch";
+import{authVerificationFailure}from"@/lib/supabase/auth-verification-error";
 import { authFailure, AuthRequestError, preventAuthCaching, readAuthBody, requireSameOrigin } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
@@ -21,11 +23,13 @@ export async function POST(request: NextRequest) {
       if (typeof hint.exp === "number" && Number.isFinite(hint.exp) && hint.exp <= Date.now()/1000) return preventAuthCaching(NextResponse.json({ code: "SESSION_REFRESH_REQUIRED" }, { status: 409 }));
     } catch { /* Actual JWT verification below rejects invalid tokens. */ }
     const { url, publishableKey } = getSupabaseConfig();
-    const auth = createClient(url, publishableKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }, global: { fetch: (input, init) => fetch(input, { ...init, cache: "no-store", signal: AbortSignal.timeout(8000) }) } });
+    const auth = createClient(url, publishableKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }, global: { fetch: createAuthVerificationFetch(url,(input, init) => fetch(input, { ...init, cache: "no-store", signal: AbortSignal.timeout(8000) })) } });
     // Explicit JWT verification does not refresh tokens or write cookies.
-    const [{ data: { user }, error }, { data, error: claimsError }] = await Promise.all([auth.auth.getUser(token), auth.auth.getClaims(token)]);
+    const [{ data: { user }, error }, { data, error: claimsError }] = await Promise.all([auth.auth.getUser(token).catch(error=>({data:{user:null},error})), auth.auth.getClaims(token).catch(error=>({data:null,error}))]);
+    const failure=authVerificationFailure(error,claimsError);
+    if(failure)throw new AuthRequestError(failure===401?"请重新登录后管理账号。":"暂时无法读取登录服务，请稍后重试。",failure);
     const claims = data?.claims;
-    if (error || claimsError || !user?.email_confirmed_at || claims?.sub !== user.id || typeof claims.session_id !== "string") throw new AuthRequestError("请重新登录后管理账号。", 401);
+    if ( !user?.email_confirmed_at || claims?.sub !== user.id || typeof claims.session_id !== "string") throw new AuthRequestError("请重新登录后管理账号。", 401);
     const identity = { userId: user.id, sessionId: claims.session_id };
     const storeId = body.store === true ? request.cookies.get("ct_store")?.value : undefined;
     // The default store is resolved by the authoritative backend, not client input.

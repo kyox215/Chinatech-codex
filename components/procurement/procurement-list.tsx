@@ -1,56 +1,25 @@
 "use client";
-
-import { useLanguage } from "@/components/language-provider";
-import { repairItemText } from "@/lib/i18n/repair-display";
-import { InputControl } from "@/components/input-control";
-import { NavigationLink as Link } from "@/components/navigation-link";
-import { PageTitle } from "@/components/page-title";
-import { SelectControl } from "@/components/select-control";
-import { useState } from "react";
-import { ChevronRight, PackageSearch, Plus, Search } from "lucide-react";
-import { useRepairDirectory } from "@/components/repairs/local-intake-store";
-import { arrivedQuantity, isPreorder, procurementStatus, procurementStatuses, type ProcurementRecord } from "@/lib/procurement";
-import { useProcurement } from "./procurement-provider";
-import { SupplierBatchDialog } from "./supplier-batch-dialog";
-import { useStaff } from "@/components/staff/use-staff";
-
-type Filter = "all" | "draft" | "open" | "complete";
-const filters: { value: Filter; label: string }[] = [{ value: "all", label: "全部采购" }, { value: "draft", label: "待采购" }, { value: "open", label: "等待到齐" }, { value: "complete", label: "已到齐" }];
-const matchesStatus = (record: ProcurementRecord, filter: Filter) => filter === "all" || (filter === "draft" ? isPreorder(record) : filter === "open" ? ["ordered", "partial"].includes(procurementStatus(record)) : procurementStatus(record) === filter);
-
-export function ProcurementList({ initialRepairId = "" }: { initialRepairId?: string }) {
-  const { t, locale } = useLanguage();
-  const [batchAction, setBatchAction] = useState<"arrival"|null>(null);
-  const staff = useStaff(); const canEdit = staff.can("repairs.edit");
-  const { records, listView, dispatch } = useProcurement();
-  const repairOrders = useRepairDirectory();
-  const getRepairOrder = (id: string) => repairOrders.find(repair => repair.id === id);
-  const [query, setQuery] = useState(listView.query);
-  const [filter, setFilter] = useState<Filter>(listView.filter);
-  const [repairId, setRepairId] = useState(initialRepairId || listView.repairId);
-  const [groupBy, setGroupBy] = useState(listView.groupBy);
-  const rememberView = () => dispatch({ type: "list-view", view: { query, filter, repairId, groupBy } });
-  const filtered = records.filter((record) => matchesStatus(record, filter) && (!repairId || record.repairId === repairId) && [record.id, record.item, record.supplier, record.repairId, getRepairOrder(record.repairId)?.device.model].join(" ").toLowerCase().includes(query.trim().toLowerCase()));
-  const groups = new Map<string, ProcurementRecord[]>();
-  filtered.forEach((record) => {
-    const group = groupBy === "status" ? t(procurementStatuses[procurementStatus(record)].label) : groupBy === "supplier" ? record.supplier : groupBy === "repair" ? `${record.repairId} · ${getRepairOrder(record.repairId)?.device.model ?? t("关联工单")}` : t("全部条目");
-    groups.set(group, [...(groups.get(group) ?? []), record]);
-  });
-  const clearFilters = () => { setQuery(""); setFilter("all"); setRepairId(""); };
-
-  return <main className="module-page procurement-page">
-    <header className="module-heading"><PageTitle title={t("采购与到货")} /><div className="module-heading__actions">{canEdit ? <><button className="button button--secondary" type="button" onClick={() => setBatchAction("arrival")}>{t("批量到货")}</button></> : null}{canEdit ? <Link className="button button--primary button--compact" onClick={rememberView} href={`/app/procurement/new${repairId ? `?repair=${encodeURIComponent(repairId)}` : ""}`} icon={<Plus size={17} />}>{t("新建采购")}</Link> : null}</div></header>
-    {batchAction && canEdit ? <SupplierBatchDialog key={`${staff.member?.id}:${staff.member?.revision}:${batchAction}`} action={batchAction} onClose={() => setBatchAction(null)} /> : null}
-    <section className="procurement-stats" aria-label={t("采购状态筛选")}>{filters.map((option) => <button type="button" aria-pressed={filter === option.value} className={`repair-status-card${filter === option.value ? " repair-status-card--active" : ""}`} onClick={() => setFilter(option.value)} key={option.value}><span>{t(option.label)}</span><strong>{records.filter((record) => matchesStatus(record, option.value)).length}</strong><small>{option.value === "open" ? t("包含部分到货") : t("采购条目")}</small></button>)}</section>
-    <section className="panel">
-      <div className="procurement-filterbar"><label className="module-search"><Search size={18} /><InputControl onClear={() => setQuery("")} clearLabel={t("清空搜索采购")} aria-label={t("搜索采购")} placeholder={t("配件、采购号、供应商或工单")} value={query} onChange={(event) => setQuery(event.target.value)} /></label><label className="module-select"><SelectControl aria-label={t("关联工单筛选")} value={repairOrders.some(repair => repair.id === repairId) ? repairId : ""} onChange={(event) => setRepairId(event.target.value)}><option value="">{t("全部工单")}</option>{repairOrders.map((repair) => <option value={repair.id} key={repair.id}>{repair.id}</option>)}</SelectControl></label><label className="module-select"><SelectControl aria-label={t("采购分组")} value={groupBy} onChange={(event) => setGroupBy(event.target.value)}><option value="status">{t("按采购状态")}</option><option value="supplier">{t("按供应商")}</option><option value="repair">{t("按工单")}</option><option value="none">{t("不分组")}</option></SelectControl></label></div>
-      <div className="procurement-result-count"><span>{filtered.length} {t(" 条采购 · ")}{groups.size} {t(" 组")}</span>{query || repairId || filter !== "all" ? <button type="button" onClick={clearFilters}>{t("清除筛选")}</button> : null}</div>
-      {Array.from(groups, ([group, rows]) => <section key={group} className="procurement-group"><h3>{group}<small>{rows.length} {t(" 条")}</small></h3><div className="module-table-scroll" role="region" aria-label={t("{v0}采购表格", { v0: group })} tabIndex={0}><div className="procurement-table-head" aria-hidden="true"><span>{t("配件 / 采购编号")}</span><span>{t("关联工单")}</span><span>{t("到货进度")}</span><span>{t("预计到货")}</span><span /></div>{rows.map((record) => {
-        const arrived = arrivedQuantity(record);
-        const status = procurementStatuses[procurementStatus(record)];
-        return <Link className="procurement-row" onClick={rememberView} href={`/app/procurement/${record.id}`} key={record.id} icon={<ChevronRight size={17} />} iconPosition="end"><div className="procurement-row__item"><span className="procurement-icon"><PackageSearch size={18} /></span><div><strong>{repairItemText(record.item, locale)}</strong><small>{record.id}</small></div></div><div className="procurement-row__repair"><strong>{getRepairOrder(record.repairId)?.device.model}</strong><small>{record.repairId}</small></div><div className="procurement-row__progress"><span className={`status-pill status-pill--${status.tone}`}>{t(status.label)}</span><small>{arrived} / {record.quantity} {t(" 件")}</small></div><div className="procurement-row__date"><strong>{record.expectedAt || t("待确认")}</strong><small>{t("预计到货")}</small></div></Link>;
-      })}</div></section>)}
-      {!filtered.length ? <div className="module-empty"><PackageSearch size={28} /><strong>{t("没有符合条件的采购")}</strong><p>{t("调整搜索或筛选条件，或者建立关联工单的采购草稿。")}</p><button type="button" onClick={clearFilters}>{t("清除筛选")}</button></div> : null}
-    </section>
-  </main>;
+import {useState} from "react";
+import {useLanguage} from "@/components/language-provider";
+import {useBackendState} from "@/components/backend-snapshot";
+import {useRepairDirectory} from "@/components/repairs/local-intake-store";
+import {SelectControl} from "@/components/select-control";
+import {useListWindow} from "@/components/list-pagination";
+import {arrivedQuantity,isPreorder,procurementStatus,type ProcurementRecord} from "@/lib/procurement";
+import type {ProcurementListQuery,ProcurementListSummary} from "@/lib/backend/procurement-list-contract";
+import {useProcurement} from "./procurement-provider";
+import {FormalProcurementList} from "./formal-procurement-list";
+import {ProcurementListBody} from "./procurement-list-body";
+export function ProcurementList({initialRepairId=""}:{initialRepairId?:string}) {
+ const backend=useBackendState();return backend.formal&&backend.snapshot?.procurementListEnabled?<FormalProcurementList/>:<LegacyProcurementList initialRepairId={initialRepairId}/>;
+}
+const matches=(row:ProcurementRecord,filter:ProcurementListQuery["filter"])=>filter==="all"||(filter==="draft"?isPreorder(row):filter==="open"?["ordered","partial"].includes(procurementStatus(row)):procurementStatus(row)===filter);
+function LegacyProcurementList({initialRepairId}:{initialRepairId:string}) {
+ const {t}=useLanguage(),{records,listView,dispatch}=useProcurement(),orders=useRepairDirectory();
+ const [query,setQuery]=useState<ProcurementListQuery>({q:listView.query,filter:listView.filter,repairId:initialRepairId||listView.repairId,groupBy:listView.groupBy as ProcurementListQuery["groupBy"]});
+ const filtered=records.filter(row=>matches(row,query.filter)&&(!query.repairId||row.repairId===query.repairId)&&[row.id,row.item,row.supplier,row.repairId,orders.find(order=>order.id===row.repairId)?.device.model].join(" ").toLowerCase().includes(query.q.trim().toLowerCase()));
+ const groups=new Map<string,ProcurementRecord[]>();for(const row of filtered){const status=procurementStatus(row),group=query.groupBy==="status"?status==="cart"?"draft":status:query.groupBy==="supplier"?row.supplier:query.groupBy==="repair"?row.repairId:"all";const entries=groups.get(group)??[];entries.push(row);groups.set(group,entries);}
+ const summaries:ProcurementListSummary[]=[...groups.values()].flatMap(rows=>rows.map(row=>({id:row.id,repairId:row.repairId,repairModel:orders.find(order=>order.id===row.repairId)?.device.model??null,item:row.item,supplier:row.supplier,quantity:row.quantity,arrived:arrivedQuantity(row),status:procurementStatus(row),expectedAt:row.expectedAt,ledgerRevision:row.events.length,groupKey:rows[0].id,groupFirst:rows[0].id,groupCount:rows.length})));
+ const window=useListWindow(summaries.length,JSON.stringify(query)),remember=()=>dispatch({type:"list-view",view:{query:query.q,filter:query.filter,repairId:query.repairId,groupBy:query.groupBy}});
+ return <ProcurementListBody query={query} update={value=>setQuery(current=>({...current,...value}))} items={summaries.slice(0,window.limit)} total={summaries.length} groupTotal={groups.size} stats={{all:records.length,draft:records.filter(row=>matches(row,"draft")).length,open:records.filter(row=>matches(row,"open")).length,complete:records.filter(row=>matches(row,"complete")).length}} ready hasMore={window.limit<summaries.length} loadMore={window.loadMore} resetKey={window.resetKey} onRemember={()=>void remember()} repairFilter={<label className="module-select"><SelectControl aria-label={t("关联工单筛选")} value={orders.some(row=>row.id===query.repairId)?query.repairId:""} onChange={event=>setQuery(current=>({...current,repairId:event.target.value}))}><option value="">{t("全部工单")}</option>{orders.map(row=><option value={row.id} key={row.id}>{row.id}</option>)}</SelectControl></label>}/>;
 }

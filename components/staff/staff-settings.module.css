@@ -9,6 +9,8 @@
 .permissions label {display:flex;gap:8px;align-items:center;min-height:44px;padding:6px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-control);font-size:13px;}
 .permissions input {width:18px;height:18px;accent-color:var(--primary-600);}
 .rows {display:grid;gap:8px;}
+.windowRow {padding-bottom:8px;}
+.windowRow[data-staff-last] {padding-bottom:0;}
 .rows article {display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--border);border-radius:var(--radius-control);}
 .rows article>div {display:grid;gap:3px;min-width:0;flex:1;}
 .rows small,.rows span:not(.avatar) {font-size:12px;color:var(--text-secondary);overflow-wrap:anywhere;}

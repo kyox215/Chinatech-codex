@@ -1,4 +1,4 @@
-import { emptyRetailUnit, normalizeImei, retailCategories, validateRetailUnit, type Inspection, type RetailCategory, type RetailEvent, type RetailUnit } from "./retail";
+import { emptyRetailUnit, normalizeImei, retailCategories, validateRetailUnit, type Inspection, type RetailCategory, type RetailEvent, type RetailUnit, type RetailIdentity } from "./retail";
 import { retailHistoryCode, validateRetailHistoryRecord, type RetailHistoryRecord } from "./retail-history";
 
 export type RetailRecordPreparation = {
@@ -17,8 +17,17 @@ export function parsePreviewRetailHistory(raw: string | null): RetailHistoryReco
 }
 
 const categories: Record<string, RetailCategory> = { 手机: "phone", 平板: "tablet", 笔记本: "laptop", 台式电脑: "desktop", 游戏机: "console" };
-export function retailRecordHref(id: string, returnTo?: string) {
-  return `/app/retail/units/${encodeURIComponent(id)}${returnTo ? `?${new URLSearchParams({ returnTo })}` : ""}`;
+export function retailRecordHref(id: string, returnTo?: string, source?: "unit"|"history") {
+  const query=new URLSearchParams();if(returnTo)query.set("returnTo",returnTo);if(source==="unit")query.set("source","unit");
+  return `/app/retail/${source==="history"?"history":"units"}/${encodeURIComponent(id)}${query.size?"?"+query:""}`;
+}
+/** A legacy URL may resolve an original when no unit exists. An explicitly
+ * qualified target never borrows an independent record with the same ID. */
+export function selectRetailRecord(units: readonly RetailUnit[], records: readonly RetailHistoryRecord[], id: string, source?: "unit"|"history") {
+  const target=records.find(record=>record.id===id);
+  const saved=source==="history"?units.find(unit=>unit.historyOrigin?.recordId===id&&unit.historyOrigin.sourceSnapshot===target?.sourceSnapshot):units.find(unit=>unit.id===id);
+  const original=saved?.historyOrigin?records.find(record=>record.id===saved.historyOrigin!.recordId&&record.sourceSnapshot===saved.historyOrigin!.sourceSnapshot):!saved&&source!=="unit"?target:undefined;
+  return{saved,original,unit:saved??(original?historyDisplayUnit(original):undefined)};
 }
 export function isSoldSource(record: RetailHistoryRecord) { return record.sourceStatus === "已售" || record.sourceStatus === "以售"; }
 
@@ -37,7 +46,7 @@ export function initialRecordPreparation(record: RetailHistoryRecord): RetailRec
     identifier: record.identifier || "", storeOwned: false, checks: { functional: false, ownership: false, data: false } };
 }
 
-export function prepareRetailRecord(record: RetailHistoryRecord, draft: RetailRecordPreparation, warrantyMonths: number | null, event: RetailEvent, others: RetailUnit[]): RetailUnit {
+export function prepareRetailRecord(record: RetailHistoryRecord, draft: RetailRecordPreparation, warrantyMonths: number | null, event: RetailEvent, others: readonly RetailIdentity[]): RetailUnit {
   validateRetailHistoryRecord(record);
   if (isSoldSource(record)) throw new Error("原已售记录保留历史，不能重新登记为待售商品。");
   if (!draft || typeof draft !== "object" || Array.isArray(draft) || Object.keys(draft).sort().join(",") !== "brand,category,checks,identifier,identifierKind,model,storeOwned"

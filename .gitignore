@@ -34,6 +34,8 @@ Codex_从这里启动.md
 desktop/office-assistant/**/bin/
 desktop/office-assistant/**/obj/
 
+# Rebuilt for the current Node/runtime architecture; never commit native output.
+native/icu-sort-key/build/
 # Large MobileTrans installers are distributed through GitHub Releases.
 public/toolbox/mobiletrans/*.apk
 public/toolbox/mobiletrans/*.exe
