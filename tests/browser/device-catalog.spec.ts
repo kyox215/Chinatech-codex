@@ -6,12 +6,12 @@ import { activatePicker, openCatalogPicker, chooseCatalogDevice, choosePickerFam
 async function setup(page: Page) {
   const response = await page.request.post('/api/preview-session', { data: { email: 'demo@chinatech.local', password: 'Preview2026!' } });
   expect(response.status()).toBe(200);
-  const index = page.waitForResponse(response => response.url().includes('/api/catalog?kind=picker-index') && response.status() === 200);
+  const index = page.waitForResponse(response => response.url().includes('/api/device-directory/') && response.url().endsWith('/package') && response.status() === 200);
   await page.goto('/app/repairs/new');
   const indexResponse = await index;
   await page.getByRole('combobox', { name: '联系电话', includeHidden: true }).fill('+393200001234');
   await page.getByRole('button', { name: '下一步', exact: true }).click();
-  return { response: indexResponse, data: await indexResponse.json() };
+  return { response: indexResponse, data: JSON.parse((await indexResponse.json()).manifest) };
 }
 function repairBrand(page: Page) { return page.locator('form.intake-form').getByRole('combobox', { name: '品牌', exact: true, includeHidden: true }); }
 function repairModel(page: Page) { return page.locator('form.intake-form').getByRole('combobox', { name: '型号', exact: true, includeHidden: true }); }
@@ -25,27 +25,28 @@ async function selectBrand(page: Page, input: Locator, search: string, canonical
   return root;
 }
 
-test('focus during the first index request restarts the query and opens independent brand candidates', async ({ page }) => {
+test('focus during a cold public directory read coalesces and opens independent brand candidates', async ({ page }) => {
   const session = await page.request.post('/api/preview-session', { data: { email: 'demo@chinatech.local', password: 'Preview2026!' } });
   expect(session.status()).toBe(200);
   let calls = 0, hold = true;
   let release!: () => void;
   const held = new Promise<void>(resolve => { release = resolve; });
-  await page.route('**/api/catalog?kind=picker-index*', async route => { calls++; if (hold) await held; await route.continue().catch(() => undefined); });
+  await page.route('**/api/device-directory/manifest*', async route => { calls++; if (hold) await held; await route.continue().catch(() => undefined); });
   await page.goto('/app/repairs/new');
   await page.getByRole('combobox', { name: '联系电话', includeHidden: true }).waitFor();
   await expect.poll(() => calls).toBeGreaterThan(0);
   const initialCalls = calls;
-  const reloaded = page.waitForResponse(response => response.url().includes('kind=picker-index') && response.status() === 200);
+  const reloaded = page.waitForResponse(response => response.url().endsWith('/package') && response.status() === 200);
   hold = false;
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await reloaded;
+  expect(calls).toBe(initialCalls);
   release();
+  await reloaded;
   await page.getByRole('combobox', { name: '联系电话', includeHidden: true }).fill('+393200001234');
   await page.getByRole('button', { name: '下一步', exact: true }).click();
   const root = await openCatalogPicker(page, repairBrand(page));
   await expect(root.getByRole('option', { name: 'Apple', exact: true })).toBeVisible();
-  expect(calls).toBe(initialCalls + 1);
+  expect(calls).toBe(initialCalls);
   await expect(page.getByRole('dialog', { name: '选择设备', exact: true })).toHaveCount(0);
 });
 
@@ -54,7 +55,7 @@ test('directory pending belongs to the open field; background preload and closed
   expect(session.status()).toBe(200);
   let release!: () => void, calls = 0;
   const held = new Promise<void>(resolve => { release = resolve; });
-  await page.route('**/api/catalog?kind=picker-index*', async route => { calls++; await held; await route.continue().catch(() => undefined); });
+  await page.route('**/api/device-directory/manifest*', async route => { calls++; await held; await route.continue().catch(() => undefined); });
   try {
     await page.goto('/app/repairs/new');
     await page.getByRole('combobox', { name: '联系电话', includeHidden: true }).fill('+393200001234');
@@ -75,7 +76,7 @@ test('directory pending belongs to the open field; background preload and closed
     await expect(toggle).not.toHaveAttribute('aria-busy', 'true');
     await expect(toggle.locator('svg.spin')).toHaveCount(0);
     if (await progress.count()) await expect(progress).toHaveAttribute('data-active', 'false');
-    const loaded = page.waitForResponse(response => response.url().includes('kind=picker-index') && response.status() === 200);
+    const loaded = page.waitForResponse(response => response.url().endsWith('/package') && response.status() === 200);
     release();
     await loaded;
     await brand.click();
@@ -179,9 +180,7 @@ test('desktop manual keys and blur commit; mobile explicit manual confirmation a
 test('computer candidates stay windowed and anchored in all three languages at four widths', async ({ page }, info) => {
   test.setTimeout(120000);
   await setup(page);
-  const index = page.waitForResponse(response => response.url().includes('kind=picker-index') && response.url().includes('category=computer') && response.status() === 200);
   await page.getByLabel('设备类别').selectOption({ label: '电脑' });
-  await index;
   for (const locale of ['zh-CN', 'it', 'en']) for (const width of [1440, 1024, 390, 375]) {
     await page.setViewportSize({ width, height: 812 });
     await page.getByLabel('语言 / Lingua / Language').selectOption(locale, { force: true });
@@ -207,35 +206,11 @@ test('computer candidates stay windowed and anchored in all three languages at f
   }
 });
 
-type AuthorizationTick = { timerId: number; sequence: number; registeredAt: number; at: number };
-type AuthorizationProbe = { catalogAuthorizationTimers: { id: number; registeredAt: number }[]; catalogAuthorizationTicks: AuthorizationTick[] };
-
-test('preloaded independent choices paint within 200ms with zero new-data GETs and only verified native authorization ticks', async ({ page }, info) => {
+test('preloaded independent choices paint within 200ms with zero directory GETs or authorization polling', async ({ page }, info) => {
   test.setTimeout(120000);
-  // Observe the actual catalog interval without moving Date, performance or RAF.
-  await page.addInitScript(() => {
-    const probe = window as unknown as AuthorizationProbe;
-    probe.catalogAuthorizationTimers = []; probe.catalogAuthorizationTicks = [];
-    const nativeInterval = window.setInterval.bind(window);
-    let sequence = 0;
-    window.setInterval = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
-      if (timeout !== 30000 || typeof handler !== 'function' || handler.name !== 'revalidate') return nativeInterval(handler, timeout, ...args);
-      const registeredAt = Date.now(); let timerId = 0;
-      timerId = nativeInterval(function(this: unknown, ...values: unknown[]) {
-        probe.catalogAuthorizationTicks.push({ timerId, sequence: ++sequence, registeredAt, at: Date.now() });
-        return Reflect.apply(handler, this, values);
-      }, timeout, ...args);
-      probe.catalogAuthorizationTimers.push({ id: timerId, registeredAt });
-      return timerId;
-    }) as typeof window.setInterval;
-  });
-  const observationStarted = Date.now(); const warmed = await setup(page);
-  expect(warmed.data.revision).toBe('seed'); expect(warmed.data.complete).toBe(true);
-  const currentScope = [1, warmed.data.scope.accountId, warmed.data.scope.sessionId, warmed.data.scope.storeId, warmed.data.scope.memberId, warmed.data.scope.memberRevision];
-  expect(currentScope).toEqual([1, 'preview', 'preview', 'preview', 'preview', 0]);
-  expect((await page.evaluate(() => (window as unknown as AuthorizationProbe).catalogAuthorizationTimers)).length).toBeGreaterThan(0);
+  await setup(page);
   const requests: Request[] = [];
-  const observe = (request: Request) => { if (request.method() === 'GET' && new URL(request.url()).pathname === '/api/catalog') requests.push(request); };
+  const observe = (request: Request) => { if (request.method() === 'GET' && new URL(request.url()).pathname.startsWith('/api/device-directory/')) requests.push(request); };
   page.on('request', observe);
   await installCatalogPaintProbe(page);
   const arm = armCatalogPaintProbe;
@@ -276,33 +251,9 @@ test('preloaded independent choices paint within 200ms with zero new-data GETs a
   const samples = Object.fromEntries(Object.entries(points).map(([tier, values]) => [tier, values.map(value => value.ms)]));
   const p95 = (values: number[]) => [...values].sort((a, b) => a - b)[Math.ceil(values.length * .95) - 1];
   const results = Object.fromEntries(Object.entries(samples).map(([name, values]) => [name, { n: values.length, p95: p95(values), max: Math.max(...values) }]));
-  await expect.poll(() => requests.filter(request => new URL(request.url()).searchParams.has('knownRevision')).length, { timeout: 45000 }).toBeGreaterThanOrEqual(1);
-  let newDataRequests = 0;
-  const authorizationChecks = [];
-  for (let index = 0; index < requests.length; index++) {
-    const request = requests[index], url = new URL(request.url());
-    if (!url.searchParams.has('knownRevision')) { newDataRequests++; continue; }
-    expect([...url.searchParams.entries()].sort()).toEqual([['category', warmed.data.category], ['kind', 'picker-index'], ['knownRevision', 'seed']].sort());
-    const requestScope = JSON.parse(request.headers()['x-ct-catalog-scope']); expect(requestScope).toEqual(currentScope);
-    const response = await request.response(); expect(response).not.toBeNull(); expect(response!.status()).toBe(200);
-    const body = await response!.json();
-    expect(body.unchanged).toBe(true); expect(body.revision).toBe('seed'); expect(body.scope).toEqual(warmed.data.scope);
-    expect(body.formatVersion).toBe(1); expect(body.category).toBe(warmed.data.category); expect(body.brand).toBe(''); expect(body.family).toBe('');
-    authorizationChecks.push({ url: url.pathname + url.search, requestScope, status: response!.status(), revision: body.revision, unchanged: body.unchanged, startedAt: request.timing().startTime });
-  }
   page.off('request', observe);
-  const nativeAuthorization = await page.evaluate(() => ({ timers: (window as unknown as AuthorizationProbe).catalogAuthorizationTimers, ticks: (window as unknown as AuthorizationProbe).catalogAuthorizationTicks }));
-  const consumedTicks = new Set<number>();
-  for (const check of authorizationChecks) {
-    const tick = nativeAuthorization.ticks.find(tick => !consumedTicks.has(tick.sequence) && check.startedAt >= tick.at && check.startedAt - tick.at <= 1000);
-    expect(tick, 'Each authorization GET must consume one real 30-second catalog tick; clicks cannot create extras').toBeDefined();
-    expect(tick!.at - tick!.registeredAt).toBeGreaterThanOrEqual(29500);
-    consumedTicks.add(tick!.sequence);
-  }
-  expect(consumedTicks.size).toBe(authorizationChecks.length);
-  const observationWindowMs = Date.now() - observationStarted; expect(observationWindowMs).toBeGreaterThanOrEqual(30000);
   const paintDiagnostics = await catalogPaintDiagnostics(page);
-  const evidence = JSON.stringify({ paintDiagnostics, network: 'local preview, no throttling', metric: 'browser-native trusted pointerdown/click/input to unobscured visible target retained across two native animation frames; excludes test RPC tail', points, samples, results, requests: requests.length, newDataRequests, authorizationChecks, nativeAuthorization, observationWindowMs }, null, 2);
+  const evidence = JSON.stringify({ paintDiagnostics, network: 'local preview, no throttling', metric: 'browser-native trusted pointerdown/click/input to unobscured visible target retained across two native animation frames; excludes test RPC tail', points, samples, results, requests: requests.length }, null, 2);
   mkdirSync('.local/device-catalog', { recursive: true });
   writeFileSync('.local/device-catalog/separated-performance-' + info.project.name + '.json', evidence);
   await info.attach('catalog-native-performance', { body: evidence, contentType: 'application/json' });
@@ -311,29 +262,23 @@ test('preloaded independent choices paint within 200ms with zero new-data GETs a
     for (const value of values) { expect(value.trusted).toBe(true); expect(value.start).toBeLessThanOrEqual(value.firstVisible); expect(value.firstVisible).toBeLessThanOrEqual(value.frame1); expect(value.frame1).toBeLessThanOrEqual(value.frame2); const receipts = paintDiagnostics.native.filter(receipt => receipt.captured && receipt.token === value.token); expect(receipts).toHaveLength(1); expect(receipts[0].trusted).toBe(true); expect(receipts[0].tier).toBe(tier); expect(receipts[0].at).toBe(value.start); }
   }
   for (const result of Object.values(results)) expect(result.p95).toBeLessThanOrEqual(200);
-  expect(newDataRequests).toBe(0);
-  expect(authorizationChecks).toHaveLength(requests.length);
+  expect(requests).toHaveLength(0);
 });
 
-test('periodic authorization reuses the version and clears independent candidates after denial', async ({ page }) => {
-  await page.clock.install();
-  await setup(page);
+test('five-minute eligible focus checks retain cached options after background failure without polling', async ({ page }) => {
+  await page.clock.install(); await setup(page);
   let requests = 0;
-  page.on('request', request => { if (request.url().includes('/api/catalog?kind=picker-index')) requests++; });
-  const checked = page.waitForResponse(response => response.url().includes('kind=picker-index') && new URL(response.url()).searchParams.get('knownRevision') === 'seed');
-  await page.clock.fastForward(30000);
-  const response = await checked;
-  expect(response.status()).toBe(200); expect((await response.json()).unchanged).toBe(true);
-  expect(JSON.parse(response.request().headers()['x-ct-catalog-scope'])).toEqual([1, 'preview', 'preview', 'preview', 'preview', 0]);
+  page.on('request', request => { if (request.url().includes('/api/device-directory/manifest')) requests++; });
+  await page.clock.fastForward(300001); expect(requests).toBe(0);
   const root = await openCatalogPicker(page, repairBrand(page));
-  await expect(root.getByRole('option', { name: 'Apple', exact: true })).toBeVisible(); expect(requests).toBe(1);
-  await page.route('**/api/catalog?kind=picker-index*', route => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: '请先登录后查看设备目录。' }) }));
-  const denied = page.waitForResponse(response => response.url().includes('kind=picker-index') && response.status() === 401);
-  await page.clock.fastForward(30000); await denied;
-  await expect(root.getByRole('alert')).toContainText('请先登录后查看设备目录。');
-  await expect(root.getByRole('option', { name: 'Apple', exact: true })).toHaveCount(0); expect(requests).toBe(2);
-  await page.clock.fastForward(30000); await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(root.getByRole('alert')).toContainText('请先登录后查看设备目录。'); expect(requests).toBe(2);
+  await expect(root.getByRole('option', { name: 'Apple', exact: true })).toBeVisible();
+  await page.route('**/api/device-directory/manifest*', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }));
+  await page.evaluate(() => window.dispatchEvent(new Event('ct:catalog-updated')));
+  await expect(root.getByRole('alert')).toContainText('目录更新失败，继续使用已缓存目录。');
+  await expect(root.getByRole('option', { name: 'Apple', exact: true })).toBeVisible();
+  const count = requests;
+  await page.evaluate(() => {window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('online'));});
+  await expect(root.getByRole('alert')).toBeVisible(); expect(requests).toBe(count);
 });
 
 test('loading failures preserve raw queries and permit manual confirmation without reporting no match', async ({ page }) => {
@@ -342,9 +287,9 @@ test('loading failures preserve raw queries and permit manual confirmation witho
   await selectBrand(page, brand, 'Apple');
   const root = await openCatalogPicker(page, model);
   await fillCatalogQuery(page, model, '原文 网络失败');
-  await page.route('**/api/catalog?kind=picker-index*', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: '设备目录暂不可用，请稍后重试。' }) }));
-  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(root.getByRole('alert')).toContainText('设备目录暂不可用');
+  await page.route('**/api/device-directory/manifest*', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: '设备目录暂不可用，请稍后重试。' }) }));
+  await page.evaluate(() => window.dispatchEvent(new Event('ct:catalog-updated')));
+  await expect(root.getByRole('alert')).toContainText('目录更新失败');
   await expect(await catalogQueryInput(page, model)).toHaveValue('原文 网络失败');
   await expect(root.getByRole('status').filter({ hasText: '没有匹配' })).toHaveCount(0);
   await confirmCatalogManual(page, model);

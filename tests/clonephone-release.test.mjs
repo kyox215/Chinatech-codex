@@ -12,7 +12,8 @@ const release = metadata.clonephoneRelease;
 
 test('Clone Phone public APK and checksum bind the exact supplied bytes; old public phone files are absent', () => {
  const bytes=readFileSync('public'+release.apkPath);
- assert.equal(bytes.length,32358088);assert.equal(bytes.length,release.bytes);
+ assert.equal(bytes.length,32362184);assert.equal(bytes.length,release.bytes);
+ assert.equal(release.sha256,'0205692068c9040b2f2c04808037ec3d9b800b1b2d74a7a9ce5e6e2bddedfc6e');
  assert.equal(createHash('sha256').update(bytes).digest('hex'),release.sha256);
  assert.equal(release.version,'14.7.34_third');assert.equal(release.versionCode,140734);assert.equal(release.minSdk,26);assert.equal(release.packageName,'com.coloros.backuprestore');
  assert.equal(readFileSync('public'+release.checksumsPath,'utf8'),release.sha256+'  '+release.filename+'\n');

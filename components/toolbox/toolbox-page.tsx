@@ -12,7 +12,7 @@ const categories = [
   { id: "windows", title: "Windows 安装", description: "Windows 11 Pro 升级检测与安装条件。", topics: ["保留文件与应用", "升级检测"], icon: Laptop, tone: "primary" },
   { id: "office", title: "Office 安装与激活", description: "无需网站登录，下载 Office 助手后在 Windows 电脑上运行。", topics: ["组件逐项选择", "Windows 助手"], icon: FileText, tone: "info" },
   { id: "phone", title: "手机刷机", description: "手机固件、刷机工具与系统恢复资料。", topics: ["固件与驱动", "系统恢复"], icon: Smartphone, tone: "success" },
-  { id: "transfer", title: "数据传输", description: "下载手机搬家通用测试版，按设备提示迁移资料。", topics: ["Android 8+", "Clone Phone"], icon: Cable, tone: "warning" },
+  { id: "transfer", title: "数据传输", description: "选择手机搬家或 MobileTrans，查看对应安装包。", topics: ["Clone Phone", "MobileTrans"], icon: Cable, tone: "warning" },
 ] as const;
 
 export function ToolboxPage() {
@@ -47,7 +47,7 @@ export function ToolboxPage() {
         </div>
         <div className={styles.grid}>
           {categories.map(({ id, title, description, topics, icon: Icon, tone }) => <article className={styles.card} data-tone={tone} key={id} aria-labelledby={`${id}-title`}>
-            <div className={styles.cardTop}><span className={styles.categoryIcon}><Icon size={26} strokeWidth={1.7} aria-hidden="true" /></span><span className={styles.pending}>{t(id === "office" ? "桌面助手" : id === "windows" ? "检测版" : id === "transfer" ? "通用测试版" : "待添加")}</span></div>
+            <div className={styles.cardTop}><span className={styles.categoryIcon}><Icon size={26} strokeWidth={1.7} aria-hidden="true" /></span><span className={styles.pending}>{t(id === "office" ? "桌面助手" : id === "windows" ? "检测版" : id === "transfer" ? "选择应用" : "待添加")}</span></div>
             <h3 id={`${id}-title`}>{t(title)}</h3>
             <p>{t(description)}</p>
             <ul className={styles.topics}>{topics.map(topic => <li key={topic}>{t(topic)}</li>)}</ul>

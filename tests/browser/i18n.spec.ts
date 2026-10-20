@@ -3,7 +3,7 @@ import { getTutorials } from "../../lib/tutorials";
 import { translate } from "../../lib/i18n/translate";
 import type { Locale } from "../../lib/i18n/locale";
 
-import { chooseCatalogDevice, openDeviceExtras } from "./catalog-picker";
+import { chooseCatalogDevice, openDeviceExtras, expectCatalogValue, isBrowsePicker } from "./catalog-picker";
 
 const languageLabel = "语言 / Lingua / Language";
 async function activate(locator: Locator) {
@@ -144,8 +144,13 @@ test("changing the backend language keeps drafts and saves canonical facts with 
   await openDeviceExtras(page);
   await page.getByRole("textbox", { name: "SN / IMEI", exact: true }).fill("DEMO-LANGUAGE-001");
   await changeLanguage(page, "it");
-  await expect(page.getByRole("combobox", { name: /^Marca/ })).toHaveValue("Apple");
-  await expect(page.getByRole("combobox", { name: /^Modello/ })).toHaveValue("iPhone 16");
+  for (const identity of [
+    { field: page.getByRole("combobox", { name: /^Marca/ }), value: "Apple" },
+    { field: page.getByRole("combobox", { name: /^Modello/ }), value: "iPhone 16" },
+  ]) {
+    await expectCatalogValue(identity.field, identity.value);
+    if (await isBrowsePicker(identity.field)) await expect(identity.field).toHaveText(identity.value);
+  }
   await expect(page.getByRole("textbox", { name: "SN / IMEI", exact: true })).toHaveValue("DEMO-LANGUAGE-001");
   await activate(page.getByRole("button", { name: translate("下一步", "it"), exact: true }));
   await activate(page.getByRole("button", { name: translate("屏幕", "it"), exact: true }));
@@ -180,6 +185,8 @@ test("changing the backend language keeps drafts and saves canonical facts with 
   await expect(page.locator("main")).toContainText("客户补充原文 · 请保留");
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("chinatech.m1.local-intakes.v1")!).records.at(-1));
   expect(saved.customerName).toBe("教程客户原名");
+  expect(saved.brand).toBe("Apple");
+  expect(saved.model).toBe("iPhone 16");
   expect(saved.category).toBe("手机");
   expect(saved.priority).toBe("普通");
   expect(saved.faults).toContain("屏幕");

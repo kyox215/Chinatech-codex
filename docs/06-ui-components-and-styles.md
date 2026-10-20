@@ -5,6 +5,13 @@
 `LocalWebVitals` 复用本装 Next 的 `useReportWebVitals`，返回 null，不新增可见控件、布局、状态槽或 Figma 变体。根 layout 仅在 `LOCAL_WEB_VITALS=1`、非 Vercel 且 `APP_ORIGIN` 为严格本机 origin 时挂载，默认关闭。模块级稳定回调仅向本机浏览器 console 输出固定指标名、有限数值及 rating/navigationType 枚举，不读取或输出 metric id、entries、归因、地址、客户资料，不发网络请求。
 
 这类指标属于当前 document 的 Web Vitals，不能把 SPA 路由或隐藏页面时才上报的结果当成各路由首屏耗时；实际 Chrome 日志、独立浏览器样本与服务端请求计时分别记证。原三语布局、操作反馈、权限及业务写入不受影响。离线反例只证明开关与字段边界，不能替代实际构建或浏览器指标。
+## 2026-10-18 公共设备目录读取契约
+
+`DeviceCatalogControl` 复用原 `SearchCombobox`、windowing、系列筛选、型号元信息、手填与重试；基础参考数据改读 `useDeviceDirectoryIndex`，不等待 `BackendProvider.active`／门店 memberRevision。`CatalogIndexPreload`／`DeviceDirectoryPreload` 只静默预热，禁用／关闭字段不触发查询或 busy；打开控件的真实冷读才显示原位置等待与 2px 内容细线。有完整旧版本时更新失败保留候选与原值，在既有 footer 显示三语“目录更新失败，继续使用已缓存目录。”及重试，不能把后台失败改成无匹配或持续转圈。
+
+手机型号sheet显式处理可见、有效焦点的Tab／Shift+Tab首尾循环，排除disabled／inert；展开modal不沿普通inline blur-dismiss，X／Escape／遮罩／明确选定仍走原取消或提交入口。窗口Tab进入浏览器区域或虚拟行变化不能关闭面板、不能暗中确认原文。
+
+基础参考 cache 使用公共格式键，跨登录／退出／门店保留；门店原文仍由领域 owner 的 `historicalOptions` 或受授权分页的 `HistoricalCatalogSource` 提供，私有历史查询、计数、重试与选择保留原契约，不能进入公共快照。私有目录管理 `catalogScope`／`useCatalogRead` 的防旧响应契约保留。品牌／型号确认、取消、IME、桌面 blur、新建品牌联动及已保存事实规则不变。视觉沿已归档 Figma15322:210106／210151／210197／210262 与原 Input／Buttons/token；无新 CSS／图标／组件视觉。本轮证据见 [交付记录](../ui-design/previews/global-device-directory-20261018.md)。
 
 ## 2026-10-18 手机先选后搜
 
