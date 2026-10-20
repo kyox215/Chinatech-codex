@@ -8,7 +8,7 @@ import {resolve,dirname,relative} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const here=dirname(fileURLToPath(import.meta.url)),args=Object.fromEntries(process.argv.slice(2).map(value=>{assert(value.startsWith('--'));const index=value.indexOf('=');return index<0?[value.slice(2),true]:[value.slice(2,index),value.slice(index+1)];}));
 assert(Object.keys(args).every(key=>['run','out','headers','expected-node'].includes(key)));assert(args.run===undefined||args.run===true);
-const expectedNode=args['expected-node']??'v24.19.0';assert(['v24.19.0','v24.21.0'].includes(expectedNode),'Explicit reviewed diagnostic runtime required');
+const expectedNode=args['expected-node']??'v24.19.0';assert(['v24.19.0','v24.21.0','v24.22.0'].includes(expectedNode),'Explicit reviewed diagnostic runtime required');
 if(!args.run){console.log(JSON.stringify({planOnly:true,expectedNode,expectedIcu:'78.3',expectedUnicode:'17.0',compilation:false,connections:0,operation:'Compile exact Node ICU78 public C API native diagnostic and compare 53 values in both modes against original Intl,5618 pairs and exact original14 order. Explicit --run required.',boundary:'No product dependency, SQL, Auth, browser, service, runtime installation or production claim.'}));process.exit(0);}
 assert.equal(process.version,expectedNode);assert.equal(process.versions.icu,'78.3');assert.equal(process.versions.unicode,'17.0');assert.equal(new Intl.Collator().resolvedOptions().locale,'en-US');
 const output=resolve(args.out??'.local/native-sort-key-diagnostic'),subpath=relative(process.cwd(),output);assert(subpath.startsWith('.local/')&&!subpath.split('/').includes('..')&&!existsSync(output),'Use a fresh project-local .local output');mkdirSync(output,{recursive:true});
