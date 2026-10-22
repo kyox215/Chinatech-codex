@@ -1,5 +1,7 @@
 # Figma来源、映射与设计缺口
 
+2026-10-22配件名称摘要：原文件可编辑节点[15322:210250](https://www.figma.com/design/nhZ37YLOUVP8zpDBBGihhS?node-id=15322-210250)原位维护，具体摘要15322:210252／名称210253／供应商210254；高保真上下文与PNG已核看。Primary/50、Primary/600与既有文本变量复用；代码沿RepairList原按钮／图标／箭头，只把标签替换成两条单行文本。[本地候选与验证边界](previews/parts-name-summary-20261022.md)。
+
 2026-10-18：原文件可编辑组合`15322:210105`，品牌`15322:210106`、型号浏览`15322:210151`、查询/手填`15322:210197`、摘要`15322:210250`、空/失败`15322:210262`。高保真上下文与截图已读取/归档，映射SearchCombobox/DeviceCatalogControl/DeviceIdentityPicker及RepairList，复用输入5103:498/按钮12001:63570/既有变量，非新主题。新建维修显式启用；[本轮记录](previews/mobile-picker-20261018.md)区分设计、运行及正式发布。
 
 
