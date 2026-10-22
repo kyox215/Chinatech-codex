@@ -1919,11 +1919,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .intake-photos .intake-photo-slot__images > button { min-width:0; }
 .intake-photos .intake-photo-slot__upload { min-height:64px; }
 
-/* Keep the existing repair column and row budget while naming actual items. */
-.repair-unified-list .repair-row-parts__chips { display:flex; flex-wrap:wrap; gap:3px; max-height:43px; overflow:hidden; }
-.repair-unified-list .repair-row-parts__chip { display:block; flex:0 1 auto; min-width:0; max-width:calc(50% - 2px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:1px 5px; border:1px solid var(--primary-100); border-radius:4px; font-size:12px; line-height:16px; color:var(--primary-600); background:var(--surface); }
-.repair-unified-list .repair-row-parts__chip:only-child { max-width:100%; }
-.repair-unified-list .repair-row-parts .repair-row-parts__suppliers { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+/* Keep both summary lines within the existing repair column and touch target. */
+.repair-unified-list .repair-row-parts__names { display:block; min-width:0; max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--primary-600); font-size:12px; line-height:18px; }
+.repair-unified-list .repair-row-parts .repair-row-parts__suppliers { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; line-height:14px; }
 .repair-unified-list .repair-filterbar > .module-search { height:48px; min-height:48px; padding-block:1px; }
 .repair-unified-list .repair-filterbar > .module-search .input-control { flex:1; min-width:0; }
 .repair-unified-list .repair-filterbar > .module-search .input-control__body, .repair-unified-list .repair-filterbar > .module-search .input-control__native, .repair-unified-list .repair-filterbar > .module-search > button { height:44px; min-height:44px; }
@@ -1954,10 +1952,3 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .search-combobox__sheet > header .icon-button { width:44px; min-height:44px; }
 .search-combobox[data-mobile-presentation="sheet"] .search-combobox__sheet .search-combobox__menu { position:static; flex:1 1 auto; min-height:0; max-height:none; width:100%; border:0; padding:0; box-shadow:none; }
 .search-combobox[data-mobile-presentation] .search-combobox__menu > ul { overscroll-behavior:contain; }
-.repair-unified-list .repair-row-parts__chips > .repair-row-parts__mobile-count { display:none; }
-@media(max-width:767px) {
-  .repair-unified-list .repair-row-parts__chips { flex-wrap:nowrap; max-height:none; }
-  .repair-unified-list .repair-row-parts__chips > .repair-row-parts__chip { flex:1 1 0; max-width:none; }
-  .repair-unified-list .repair-row-parts__chips > [data-mobile-hidden="true"] { display:none; }
-  .repair-unified-list .repair-row-parts__chips > .repair-row-parts__mobile-count { display:block; flex:0 0 auto; }
-}
