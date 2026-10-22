@@ -1,5 +1,5 @@
 .page { max-width: 1120px; width: 100%; margin: 0 auto; padding: 24px; display: grid; gap: 12px; min-width: 0; }
-.page > :global(.panel),.formColumns > :global(.panel) { padding: 12px; display: grid; align-content: start; gap: 8px; min-width: 0; }
+.page > :global(.panel) { padding: 12px; display: grid; align-content: start; gap: 8px; min-width: 0; }
 .page form { display: grid; gap: 8px; min-width: 0; }
 .page h1,.page h2,.page p { margin: 0; }
 .page h2 { font-size: 18px; overflow-wrap: anywhere; }
@@ -11,9 +11,17 @@
 .storeRow,.invitationRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
 .storeRow > div,.invitationRow > div { min-width: 0; display: grid; gap: 8px; }
 .storeRow > :global(.button),.invitationRow > :global(.button) { flex-shrink: 0; max-width: 55%; }
-.formColumns { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; min-width: 0; }
-.choiceBody,.inviteOutput { display: grid; gap: 8px; min-width: 0; }
-.choicePanel > .mobileChoice { display: none; }
+.inviteOutput { display: grid; gap: 8px; min-width: 0; }
+.storeEntry { max-width: 992px; }
+.storeEntry .joinedStores > h2,.storeEntry .optionalStores > h2 { font-size: 16px; font-weight: 500; line-height: 20px; }
+.storeEntry .storeRow { padding-block: 8px; }
+.storeEntry .storeRow + .storeRow { border-top: 1px solid var(--border); }
+.storeEntry .storeRow strong { font-size: 16px; font-weight: 500; }
+.storeEntry .storeRow p { font-size: 14px; }
+.storeEntry .optionalStores { display: grid; gap: 8px; min-width: 0; }
+.storeEntry .optionalForm { padding: 12px; display: grid; gap: 8px; min-width: 0; max-width: 448px; width: 100%; }
+.storeEntry .optionalForm[hidden] { display: none; }
+.storeEntry .footer { border-top: 1px solid var(--border); padding-top: 12px; }
 .applicationFact { display: grid; gap: 8px; min-width: 0; }
 .applicationFact + .applicationFact,.invitationRow + .invitationRow { border-top: 1px solid var(--border); padding-top: 8px; }
 .application { display: grid; gap: 8px; }
@@ -24,11 +32,8 @@
 .capacityGrid span,.storeRow p { color: var(--text-secondary); }
 @media(max-width:767px) {
  .page { padding: 16px; gap: 8px; }
- .formColumns { grid-template-columns: minmax(0,1fr); }
- .choicePanel > .desktopHeading { display: none; }
- .choicePanel > .mobileChoice { display: flex; justify-self: stretch; width: 100%; }
- .choicePanel[data-expanded="false"] > .choiceBody { display: none; }
- .choicePanel[data-expanded="false"] { padding: 0; background: transparent; border: 0; box-shadow: none; }
+ .storeEntry .optionalStores > .actions { display: grid; justify-items: start; }
+ .storeEntry .optionalStores > .actions > :global(.button) { justify-content: flex-start; }
  .capacityGrid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
  .footer { display: grid; }
  .footer > :global(.button) { width: 100%; justify-self: stretch; }
