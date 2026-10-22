@@ -12,16 +12,31 @@
 .storeRow > div,.invitationRow > div { min-width: 0; display: grid; gap: 8px; }
 .storeRow > :global(.button),.invitationRow > :global(.button) { flex-shrink: 0; max-width: 55%; }
 .inviteOutput { display: grid; gap: 8px; min-width: 0; }
-.storeEntry { max-width: 992px; }
-.storeEntry .joinedStores > h2,.storeEntry .optionalStores > h2 { font-size: 16px; font-weight: 500; line-height: 20px; }
-.storeEntry .storeRow { padding-block: 8px; }
-.storeEntry .storeRow + .storeRow { border-top: 1px solid var(--border); }
-.storeEntry .storeRow strong { font-size: 16px; font-weight: 500; }
-.storeEntry .storeRow p { font-size: 14px; }
-.storeEntry .optionalStores { display: grid; gap: 8px; min-width: 0; }
-.storeEntry .optionalForm { padding: 12px; display: grid; gap: 8px; min-width: 0; max-width: 448px; width: 100%; }
+.storeCanvas { min-height: 100dvh; background: var(--bg); }
+.storeEntry { max-width: 992px; gap: 24px; padding-block: 28px 40px; }
+.storeEntry > header { width: 100%; max-width: none; margin: 0; padding: 0 0 12px; }
+.storeEntry .heading h1 { font-size: 32px; line-height: 1.2; }
+.storeEntry .joinedStores,.storeEntry .optionalStores { display: grid; gap: 12px; min-width: 0; }
+.storeEntry .joinedStores > h2,.storeEntry .optionalStores > h2 { color: var(--text-secondary); font-size: 16px; font-weight: 500; line-height: 1.4; }
+.storeEntry .storeCard { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px; border-left: 4px solid var(--primary-600); box-shadow: var(--shadow-sm); min-width: 0; }
+.storeIdentity { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.storeIcon { display: grid; place-items: center; flex: 0 0 72px; width: 72px; height: 72px; border-radius: var(--radius-panel); color: var(--primary-600); background: var(--primary-50); }
+.storeFacts { display: grid; justify-items: start; gap: 8px; min-width: 0; }
+.storeFacts strong { font-size: 24px; font-weight: 600; line-height: 1.25; }
+.roleBadge { padding: 2px 8px; border-radius: var(--radius-control); color: var(--text-secondary); background: var(--surface-subtle); font-size: 14px; overflow-wrap: anywhere; }
+.storeEntry .enterStore { flex-shrink: 0; min-width: 160px; min-height: 48px; }
+.storeEntry .emptyStores { padding: 24px; color: var(--text-secondary); }
+.optionTiles { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.storeEntry .optionTile { display: grid; justify-items: center; align-content: start; gap: 12px; width: 100%; padding: 20px 16px 16px; border-radius: var(--radius-panel); color: var(--text); font-size: 16px; font-weight: 500; text-align: center; }
+.optionIcon { display: grid; place-items: center; color: var(--text-secondary); }
+.optionChevron { color: var(--text-secondary); align-self: end; }
+.storeEntry .optionTile[aria-expanded="true"] { border-color: var(--primary-600); background: var(--primary-50); }
+.optionTile[aria-expanded="true"] .optionChevron { transform: rotate(180deg); }
+.storeEntry .optionalForm { padding: 20px; display: grid; gap: 12px; min-width: 0; max-width: 448px; width: 100%; }
 .storeEntry .optionalForm[hidden] { display: none; }
-.storeEntry .footer { border-top: 1px solid var(--border); padding-top: 12px; }
+.storeEntry .footer { display: flex; flex-wrap: wrap; gap: 8px 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+.storeEntry .footer .accountAction { width: auto; padding: 8px; color: var(--text-secondary); font-weight: 400; background: transparent; border-color: transparent; box-shadow: none; }
+.storeEntry .accountAction:hover { color: var(--text); background: var(--surface); }
 .applicationFact { display: grid; gap: 8px; min-width: 0; }
 .applicationFact + .applicationFact,.invitationRow + .invitationRow { border-top: 1px solid var(--border); padding-top: 8px; }
 .application { display: grid; gap: 8px; }
@@ -32,8 +47,16 @@
 .capacityGrid span,.storeRow p { color: var(--text-secondary); }
 @media(max-width:767px) {
  .page { padding: 16px; gap: 8px; }
- .storeEntry .optionalStores > .actions { display: grid; justify-items: start; }
- .storeEntry .optionalStores > .actions > :global(.button) { justify-content: flex-start; }
+ .storeEntry { padding-block: 20px 28px; gap: 24px; }
+ .storeEntry > header { padding-bottom: 4px; }
+ .storeEntry .heading h1 { font-size: 28px; }
+ .storeEntry .storeCard { display: grid; grid-template-columns: minmax(0,1fr); gap: 20px; padding: 20px; }
+ .storeIcon { flex-basis: 60px; width: 60px; height: 60px; }
+ .storeIcon > svg { width: 32px; height: 32px; }
+ .storeFacts strong { font-size: 22px; }
+ .storeEntry .enterStore { width: 100%; justify-self: stretch; }
+ .storeEntry .optionTile { padding-inline: 12px; height: 100%; }
+ .storeEntry .optionalForm { max-width: none; }
  .capacityGrid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
  .footer { display: grid; }
  .footer > :global(.button) { width: 100%; justify-self: stretch; }

@@ -1,5 +1,9 @@
 # ChinaTech 项目连续记忆
 
+## 2026-10-22 我的门店图形化待发布
+
+用户已授权双端改好、测试后直接上线。隔离源`.local/store-entry-20261022/source`已正常合main12cc，保留配件摘要；Figma15409:210309可编辑组合、真实Lucide与原控件／token完成图形层级。44合成UI场景（Cr/WK三语四宽及状态）、Node607=606pass/1旧PSskip、类型／三语4357／lint0err1旧warn／正式CSS16条件11资产过。没有生产写入或DB／协议改变；最终发布与精确源绑定见[记录](ui-design/previews/store-entry-graphic-release-20261022.md)，不把本候选当已上线。
+
 ## 2026-10-18 手机选择与配件摘要（当前候选）
 
 用户已确认推荐组合并授权上线。隔离发行源`.local/mobile-picker-20261018/source`从main bf1创建；手机维修列表两标签+N/供应商单行，新建维修品牌原位候选/型号底部面板，主动搜索才输入，取消保原值，选后回button。只显式启用当前调用，其他/桌面维持；不改数据库/权限/金额/签名。可编辑原Figma15322:210105已归档。root设计/独审/发布，mobile_picker_implementation唯一源码owner；本条是候选状态，验收和正式发布以ui-design/previews/mobile-picker-20261018.md为准。实体iPhone软键盘未验，不能用模拟器替代。

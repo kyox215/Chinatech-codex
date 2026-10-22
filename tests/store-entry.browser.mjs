@@ -27,6 +27,7 @@ async function setup(browser,locale,width,state={}){
  await context.addInitScript(({locale,recovered})=>{localStorage.setItem('chinatech.language',locale);if(recovered)sessionStorage.setItem('ct-store-intent:'+recovered.accountId,JSON.stringify(recovered.intent));},{locale,recovered:state.recovered});
  const page=await context.newPage(),posts=[],errors=[];
  page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/api/auth/logout',route=>route.fulfill({status:503,json:{message:'Synthetic logout failure'}}));
  await page.route('**/api/account/store-invitations',async route=>{
   if(route.request().method()==='POST')posts.push(route.request().postDataJSON());
   await route.fulfill({json:state.invitation??{hasInvitation:false}});
@@ -49,11 +50,16 @@ async function setup(browser,locale,width,state={}){
 }
 async function settled(page){await page.waitForFunction(()=>!document.querySelector('[data-content-progress][data-active=true]'));await page.evaluate(()=>document.fonts.ready);}
 async function geometry(page,width){
- const g=await page.evaluate(()=>({w:innerWidth,scroll:document.documentElement.scrollWidth,inputs:[...document.querySelectorAll('main input')].filter(x=>x.getClientRects().length).map(x=>parseFloat(getComputedStyle(x).fontSize)),buttons:[...document.querySelectorAll('main .button')].filter(x=>x.getClientRects().length).map(x=>({text:x.textContent,w:x.getBoundingClientRect().width,h:x.getBoundingClientRect().height})),images:[...document.querySelectorAll('main img[src*="store-entry"]')].filter(x=>x.getClientRects().length).map(x=>({complete:x.complete,w:x.width,h:x.height,naturalWidth:x.naturalWidth}))}));
- assert(g.scroll<=width,'document overflow');for(const b of g.buttons)assert(b.w>=44&&b.h>=44,'touch target '+b.text);if(width<768)for(const px of g.inputs)assert(px>=16,'mobile input');for(const i of g.images)assert(i.complete&&i.naturalWidth>0&&i.w===20&&i.h===20,'exact local Figma icon slot');
+ await page.mouse.move(0,0);
+ await page.locator('main .button').evaluateAll(elements=>Promise.all(elements.flatMap(element=>element.getAnimations()).filter(animation=>animation.effect?.getTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{}))));
+ const g=await page.evaluate(()=>({w:innerWidth,scroll:document.documentElement.scrollWidth,inputs:[...document.querySelectorAll('main input')].filter(x=>x.getClientRects().length).map(x=>parseFloat(getComputedStyle(x).fontSize)),buttons:[...document.querySelectorAll('main .button')].filter(x=>x.getClientRects().length).map(x=>({text:x.textContent,w:x.getBoundingClientRect().width,h:x.getBoundingClientRect().height})),icons:[...document.querySelectorAll('main .lucide')].filter(x=>x.getClientRects().length).map(x=>({name:x.getAttribute('class'),w:x.getBoundingClientRect().width,h:x.getBoundingClientRect().height,paths:x.querySelectorAll('path,line,circle').length})),options:[...document.querySelectorAll('main button[aria-controls$="-store-form"]')].map(x=>({x:x.getBoundingClientRect().x,y:x.getBoundingClientRect().y,w:x.getBoundingClientRect().width})),cards:[...document.querySelectorAll('main article')].map(x=>({w:x.getBoundingClientRect().width,link:x.querySelector('a')?.getBoundingClientRect().width,icon:x.querySelector('.lucide-store')?.getBoundingClientRect().width})),background:getComputedStyle(document.querySelector('main')).backgroundColor}));
+ assert(g.scroll<=width,'document overflow');for(const b of g.buttons)assert(b.w>=44&&b.h>=44,'touch target '+b.text);if(width<768)for(const px of g.inputs)assert(px>=16,'mobile input');for(const i of g.icons)assert(i.paths>0&&i.w>=16&&i.h>=16,'nonempty undistorted vector icon '+i.name);
+ if(g.options.length===2){assert(Math.abs(g.options[0].y-g.options[1].y)<1,'optional actions remain side by side '+JSON.stringify(g.options));assert(g.options[1].x>g.options[0].x+g.options[0].w,'separate graphical targets');}
+ for(const card of g.cards){assert.equal(card.icon,width<768?32:36,'responsive store glyph');if(width<768)assert(card.link>card.w-56,'mobile primary fills card '+JSON.stringify(card));}
+ assert.equal(g.background,'rgb(246, 247, 249)','existing gray canvas token');
  return g;
 }
-for(const [engineName,engine]of [['chromium',chromium],['webkit',webkit]]){
+for(const [engineName,engine]of [['chromium',chromium],['webkit',webkit]].filter(([name])=>!process.env.CT_STORE_ENGINE||name===process.env.CT_STORE_ENGINE)){
  const browser=await engine.launch({headless:true});
  try{
   for(const locale of ['zh-CN','it','en'])for(const width of [1440,1024,390,375]){
@@ -64,9 +70,9 @@ for(const [engineName,engine]of [['chromium',chromium],['webkit',webkit]]){
     const enter=joined.getByRole('link',{name:tr('进入门店',locale),exact:true});assert.equal(await enter.getAttribute('href'),'/app/dashboard?storeId='+storeId);
     assert.equal(await page.locator('main .button--primary:visible').count(),1);
     assert((await joined.boundingBox()).y<(await page.getByRole('region',{name:tr('其他门店操作',locale)}).boundingBox()).y);
-    await geometry(page,width);await page.screenshot({path:resolve(out,key+'-default.png')});
+    await page.screenshot({path:resolve(out,key+'-default.png')});await geometry(page,width);
     const create=page.getByRole('button',{name:tr('创建新门店',locale),exact:true}),join=page.getByRole('button',{name:tr('通过邀请加入',locale),exact:true});
-    await create.focus();await create.press('Enter');await page.locator('#new-store-name').fill('Synthetic draft');await geometry(page,width);
+    await create.focus();await create.press('Enter');await page.locator('#new-store-name').fill('Synthetic draft');await page.screenshot({path:resolve(out,key+'-create-expanded.png')});await geometry(page,width);
     await join.click();assert(await page.locator('#create-store-form').isHidden());await page.locator('#store-invitation').fill('Synthetic invitation draft');
     await create.click();assert.equal(await page.locator('#new-store-name').inputValue(),'Synthetic draft');await create.press('Space');assert(await page.locator('#create-store-form').isHidden());
     await join.click();assert.equal(await page.locator('#store-invitation').inputValue(),'Synthetic invitation draft');await geometry(page,width);
@@ -82,9 +88,10 @@ for(const [engineName,engine]of [['chromium',chromium],['webkit',webkit]]){
     console.log('PASS '+key);
    }finally{await h.context.close();}
   }
-  for(const variant of ['loading','empty','first-failure','unauthorized','multiple','invitation','unknown']){
+  for(const variant of ['loading','empty','first-failure','unauthorized','multiple','invitation','unknown','submitting','logout-failure','settings']){
    let release;const state={};
    if(variant==='loading')state.hold=new Promise(r=>release=r);
+   if(variant==='submitting')state.holdPost=new Promise(r=>release=r);
    if(variant==='empty')state.stores=[];
    if(variant==='first-failure')state.failure=503;
    if(variant==='unauthorized')state.failure=401;
@@ -107,6 +114,16 @@ for(const [engineName,engine]of [['chromium',chromium],['webkit',webkit]]){
      assert(await page.locator('#create-store-form').isVisible());assert.equal(await page.locator('#new-store-name').inputValue(),'Retained original draft');assert(await page.locator('#new-store-name').isDisabled());assert.equal(h.posts.length,0);
      await page.getByRole('button',{name:'重试原请求',exact:true}).click();await page.locator('main [role=alert]').waitFor();await settled(page);const response=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/account/stores'&&r.request().method()==='POST');await page.getByRole('button',{name:'重试原请求',exact:true}).click();await response;await settled(page);
      assert.equal(h.posts.length,2);assert(h.posts.every(p=>p.requestId===originalId&&p.name==='Retained original draft'));assert(await page.getByRole('button',{name:'创建新门店',exact:true}).isDisabled());
+    }
+    if(variant==='submitting'){
+     await page.getByRole('button',{name:'创建新门店',exact:true}).click();await page.locator('#new-store-name').fill('Pending synthetic draft');await page.getByRole('button',{name:'创建并进入',exact:true}).click();
+     await page.locator('#create-store-form [aria-busy=true]').waitFor();assert(await page.locator('#new-store-name').isDisabled());assert(await page.getByText(store.name,{exact:true}).isVisible());assert.equal(await page.locator('[data-content-progress][data-active=true]').count(),1);assert.equal(await page.getByRole('button',{name:'重新检查',exact:true}).getAttribute('aria-busy'),'false');await page.screenshot({path:resolve(out,engineName+'-submitting-pending.png')});release();await page.locator('main [role=alert]').waitFor();await settled(page);assert.equal(await page.locator('#new-store-name').inputValue(),'Pending synthetic draft');assert(await page.getByRole('button',{name:'重试原请求',exact:true}).isEnabled());
+    }
+    if(variant==='logout-failure'){
+     await page.getByRole('button',{name:'退出登录',exact:true}).click();await page.locator('main [role=alert]').waitFor();assert(await page.getByRole('button',{name:'退出登录',exact:true}).isEnabled());assert(await page.getByText(store.name,{exact:true}).isVisible());
+    }
+    if(variant==='settings'){
+     await page.route('**/account/settings',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><main>Local settings navigation fixture</main>'}));await page.getByRole('link',{name:'账号设置',exact:true}).click();await page.waitForURL('**/account/settings');assert.equal(new URL(page.url()).pathname,'/account/settings');
     }
     await page.screenshot({path:resolve(out,engineName+'-'+variant+'.png')});assert.deepEqual(h.errors,[]);results.push({engine:engineName,variant,checks:'passed; all API replies are explicit synthetic fixtures',posts:h.posts.length});
    }finally{release?.();await h.context.close();}
