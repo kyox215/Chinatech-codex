@@ -92,6 +92,8 @@
 
 ## Figma 当前基线与设计前必读（2026-10-15）
 
+2026-10-22门店入口图形化：MyStores继续作为唯一实现；Store图标／店名／角色／进入为主卡，创建和邀请为两张折叠卡、双端均并列，账号操作为轻页尾。仅stores.module.css内storeEntry作用域扩展；不改变共享JoinStore／StoreManagement。图标沿原Lucide、导航固定槽，输入／B反馈／原请求恢复不复制。具体Figma与实际双端三语验证见[记录](../ui-design/previews/store-entry-graphic-release-20261022.md)。
+
 所有 UI 设计、改版和维护先读 PROJECT_MEMORY / AGENTS / 本节，再列规划、实际组件使用方及验收。Figma [项目管理流程](https://www.figma.com/design/nhZ37YLOUVP8zpDBBGihhS?node-id=12373-155040) 是组件视觉来源；整节只返回稀疏元数据，实施必须读取可见子节点的高保真上下文与截图。组件映射、检查范围与当前执行证据见[本轮审查36](36-ui-design-audit-20261015.md)。
 
 | 语义 | 当前统一值与入口 |

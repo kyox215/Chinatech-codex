@@ -1,5 +1,8 @@
 # 组件与组合索引
 
+2026-10-22 我的门店图形化：MyStores局部复用已有店卡、Lucide图标与NavigationLink固定槽；已有店优先，创建／邀请双端并列折叠，手机主操作满宽。原可编辑Figma15409:210309及44场景／正式CSS证据见[实施记录](previews/store-entry-graphic-release-20261022.md)。候选与实际发布绑定分开记录。
+
+
 2026-10-22配件摘要候选：RepairList以`.repair-row-parts__names`替代标签与`+N`，按原稳定项目顺序显示名称；供应商独立单行，桌面／手机分别省略，原按钮／弹窗／焦点与完整title／aria-describedby保持。规格只从结构化显示字段移出摘要，自定义名称不拆改、不按同名合并。沿原token／44px手机目标。[来源与实际边界](previews/parts-name-summary-20261022.md)。
 
 2026-10-18：SearchCombobox可选mobilePresentation复用同一候选/窗口化/菜单槽；DeviceCatalogControl透传，DeviceIdentityPicker的mobileSelection仅新建维修启用。inline品牌与原生dialog型号均真实button触发，主动搜索才输入，明确确认才改值；RepairList手机两项+N/供应商单行，原弹窗保全文。[设计/验收](previews/mobile-picker-20261018.md)。

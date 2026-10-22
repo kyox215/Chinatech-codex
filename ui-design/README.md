@@ -1,5 +1,8 @@
 # ChinaTech UI 设计目录
 
+2026-10-22 我的门店图形化：MyStores局部复用已有店卡、Lucide图标与NavigationLink固定槽；已有店优先，创建／邀请双端并列折叠，手机主操作满宽。原可编辑Figma15409:210309及44场景／正式CSS证据见[实施记录](previews/store-entry-graphic-release-20261022.md)。候选与实际发布绑定分开记录。
+
+
 ## 2026-10-22 供应商／配件两行名称摘要（本地候选）
 
 维修列表电脑／手机统一为项目名称单行＋供应商单行，分别省略；完整规格／无需采购／历史原件沿原提示、可访问描述和配件弹窗读取。复用RepairList、原按钮／图标／token，不改变业务接口或保存边界。[设计、实现与验收](previews/parts-name-summary-20261022.md)。尚未部署，不覆盖正式baseline或其他候选。
