@@ -1,5 +1,6 @@
 // Auth and public website copy. Customer text and stored business values are never translated here.
 export const publicMessages: Record<string, readonly [string, string]> = {
+"把工作、生活与开源应用放在一个地方。维修管理、放映室与电流脉动，从这里进入。": ["Lavoro, vita quotidiana e app open source in un unico spazio. Accedi alla gestione riparazioni, alla sala cinema e a CurrentFlow.", "Work, life and open source apps in one place. Enter repair management, the cinema and CurrentFlow."],
 "macOS 13+ · Apple Silicon": ["macOS 13+ · Apple Silicon", "macOS 13+ · Apple Silicon"],
 "GitHub": ["GitHub", "GitHub"],
 "下载电流脉动（新标签页）": ["Scarica CurrentFlow (nuova scheda)", "Download CurrentFlow (new tab)"],

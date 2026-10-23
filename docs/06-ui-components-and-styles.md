@@ -1,3 +1,7 @@
+2026-10-23 聚合首页与CurrentFlow发布候选：原组件/账号/语言/B反馈，一级维修/影院/开源三入口，工具箱内部；原创SVG、原Figma15448:210924/210925/210962、组件集210996。实际验证和边界见[本轮记录](../ui-design/previews/portal-opensource-release-20261023.md)。
+
+公共页标题沿原语言Provider；元说明按既有服务器默认中文输出，避免客户端修改流式标签。CurrentFlow双外链沿NavigationLink，新标签带noopener/noreferrer；下载热区层级高于整卡伪元素。
+
 2026-10-23 首页放映室（本地）：TutorialLibrary 新增显式 film 媒体文案／署名变体；继续复用播放器、16:9、选集和重试。默认教程与 Office 调用保持；没有新主题／控件／依赖。PublicHeader 与首屏沿用 NavigationLink，新增同步页内定位 helper 只挂 #cinema。详 ../ui-design/previews/cinema-home-20261023.md。
 
 # 公共组件与样式复用规范

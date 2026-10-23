@@ -31,7 +31,7 @@ try{
      for(const width of [1440,1024,390,375]){
       await page.setViewportSize({width,height:width<768?844:1000});
       for(const path of ['/','/repair','/cinema'].filter(path=>!process.env.PORTAL_ONLY_HOME||path==='/')){
-       await page.goto(origin+path);await expect(page.locator('html')).toHaveAttribute('lang',locale);await settled(page);await fit(page);
+       await page.goto(origin+path);await expect(page.locator('html')).toHaveAttribute('lang',locale);await settled(page);await fit(page);await expect(page.locator('meta[name=description]')).toHaveCount(1);
        const login=page.locator('header a[href="/login"]'),register=page.locator('header a[href="/register"]');await expect(login).toBeInViewport();await expect(register).toBeInViewport();await touchTarget(login);await touchTarget(register);
        await expect(page.getByLabel('语言 / Lingua / Language')).toBeInViewport();
        if(path==='/'){
