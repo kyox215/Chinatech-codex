@@ -3,7 +3,7 @@ import { translate } from "../../lib/i18n/translate";
 
 for (const locale of ["zh-CN", "it", "en"] as const) test(`navigation keeps old content, a single spinner and real progress until commit (${locale})`, async ({ page }) => {
   if (locale === "it") await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/");
+  await page.goto("/repair");
   await page.getByLabel("语言 / Lingua / Language").selectOption(locale, { force: true });
   const originalHeading = page.locator("h1");
   const originalText = await originalHeading.textContent();
@@ -21,7 +21,7 @@ for (const locale of ["zh-CN", "it", "en"] as const) test(`navigation keeps old 
   await expect(link.locator(".navigation-feedback")).toHaveAttribute("data-pending", "true");
   await expect(link.getByRole("status")).toHaveText(translate("正在打开页面…", locale));
   await expect(originalHeading).toHaveText(originalText!);
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/repair$/);
   await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(1);
   const progress = page.locator("[data-content-progress]");
   expect((await progress.boundingBox())!.height).toBe(2);
@@ -44,7 +44,7 @@ for (const locale of ["zh-CN", "it", "en"] as const) test(`navigation keeps old 
 });
 
 for (const holdMs of [200, 2000, 5000]) test(`real RSC wait of ${holdMs}ms retains content and clears after commit`, async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/repair");
   const original = await page.locator("h1").textContent();
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
@@ -56,7 +56,7 @@ for (const holdMs of [200, 2000, 5000]) test(`real RSC wait of ${holdMs}ms retai
   await link.click();
   const waiting = async () => {
     await expect(page.locator("h1")).toHaveText(original!);
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/repair$/);
     await expect(link.locator(".navigation-feedback")).toHaveAttribute("data-pending", "true");
     await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(1);
     await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(1);
@@ -74,7 +74,7 @@ for (const holdMs of [200, 2000, 5000]) test(`real RSC wait of ${holdMs}ms retai
 });
 
 test("an old navigation finishing cannot clear a newer pending route", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/repair");
   let releaseFirst!: () => void; let releaseSecond!: () => void;
   const first = new Promise<void>(resolve => { releaseFirst = resolve; });
   const second = new Promise<void>(resolve => { releaseSecond = resolve; });
@@ -93,7 +93,7 @@ test("an old navigation finishing cannot clear a newer pending route", async ({ 
   releaseFirst();
   await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(1);
   await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(1);
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/repair$/);
   releaseSecond();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(0);
@@ -104,7 +104,7 @@ test("an old navigation finishing cannot clear a newer pending route", async ({ 
 });
 
 test("repeated clicks on the same pending link retain one current navigation", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/repair");
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
   let fetched!: () => void;
@@ -289,21 +289,21 @@ test("same-URL refresh follows real pending and retains the current content", as
 });
 
 test("hash navigation completes before a new-tab click and does not leave parent progress", async ({ page, context }) => {
-  await page.goto("/");
+  await page.goto("/repair");
   await page.getByRole("link", { name: "观看使用教程", exact: true }).click();
-  await expect(page).toHaveURL(/\/#tutorials$/);
+  await expect(page).toHaveURL(/\/repair#tutorials$/);
   await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(0);
   const popupPromise = context.waitForEvent("page");
   await page.locator("header").getByRole("link", { name: "工具箱", exact: true }).click({ modifiers: ["ControlOrMeta"] });
   const popup = await popupPromise;
   await expect(popup).toHaveURL(/\/toolbox$/);
-  await expect(page).toHaveURL(/\/#tutorials$/);
+  await expect(page).toHaveURL(/\/repair#tutorials$/);
   await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
   await popup.close();
 });
 
 test("keyboard skip navigation focuses the real content after commit, including a cached return", async ({ page }) => {
-  for (const path of ["/", "/toolbox", "/toolbox/office", "/toolbox/windows", "/toolbox/transfer"]) {
+  for (const path of ["/", "/repair", "/cinema", "/toolbox", "/toolbox/office", "/toolbox/windows", "/toolbox/transfer"]) {
     await page.goto(path);
     for (let visit = 0; visit < 2; visit++) {
       const skip = page.getByRole("link", { name: "跳到主要内容", exact: true });
@@ -318,7 +318,7 @@ test("keyboard skip navigation focuses the real content after commit, including 
   }
 });
 
-test("hash navigation supersedes a held same-URL refresh and survives its late response", async ({ page }) => {
+test("feature navigation supersedes a held same-URL refresh and survives its late response", async ({ page }) => {
   await page.goto("/");
   const original = await page.locator("h1").textContent();
   let release!: () => void; let oldStarted!: () => void;
@@ -340,15 +340,15 @@ test("hash navigation supersedes a held same-URL refresh and survives its late r
     await started;
     await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(1);
     holdOld = false;
-    await page.getByRole("link", { name: "观看使用教程", exact: true }).click();
-    await expect(page).toHaveURL(/\/#tutorials$/);
-    await expect(page.locator("h1")).toHaveText(original!);
+    await page.getByRole("link", { name: "进入维修管理", exact: true }).click();
+    await expect(page).toHaveURL(/\/repair$/);
+    await expect(page.locator("h1")).not.toHaveText(original!);
     await expect(page.locator('.navigation-feedback[data-pending="true"]')).toHaveCount(0);
     await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
     release(); await Promise.all(late);
     await page.waitForLoadState("networkidle");
-    await expect(page).toHaveURL(/\/#tutorials$/);
-    await expect(page.locator("h1")).toHaveText(original!);
+    await expect(page).toHaveURL(/\/repair$/);
+    await expect(page.locator("h1")).not.toHaveText(original!);
     await expect(page.locator('[data-content-progress][data-active="true"]')).toHaveCount(0);
   } finally { release(); await page.unrouteAll({ behavior: "wait" }); }
 });
@@ -373,7 +373,7 @@ test("busy bridge excludes hidden and background controls and waits for every vi
 });
 
 test("a failed RSC request clears feedback after Next recovers with a document navigation", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/repair");
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
   await page.route("**/toolbox?*", async route => {

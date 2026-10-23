@@ -1,5 +1,17 @@
 # ChinaTech 项目连续记忆
 
+## 2026-10-23 个人工作与生活聚合首页（本地完成，未上线）
+
+用户确认公开个人空间、一级仅维修/放映室两入口；原维修首页迁/repair、影片/cinema，工具箱保地址留维修模块。原品牌/账号/导航/播放器/token复用，原Figma15412:210329可编辑双端与卡片集已补并目视。旧hash白名单迁移、三语4397、44相关单元、严格类型/局部lint/build、Cr/WK三语四宽72布局＋4流程=76通过；定向14回归13首过＋1外部点击定位修正后单独过，未放宽断言。三片与原教程均开始推进/字幕，离页释放。
+
+隔离源`.local/open-cinema-home-20261023/source`，分支codex/personal-portal-20261023，从正式d9与本地影院a647延续；根25路径原件核一致后窄同步，不混其他候选。证据`.company-tmp/personal-portal-20261023`，详[设计/接口/验收边界](ui-design/previews/personal-portal-20261023.md)。本地正式编译3284保留；真实生产登录/门店写与实体手机未验，无推送/上线，正式baseline保持。 根type通过，根i18n另有25个既有范围外loading/retail-history问题，未混入隔离候选或冒根全绿。
+
+## 2026-10-23 首页放映室（本地完成，未上线）
+
+首页首屏／电脑导航新增 #cinema，三部开放授权 Blender 短片通过既有 TutorialLibrary 的 film 变体播放；原教程默认参数、章节／字幕保持。页内定位处理重复点击和键盘，不改变公共导航组件。三语4382／type／局部lint／19相关测试／正式build过；实际浏览器三语四宽12组、三片开始并推进播放、原教程与字幕、选片／语言释放、重复入口和Enter过，0console error。实体手机／其他引擎、完整看片及主动网络失败未验。
+
+唯一候选 `.local/open-cinema-home-20261023/source` 从正式d9ab6b9a起，根七个运行文件按原件校验后窄回填；证据 `.company-tmp/cinema-home-20261023/`，设计／复用／边界见[实施记录](ui-design/previews/cinema-home-20261023.md)。正式baseline保持，不混根其他候选；无推送、生产部署或业务写入。
+
 ## 2026-10-22 我的门店图形化待发布
 
 用户已授权双端改好、测试后直接上线。隔离源`.local/store-entry-20261022/source`已正常合main12cc，保留配件摘要；Figma15409:210309可编辑组合、真实Lucide与原控件／token完成图形层级。44合成UI场景（Cr/WK三语四宽及状态）、Node607=606pass/1旧PSskip、类型／三语4357／lint0err1旧warn／正式CSS16条件11资产过。没有生产写入或DB／协议改变；最终发布与精确源绑定见[记录](ui-design/previews/store-entry-graphic-release-20261022.md)，不把本候选当已上线。

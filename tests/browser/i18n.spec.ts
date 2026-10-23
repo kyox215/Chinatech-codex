@@ -44,7 +44,7 @@ test("three homepage languages remain usable at four widths and remember the pre
   test.setTimeout(90_000);
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
-  await page.goto("/");
+  await page.goto("/repair");
   for (const locale of ["zh-CN", "it", "en"] as const) {
     await changeLanguage(page, locale);
     for (const width of [1440, 1024, 390, 375]) {
@@ -95,7 +95,7 @@ test("all 15 tutorials play with the chosen captions, and language switching rel
   test.setTimeout(150_000);
   const requests: string[] = [];
   page.on("request", request => { if (/\/tutorials\/.*\.mp4(?:\?|$)/.test(request.url())) requests.push(request.url()); });
-  await page.goto("/");
+  await page.goto("/repair");
   const video = page.locator("#tutorials video");
   await changeLanguage(page, "it");
   await changeLanguage(page, "en");

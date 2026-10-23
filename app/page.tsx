@@ -1,6 +1,12 @@
-import HomePageContent from "@/components/home/home-page";
-import { AuthStatusProvider } from "@/components/auth-status-provider";
-import { getPublicAuthBootstrap } from "@/lib/server/auth-status";
+import type { Metadata } from "next";
+import { PublicAuthPage } from "@/components/home/public-auth-page";
+import { PortalPage } from "@/components/home/portal-page";
 
 export const dynamic = "force-dynamic";
-export default async function HomePage() { const initial = await getPublicAuthBootstrap(); return <AuthStatusProvider initial={initial.status} initialChecking={initial.checking}><HomePageContent /></AuthStatusProvider>; }
+export const metadata: Metadata = {
+  title: "我的数字空间",
+  description: "把工作与生活中的常用功能，放在一个地方。维修管理与放映室，从这里进入。",
+};
+export default function HomePage() {
+  return <PublicAuthPage><PortalPage /></PublicAuthPage>;
+}
