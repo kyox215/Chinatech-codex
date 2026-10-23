@@ -24,7 +24,7 @@ test("named account disclosure shows own facts and settings/device links", async
   await expect(panel.getByRole("button", { name: "退出登录", exact: true })).toBeVisible();
   await page.keyboard.press("Escape"); await expect(panel).not.toBeVisible(); await expect(menu(page).locator("summary")).toBeFocused();
   await page.keyboard.press("Enter"); await expect(panel).toBeVisible();
-  await page.getByText("电脑与手机皆可用", { exact: true }).click(); await expect(panel).not.toBeVisible();
+  await page.locator("header").first().click({ position: { x: 4, y: 4 } }); await expect(panel).not.toBeVisible();
   for (const path of ["/toolbox", "/toolbox/office", "/toolbox/windows", "/toolbox/transfer"]) {
     await page.goto(path);
     const compact = path === "/toolbox/office", summary = menu(page).locator("summary");
@@ -69,7 +69,7 @@ test("named account disclosure shows own facts and settings/device links", async
 test("full long account and email remain readable at four widths in three languages", async ({ page }) => {
   const longName = "Synthetic account with a very long name <img src=x onerror=alert(1)>";
   await page.route("**/api/auth/status", route => route.fulfill({ json: { ...fixture, account: { name: longName, email: "very.long.synthetic.account.with.no.shortcut@example.test" }, store: { name: "Synthetic shop with a long unbroken original reference ABCDEFGHIJKLMNOPQRSTUVWXYZ", role: "manager" } } }));
-  await page.goto("/"); await expect(menu(page).locator("summary")).toHaveText(new RegExp("Synthetic account"));
+  await page.goto("/repair"); await expect(menu(page).locator("summary")).toHaveText(new RegExp("Synthetic account"));
   for (const locale of ["zh-CN", "it", "en"] as Locale[]) {
     await page.getByLabel("语言 / Lingua / Language").selectOption(locale, { force: true });
     for (const width of [1440, 1024, 390, 375]) {

@@ -2,6 +2,7 @@
 import { useActivityFeedback } from "@/components/operation-feedback";
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
+import { isPublicActivityPath } from "@/lib/public-routes";
 import type { AuthStatus } from "@/lib/auth-status";
 import { subscribeAuthChanged } from "@/lib/auth-events";
 import { clearBackend } from "@/lib/backend/client";
@@ -48,7 +49,7 @@ export function AuthStatusProvider({ initial, initialChecking = false, children 
     };
     control.current = () => check(true);
     const interacted = (event: Event) => {
-      if (!event.isTrusted || !current.formal || !["account", "workspace"].includes(current.state) || !/^\/(?:toolbox(?:\/|$)|$)/.test(window.location.pathname) || document.visibilityState !== "visible" || !navigator.onLine || Date.now() - lastActivity < 60000) return;
+      if (!event.isTrusted || !current.formal || !["account", "workspace"].includes(current.state) || !isPublicActivityPath(window.location.pathname) || document.visibilityState !== "visible" || !navigator.onLine || Date.now() - lastActivity < 60000) return;
       lastActivity = Date.now();
       // Only trusted foreground interaction renews inactivity, never status polls.
       void fetch("/api/auth/activity", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ store: false }), signal: AbortSignal.timeout(10000) }).then(response => { if (!response.ok) { lastActivity = 0; if (alive) check(true); } }).catch(() => { lastActivity = 0; });

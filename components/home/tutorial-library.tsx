@@ -12,6 +12,8 @@ type TutorialLibraryProps = {
   tutorials?: readonly Tutorial[];
   aspectRatio?: "4:3" | "16:9";
   onAction?: (tutorial: Tutorial) => void;
+  variant?: "tutorial" | "film";
+  attributions?: Readonly<Record<string, { text: string; licenseUrl: string }>>;
 };
 
 function timestamp(seconds: number) {
@@ -25,15 +27,15 @@ function releaseVideo(video: HTMLVideoElement | null) {
   video.load();
 }
 
-export function TutorialLibrary({ tutorials: providedTutorials, aspectRatio = "4:3", onAction }: TutorialLibraryProps = {}) {
+export function TutorialLibrary({ tutorials: providedTutorials, aspectRatio = "4:3", onAction, variant = "tutorial", attributions }: TutorialLibraryProps = {}) {
   const { locale } = useLanguage();
   const tutorials = providedTutorials ?? getTutorials(locale);
   const [selectedId, setSelectedId] = useState(tutorials[0]?.id ?? "");
   if (tutorials.length === 0) return null;
-  return <TutorialLibraryContent key={locale} tutorials={tutorials} aspectRatio={aspectRatio} onAction={onAction} selectedId={selectedId} setSelectedId={setSelectedId} />;
+  return <TutorialLibraryContent key={locale} tutorials={tutorials} aspectRatio={aspectRatio} onAction={onAction} variant={variant} attributions={attributions} selectedId={selectedId} setSelectedId={setSelectedId} />;
 }
 
-function TutorialLibraryContent({ tutorials, aspectRatio, onAction, selectedId, setSelectedId }: Required<Pick<TutorialLibraryProps, "tutorials" | "aspectRatio">> & Pick<TutorialLibraryProps, "onAction"> & { selectedId: string; setSelectedId: (id: string) => void }) {
+function TutorialLibraryContent({ tutorials, aspectRatio, onAction, variant, attributions, selectedId, setSelectedId }: Required<Pick<TutorialLibraryProps, "tutorials" | "aspectRatio">> & Pick<TutorialLibraryProps, "onAction" | "attributions"> & { variant: "tutorial" | "film" } & { selectedId: string; setSelectedId: (id: string) => void }) {
   const { locale, t } = useLanguage();
   const [status, setStatus] = useState<PlaybackStatus>("idle");
   const [hasStarted, setHasStarted] = useState(false);
@@ -42,6 +44,8 @@ function TutorialLibraryContent({ tutorials, aspectRatio, onAction, selectedId, 
   const pendingSeek = useRef<number | null>(null);
   const resumeAt = useRef(0);
   const tutorial = tutorials.find(item => item.id === selectedId) ?? tutorials[0];
+  const isFilm = variant === "film";
+  const attribution = attributions?.[tutorial.id];
 
   // Strict Mode replays ref cleanup/setup too. Release only if the element was not rebound.
   const attachVideo = useCallback((video: HTMLVideoElement | null) => {
@@ -117,7 +121,7 @@ function TutorialLibraryContent({ tutorials, aspectRatio, onAction, selectedId, 
             key={tutorial.id}
             ref={attachVideo}
             className={styles.video}
-            aria-label={t("视频教程：{title}", { title: tutorial.title })}
+            aria-label={t(isFilm ? "影片：{title}" : "视频教程：{title}", { title: tutorial.title })}
             controls
             playsInline
             preload="none"
@@ -133,37 +137,38 @@ function TutorialLibraryContent({ tutorials, aspectRatio, onAction, selectedId, 
             onTimeUpdate={event => { if (event.currentTarget === videoRef.current) resumeAt.current = event.currentTarget.currentTime; }}
             onError={event => { if (event.currentTarget === videoRef.current && event.currentTarget.hasAttribute("src")) setStatus("error"); }}
           >
-            <track kind="captions" src={tutorial.captions} srcLang={locale} label={t("中文字幕")} />
-            {t("当前浏览器无法播放视频，请查看下方的本集步骤。")}
+            {tutorial.captions && <track kind="captions" src={tutorial.captions} srcLang={locale} label={t("中文字幕")} />}
+            {t(isFilm ? "当前浏览器无法播放视频，请前往官方页面观看。" : "当前浏览器无法播放视频，请查看下方的本集步骤。")}
           </video>
-          {!hasStarted && <button type="button" className={styles.playOverlay} onClick={() => playAt()} aria-label={t("播放教程：{title}", { title: tutorial.title })}>
-            <span className={`button button--primary ${styles.playAction}`}><Play size={20} fill="currentColor" aria-hidden="true" />{t("播放第 {number} 集", { number: tutorial.number })}</span>
+          {!hasStarted && <button type="button" className={styles.playOverlay} onClick={() => playAt()} aria-label={t(isFilm ? "播放影片：{title}" : "播放教程：{title}", { title: tutorial.title })}>
+            <span className={`button button--primary ${styles.playAction}`}><Play size={20} fill="currentColor" aria-hidden="true" />{isFilm ? t("播放影片") : t("播放第 {number} 集", { number: tutorial.number })}</span>
           </button>}
           {status === "loading" && <div className={styles.loading} role="status"><LoaderCircle size={16} className={styles.loadingIcon} aria-hidden="true" />{t("视频加载中…")}</div>}
           {status === "error" && <div className={styles.error} role="alert">
             <AlertCircle size={27} aria-hidden="true" />
             <strong>{t("视频暂时无法播放")}</strong>
-            <p>{t("请重试，或先查看下方步骤。")}</p>
+            <p>{t(isFilm ? "请重试，或在官方页面观看。" : "请重试，或先查看下方步骤。")}</p>
             <button type="button" className="button button--primary" onClick={() => playAt(resumeAt.current, true)}><RotateCcw size={16} aria-hidden="true" />{t("重试播放")}</button>
           </div>}
         </div>
         <div className={styles.videoInfo}>
-          <div className={styles.metadata}><span>{t("第 {number} 集", { number: tutorial.number })}</span><span><Clock3 size={14} aria-hidden="true" />{tutorial.duration}</span><span><Volume2 size={14} aria-hidden="true" />{t("中文配音")}</span><span><Captions size={15} aria-hidden="true" />{t("中文字幕")}</span></div>
+          <div className={styles.metadata}>{!isFilm && <span>{t("第 {number} 集", { number: tutorial.number })}</span>}<span><Clock3 size={14} aria-hidden="true" />{tutorial.duration}</span>{isFilm ? <span>{t("原声短片")}</span> : <><span><Volume2 size={14} aria-hidden="true" />{t("中文配音")}</span><span><Captions size={15} aria-hidden="true" />{t("中文字幕")}</span></>}</div>
           <div className={styles.descriptionRow}>
-            <div><h3 id="current-tutorial-title">{tutorial.title}</h3><p>{tutorial.description}</p></div>
-            <Link className={`button button--secondary ${styles.actionLink}`} href={tutorial.href} prefetch={false} onClick={event => { if (onAction && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) { event.preventDefault(); onAction(tutorial); } }} icon={<ArrowRight size={16} aria-hidden="true" />} iconPosition="end">{tutorial.actionLabel}</Link>
+            <div><h3 id={isFilm ? "current-film-title" : "current-tutorial-title"}>{tutorial.title}</h3><p>{tutorial.description}</p></div>
+            <Link className={`button button--secondary ${styles.actionLink}`} href={tutorial.href} target={isFilm ? "_blank" : undefined} rel={isFilm ? "noopener noreferrer" : undefined} prefetch={false} onClick={event => { if (onAction && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) { event.preventDefault(); onAction(tutorial); } }} icon={<ArrowRight size={16} aria-hidden="true" />} iconPosition="end">{tutorial.actionLabel}</Link>
           </div>
+          {attribution && <p className={styles.playbackHint}>{attribution.text} · <a href={attribution.licenseUrl} target="_blank" rel="noopener noreferrer">{t("授权说明")}</a> · {t("CC BY 3.0")}</p>}
           {playbackHint && <p className={styles.playbackHint} role="status">{t(playbackHint)}</p>}
         </div>
       </div>
-      <aside className={styles.playlist} aria-label={t("教程选集")}>
-        <div className={styles.playlistHeading}><h3>{t("全部教程")}</h3><span>{t("{count} 集", { count: tutorials.length })}</span></div>
+      <aside className={styles.playlist} aria-label={t(isFilm ? "影片选集" : "教程选集")}>
+        <div className={styles.playlistHeading}><h3>{t(isFilm ? "全部影片" : "全部教程")}</h3><span>{t(isFilm ? "{count} 部" : "{count} 集", { count: tutorials.length })}</span></div>
         <ol className={styles.episodes}>{tutorials.map(item => <li key={item.id}>
           <button
             type="button"
             className={styles.episode}
             aria-pressed={tutorial.id === item.id}
-            aria-label={t("第 {number} 集 {title}", { number: item.number, title: item.title })}
+            aria-label={isFilm ? t("选择影片：{title}", { title: item.title }) : t("第 {number} 集 {title}", { number: item.number, title: item.title })}
             onClick={() => selectTutorial(item.id)}
           >
             <span className={styles.episodeNumber} aria-hidden="true">{item.number}</span>
@@ -173,13 +178,13 @@ function TutorialLibraryContent({ tutorials, aspectRatio, onAction, selectedId, 
         </li>)}</ol>
       </aside>
     </div>
-    <div className={styles.stepSection} aria-labelledby="tutorial-steps-heading">
+    {!isFilm && <div className={styles.stepSection} aria-labelledby="tutorial-steps-heading">
       <div className={styles.stepsHeading}><h3 id="tutorial-steps-heading">{t("本集步骤")}</h3><span>{t("点击时间，直接观看")}</span></div>
       <ol className={styles.steps}>{tutorial.steps.map(step => <li key={`${tutorial.id}-${step.at}`}>
         <button type="button" className={styles.stepTime} onClick={() => jumpToStep(step.at)} aria-label={t("从 {time} 观看：{title}", { time: timestamp(step.at), title: step.title })}><Play size={13} aria-hidden="true" />{timestamp(step.at)}</button>
         <div><h4>{step.title}</h4><p>{step.body}</p></div>
       </li>)}</ol>
-    </div>
-    <p className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">{t("已选择第 {number} 集：{title}", { number: tutorial.number, title: tutorial.title })}</p>
+    </div>}
+    <p className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">{isFilm ? t("已选择影片：{title}", { title: tutorial.title }) : t("已选择第 {number} 集：{title}", { number: tutorial.number, title: tutorial.title })}</p>
   </div>;
 }

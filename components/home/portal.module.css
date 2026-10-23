@@ -1,0 +1,32 @@
+/* Personal public pages compose the existing brand, buttons and media library. */
+.page { min-height: 100svh; background: var(--bg); color: var(--text); }
+.main { width: min(1040px, calc(100% - 48px)); margin: 0 auto; padding: 72px 0 40px; }
+.introduction h1 { margin: 0 0 20px; font-size: clamp(40px, 5vw, 56px); line-height: 1.2; letter-spacing: -.04em; font-weight: 700; }
+.introduction p { max-width: 660px; margin: 12px 0 0; font-size: 16px; line-height: 1.8; color: var(--text-secondary); }
+.introduction p.lead { margin-top: 0; font-size: 24px; line-height: 1.5; }
+.grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; margin-top: 48px; }
+.card { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; min-width: 0; min-height: 320px; padding: 32px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-panel); }
+.featureIcon { display: grid; place-items: center; flex: 0 0 auto; width: 52px; height: 52px; background: var(--bg); border-radius: var(--radius-control); color: var(--primary-600); }
+.card h2 { margin: 0; font-size: 28px; line-height: 1.45; letter-spacing: -.02em; }
+.card p { flex: 1; margin: 0; font-size: 16px; line-height: 1.7; color: var(--text-secondary); }
+.card > :global(.button) { min-height: 44px; max-width: 100%; white-space: normal; text-align: center; }
+.more { margin: 40px 0 0; color: var(--text-secondary); font-size: 14px; }
+.footer { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; width: min(1040px, calc(100% - 48px)); margin: 0 auto; padding: 24px 0 36px; border-top: 1px solid var(--border); }
+.footer p { margin: 0; font-size: 14px; color: var(--text-secondary); }
+.breadcrumb { width: min(1120px, calc(100% - 48px)); margin: 12px auto 0; font-size: 14px; }
+.breadcrumb ol { display: flex; flex-wrap: wrap; align-items: center; list-style: none; gap: 8px; margin: 0; padding: 0; }
+.breadcrumb li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.breadcrumb a { display: inline-flex; align-items: center; min-height: 44px; color: var(--primary-600); }
+.breadcrumb li > svg { flex-shrink: 0; color: var(--text-secondary); }
+.cinemaMain { display: grid; gap: 32px; padding-top: 24px; width: min(1120px, calc(100% - 48px)); }
+@media(max-width:767px) {
+  .main { padding-top: 40px; }
+  .introduction h1 { font-size: 40px; }
+  .introduction p.lead { font-size: 20px; }
+  .grid { grid-template-columns: minmax(0,1fr); margin-top: 32px; }
+  .card { min-height: 300px; padding: 24px; }
+  .card h2 { font-size: 26px; }
+  .more { margin-top: 32px; }
+  .footer { gap: 16px; }
+  .cinemaMain { padding-top: 20px; }
+}

@@ -1,3 +1,9 @@
+2026-10-23 聚合首页与CurrentFlow发布候选：原组件/账号/语言/B反馈，一级维修/影院/开源三入口，工具箱内部；原创SVG、原Figma15448:210924/210925/210962、组件集210996。实际验证和边界见[本轮记录](../ui-design/previews/portal-opensource-release-20261023.md)。
+
+公共页标题沿原语言Provider；元说明按既有服务器默认中文输出，避免客户端修改流式标签。CurrentFlow双外链沿NavigationLink，新标签带noopener/noreferrer；下载热区层级高于整卡伪元素。
+
+2026-10-23 首页放映室（本地）：TutorialLibrary 新增显式 film 媒体文案／署名变体；继续复用播放器、16:9、选集和重试。默认教程与 Office 调用保持；没有新主题／控件／依赖。PublicHeader 与首屏沿用 NavigationLink，新增同步页内定位 helper 只挂 #cinema。详 ../ui-design/previews/cinema-home-20261023.md。
+
 # 公共组件与样式复用规范
 
 ## 2026-10-18 公共设备目录读取契约
@@ -91,6 +97,8 @@
 验收：商品同型号新建、客户新建/编辑、采购关联工单、工单打印/返修和只读扫码；三语长标题及四宽度，实际打开/返回/取消、原编辑折叠回归，生产编译CSS。不得以缩小手机44px触控或隐藏状态事实实现紧凑。
 
 ## Figma 当前基线与设计前必读（2026-10-15）
+
+2026-10-23个人聚合首页：PortalPage/FeatureEntrance读集中入口配置；PublicHeader page=portal/repair/cinema，Brand purpose=personal（默认维修不变），PublicBreadcrumb与PersonalFooter复用原导航、品牌和token。Figma可编辑15412:210329／15415:210370电脑／210444手机、组件集210369；运行三语四宽双引擎已查。原维修/教程完整迁到/repair、影片到/cinema，工具箱保地址。详[实施与验证](../ui-design/previews/personal-portal-20261023.md)，仅本地候选。
 
 2026-10-22门店入口图形化：MyStores继续作为唯一实现；Store图标／店名／角色／进入为主卡，创建和邀请为两张折叠卡、双端均并列，账号操作为轻页尾。仅stores.module.css内storeEntry作用域扩展；不改变共享JoinStore／StoreManagement。图标沿原Lucide、导航固定槽，输入／B反馈／原请求恢复不复制。具体Figma与实际双端三语验证见[记录](../ui-design/previews/store-entry-graphic-release-20261022.md)。
 

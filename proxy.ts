@@ -21,4 +21,4 @@ export async function proxy(request: NextRequest) {
   }
   return updateSupabaseSession(request);
 }
-export const config = { matcher: ["/", "/toolbox/:path*", "/app/:path*", "/account/:path*", "/api/:path*", "/auth/:path*", "/login", "/register"] };
+export const config = { matcher: ["/", "/repair", "/cinema", "/toolbox/:path*", "/app/:path*", "/account/:path*", "/api/:path*", "/auth/:path*", "/login", "/register"] };

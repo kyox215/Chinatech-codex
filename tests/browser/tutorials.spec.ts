@@ -42,10 +42,10 @@ test.afterEach(async ({ page }, info) => {
   await info.attach("tutorial-media-state", { body: Buffer.from(JSON.stringify(media, null, 2)), contentType: "application/json" });
 });
 
-test("home stays media-idle while selecting all tutorials and exposes matching steps and destinations", async ({ page }) => {
+test("repair page stays media-idle while selecting all tutorials and exposes matching steps and destinations", async ({ page }) => {
   const mediaRequests: string[] = [];
   page.on("request", request => { if (/\/tutorials\/.*\.mp4(?:\?|$)/.test(request.url())) mediaRequests.push(request.url()); });
-  await page.goto("/", { waitUntil: "networkidle" });
+  await page.goto("/repair", { waitUntil: "networkidle" });
   const video = page.locator("#tutorials video");
   await expect(video).toHaveCount(1);
   await expect(video).toHaveAttribute("preload", "none");
@@ -148,12 +148,12 @@ test("tutorial entries and layout remain usable at desktop and phone widths", as
   test.setTimeout(60_000);
   for (const width of [1440, 1024, 390, 375]) {
     await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
-    await page.goto("/");
+    await page.goto("/repair");
     const heroEntry = page.getByRole("link", { name: "观看使用教程", exact: true });
     await expectTargetFits(heroEntry);
     await expect(page.getByRole("navigation", { name: "账户入口" }).getByRole("link", { name: "登录", exact: true })).toBeInViewport();
     if (width >= 768) {
-      const navEntry = page.getByRole("navigation", { name: "主页导航" }).getByRole("link", { name: "视频教程", exact: true });
+      const navEntry = page.getByRole("navigation", { name: "维修页面导航" }).getByRole("link", { name: "视频教程", exact: true });
       await expectTargetFits(navEntry);
       await expect(navEntry).toHaveAttribute("href", "#tutorials");
     }

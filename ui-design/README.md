@@ -1,3 +1,9 @@
+2026-10-23 聚合首页与CurrentFlow发布候选：原组件/账号/语言/B反馈，一级维修/影院/开源三入口，工具箱内部；原创SVG、原Figma15448:210924/210925/210962、组件集210996。实际验证和边界见[本轮记录](previews/portal-opensource-release-20261023.md)。
+
+2026-10-23 个人聚合首页本地完成：一级“我的数字空间”＋维修/放映室两入口；原维修到/repair，影片到/cinema，工具箱保地址留在维修模块。原Figma可编辑15412:210329，沿Brand/PublicHeader/NavigationLink/播放器/token。三语四宽双引擎76场景、44单元、定向14回归（13首过＋1定位修正复验）、type/lint/i18n/build通过。[设计、映射、范围与证据](previews/personal-portal-20261023.md)。未上线，正式baseline保持。
+
+2026-10-23 首页放映室本地候选：[复用、片源及验证](previews/cinema-home-20261023.md)。仅扩展原媒体组合；根七个运行路径已窄回填，正式baseline和生成清单保持。独立候选清单位于项目 .company-tmp/cinema-home-20261023/ui-inventory。
+
 # ChinaTech UI 设计目录
 
 2026-10-22 我的门店图形化：MyStores局部复用已有店卡、Lucide图标与NavigationLink固定槽；已有店优先，创建／邀请双端并列折叠，手机主操作满宽。原可编辑Figma15409:210309及44场景／正式CSS证据见[实施记录](previews/store-entry-graphic-release-20261022.md)。候选与实际发布绑定分开记录。
