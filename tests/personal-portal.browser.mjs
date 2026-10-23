@@ -102,8 +102,9 @@ try{
     await page.goto(origin);await page.locator('[data-feature=repair] a').press('Enter');await expect(page).toHaveURL(origin+'/repair');await page.goBack();await expect(page).toHaveURL(origin+'/');
     await page.locator('[data-feature=cinema] a').click();await expect(page).toHaveURL(origin+'/cinema');await page.goBack();await expect(page).toHaveURL(origin+'/');await page.goForward();await expect(page).toHaveURL(origin+'/cinema');
     await page.getByRole('navigation',{name:'页面位置'}).locator('a').click();await expect(page).toHaveURL(origin+'/');
+    await page.waitForLoadState('networkidle');
     for(const section of ['features','tutorials','workflow','questions','cinema']){
-     await page.goto(origin+'/?source=bookmark#'+section);await expect(page).toHaveURL(origin+(section==='cinema'?'/cinema?source=bookmark':'/repair?source=bookmark#'+section));
+     await page.goto(origin+'/?source=bookmark#'+section);await expect(page).toHaveURL(origin+(section==='cinema'?'/cinema?source=bookmark':'/repair?source=bookmark#'+section));await page.waitForLoadState('networkidle');
     }
     await page.goto(origin+'/#unknown');await expect(page.locator('[data-feature]')).toHaveCount(3);await expect(page).toHaveURL(origin+'/#unknown');
     await page.goto(origin+'/repair');await page.getByRole('link',{name:'观看使用教程',exact:true}).click();await expect(page).toHaveURL(origin+'/repair#tutorials');

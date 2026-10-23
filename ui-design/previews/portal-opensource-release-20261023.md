@@ -19,3 +19,5 @@
 授权发布范围为本候选；根8项并行运行差异不带入。正式main d9ab6b9a与B86X为发布前回滚版本。上游正式main完整CI39861723965已有失败，不能冒称全站CI通过；不修改CI/分支保护或以本定向验收替代全部Windows/实体手机验证。真实生产业务写入、创建/申请、金额/签名/数据库迁移不在本次发布中。
 
 本文件是候选冻结时记录；实际main SHA、部署ID、双域与运行日志回执以项目根PROJECT_MEMORY及.company-tmp/portal-opensource-release-20261023/production-binding.json为准，冻结时内容不代表已完成切换。
+
+最终复验的WebKit快速旧书签循环完成全部行为断言，但出现认证读取被下一次硬导航取消的pageerror；原始失败保留。原生error/unhandledrejection/fetch同步异常探针均未观察到应用抛错；同一探针等待页面网络结束后为零记录。仅在旧书签测试的页面间加入真实网络完成条件，保留原零pageerror门禁，不过滤异常，不改认证代码。最终复验另存。
